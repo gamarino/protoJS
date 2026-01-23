@@ -1,0 +1,3 @@
+/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/protojs.dir
+/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/edit_cache.dir
+/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/rebuild_cache.dir
