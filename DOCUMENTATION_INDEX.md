@@ -59,6 +59,8 @@
 
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
+| [TEST_RESULTS.md](TEST_RESULTS.md) | Comprehensive test suite results - 100% pass rate ✅ | 10 min |
+| [LINKER_ISSUES_RESOLVED_REPORT.md](LINKER_ISSUES_RESOLVED_REPORT.md) | Binary compilation & linker resolution | 15 min |
 | [PROGRESS_UPDATE.md](PROGRESS_UPDATE.md) | Latest progress update | 5 min |
 | [AUDIT_SUMMARY.md](AUDIT_SUMMARY.md) | Initial audit summary | 8 min |
 | [AUDIT_ACTION_PLAN.md](AUDIT_ACTION_PLAN.md) | Audit action items | 10 min |
