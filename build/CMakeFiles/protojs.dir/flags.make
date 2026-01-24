@@ -7,13 +7,13 @@ C_DEFINES =
 
 C_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs
 
-C_FLAGS = -std=gnu99
+C_FLAGS = -O3 -DNDEBUG -std=gnu99
 
 CXX_DEFINES = 
 
 CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs
 
-CXX_FLAGS = -std=gnu++20
+CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20
 
 # Custom flags: CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o_FLAGS = -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\"
 
@@ -23,5 +23,5 @@ CXX_FLAGS = -std=gnu++20
 
 # Custom flags: CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o_FLAGS = -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\"
 
-# Custom flags: CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o_FLAGS = -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\"
+# Custom flags: CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o_FLAGS = -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\"
 

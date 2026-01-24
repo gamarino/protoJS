@@ -65,6 +65,16 @@ CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/build
 #=============================================================================
 # Targets provided globally by CMake.
 
+# Special rule for the target test
+test:
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Running tests..."
+	/usr/bin/ctest --force-new-ctest-process $(ARGS)
+.PHONY : test
+
+# Special rule for the target test
+test/fast: test
+.PHONY : test/fast
+
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "No interactive CMake dialog available..."
@@ -129,6 +139,409 @@ protojs/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/build
 .PHONY : protojs/fast
 
+#=============================================================================
+# Target rules for targets named Experimental
+
+# Build rule for target.
+Experimental: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Experimental
+.PHONY : Experimental
+
+# fast build rule for target.
+Experimental/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Experimental.dir/build.make CMakeFiles/Experimental.dir/build
+.PHONY : Experimental/fast
+
+#=============================================================================
+# Target rules for targets named Nightly
+
+# Build rule for target.
+Nightly: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Nightly
+.PHONY : Nightly
+
+# fast build rule for target.
+Nightly/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Nightly.dir/build.make CMakeFiles/Nightly.dir/build
+.PHONY : Nightly/fast
+
+#=============================================================================
+# Target rules for targets named Continuous
+
+# Build rule for target.
+Continuous: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Continuous
+.PHONY : Continuous
+
+# fast build rule for target.
+Continuous/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Continuous.dir/build.make CMakeFiles/Continuous.dir/build
+.PHONY : Continuous/fast
+
+#=============================================================================
+# Target rules for targets named NightlyMemoryCheck
+
+# Build rule for target.
+NightlyMemoryCheck: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyMemoryCheck
+.PHONY : NightlyMemoryCheck
+
+# fast build rule for target.
+NightlyMemoryCheck/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyMemoryCheck.dir/build.make CMakeFiles/NightlyMemoryCheck.dir/build
+.PHONY : NightlyMemoryCheck/fast
+
+#=============================================================================
+# Target rules for targets named NightlyStart
+
+# Build rule for target.
+NightlyStart: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyStart
+.PHONY : NightlyStart
+
+# fast build rule for target.
+NightlyStart/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyStart.dir/build.make CMakeFiles/NightlyStart.dir/build
+.PHONY : NightlyStart/fast
+
+#=============================================================================
+# Target rules for targets named NightlyUpdate
+
+# Build rule for target.
+NightlyUpdate: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyUpdate
+.PHONY : NightlyUpdate
+
+# fast build rule for target.
+NightlyUpdate/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyUpdate.dir/build.make CMakeFiles/NightlyUpdate.dir/build
+.PHONY : NightlyUpdate/fast
+
+#=============================================================================
+# Target rules for targets named NightlyConfigure
+
+# Build rule for target.
+NightlyConfigure: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyConfigure
+.PHONY : NightlyConfigure
+
+# fast build rule for target.
+NightlyConfigure/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyConfigure.dir/build.make CMakeFiles/NightlyConfigure.dir/build
+.PHONY : NightlyConfigure/fast
+
+#=============================================================================
+# Target rules for targets named NightlyBuild
+
+# Build rule for target.
+NightlyBuild: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyBuild
+.PHONY : NightlyBuild
+
+# fast build rule for target.
+NightlyBuild/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyBuild.dir/build.make CMakeFiles/NightlyBuild.dir/build
+.PHONY : NightlyBuild/fast
+
+#=============================================================================
+# Target rules for targets named NightlyTest
+
+# Build rule for target.
+NightlyTest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyTest
+.PHONY : NightlyTest
+
+# fast build rule for target.
+NightlyTest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyTest.dir/build.make CMakeFiles/NightlyTest.dir/build
+.PHONY : NightlyTest/fast
+
+#=============================================================================
+# Target rules for targets named NightlyCoverage
+
+# Build rule for target.
+NightlyCoverage: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyCoverage
+.PHONY : NightlyCoverage
+
+# fast build rule for target.
+NightlyCoverage/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyCoverage.dir/build.make CMakeFiles/NightlyCoverage.dir/build
+.PHONY : NightlyCoverage/fast
+
+#=============================================================================
+# Target rules for targets named NightlyMemCheck
+
+# Build rule for target.
+NightlyMemCheck: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlyMemCheck
+.PHONY : NightlyMemCheck
+
+# fast build rule for target.
+NightlyMemCheck/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlyMemCheck.dir/build.make CMakeFiles/NightlyMemCheck.dir/build
+.PHONY : NightlyMemCheck/fast
+
+#=============================================================================
+# Target rules for targets named NightlySubmit
+
+# Build rule for target.
+NightlySubmit: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 NightlySubmit
+.PHONY : NightlySubmit
+
+# fast build rule for target.
+NightlySubmit/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/NightlySubmit.dir/build.make CMakeFiles/NightlySubmit.dir/build
+.PHONY : NightlySubmit/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalStart
+
+# Build rule for target.
+ExperimentalStart: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalStart
+.PHONY : ExperimentalStart
+
+# fast build rule for target.
+ExperimentalStart/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalStart.dir/build.make CMakeFiles/ExperimentalStart.dir/build
+.PHONY : ExperimentalStart/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalUpdate
+
+# Build rule for target.
+ExperimentalUpdate: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalUpdate
+.PHONY : ExperimentalUpdate
+
+# fast build rule for target.
+ExperimentalUpdate/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalUpdate.dir/build.make CMakeFiles/ExperimentalUpdate.dir/build
+.PHONY : ExperimentalUpdate/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalConfigure
+
+# Build rule for target.
+ExperimentalConfigure: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalConfigure
+.PHONY : ExperimentalConfigure
+
+# fast build rule for target.
+ExperimentalConfigure/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalConfigure.dir/build.make CMakeFiles/ExperimentalConfigure.dir/build
+.PHONY : ExperimentalConfigure/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalBuild
+
+# Build rule for target.
+ExperimentalBuild: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalBuild
+.PHONY : ExperimentalBuild
+
+# fast build rule for target.
+ExperimentalBuild/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalBuild.dir/build.make CMakeFiles/ExperimentalBuild.dir/build
+.PHONY : ExperimentalBuild/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalTest
+
+# Build rule for target.
+ExperimentalTest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalTest
+.PHONY : ExperimentalTest
+
+# fast build rule for target.
+ExperimentalTest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalTest.dir/build.make CMakeFiles/ExperimentalTest.dir/build
+.PHONY : ExperimentalTest/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalCoverage
+
+# Build rule for target.
+ExperimentalCoverage: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalCoverage
+.PHONY : ExperimentalCoverage
+
+# fast build rule for target.
+ExperimentalCoverage/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalCoverage.dir/build.make CMakeFiles/ExperimentalCoverage.dir/build
+.PHONY : ExperimentalCoverage/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalMemCheck
+
+# Build rule for target.
+ExperimentalMemCheck: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalMemCheck
+.PHONY : ExperimentalMemCheck
+
+# fast build rule for target.
+ExperimentalMemCheck/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalMemCheck.dir/build.make CMakeFiles/ExperimentalMemCheck.dir/build
+.PHONY : ExperimentalMemCheck/fast
+
+#=============================================================================
+# Target rules for targets named ExperimentalSubmit
+
+# Build rule for target.
+ExperimentalSubmit: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ExperimentalSubmit
+.PHONY : ExperimentalSubmit
+
+# fast build rule for target.
+ExperimentalSubmit/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ExperimentalSubmit.dir/build.make CMakeFiles/ExperimentalSubmit.dir/build
+.PHONY : ExperimentalSubmit/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousStart
+
+# Build rule for target.
+ContinuousStart: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousStart
+.PHONY : ContinuousStart
+
+# fast build rule for target.
+ContinuousStart/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousStart.dir/build.make CMakeFiles/ContinuousStart.dir/build
+.PHONY : ContinuousStart/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousUpdate
+
+# Build rule for target.
+ContinuousUpdate: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousUpdate
+.PHONY : ContinuousUpdate
+
+# fast build rule for target.
+ContinuousUpdate/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousUpdate.dir/build.make CMakeFiles/ContinuousUpdate.dir/build
+.PHONY : ContinuousUpdate/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousConfigure
+
+# Build rule for target.
+ContinuousConfigure: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousConfigure
+.PHONY : ContinuousConfigure
+
+# fast build rule for target.
+ContinuousConfigure/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousConfigure.dir/build.make CMakeFiles/ContinuousConfigure.dir/build
+.PHONY : ContinuousConfigure/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousBuild
+
+# Build rule for target.
+ContinuousBuild: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousBuild
+.PHONY : ContinuousBuild
+
+# fast build rule for target.
+ContinuousBuild/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousBuild.dir/build.make CMakeFiles/ContinuousBuild.dir/build
+.PHONY : ContinuousBuild/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousTest
+
+# Build rule for target.
+ContinuousTest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousTest
+.PHONY : ContinuousTest
+
+# fast build rule for target.
+ContinuousTest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousTest.dir/build.make CMakeFiles/ContinuousTest.dir/build
+.PHONY : ContinuousTest/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousCoverage
+
+# Build rule for target.
+ContinuousCoverage: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousCoverage
+.PHONY : ContinuousCoverage
+
+# fast build rule for target.
+ContinuousCoverage/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousCoverage.dir/build.make CMakeFiles/ContinuousCoverage.dir/build
+.PHONY : ContinuousCoverage/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousMemCheck
+
+# Build rule for target.
+ContinuousMemCheck: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousMemCheck
+.PHONY : ContinuousMemCheck
+
+# fast build rule for target.
+ContinuousMemCheck/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousMemCheck.dir/build.make CMakeFiles/ContinuousMemCheck.dir/build
+.PHONY : ContinuousMemCheck/fast
+
+#=============================================================================
+# Target rules for targets named ContinuousSubmit
+
+# Build rule for target.
+ContinuousSubmit: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ContinuousSubmit
+.PHONY : ContinuousSubmit
+
+# fast build rule for target.
+ContinuousSubmit/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ContinuousSubmit.dir/build.make CMakeFiles/ContinuousSubmit.dir/build
+.PHONY : ContinuousSubmit/fast
+
+#=============================================================================
+# Target rules for targets named Catch2
+
+# Build rule for target.
+Catch2: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Catch2
+.PHONY : Catch2
+
+# fast build rule for target.
+Catch2/fast:
+	$(MAKE) $(MAKESILENT) -f _deps/catch2-build/src/CMakeFiles/Catch2.dir/build.make _deps/catch2-build/src/CMakeFiles/Catch2.dir/build
+.PHONY : Catch2/fast
+
+#=============================================================================
+# Target rules for targets named Catch2WithMain
+
+# Build rule for target.
+Catch2WithMain: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Catch2WithMain
+.PHONY : Catch2WithMain
+
+# fast build rule for target.
+Catch2WithMain/fast:
+	$(MAKE) $(MAKESILENT) -f _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/build.make _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/build
+.PHONY : Catch2WithMain/fast
+
+#=============================================================================
+# Target rules for targets named protojs_tests
+
+# Build rule for target.
+protojs_tests: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 protojs_tests
+.PHONY : protojs_tests
+
+# fast build rule for target.
+protojs_tests/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/build
+.PHONY : protojs_tests/fast
+
 deps/quickjs/cutils.o: deps/quickjs/cutils.c.o
 .PHONY : deps/quickjs/cutils.o
 
@@ -153,29 +566,29 @@ deps/quickjs/cutils.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/cutils.c.s
 .PHONY : deps/quickjs/cutils.c.s
 
-deps/quickjs/libbf.o: deps/quickjs/libbf.c.o
-.PHONY : deps/quickjs/libbf.o
+deps/quickjs/dtoa.o: deps/quickjs/dtoa.c.o
+.PHONY : deps/quickjs/dtoa.o
 
 # target to build an object file
-deps/quickjs/libbf.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o
-.PHONY : deps/quickjs/libbf.c.o
+deps/quickjs/dtoa.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o
+.PHONY : deps/quickjs/dtoa.c.o
 
-deps/quickjs/libbf.i: deps/quickjs/libbf.c.i
-.PHONY : deps/quickjs/libbf.i
+deps/quickjs/dtoa.i: deps/quickjs/dtoa.c.i
+.PHONY : deps/quickjs/dtoa.i
 
 # target to preprocess a source file
-deps/quickjs/libbf.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libbf.c.i
-.PHONY : deps/quickjs/libbf.c.i
+deps/quickjs/dtoa.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.i
+.PHONY : deps/quickjs/dtoa.c.i
 
-deps/quickjs/libbf.s: deps/quickjs/libbf.c.s
-.PHONY : deps/quickjs/libbf.s
+deps/quickjs/dtoa.s: deps/quickjs/dtoa.c.s
+.PHONY : deps/quickjs/dtoa.s
 
 # target to generate assembly for a file
-deps/quickjs/libbf.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libbf.c.s
-.PHONY : deps/quickjs/libbf.c.s
+deps/quickjs/dtoa.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.s
+.PHONY : deps/quickjs/dtoa.c.s
 
 deps/quickjs/libregexp.o: deps/quickjs/libregexp.c.o
 .PHONY : deps/quickjs/libregexp.o
@@ -249,6 +662,30 @@ deps/quickjs/quickjs.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.s
 .PHONY : deps/quickjs/quickjs.c.s
 
+src/CPUThreadPool.o: src/CPUThreadPool.cpp.o
+.PHONY : src/CPUThreadPool.o
+
+# target to build an object file
+src/CPUThreadPool.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o
+.PHONY : src/CPUThreadPool.cpp.o
+
+src/CPUThreadPool.i: src/CPUThreadPool.cpp.i
+.PHONY : src/CPUThreadPool.i
+
+# target to preprocess a source file
+src/CPUThreadPool.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.i
+.PHONY : src/CPUThreadPool.cpp.i
+
+src/CPUThreadPool.s: src/CPUThreadPool.cpp.s
+.PHONY : src/CPUThreadPool.s
+
+# target to generate assembly for a file
+src/CPUThreadPool.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.s
+.PHONY : src/CPUThreadPool.cpp.s
+
 src/Deferred.o: src/Deferred.cpp.o
 .PHONY : src/Deferred.o
 
@@ -273,6 +710,126 @@ src/Deferred.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/Deferred.cpp.s
 .PHONY : src/Deferred.cpp.s
 
+src/ErrorHandler.o: src/ErrorHandler.cpp.o
+.PHONY : src/ErrorHandler.o
+
+# target to build an object file
+src/ErrorHandler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o
+.PHONY : src/ErrorHandler.cpp.o
+
+src/ErrorHandler.i: src/ErrorHandler.cpp.i
+.PHONY : src/ErrorHandler.i
+
+# target to preprocess a source file
+src/ErrorHandler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ErrorHandler.cpp.i
+.PHONY : src/ErrorHandler.cpp.i
+
+src/ErrorHandler.s: src/ErrorHandler.cpp.s
+.PHONY : src/ErrorHandler.s
+
+# target to generate assembly for a file
+src/ErrorHandler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ErrorHandler.cpp.s
+.PHONY : src/ErrorHandler.cpp.s
+
+src/EventLoop.o: src/EventLoop.cpp.o
+.PHONY : src/EventLoop.o
+
+# target to build an object file
+src/EventLoop.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/EventLoop.cpp.o
+.PHONY : src/EventLoop.cpp.o
+
+src/EventLoop.i: src/EventLoop.cpp.i
+.PHONY : src/EventLoop.i
+
+# target to preprocess a source file
+src/EventLoop.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/EventLoop.cpp.i
+.PHONY : src/EventLoop.cpp.i
+
+src/EventLoop.s: src/EventLoop.cpp.s
+.PHONY : src/EventLoop.s
+
+# target to generate assembly for a file
+src/EventLoop.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/EventLoop.cpp.s
+.PHONY : src/EventLoop.cpp.s
+
+src/ExecutionEngine.o: src/ExecutionEngine.cpp.o
+.PHONY : src/ExecutionEngine.o
+
+# target to build an object file
+src/ExecutionEngine.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o
+.PHONY : src/ExecutionEngine.cpp.o
+
+src/ExecutionEngine.i: src/ExecutionEngine.cpp.i
+.PHONY : src/ExecutionEngine.i
+
+# target to preprocess a source file
+src/ExecutionEngine.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.i
+.PHONY : src/ExecutionEngine.cpp.i
+
+src/ExecutionEngine.s: src/ExecutionEngine.cpp.s
+.PHONY : src/ExecutionEngine.s
+
+# target to generate assembly for a file
+src/ExecutionEngine.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.s
+.PHONY : src/ExecutionEngine.cpp.s
+
+src/GCBridge.o: src/GCBridge.cpp.o
+.PHONY : src/GCBridge.o
+
+# target to build an object file
+src/GCBridge.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/GCBridge.cpp.o
+.PHONY : src/GCBridge.cpp.o
+
+src/GCBridge.i: src/GCBridge.cpp.i
+.PHONY : src/GCBridge.i
+
+# target to preprocess a source file
+src/GCBridge.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/GCBridge.cpp.i
+.PHONY : src/GCBridge.cpp.i
+
+src/GCBridge.s: src/GCBridge.cpp.s
+.PHONY : src/GCBridge.s
+
+# target to generate assembly for a file
+src/GCBridge.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/GCBridge.cpp.s
+.PHONY : src/GCBridge.cpp.s
+
+src/IOThreadPool.o: src/IOThreadPool.cpp.o
+.PHONY : src/IOThreadPool.o
+
+# target to build an object file
+src/IOThreadPool.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o
+.PHONY : src/IOThreadPool.cpp.o
+
+src/IOThreadPool.i: src/IOThreadPool.cpp.i
+.PHONY : src/IOThreadPool.i
+
+# target to preprocess a source file
+src/IOThreadPool.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/IOThreadPool.cpp.i
+.PHONY : src/IOThreadPool.cpp.i
+
+src/IOThreadPool.s: src/IOThreadPool.cpp.s
+.PHONY : src/IOThreadPool.s
+
+# target to generate assembly for a file
+src/IOThreadPool.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/IOThreadPool.cpp.s
+.PHONY : src/IOThreadPool.cpp.s
+
 src/JSContext.o: src/JSContext.cpp.o
 .PHONY : src/JSContext.o
 
@@ -296,6 +853,30 @@ src/JSContext.s: src/JSContext.cpp.s
 src/JSContext.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSContext.cpp.s
 .PHONY : src/JSContext.cpp.s
+
+src/ThreadPoolExecutor.o: src/ThreadPoolExecutor.cpp.o
+.PHONY : src/ThreadPoolExecutor.o
+
+# target to build an object file
+src/ThreadPoolExecutor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o
+.PHONY : src/ThreadPoolExecutor.cpp.o
+
+src/ThreadPoolExecutor.i: src/ThreadPoolExecutor.cpp.i
+.PHONY : src/ThreadPoolExecutor.i
+
+# target to preprocess a source file
+src/ThreadPoolExecutor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.i
+.PHONY : src/ThreadPoolExecutor.cpp.i
+
+src/ThreadPoolExecutor.s: src/ThreadPoolExecutor.cpp.s
+.PHONY : src/ThreadPoolExecutor.s
+
+# target to generate assembly for a file
+src/ThreadPoolExecutor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.s
+.PHONY : src/ThreadPoolExecutor.cpp.s
 
 src/TypeBridge.o: src/TypeBridge.cpp.o
 .PHONY : src/TypeBridge.o
@@ -345,6 +926,30 @@ src/console.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/console.cpp.s
 .PHONY : src/console.cpp.s
 
+src/logging/Logger.o: src/logging/Logger.cpp.o
+.PHONY : src/logging/Logger.o
+
+# target to build an object file
+src/logging/Logger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/logging/Logger.cpp.o
+.PHONY : src/logging/Logger.cpp.o
+
+src/logging/Logger.i: src/logging/Logger.cpp.i
+.PHONY : src/logging/Logger.i
+
+# target to preprocess a source file
+src/logging/Logger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/logging/Logger.cpp.i
+.PHONY : src/logging/Logger.cpp.i
+
+src/logging/Logger.s: src/logging/Logger.cpp.s
+.PHONY : src/logging/Logger.s
+
+# target to generate assembly for a file
+src/logging/Logger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/logging/Logger.cpp.s
+.PHONY : src/logging/Logger.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -369,6 +974,558 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/modules/AsyncModuleLoader.o: src/modules/AsyncModuleLoader.cpp.o
+.PHONY : src/modules/AsyncModuleLoader.o
+
+# target to build an object file
+src/modules/AsyncModuleLoader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o
+.PHONY : src/modules/AsyncModuleLoader.cpp.o
+
+src/modules/AsyncModuleLoader.i: src/modules/AsyncModuleLoader.cpp.i
+.PHONY : src/modules/AsyncModuleLoader.i
+
+# target to preprocess a source file
+src/modules/AsyncModuleLoader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.i
+.PHONY : src/modules/AsyncModuleLoader.cpp.i
+
+src/modules/AsyncModuleLoader.s: src/modules/AsyncModuleLoader.cpp.s
+.PHONY : src/modules/AsyncModuleLoader.s
+
+# target to generate assembly for a file
+src/modules/AsyncModuleLoader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.s
+.PHONY : src/modules/AsyncModuleLoader.cpp.s
+
+src/modules/CommonJSLoader.o: src/modules/CommonJSLoader.cpp.o
+.PHONY : src/modules/CommonJSLoader.o
+
+# target to build an object file
+src/modules/CommonJSLoader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o
+.PHONY : src/modules/CommonJSLoader.cpp.o
+
+src/modules/CommonJSLoader.i: src/modules/CommonJSLoader.cpp.i
+.PHONY : src/modules/CommonJSLoader.i
+
+# target to preprocess a source file
+src/modules/CommonJSLoader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.i
+.PHONY : src/modules/CommonJSLoader.cpp.i
+
+src/modules/CommonJSLoader.s: src/modules/CommonJSLoader.cpp.s
+.PHONY : src/modules/CommonJSLoader.s
+
+# target to generate assembly for a file
+src/modules/CommonJSLoader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.s
+.PHONY : src/modules/CommonJSLoader.cpp.s
+
+src/modules/ESModuleLoader.o: src/modules/ESModuleLoader.cpp.o
+.PHONY : src/modules/ESModuleLoader.o
+
+# target to build an object file
+src/modules/ESModuleLoader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o
+.PHONY : src/modules/ESModuleLoader.cpp.o
+
+src/modules/ESModuleLoader.i: src/modules/ESModuleLoader.cpp.i
+.PHONY : src/modules/ESModuleLoader.i
+
+# target to preprocess a source file
+src/modules/ESModuleLoader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.i
+.PHONY : src/modules/ESModuleLoader.cpp.i
+
+src/modules/ESModuleLoader.s: src/modules/ESModuleLoader.cpp.s
+.PHONY : src/modules/ESModuleLoader.s
+
+# target to generate assembly for a file
+src/modules/ESModuleLoader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.s
+.PHONY : src/modules/ESModuleLoader.cpp.s
+
+src/modules/IOModule.o: src/modules/IOModule.cpp.o
+.PHONY : src/modules/IOModule.o
+
+# target to build an object file
+src/modules/IOModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o
+.PHONY : src/modules/IOModule.cpp.o
+
+src/modules/IOModule.i: src/modules/IOModule.cpp.i
+.PHONY : src/modules/IOModule.i
+
+# target to preprocess a source file
+src/modules/IOModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/IOModule.cpp.i
+.PHONY : src/modules/IOModule.cpp.i
+
+src/modules/IOModule.s: src/modules/IOModule.cpp.s
+.PHONY : src/modules/IOModule.s
+
+# target to generate assembly for a file
+src/modules/IOModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/IOModule.cpp.s
+.PHONY : src/modules/IOModule.cpp.s
+
+src/modules/ModuleCache.o: src/modules/ModuleCache.cpp.o
+.PHONY : src/modules/ModuleCache.o
+
+# target to build an object file
+src/modules/ModuleCache.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o
+.PHONY : src/modules/ModuleCache.cpp.o
+
+src/modules/ModuleCache.i: src/modules/ModuleCache.cpp.i
+.PHONY : src/modules/ModuleCache.i
+
+# target to preprocess a source file
+src/modules/ModuleCache.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.i
+.PHONY : src/modules/ModuleCache.cpp.i
+
+src/modules/ModuleCache.s: src/modules/ModuleCache.cpp.s
+.PHONY : src/modules/ModuleCache.s
+
+# target to generate assembly for a file
+src/modules/ModuleCache.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.s
+.PHONY : src/modules/ModuleCache.cpp.s
+
+src/modules/ModuleInterop.o: src/modules/ModuleInterop.cpp.o
+.PHONY : src/modules/ModuleInterop.o
+
+# target to build an object file
+src/modules/ModuleInterop.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o
+.PHONY : src/modules/ModuleInterop.cpp.o
+
+src/modules/ModuleInterop.i: src/modules/ModuleInterop.cpp.i
+.PHONY : src/modules/ModuleInterop.i
+
+# target to preprocess a source file
+src/modules/ModuleInterop.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.i
+.PHONY : src/modules/ModuleInterop.cpp.i
+
+src/modules/ModuleInterop.s: src/modules/ModuleInterop.cpp.s
+.PHONY : src/modules/ModuleInterop.s
+
+# target to generate assembly for a file
+src/modules/ModuleInterop.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.s
+.PHONY : src/modules/ModuleInterop.cpp.s
+
+src/modules/ModuleResolver.o: src/modules/ModuleResolver.cpp.o
+.PHONY : src/modules/ModuleResolver.o
+
+# target to build an object file
+src/modules/ModuleResolver.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o
+.PHONY : src/modules/ModuleResolver.cpp.o
+
+src/modules/ModuleResolver.i: src/modules/ModuleResolver.cpp.i
+.PHONY : src/modules/ModuleResolver.i
+
+# target to preprocess a source file
+src/modules/ModuleResolver.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.i
+.PHONY : src/modules/ModuleResolver.cpp.i
+
+src/modules/ModuleResolver.s: src/modules/ModuleResolver.cpp.s
+.PHONY : src/modules/ModuleResolver.s
+
+# target to generate assembly for a file
+src/modules/ModuleResolver.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.s
+.PHONY : src/modules/ModuleResolver.cpp.s
+
+src/modules/ProcessModule.o: src/modules/ProcessModule.cpp.o
+.PHONY : src/modules/ProcessModule.o
+
+# target to build an object file
+src/modules/ProcessModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o
+.PHONY : src/modules/ProcessModule.cpp.o
+
+src/modules/ProcessModule.i: src/modules/ProcessModule.cpp.i
+.PHONY : src/modules/ProcessModule.i
+
+# target to preprocess a source file
+src/modules/ProcessModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.i
+.PHONY : src/modules/ProcessModule.cpp.i
+
+src/modules/ProcessModule.s: src/modules/ProcessModule.cpp.s
+.PHONY : src/modules/ProcessModule.s
+
+# target to generate assembly for a file
+src/modules/ProcessModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.s
+.PHONY : src/modules/ProcessModule.cpp.s
+
+src/modules/ProtoCoreModule.o: src/modules/ProtoCoreModule.cpp.o
+.PHONY : src/modules/ProtoCoreModule.o
+
+# target to build an object file
+src/modules/ProtoCoreModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o
+.PHONY : src/modules/ProtoCoreModule.cpp.o
+
+src/modules/ProtoCoreModule.i: src/modules/ProtoCoreModule.cpp.i
+.PHONY : src/modules/ProtoCoreModule.i
+
+# target to preprocess a source file
+src/modules/ProtoCoreModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.i
+.PHONY : src/modules/ProtoCoreModule.cpp.i
+
+src/modules/ProtoCoreModule.s: src/modules/ProtoCoreModule.cpp.s
+.PHONY : src/modules/ProtoCoreModule.s
+
+# target to generate assembly for a file
+src/modules/ProtoCoreModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.s
+.PHONY : src/modules/ProtoCoreModule.cpp.s
+
+src/modules/crypto/CryptoModule.o: src/modules/crypto/CryptoModule.cpp.o
+.PHONY : src/modules/crypto/CryptoModule.o
+
+# target to build an object file
+src/modules/crypto/CryptoModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o
+.PHONY : src/modules/crypto/CryptoModule.cpp.o
+
+src/modules/crypto/CryptoModule.i: src/modules/crypto/CryptoModule.cpp.i
+.PHONY : src/modules/crypto/CryptoModule.i
+
+# target to preprocess a source file
+src/modules/crypto/CryptoModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.i
+.PHONY : src/modules/crypto/CryptoModule.cpp.i
+
+src/modules/crypto/CryptoModule.s: src/modules/crypto/CryptoModule.cpp.s
+.PHONY : src/modules/crypto/CryptoModule.s
+
+# target to generate assembly for a file
+src/modules/crypto/CryptoModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.s
+.PHONY : src/modules/crypto/CryptoModule.cpp.s
+
+src/modules/events/EventsModule.o: src/modules/events/EventsModule.cpp.o
+.PHONY : src/modules/events/EventsModule.o
+
+# target to build an object file
+src/modules/events/EventsModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o
+.PHONY : src/modules/events/EventsModule.cpp.o
+
+src/modules/events/EventsModule.i: src/modules/events/EventsModule.cpp.i
+.PHONY : src/modules/events/EventsModule.i
+
+# target to preprocess a source file
+src/modules/events/EventsModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.i
+.PHONY : src/modules/events/EventsModule.cpp.i
+
+src/modules/events/EventsModule.s: src/modules/events/EventsModule.cpp.s
+.PHONY : src/modules/events/EventsModule.s
+
+# target to generate assembly for a file
+src/modules/events/EventsModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.s
+.PHONY : src/modules/events/EventsModule.cpp.s
+
+src/modules/fs/FSModule.o: src/modules/fs/FSModule.cpp.o
+.PHONY : src/modules/fs/FSModule.o
+
+# target to build an object file
+src/modules/fs/FSModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o
+.PHONY : src/modules/fs/FSModule.cpp.o
+
+src/modules/fs/FSModule.i: src/modules/fs/FSModule.cpp.i
+.PHONY : src/modules/fs/FSModule.i
+
+# target to preprocess a source file
+src/modules/fs/FSModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.i
+.PHONY : src/modules/fs/FSModule.cpp.i
+
+src/modules/fs/FSModule.s: src/modules/fs/FSModule.cpp.s
+.PHONY : src/modules/fs/FSModule.s
+
+# target to generate assembly for a file
+src/modules/fs/FSModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.s
+.PHONY : src/modules/fs/FSModule.cpp.s
+
+src/modules/http/HTTPModule.o: src/modules/http/HTTPModule.cpp.o
+.PHONY : src/modules/http/HTTPModule.o
+
+# target to build an object file
+src/modules/http/HTTPModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o
+.PHONY : src/modules/http/HTTPModule.cpp.o
+
+src/modules/http/HTTPModule.i: src/modules/http/HTTPModule.cpp.i
+.PHONY : src/modules/http/HTTPModule.i
+
+# target to preprocess a source file
+src/modules/http/HTTPModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.i
+.PHONY : src/modules/http/HTTPModule.cpp.i
+
+src/modules/http/HTTPModule.s: src/modules/http/HTTPModule.cpp.s
+.PHONY : src/modules/http/HTTPModule.s
+
+# target to generate assembly for a file
+src/modules/http/HTTPModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.s
+.PHONY : src/modules/http/HTTPModule.cpp.s
+
+src/modules/path/PathModule.o: src/modules/path/PathModule.cpp.o
+.PHONY : src/modules/path/PathModule.o
+
+# target to build an object file
+src/modules/path/PathModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o
+.PHONY : src/modules/path/PathModule.cpp.o
+
+src/modules/path/PathModule.i: src/modules/path/PathModule.cpp.i
+.PHONY : src/modules/path/PathModule.i
+
+# target to preprocess a source file
+src/modules/path/PathModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.i
+.PHONY : src/modules/path/PathModule.cpp.i
+
+src/modules/path/PathModule.s: src/modules/path/PathModule.cpp.s
+.PHONY : src/modules/path/PathModule.s
+
+# target to generate assembly for a file
+src/modules/path/PathModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.s
+.PHONY : src/modules/path/PathModule.cpp.s
+
+src/modules/stream/StreamModule.o: src/modules/stream/StreamModule.cpp.o
+.PHONY : src/modules/stream/StreamModule.o
+
+# target to build an object file
+src/modules/stream/StreamModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o
+.PHONY : src/modules/stream/StreamModule.cpp.o
+
+src/modules/stream/StreamModule.i: src/modules/stream/StreamModule.cpp.i
+.PHONY : src/modules/stream/StreamModule.i
+
+# target to preprocess a source file
+src/modules/stream/StreamModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.i
+.PHONY : src/modules/stream/StreamModule.cpp.i
+
+src/modules/stream/StreamModule.s: src/modules/stream/StreamModule.cpp.s
+.PHONY : src/modules/stream/StreamModule.s
+
+# target to generate assembly for a file
+src/modules/stream/StreamModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.s
+.PHONY : src/modules/stream/StreamModule.cpp.s
+
+src/modules/url/URLModule.o: src/modules/url/URLModule.cpp.o
+.PHONY : src/modules/url/URLModule.o
+
+# target to build an object file
+src/modules/url/URLModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o
+.PHONY : src/modules/url/URLModule.cpp.o
+
+src/modules/url/URLModule.i: src/modules/url/URLModule.cpp.i
+.PHONY : src/modules/url/URLModule.i
+
+# target to preprocess a source file
+src/modules/url/URLModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.i
+.PHONY : src/modules/url/URLModule.cpp.i
+
+src/modules/url/URLModule.s: src/modules/url/URLModule.cpp.s
+.PHONY : src/modules/url/URLModule.s
+
+# target to generate assembly for a file
+src/modules/url/URLModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.s
+.PHONY : src/modules/url/URLModule.cpp.s
+
+src/modules/util/UtilModule.o: src/modules/util/UtilModule.cpp.o
+.PHONY : src/modules/util/UtilModule.o
+
+# target to build an object file
+src/modules/util/UtilModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o
+.PHONY : src/modules/util/UtilModule.cpp.o
+
+src/modules/util/UtilModule.i: src/modules/util/UtilModule.cpp.i
+.PHONY : src/modules/util/UtilModule.i
+
+# target to preprocess a source file
+src/modules/util/UtilModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.i
+.PHONY : src/modules/util/UtilModule.cpp.i
+
+src/modules/util/UtilModule.s: src/modules/util/UtilModule.cpp.s
+.PHONY : src/modules/util/UtilModule.s
+
+# target to generate assembly for a file
+src/modules/util/UtilModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.s
+.PHONY : src/modules/util/UtilModule.cpp.s
+
+src/monitoring/Metrics.o: src/monitoring/Metrics.cpp.o
+.PHONY : src/monitoring/Metrics.o
+
+# target to build an object file
+src/monitoring/Metrics.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o
+.PHONY : src/monitoring/Metrics.cpp.o
+
+src/monitoring/Metrics.i: src/monitoring/Metrics.cpp.i
+.PHONY : src/monitoring/Metrics.i
+
+# target to preprocess a source file
+src/monitoring/Metrics.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.i
+.PHONY : src/monitoring/Metrics.cpp.i
+
+src/monitoring/Metrics.s: src/monitoring/Metrics.cpp.s
+.PHONY : src/monitoring/Metrics.s
+
+# target to generate assembly for a file
+src/monitoring/Metrics.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.s
+.PHONY : src/monitoring/Metrics.cpp.s
+
+src/native/DynamicLibraryLoader.o: src/native/DynamicLibraryLoader.cpp.o
+.PHONY : src/native/DynamicLibraryLoader.o
+
+# target to build an object file
+src/native/DynamicLibraryLoader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o
+.PHONY : src/native/DynamicLibraryLoader.cpp.o
+
+src/native/DynamicLibraryLoader.i: src/native/DynamicLibraryLoader.cpp.i
+.PHONY : src/native/DynamicLibraryLoader.i
+
+# target to preprocess a source file
+src/native/DynamicLibraryLoader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.i
+.PHONY : src/native/DynamicLibraryLoader.cpp.i
+
+src/native/DynamicLibraryLoader.s: src/native/DynamicLibraryLoader.cpp.s
+.PHONY : src/native/DynamicLibraryLoader.s
+
+# target to generate assembly for a file
+src/native/DynamicLibraryLoader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.s
+.PHONY : src/native/DynamicLibraryLoader.cpp.s
+
+src/native/NativeModuleWrapper.o: src/native/NativeModuleWrapper.cpp.o
+.PHONY : src/native/NativeModuleWrapper.o
+
+# target to build an object file
+src/native/NativeModuleWrapper.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o
+.PHONY : src/native/NativeModuleWrapper.cpp.o
+
+src/native/NativeModuleWrapper.i: src/native/NativeModuleWrapper.cpp.i
+.PHONY : src/native/NativeModuleWrapper.i
+
+# target to preprocess a source file
+src/native/NativeModuleWrapper.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.i
+.PHONY : src/native/NativeModuleWrapper.cpp.i
+
+src/native/NativeModuleWrapper.s: src/native/NativeModuleWrapper.cpp.s
+.PHONY : src/native/NativeModuleWrapper.s
+
+# target to generate assembly for a file
+src/native/NativeModuleWrapper.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.s
+.PHONY : src/native/NativeModuleWrapper.cpp.s
+
+src/npm/PackageInstaller.o: src/npm/PackageInstaller.cpp.o
+.PHONY : src/npm/PackageInstaller.o
+
+# target to build an object file
+src/npm/PackageInstaller.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o
+.PHONY : src/npm/PackageInstaller.cpp.o
+
+src/npm/PackageInstaller.i: src/npm/PackageInstaller.cpp.i
+.PHONY : src/npm/PackageInstaller.i
+
+# target to preprocess a source file
+src/npm/PackageInstaller.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.i
+.PHONY : src/npm/PackageInstaller.cpp.i
+
+src/npm/PackageInstaller.s: src/npm/PackageInstaller.cpp.s
+.PHONY : src/npm/PackageInstaller.s
+
+# target to generate assembly for a file
+src/npm/PackageInstaller.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.s
+.PHONY : src/npm/PackageInstaller.cpp.s
+
+src/npm/PackageResolver.o: src/npm/PackageResolver.cpp.o
+.PHONY : src/npm/PackageResolver.o
+
+# target to build an object file
+src/npm/PackageResolver.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o
+.PHONY : src/npm/PackageResolver.cpp.o
+
+src/npm/PackageResolver.i: src/npm/PackageResolver.cpp.i
+.PHONY : src/npm/PackageResolver.i
+
+# target to preprocess a source file
+src/npm/PackageResolver.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.i
+.PHONY : src/npm/PackageResolver.cpp.i
+
+src/npm/PackageResolver.s: src/npm/PackageResolver.cpp.s
+.PHONY : src/npm/PackageResolver.s
+
+# target to generate assembly for a file
+src/npm/PackageResolver.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.s
+.PHONY : src/npm/PackageResolver.cpp.s
+
+src/npm/ScriptExecutor.o: src/npm/ScriptExecutor.cpp.o
+.PHONY : src/npm/ScriptExecutor.o
+
+# target to build an object file
+src/npm/ScriptExecutor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o
+.PHONY : src/npm/ScriptExecutor.cpp.o
+
+src/npm/ScriptExecutor.i: src/npm/ScriptExecutor.cpp.i
+.PHONY : src/npm/ScriptExecutor.i
+
+# target to preprocess a source file
+src/npm/ScriptExecutor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.i
+.PHONY : src/npm/ScriptExecutor.cpp.i
+
+src/npm/ScriptExecutor.s: src/npm/ScriptExecutor.cpp.s
+.PHONY : src/npm/ScriptExecutor.s
+
+# target to generate assembly for a file
+src/npm/ScriptExecutor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s
+.PHONY : src/npm/ScriptExecutor.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -377,13 +1534,45 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... test"
+	@echo "... Continuous"
+	@echo "... ContinuousBuild"
+	@echo "... ContinuousConfigure"
+	@echo "... ContinuousCoverage"
+	@echo "... ContinuousMemCheck"
+	@echo "... ContinuousStart"
+	@echo "... ContinuousSubmit"
+	@echo "... ContinuousTest"
+	@echo "... ContinuousUpdate"
+	@echo "... Experimental"
+	@echo "... ExperimentalBuild"
+	@echo "... ExperimentalConfigure"
+	@echo "... ExperimentalCoverage"
+	@echo "... ExperimentalMemCheck"
+	@echo "... ExperimentalStart"
+	@echo "... ExperimentalSubmit"
+	@echo "... ExperimentalTest"
+	@echo "... ExperimentalUpdate"
+	@echo "... Nightly"
+	@echo "... NightlyBuild"
+	@echo "... NightlyConfigure"
+	@echo "... NightlyCoverage"
+	@echo "... NightlyMemCheck"
+	@echo "... NightlyMemoryCheck"
+	@echo "... NightlyStart"
+	@echo "... NightlySubmit"
+	@echo "... NightlyTest"
+	@echo "... NightlyUpdate"
+	@echo "... Catch2"
+	@echo "... Catch2WithMain"
 	@echo "... protojs"
+	@echo "... protojs_tests"
 	@echo "... deps/quickjs/cutils.o"
 	@echo "... deps/quickjs/cutils.i"
 	@echo "... deps/quickjs/cutils.s"
-	@echo "... deps/quickjs/libbf.o"
-	@echo "... deps/quickjs/libbf.i"
-	@echo "... deps/quickjs/libbf.s"
+	@echo "... deps/quickjs/dtoa.o"
+	@echo "... deps/quickjs/dtoa.i"
+	@echo "... deps/quickjs/dtoa.s"
 	@echo "... deps/quickjs/libregexp.o"
 	@echo "... deps/quickjs/libregexp.i"
 	@echo "... deps/quickjs/libregexp.s"
@@ -393,21 +1582,114 @@ help:
 	@echo "... deps/quickjs/quickjs.o"
 	@echo "... deps/quickjs/quickjs.i"
 	@echo "... deps/quickjs/quickjs.s"
+	@echo "... src/CPUThreadPool.o"
+	@echo "... src/CPUThreadPool.i"
+	@echo "... src/CPUThreadPool.s"
 	@echo "... src/Deferred.o"
 	@echo "... src/Deferred.i"
 	@echo "... src/Deferred.s"
+	@echo "... src/ErrorHandler.o"
+	@echo "... src/ErrorHandler.i"
+	@echo "... src/ErrorHandler.s"
+	@echo "... src/EventLoop.o"
+	@echo "... src/EventLoop.i"
+	@echo "... src/EventLoop.s"
+	@echo "... src/ExecutionEngine.o"
+	@echo "... src/ExecutionEngine.i"
+	@echo "... src/ExecutionEngine.s"
+	@echo "... src/GCBridge.o"
+	@echo "... src/GCBridge.i"
+	@echo "... src/GCBridge.s"
+	@echo "... src/IOThreadPool.o"
+	@echo "... src/IOThreadPool.i"
+	@echo "... src/IOThreadPool.s"
 	@echo "... src/JSContext.o"
 	@echo "... src/JSContext.i"
 	@echo "... src/JSContext.s"
+	@echo "... src/ThreadPoolExecutor.o"
+	@echo "... src/ThreadPoolExecutor.i"
+	@echo "... src/ThreadPoolExecutor.s"
 	@echo "... src/TypeBridge.o"
 	@echo "... src/TypeBridge.i"
 	@echo "... src/TypeBridge.s"
 	@echo "... src/console.o"
 	@echo "... src/console.i"
 	@echo "... src/console.s"
+	@echo "... src/logging/Logger.o"
+	@echo "... src/logging/Logger.i"
+	@echo "... src/logging/Logger.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/modules/AsyncModuleLoader.o"
+	@echo "... src/modules/AsyncModuleLoader.i"
+	@echo "... src/modules/AsyncModuleLoader.s"
+	@echo "... src/modules/CommonJSLoader.o"
+	@echo "... src/modules/CommonJSLoader.i"
+	@echo "... src/modules/CommonJSLoader.s"
+	@echo "... src/modules/ESModuleLoader.o"
+	@echo "... src/modules/ESModuleLoader.i"
+	@echo "... src/modules/ESModuleLoader.s"
+	@echo "... src/modules/IOModule.o"
+	@echo "... src/modules/IOModule.i"
+	@echo "... src/modules/IOModule.s"
+	@echo "... src/modules/ModuleCache.o"
+	@echo "... src/modules/ModuleCache.i"
+	@echo "... src/modules/ModuleCache.s"
+	@echo "... src/modules/ModuleInterop.o"
+	@echo "... src/modules/ModuleInterop.i"
+	@echo "... src/modules/ModuleInterop.s"
+	@echo "... src/modules/ModuleResolver.o"
+	@echo "... src/modules/ModuleResolver.i"
+	@echo "... src/modules/ModuleResolver.s"
+	@echo "... src/modules/ProcessModule.o"
+	@echo "... src/modules/ProcessModule.i"
+	@echo "... src/modules/ProcessModule.s"
+	@echo "... src/modules/ProtoCoreModule.o"
+	@echo "... src/modules/ProtoCoreModule.i"
+	@echo "... src/modules/ProtoCoreModule.s"
+	@echo "... src/modules/crypto/CryptoModule.o"
+	@echo "... src/modules/crypto/CryptoModule.i"
+	@echo "... src/modules/crypto/CryptoModule.s"
+	@echo "... src/modules/events/EventsModule.o"
+	@echo "... src/modules/events/EventsModule.i"
+	@echo "... src/modules/events/EventsModule.s"
+	@echo "... src/modules/fs/FSModule.o"
+	@echo "... src/modules/fs/FSModule.i"
+	@echo "... src/modules/fs/FSModule.s"
+	@echo "... src/modules/http/HTTPModule.o"
+	@echo "... src/modules/http/HTTPModule.i"
+	@echo "... src/modules/http/HTTPModule.s"
+	@echo "... src/modules/path/PathModule.o"
+	@echo "... src/modules/path/PathModule.i"
+	@echo "... src/modules/path/PathModule.s"
+	@echo "... src/modules/stream/StreamModule.o"
+	@echo "... src/modules/stream/StreamModule.i"
+	@echo "... src/modules/stream/StreamModule.s"
+	@echo "... src/modules/url/URLModule.o"
+	@echo "... src/modules/url/URLModule.i"
+	@echo "... src/modules/url/URLModule.s"
+	@echo "... src/modules/util/UtilModule.o"
+	@echo "... src/modules/util/UtilModule.i"
+	@echo "... src/modules/util/UtilModule.s"
+	@echo "... src/monitoring/Metrics.o"
+	@echo "... src/monitoring/Metrics.i"
+	@echo "... src/monitoring/Metrics.s"
+	@echo "... src/native/DynamicLibraryLoader.o"
+	@echo "... src/native/DynamicLibraryLoader.i"
+	@echo "... src/native/DynamicLibraryLoader.s"
+	@echo "... src/native/NativeModuleWrapper.o"
+	@echo "... src/native/NativeModuleWrapper.i"
+	@echo "... src/native/NativeModuleWrapper.s"
+	@echo "... src/npm/PackageInstaller.o"
+	@echo "... src/npm/PackageInstaller.i"
+	@echo "... src/npm/PackageInstaller.s"
+	@echo "... src/npm/PackageResolver.o"
+	@echo "... src/npm/PackageResolver.i"
+	@echo "... src/npm/PackageResolver.s"
+	@echo "... src/npm/ScriptExecutor.o"
+	@echo "... src/npm/ScriptExecutor.i"
+	@echo "... src/npm/ScriptExecutor.s"
 .PHONY : help
 
 

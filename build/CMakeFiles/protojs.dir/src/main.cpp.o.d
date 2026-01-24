@@ -27,6 +27,9 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
  /usr/include/x86_64-linux-gnu/bits/floatn.h \
  /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio2-decl.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio2.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
@@ -35,6 +38,8 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
  /usr/include/strings.h \
+ /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
+ /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
  /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
@@ -96,6 +101,8 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+ /usr/include/x86_64-linux-gnu/bits/unistd.h \
+ /usr/include/x86_64-linux-gnu/bits/unistd-decl.h \
  /usr/include/x86_64-linux-gnu/bits/unistd_ext.h \
  /usr/include/linux/close_range.h /usr/include/syscall.h \
  /usr/include/x86_64-linux-gnu/sys/syscall.h \
@@ -131,6 +138,8 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/cwchar /usr/include/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar2-decl.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar2.h \
  /usr/include/c++/13/bits/shared_ptr_base.h /usr/include/c++/13/typeinfo \
  /usr/include/c++/13/bits/allocated_ptr.h \
  /usr/include/c++/13/bits/refwrap.h /usr/include/c++/13/bits/invoke.h \
@@ -176,7 +185,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/sys/select.h \
  /usr/include/x86_64-linux-gnu/bits/select.h \
  /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
- /usr/include/alloca.h /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+ /usr/include/x86_64-linux-gnu/bits/select2.h \
+ /usr/include/x86_64-linux-gnu/bits/select-decl.h /usr/include/alloca.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib.h \
  /usr/include/c++/13/bits/std_abs.h /usr/include/c++/13/cstdio \
  /usr/include/c++/13/bits/charconv.h \
  /usr/include/c++/13/bits/basic_string.tcc \
@@ -212,10 +225,61 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
+ /usr/include/c++/13/thread /usr/include/c++/13/vector \
+ /usr/include/c++/13/bits/stl_vector.h \
+ /usr/include/c++/13/bits/stl_bvector.h \
+ /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/queue \
+ /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
+ /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_heap.h \
+ /usr/include/c++/13/bits/stl_queue.h /usr/include/c++/13/mutex \
+ /usr/include/c++/13/future /usr/include/c++/13/bits/atomic_futex.h \
+ /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/functional \
+ /usr/include/c++/13/unordered_map \
+ /usr/include/c++/13/bits/unordered_map.h \
+ /usr/include/c++/13/bits/hashtable.h \
+ /usr/include/c++/13/bits/hashtable_policy.h \
+ /usr/include/c++/13/bits/enable_special_members.h \
+ /usr/include/c++/13/bits/node_handle.h \
+ /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/array \
+ /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/bits/algorithmfwd.h \
+ /usr/include/c++/13/bits/uniform_int_dist.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/console.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.h \
+ /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
+ /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/istream \
  /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/fstream \
  /usr/include/c++/13/bits/codecvt.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/sstream \
- /usr/include/c++/13/bits/sstream.tcc
+ /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/chrono \
+ /usr/include/c++/13/bits/chrono_io.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/locale \
+ /usr/include/c++/13/bits/locale_facets_nonio.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
+ /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
+ /usr/include/c++/13/bits/locale_conv.h \
+ /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
+ /usr/include/c++/13/charconv /usr/include/c++/13/optional \
+ /usr/include/c++/13/span /usr/include/c++/13/variant

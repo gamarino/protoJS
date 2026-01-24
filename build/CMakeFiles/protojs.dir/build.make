@@ -111,10 +111,80 @@ CMakeFiles/protojs.dir/src/JSContext.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/JSContext.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.cpp -o CMakeFiles/protojs.dir/src/JSContext.cpp.s
 
+CMakeFiles/protojs.dir/src/GCBridge.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/GCBridge.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.cpp
+CMakeFiles/protojs.dir/src/GCBridge.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/protojs.dir/src/GCBridge.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/GCBridge.cpp.o -MF CMakeFiles/protojs.dir/src/GCBridge.cpp.o.d -o CMakeFiles/protojs.dir/src/GCBridge.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.cpp
+
+CMakeFiles/protojs.dir/src/GCBridge.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/GCBridge.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.cpp > CMakeFiles/protojs.dir/src/GCBridge.cpp.i
+
+CMakeFiles/protojs.dir/src/GCBridge.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/GCBridge.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.cpp -o CMakeFiles/protojs.dir/src/GCBridge.cpp.s
+
+CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/ExecutionEngine.cpp
+CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o -MF CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o.d -o CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/ExecutionEngine.cpp
+
+CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/ExecutionEngine.cpp > CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.i
+
+CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/ExecutionEngine.cpp -o CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.s
+
+CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/ErrorHandler.cpp
+CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o -MF CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o.d -o CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/ErrorHandler.cpp
+
+CMakeFiles/protojs.dir/src/ErrorHandler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/ErrorHandler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/ErrorHandler.cpp > CMakeFiles/protojs.dir/src/ErrorHandler.cpp.i
+
+CMakeFiles/protojs.dir/src/ErrorHandler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/ErrorHandler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/ErrorHandler.cpp -o CMakeFiles/protojs.dir/src/ErrorHandler.cpp.s
+
+CMakeFiles/protojs.dir/src/logging/Logger.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/logging/Logger.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.cpp
+CMakeFiles/protojs.dir/src/logging/Logger.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/protojs.dir/src/logging/Logger.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/logging/Logger.cpp.o -MF CMakeFiles/protojs.dir/src/logging/Logger.cpp.o.d -o CMakeFiles/protojs.dir/src/logging/Logger.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.cpp
+
+CMakeFiles/protojs.dir/src/logging/Logger.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/logging/Logger.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.cpp > CMakeFiles/protojs.dir/src/logging/Logger.cpp.i
+
+CMakeFiles/protojs.dir/src/logging/Logger.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/logging/Logger.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.cpp -o CMakeFiles/protojs.dir/src/logging/Logger.cpp.s
+
+CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/monitoring/Metrics.cpp
+CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o -MF CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o.d -o CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/monitoring/Metrics.cpp
+
+CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/monitoring/Metrics.cpp > CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.i
+
+CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/monitoring/Metrics.cpp -o CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.s
+
 CMakeFiles/protojs.dir/src/Deferred.cpp.o: CMakeFiles/protojs.dir/flags.make
 CMakeFiles/protojs.dir/src/Deferred.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.cpp
 CMakeFiles/protojs.dir/src/Deferred.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/protojs.dir/src/Deferred.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/protojs.dir/src/Deferred.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/Deferred.cpp.o -MF CMakeFiles/protojs.dir/src/Deferred.cpp.o.d -o CMakeFiles/protojs.dir/src/Deferred.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.cpp
 
 CMakeFiles/protojs.dir/src/Deferred.cpp.i: cmake_force
@@ -128,7 +198,7 @@ CMakeFiles/protojs.dir/src/Deferred.cpp.s: cmake_force
 CMakeFiles/protojs.dir/src/console.cpp.o: CMakeFiles/protojs.dir/flags.make
 CMakeFiles/protojs.dir/src/console.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/console.cpp
 CMakeFiles/protojs.dir/src/console.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/protojs.dir/src/console.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/protojs.dir/src/console.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/console.cpp.o -MF CMakeFiles/protojs.dir/src/console.cpp.o.d -o CMakeFiles/protojs.dir/src/console.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/console.cpp
 
 CMakeFiles/protojs.dir/src/console.cpp.i: cmake_force
@@ -139,10 +209,374 @@ CMakeFiles/protojs.dir/src/console.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/console.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/console.cpp -o CMakeFiles/protojs.dir/src/console.cpp.s
 
+CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp
+CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o -MF CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o.d -o CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp
+
+CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp > CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.i
+
+CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp -o CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.s
+
+CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.cpp
+CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o -MF CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o.d -o CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.cpp
+
+CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.cpp > CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.i
+
+CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.cpp -o CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.s
+
+CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp
+CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o -MF CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o.d -o CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp
+
+CMakeFiles/protojs.dir/src/IOThreadPool.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/IOThreadPool.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp > CMakeFiles/protojs.dir/src/IOThreadPool.cpp.i
+
+CMakeFiles/protojs.dir/src/IOThreadPool.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/IOThreadPool.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp -o CMakeFiles/protojs.dir/src/IOThreadPool.cpp.s
+
+CMakeFiles/protojs.dir/src/EventLoop.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/EventLoop.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp
+CMakeFiles/protojs.dir/src/EventLoop.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/protojs.dir/src/EventLoop.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/EventLoop.cpp.o -MF CMakeFiles/protojs.dir/src/EventLoop.cpp.o.d -o CMakeFiles/protojs.dir/src/EventLoop.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp
+
+CMakeFiles/protojs.dir/src/EventLoop.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/EventLoop.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp > CMakeFiles/protojs.dir/src/EventLoop.cpp.i
+
+CMakeFiles/protojs.dir/src/EventLoop.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/EventLoop.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp -o CMakeFiles/protojs.dir/src/EventLoop.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.cpp
+CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o -MF CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.cpp
+
+CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.cpp > CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.cpp -o CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.cpp
+CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o -MF CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.cpp
+
+CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.cpp > CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.cpp -o CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.cpp
+CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o -MF CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.cpp
+
+CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.cpp > CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.cpp -o CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.cpp
+CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o -MF CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.cpp
+
+CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.cpp > CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.cpp -o CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleInterop.cpp
+CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o -MF CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleInterop.cpp
+
+CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleInterop.cpp > CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleInterop.cpp -o CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/AsyncModuleLoader.cpp
+CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o -MF CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/AsyncModuleLoader.cpp
+
+CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/AsyncModuleLoader.cpp > CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/AsyncModuleLoader.cpp -o CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.cpp
+CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/IOModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/IOModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.cpp > CMakeFiles/protojs.dir/src/modules/IOModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/IOModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/IOModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.cpp -o CMakeFiles/protojs.dir/src/modules/IOModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.cpp
+CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.cpp > CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.cpp -o CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.cpp
+CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.cpp > CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.cpp -o CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.cpp
+CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.cpp > CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.cpp -o CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp
+CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp > CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp -o CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.cpp
+CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.cpp > CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.cpp -o CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.cpp
+CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.cpp > CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.cpp -o CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.cpp
+CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.cpp > CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.cpp -o CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.cpp
+CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.cpp > CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.cpp -o CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.cpp
+CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.cpp > CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.cpp -o CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.s
+
+CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.cpp
+CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o -MF CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o.d -o CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.cpp
+
+CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.cpp > CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.i
+
+CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.cpp -o CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.s
+
+CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.cpp
+CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o -MF CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o.d -o CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.cpp
+
+CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.cpp > CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.i
+
+CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.cpp -o CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.s
+
+CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/native/NativeModuleWrapper.cpp
+CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o -MF CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o.d -o CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/native/NativeModuleWrapper.cpp
+
+CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/native/NativeModuleWrapper.cpp > CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.i
+
+CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/native/NativeModuleWrapper.cpp -o CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.s
+
+CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp
+CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o -MF CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o.d -o CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp
+
+CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp > CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.i
+
+CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp -o CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.s
+
+CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp
+CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o -MF CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o.d -o CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp
+
+CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp > CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.i
+
+CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp -o CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.s
+
+CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp
+CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building CXX object CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o -MF CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o.d -o CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp
+
+CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp > CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.i
+
+CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp -o CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s
+
 CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: CMakeFiles/protojs.dir/flags.make
 CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.c
 CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building C object CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -MD -MT CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o -MF CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o.d -o CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o -c /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.c
 
 CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.i: cmake_force
@@ -156,7 +590,7 @@ CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.s: cmake_force
 CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o: CMakeFiles/protojs.dir/flags.make
 CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o: /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp.c
 CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building C object CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -MD -MT CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o -MF CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o.d -o CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o -c /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp.c
 
 CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.i: cmake_force
@@ -170,7 +604,7 @@ CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.s: cmake_force
 CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o: CMakeFiles/protojs.dir/flags.make
 CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o: /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libunicode.c
 CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building C object CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -MD -MT CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o -MF CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o.d -o CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o -c /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libunicode.c
 
 CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.i: cmake_force
@@ -184,7 +618,7 @@ CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.s: cmake_force
 CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o: CMakeFiles/protojs.dir/flags.make
 CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o: /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.c
 CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building C object CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -MD -MT CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o -MF CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o.d -o CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o -c /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.c
 
 CMakeFiles/protojs.dir/deps/quickjs/cutils.c.i: cmake_force
@@ -195,32 +629,63 @@ CMakeFiles/protojs.dir/deps/quickjs/cutils.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/protojs.dir/deps/quickjs/cutils.c.s"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -S /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.c -o CMakeFiles/protojs.dir/deps/quickjs/cutils.c.s
 
-CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o: CMakeFiles/protojs.dir/flags.make
-CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o: /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libbf.c
-CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o: CMakeFiles/protojs.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building C object CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -MD -MT CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o -MF CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o.d -o CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o -c /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libbf.c
+CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o: CMakeFiles/protojs.dir/flags.make
+CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o: /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.c
+CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o: CMakeFiles/protojs.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building C object CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -MD -MT CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o -MF CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o.d -o CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o -c /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.c
 
-CMakeFiles/protojs.dir/deps/quickjs/libbf.c.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/protojs.dir/deps/quickjs/libbf.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -E /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libbf.c > CMakeFiles/protojs.dir/deps/quickjs/libbf.c.i
+CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -E /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.c > CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.i
 
-CMakeFiles/protojs.dir/deps/quickjs/libbf.c.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/protojs.dir/deps/quickjs/libbf.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -S /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libbf.c -o CMakeFiles/protojs.dir/deps/quickjs/libbf.c.s
+CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -S /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.c -o CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.s
 
 # Object files for target protojs
 protojs_OBJECTS = \
 "CMakeFiles/protojs.dir/src/main.cpp.o" \
 "CMakeFiles/protojs.dir/src/TypeBridge.cpp.o" \
 "CMakeFiles/protojs.dir/src/JSContext.cpp.o" \
+"CMakeFiles/protojs.dir/src/GCBridge.cpp.o" \
+"CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o" \
+"CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o" \
+"CMakeFiles/protojs.dir/src/logging/Logger.cpp.o" \
+"CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o" \
 "CMakeFiles/protojs.dir/src/Deferred.cpp.o" \
 "CMakeFiles/protojs.dir/src/console.cpp.o" \
+"CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o" \
+"CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o" \
+"CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o" \
+"CMakeFiles/protojs.dir/src/EventLoop.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o" \
+"CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o" \
+"CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o" \
+"CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o" \
+"CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o" \
+"CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o" \
 "CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o" \
 "CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o" \
 "CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o" \
 "CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o" \
-"CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o"
+"CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o"
 
 # External object files for target protojs
 protojs_EXTERNAL_OBJECTS =
@@ -228,17 +693,48 @@ protojs_EXTERNAL_OBJECTS =
 protojs: CMakeFiles/protojs.dir/src/main.cpp.o
 protojs: CMakeFiles/protojs.dir/src/TypeBridge.cpp.o
 protojs: CMakeFiles/protojs.dir/src/JSContext.cpp.o
+protojs: CMakeFiles/protojs.dir/src/GCBridge.cpp.o
+protojs: CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o
+protojs: CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o
+protojs: CMakeFiles/protojs.dir/src/logging/Logger.cpp.o
+protojs: CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o
 protojs: CMakeFiles/protojs.dir/src/Deferred.cpp.o
 protojs: CMakeFiles/protojs.dir/src/console.cpp.o
+protojs: CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o
+protojs: CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o
+protojs: CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o
+protojs: CMakeFiles/protojs.dir/src/EventLoop.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o
+protojs: CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o
+protojs: CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o
+protojs: CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o
+protojs: CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o
+protojs: CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o
 protojs: CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o
 protojs: CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o
 protojs: CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o
 protojs: CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o
-protojs: CMakeFiles/protojs.dir/deps/quickjs/libbf.c.o
+protojs: CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o
 protojs: CMakeFiles/protojs.dir/build.make
-protojs: /home/gamarino/Documentos/proyectos/protoJS/../protoCore/libproto.a
+protojs: /home/gamarino/Documentos/proyectos/protoJS/../protoCore/build/libproto.a
 protojs: CMakeFiles/protojs.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking CXX executable protojs"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Linking CXX executable protojs"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/protojs.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
