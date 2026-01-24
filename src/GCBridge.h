@@ -108,6 +108,23 @@ public:
      */
     static void initialize(JSContext* ctx);
 
+private:
+    // Workaround helper methods (for missing protoCore implementations)
+    /**
+     * @brief Convert ProtoString to ProtoObject using workaround
+     */
+    static const proto::ProtoObject* stringAsObject(const proto::ProtoString* str, proto::ProtoContext* pContext);
+    
+    /**
+     * @brief Extract pointer from external pointer wrapper using workaround
+     */
+    static void* extractExternalPointer(const proto::ProtoObject* wrapper, proto::ProtoContext* pContext);
+    
+    /**
+     * @brief Create external pointer wrapper using workaround
+     */
+    static const proto::ProtoObject* createExternalPointerWrapper(void* ptr, proto::ProtoContext* pContext);
+
     /**
      * @brief Scan roots during GC (called by protoCore GC)
      */
