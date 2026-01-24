@@ -1,4 +1,4 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include "../../src/ThreadPoolExecutor.h"
 #include "../../src/CPUThreadPool.h"
 #include "../../src/IOThreadPool.h"
