@@ -3,11 +3,7 @@
 
 #include "quickjs.h"
 #include "headers/protoCore.h"
-#include <unordered_map>
 #include <mutex>
-#include <chrono>
-#include <vector>
-#include <string>
 
 // Forward declaration
 namespace protojs {
@@ -19,32 +15,32 @@ namespace protojs {
 /**
  * @brief GCBridge integrates QuickJS JSValue lifecycle with protoCore garbage collection.
  * 
- * Maintains bidirectional mapping between JSValues and ProtoObjects, registers JSValues
- * as GC roots, and provides memory leak detection and profiling.
+ * Maintains bidirectional mapping between JSValues and ProtoObjects using only protoCore objects.
+ * Uses ProtoSparseList for mappings, ProtoExternalPointer for C++ pointers, and ProtoString for keys.
  */
 class GCBridge {
 public:
     /**
-     * @brief Memory statistics structure
+     * @brief Memory statistics structure (using protoCore objects)
      */
     struct MemoryStats {
-        size_t totalJSValues = 0;
-        size_t totalProtoObjects = 0;
-        size_t registeredRoots = 0;
-        size_t weakReferences = 0;
-        size_t leakedObjects = 0;
-        size_t memoryUsed = 0;
-        size_t gcCycles = 0;
+        const proto::ProtoObject* totalJSValues;
+        const proto::ProtoObject* totalProtoObjects;
+        const proto::ProtoObject* registeredRoots;
+        const proto::ProtoObject* weakReferences;
+        const proto::ProtoObject* leakedObjects;
+        const proto::ProtoObject* memoryUsed;
+        const proto::ProtoObject* gcCycles;
     };
 
     /**
-     * @brief Memory leak report structure
+     * @brief Memory leak report structure (using protoCore objects)
      */
     struct MemoryLeakReport {
-        std::vector<uint64_t> orphanedJSValues;  // JSValue tags (pointers as uint64_t)
-        std::vector<const proto::ProtoObject*> orphanedProtoObjects;
-        size_t totalLeaks = 0;
-        std::chrono::duration<double> leakAge;
+        const proto::ProtoList* orphanedJSValues;  // List of JSValue tags as strings
+        const proto::ProtoList* orphanedProtoObjects;  // List of ProtoObjects
+        const proto::ProtoObject* totalLeaks;
+        const proto::ProtoObject* leakAge;  // Age in seconds as double
     };
 
     /**
@@ -118,25 +114,57 @@ public:
     static void scanRoots(proto::ProtoSpace* space, JSContext* ctx);
 
 private:
-    struct MappingEntry {
+    // Note: MappingData is no longer used as a C++ struct
+    // Instead, mapping data is stored as attributes in ProtoObject
+    // This structure is kept for reference but not used directly
+    struct MappingData {
         JSValue jsValue;
         const proto::ProtoObject* protoObj;
         bool isRoot;
         bool isWeakRef;
-        std::chrono::time_point<std::chrono::steady_clock> created;
+        double createdTimestamp;
     };
 
-    struct WeakReference {
-        JSValue jsVal;
-        const proto::ProtoObject* protoObj;
-        bool isAlive;
-    };
-
-    // Per-context mappings
-    static std::unordered_map<JSContext*, std::unordered_map<uint64_t, MappingEntry>> jsToProtoMap;
-    static std::unordered_map<JSContext*, std::unordered_map<const proto::ProtoObject*, JSValue>> protoToJSMap;
-    static std::unordered_map<JSContext*, std::vector<WeakReference>> weakRefs;
+    // Per-context mappings stored in protoCore
+    // Key: JSContext* wrapped in ProtoExternalPointer, stored in global map
+    // Value: ProtoSparseList containing mappings for that context
+    //   - Key: JSValue tag as ProtoString hash
+    //   - Value: ProtoObject containing MappingData (wrapped in ProtoExternalPointer)
+    
+    // For reverse mapping (ProtoObject -> JSValue):
+    //   - Key: ProtoObject hash
+    //   - Value: JSValue wrapped in ProtoExternalPointer
+    
+    // Global map: JSContext* -> ProtoSparseList (mappings for that context)
+    // Stored as ProtoSparseList where key is JSContext* hash (via ProtoExternalPointer)
+    static const proto::ProtoSparseList* contextMappings;
     static std::mutex mapMutex;
+
+    /**
+     * @brief Get or create mappings for a context
+     */
+    static const proto::ProtoSparseList* getContextMappings(JSContext* ctx, proto::ProtoContext* pContext);
+
+    /**
+     * @brief Store mappings for a context
+     */
+    static void setContextMappings(JSContext* ctx, const proto::ProtoSparseList* mappings, proto::ProtoContext* pContext);
+
+    /**
+     * @brief Create a key for JSValue (as ProtoString)
+     */
+    static const proto::ProtoString* createJSValueKey(JSValue jsVal, proto::ProtoContext* pContext);
+
+    /**
+     * @brief Create a key for ProtoObject (use its hash)
+     */
+    static unsigned long getProtoObjectKey(const proto::ProtoObject* protoObj, proto::ProtoContext* pContext);
+
+    /**
+     * @brief Get pointer from ProtoExternalPointer (helper)
+     * Uses only public API from protoCore.h
+     */
+    static void* getPointerFromExternalPointer(const proto::ProtoObject* obj, proto::ProtoContext* pContext);
 
     /**
      * @brief Check if a JSValue is active (reachable)
@@ -144,7 +172,7 @@ private:
     static bool isActiveJSValue(JSValue jsVal, JSContext* ctx);
 
     /**
-     * @brief Get JSValue tag for use as map key
+     * @brief Get JSValue tag for use as key
      */
     static uint64_t getJSValueTag(JSValue jsVal);
 
@@ -152,6 +180,11 @@ private:
      * @brief Get ProtoSpace from JSContext
      */
     static proto::ProtoSpace* getProtoSpace(JSContext* ctx);
+
+    /**
+     * @brief Get ProtoContext from JSContext
+     */
+    static proto::ProtoContext* getProtoContext(JSContext* ctx);
 };
 
 } // namespace protojs

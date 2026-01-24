@@ -1,16 +1,17 @@
 #ifndef PROTOJS_LOGGER_H
 #define PROTOJS_LOGGER_H
 
-#include <string>
-#include <map>
-#include <ostream>
-#include <functional>
+#include "headers/protoCore.h"
 #include <mutex>
+#include <ostream>
+
+// Forward declaration
+struct JSContext;
 
 namespace protojs {
 
 /**
- * @brief Logger provides structured logging for protoJS
+ * @brief Logger provides structured logging for protoJS using only protoCore objects
  */
 class Logger {
 public:
@@ -23,60 +24,62 @@ public:
     
     /**
      * @brief Log a debug message
+     * @param pContext ProtoContext for creating protoCore objects
      */
-    static void debug(const std::string& message, const std::map<std::string, std::string>& context = {});
+    static void debug(proto::ProtoContext* pContext, const proto::ProtoString* message, const proto::ProtoSparseList* context = nullptr);
     
     /**
      * @brief Log an info message
      */
-    static void info(const std::string& message, const std::map<std::string, std::string>& context = {});
+    static void info(proto::ProtoContext* pContext, const proto::ProtoString* message, const proto::ProtoSparseList* context = nullptr);
     
     /**
      * @brief Log a warning message
      */
-    static void warn(const std::string& message, const std::map<std::string, std::string>& context = {});
+    static void warn(proto::ProtoContext* pContext, const proto::ProtoString* message, const proto::ProtoSparseList* context = nullptr);
     
     /**
      * @brief Log an error message
      */
-    static void error(const std::string& message, const std::map<std::string, std::string>& context = {});
+    static void error(proto::ProtoContext* pContext, const proto::ProtoString* message, const proto::ProtoSparseList* context = nullptr);
     
     /**
      * @brief Set log level
      */
-    static void setLevel(Level level);
+    static void setLevel(proto::ProtoContext* pContext, Level level);
     
     /**
-     * @brief Set output stream
+     * @brief Set output stream (C++ stream for now, but could be wrapped)
      */
     static void setOutput(std::ostream* output);
     
     /**
-     * @brief Set formatter function
+     * @brief Get current log level as ProtoObject
      */
-    static void setFormatter(std::function<std::string(Level, const std::string&, const std::map<std::string, std::string>&)> formatter);
-    
-    /**
-     * @brief Push context key-value pair
-     */
-    static void pushContext(const std::string& key, const std::string& value);
-    
-    /**
-     * @brief Pop context key
-     */
-    static void popContext(const std::string& key);
+    static const proto::ProtoObject* getLevel(proto::ProtoContext* pContext);
 
 private:
-    static void log(Level level, const std::string& message, const std::map<std::string, std::string>& context);
-    static std::string formatJSON(Level level, const std::string& message, const std::map<std::string, std::string>& context);
-    static std::string formatText(Level level, const std::string& message, const std::map<std::string, std::string>& context);
-    static std::string levelToString(Level level);
+    static void log(proto::ProtoContext* pContext, Level level, const proto::ProtoString* message, const proto::ProtoSparseList* context);
+    static const proto::ProtoString* formatJSON(proto::ProtoContext* pContext, Level level, const proto::ProtoString* message, const proto::ProtoSparseList* context);
+    static const proto::ProtoString* formatText(proto::ProtoContext* pContext, Level level, const proto::ProtoString* message, const proto::ProtoSparseList* context);
+    static const proto::ProtoString* levelToString(proto::ProtoContext* pContext, Level level);
     
-    static Level currentLevel;
+    // Store level as ProtoObject (integer) in a global ProtoSparseList
+    // Key: "level" as ProtoString hash
+    // Value: Level as integer ProtoObject
+    static const proto::ProtoSparseList* levelStorage;
     static std::ostream* outputStream;
-    static std::function<std::string(Level, const std::string&, const std::map<std::string, std::string>&)> formatterFunc;
-    static std::map<std::string, std::string> contextMap;
     static std::mutex logMutex;
+    
+    /**
+     * @brief Get or create level storage
+     */
+    static const proto::ProtoSparseList* getLevelStorage(proto::ProtoContext* pContext);
+    
+    /**
+     * @brief Set level storage
+     */
+    static void setLevelStorage(proto::ProtoContext* pContext, const proto::ProtoSparseList* storage);
 };
 
 } // namespace protojs

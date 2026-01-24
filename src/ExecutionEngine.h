@@ -67,6 +67,7 @@ public:
 private:
     /**
      * @brief Get ProtoContext from JSContext
+     * Uses JSContextWrapper stored in JSContext opaque
      */
     static proto::ProtoContext* getProtoContext(JSContext* ctx);
 

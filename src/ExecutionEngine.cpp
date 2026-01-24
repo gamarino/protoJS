@@ -1,17 +1,20 @@
 #include "ExecutionEngine.h"
 #include "JSContext.h"
-#include <unordered_map>
 #include <mutex>
 
 namespace protojs {
 
-// Map JSContext to ProtoContext
-static std::unordered_map<JSContext*, proto::ProtoContext*> contextMap;
+// Map JSContext to ProtoContext using protoCore ProtoSparseList
+// Key: JSContext* hash (via pointer value)  
+// Value: ProtoContext* wrapped in ProtoExternalPointer
+// Note: We need a ProtoContext to access the map, so we'll use JSContextWrapper
+// For now, we'll rely on JSContextWrapper stored in JSContext opaque
 static std::mutex contextMutex;
 
 void ExecutionEngine::initialize(JSContext* ctx, proto::ProtoContext* pContext) {
-    std::lock_guard<std::mutex> lock(contextMutex);
-    contextMap[ctx] = pContext;
+    // ExecutionEngine doesn't need to store context mapping
+    // It can always get ProtoContext from JSContextWrapper stored in JSContext opaque
+    // This is more efficient and avoids the need for a global map
     
     // Set up QuickJS class operations to intercept
     // Note: QuickJS doesn't provide direct hooks for all operations,
@@ -20,18 +23,11 @@ void ExecutionEngine::initialize(JSContext* ctx, proto::ProtoContext* pContext) 
 }
 
 void ExecutionEngine::cleanup(JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(contextMutex);
-    contextMap.erase(ctx);
+    // No cleanup needed - JSContextWrapper handles it
 }
 
 proto::ProtoContext* ExecutionEngine::getProtoContext(JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(contextMutex);
-    auto it = contextMap.find(ctx);
-    if (it != contextMap.end()) {
-        return it->second;
-    }
-    
-    // Fallback: try to get from JSContextWrapper
+    // Get from JSContextWrapper stored in JSContext opaque
     JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
     if (wrapper) {
         return wrapper->getProtoContext();
