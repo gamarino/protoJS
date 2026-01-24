@@ -1,6 +1,7 @@
 #include "JSContext.h"
 #include "Deferred.h"
 #include "EventLoop.h"
+#include "console.h"
 #include "modules/IOModule.h"
 #include "modules/ProtoCoreModule.h"
 #include "modules/ProcessModule.h"
@@ -12,10 +13,6 @@
 #include <cstdlib>
 #include <thread>
 #include <chrono>
-
-namespace protojs {
-    void init_console(JSContext* ctx);
-}
 
 void printUsage(const char* programName) {
     std::cerr << "Usage: " << programName << " [options] <filename.js> or " << programName << " -e \"code\"" << std::endl;
@@ -81,7 +78,7 @@ int main(int argc, char** argv) {
     protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
     
     // Initialize modules
-    protojs::init_console(wrapper.getJSContext());
+    protojs::Console::init(wrapper.getJSContext());
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
     protojs::IOModule::init(wrapper.getJSContext());
     protojs::ProtoCoreModule::init(wrapper.getJSContext());

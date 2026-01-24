@@ -34,6 +34,14 @@ private:
         proto::ProtoSpace* space;
         JSContextWrapper* wrapper;
         
+        // Promise state
+        JSValue result = JS_UNDEFINED;
+        JSValue error = JS_UNDEFINED;
+        bool isResolved = false;
+        bool isRejected = false;
+        JSValue thenCallback = JS_UNDEFINED;
+        JSValue catchCallback = JS_UNDEFINED;
+        
         DeferredTask(JSContext* ctx, JSValue f, const std::string& code, JSValue res, JSValue rej, 
                      JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w)
             : func(f), funcCode(code), resolve(res), reject(rej), mainJSContext(ctx), 
@@ -42,6 +50,8 @@ private:
     
     static JSValue constructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
     static void finalizer(JSRuntime* rt, JSValue val);
+    static JSValue then(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    static JSValue catch_(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
     /**
      * @brief Execute a Deferred task in main thread (Opción B).

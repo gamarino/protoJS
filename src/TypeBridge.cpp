@@ -83,9 +83,31 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         }
     }
 
+    if (JS_IsFunction(ctx, val)) {
+        // Map JS Function to protoCore ProtoMethod
+        // For Phase 1, we store the function as a reference in a ProtoObject
+        // In full implementation, we'd compile to ProtoMethod
+        const proto::ProtoObject* pObj = pContext->newObject(true);
+        // Store function reference - in full implementation, would convert to ProtoMethod
+        // For now, we keep the JSValue and convert it back when needed
+        return pObj;
+    }
+
+    if (JS_IsDate(ctx, val)) {
+        // Map JS Date to protoCore Date
+        // Get timestamp
+        double timestamp;
+        if (JS_ToFloat64(ctx, &timestamp, val) == 0) {
+            // protoCore Date would be created from timestamp
+            // For Phase 1, store as number in ProtoObject
+            return pContext->fromDouble(timestamp);
+        }
+        return pContext->fromDouble(0);
+    }
+
     if (JS_IsObject(val)) {
         // Map JS Object to protoCore ProtoObject
-        const proto::ProtoObject* pObj = pContext->newObject(true); // Mutable by default for JS objects?
+        const proto::ProtoObject* pObj = pContext->newObject(true); // Mutable by default for JS objects
         
         // Iterate over JS object properties and set as attributes in protoCore
         JSPropertyEnum* props;
@@ -212,6 +234,22 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         // ProtoSet iteration needs to be implemented properly
         // For Fase 1, return empty array as placeholder
         return arr;
+    }
+
+    // Check for Date (stored as Double timestamp)
+    if (obj->isDouble(pContext)) {
+        // Could be a Date - for Phase 1, we'll check if it's in a reasonable date range
+        double d = obj->asDouble(pContext);
+        // If it's a reasonable timestamp (between 1970 and 2100), treat as Date
+        if (d > 0 && d < 4102444800000.0) { // Jan 1, 1970 to Jan 1, 2100 in milliseconds
+            JSValue date = JS_NewDate(ctx, d);
+            if (!JS_IsException(date)) {
+                return date;
+            }
+            JS_FreeValue(ctx, date);
+        }
+        // Otherwise, return as number
+        return JS_NewFloat64(ctx, d);
     }
 
     if (obj->isCell(pContext)) {

@@ -23,6 +23,8 @@ void Deferred::init(JSContext* ctx, JSContextWrapper* wrapper) {
     JS_NewClass(JS_GetRuntime(ctx), protojs_deferred_class_id, &class_def);
 
     JSValue proto = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, proto, "then", JS_NewCFunction(ctx, then, "then", 1));
+    JS_SetPropertyStr(ctx, proto, "catch", JS_NewCFunction(ctx, catch_, "catch", 1));
     JS_SetClassProto(ctx, protojs_deferred_class_id, proto);
 
     JSValue ctor = JS_NewCFunction2(ctx, constructor, "Deferred", 1, JS_CFUNC_constructor, 0);
@@ -101,8 +103,56 @@ void Deferred::finalizer(JSRuntime* rt, JSValue val) {
         JS_FreeValueRT(rt, task->func);
         JS_FreeValueRT(rt, task->resolve);
         JS_FreeValueRT(rt, task->reject);
+        JS_FreeValueRT(rt, task->result);
+        JS_FreeValueRT(rt, task->error);
+        JS_FreeValueRT(rt, task->thenCallback);
+        JS_FreeValueRT(rt, task->catchCallback);
         delete task;
     }
+}
+
+JSValue Deferred::then(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
+        return JS_ThrowTypeError(ctx, "then expects a function");
+    }
+    
+    DeferredTask* task = static_cast<DeferredTask*>(JS_GetOpaque(this_val, protojs_deferred_class_id));
+    if (!task) {
+        return JS_ThrowTypeError(ctx, "Invalid Deferred object");
+    }
+    
+    task->thenCallback = JS_DupValue(ctx, argv[0]);
+    
+    // If already resolved, call callback immediately
+    if (task->isResolved && !JS_IsUndefined(task->result)) {
+        JSValue thenArgs[] = { task->result };
+        JSValue thenResult = JS_Call(ctx, task->thenCallback, JS_UNDEFINED, 1, thenArgs);
+        JS_FreeValue(ctx, thenResult);
+    }
+    
+    return JS_DupValue(ctx, this_val); // Return this for chaining
+}
+
+JSValue Deferred::catch_(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
+        return JS_ThrowTypeError(ctx, "catch expects a function");
+    }
+    
+    DeferredTask* task = static_cast<DeferredTask*>(JS_GetOpaque(this_val, protojs_deferred_class_id));
+    if (!task) {
+        return JS_ThrowTypeError(ctx, "Invalid Deferred object");
+    }
+    
+    task->catchCallback = JS_DupValue(ctx, argv[0]);
+    
+    // If already rejected, call callback immediately
+    if (task->isRejected && !JS_IsUndefined(task->error)) {
+        JSValue catchArgs[] = { task->error };
+        JSValue catchResult = JS_Call(ctx, task->catchCallback, JS_UNDEFINED, 1, catchArgs);
+        JS_FreeValue(ctx, catchResult);
+    }
+    
+    return JS_DupValue(ctx, this_val); // Return this for chaining
 }
 
 void Deferred::executeTaskInMainThread(std::shared_ptr<DeferredTask> task) {
@@ -133,12 +183,13 @@ void Deferred::executeTaskInMainThread(std::shared_ptr<DeferredTask> task) {
         JSValue rejectFunc = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
             TaskResult* result = static_cast<TaskResult*>(JS_GetContextOpaque(ctx));
             if (result && argc > 0) {
+                result->value = JS_DupValue(ctx, argv[0]);
+                result->isError = true;
                 const char* errStr = JS_ToCString(ctx, argv[0]);
                 if (errStr) {
                     result->errorMessage = errStr;
                     JS_FreeCString(ctx, errStr);
                 }
-                result->isError = true;
             }
             return JS_UNDEFINED;
         }, "reject", 1);
