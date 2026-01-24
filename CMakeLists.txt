@@ -35,6 +35,11 @@ add_executable(protojs
     src/main.cpp
     src/TypeBridge.cpp
     src/JSContext.cpp
+    src/GCBridge.cpp
+    src/ExecutionEngine.cpp
+    src/ErrorHandler.cpp
+    src/logging/Logger.cpp
+    src/monitoring/Metrics.cpp
     src/Deferred.cpp
     src/console.cpp
     src/ThreadPoolExecutor.cpp

@@ -1,4 +1,5 @@
 #include "TypeBridge.h"
+#include "GCBridge.h"
 #include <string>
 #include <vector>
 
@@ -85,11 +86,117 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
 
     if (JS_IsFunction(ctx, val)) {
         // Map JS Function to protoCore ProtoMethod
-        // For Phase 1, we store the function as a reference in a ProtoObject
-        // In full implementation, we'd compile to ProtoMethod
+        // Store function as a special object with function reference
         const proto::ProtoObject* pObj = pContext->newObject(true);
-        // Store function reference - in full implementation, would convert to ProtoMethod
-        // For now, we keep the JSValue and convert it back when needed
+        // Register mapping so we can retrieve the JS function later
+        GCBridge::registerMapping(val, pObj, ctx);
+        // In full implementation, we'd compile JS bytecode to ProtoMethod
+        return pObj;
+    }
+
+    // Check for RegExp (class ID 139 = JS_CLASS_REGEXP)
+    if (JS_IsObject(val)) {
+        JSClassID classId = JS_GetClassID(val);
+        if (classId == 139) { // JS_CLASS_REGEXP
+            // Map JS RegExp to protoCore object with pattern and flags
+            const proto::ProtoObject* pObj = pContext->newObject(true);
+            
+            JSValue sourceVal = JS_GetPropertyStr(ctx, val, "source");
+            JSValue flagsVal = JS_GetPropertyStr(ctx, val, "flags");
+            
+            if (JS_IsString(sourceVal)) {
+                const char* source = JS_ToCString(ctx, sourceVal);
+                const proto::ProtoString* pSource = pContext->fromUTF8String(source)->asString(pContext);
+                pObj = pObj->setAttribute(pContext, pContext->fromUTF8String("source")->asString(pContext), pSource);
+                JS_FreeCString(ctx, source);
+            }
+            
+            if (JS_IsString(flagsVal)) {
+                const char* flags = JS_ToCString(ctx, flagsVal);
+                const proto::ProtoString* pFlags = pContext->fromUTF8String(flags)->asString(pContext);
+                pObj = pObj->setAttribute(pContext, pContext->fromUTF8String("flags")->asString(pContext), pFlags);
+                JS_FreeCString(ctx, flags);
+            }
+            
+            JS_FreeValue(ctx, sourceVal);
+            JS_FreeValue(ctx, flagsVal);
+            return pObj;
+        }
+        
+        // Check for Map (class ID 156 = JS_CLASS_MAP)
+        if (classId == 156) {
+            // Map JS Map to protoCore ProtoSparseList (key-value pairs)
+            const proto::ProtoSparseList* mapList = pContext->newSparseList();
+            JSValue iter = JS_GetPropertyStr(ctx, val, "entries");
+            if (JS_IsFunction(ctx, iter)) {
+                JSValue entries = JS_Call(ctx, iter, val, 0, nullptr);
+                if (JS_IsObject(entries)) {
+                    // Iterate over entries
+                    // Note: QuickJS Map iteration requires manual handling
+                    // For now, return empty sparse list as placeholder
+                }
+                JS_FreeValue(ctx, entries);
+            }
+            JS_FreeValue(ctx, iter);
+            return mapList->asObject(pContext);
+        }
+        
+        // Check for Set (class ID 157 = JS_CLASS_SET)
+        if (classId == 157) {
+            // Map JS Set to protoCore ProtoSet
+            const proto::ProtoSet* pSet = pContext->newSet();
+            JSValue iter = JS_GetPropertyStr(ctx, val, "values");
+            if (JS_IsFunction(ctx, iter)) {
+                JSValue values = JS_Call(ctx, iter, val, 0, nullptr);
+                if (JS_IsObject(values)) {
+                    // Iterate over values and add to ProtoSet
+                    // Note: QuickJS Set iteration requires manual handling
+                }
+                JS_FreeValue(ctx, values);
+            }
+            JS_FreeValue(ctx, iter);
+            return pSet->asObject(pContext);
+        }
+        
+        // Check for TypedArray (class IDs 142-154)
+        if (classId >= 142 && classId <= 154) {
+            // Map JS TypedArray to protoCore ProtoByteBuffer or ProtoList
+            size_t len;
+            uint8_t* data = JS_GetTypedArrayBuffer(ctx, val, &len, nullptr);
+            if (data && len > 0) {
+                // Get underlying ArrayBuffer
+                JSValue buffer = JS_GetTypedArrayBuffer(ctx, val, nullptr, nullptr);
+                const proto::ProtoObject* bufferObj = fromJS(ctx, buffer, pContext);
+                JS_FreeValue(ctx, buffer);
+                return bufferObj;
+            }
+        }
+        
+        // Check for ArrayBuffer (class ID 140 = JS_CLASS_ARRAY_BUFFER)
+        if (classId == 140) {
+            // Map JS ArrayBuffer to protoCore ProtoByteBuffer
+            size_t len;
+            uint8_t* data = JS_GetArrayBuffer(ctx, &len, val);
+            if (data && len > 0) {
+                // Create ProtoByteBuffer from data
+                const proto::ProtoByteBuffer* pBuffer = pContext->newByteBuffer(data, len);
+                return pBuffer->asObject(pContext);
+            }
+        }
+    }
+
+    // Check for Symbol
+    if (JS_IsSymbol(val)) {
+        // Map JS Symbol to protoCore object with symbol description
+        const proto::ProtoObject* pObj = pContext->newObject(true);
+        JSValue desc = JS_GetPropertyStr(ctx, val, "description");
+        if (JS_IsString(desc)) {
+            const char* descStr = JS_ToCString(ctx, desc);
+            const proto::ProtoString* pDesc = pContext->fromUTF8String(descStr)->asString(pContext);
+            pObj = pObj->setAttribute(pContext, pContext->fromUTF8String("description")->asString(pContext), pDesc);
+            JS_FreeCString(ctx, descStr);
+        }
+        JS_FreeValue(ctx, desc);
         return pObj;
     }
 
@@ -252,15 +359,28 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         return JS_NewFloat64(ctx, d);
     }
 
+    // Check for RegExp (stored as object with source and flags)
     if (obj->isCell(pContext)) {
-        // Map back to JS Object
-        // TODO: Implement proper attribute iteration when getAttributes is available
-        // For now, return empty object
+        // Try to detect if it's a RegExp by checking attributes
+        // For now, map back to JS Object
         JSValue jsObj = JS_NewObject(ctx);
-        // const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
-        // We need to iterate over attributes... ProtoSparseList has processElements
-        // I will need a helper or just skip for now until I have it figured out.
+        // TODO: Implement proper attribute iteration when getAttributes is available
         return jsObj;
+    }
+
+    // Check for Symbol (stored as object with description)
+    // Note: We can't fully recreate JS Symbol, so return as object
+    // This is a limitation - Symbols are unique in JS
+
+    // Check for ArrayBuffer/ByteBuffer
+    if (obj->isBuffer(pContext)) {
+        const proto::ProtoByteBuffer* buffer = obj->asByteBuffer(pContext);
+        if (buffer) {
+            size_t len = buffer->getSize(pContext);
+            uint8_t* data = const_cast<uint8_t*>(buffer->getData(pContext));
+            JSValue jsBuffer = JS_NewArrayBufferCopy(ctx, data, len);
+            return jsBuffer;
+        }
     }
 
     return JS_UNDEFINED;

@@ -2,6 +2,8 @@
 #include "CPUThreadPool.h"
 #include "IOThreadPool.h"
 #include "EventLoop.h"
+#include "GCBridge.h"
+#include "ExecutionEngine.h"
 #include <iostream>
 
 namespace protojs {
@@ -12,6 +14,15 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     
     // Initialize protoCore root context
     pContext = pSpace.rootContext;
+    
+    // Initialize GCBridge for this context
+    GCBridge::initialize(ctx);
+    
+    // Initialize ExecutionEngine
+    ExecutionEngine::initialize(ctx, pContext);
+    
+    // Store pointer to this wrapper in JSContext opaque for GCBridge access
+    JS_SetContextOpaque(ctx, this);
     
     // Initialize thread pools
     if (cpuThreads > 0) {
@@ -30,6 +41,12 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
 }
 
 JSContextWrapper::~JSContextWrapper() {
+    // Cleanup ExecutionEngine
+    ExecutionEngine::cleanup(ctx);
+    
+    // Cleanup GCBridge mappings
+    GCBridge::cleanup(ctx);
+    
     // Shutdown thread pools
     CPUThreadPool::shutdown();
     IOThreadPool::shutdown();
