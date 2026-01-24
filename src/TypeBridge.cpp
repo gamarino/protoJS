@@ -30,24 +30,57 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         return pStr;
     }
 
+    if (JS_IsBigInt(ctx, val)) {
+        // Convert BigInt to LargeInteger
+        int64_t v;
+        if (JS_ToBigInt64(ctx, &v, val) == 0) {
+            return pContext->fromLong(v);
+        }
+        // For very large BigInt beyond int64_t, we'd need LargeInteger support
+        // For now, truncate to int64_t
+        return pContext->fromLong(0); // Placeholder - should use LargeInteger
+    }
+
     if (JS_IsArray(ctx, val)) {
-        // Map JS Array to ProtoList or ProtoSparseList? 
-        // User request says "Implement all basic types of javascript using the primitives of protoCore"
-        // And "Collections that protoCore supports and do not have a clear equivalence in javascript will be implemented as new modules"
-        // Modern JS Array is usually mapped to ProtoSparseList if we want to support large/sparse arrays efficiently.
-        const proto::ProtoSparseList* pList = pContext->newSparseList();
+        // Map JS Array to ProtoList (inmutable) or ProtoSparseList (mutable/sparse)
+        // For Fase 1, we'll use ProtoList for dense arrays (inmutable by default)
         JSValue lenVal = JS_GetPropertyStr(ctx, val, "length");
         uint32_t len;
         JS_ToUint32(ctx, &len, lenVal);
         JS_FreeValue(ctx, lenVal);
 
+        // Check if array is sparse (has holes)
+        bool isSparse = false;
         for (uint32_t i = 0; i < len; i++) {
-            JSValue item = JS_GetPropertyUint32(ctx, val, i);
-            const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
-            pList = pList->setAt(pContext, i, pItem);
-            JS_FreeValue(ctx, item);
+            if (!JS_HasProperty(ctx, val, i)) {
+                isSparse = true;
+                break;
+            }
         }
-        return pList->asObject(pContext);
+
+        if (isSparse || len > 10000) {
+            // Use ProtoSparseList for sparse or very large arrays
+            const proto::ProtoSparseList* pList = pContext->newSparseList();
+            for (uint32_t i = 0; i < len; i++) {
+                if (JS_HasProperty(ctx, val, i)) {
+                    JSValue item = JS_GetPropertyUint32(ctx, val, i);
+                    const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
+                    pList = pList->setAt(pContext, i, pItem);
+                    JS_FreeValue(ctx, item);
+                }
+            }
+            return pList->asObject(pContext);
+        } else {
+            // Use ProtoList for dense arrays (inmutable)
+            const proto::ProtoList* pList = pContext->newList();
+            for (uint32_t i = 0; i < len; i++) {
+                JSValue item = JS_GetPropertyUint32(ctx, val, i);
+                const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
+                pList = pList->appendLast(pContext, pItem);
+                JS_FreeValue(ctx, item);
+            }
+            return pList->asObject(pContext);
+        }
     }
 
     if (JS_IsObject(val)) {
@@ -89,26 +122,59 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
     }
 
     if (obj->isInteger(pContext)) {
-        return JS_NewInt64(ctx, obj->asLong(pContext));
+        long long val = obj->asLong(pContext);
+        // Check if it fits in 32-bit, otherwise use BigInt
+        if (val >= INT32_MIN && val <= INT32_MAX) {
+            return JS_NewInt32(ctx, static_cast<int32_t>(val));
+        } else {
+            // Use BigInt for large integers
+            return JS_NewBigInt64(ctx, val);
+        }
     }
 
-    if (obj->isDouble(pContext) || obj->isFloat(pContext)) {
+    if (obj->isDouble(pContext)) {
         return JS_NewFloat64(ctx, obj->asDouble(pContext));
     }
 
     if (obj->isString(pContext)) {
-        // This is tricky because ProtoString doesn't provide a direct const char* easily without iterator or buffer
-        // Let's assume for now we can get a UTF8 string somehow. 
-        // Looking at protoCore.h: there is no simple getString() method.
-        // Wait, ProtoString has asObject()... I might need to see how to extract the content.
-        // I'll use a placeholder for now and check how to implement it.
-        return JS_NewString(ctx, "[ProtoCore String]"); 
+        // Convert ProtoString to UTF-8 string
+        // Use asList to iterate over characters
+        const proto::ProtoString* pStr = obj->asString(pContext);
+        const proto::ProtoList* charList = pStr->asList(pContext);
+        
+        std::string result;
+        result.reserve(pStr->getSize(pContext) * 4); // Reserve space for UTF-8
+        
+        unsigned long size = charList->getSize(pContext);
+        for (unsigned long i = 0; i < size; i++) {
+            const proto::ProtoObject* charObj = charList->getAt(pContext, i);
+            // Character is stored as UnicodeChar (unsigned int)
+            unsigned int unicodeChar = charObj->asLong(pContext);
+            
+            // Convert Unicode to UTF-8
+            if (unicodeChar < 0x80) {
+                result += static_cast<char>(unicodeChar);
+            } else if (unicodeChar < 0x800) {
+                result += static_cast<char>(0xC0 | (unicodeChar >> 6));
+                result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
+            } else if (unicodeChar < 0x10000) {
+                result += static_cast<char>(0xE0 | (unicodeChar >> 12));
+                result += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
+                result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
+            } else {
+                result += static_cast<char>(0xF0 | (unicodeChar >> 18));
+                result += static_cast<char>(0x80 | ((unicodeChar >> 12) & 0x3F));
+                result += static_cast<char>(0x80 | ((unicodeChar >> 6) & 0x3F));
+                result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
+            }
+        }
+        
+        return JS_NewString(ctx, result.c_str());
     }
 
-    if (obj->isTuple(pContext) || obj->asList(pContext)) {
-        // Map list/tuple to JS Array
+    // Check for ProtoList
+    if (const proto::ProtoList* list = obj->asList(pContext)) {
         JSValue arr = JS_NewArray(ctx);
-        const proto::ProtoList* list = obj->asList(pContext);
         unsigned long size = list->getSize(pContext);
         for (unsigned long i = 0; i < size; i++) {
             const proto::ProtoObject* item = list->getAt(pContext, i);
@@ -117,10 +183,43 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         return arr;
     }
 
+    // Check for ProtoTuple
+    if (obj->isTuple(pContext)) {
+        const proto::ProtoTuple* tuple = obj->asTuple(pContext);
+        JSValue arr = JS_NewArray(ctx);
+        unsigned long size = tuple->getSize(pContext);
+        for (unsigned long i = 0; i < size; i++) {
+            const proto::ProtoObject* item = tuple->getAt(pContext, i);
+            JS_SetPropertyUint32(ctx, arr, i, toJS(ctx, item, pContext));
+        }
+        // Make array read-only to reflect immutability
+        JS_DefinePropertyValueStr(ctx, arr, "length", JS_NewInt32(ctx, size), JS_PROP_WRITABLE);
+        return arr;
+    }
+
+    // Check for ProtoSparseList
+    // Note: SparseList conversion will be handled by protoCore module wrapper
+    // For now, return empty array as placeholder
+    // TODO: Implement proper SparseList iteration when iterator API is confirmed
+
+    // Check for ProtoSet
+    if (obj->isSet(pContext)) {
+        const proto::ProtoSet* set = obj->asSet(pContext);
+        // For now, return as array of values
+        // TODO: Return proper Set object when Set wrapper is available
+        JSValue arr = JS_NewArray(ctx);
+        // Use processValues if available, otherwise skip for now
+        // ProtoSet iteration needs to be implemented properly
+        // For Fase 1, return empty array as placeholder
+        return arr;
+    }
+
     if (obj->isCell(pContext)) {
         // Map back to JS Object
+        // TODO: Implement proper attribute iteration when getAttributes is available
+        // For now, return empty object
         JSValue jsObj = JS_NewObject(ctx);
-        const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
+        // const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
         // We need to iterate over attributes... ProtoSparseList has processElements
         // I will need a helper or just skip for now until I have it figured out.
         return jsObj;

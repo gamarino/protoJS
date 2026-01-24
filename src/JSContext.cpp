@@ -1,19 +1,39 @@
 #include "JSContext.h"
+#include "CPUThreadPool.h"
+#include "IOThreadPool.h"
+#include "EventLoop.h"
 #include <iostream>
 
 namespace protojs {
 
-JSContextWrapper::JSContextWrapper() : pSpace() {
+JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
     rt = JS_NewRuntime();
     ctx = JS_NewContext(rt);
     
     // Initialize protoCore root context
     pContext = pSpace.rootContext;
     
-    // TODO: Register global objects like 'console', 'Deferred', etc.
+    // Initialize thread pools
+    if (cpuThreads > 0) {
+        CPUThreadPool::initialize(cpuThreads);
+    } else {
+        CPUThreadPool::initialize(); // Use default (CPU count)
+    }
+    
+    if (ioThreads > 0) {
+        IOThreadPool::initialize(ioThreads);
+    } else {
+        IOThreadPool::initialize(0, ioFactor); // Use default with factor
+    }
+    
+    // Event loop is initialized on first access (singleton)
 }
 
 JSContextWrapper::~JSContextWrapper() {
+    // Shutdown thread pools
+    CPUThreadPool::shutdown();
+    IOThreadPool::shutdown();
+    
     JS_FreeContext(ctx);
     JS_FreeRuntime(rt);
 }

@@ -9,7 +9,13 @@ namespace protojs {
 
 class JSContextWrapper {
 public:
-    JSContextWrapper();
+    /**
+     * @brief Constructs a JSContextWrapper with optional thread pool configuration.
+     * @param cpuThreads Number of CPU threads (0 = auto-detect)
+     * @param ioThreads Number of I/O threads (0 = auto-calculate)
+     * @param ioFactor Factor for I/O threads (used if ioThreads == 0, default: 3.0)
+     */
+    JSContextWrapper(size_t cpuThreads = 0, size_t ioThreads = 0, double ioFactor = 3.0);
     ~JSContextWrapper();
 
     /**
@@ -31,6 +37,11 @@ public:
      * @brief Returns the protoCore space.
      */
     proto::ProtoSpace* getProtoSpace() { return &pSpace; }
+
+    /**
+     * @brief Returns the QuickJS runtime.
+     */
+    JSRuntime* getJSRuntime() { return rt; }
 
 private:
     JSRuntime* rt;
