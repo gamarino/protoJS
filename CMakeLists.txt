@@ -78,7 +78,7 @@ add_executable(protojs
 # Link Libs
 target_link_libraries(protojs
     PRIVATE
-    ${PROTOCORE_DIR}/libproto.a
+    ${PROTOCORE_DIR}/build/libproto.a
     pthread
     dl
     m
