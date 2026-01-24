@@ -239,7 +239,7 @@ const proto::ProtoString* Metrics::exportJSON(proto::ProtoContext* pContext) {
             snprintf(buf, sizeof(buf), "%g", d);
             json = json->appendLast(pContext, pContext->fromUTF8String(buf)->asString(pContext));
         }
-        iter = iter->advance(pContext);
+        iter = const_cast<proto::ProtoSparseListIterator*>(iter)->advance(pContext);
         first = false;
     }
     
@@ -272,7 +272,7 @@ const proto::ProtoString* Metrics::makeKey(proto::ProtoContext* pContext, const 
         if (value->isString(pContext)) {
             key = key->appendLast(pContext, value->asString(pContext));
         }
-        iter = iter->advance(pContext);
+        iter = const_cast<proto::ProtoSparseListIterator*>(iter)->advance(pContext);
         first = false;
     }
     

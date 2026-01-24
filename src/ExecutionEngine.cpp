@@ -1,6 +1,8 @@
 #include "ExecutionEngine.h"
 #include "JSContext.h"
 #include <mutex>
+#include <string>
+#include <cstring>
 
 namespace protojs {
 
@@ -78,7 +80,7 @@ JSValue ExecutionEngine::opGetProperty(JSContext* ctx, JSValue obj, JSAtom prop)
 int ExecutionEngine::opSetProperty(JSContext* ctx, JSValue obj, JSAtom prop, JSValue val, int flags) {
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) {
-        return JS_SetProperty(ctx, obj, prop, val, flags);
+        return JS_SetProperty(ctx, obj, prop, val);
     }
     
     // Check if object is managed by protoCore
@@ -110,7 +112,7 @@ int ExecutionEngine::opSetProperty(JSContext* ctx, JSValue obj, JSAtom prop, JSV
     }
     
     // Fallback to QuickJS
-    return JS_SetProperty(ctx, obj, prop, val, flags);
+    return JS_SetProperty(ctx, obj, prop, val);
 }
 
 JSValue ExecutionEngine::opCall(JSContext* ctx, JSValue func, JSValue this_val, int argc, JSValueConst* argv) {
@@ -132,12 +134,10 @@ JSValue ExecutionEngine::opCall(JSContext* ctx, JSValue func, JSValue this_val, 
         // Get this value
         const proto::ProtoObject* thisObj = TypeBridge::fromJS(ctx, this_val, pContext);
         
-        // Call protoCore method
-        const proto::ProtoMethod* method = funcObj->asMethod(pContext);
-        const proto::ProtoObject* result = method->call(pContext, thisObj, args);
-        
-        // Convert result back to JS
-        return TypeBridge::toJS(ctx, result, pContext);
+        // Check if it's a method and call it
+        // Note: protoCore methods are function pointers, not objects
+        // For now, fallback to QuickJS
+        return JS_Call(ctx, func, this_val, argc, argv);
     }
     
     // Fallback to QuickJS
@@ -177,49 +177,73 @@ JSValue ExecutionEngine::opNewArray(JSContext* ctx) {
 }
 
 JSValue ExecutionEngine::opAdd(JSContext* ctx, JSValue a, JSValue b) {
-    proto::ProtoContext* pContext = getProtoContext(ctx);
-    if (!pContext) {
-        return JS_Add(ctx, a, b);
+    // QuickJS doesn't have JS_Add - use evaluation of binary operation
+    JSValue result;
+    if (JS_IsNumber(a) && JS_IsNumber(b)) {
+        double da, db;
+        JS_ToFloat64(ctx, &da, a);
+        JS_ToFloat64(ctx, &db, b);
+        result = JS_NewFloat64(ctx, da + db);
+    } else if (JS_IsString(a) || JS_IsString(b)) {
+        // String concatenation
+        const char* sa = JS_ToCString(ctx, a);
+        const char* sb = JS_ToCString(ctx, b);
+        std::string concat = std::string(sa ? sa : "") + std::string(sb ? sb : "");
+        result = JS_NewString(ctx, concat.c_str());
+        JS_FreeCString(ctx, sa);
+        JS_FreeCString(ctx, sb);
+    } else {
+        result = JS_UNDEFINED;
     }
-    
-    // Convert to protoCore and perform operation
-    const proto::ProtoObject* aObj = TypeBridge::fromJS(ctx, a, pContext);
-    const proto::ProtoObject* bObj = TypeBridge::fromJS(ctx, b, pContext);
-    
-    // Perform addition in protoCore
-    // Note: protoCore doesn't have direct arithmetic operators
-    // We'd need to check types and use appropriate methods
-    // For now, fallback to QuickJS
-    return JS_Add(ctx, a, b);
+    return result;
 }
 
 JSValue ExecutionEngine::opSub(JSContext* ctx, JSValue a, JSValue b) {
-    // Similar to opAdd
-    return JS_Sub(ctx, a, b);
+    double da, db;
+    if (JS_ToFloat64(ctx, &da, a) == 0 && JS_ToFloat64(ctx, &db, b) == 0) {
+        return JS_NewFloat64(ctx, da - db);
+    }
+    return JS_UNDEFINED;
 }
 
 JSValue ExecutionEngine::opMul(JSContext* ctx, JSValue a, JSValue b) {
-    return JS_Mul(ctx, a, b);
+    double da, db;
+    if (JS_ToFloat64(ctx, &da, a) == 0 && JS_ToFloat64(ctx, &db, b) == 0) {
+        return JS_NewFloat64(ctx, da * db);
+    }
+    return JS_UNDEFINED;
 }
 
 JSValue ExecutionEngine::opDiv(JSContext* ctx, JSValue a, JSValue b) {
-    return JS_Div(ctx, a, b);
+    double da, db;
+    if (JS_ToFloat64(ctx, &da, a) == 0 && JS_ToFloat64(ctx, &db, b) == 0) {
+        if (db != 0.0) {
+            return JS_NewFloat64(ctx, da / db);
+        }
+        return JS_ThrowTypeError(ctx, "Division by zero");
+    }
+    return JS_UNDEFINED;
 }
 
 int ExecutionEngine::opCompare(JSContext* ctx, JSValue a, JSValue b) {
-    proto::ProtoContext* pContext = getProtoContext(ctx);
-    if (!pContext) {
-        return JS_Compare(ctx, a, b);
+    // Comparison returns: -1, 0, or 1
+    if (JS_IsNumber(a) && JS_IsNumber(b)) {
+        double da, db;
+        JS_ToFloat64(ctx, &da, a);
+        JS_ToFloat64(ctx, &db, b);
+        if (da < db) return -1;
+        if (da > db) return 1;
+        return 0;
     }
-    
-    // Convert to protoCore and compare
-    const proto::ProtoObject* aObj = TypeBridge::fromJS(ctx, a, pContext);
-    const proto::ProtoObject* bObj = TypeBridge::fromJS(ctx, b, pContext);
-    
-    // Use protoCore comparison
-    // Note: protoCore has comparison methods
-    // For now, fallback to QuickJS
-    return JS_Compare(ctx, a, b);
+    if (JS_IsString(a) && JS_IsString(b)) {
+        const char* sa = JS_ToCString(ctx, a);
+        const char* sb = JS_ToCString(ctx, b);
+        int result = strcmp(sa ? sa : "", sb ? sb : "");
+        JS_FreeCString(ctx, sa);
+        JS_FreeCString(ctx, sb);
+        return (result < 0) ? -1 : (result > 0) ? 1 : 0;
+    }
+    return 0;  // Fallback: equal
 }
 
 } // namespace protojs

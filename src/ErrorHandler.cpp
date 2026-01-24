@@ -40,7 +40,14 @@ static const char* protoStringToCString(JSContext* ctx, const proto::ProtoString
     }
     
     // Allocate C string using QuickJS (will be freed by JS_FreeCString)
-    return JS_NewString(ctx, result.c_str()) ? JS_ToCString(ctx, JS_NewString(ctx, result.c_str())) : nullptr;
+    JSValue jsStr = JS_NewString(ctx, result.c_str());
+    if (JS_IsString(jsStr)) {
+        const char* cstr = JS_ToCString(ctx, jsStr);
+        JS_FreeValue(ctx, jsStr);
+        return cstr;
+    }
+    JS_FreeValue(ctx, jsStr);
+    return nullptr;
 }
 
 JSValue ErrorHandler::createError(JSContext* ctx, proto::ProtoContext* pContext, ErrorType type, const proto::ProtoString* message, const proto::ProtoObject* code) {

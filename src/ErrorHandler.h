@@ -3,6 +3,7 @@
 
 #include "quickjs.h"
 #include "headers/protoCore.h"
+#include <functional>
 
 namespace protojs {
 

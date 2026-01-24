@@ -25,8 +25,9 @@ public:
 private:
     // Lightweight task structure (not a full ProtoThread)
     struct DeferredTask {
-        JSValue func;                    // Function from main context (for reference, not used in worker)
-        std::string funcCode;            // Serialized function code for worker thread
+        JSValue func;                    // Function from main context (for reference)
+        uint8_t* serializedFunc;        // Serialized function bytecode buffer
+        size_t serializedFuncSize;      // Size of serialized buffer
         JSValue resolve;
         JSValue reject;
         JSContext* mainJSContext;  // Main thread context (for callbacks)
@@ -42,10 +43,26 @@ private:
         JSValue thenCallback = JS_UNDEFINED;
         JSValue catchCallback = JS_UNDEFINED;
         
-        DeferredTask(JSContext* ctx, JSValue f, const std::string& code, JSValue res, JSValue rej, 
-                     JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w)
-            : func(f), funcCode(code), resolve(res), reject(rej), mainJSContext(ctx), 
+        // Result from worker thread
+        uint8_t* serializedResult = nullptr;  // Serialized result buffer
+        size_t serializedResultSize = 0;     // Size of result buffer
+        bool hasError = false;                // Whether execution resulted in error
+        
+        DeferredTask(JSContext* ctx, JSValue f, uint8_t* serialized, size_t serializedSize,
+                     JSValue res, JSValue rej, JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w)
+            : func(f), serializedFunc(serialized), serializedFuncSize(serializedSize),
+              resolve(res), reject(rej), mainJSContext(ctx), 
               rt(runtime), space(s), wrapper(w) {}
+        
+        ~DeferredTask() {
+            // Free serialized buffers (allocated with js_malloc_rt)
+            if (serializedFunc) {
+                js_free_rt(rt, serializedFunc);
+            }
+            if (serializedResult) {
+                js_free_rt(rt, serializedResult);
+            }
+        }
     };
     
     static JSValue constructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
@@ -54,19 +71,18 @@ private:
     static JSValue catch_(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
     /**
-     * @brief Execute a Deferred task in main thread (Opción B).
+     * @brief Execute a Deferred task in worker thread using bytecode transfer.
      * 
-     * Función JS se ejecuta en main thread, trabajo pesado se delega a protoCore.
+     * Serializes the function, executes it in a worker thread, and handles result round-trip.
      */
-    static void executeTaskInMainThread(std::shared_ptr<DeferredTask> task);
+    static void executeTaskInWorkerThread(std::shared_ptr<DeferredTask> task);
     
     /**
-     * @brief Execute heavy work in protoCore on worker thread.
+     * @brief Worker thread execution function.
      * 
-     * Crea ProtoContext aislado y ejecuta trabajo en CPUThreadPool.
+     * Deserializes function, executes it, and serializes result.
      */
-    static void executeWorkInWorkerThread(std::shared_ptr<DeferredTask> task, 
-                                         const proto::ProtoObject* workFunction);
+    static void workerThreadExecution(std::shared_ptr<DeferredTask> task);
     
     /**
      * @brief Helper to get JSContextWrapper from JSContext opaque data.

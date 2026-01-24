@@ -158,7 +158,7 @@ const proto::ProtoString* Logger::formatText(proto::ProtoContext* pContext, Leve
             if (value->isString(pContext)) {
                 formatted = formatted->appendLast(pContext, value->asString(pContext));
             }
-            iter = iter->advance(pContext);
+            iter = const_cast<proto::ProtoSparseListIterator*>(iter)->advance(pContext);
         }
     }
     

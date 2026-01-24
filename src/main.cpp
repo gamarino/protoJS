@@ -108,12 +108,24 @@ int main(int argc, char** argv) {
     JSValue result = wrapper.eval(code, filename);
     
     // Process event loop to handle any Deferred callbacks
-    // In a full implementation, this would be a proper event loop
-    // For now, we'll process a few times to handle immediate callbacks
-    for (int j = 0; j < 10 && protojs::EventLoop::getInstance().hasPendingCallbacks(); ++j) {
+    // Wait for all callbacks to complete (with timeout)
+    auto start = std::chrono::steady_clock::now();
+    const auto timeout = std::chrono::seconds(30); // 30 second timeout
+    
+    while (protojs::EventLoop::getInstance().hasPendingCallbacks()) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        
+        // Check timeout
+        auto now = std::chrono::steady_clock::now();
+        if (now - start > timeout) {
+            std::cerr << "Warning: Event loop timeout reached. Some callbacks may not have completed." << std::endl;
+            break;
+        }
     }
+    
+    // Process any remaining callbacks one more time
+    protojs::EventLoop::getInstance().processCallbacks();
     
     JS_FreeValue(wrapper.getJSContext(), result);
 
