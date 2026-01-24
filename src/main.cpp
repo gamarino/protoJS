@@ -5,6 +5,15 @@
 #include "modules/IOModule.h"
 #include "modules/ProtoCoreModule.h"
 #include "modules/ProcessModule.h"
+#include "modules/CommonJSLoader.h"
+#include "modules/path/PathModule.h"
+#include "modules/fs/FSModule.h"
+#include "modules/url/URLModule.h"
+#include "modules/http/HTTPModule.h"
+#include "modules/events/EventsModule.h"
+#include "modules/stream/StreamModule.h"
+#include "modules/util/UtilModule.h"
+#include "modules/crypto/CryptoModule.h"
 #include "quickjs.h"
 #include <iostream>
 #include <fstream>
@@ -83,6 +92,17 @@ int main(int argc, char** argv) {
     protojs::IOModule::init(wrapper.getJSContext());
     protojs::ProtoCoreModule::init(wrapper.getJSContext());
     protojs::ProcessModule::init(wrapper.getJSContext(), argc, argv);
+    
+    // Initialize Phase 2 modules
+    protojs::CommonJSLoader::init(wrapper.getJSContext());
+    protojs::PathModule::init(wrapper.getJSContext());
+    protojs::FSModule::init(wrapper.getJSContext());
+    protojs::URLModule::init(wrapper.getJSContext());
+    protojs::HTTPModule::init(wrapper.getJSContext());
+    protojs::EventsModule::init(wrapper.getJSContext());
+    protojs::StreamModule::init(wrapper.getJSContext());
+    protojs::UtilModule::init(wrapper.getJSContext());
+    protojs::CryptoModule::init(wrapper.getJSContext());
 
     // Evaluate code
     JSValue result = wrapper.eval(code, filename);

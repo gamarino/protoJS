@@ -41,9 +41,32 @@ add_executable(protojs
     src/CPUThreadPool.cpp
     src/IOThreadPool.cpp
     src/EventLoop.cpp
+    # Module system
+    src/modules/ModuleResolver.cpp
+    src/modules/ModuleCache.cpp
+    src/modules/ESModuleLoader.cpp
+    src/modules/CommonJSLoader.cpp
+    src/modules/ModuleInterop.cpp
+    src/modules/AsyncModuleLoader.cpp
+    # Core modules
     src/modules/IOModule.cpp
     src/modules/ProtoCoreModule.cpp
     src/modules/ProcessModule.cpp
+    src/modules/path/PathModule.cpp
+    src/modules/fs/FSModule.cpp
+    src/modules/url/URLModule.cpp
+    src/modules/http/HTTPModule.cpp
+    src/modules/events/EventsModule.cpp
+    src/modules/stream/StreamModule.cpp
+    src/modules/util/UtilModule.cpp
+    src/modules/crypto/CryptoModule.cpp
+    # Native modules
+    src/native/DynamicLibraryLoader.cpp
+    src/native/NativeModuleWrapper.cpp
+    # npm
+    src/npm/PackageResolver.cpp
+    src/npm/PackageInstaller.cpp
+    src/npm/ScriptExecutor.cpp
     ${QUICKJS_SRCS}
 )
 
@@ -54,6 +77,8 @@ target_link_libraries(protojs
     pthread
     dl
     m
+    ssl
+    crypto
 )
 
 # Build settings for ProtoCore

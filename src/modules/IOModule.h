@@ -20,9 +20,13 @@ public:
      * @param ctx QuickJS context
      */
     static void init(JSContext* ctx);
+    
+    // Async I/O operations (return Promises) - public for use by fs module
+    static JSValue readFileAsync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    static JSValue writeFileAsync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
 
 private:
-    // I/O operations
+    // I/O operations (synchronous - for backward compatibility)
     static JSValue readFile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue writeFile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
