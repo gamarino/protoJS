@@ -3,6 +3,7 @@
 #include <openssl/rand.h>
 #include <sstream>
 #include <iomanip>
+#include <vector>
 
 namespace protojs {
 

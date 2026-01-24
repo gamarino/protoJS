@@ -158,9 +158,11 @@ JSValue IOModule::readFileAsync(JSContext* ctx, JSValueConst this_val, int argc,
     });
     
     // Schedule callback when future completes
-    EventLoop::getInstance().enqueueCallback([future, resolve, reject, ctx, filePath]() {
+    // Use shared_ptr to manage future lifetime properly
+    auto futurePtr = std::make_shared<std::future<std::string>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, reject, ctx, filePath]() {
         try {
-            std::string content = future.get();
+            std::string content = futurePtr->get();
             JSValue contentVal = JS_NewString(ctx, content.c_str());
             JSValue args[] = { contentVal };
             JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
@@ -218,9 +220,10 @@ JSValue IOModule::writeFileAsync(JSContext* ctx, JSValueConst this_val, int argc
     }, "reject", 1);
     
     // Schedule callback
-    EventLoop::getInstance().enqueueCallback([future, resolve, reject, ctx]() {
+    auto futurePtr = std::make_shared<std::future<bool>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, reject, ctx]() {
         try {
-            bool success = future.get();
+            bool success = futurePtr->get();
             JSValue resultVal = JS_NewBool(ctx, success);
             JSValue args[] = { resultVal };
             JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);

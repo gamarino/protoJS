@@ -1,5 +1,5 @@
 #include "NativeModuleWrapper.h"
-#include "TypeBridge.h"
+#include "../TypeBridge.h"
 #include "../JSContext.h"
 #include <stdexcept>
 
@@ -39,7 +39,7 @@ JSValue NativeModuleWrapper::wrapNativeFunction(
         // This is a placeholder - full implementation would use JS_SetOpaque or similar
         
         return JS_UNDEFINED;
-    }, name, argc);
+    }, name, 0);
     
     // TODO: Store closureData properly using JS_SetOpaque or closure mechanism
     
@@ -59,14 +59,14 @@ JSValue NativeModuleWrapper::callNativeFunction(
         const proto::ProtoObject* self = TypeBridge::fromJS(ctx, this_val, pContext);
         
         // Convert arguments to ProtoList
-        proto::ProtoList* args = pContext->newList();
+        auto args = pContext->newList();
         for (int i = 0; i < argc; i++) {
             const proto::ProtoObject* arg = TypeBridge::fromJS(ctx, argv[i], pContext);
             args = args->appendLast(pContext, arg);
         }
         
         // Create empty keyword parameters (for now)
-        proto::ProtoSparseList* kwargs = pContext->newSparseList();
+        auto kwargs = pContext->newSparseList();
         
         // Call native function
         const proto::ProtoObject* result = func(pContext, self, nullptr, args, kwargs);
@@ -97,13 +97,13 @@ JSValue NativeModuleWrapper::handleNativeException(
     return JS_Throw(ctx, error);
 }
 
-proto::ProtoList* NativeModuleWrapper::convertArgumentsToProtoList(
+const proto::ProtoList* NativeModuleWrapper::convertArgumentsToProtoList(
     JSContext* ctx,
     proto::ProtoContext* pContext,
     int argc,
     JSValueConst* argv
 ) {
-    proto::ProtoList* list = pContext->newList();
+    auto list = pContext->newList();
     for (int i = 0; i < argc; i++) {
         const proto::ProtoObject* arg = TypeBridge::fromJS(ctx, argv[i], pContext);
         list = list->appendLast(pContext, arg);
@@ -111,7 +111,7 @@ proto::ProtoList* NativeModuleWrapper::convertArgumentsToProtoList(
     return list;
 }
 
-proto::ProtoSparseList* NativeModuleWrapper::convertArgumentsToKeywordParams(
+const proto::ProtoSparseList* NativeModuleWrapper::convertArgumentsToKeywordParams(
     JSContext* ctx,
     proto::ProtoContext* pContext,
     int argc,

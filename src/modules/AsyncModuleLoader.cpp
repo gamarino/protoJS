@@ -7,13 +7,16 @@ JSValue AsyncModuleLoader::dynamicImport(const std::string& specifier, JSContext
     std::string fromPath = ".";
     JSValue result = ESModuleLoader::loadModule(specifier, fromPath, ctx);
     if (JS_IsException(result)) return result;
-    // Wrap in Promise
-    JSValue promise = JS_NewPromiseCapability(ctx);
-    JSValue resolve = JS_GetPropertyStr(ctx, promise, "resolve");
+    
+    // Create promise capability with resolve/reject functions
+    JSValue resolving_funcs[2];
+    JSValue promise = JS_NewPromiseCapability(ctx, resolving_funcs);
+    
     JSValue args[] = { result };
-    JSValue resolveResult = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
+    JSValue resolveResult = JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1, args);
     JS_FreeValue(ctx, resolveResult);
-    JS_FreeValue(ctx, resolve);
+    JS_FreeValue(ctx, resolving_funcs[0]);
+    JS_FreeValue(ctx, resolving_funcs[1]);
     JS_FreeValue(ctx, result);
     return promise;
 }

@@ -67,9 +67,10 @@ JSValue FSModule::promisesReadFile(JSContext* ctx, JSValueConst this_val, int ar
         return JS_UNDEFINED;
     }, "resolve", 1);
     
-    EventLoop::getInstance().enqueueCallback([future, resolve, ctx]() {
+    auto futurePtr = std::make_shared<std::future<std::string>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, ctx]() {
         try {
-            std::string content = future.get();
+            std::string content = futurePtr->get();
             JSValue contentVal = JS_NewString(ctx, content.c_str());
             JSValue args[] = { contentVal };
             JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
@@ -122,9 +123,10 @@ JSValue FSModule::promisesWriteFile(JSContext* ctx, JSValueConst this_val, int a
         return JS_UNDEFINED;
     }, "resolve", 1);
     
-    EventLoop::getInstance().enqueueCallback([future, resolve, ctx]() {
+    auto futurePtr = std::make_shared<std::future<bool>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, ctx]() {
         try {
-            bool success = future.get();
+            bool success = futurePtr->get();
             JSValue resultVal = JS_NewBool(ctx, success);
             JSValue args[] = { resultVal };
             JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
@@ -180,9 +182,10 @@ JSValue FSModule::promisesReaddir(JSContext* ctx, JSValueConst this_val, int arg
         return JS_UNDEFINED;
     }, "resolve", 1);
     
-    EventLoop::getInstance().enqueueCallback([future, resolve, ctx]() {
+    auto futurePtr = std::make_shared<std::future<std::vector<std::string>>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, ctx]() {
         try {
-            auto entries = future.get();
+            auto entries = futurePtr->get();
             JSValue arr = JS_NewArray(ctx);
             for (size_t i = 0; i < entries.size(); i++) {
                 JS_SetPropertyUint32(ctx, arr, i, JS_NewString(ctx, entries[i].c_str()));
@@ -232,8 +235,9 @@ JSValue FSModule::promisesMkdir(JSContext* ctx, JSValueConst this_val, int argc,
         return JS_UNDEFINED;
     }, "resolve", 1);
     
-    EventLoop::getInstance().enqueueCallback([future, resolve, ctx]() {
-        bool success = future.get();
+    auto futurePtr = std::make_shared<std::future<bool>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, ctx]() {
+        bool success = futurePtr->get();
         JSValue resultVal = JS_NewBool(ctx, success);
         JSValue args[] = { resultVal };
         JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
@@ -272,9 +276,10 @@ JSValue FSModule::promisesStat(JSContext* ctx, JSValueConst this_val, int argc, 
         return JS_UNDEFINED;
     }, "resolve", 1);
     
-    EventLoop::getInstance().enqueueCallback([future, resolve, ctx]() {
+    auto futurePtr = std::make_shared<std::future<struct stat>>(std::move(future));
+    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, ctx]() {
         try {
-            struct stat st = future.get();
+            struct stat st = futurePtr->get();
             JSValue statsObj = JS_NewObject(ctx);
             JS_SetPropertyStr(ctx, statsObj, "size", JS_NewInt64(ctx, st.st_size));
             JS_SetPropertyStr(ctx, statsObj, "isFile", JS_NewBool(ctx, S_ISREG(st.st_mode)));
