@@ -22,6 +22,9 @@
 #include "modules/child_process/ChildProcessModule.h"
 #include "modules/dns/DNSModule.h"
 #include "profiling/Profiler.h"
+#include "profiling/VisualProfiler.h"
+#include "memory/MemoryAnalyzer.h"
+#include "debugging/IntegratedDebugger.h"
 #include "repl/REPL.h"
 #include "quickjs.h"
 #include <iostream>
@@ -134,9 +137,11 @@ int main(int argc, char** argv) {
         protojs::DgramModule::init(wrapper.getJSContext());
         protojs::ChildProcessModule::init(wrapper.getJSContext());
     protojs::DNSModule::init(wrapper.getJSContext());
+    protojs::ChildProcessModule::init(wrapper.getJSContext());
     protojs::MemoryAnalyzer::init(wrapper.getJSContext());
     protojs::Profiler::init(wrapper.getJSContext());
     protojs::VisualProfiler::init(wrapper.getJSContext());
+    protojs::IntegratedDebugger::init(wrapper.getJSContext());
         
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
@@ -174,7 +179,12 @@ int main(int argc, char** argv) {
     protojs::WorkerThreadsModule::init(wrapper.getJSContext());
     protojs::ClusterModule::init(wrapper.getJSContext());
     protojs::DgramModule::init(wrapper.getJSContext());
+    protojs::ChildProcessModule::init(wrapper.getJSContext());
+    protojs::DNSModule::init(wrapper.getJSContext());
+    protojs::MemoryAnalyzer::init(wrapper.getJSContext());
     protojs::Profiler::init(wrapper.getJSContext());
+    protojs::VisualProfiler::init(wrapper.getJSContext());
+    protojs::IntegratedDebugger::init(wrapper.getJSContext());
 
     // Handle syntax check
     if (syntaxCheck) {

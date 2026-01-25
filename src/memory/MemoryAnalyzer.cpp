@@ -133,14 +133,140 @@ JSValue MemoryAnalyzer::getMemoryUsage(JSContext* ctx, JSValueConst this_val, in
     
     // Get memory usage from QuickJS runtime
     JSRuntime* rt = JS_GetRuntime(ctx);
-    size_t mallocSize = JS_GetRuntimeOpaque(rt) ? 0 : 0; // Simplified
+    JSMemoryUsage memUsage;
+    JS_ComputeMemoryUsage(rt, &memUsage);
     
-    JS_SetPropertyStr(ctx, usage, "rss", JS_NewInt64(ctx, mallocSize));
-    JS_SetPropertyStr(ctx, usage, "heapTotal", JS_NewInt64(ctx, mallocSize));
-    JS_SetPropertyStr(ctx, usage, "heapUsed", JS_NewInt64(ctx, mallocSize));
-    JS_SetPropertyStr(ctx, usage, "external", JS_NewInt64(ctx, 0));
+    JS_SetPropertyStr(ctx, usage, "rss", JS_NewInt64(ctx, memUsage.malloc_size));
+    JS_SetPropertyStr(ctx, usage, "heapTotal", JS_NewInt64(ctx, memUsage.malloc_size));
+    JS_SetPropertyStr(ctx, usage, "heapUsed", JS_NewInt64(ctx, memUsage.memory_used_size));
+    JS_SetPropertyStr(ctx, usage, "external", JS_NewInt64(ctx, memUsage.binary_object_size));
     
     return usage;
+}
+
+JSValue MemoryAnalyzer::startAllocationTracking(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (trackingAllocations) {
+        return JS_NewBool(ctx, false);
+    }
+    
+    trackingAllocations = true;
+    trackingStartSnapshot = captureSnapshot(ctx);
+    
+    return JS_NewBool(ctx, true);
+}
+
+JSValue MemoryAnalyzer::stopAllocationTracking(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (!trackingAllocations) {
+        return JS_NewBool(ctx, false);
+    }
+    
+    trackingAllocations = false;
+    HeapSnapshot endSnapshot = captureSnapshot(ctx);
+    
+    LeakReport report = compareSnapshots(trackingStartSnapshot, endSnapshot);
+    
+    return leakReportToJSObject(ctx, report);
+}
+
+MemoryAnalyzer::LeakReport MemoryAnalyzer::compareSnapshots(const HeapSnapshot& before, const HeapSnapshot& after) {
+    LeakReport report;
+    report.totalLeakedSize = 0;
+    
+    // Compare object counts
+    for (const auto& pair : after.objectCounts) {
+        size_t beforeCount = before.objectCounts.count(pair.first) ? before.objectCounts.at(pair.first) : 0;
+        size_t afterCount = pair.second;
+        
+        if (afterCount > beforeCount) {
+            report.leakedTypes.push_back(pair.first);
+            report.leakCounts[pair.first] = afterCount - beforeCount;
+        }
+    }
+    
+    // Compare memory usage
+    for (const auto& pair : after.memoryUsage) {
+        size_t beforeSize = before.memoryUsage.count(pair.first) ? before.memoryUsage.at(pair.first) : 0;
+        size_t afterSize = pair.second;
+        
+        if (afterSize > beforeSize) {
+            report.leakSizes[pair.first] = afterSize - beforeSize;
+            report.totalLeakedSize += (afterSize - beforeSize);
+        }
+    }
+    
+    return report;
+}
+
+std::string MemoryAnalyzer::generateChromeDevToolsFormat(const HeapSnapshot& snapshot) {
+    std::stringstream ss;
+    ss << "{\n";
+    ss << "  \"snapshot\": {\n";
+    ss << "    \"meta\": {\n";
+    ss << "      \"node_fields\": [\"type\", \"name\", \"id\", \"self_size\", \"edge_count\", \"trace_node_id\"],\n";
+    ss << "      \"node_types\": [[\"hidden\", \"array\", \"string\", \"object\", \"code\", \"closure\", \"regexp\", \"number\", \"native\", \"synthetic\"]],\n";
+    ss << "      \"edge_fields\": [\"type\", \"name_or_index\", \"to_node\"],\n";
+    ss << "      \"edge_types\": [[\"context\", \"element\", \"property\", \"internal\", \"hidden\", \"shortcut\", \"weak\"]],\n";
+    ss << "      \"trace_function_info_fields\": [\"function_name\", \"script_name\", \"script_id\", \"line\", \"column\"],\n";
+    ss << "      \"trace_node_fields\": [\"id\", \"function_info_index\", \"count\", \"size\", \"children\"]\n";
+    ss << "    },\n";
+    ss << "    \"node_count\": " << snapshot.objectCounts.size() << ",\n";
+    ss << "    \"edge_count\": 0\n";
+    ss << "  },\n";
+    ss << "  \"nodes\": [],\n";
+    ss << "  \"edges\": [],\n";
+    ss << "  \"strings\": [],\n";
+    ss << "  \"trace_function_infos\": [],\n";
+    ss << "  \"trace_tree\": null\n";
+    ss << "}";
+    
+    return ss.str();
+}
+
+JSValue MemoryAnalyzer::snapshotToJSObject(JSContext* ctx, const HeapSnapshot& snapshot) {
+    JSValue obj = JS_NewObject(ctx);
+    
+    JS_SetPropertyStr(ctx, obj, "timestamp", JS_NewInt64(ctx, snapshot.timestamp));
+    JS_SetPropertyStr(ctx, obj, "totalSize", JS_NewInt64(ctx, snapshot.totalSize));
+    
+    JSValue objectCounts = JS_NewObject(ctx);
+    for (const auto& pair : snapshot.objectCounts) {
+        JS_SetPropertyStr(ctx, objectCounts, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
+    }
+    JS_SetPropertyStr(ctx, obj, "objectCounts", objectCounts);
+    
+    JSValue memoryUsage = JS_NewObject(ctx);
+    for (const auto& pair : snapshot.memoryUsage) {
+        JS_SetPropertyStr(ctx, memoryUsage, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
+    }
+    JS_SetPropertyStr(ctx, obj, "memoryUsage", memoryUsage);
+    
+    return obj;
+}
+
+JSValue MemoryAnalyzer::leakReportToJSObject(JSContext* ctx, const LeakReport& report) {
+    JSValue obj = JS_NewObject(ctx);
+    
+    JS_SetPropertyStr(ctx, obj, "totalLeakedSize", JS_NewInt64(ctx, report.totalLeakedSize));
+    
+    JSValue leakedTypes = JS_NewArray(ctx);
+    for (size_t i = 0; i < report.leakedTypes.size(); i++) {
+        JS_SetPropertyUint32(ctx, leakedTypes, i, JS_NewString(ctx, report.leakedTypes[i].c_str()));
+    }
+    JS_SetPropertyStr(ctx, obj, "leakedTypes", leakedTypes);
+    
+    JSValue leakCounts = JS_NewObject(ctx);
+    for (const auto& pair : report.leakCounts) {
+        JS_SetPropertyStr(ctx, leakCounts, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
+    }
+    JS_SetPropertyStr(ctx, obj, "leakCounts", leakCounts);
+    
+    JSValue leakSizes = JS_NewObject(ctx);
+    for (const auto& pair : report.leakSizes) {
+        JS_SetPropertyStr(ctx, leakSizes, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
+    }
+    JS_SetPropertyStr(ctx, obj, "leakSizes", leakSizes);
+    
+    return obj;
 }
 
 } // namespace protojs
