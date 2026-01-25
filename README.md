@@ -9,7 +9,7 @@
 
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
-protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
+protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore)as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
 
 ---
 
