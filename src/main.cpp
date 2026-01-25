@@ -14,6 +14,7 @@
 #include "modules/stream/StreamModule.h"
 #include "modules/util/UtilModule.h"
 #include "modules/crypto/CryptoModule.h"
+#include "repl/REPL.h"
 #include "quickjs.h"
 #include <iostream>
 #include <fstream>
@@ -30,6 +31,10 @@ void printUsage(const char* programName) {
     std::cerr << "  --io-threads N       Number of I/O threads (default: 3-4x CPU cores)" << std::endl;
     std::cerr << "  --io-threads-factor F  Multiplier for I/O threads (default: 3.0)" << std::endl;
     std::cerr << "  -e \"code\"            Execute code directly" << std::endl;
+    std::cerr << "  -p, --print          Print result of -e" << std::endl;
+    std::cerr << "  -c, --check          Syntax check only" << std::endl;
+    std::cerr << "  -v, --version        Show version" << std::endl;
+    std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -44,6 +49,10 @@ int main(int argc, char** argv) {
     std::string code;
     std::string filename = "eval";
     bool executeCode = false;
+    bool printResult = false;
+    bool syntaxCheck = false;
+    bool showVersion = false;
+    bool inputTypeModule = false;
 
     // Parse arguments
     int i = 1;
@@ -59,6 +68,14 @@ int main(int argc, char** argv) {
         } else if (arg == "-e" && i + 1 < argc) {
             executeCode = true;
             code = argv[++i];
+        } else if (arg == "-p" || arg == "--print") {
+            printResult = true;
+        } else if (arg == "-c" || arg == "--check") {
+            syntaxCheck = true;
+        } else if (arg == "-v" || arg == "--version") {
+            showVersion = true;
+        } else if (arg == "--input-type=module") {
+            inputTypeModule = true;
         } else if (arg[0] != '-') {
             filename = arg;
             std::ifstream file(filename);
@@ -75,6 +92,36 @@ int main(int argc, char** argv) {
             return 1;
         }
         i++;
+    }
+
+    // Handle version flag
+    if (showVersion) {
+        std::cout << "protoJS v0.1.0" << std::endl;
+        return 0;
+    }
+
+    // If no file and no -e, start REPL
+    if (code.empty() && !executeCode && !syntaxCheck) {
+        protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
+        
+        // Initialize all modules for REPL
+        protojs::Console::init(wrapper.getJSContext());
+        protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
+        protojs::IOModule::init(wrapper.getJSContext());
+        protojs::ProtoCoreModule::init(wrapper.getJSContext());
+        protojs::ProcessModule::init(wrapper.getJSContext(), argc, argv);
+        protojs::CommonJSLoader::init(wrapper.getJSContext());
+        protojs::PathModule::init(wrapper.getJSContext());
+        protojs::FSModule::init(wrapper.getJSContext());
+        protojs::URLModule::init(wrapper.getJSContext());
+        protojs::HTTPModule::init(wrapper.getJSContext());
+        protojs::EventsModule::init(wrapper.getJSContext());
+        protojs::StreamModule::init(wrapper.getJSContext());
+        protojs::UtilModule::init(wrapper.getJSContext());
+        protojs::CryptoModule::init(wrapper.getJSContext());
+        
+        protojs::REPL::start(wrapper.getJSContext());
+        return 0;
     }
 
     if (code.empty() && !executeCode) {
@@ -95,6 +142,7 @@ int main(int argc, char** argv) {
     
     // Initialize Phase 2 modules
     protojs::CommonJSLoader::init(wrapper.getJSContext());
+    // ES Module loader will be used via import statements
     protojs::PathModule::init(wrapper.getJSContext());
     protojs::FSModule::init(wrapper.getJSContext());
     protojs::URLModule::init(wrapper.getJSContext());
@@ -104,8 +152,37 @@ int main(int argc, char** argv) {
     protojs::UtilModule::init(wrapper.getJSContext());
     protojs::CryptoModule::init(wrapper.getJSContext());
 
+    // Handle syntax check
+    if (syntaxCheck) {
+        // For syntax check, we'd parse without executing
+        // QuickJS doesn't have a separate parse API, so we'll just try to compile
+        JSValue result = wrapper.eval(code, filename);
+        if (JS_IsException(result)) {
+            JSValue exception = JS_GetException(wrapper.getJSContext());
+            const char* error = JS_ToCString(wrapper.getJSContext(), exception);
+            if (error) {
+                std::cerr << "Syntax Error: " << error << std::endl;
+                JS_FreeCString(wrapper.getJSContext(), error);
+            }
+            JS_FreeValue(wrapper.getJSContext(), exception);
+            JS_FreeValue(wrapper.getJSContext(), result);
+            return 1;
+        }
+        JS_FreeValue(wrapper.getJSContext(), result);
+        return 0;
+    }
+    
     // Evaluate code
     JSValue result = wrapper.eval(code, filename);
+    
+    // Print result if -p flag is set
+    if (printResult && !JS_IsException(result) && !JS_IsUndefined(result)) {
+        const char* resultStr = JS_ToCString(wrapper.getJSContext(), result);
+        if (resultStr) {
+            std::cout << resultStr << std::endl;
+            JS_FreeCString(wrapper.getJSContext(), resultStr);
+        }
+    }
     
     // Process event loop to handle any Deferred callbacks
     // Wait for all callbacks to complete (with timeout)

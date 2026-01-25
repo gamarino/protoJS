@@ -28,6 +28,21 @@ void FSModule::init(JSContext* ctx) {
     
     JS_SetPropertyStr(ctx, fsModule, "promises", promises);
     
+    // Sync API
+    JS_SetPropertyStr(ctx, fsModule, "readFileSync", JS_NewCFunction(ctx, readFileSync, "readFileSync", 1));
+    JS_SetPropertyStr(ctx, fsModule, "writeFileSync", JS_NewCFunction(ctx, writeFileSync, "writeFileSync", 2));
+    JS_SetPropertyStr(ctx, fsModule, "readdirSync", JS_NewCFunction(ctx, readdirSync, "readdirSync", 1));
+    JS_SetPropertyStr(ctx, fsModule, "mkdirSync", JS_NewCFunction(ctx, mkdirSync, "mkdirSync", 1));
+    JS_SetPropertyStr(ctx, fsModule, "statSync", JS_NewCFunction(ctx, statSync, "statSync", 1));
+    JS_SetPropertyStr(ctx, fsModule, "unlinkSync", JS_NewCFunction(ctx, unlinkSync, "unlinkSync", 1));
+    JS_SetPropertyStr(ctx, fsModule, "rmdirSync", JS_NewCFunction(ctx, rmdirSync, "rmdirSync", 1));
+    JS_SetPropertyStr(ctx, fsModule, "renameSync", JS_NewCFunction(ctx, renameSync, "renameSync", 2));
+    JS_SetPropertyStr(ctx, fsModule, "copyFileSync", JS_NewCFunction(ctx, copyFileSync, "copyFileSync", 2));
+    
+    // Stream API
+    JS_SetPropertyStr(ctx, fsModule, "createReadStream", JS_NewCFunction(ctx, createReadStream, "createReadStream", 1));
+    JS_SetPropertyStr(ctx, fsModule, "createWriteStream", JS_NewCFunction(ctx, createWriteStream, "createWriteStream", 1));
+    
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JS_SetPropertyStr(ctx, global_obj, "fs", fsModule);
     JS_FreeValue(ctx, global_obj);
@@ -300,6 +315,312 @@ JSValue FSModule::promisesStat(JSContext* ctx, JSValueConst this_val, int argc, 
     });
     
     return deferredObj;
+}
+
+// Sync API implementations
+JSValue FSModule::readFileSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "readFileSync expects a file path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    std::ifstream file(pathStr);
+    if (!file.is_open()) {
+        JS_FreeCString(ctx, pathStr);
+        return JS_ThrowTypeError(ctx, "Cannot open file");
+    }
+    
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string content = buffer.str();
+    file.close();
+    
+    JS_FreeCString(ctx, pathStr);
+    return JS_NewString(ctx, content.c_str());
+}
+
+JSValue FSModule::writeFileSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "writeFileSync expects file path and data");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    const char* dataStr = JS_ToCString(ctx, argv[1]);
+    if (!dataStr) {
+        JS_FreeCString(ctx, pathStr);
+        return JS_EXCEPTION;
+    }
+    
+    std::ofstream file(pathStr);
+    if (!file.is_open()) {
+        JS_FreeCString(ctx, pathStr);
+        JS_FreeCString(ctx, dataStr);
+        return JS_ThrowTypeError(ctx, "Cannot open file for writing");
+    }
+    
+    file << dataStr;
+    file.close();
+    
+    JS_FreeCString(ctx, pathStr);
+    JS_FreeCString(ctx, dataStr);
+    return JS_UNDEFINED;
+}
+
+JSValue FSModule::readdirSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "readdirSync expects a directory path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    JSValue arr = JS_NewArray(ctx);
+    uint32_t index = 0;
+    
+    try {
+        for (const auto& entry : fs::directory_iterator(pathStr)) {
+            std::string name = entry.path().filename().string();
+            JS_SetPropertyUint32(ctx, arr, index++, JS_NewString(ctx, name.c_str()));
+        }
+    } catch (const std::exception& e) {
+        JS_FreeCString(ctx, pathStr);
+        JS_FreeValue(ctx, arr);
+        return JS_ThrowTypeError(ctx, ("Cannot read directory: " + std::string(e.what())).c_str());
+    }
+    
+    JS_FreeCString(ctx, pathStr);
+    return arr;
+}
+
+JSValue FSModule::mkdirSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "mkdirSync expects a directory path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    bool recursive = false;
+    if (argc > 1 && JS_IsObject(ctx, argv[1])) {
+        JSValue recursiveVal = JS_GetPropertyStr(ctx, argv[1], "recursive");
+        if (!JS_IsUndefined(recursiveVal)) {
+            recursive = JS_ToBool(ctx, recursiveVal);
+        }
+        JS_FreeValue(ctx, recursiveVal);
+    }
+    
+    bool success = false;
+    if (recursive) {
+        success = fs::create_directories(pathStr);
+    } else {
+        success = fs::create_directory(pathStr);
+    }
+    
+    JS_FreeCString(ctx, pathStr);
+    
+    if (!success) {
+        return JS_ThrowTypeError(ctx, "Cannot create directory");
+    }
+    
+    return JS_UNDEFINED;
+}
+
+JSValue FSModule::statSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "statSync expects a file path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    struct stat st;
+    if (stat(pathStr, &st) != 0) {
+        JS_FreeCString(ctx, pathStr);
+        return JS_ThrowTypeError(ctx, "Cannot stat file");
+    }
+    
+    JSValue statsObj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, statsObj, "size", JS_NewInt64(ctx, st.st_size));
+    JS_SetPropertyStr(ctx, statsObj, "isFile", JS_NewBool(ctx, S_ISREG(st.st_mode)));
+    JS_SetPropertyStr(ctx, statsObj, "isDirectory", JS_NewBool(ctx, S_ISDIR(st.st_mode)));
+    JS_SetPropertyStr(ctx, statsObj, "mtime", JS_NewInt64(ctx, st.st_mtime * 1000));
+    
+    JS_FreeCString(ctx, pathStr);
+    return statsObj;
+}
+
+JSValue FSModule::unlinkSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "unlinkSync expects a file path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    if (unlink(pathStr) != 0) {
+        JS_FreeCString(ctx, pathStr);
+        return JS_ThrowTypeError(ctx, "Cannot unlink file");
+    }
+    
+    JS_FreeCString(ctx, pathStr);
+    return JS_UNDEFINED;
+}
+
+JSValue FSModule::rmdirSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "rmdirSync expects a directory path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    if (rmdir(pathStr) != 0) {
+        JS_FreeCString(ctx, pathStr);
+        return JS_ThrowTypeError(ctx, "Cannot remove directory");
+    }
+    
+    JS_FreeCString(ctx, pathStr);
+    return JS_UNDEFINED;
+}
+
+JSValue FSModule::renameSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "renameSync expects old and new paths");
+    }
+    
+    const char* oldPath = JS_ToCString(ctx, argv[0]);
+    const char* newPath = JS_ToCString(ctx, argv[1]);
+    
+    if (!oldPath || !newPath) {
+        if (oldPath) JS_FreeCString(ctx, oldPath);
+        if (newPath) JS_FreeCString(ctx, newPath);
+        return JS_EXCEPTION;
+    }
+    
+    if (rename(oldPath, newPath) != 0) {
+        JS_FreeCString(ctx, oldPath);
+        JS_FreeCString(ctx, newPath);
+        return JS_ThrowTypeError(ctx, "Cannot rename file");
+    }
+    
+    JS_FreeCString(ctx, oldPath);
+    JS_FreeCString(ctx, newPath);
+    return JS_UNDEFINED;
+}
+
+JSValue FSModule::copyFileSync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 2) {
+        return JS_ThrowTypeError(ctx, "copyFileSync expects source and destination paths");
+    }
+    
+    const char* srcPath = JS_ToCString(ctx, argv[0]);
+    const char* destPath = JS_ToCString(ctx, argv[1]);
+    
+    if (!srcPath || !destPath) {
+        if (srcPath) JS_FreeCString(ctx, srcPath);
+        if (destPath) JS_FreeCString(ctx, destPath);
+        return JS_EXCEPTION;
+    }
+    
+    try {
+        fs::copy_file(srcPath, destPath, fs::copy_options::overwrite_existing);
+    } catch (const std::exception& e) {
+        JS_FreeCString(ctx, srcPath);
+        JS_FreeCString(ctx, destPath);
+        return JS_ThrowTypeError(ctx, ("Cannot copy file: " + std::string(e.what())).c_str());
+    }
+    
+    JS_FreeCString(ctx, srcPath);
+    JS_FreeCString(ctx, destPath);
+    return JS_UNDEFINED;
+}
+
+JSValue FSModule::createReadStream(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "createReadStream expects a file path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    // Create a ReadableStream for file reading
+    // For Phase 2, return a basic readable stream
+    JSValue readableCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "ReadableStream");
+    if (JS_IsUndefined(readableCtor)) {
+        // Fallback: get from stream module
+        JSValue streamModule = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "stream");
+        if (!JS_IsUndefined(streamModule)) {
+            readableCtor = JS_GetPropertyStr(ctx, streamModule, "Readable");
+        }
+        JS_FreeValue(ctx, streamModule);
+    }
+    
+    JSValue stream = JS_UNDEFINED;
+    if (!JS_IsUndefined(readableCtor) && JS_IsFunction(ctx, readableCtor)) {
+        stream = JS_CallConstructor(ctx, readableCtor, 0, nullptr);
+        JS_SetPropertyStr(ctx, stream, "_path", JS_NewString(ctx, pathStr));
+    } else {
+        stream = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, stream, "_path", JS_NewString(ctx, pathStr));
+    }
+    
+    JS_FreeCString(ctx, pathStr);
+    JS_FreeValue(ctx, readableCtor);
+    return stream;
+}
+
+JSValue FSModule::createWriteStream(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "createWriteStream expects a file path");
+    }
+    
+    const char* pathStr = JS_ToCString(ctx, argv[0]);
+    if (!pathStr) {
+        return JS_EXCEPTION;
+    }
+    
+    // Create a WritableStream for file writing
+    JSValue writableCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "WritableStream");
+    if (JS_IsUndefined(writableCtor)) {
+        JSValue streamModule = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "stream");
+        if (!JS_IsUndefined(streamModule)) {
+            writableCtor = JS_GetPropertyStr(ctx, streamModule, "Writable");
+        }
+        JS_FreeValue(ctx, streamModule);
+    }
+    
+    JSValue stream = JS_UNDEFINED;
+    if (!JS_IsUndefined(writableCtor) && JS_IsFunction(ctx, writableCtor)) {
+        stream = JS_CallConstructor(ctx, writableCtor, 0, nullptr);
+        JS_SetPropertyStr(ctx, stream, "_path", JS_NewString(ctx, pathStr));
+    } else {
+        stream = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, stream, "_path", JS_NewString(ctx, pathStr));
+    }
+    
+    JS_FreeCString(ctx, pathStr);
+    JS_FreeValue(ctx, writableCtor);
+    return stream;
 }
 
 } // namespace protojs

@@ -205,7 +205,7 @@ tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/build.make
 tests/protojs_tests: _deps/catch2-build/src/libCatch2Main.a
-tests/protojs_tests: /home/gamarino/Documentos/proyectos/protoJS/../protoCore/libproto.a
+tests/protojs_tests: /home/gamarino/Documentos/proyectos/protoJS/../protoCore/build/libproto.a
 tests/protojs_tests: _deps/catch2-build/src/libCatch2.a
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable protojs_tests"

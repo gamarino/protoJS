@@ -72,6 +72,8 @@ add_executable(protojs
     src/npm/PackageResolver.cpp
     src/npm/PackageInstaller.cpp
     src/npm/ScriptExecutor.cpp
+    # REPL
+    src/repl/REPL.cpp
     ${QUICKJS_SRCS}
 )
 
