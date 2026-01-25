@@ -974,6 +974,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/memory/MemoryAnalyzer.o: src/memory/MemoryAnalyzer.cpp.o
+.PHONY : src/memory/MemoryAnalyzer.o
+
+# target to build an object file
+src/memory/MemoryAnalyzer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.o
+.PHONY : src/memory/MemoryAnalyzer.cpp.o
+
+src/memory/MemoryAnalyzer.i: src/memory/MemoryAnalyzer.cpp.i
+.PHONY : src/memory/MemoryAnalyzer.i
+
+# target to preprocess a source file
+src/memory/MemoryAnalyzer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.i
+.PHONY : src/memory/MemoryAnalyzer.cpp.i
+
+src/memory/MemoryAnalyzer.s: src/memory/MemoryAnalyzer.cpp.s
+.PHONY : src/memory/MemoryAnalyzer.s
+
+# target to generate assembly for a file
+src/memory/MemoryAnalyzer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.s
+.PHONY : src/memory/MemoryAnalyzer.cpp.s
+
 src/modules/AsyncModuleLoader.o: src/modules/AsyncModuleLoader.cpp.o
 .PHONY : src/modules/AsyncModuleLoader.o
 
@@ -1214,6 +1238,54 @@ src/modules/buffer/BufferModule.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.s
 .PHONY : src/modules/buffer/BufferModule.cpp.s
 
+src/modules/child_process/ChildProcessModule.o: src/modules/child_process/ChildProcessModule.cpp.o
+.PHONY : src/modules/child_process/ChildProcessModule.o
+
+# target to build an object file
+src/modules/child_process/ChildProcessModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.o
+.PHONY : src/modules/child_process/ChildProcessModule.cpp.o
+
+src/modules/child_process/ChildProcessModule.i: src/modules/child_process/ChildProcessModule.cpp.i
+.PHONY : src/modules/child_process/ChildProcessModule.i
+
+# target to preprocess a source file
+src/modules/child_process/ChildProcessModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.i
+.PHONY : src/modules/child_process/ChildProcessModule.cpp.i
+
+src/modules/child_process/ChildProcessModule.s: src/modules/child_process/ChildProcessModule.cpp.s
+.PHONY : src/modules/child_process/ChildProcessModule.s
+
+# target to generate assembly for a file
+src/modules/child_process/ChildProcessModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.s
+.PHONY : src/modules/child_process/ChildProcessModule.cpp.s
+
+src/modules/cluster/ClusterModule.o: src/modules/cluster/ClusterModule.cpp.o
+.PHONY : src/modules/cluster/ClusterModule.o
+
+# target to build an object file
+src/modules/cluster/ClusterModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.o
+.PHONY : src/modules/cluster/ClusterModule.cpp.o
+
+src/modules/cluster/ClusterModule.i: src/modules/cluster/ClusterModule.cpp.i
+.PHONY : src/modules/cluster/ClusterModule.i
+
+# target to preprocess a source file
+src/modules/cluster/ClusterModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.i
+.PHONY : src/modules/cluster/ClusterModule.cpp.i
+
+src/modules/cluster/ClusterModule.s: src/modules/cluster/ClusterModule.cpp.s
+.PHONY : src/modules/cluster/ClusterModule.s
+
+# target to generate assembly for a file
+src/modules/cluster/ClusterModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.s
+.PHONY : src/modules/cluster/ClusterModule.cpp.s
+
 src/modules/crypto/CryptoModule.o: src/modules/crypto/CryptoModule.cpp.o
 .PHONY : src/modules/crypto/CryptoModule.o
 
@@ -1237,6 +1309,54 @@ src/modules/crypto/CryptoModule.s: src/modules/crypto/CryptoModule.cpp.s
 src/modules/crypto/CryptoModule.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.s
 .PHONY : src/modules/crypto/CryptoModule.cpp.s
+
+src/modules/dgram/DgramModule.o: src/modules/dgram/DgramModule.cpp.o
+.PHONY : src/modules/dgram/DgramModule.o
+
+# target to build an object file
+src/modules/dgram/DgramModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dgram/DgramModule.cpp.o
+.PHONY : src/modules/dgram/DgramModule.cpp.o
+
+src/modules/dgram/DgramModule.i: src/modules/dgram/DgramModule.cpp.i
+.PHONY : src/modules/dgram/DgramModule.i
+
+# target to preprocess a source file
+src/modules/dgram/DgramModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dgram/DgramModule.cpp.i
+.PHONY : src/modules/dgram/DgramModule.cpp.i
+
+src/modules/dgram/DgramModule.s: src/modules/dgram/DgramModule.cpp.s
+.PHONY : src/modules/dgram/DgramModule.s
+
+# target to generate assembly for a file
+src/modules/dgram/DgramModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dgram/DgramModule.cpp.s
+.PHONY : src/modules/dgram/DgramModule.cpp.s
+
+src/modules/dns/DNSModule.o: src/modules/dns/DNSModule.cpp.o
+.PHONY : src/modules/dns/DNSModule.o
+
+# target to build an object file
+src/modules/dns/DNSModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.o
+.PHONY : src/modules/dns/DNSModule.cpp.o
+
+src/modules/dns/DNSModule.i: src/modules/dns/DNSModule.cpp.i
+.PHONY : src/modules/dns/DNSModule.i
+
+# target to preprocess a source file
+src/modules/dns/DNSModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.i
+.PHONY : src/modules/dns/DNSModule.cpp.i
+
+src/modules/dns/DNSModule.s: src/modules/dns/DNSModule.cpp.s
+.PHONY : src/modules/dns/DNSModule.s
+
+# target to generate assembly for a file
+src/modules/dns/DNSModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.s
+.PHONY : src/modules/dns/DNSModule.cpp.s
 
 src/modules/events/EventsModule.o: src/modules/events/EventsModule.cpp.o
 .PHONY : src/modules/events/EventsModule.o
@@ -1430,6 +1550,30 @@ src/modules/util/UtilModule.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.s
 .PHONY : src/modules/util/UtilModule.cpp.s
 
+src/modules/worker_threads/WorkerThreadsModule.o: src/modules/worker_threads/WorkerThreadsModule.cpp.o
+.PHONY : src/modules/worker_threads/WorkerThreadsModule.o
+
+# target to build an object file
+src/modules/worker_threads/WorkerThreadsModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o
+.PHONY : src/modules/worker_threads/WorkerThreadsModule.cpp.o
+
+src/modules/worker_threads/WorkerThreadsModule.i: src/modules/worker_threads/WorkerThreadsModule.cpp.i
+.PHONY : src/modules/worker_threads/WorkerThreadsModule.i
+
+# target to preprocess a source file
+src/modules/worker_threads/WorkerThreadsModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.i
+.PHONY : src/modules/worker_threads/WorkerThreadsModule.cpp.i
+
+src/modules/worker_threads/WorkerThreadsModule.s: src/modules/worker_threads/WorkerThreadsModule.cpp.s
+.PHONY : src/modules/worker_threads/WorkerThreadsModule.s
+
+# target to generate assembly for a file
+src/modules/worker_threads/WorkerThreadsModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.s
+.PHONY : src/modules/worker_threads/WorkerThreadsModule.cpp.s
+
 src/monitoring/Metrics.o: src/monitoring/Metrics.cpp.o
 .PHONY : src/monitoring/Metrics.o
 
@@ -1598,6 +1742,30 @@ src/profiling/Profiler.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.s
 .PHONY : src/profiling/Profiler.cpp.s
 
+src/profiling/VisualProfiler.o: src/profiling/VisualProfiler.cpp.o
+.PHONY : src/profiling/VisualProfiler.o
+
+# target to build an object file
+src/profiling/VisualProfiler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.o
+.PHONY : src/profiling/VisualProfiler.cpp.o
+
+src/profiling/VisualProfiler.i: src/profiling/VisualProfiler.cpp.i
+.PHONY : src/profiling/VisualProfiler.i
+
+# target to preprocess a source file
+src/profiling/VisualProfiler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.i
+.PHONY : src/profiling/VisualProfiler.cpp.i
+
+src/profiling/VisualProfiler.s: src/profiling/VisualProfiler.cpp.s
+.PHONY : src/profiling/VisualProfiler.s
+
+# target to generate assembly for a file
+src/profiling/VisualProfiler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.s
+.PHONY : src/profiling/VisualProfiler.cpp.s
+
 src/repl/REPL.o: src/repl/REPL.cpp.o
 .PHONY : src/repl/REPL.o
 
@@ -1717,6 +1885,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/memory/MemoryAnalyzer.o"
+	@echo "... src/memory/MemoryAnalyzer.i"
+	@echo "... src/memory/MemoryAnalyzer.s"
 	@echo "... src/modules/AsyncModuleLoader.o"
 	@echo "... src/modules/AsyncModuleLoader.i"
 	@echo "... src/modules/AsyncModuleLoader.s"
@@ -1747,9 +1918,21 @@ help:
 	@echo "... src/modules/buffer/BufferModule.o"
 	@echo "... src/modules/buffer/BufferModule.i"
 	@echo "... src/modules/buffer/BufferModule.s"
+	@echo "... src/modules/child_process/ChildProcessModule.o"
+	@echo "... src/modules/child_process/ChildProcessModule.i"
+	@echo "... src/modules/child_process/ChildProcessModule.s"
+	@echo "... src/modules/cluster/ClusterModule.o"
+	@echo "... src/modules/cluster/ClusterModule.i"
+	@echo "... src/modules/cluster/ClusterModule.s"
 	@echo "... src/modules/crypto/CryptoModule.o"
 	@echo "... src/modules/crypto/CryptoModule.i"
 	@echo "... src/modules/crypto/CryptoModule.s"
+	@echo "... src/modules/dgram/DgramModule.o"
+	@echo "... src/modules/dgram/DgramModule.i"
+	@echo "... src/modules/dgram/DgramModule.s"
+	@echo "... src/modules/dns/DNSModule.o"
+	@echo "... src/modules/dns/DNSModule.i"
+	@echo "... src/modules/dns/DNSModule.s"
 	@echo "... src/modules/events/EventsModule.o"
 	@echo "... src/modules/events/EventsModule.i"
 	@echo "... src/modules/events/EventsModule.s"
@@ -1774,6 +1957,9 @@ help:
 	@echo "... src/modules/util/UtilModule.o"
 	@echo "... src/modules/util/UtilModule.i"
 	@echo "... src/modules/util/UtilModule.s"
+	@echo "... src/modules/worker_threads/WorkerThreadsModule.o"
+	@echo "... src/modules/worker_threads/WorkerThreadsModule.i"
+	@echo "... src/modules/worker_threads/WorkerThreadsModule.s"
 	@echo "... src/monitoring/Metrics.o"
 	@echo "... src/monitoring/Metrics.i"
 	@echo "... src/monitoring/Metrics.s"
@@ -1795,6 +1981,9 @@ help:
 	@echo "... src/profiling/Profiler.o"
 	@echo "... src/profiling/Profiler.i"
 	@echo "... src/profiling/Profiler.s"
+	@echo "... src/profiling/VisualProfiler.o"
+	@echo "... src/profiling/VisualProfiler.i"
+	@echo "... src/profiling/VisualProfiler.s"
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"

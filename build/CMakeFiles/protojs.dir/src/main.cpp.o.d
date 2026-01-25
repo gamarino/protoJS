@@ -268,6 +268,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/ClusterModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dgram/DgramModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/DNSModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.h \
  /usr/include/c++/13/chrono /usr/include/c++/13/sstream \
  /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
