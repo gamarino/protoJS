@@ -23,8 +23,10 @@
 | [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md) | High-level project summary | 3 min |
 | [TECHNICAL_AUDIT_2026.md](TECHNICAL_AUDIT_2026.md) | Comprehensive technical audit (Phase 2) | 20 min |
 | [TECHNICAL_AUDIT_PHASE3.md](TECHNICAL_AUDIT_PHASE3.md) | Phase 3 technical audit | 15 min |
+| [TECHNICAL_AUDIT_PHASE4.md](TECHNICAL_AUDIT_PHASE4.md) | Phase 4 technical audit | 15 min |
 | [docs/PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md) | Phase 2 completion report | 15 min |
 | [docs/PHASE3_COMPLETION.md](docs/PHASE3_COMPLETION.md) | Phase 3 completion report | 15 min |
+| [docs/PHASE4_COMPLETION.md](docs/PHASE4_COMPLETION.md) | Phase 4 completion report | 15 min |
 | [PHASE3_IMPLEMENTATION_STATUS.md](PHASE3_IMPLEMENTATION_STATUS.md) | Phase 3 implementation status | 10 min |
 | [PHASE3_LINKER_NOTES.md](PHASE3_LINKER_NOTES.md) | Phase 3 linker issues and requirements | 10 min |
 
