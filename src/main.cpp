@@ -16,6 +16,11 @@
 #include "modules/crypto/CryptoModule.h"
 #include "modules/buffer/BufferModule.h"
 #include "modules/net/NetModule.h"
+#include "modules/worker_threads/WorkerThreadsModule.h"
+#include "modules/cluster/ClusterModule.h"
+#include "modules/dgram/DgramModule.h"
+#include "modules/child_process/ChildProcessModule.h"
+#include "modules/dns/DNSModule.h"
 #include "profiling/Profiler.h"
 #include "repl/REPL.h"
 #include "quickjs.h"
@@ -124,7 +129,14 @@ int main(int argc, char** argv) {
         protojs::CryptoModule::init(wrapper.getJSContext());
         protojs::BufferModule::init(wrapper.getJSContext());
         protojs::NetModule::init(wrapper.getJSContext());
-        protojs::Profiler::init(wrapper.getJSContext());
+        protojs::WorkerThreadsModule::init(wrapper.getJSContext());
+        protojs::ClusterModule::init(wrapper.getJSContext());
+        protojs::DgramModule::init(wrapper.getJSContext());
+        protojs::ChildProcessModule::init(wrapper.getJSContext());
+    protojs::DNSModule::init(wrapper.getJSContext());
+    protojs::MemoryAnalyzer::init(wrapper.getJSContext());
+    protojs::Profiler::init(wrapper.getJSContext());
+    protojs::VisualProfiler::init(wrapper.getJSContext());
         
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
@@ -159,6 +171,9 @@ int main(int argc, char** argv) {
     protojs::CryptoModule::init(wrapper.getJSContext());
     protojs::BufferModule::init(wrapper.getJSContext());
     protojs::NetModule::init(wrapper.getJSContext());
+    protojs::WorkerThreadsModule::init(wrapper.getJSContext());
+    protojs::ClusterModule::init(wrapper.getJSContext());
+    protojs::DgramModule::init(wrapper.getJSContext());
     protojs::Profiler::init(wrapper.getJSContext());
 
     // Handle syntax check

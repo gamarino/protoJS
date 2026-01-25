@@ -67,7 +67,14 @@ add_executable(protojs
     src/modules/crypto/CryptoModule.cpp
     src/modules/buffer/BufferModule.cpp
     src/modules/net/NetModule.cpp
+    src/modules/worker_threads/WorkerThreadsModule.cpp
+    src/modules/cluster/ClusterModule.cpp
+    src/modules/dgram/DgramModule.cpp
+    src/modules/child_process/ChildProcessModule.cpp
+    src/modules/dns/DNSModule.cpp
+    src/memory/MemoryAnalyzer.cpp
     src/profiling/Profiler.cpp
+    src/profiling/VisualProfiler.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp
