@@ -66,6 +66,8 @@ add_executable(protojs
     src/modules/util/UtilModule.cpp
     src/modules/crypto/CryptoModule.cpp
     src/modules/buffer/BufferModule.cpp
+    src/modules/net/NetModule.cpp
+    src/profiling/Profiler.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp

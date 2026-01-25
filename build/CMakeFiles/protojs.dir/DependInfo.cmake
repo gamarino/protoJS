@@ -40,6 +40,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.cpp" "CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp" "CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.cpp" "CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.cpp" "CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.cpp" "CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.cpp" "CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.cpp" "CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o.d"
@@ -50,6 +51,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp" "CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp" "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp" "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.cpp" "CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.cpp" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o.d"
   )
 

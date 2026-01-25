@@ -267,6 +267,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/istream \
  /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/fstream \

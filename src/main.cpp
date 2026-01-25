@@ -15,6 +15,8 @@
 #include "modules/util/UtilModule.h"
 #include "modules/crypto/CryptoModule.h"
 #include "modules/buffer/BufferModule.h"
+#include "modules/net/NetModule.h"
+#include "profiling/Profiler.h"
 #include "repl/REPL.h"
 #include "quickjs.h"
 #include <iostream>
@@ -121,6 +123,8 @@ int main(int argc, char** argv) {
         protojs::UtilModule::init(wrapper.getJSContext());
         protojs::CryptoModule::init(wrapper.getJSContext());
         protojs::BufferModule::init(wrapper.getJSContext());
+        protojs::NetModule::init(wrapper.getJSContext());
+        protojs::Profiler::init(wrapper.getJSContext());
         
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
@@ -154,6 +158,8 @@ int main(int argc, char** argv) {
     protojs::UtilModule::init(wrapper.getJSContext());
     protojs::CryptoModule::init(wrapper.getJSContext());
     protojs::BufferModule::init(wrapper.getJSContext());
+    protojs::NetModule::init(wrapper.getJSContext());
+    protojs::Profiler::init(wrapper.getJSContext());
 
     // Handle syntax check
     if (syntaxCheck) {

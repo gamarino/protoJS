@@ -1310,6 +1310,30 @@ src/modules/http/HTTPModule.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.s
 .PHONY : src/modules/http/HTTPModule.cpp.s
 
+src/modules/net/NetModule.o: src/modules/net/NetModule.cpp.o
+.PHONY : src/modules/net/NetModule.o
+
+# target to build an object file
+src/modules/net/NetModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o
+.PHONY : src/modules/net/NetModule.cpp.o
+
+src/modules/net/NetModule.i: src/modules/net/NetModule.cpp.i
+.PHONY : src/modules/net/NetModule.i
+
+# target to preprocess a source file
+src/modules/net/NetModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.i
+.PHONY : src/modules/net/NetModule.cpp.i
+
+src/modules/net/NetModule.s: src/modules/net/NetModule.cpp.s
+.PHONY : src/modules/net/NetModule.s
+
+# target to generate assembly for a file
+src/modules/net/NetModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.s
+.PHONY : src/modules/net/NetModule.cpp.s
+
 src/modules/path/PathModule.o: src/modules/path/PathModule.cpp.o
 .PHONY : src/modules/path/PathModule.o
 
@@ -1550,6 +1574,30 @@ src/npm/ScriptExecutor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s
 .PHONY : src/npm/ScriptExecutor.cpp.s
 
+src/profiling/Profiler.o: src/profiling/Profiler.cpp.o
+.PHONY : src/profiling/Profiler.o
+
+# target to build an object file
+src/profiling/Profiler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o
+.PHONY : src/profiling/Profiler.cpp.o
+
+src/profiling/Profiler.i: src/profiling/Profiler.cpp.i
+.PHONY : src/profiling/Profiler.i
+
+# target to preprocess a source file
+src/profiling/Profiler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.i
+.PHONY : src/profiling/Profiler.cpp.i
+
+src/profiling/Profiler.s: src/profiling/Profiler.cpp.s
+.PHONY : src/profiling/Profiler.s
+
+# target to generate assembly for a file
+src/profiling/Profiler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.s
+.PHONY : src/profiling/Profiler.cpp.s
+
 src/repl/REPL.o: src/repl/REPL.cpp.o
 .PHONY : src/repl/REPL.o
 
@@ -1711,6 +1759,9 @@ help:
 	@echo "... src/modules/http/HTTPModule.o"
 	@echo "... src/modules/http/HTTPModule.i"
 	@echo "... src/modules/http/HTTPModule.s"
+	@echo "... src/modules/net/NetModule.o"
+	@echo "... src/modules/net/NetModule.i"
+	@echo "... src/modules/net/NetModule.s"
 	@echo "... src/modules/path/PathModule.o"
 	@echo "... src/modules/path/PathModule.i"
 	@echo "... src/modules/path/PathModule.s"
@@ -1741,6 +1792,9 @@ help:
 	@echo "... src/npm/ScriptExecutor.o"
 	@echo "... src/npm/ScriptExecutor.i"
 	@echo "... src/npm/ScriptExecutor.s"
+	@echo "... src/profiling/Profiler.o"
+	@echo "... src/profiling/Profiler.i"
+	@echo "... src/profiling/Profiler.s"
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"
