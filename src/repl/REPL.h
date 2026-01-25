@@ -2,6 +2,7 @@
 #define PROTOJS_REPL_H
 
 #include "quickjs.h"
+#include <string>
 
 namespace protojs {
 

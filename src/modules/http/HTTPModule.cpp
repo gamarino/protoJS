@@ -391,7 +391,7 @@ JSValue HTTPModule::responseWriteHead(JSContext* ctx, JSValueConst this_val, int
     if (data && !data->headersSent) {
         data->statusCode = statusCode;
         
-        if (argc > 1 && JS_IsObject(ctx, argv[1])) {
+        if (argc > 1 && JS_IsObject(argv[1])) {
             // Parse headers object
             JSPropertyEnum* props;
             uint32_t propCount;
@@ -460,7 +460,7 @@ JSValue HTTPModule::responseEnd(JSContext* ctx, JSValueConst this_val, int argc,
         response << data->body;
         
         std::string responseStr = response.str();
-        write(data->clientFd, responseStr.c_str(), responseStr.length());
+        (void)write(data->clientFd, responseStr.c_str(), responseStr.length());
         
         data->headersSent = true;
     }

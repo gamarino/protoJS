@@ -413,7 +413,7 @@ JSValue FSModule::mkdirSync(JSContext* ctx, JSValueConst this_val, int argc, JSV
     }
     
     bool recursive = false;
-    if (argc > 1 && JS_IsObject(ctx, argv[1])) {
+    if (argc > 1 && JS_IsObject(argv[1])) {
         JSValue recursiveVal = JS_GetPropertyStr(ctx, argv[1], "recursive");
         if (!JS_IsUndefined(recursiveVal)) {
             recursive = JS_ToBool(ctx, recursiveVal);

@@ -1190,6 +1190,30 @@ src/modules/ProtoCoreModule.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.s
 .PHONY : src/modules/ProtoCoreModule.cpp.s
 
+src/modules/buffer/BufferModule.o: src/modules/buffer/BufferModule.cpp.o
+.PHONY : src/modules/buffer/BufferModule.o
+
+# target to build an object file
+src/modules/buffer/BufferModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o
+.PHONY : src/modules/buffer/BufferModule.cpp.o
+
+src/modules/buffer/BufferModule.i: src/modules/buffer/BufferModule.cpp.i
+.PHONY : src/modules/buffer/BufferModule.i
+
+# target to preprocess a source file
+src/modules/buffer/BufferModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.i
+.PHONY : src/modules/buffer/BufferModule.cpp.i
+
+src/modules/buffer/BufferModule.s: src/modules/buffer/BufferModule.cpp.s
+.PHONY : src/modules/buffer/BufferModule.s
+
+# target to generate assembly for a file
+src/modules/buffer/BufferModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.s
+.PHONY : src/modules/buffer/BufferModule.cpp.s
+
 src/modules/crypto/CryptoModule.o: src/modules/crypto/CryptoModule.cpp.o
 .PHONY : src/modules/crypto/CryptoModule.o
 
@@ -1526,6 +1550,30 @@ src/npm/ScriptExecutor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s
 .PHONY : src/npm/ScriptExecutor.cpp.s
 
+src/repl/REPL.o: src/repl/REPL.cpp.o
+.PHONY : src/repl/REPL.o
+
+# target to build an object file
+src/repl/REPL.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.o
+.PHONY : src/repl/REPL.cpp.o
+
+src/repl/REPL.i: src/repl/REPL.cpp.i
+.PHONY : src/repl/REPL.i
+
+# target to preprocess a source file
+src/repl/REPL.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.i
+.PHONY : src/repl/REPL.cpp.i
+
+src/repl/REPL.s: src/repl/REPL.cpp.s
+.PHONY : src/repl/REPL.s
+
+# target to generate assembly for a file
+src/repl/REPL.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.s
+.PHONY : src/repl/REPL.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -1648,6 +1696,9 @@ help:
 	@echo "... src/modules/ProtoCoreModule.o"
 	@echo "... src/modules/ProtoCoreModule.i"
 	@echo "... src/modules/ProtoCoreModule.s"
+	@echo "... src/modules/buffer/BufferModule.o"
+	@echo "... src/modules/buffer/BufferModule.i"
+	@echo "... src/modules/buffer/BufferModule.s"
 	@echo "... src/modules/crypto/CryptoModule.o"
 	@echo "... src/modules/crypto/CryptoModule.i"
 	@echo "... src/modules/crypto/CryptoModule.s"
@@ -1690,6 +1741,9 @@ help:
 	@echo "... src/npm/ScriptExecutor.o"
 	@echo "... src/npm/ScriptExecutor.i"
 	@echo "... src/npm/ScriptExecutor.s"
+	@echo "... src/repl/REPL.o"
+	@echo "... src/repl/REPL.i"
+	@echo "... src/repl/REPL.s"
 .PHONY : help
 
 

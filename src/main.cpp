@@ -14,6 +14,7 @@
 #include "modules/stream/StreamModule.h"
 #include "modules/util/UtilModule.h"
 #include "modules/crypto/CryptoModule.h"
+#include "modules/buffer/BufferModule.h"
 #include "repl/REPL.h"
 #include "quickjs.h"
 #include <iostream>
@@ -119,6 +120,7 @@ int main(int argc, char** argv) {
         protojs::StreamModule::init(wrapper.getJSContext());
         protojs::UtilModule::init(wrapper.getJSContext());
         protojs::CryptoModule::init(wrapper.getJSContext());
+        protojs::BufferModule::init(wrapper.getJSContext());
         
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
@@ -151,6 +153,7 @@ int main(int argc, char** argv) {
     protojs::StreamModule::init(wrapper.getJSContext());
     protojs::UtilModule::init(wrapper.getJSContext());
     protojs::CryptoModule::init(wrapper.getJSContext());
+    protojs::BufferModule::init(wrapper.getJSContext());
 
     // Handle syntax check
     if (syntaxCheck) {

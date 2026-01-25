@@ -1,7 +1,7 @@
-CMakeFiles/protojs.dir/src/main.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/main.cpp \
+CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o: \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
@@ -224,64 +224,27 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
- /usr/include/c++/13/thread /usr/include/c++/13/vector \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/../../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/../../TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/../../GCBridge.h \
+ /usr/include/c++/13/mutex /usr/include/c++/13/vector \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/queue \
- /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
- /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_heap.h \
- /usr/include/c++/13/bits/stl_queue.h /usr/include/c++/13/mutex \
- /usr/include/c++/13/future /usr/include/c++/13/bits/atomic_futex.h \
- /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/functional \
- /usr/include/c++/13/unordered_map \
- /usr/include/c++/13/bits/unordered_map.h \
- /usr/include/c++/13/bits/hashtable.h \
- /usr/include/c++/13/bits/hashtable_policy.h \
- /usr/include/c++/13/bits/enable_special_members.h \
- /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/array \
- /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/cstring \
+ /usr/include/c++/13/algorithm /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
+ /usr/include/c++/13/bits/stl_heap.h \
  /usr/include/c++/13/bits/uniform_int_dist.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/console.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../ThreadPoolExecutor.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../EventLoop.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.h \
- /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
- /usr/include/c++/13/bits/stl_map.h \
- /usr/include/c++/13/bits/stl_multimap.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.h \
- /usr/include/c++/13/iostream /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/fstream \
- /usr/include/c++/13/bits/codecvt.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
- /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/sstream \
- /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/chrono \
- /usr/include/c++/13/bits/chrono_io.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/bits/ranges_algo.h \
+ /usr/include/c++/13/pstl/glue_algorithm_defs.h \
+ /usr/include/c++/13/sstream /usr/include/c++/13/istream \
+ /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/iomanip \
  /usr/include/c++/13/locale \
  /usr/include/c++/13/bits/locale_facets_nonio.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
- /usr/include/libintl.h /usr/include/c++/13/bits/locale_facets_nonio.tcc \
+ /usr/include/libintl.h /usr/include/c++/13/bits/codecvt.h \
+ /usr/include/c++/13/bits/locale_facets_nonio.tcc \
  /usr/include/c++/13/bits/locale_conv.h \
- /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
- /usr/include/c++/13/charconv /usr/include/c++/13/optional \
- /usr/include/c++/13/span /usr/include/c++/13/variant
+ /usr/include/c++/13/bits/quoted_string.h

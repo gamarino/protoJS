@@ -53,6 +53,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o.d"
   "CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o"
   "CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o.d"
+  "CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o"
+  "CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o.d"
   "CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o"
   "CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o.d"
   "CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o"
@@ -81,6 +83,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o.d"
   "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o"
   "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o.d"
+  "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o"
+  "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o.d"
   "protojs"
   "protojs.pdb"
 )

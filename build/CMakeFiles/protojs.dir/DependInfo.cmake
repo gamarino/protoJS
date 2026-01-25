@@ -35,6 +35,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.cpp" "CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.cpp" "CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.cpp" "CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.cpp" "CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.cpp" "CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.cpp" "CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp" "CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o.d"
@@ -49,6 +50,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp" "CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp" "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp" "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.cpp" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
