@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*" Name="protoJS" Language="1033" Version="0.1.0.0" Manufacturer="protoJS Team" UpgradeCode="PUT-GUID-HERE-1">
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- protoCore dependency check -->
+        <!-- Option A: Registry Search -->
+        <Property Id="PROTOCORE_INSTALLED">
+            <RegistrySearch Id="ProtoCoreRegSearch" Root="HKLM" Key="SOFTWARE\protoCore" Name="Version" Type="raw" />
+        </Property>
+
+        <!-- Option B: File Search (Fallback) -->
+        <Property Id="PROTOCORE_DLL_EXISTS">
+            <DirectorySearch Id="ProtoCoreDirSearch" Path="[ProgramFiles64Folder]protoCore">
+                <FileSearch Id="ProtoCoreFileSearch" Name="protoCore.dll" />
+            </DirectorySearch>
+        </Property>
+
+        <Condition Message="ERROR: protoCore is not installed. Please install protoCore before installing protoJS.">
+            <![CDATA[Installed OR PROTOCORE_INSTALLED OR PROTOCORE_DLL_EXISTS]]>
+        </Condition>
+
+        <Feature Id="ProductFeature" Title="protoJS" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+            <ComponentRef Id="PathConfig" />
+        </Feature>
+    </Product>
+
+    <Fragment>
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="protoJS" />
+            </Directory>
+        </Directory>
+    </Fragment>
+
+    <Fragment>
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="protojs.exe" Guid="PUT-GUID-HERE-2" Win64="yes">
+                <File Id="protojs.exe" Source="protojs.exe" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+
+        <DirectoryRef Id="INSTALLFOLDER">
+            <Component Id="PathConfig" Guid="PUT-GUID-HERE-3" Win64="yes">
+                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+                <CreateFolder />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+</Wix>

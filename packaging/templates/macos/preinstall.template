@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Configuration
+PROTOCORE_PKG_ID="com.protoCore.pkg"
+PROTOCORE_LIB_PATH="/usr/local/lib/libprotoCore.dylib"
+
+echo "Checking for protoCore dependency..."
+
+# Check via pkgutil (preferred for installers)
+if pkgutil --pkg-info "$PROTOCORE_PKG_ID" > /dev/null 2>&1; then
+    echo "protoCore detected via pkgutil."
+    exit 0
+fi
+
+# Fallback: check for the library file directly
+if [ -f "$PROTOCORE_LIB_PATH" ]; then
+    echo "protoCore detected via library path: $PROTOCORE_LIB_PATH"
+    exit 0
+fi
+
+# If both fail, abort installation
+echo "ERROR: protoCore is not installed." >&2
+echo "Please install protoCore before installing protoJS." >&2
+exit 1

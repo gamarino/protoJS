@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+MIN_VERSION="1.0.0"
+PACKAGE_NAME="protoCore"
+
+echo "Checking for $PACKAGE_NAME dependency..."
+
+if ! dpkg-query -W -f='${Status}' "$PACKAGE_NAME" 2>/dev/null | grep -q "ok installed"; then
+    echo "ERROR: protoCore is not installed." >&2
+    echo "Please install protoCore before installing protoJS." >&2
+    exit 1
+fi
+
+INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "$PACKAGE_NAME")
+
+if dpkg --compare-versions "$INSTALLED_VERSION" lt "$MIN_VERSION"; then
+    echo "ERROR: protoCore version $INSTALLED_VERSION is too old." >&2
+    echo "protoJS requires protoCore >= $MIN_VERSION." >&2
+    exit 1
+fi
+
+echo "Dependency check passed: $PACKAGE_NAME $INSTALLED_VERSION found."
+
+exit 0

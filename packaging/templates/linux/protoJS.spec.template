@@ -1,0 +1,48 @@
+Name:           protoJS
+Version:        %{version}
+Release:        %{release}%{?dist}
+Summary:        protoJS runtime for JavaScript execution
+
+License:        MIT
+URL:            https://example.com/protoJS
+Source0:        protoJS-%{version}.tar.gz
+
+BuildArch:      x86_64
+Requires:       protoCore >= 1.0.0
+
+%description
+protoJS provides a high-performance JavaScript execution environment
+leveraging protoCore.
+
+%pre
+MIN_VERSION="1.0.0"
+PACKAGE_NAME="protoCore"
+
+echo "Checking for $PACKAGE_NAME dependency..."
+
+if ! rpm -q "$PACKAGE_NAME" > /dev/null 2>&1; then
+    echo "ERROR: protoCore is not installed." >&2
+    echo "Please install protoCore before installing protoJS." >&2
+    exit 1
+fi
+
+INSTALLED_VERSION=$(rpm -q --queryformat '%{VERSION}' "$PACKAGE_NAME")
+
+# Basic version check using sort -V if rpmdev-vercmp is not available
+if [ "$(printf '%s\n%s' "$MIN_VERSION" "$INSTALLED_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
+    echo "ERROR: protoCore version $INSTALLED_VERSION is too old." >&2
+    echo "protoJS requires protoCore >= $MIN_VERSION." >&2
+    exit 1
+fi
+
+%install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}/usr/bin
+cp protojs %{buildroot}/usr/bin/protojs
+
+%files
+/usr/bin/protojs
+
+%changelog
+* Mon Jan 26 2026 Maintainer <maintainer@example.com> - 0.1.0-1
+- Initial package release
