@@ -302,6 +302,12 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 - **[docs/THREAD_POOLS.md](docs/THREAD_POOLS.md)** - Thread pool configuration
 - **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Common problem solutions
 
+### Performance & Benchmarks
+
+- **[docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md)** - **Node.js comparison benchmark analysis** (19.83x faster overall)
+- **[docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md)** - Performance benchmarks and results
+- **[docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md)** - Performance testing methodology
+
 ---
 
 ## 🧪 Testing
@@ -326,6 +332,17 @@ ctest
 ```
 
 For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
+
+### Performance Benchmarks
+
+protoJS demonstrates significant performance advantages over Node.js:
+
+- **Overall Performance:** 19.83x faster than Node.js
+- **Array Operations:** 34.18x faster (immutable operations with structural sharing)
+- **Concurrent Operations:** 3.00x faster (GIL-free architecture)
+- **Consistent Improvements:** 2.67x to 34.18x speedup across all tested categories
+
+For detailed benchmark analysis and results, see [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md).
 
 ---
 
@@ -528,11 +545,12 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
+- **Performance:** 19.83x faster than Node.js overall, with 34.18x speedup in array operations
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
 - npm support: Full registry communication, semver version resolution, package installation
-- Benchmarking: Comprehensive benchmarking framework with Node.js comparison
+- Benchmarking: Comprehensive benchmarking framework with Node.js comparison ([see analysis](docs/BENCHMARK_ANALYSIS.md))
 - Test compatibility: Node.js test suite compatibility checker
 - Module system working: CommonJS and ES Modules supported
 - CLI tools available: REPL and Node.js-compatible flags
