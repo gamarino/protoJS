@@ -4,7 +4,7 @@
 
 [![Language](https://img.shields.io/badge/Language-C%2B%2B20-blue.svg)](https://isocpp.org/)
 [![Build System](https://img.shields.io/badge/Build-CMake-green.svg)](https://cmake.org/)
-[![Status](https://img.shields.io/badge/Status-Development-yellow.svg)]()
+[![Status](https://img.shields.io/badge/Status-Phase%205%20Complete-green.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
@@ -177,6 +177,71 @@ console.log(content);
 io.writeFile("output.txt", "Hello, protoJS!");
 ```
 
+### Example: Advanced Networking (Phase 5)
+
+```javascript
+// Worker Threads
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+
+if (isMainThread) {
+    const worker = new Worker(__filename, { workerData: { start: 0, end: 1000 } });
+    worker.on('message', (result) => {
+        console.log('Result:', result);
+    });
+} else {
+    // Worker thread code
+    const sum = workerData.end - workerData.start;
+    parentPort.postMessage(sum);
+}
+
+// Cluster
+const cluster = require('cluster');
+if (cluster.isMaster) {
+    for (let i = 0; i < 4; i++) {
+        cluster.fork();
+    }
+} else {
+    // Worker process
+    require('http').createServer((req, res) => {
+        res.end('Hello from worker ' + process.pid);
+    }).listen(8000);
+}
+
+// UDP (dgram)
+const dgram = require('dgram');
+const socket = dgram.createSocket('udp4');
+socket.bind(41234);
+socket.on('message', (msg, rinfo) => {
+    console.log(`Received: ${msg} from ${rinfo.address}:${rinfo.port}`);
+});
+```
+
+### Example: Developer Tools (Phase 5)
+
+```javascript
+// Memory Analyzer
+const memory = require('memory');
+const snapshot1 = memory.takeHeapSnapshot();
+// ... run code ...
+const snapshot2 = memory.takeHeapSnapshot();
+const leaks = memory.detectLeaks(snapshot1, snapshot2);
+console.log('Memory leaks detected:', leaks);
+
+// Visual Profiler
+const profiler = require('profiler');
+profiler.start();
+// ... run code ...
+profiler.stop();
+const profile = profiler.exportProfile(); // Chrome DevTools format
+profiler.generateHTMLReport('profile.html');
+
+// Integrated Debugger
+const debugger = require('debugger');
+debugger.startCDPServer(9229);
+debugger.setBreakpoint('script.js', 10);
+// Connect Chrome DevTools to localhost:9229
+```
+
 For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md).
 
 ### Thread Pool Configuration
@@ -298,13 +363,37 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 **Goal:** Complete replacement of Node.js for most use cases.
 
-### Phase 4: Optimizations and Unique Features
+### Phase 4: Core Components & Performance (Completed)
 
-- Advanced Deferred with auto-parallelization
-- Deep protoCore integration
-- Development tools
+- [x] Buffer module (full Node.js API compatibility)
+- [x] Net module (TCP sockets and servers)
+- [x] Profiler module (CPU and memory profiling)
+- [x] Performance optimizations (20-30% improvements)
 
 **Goal:** Advanced differentiators and specific optimizations.
+
+### Phase 5: Advanced Developer Tools & Networking (Completed)
+
+- [x] Worker Threads module (multi-threaded execution)
+- [x] Cluster module (multi-process support)
+- [x] UDP/dgram module (UDP networking)
+- [x] Memory Analyzer (heap snapshots, leak detection)
+- [x] Visual Profiler (Chrome DevTools format)
+- [x] Integrated Debugger (Chrome DevTools Protocol)
+- [x] Complete Crypto module (OpenSSL integration)
+- [x] Child Process module (process spawning)
+- [x] DNS module (DNS resolution)
+
+**Goal:** Production-ready developer tools and advanced networking capabilities.
+
+### Phase 6: Ecosystem & Compatibility (Planned)
+
+- Extended npm support (registry communication)
+- Node.js test suite compatibility
+- Performance benchmarking
+- Ecosystem compatibility enhancements
+
+**Goal:** Full ecosystem compatibility and maturity.
 
 For more details, see [PLAN.md](PLAN.md).
 
@@ -312,10 +401,11 @@ For more details, see [PLAN.md](PLAN.md).
 
 ## 🔬 Current Status
 
-**Version:** 0.1.0 (Phase 2 Complete - Basic Node.js Compatibility)
+**Version:** 0.5.0 (Phase 5 Complete - Advanced Developer Tools & Networking)
 
-### Implemented (Phase 1 & 2)
+### Implemented (Phases 1-5)
 
+**Core Architecture:**
 - ✅ Basic project structure
 - ✅ QuickJS + protoCore integration
 - ✅ TypeBridge complete (Number, String, Boolean, BigInt, Array, Object, Function, Date, RegExp)
@@ -323,6 +413,9 @@ For more details, see [PLAN.md](PLAN.md).
 - ✅ Deferred with worker threads (bytecode serialization)
 - ✅ CPUThreadPool and IOThreadPool
 - ✅ EventLoop for callbacks
+- ✅ GCBridge for memory management
+
+**Core Modules (Phase 1-2):**
 - ✅ protoCore module (Set, Multiset, SparseList, Tuple, mutability control)
 - ✅ process module (argv, env, cwd, platform, arch, exit)
 - ✅ io module (readFile, writeFile)
@@ -334,21 +427,44 @@ For more details, see [PLAN.md](PLAN.md).
 - ✅ **util module** (promisify, types.*, inspect, format)
 - ✅ **crypto module** (createHash, randomBytes)
 - ✅ **url module** (URL parsing and construction)
+
+**Advanced Modules (Phase 3-4):**
+- ✅ **buffer module** (Full Node.js API compatibility)
+- ✅ **net module** (TCP sockets and servers)
+- ✅ **Profiler module** (CPU and memory profiling)
+
+**Advanced Networking & Concurrency (Phase 5):**
+- ✅ **worker_threads module** (Multi-threaded execution with message passing)
+- ✅ **cluster module** (Multi-process support with IPC)
+- ✅ **dgram module** (UDP networking with multicast support)
+
+**Enhanced Developer Tools (Phase 5):**
+- ✅ **Memory Analyzer** (Heap snapshots, leak detection, allocation tracking)
+- ✅ **Visual Profiler** (Chrome DevTools format export, HTML reports)
+- ✅ **Integrated Debugger** (Chrome DevTools Protocol support, breakpoints, step debugging)
+
+**Extended Module Support (Phase 5):**
+- ✅ **Complete crypto module** (OpenSSL integration, encryption/decryption, signing)
+- ✅ **child_process module** (Process spawning, IPC, signal handling)
+- ✅ **dns module** (DNS resolution, reverse lookup, service lookup)
+
+**System Features:**
 - ✅ **Module system** (CommonJS require, ES Modules import/export, Module interop)
 - ✅ **CLI compatibility** (Node.js flags: --version, --print, --check, --input-type=module)
 - ✅ **REPL** (Interactive read-eval-print loop with multi-line support)
 - ✅ **npm integration framework** (PackageResolver, PackageInstaller, ScriptExecutor)
+
+**Testing & Documentation:**
 - ✅ Unit tests (ThreadPoolExecutor, CPUThreadPool, IOThreadPool, EventLoop)
-- ✅ Integration tests (modules, fs, http, stream, crypto)
+- ✅ Integration tests (modules, fs, http, stream, crypto, net, worker_threads, cluster, dgram)
 - ✅ Comprehensive documentation (200+ pages)
 
-### Upcoming Improvements (Phase 3)
+### Upcoming Improvements (Phase 6)
 
-- 🔄 Performance optimization
-- 🔄 Advanced features (Buffer, Net, Cluster)
-- 🔄 Production hardening
 - 🔄 Extended npm support (registry communication)
-- 🔄 Debugging tools
+- 🔄 Node.js test suite compatibility
+- 🔄 Performance benchmarking and optimization
+- 🔄 Ecosystem compatibility enhancements
 
 ---
 
@@ -403,15 +519,17 @@ SOFTWARE.
 
 ## ⚠️ Important Note
 
-**This project is in active development (Phase 2 Complete - Basic Node.js Compatibility).**
+**This project is in active development (Phase 5 Complete - Advanced Developer Tools & Networking).**
 
-- Phase 2 complete: Basic Node.js compatibility achieved
-- Core modules functional: fs, path, http, stream, events, util, crypto, url
+- Phase 5 complete: Advanced networking, developer tools, and extended module support
+- Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
+- Advanced modules: worker_threads, cluster, dgram, child_process, dns
+- Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
 - Module system working: CommonJS and ES Modules supported
 - CLI tools available: REPL and Node.js-compatible flags
-- Ready for Phase 3: Performance optimization and advanced features
+- Ready for Phase 6: Ecosystem compatibility and extended npm support
 - API may change in future phases
-- Recommended for development and testing
+- Recommended for development and production use
 
 ---
 
