@@ -82,6 +82,12 @@ add_executable(protojs
     src/npm/PackageResolver.cpp
     src/npm/PackageInstaller.cpp
     src/npm/ScriptExecutor.cpp
+    src/npm/NPMRegistry.cpp
+    src/npm/Semver.cpp
+    # Benchmarking
+    src/benchmarking/BenchmarkRunner.cpp
+    # Testing
+    src/testing/NodeJSTestRunner.cpp
     # REPL
     src/repl/REPL.cpp
     ${QUICKJS_SRCS}
