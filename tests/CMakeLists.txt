@@ -14,7 +14,7 @@ if(TEST_SOURCES)
     target_link_libraries(protojs_tests
         PRIVATE
         Catch2::Catch2WithMain
-        ${PROTOCORE_DIR}/build/libproto.a
+        ${PROTOCORE_LIBRARY}
         pthread
         dl
         m

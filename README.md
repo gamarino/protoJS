@@ -41,26 +41,29 @@ protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gama
 
 - **C++20** compatible compiler (GCC 10+, Clang 12+)
 - **CMake** 3.16+
-- **protoCore** (must be compiled and available)
+- **protoCore** (official name of the shared library; must be built and available as `libprotoCore.so` / `libprotoCore.dylib` / `protoCore.dll`)
 - **pthread** (for concurrency)
 
 ---
 
 ## 🚀 Building
 
-```bash
-# Ensure protoCore is compiled
-cd ../protoCore
-mkdir -p build && cd build
-cmake ..
-make
+protoJS links against the **protoCore shared library** (official name: **protoCore**). Build protoCore first, then protoJS.
 
-# Build protoJS
-cd ../../protoJS
+```bash
+# 1. Build protoCore shared library (official name: protoCore)
+cd ../protoCore
+cmake -B build -S .
+cmake --build build --target protoCore
+
+# 2. Build protoJS (finds libprotoCore.so / libprotoCore.dylib / protoCore.dll)
+cd ../protoJS
 mkdir -p build && cd build
 cmake ..
 make
 ```
+
+If protoCore was built in a different directory (e.g. `build_check`), CMake will search for the shared library there automatically.
 
 ---
 

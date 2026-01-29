@@ -18,23 +18,23 @@ Solutions to common problems in protoJS.
 
 ## Build Problems
 
-### Error: "protoCore not found"
+### Error: "protoCore shared library not found"
 
 **Symptom:**
 ```
-CMake Error: Could not find protoCore
+CMake Error: protoCore shared library not found. Build protoCore first: ...
 ```
 
 **Solution:**
-1. Ensure protoCore is compiled:
+1. Build the **protoCore shared library** (official name: protoCore) in the protoCore project:
    ```bash
    cd ../protoCore
-   mkdir -p build && cd build
-   cmake ..
-   make
+   cmake -B build -S .
+   cmake --build build --target protoCore
    ```
+   This produces `libprotoCore.so` (Linux), `libprotoCore.dylib` (macOS), or `protoCore.dll` (Windows) in `protoCore/build/` (or `protoCore/build_check/`).
 
-2. Verify that protoCore is in the expected path or configure `PROTOCORE_DIR` in CMake:
+2. Verify that protoCore is in the expected path or set `PROTOCORE_DIR` in CMake:
    ```bash
    cmake -DPROTOCORE_DIR=/path/to/protoCore ..
    ```
@@ -77,11 +77,8 @@ undefined reference to `proto::...`
 ```
 
 **Solution:**
-1. Verify that protoCore is correctly linked in `CMakeLists.txt`
-2. Ensure all necessary libraries are included:
-   ```cmake
-   target_link_libraries(protojs protoCore pthread dl m)
-   ```
+1. Verify that the protoCore shared library was built and found by CMake (see "protoCore shared library not found" above).
+2. protoJS links against `${PROTOCORE_LIBRARY}` (the protoCore shared library). Ensure protoCore is built with `cmake --build build --target protoCore` before building protoJS.
 
 ---
 

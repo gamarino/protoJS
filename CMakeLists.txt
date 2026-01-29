@@ -11,6 +11,17 @@ set(CMAKE_C_STANDARD 99)
 set(PROTOCORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../protoCore)
 set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 
+# Find protoCore shared library (official name: protoCore)
+# Search in build/ and build_check/
+find_library(PROTOCORE_LIBRARY NAMES protoCore
+    PATHS ${PROTOCORE_DIR}/build ${PROTOCORE_DIR}/build_check
+    NO_DEFAULT_PATH
+)
+if(NOT PROTOCORE_LIBRARY)
+    message(FATAL_ERROR "protoCore shared library not found. Build protoCore first:\n  cd ${PROTOCORE_DIR} && cmake -B build -S . && cmake --build build --target protoCore")
+endif()
+message(STATUS "Found protoCore: ${PROTOCORE_LIBRARY}")
+
 # ProtoCore Headers
 include_directories(${PROTOCORE_DIR})
 include_directories(${PROTOCORE_DIR}/headers)
@@ -93,10 +104,10 @@ add_executable(protojs
     ${QUICKJS_SRCS}
 )
 
-# Link Libs
+# Link Libs (protoCore is the official name of the shared library)
 target_link_libraries(protojs
     PRIVATE
-    ${PROTOCORE_DIR}/build/libproto.a
+    ${PROTOCORE_LIBRARY}
     pthread
     dl
     m
@@ -104,9 +115,9 @@ target_link_libraries(protojs
     crypto
 )
 
-# Build settings for ProtoCore
-# Note: Assuming libproto.a is already built in the protoCore directory.
-# If not, we might need to add_subdirectory(protoCore) if it supports it.
+# Build settings for protoCore
+# protoCore must be built as a shared library first (libprotoCore.so / .dylib / .dll).
+# Build: cd ../protoCore && cmake -B build -S . && cmake --build build --target protoCore
 
 # Testing Framework (Catch2)
 option(BUILD_TESTING "Build the testing tree" ON)

@@ -1,6 +1,6 @@
 ### User-Facing Error Messages
 
-When `protoCore` is missing or the version is incompatible, the following error messages MUST be displayed by the installer/package manager:
+**protoCore** is the official name of the shared library dependency (`libprotoCore.so` / `libprotoCore.dylib` / `protoCore.dll`). When protoCore is missing or the version is incompatible, the following error messages MUST be displayed by the installer/package manager:
 
 #### 1. Missing Dependency (Generic)
 **Message:**
