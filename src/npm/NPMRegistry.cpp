@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <cstring>
 #include <mutex>
+#include <future>
 
 #ifdef __linux__
 #include <openssl/ssl.h>
@@ -358,6 +359,27 @@ bool NPMRegistry::downloadPackage(const std::string& packageName, const std::str
     ProgressCallback cb = progress ? progress : g_progressCallback;
     if (!httpDownload(pv.dist_tarball, tarballPath, cb)) return false;
     return true;
+}
+
+std::vector<bool> NPMRegistry::downloadPackages(const std::vector<DownloadSpec>& specs, const std::string& registry, ProgressCallback progress, size_t maxConcurrency) {
+    std::vector<bool> results(specs.size(), false);
+    if (specs.empty()) return results;
+    if (maxConcurrency == 0) maxConcurrency = 1;
+    size_t next = 0;
+    while (next < specs.size()) {
+        std::vector<std::future<bool>> batch;
+        for (size_t i = 0; i < maxConcurrency && next < specs.size(); ++i) {
+            size_t idx = next++;
+            const DownloadSpec& s = specs[idx];
+            batch.push_back(std::async(std::launch::async, [&s, &registry, &progress, &results, idx]() {
+                bool ok = downloadPackage(s.packageName, s.version, s.targetDir, registry, progress);
+                results[idx] = ok;
+                return ok;
+            }));
+        }
+        for (auto& f : batch) (void)f.get();
+    }
+    return results;
 }
 
 std::vector<std::string> NPMRegistry::searchPackages(const std::string& query, int limit, const std::string& registry) {

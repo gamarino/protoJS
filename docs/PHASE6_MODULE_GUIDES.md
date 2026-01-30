@@ -82,6 +82,7 @@ std::string best = Semver::findHighest(versions, "^1.0.0");  // "1.2.3"
 | `NPMRegistry::fetchPackage(name, registry)` | Fetch package metadata from registry (uses cache when TTL &gt; 0). |
 | `NPMRegistry::resolveVersion(name, range, registry)` | Resolve a version range to a concrete version. |
 | `NPMRegistry::downloadPackage(name, version, targetDir, registry, progress)` | Download package tarball; optional `progress(bytesReceived, totalBytes)`. |
+| `NPMRegistry::downloadPackages(specs, registry, progress, maxConcurrency)` | Download multiple packages in parallel; returns one bool per spec. Default `maxConcurrency` 4. |
 | `NPMRegistry::searchPackages(query, limit, registry)` | Search packages by name. |
 | `NPMRegistry::setCacheTTL(seconds)` | Set cache TTL for fetchPackage (0 = disable). Default 300. |
 | `NPMRegistry::clearCache()` | Clear in-memory package metadata cache. |
@@ -118,11 +119,15 @@ NPMRegistry::downloadPackage("lodash", "4.17.21", "/tmp/pkgs", NPMRegistry::DEFA
 NPMRegistry::setCacheTTL(std::chrono::seconds(600));
 NPMRegistry::clearCache();
 
+// Parallel downloads (up to 4 concurrent)
+std::vector<DownloadSpec> specs = { {"lodash","4.17.21","/tmp/p1"}, {"chalk","2.4.2","/tmp/p2"} };
+std::vector<bool> ok = NPMRegistry::downloadPackages(specs, NPMRegistry::DEFAULT_REGISTRY, nullptr, 4);
+
 // Search
 auto names = NPMRegistry::searchPackages("lodash", 10);
 ```
 
-**Implemented enhancements:** Full JSON parser (`src/npm/JsonParser.h`), HTTPS/TLS (OpenSSL), in-memory cache with TTL, and progress reporting for downloads.
+**Implemented enhancements:** Full JSON parser (`src/npm/JsonParser.h`), HTTPS/TLS (OpenSSL), in-memory cache with TTL, progress reporting for downloads, and parallel downloads (`downloadPackages`, `InstallOptions::parallelDownloads`).
 
 ---
 

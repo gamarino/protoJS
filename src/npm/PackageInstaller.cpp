@@ -70,11 +70,54 @@ bool PackageInstaller::installPackage(const std::string& packageName, const std:
 }
 
 bool PackageInstaller::installPackages(const std::map<std::string, std::string>& packages, const InstallOptions& options) {
-    bool success = true;
-    for (const auto& pair : packages) {
-        if (!installPackage(pair.first, pair.second, options)) {
-            success = false;
+    if (packages.empty()) return true;
+
+    if (options.parallelDownloads == 0) {
+        bool success = true;
+        for (const auto& pair : packages) {
+            if (!installPackage(pair.first, pair.second, options)) success = false;
         }
+        return success;
+    }
+
+    // Resolve all versions first (sequential, uses cache).
+    std::vector<DownloadSpec> specs;
+    for (const auto& pair : packages) {
+        std::string resolved = NPMRegistry::resolveVersion(pair.first, pair.second, options.registry);
+        if (resolved.empty()) {
+            std::cerr << "Error: Could not resolve version " << pair.second << " for package " << pair.first << std::endl;
+            continue;
+        }
+        std::string packageDir = options.installDir + "/" + pair.first;
+        fs::create_directories(packageDir);
+        std::string tempDir = packageDir + "/.tmp";
+        fs::create_directories(tempDir);
+        specs.push_back({ pair.first, resolved, tempDir });
+    }
+
+    if (specs.empty()) return false;
+
+    // Download in parallel.
+    std::vector<bool> downloadOk = NPMRegistry::downloadPackages(specs, options.registry, nullptr, options.parallelDownloads);
+
+    bool success = true;
+    for (size_t i = 0; i < specs.size(); ++i) {
+        if (!downloadOk[i]) {
+            std::cerr << "Error: Failed to download " << specs[i].packageName << "@" << specs[i].version << std::endl;
+            fs::remove_all(specs[i].targetDir);
+            success = false;
+            continue;
+        }
+        std::string tarballPath = specs[i].targetDir + "/" + specs[i].packageName + "-" + specs[i].version + ".tgz";
+        std::string packageDir = options.installDir + "/" + specs[i].packageName;
+        if (!extractTarball(tarballPath, packageDir)) {
+            std::cerr << "Error: Failed to extract " << specs[i].packageName << std::endl;
+            fs::remove_all(specs[i].targetDir);
+            success = false;
+            continue;
+        }
+        fs::remove_all(specs[i].targetDir);
+        std::cout << "Successfully installed " << specs[i].packageName << "@" << specs[i].version << std::endl;
     }
     return success;
 }

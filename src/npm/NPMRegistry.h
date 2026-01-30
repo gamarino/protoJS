@@ -32,6 +32,13 @@ struct PackageMetadata {
 // Progress callback: (bytesReceived, totalBytes). totalBytes may be 0 if unknown.
 using ProgressCallback = std::function<void(size_t, size_t)>;
 
+// Spec for one package download (used by downloadPackages).
+struct DownloadSpec {
+    std::string packageName;
+    std::string version;
+    std::string targetDir;
+};
+
 class NPMRegistry {
 public:
     static const std::string DEFAULT_REGISTRY;
@@ -44,6 +51,9 @@ public:
 
     // Download package tarball. Optional progress( bytesReceived, totalBytes ).
     static bool downloadPackage(const std::string& packageName, const std::string& version, const std::string& targetDir, const std::string& registry = DEFAULT_REGISTRY, ProgressCallback progress = nullptr);
+
+    // Download multiple packages in parallel. Returns one bool per spec (true = success). maxConcurrency limits simultaneous downloads (default 4).
+    static std::vector<bool> downloadPackages(const std::vector<DownloadSpec>& specs, const std::string& registry = DEFAULT_REGISTRY, ProgressCallback progress = nullptr, size_t maxConcurrency = 4);
 
     // Search packages.
     static std::vector<std::string> searchPackages(const std::string& query, int limit = 20, const std::string& registry = DEFAULT_REGISTRY);

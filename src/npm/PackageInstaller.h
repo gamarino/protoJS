@@ -12,6 +12,8 @@ struct InstallOptions {
     bool saveDev = false;
     std::string registry = "https://registry.npmjs.org";
     std::string installDir = "./node_modules";
+    // Number of parallel downloads when installing multiple packages (0 = sequential). Default 4.
+    size_t parallelDownloads = 4;
 };
 
 class PackageInstaller {
