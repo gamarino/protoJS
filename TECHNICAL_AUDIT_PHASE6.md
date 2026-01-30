@@ -166,6 +166,24 @@ Phase 6 implementation is now complete. All priorities have been successfully de
 - ✅ Improved dependency resolution
 - ✅ Better npm package structure handling
 
+### 1.5 protoCore Unified Module Discovery Integration ✅
+
+**Status**: Documented and integrated
+
+protoJS integrates with protoCore’s **Unified Module Discovery and Provider System**:
+
+- **ProtoSpace**: Each `JSContextWrapper` holds a `proto::ProtoSpace` (`pSpace`). That space carries the **resolution chain** (platform-dependent default or custom via `setResolutionChain`) and **module roots** for modules loaded via protoCore’s `getImportModule`.
+- **Resolution chain**: Platform defaults (e.g. Linux: `[".", "/usr/lib/proto", "/usr/local/lib/proto"]`) are provided by protoCore; host code can set a custom chain on the same `ProtoSpace` used by protoJS.
+- **Optional use of getImportModule**: For native addons or custom backends (e.g. DB, remote), protoJS host code can call protoCore’s `getImportModule(&pSpace, logicalPath, "exports")` before or after file-based resolution; the global `SharedModuleCache` and GC roots are managed by protoCore.
+- **ProviderRegistry**: Custom `ModuleProvider` implementations can be registered in protoCore; the resolution chain can reference them with `provider:alias` or `provider:GUID`.
+
+**Documentation**:
+- [docs/MODULE_DISCOVERY_PROTOCORE.md](docs/MODULE_DISCOVERY_PROTOCORE.md) — protoJS integration with protoCore module discovery.
+- [docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md) — updated with a link to module discovery.
+- Full specification: protoCore’s `docs/MODULE_DISCOVERY.md`.
+
+**Note**: protoJS’s current `require()` and ESM loaders use the existing file-based `ModuleResolver` and do not call `getImportModule` by default; the integration allows future delegation to protoCore’s discovery and cache when desired.
+
 ---
 
 ## 2. Code Quality Assessment
