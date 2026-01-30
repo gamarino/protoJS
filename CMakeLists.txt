@@ -94,6 +94,7 @@ add_executable(protojs
     src/npm/PackageResolver.cpp
     src/npm/PackageInstaller.cpp
     src/npm/ScriptExecutor.cpp
+    src/npm/JsonParser.cpp
     src/npm/NPMRegistry.cpp
     src/npm/Semver.cpp
     # Benchmarking

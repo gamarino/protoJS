@@ -79,10 +79,13 @@ std::string best = Semver::findHighest(versions, "^1.0.0");  // "1.2.3"
 
 | Method | Purpose |
 |--------|--------|
-| `NPMRegistry::fetchPackage(name, registry)` | Fetch package metadata from registry. |
+| `NPMRegistry::fetchPackage(name, registry)` | Fetch package metadata from registry (uses cache when TTL &gt; 0). |
 | `NPMRegistry::resolveVersion(name, range, registry)` | Resolve a version range to a concrete version. |
-| `NPMRegistry::downloadPackage(name, version, targetDir, registry)` | Download package tarball to directory. |
+| `NPMRegistry::downloadPackage(name, version, targetDir, registry, progress)` | Download package tarball; optional `progress(bytesReceived, totalBytes)`. |
 | `NPMRegistry::searchPackages(query, limit, registry)` | Search packages by name. |
+| `NPMRegistry::setCacheTTL(seconds)` | Set cache TTL for fetchPackage (0 = disable). Default 300. |
+| `NPMRegistry::clearCache()` | Clear in-memory package metadata cache. |
+| `NPMRegistry::setProgressCallback(cb)` | Set global progress callback for downloads. |
 
 ### Data Structures
 
@@ -107,11 +110,19 @@ std::string resolved = NPMRegistry::resolveVersion("lodash", "^4.0.0");
 // Download (e.g. for install)
 bool ok = NPMRegistry::downloadPackage("lodash", "4.17.21", "/tmp/pkgs");
 
+// Download with progress
+NPMRegistry::downloadPackage("lodash", "4.17.21", "/tmp/pkgs", NPMRegistry::DEFAULT_REGISTRY,
+    [](size_t bytes, size_t total) { printf("%zu / %zu\n", bytes, total); });
+
+// Cache: default TTL 300s; disable or clear
+NPMRegistry::setCacheTTL(std::chrono::seconds(600));
+NPMRegistry::clearCache();
+
 // Search
 auto names = NPMRegistry::searchPackages("lodash", 10);
 ```
 
-**Note:** Registry access uses HTTP/HTTPS; TLS and JSON parsing are simplified. See technical audit for limitations.
+**Implemented enhancements:** Full JSON parser (`src/npm/JsonParser.h`), HTTPS/TLS (OpenSSL), in-memory cache with TTL, and progress reporting for downloads.
 
 ---
 

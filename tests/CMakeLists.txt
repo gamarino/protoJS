@@ -18,6 +18,8 @@ if(TEST_SOURCES)
         pthread
         dl
         m
+        ssl
+        crypto
     )
     
     # Add source files for linking
@@ -27,6 +29,7 @@ if(TEST_SOURCES)
         ${CMAKE_SOURCE_DIR}/src/IOThreadPool.cpp
         ${CMAKE_SOURCE_DIR}/src/EventLoop.cpp
         # Phase 6: npm, benchmarking, Node.js test compatibility
+        ${CMAKE_SOURCE_DIR}/src/npm/JsonParser.cpp
         ${CMAKE_SOURCE_DIR}/src/npm/Semver.cpp
         ${CMAKE_SOURCE_DIR}/src/npm/NPMRegistry.cpp
         ${CMAKE_SOURCE_DIR}/src/benchmarking/BenchmarkRunner.cpp

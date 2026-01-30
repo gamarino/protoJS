@@ -229,14 +229,14 @@ Phase 6 implementation is now complete. All priorities have been successfully de
 
 ## 5. Known Issues and Limitations
 
-### 5.1 npm Support Limitations
+### 5.1 npm Support (enhancements implemented)
 
-1. **JSON Parsing**: Simplified JSON parsing (would use proper JSON library in production)
-2. **HTTPS Support**: Basic HTTPS support (would use proper TLS library)
-3. **Caching**: No caching layer for registry requests
-4. **Progress Reporting**: No progress reporting for downloads
+1. **JSON Parsing**: ✅ Full recursive-descent JSON parser (`JsonParser.h/cpp`) used for package metadata and search.
+2. **HTTPS Support**: ✅ TLS via OpenSSL when URL is `https://` (default registry).
+3. **Caching**: ✅ In-memory cache for `fetchPackage` with configurable TTL; `setCacheTTL` / `clearCache`.
+4. **Progress Reporting**: ✅ Optional progress callback on `downloadPackage` and `setProgressCallback`; streaming download reports bytes/total.
 
-**Impact**: Low to Medium - Core functionality works, enhancements can be added incrementally
+**Impact**: Low - Core and enhancements in place.
 
 ### 5.2 Benchmarking Limitations
 
@@ -270,20 +270,20 @@ Phase 6 implementation is now complete. All priorities have been successfully de
    - API documentation updates: [docs/API_REFERENCE.md](docs/API_REFERENCE.md) Phase 6 section (Semver, NPMRegistry, BenchmarkRunner, NodeJSTestRunner); API summary and C++ usage in PHASE6_MODULE_GUIDES.md
    - Usage examples: C++ examples in PHASE6_MODULE_GUIDES.md; runnable CLI/script examples in [docs/EXAMPLES.md](docs/EXAMPLES.md) (benchmark scripts, Phase 6 suite, Node.js compatibility)
 
-3. **Future Enhancements**:
-   - Full JSON parser for npm registry
-   - HTTPS/TLS support
-   - Caching layer
-   - Progress reporting
+3. **Future Enhancements** ✅ *Implemented*
+   - Full JSON parser for npm registry: [src/npm/JsonParser.h/cpp](src/npm/JsonParser.h) (recursive-descent parser); `parsePackageMetadata` / `parsePackageVersion` use it for package and search responses.
+   - HTTPS/TLS support: NPMRegistry uses OpenSSL when URL is `https://` (connect, SSL_connect, SSL_read/SSL_write); default registry works over TLS.
+   - Caching layer: in-memory cache for `fetchPackage` with TTL; `setCacheTTL(seconds)` (default 300), `clearCache()`; cache key = registry + package name.
+   - Progress reporting: optional `ProgressCallback(bytesReceived, totalBytes)` on `downloadPackage` and `httpDownload`; `setProgressCallback` for global callback; streaming download reports progress when callback is set.
 
 ### 6.2 Future Enhancements
 
-1. **npm Support Enhancements**:
-   - Full JSON parser
-   - Proper HTTPS/TLS support
-   - Caching layer
-   - Parallel downloads
-   - Progress reporting
+1. **npm Support Enhancements** (partial):
+   - ~~Full JSON parser~~ ✅ Done (JsonParser.h/cpp)
+   - ~~Proper HTTPS/TLS support~~ ✅ Done (OpenSSL)
+   - ~~Caching layer~~ ✅ Done (setCacheTTL, clearCache)
+   - Parallel downloads (not yet)
+   - ~~Progress reporting~~ ✅ Done (downloadPackage progress, setProgressCallback)
 
 2. **Benchmarking Enhancements**:
    - Statistical analysis
