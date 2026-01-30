@@ -16,6 +16,7 @@ Phase 5 implementation is now complete. All three priorities have been successfu
 - **Priority 1**: ✅ Complete (Cluster, Worker Threads, UDP/dgram)
 - **Priority 2**: ✅ Complete (Memory Analyzer, Visual Profiler, Integrated Debugger)
 - **Priority 3**: ✅ Complete (Complete Crypto, Child Process, DNS)
+- **Native Addon Modules**: ✅ Complete (transparent `require()` for C++ shared libraries; resolution order native-first)
 
 ---
 
@@ -201,6 +202,32 @@ Phase 5 implementation is now complete. All three priorities have been successfu
 - Async operations via IOThreadPool
 - Support for multiple record types
 
+### 1.4 Native Addon Modules (External C++ Modules) ✅
+
+**Status**: Implementation Complete
+
+**Features Implemented**:
+- ✅ **Transparent `require()`**: Same syntax for JavaScript and native addons; no API change for users
+- ✅ **Resolution order native-first**: `.node` → `.so`/`.dll`/`.dylib` → `.protojs` → `.js` → `.mjs` (and `index.*` for directories)
+- ✅ **ModuleResolver**: `getResolutionOrderExtensions()`, `isNativeExtension()`, `setTypeFromPath()`; all resolution paths use native-first order
+- ✅ **CommonJSLoader**: Native branch in `require()` — load shared library via `DynamicLibraryLoader`, create module object, call native `init(ctx, pContext, moduleObject)`, cache and return `exports`
+- ✅ **DynamicLibraryLoader**: `initializeModule(module, ctx, pContext, moduleObject)` returns `exports`; ABI uses `protojs_native_module_info` and `init(ctx, pContext, moduleObject)` populating `moduleObject.exports`
+- ✅ **ABI**: `NativeModuleABI.h` documents CommonJS-shaped `moduleObject`; constructor for `ProtoJSNativeModuleInfo`; addons build as shared libraries without linking QuickJS/protoCore (symbols resolved at load time)
+- ✅ **Main executable**: Built with `-rdynamic` so dlopen'd addons resolve QuickJS/protoCore symbols; `__filename`/`__dirname` set for main script so relative `require()` resolves from script directory
+- ✅ **Tests**: Simple and fixture addon targets; resolution-order test; native-require test
+- ✅ **Documentation**: `docs/NATIVE_MODULES.md` (resolution order, ABI, minimal C++ example, build requirements)
+
+**Architecture**:
+- Resolution in `ModuleResolver` (native extensions first); load in `CommonJSLoader` (branch on `ModuleType::Native`); init via `DynamicLibraryLoader` with caller-provided module object; addons export `protojs_native_module_info` and implement `init` to fill `exports`.
+
+#### Potential of Native Addon Modules
+
+- **Ecosystem extension**: Third parties can ship high-performance modules (image processing, tensors, native bindings) as shared libraries; users `require()` them like any other module. Enables a rich addon ecosystem without forking the runtime.
+- **Performance without blocking**: Heavy work runs in native code with full access to protoCore (GIL-free, multi-core). Addons can offload CPU-intensive or I/O-bound work without blocking the event loop, aligning with protoJS’s concurrency model.
+- **Transparency**: Same `require('./foo')` whether `foo` is JS or native. Allows swapping implementations (e.g. replace a JS prototype with a native addon) without changing call sites or tooling.
+- **ProtoCore leverage**: Addons receive `ProtoContext*` and can use protoCore types and concurrency primitives directly, enabling memory-efficient and thread-safe native extensions that integrate with the runtime’s object model and GC.
+- **Node.js-style adoption**: `.node` and platform extensions (`.so`/`.dll`/`.dylib`) match common practice; resolution order (native first) makes it easy to drop in native replacements and to document a clear contract for addon authors.
+
 ---
 
 ## 2. Code Quality Assessment
@@ -247,7 +274,18 @@ Phase 5 implementation is now complete. All three priorities have been successfu
 - Child Process: Enhanced IPC features
 - DNS: Caching layer
 
-### 2.4 Overall Code Quality
+### 2.4 Native Addon Modules
+
+**Strengths**:
+- Clear ABI and resolution semantics
+- Transparent for users (same `require()`)
+- Native-first resolution avoids ambiguity
+- Documented in NATIVE_MODULES.md; test addons and resolution tests in place
+
+**Areas for Improvement**:
+- Addon init/runtime stability in some environments (e.g. symbol resolution, context usage); recommend building addons with same QuickJS/protoCore headers and running with `-rdynamic` executable.
+
+### 2.5 Overall Code Quality
 
 - **Structure**: Excellent
 - **Error Handling**: Comprehensive
@@ -299,6 +337,7 @@ Phase 5 implementation is now complete. All three priorities have been successfu
 - ✅ Memory Analyzer: Basic test framework
 - ✅ Visual Profiler: Basic test framework
 - ✅ Integrated Debugger: Basic test framework
+- ✅ Native Addon Modules: Resolution-order test; native-require test; simple and fixture addon build targets
 
 ### 4.2 Test Quality
 
@@ -319,6 +358,7 @@ Phase 5 implementation is now complete. All three priorities have been successfu
 - ✅ Phase 4 technical audit
 - ✅ Updated PLAN.md with Phase 5
 - ✅ API documentation updates
+- ✅ **docs/NATIVE_MODULES.md** (native addon resolution order, ABI, C++ example, build and -rdynamic)
 - ⏳ Phase 5 completion report (pending)
 - ⏳ Module guides for new modules (pending)
 
@@ -377,6 +417,7 @@ Phase 5 has successfully delivered all priorities:
 - ✅ Priority 1: Advanced Networking and Concurrency (complete)
 - ✅ Priority 2: Enhanced Developer Tools (complete)
 - ✅ Priority 3: Extended Module Support (complete)
+- ✅ **Native Addon Modules**: Transparent `require()` for external C++ shared libraries (complete)
 
 **Key Achievements**:
 - Complete cluster and worker threads support
@@ -384,9 +425,15 @@ Phase 5 has successfully delivered all priorities:
 - Comprehensive developer tools (Memory Analyzer, Visual Profiler, Integrated Debugger)
 - Complete crypto, child process, and DNS modules
 - Chrome DevTools Protocol support for debugging
+- **Native addon modules**: Same `require()` for JS and native (.node/.so/.protojs); native-first resolution; ABI and docs in place; enables high-performance, ecosystem-extensible addons without blocking the event loop and with full protoCore leverage.
+
+**Strategic Potential of Native Addons**:
+- Enables third-party native modules (e.g. image processing, tensors, bindings) as shared libraries with no syntax change for users.
+- Aligns with protoJS’s GIL-free, multi-core design: heavy work in addons does not block the main loop.
+- Transparency (same API as JS modules) supports incremental migration and a clear contract for addon authors.
 
 **Next Steps**:
-1. Expand test coverage for all Phase 5 modules
+1. Expand test coverage for all Phase 5 modules (including native addon init/runtime stability where needed)
 2. Create comprehensive documentation
 3. Begin Phase 6 planning (Ecosystem and Compatibility)
 4. Performance optimization and benchmarking
@@ -394,4 +441,4 @@ Phase 5 has successfully delivered all priorities:
 ---
 
 **Audit Date**: January 24, 2026  
-**Status**: ✅ Phase 5 Complete
+**Status**: ✅ Phase 5 Complete (including Native Addon Modules)
