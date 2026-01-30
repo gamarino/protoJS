@@ -215,16 +215,25 @@ if (!ci.success) for (const auto& name : ci.regressed) printf("Regression: %s\n"
 |--------|--------|
 | `NodeJSTestRunner::runTest(file, options)` | Run test with Node.js and protoJS; compare output; return `TestResult`. |
 | `NodeJSTestRunner::runTestSuite(files, options)` | Run multiple tests; return `CompatibilityReport`. |
+| `NodeJSTestRunner::runTestSuiteParallel(files, options, maxConcurrency)` | Run tests in parallel (default 4 concurrent). |
 | `NodeJSTestRunner::checkModuleCompatibility(moduleName, files)` | Run suite and add module-specific recommendations. |
 | `NodeJSTestRunner::generateReport(report, format)` | Text/JSON/HTML report. |
 | `NodeJSTestRunner::exportToJSON(report)` | Export report as JSON. |
 | `NodeJSTestRunner::exportToHTML(report)` | Export report as HTML. |
 | `NodeJSTestRunner::identifyGaps(report)` | List failed test names/messages. |
+| `NodeJSTestRunner::setTestCacheEnabled(bool)` | Enable/disable cache of Node.js expected output. |
+| `NodeJSTestRunner::clearTestCache()` | Clear test cache. |
+| `NodeJSTestRunner::getCoverageSummary(report)` | Return `CoverageSummary` (passed/failed lists, pass_rate). |
+| `NodeJSTestRunner::exportCoverageReport(report, path, format)` | Write coverage summary (text or json). |
+| `NodeJSTestRunner::runTestSuiteFromFile(configPath)` | **Automated:** run suite from config (first line = name, rest = paths). |
+| `NodeJSTestRunner::runTestsForCI(configPath, minPassRate, reportPath)` | **CI:** run suite from config; success if pass_rate &gt;= minPassRate. |
 
 ### Data Structures
 
 - **TestResult**: `test_name`, `passed`, `error_message`, `execution_time_ms`, `expected_output`, `actual_output`.
 - **CompatibilityReport**: `total_tests`, `passed_tests`, `failed_tests`, `pass_rate`, `results`, `compatibility_issues`, `recommendations`.
+- **CoverageSummary**: `total`, `passed`, `failed`, `pass_rate`, `passed_tests`, `failed_tests`.
+- **TestCIRunResult**: `success` (pass_rate >= minPassRate), `report` (text).
 
 ### Usage Example (C++)
 
@@ -248,6 +257,23 @@ std::string textReport = NodeJSTestRunner::generateReport(report, "text");
 
 // Gaps
 auto gaps = NodeJSTestRunner::identifyGaps(report);
+
+// Test cache (avoid re-running Node for same file)
+NodeJSTestRunner::setTestCacheEnabled(true);
+report = NodeJSTestRunner::runTestSuite(files, options);
+NodeJSTestRunner::clearTestCache();
+
+// Parallel execution
+report = NodeJSTestRunner::runTestSuiteParallel(files, options, 4);
+
+// Coverage analysis
+CoverageSummary cov = NodeJSTestRunner::getCoverageSummary(report);
+NodeJSTestRunner::exportCoverageReport(report, "/path/to/coverage.txt", "text");
+
+// Automated / CI
+report = NodeJSTestRunner::runTestSuiteFromFile("/path/to/test_suite_config.txt");
+TestCIRunResult ci = NodeJSTestRunner::runTestsForCI("/path/to/test_suite_config.txt", 80.0, "report.txt");
+if (!ci.success) { /* pass rate below 80% */ }
 ```
 
 **Note:** Commands are hardcoded as `./protojs` and `node`; for out-of-tree runs set up `PATH` or adjust the implementation to use configurable binaries.

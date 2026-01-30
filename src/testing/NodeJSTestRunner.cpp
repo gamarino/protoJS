@@ -5,63 +5,131 @@
 #include <cstdlib>
 #include <chrono>
 #include <algorithm>
+#include <mutex>
+#include <future>
 
 namespace protojs {
 
-TestResult NodeJSTestRunner::runTest(const std::string& testFile, const std::map<std::string, std::string>& options) {
+namespace {
+    std::mutex g_cacheMutex;
+    std::map<std::string, std::string> g_expectedOutputCache;
+    bool g_testCacheEnabled = false;
+}
+
+void NodeJSTestRunner::setTestCacheEnabled(bool enabled) {
+    g_testCacheEnabled = enabled;
+}
+
+void NodeJSTestRunner::clearTestCache() {
+    std::lock_guard<std::mutex> lock(g_cacheMutex);
+    g_expectedOutputCache.clear();
+}
+
+TestResult NodeJSTestRunner::runTestInternal(const std::string& testFile, const std::map<std::string, std::string>& options) {
     TestResult result;
     result.test_name = testFile;
     result.passed = false;
-    
-    // Run with Node.js to get expected output
-    TestResult nodeResult = executeWithNodeJS(testFile, options);
-    result.expected_output = nodeResult.actual_output;
-    
-    // Run with protoJS
+
+    std::string expected;
+    {
+        std::lock_guard<std::mutex> lock(g_cacheMutex);
+        if (g_testCacheEnabled) {
+            auto it = g_expectedOutputCache.find(testFile);
+            if (it != g_expectedOutputCache.end())
+                expected = it->second;
+        }
+    }
+    if (expected.empty()) {
+        TestResult nodeResult = executeWithNodeJS(testFile, options);
+        expected = nodeResult.actual_output;
+        if (g_testCacheEnabled) {
+            std::lock_guard<std::mutex> lock(g_cacheMutex);
+            g_expectedOutputCache[testFile] = expected;
+        }
+    }
+    result.expected_output = expected;
+
     TestResult protojsResult = executeWithProtoJS(testFile, options);
     result.actual_output = protojsResult.actual_output;
     result.execution_time_ms = protojsResult.execution_time_ms;
-    
-    // Compare outputs
     result.passed = compareOutputs(result.expected_output, result.actual_output);
-    
-    if (!result.passed) {
+    if (!result.passed)
         result.error_message = "Output mismatch between Node.js and protoJS";
-    }
-    
     return result;
+}
+
+TestResult NodeJSTestRunner::runTest(const std::string& testFile, const std::map<std::string, std::string>& options) {
+    return runTestInternal(testFile, options);
 }
 
 CompatibilityReport NodeJSTestRunner::runTestSuite(const std::vector<std::string>& testFiles, const std::map<std::string, std::string>& options) {
     CompatibilityReport report;
-    report.total_tests = testFiles.size();
+    report.total_tests = static_cast<int>(testFiles.size());
     report.passed_tests = 0;
     report.failed_tests = 0;
-    
+
     for (const auto& testFile : testFiles) {
-        TestResult result = runTest(testFile, options);
+        TestResult result = runTestInternal(testFile, options);
         report.results.push_back(result);
-        
-        if (result.passed) {
+        if (result.passed)
             report.passed_tests++;
-        } else {
+        else {
             report.failed_tests++;
             report.compatibility_issues.push_back(testFile + ": " + result.error_message);
         }
     }
-    
-    report.pass_rate = report.total_tests > 0 ? 
+
+    report.pass_rate = report.total_tests > 0 ?
         (static_cast<double>(report.passed_tests) / report.total_tests) * 100.0 : 0.0;
-    
-    // Generate recommendations
-    if (report.pass_rate < 80.0) {
+
+    if (report.pass_rate < 80.0)
         report.recommendations["priority"] = "High - Significant compatibility issues detected";
-    } else if (report.pass_rate < 95.0) {
+    else if (report.pass_rate < 95.0)
         report.recommendations["priority"] = "Medium - Some compatibility issues need attention";
-    } else {
+    else
         report.recommendations["priority"] = "Low - Good compatibility, minor issues remain";
+
+    return report;
+}
+
+CompatibilityReport NodeJSTestRunner::runTestSuiteParallel(const std::vector<std::string>& testFiles, const std::map<std::string, std::string>& options, size_t maxConcurrency) {
+    CompatibilityReport report;
+    report.total_tests = static_cast<int>(testFiles.size());
+    report.passed_tests = 0;
+    report.failed_tests = 0;
+    report.results.resize(testFiles.size());
+    if (maxConcurrency == 0) maxConcurrency = 1;
+
+    size_t next = 0;
+    while (next < testFiles.size()) {
+        std::vector<std::future<TestResult>> batch;
+        for (size_t i = 0; i < maxConcurrency && next < testFiles.size(); ++i) {
+            size_t idx = next++;
+            const std::string& testFile = testFiles[idx];
+            batch.push_back(std::async(std::launch::async, [&testFile, &options, idx, &report]() {
+                TestResult r = runTestInternal(testFile, options);
+                report.results[idx] = r;
+                return r;
+            }));
+        }
+        for (auto& f : batch) (void)f.get();
     }
-    
+
+    for (const auto& result : report.results) {
+        if (result.passed) report.passed_tests++;
+        else {
+            report.failed_tests++;
+            report.compatibility_issues.push_back(result.test_name + ": " + result.error_message);
+        }
+    }
+    report.pass_rate = report.total_tests > 0 ?
+        (static_cast<double>(report.passed_tests) / report.total_tests) * 100.0 : 0.0;
+    if (report.pass_rate < 80.0)
+        report.recommendations["priority"] = "High - Significant compatibility issues detected";
+    else if (report.pass_rate < 95.0)
+        report.recommendations["priority"] = "Medium - Some compatibility issues need attention";
+    else
+        report.recommendations["priority"] = "Low - Good compatibility, minor issues remain";
     return report;
 }
 
@@ -241,15 +309,87 @@ TestResult NodeJSTestRunner::executeWithNodeJS(const std::string& testFile, cons
 }
 
 bool NodeJSTestRunner::compareOutputs(const std::string& expected, const std::string& actual) {
-    // Normalize whitespace for comparison
     std::string normalizedExpected = expected;
     std::string normalizedActual = actual;
-    
-    // Remove trailing whitespace
-    normalizedExpected.erase(normalizedExpected.find_last_not_of(" \n\r\t") + 1);
-    normalizedActual.erase(normalizedActual.find_last_not_of(" \n\r\t") + 1);
-    
+    auto trim = [](std::string& s) {
+        size_t end = s.find_last_not_of(" \n\r\t");
+        if (end == std::string::npos) s.clear();
+        else s.erase(end + 1);
+    };
+    trim(normalizedExpected);
+    trim(normalizedActual);
     return normalizedExpected == normalizedActual;
+}
+
+CoverageSummary NodeJSTestRunner::getCoverageSummary(const CompatibilityReport& report) {
+    CoverageSummary s;
+    s.total = report.total_tests;
+    s.passed = report.passed_tests;
+    s.failed = report.failed_tests;
+    s.pass_rate = report.pass_rate;
+    for (const auto& r : report.results) {
+        if (r.passed) s.passed_tests.push_back(r.test_name);
+        else s.failed_tests.push_back(r.test_name);
+    }
+    return s;
+}
+
+bool NodeJSTestRunner::exportCoverageReport(const CompatibilityReport& report, const std::string& path, const std::string& format) {
+    std::ofstream f(path);
+    if (!f) return false;
+    CoverageSummary s = getCoverageSummary(report);
+    if (format == "json") {
+        f << "{\n  \"total\": " << s.total << ",\n  \"passed\": " << s.passed << ",\n  \"failed\": " << s.failed << ",\n  \"pass_rate\": " << s.pass_rate << ",\n";
+        f << "  \"passed_tests\": [";
+        for (size_t i = 0; i < s.passed_tests.size(); ++i) f << (i ? "," : "") << "\n    \"" << s.passed_tests[i] << "\"";
+        f << "\n  ],\n  \"failed_tests\": [";
+        for (size_t i = 0; i < s.failed_tests.size(); ++i) f << (i ? "," : "") << "\n    \"" << s.failed_tests[i] << "\"";
+        f << "\n  ]\n}\n";
+    } else {
+        f << "=== Test Coverage Summary ===\n\n";
+        f << "Total: " << s.total << " | Passed: " << s.passed << " | Failed: " << s.failed << " | Pass Rate: " << s.pass_rate << "%\n\n";
+        f << "Passed tests:\n";
+        for (const auto& n : s.passed_tests) f << "  - " << n << "\n";
+        f << "Failed tests:\n";
+        for (const auto& n : s.failed_tests) f << "  - " << n << "\n";
+    }
+    return true;
+}
+
+CompatibilityReport NodeJSTestRunner::runTestSuiteFromFile(const std::string& configPath) {
+    std::ifstream f(configPath);
+    if (!f) return CompatibilityReport();
+    std::vector<std::string> testFiles;
+    std::string line;
+    bool haveName = false;
+    while (std::getline(f, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t')) line.pop_back();
+        size_t start = 0;
+        while (start < line.size() && (line[start] == ' ' || line[start] == '\t')) start++;
+        line = line.substr(start);
+        if (line.empty() || (line.size() > 0 && line[0] == '#')) continue;
+        if (!haveName) { haveName = true; continue; }
+        testFiles.push_back(line);
+    }
+    if (testFiles.empty()) return CompatibilityReport();
+    return runTestSuite(testFiles, {});
+}
+
+TestCIRunResult NodeJSTestRunner::runTestsForCI(const std::string& configPath, double minPassRate, const std::string& reportPath) {
+    TestCIRunResult ci;
+    CompatibilityReport report = runTestSuiteFromFile(configPath);
+    if (report.total_tests == 0) {
+        ci.success = false;
+        ci.report = "No tests run (invalid config or empty suite)";
+        return ci;
+    }
+    ci.report = generateReport(report, "text");
+    ci.success = (report.pass_rate >= minPassRate);
+    if (!reportPath.empty()) {
+        std::ofstream out(reportPath);
+        if (out) out << ci.report;
+    }
+    return ci;
 }
 
 } // namespace protojs

@@ -1,0 +1,5 @@
+# Test suite config (first non-empty line = suite name, rest = test paths)
+# Used by NodeJSTestRunner::runTestSuiteFromFile and runTestsForCI
+Phase 6 test compatibility suite
+tests/integration/basic/hello_world.js
+tests/integration/basic/arithmetic.js

@@ -2,7 +2,9 @@
 #include <catch2/catch_all.hpp>
 #include "../../src/testing/NodeJSTestRunner.h"
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
+#include <iterator>
 
 using namespace protojs;
 
@@ -90,4 +92,64 @@ TEST_CASE("NodeJSTestRunner::runTest (integration)", "[NodeJSTestRunner][Phase6]
     REQUIRE(result.test_name == script);
     // runTest compares Node output vs protojs output; may fail if binaries not in PATH
     REQUIRE((result.passed || !result.error_message.empty() || result.expected_output.size() >= 0));
+}
+
+TEST_CASE("NodeJSTestRunner::test cache", "[NodeJSTestRunner][Phase6]") {
+    NodeJSTestRunner::clearTestCache();
+    NodeJSTestRunner::setTestCacheEnabled(true);
+    NodeJSTestRunner::setTestCacheEnabled(false);
+    NodeJSTestRunner::clearTestCache();
+}
+
+TEST_CASE("NodeJSTestRunner::getCoverageSummary", "[NodeJSTestRunner][Phase6]") {
+    CompatibilityReport report;
+    report.total_tests = 2;
+    report.passed_tests = 1;
+    report.failed_tests = 1;
+    report.pass_rate = 50.0;
+    report.results = { { "a.js", true, "", 1.0, "", "" }, { "b.js", false, "mismatch", 1.0, "", "" } };
+    auto s = NodeJSTestRunner::getCoverageSummary(report);
+    REQUIRE(s.total == 2);
+    REQUIRE(s.passed == 1);
+    REQUIRE(s.failed == 1);
+    REQUIRE(s.pass_rate == 50.0);
+    REQUIRE(s.passed_tests.size() == 1);
+    REQUIRE(s.failed_tests.size() == 1);
+    REQUIRE(s.passed_tests[0] == "a.js");
+    REQUIRE(s.failed_tests[0] == "b.js");
+}
+
+TEST_CASE("NodeJSTestRunner::exportCoverageReport", "[NodeJSTestRunner][Phase6]") {
+    CompatibilityReport report;
+    report.total_tests = 1;
+    report.passed_tests = 1;
+    report.failed_tests = 0;
+    report.pass_rate = 100.0;
+    report.results = { { "x.js", true, "", 1.0, "", "" } };
+    std::string path = "/tmp/protojs_coverage_test.txt";
+    REQUIRE(NodeJSTestRunner::exportCoverageReport(report, path, "text"));
+    std::ifstream f(path);
+    REQUIRE(f.good());
+    std::string content((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    REQUIRE(content.find("Coverage Summary") != std::string::npos);
+    REQUIRE(content.find("100") != std::string::npos);
+    std::remove(path.c_str());
+}
+
+TEST_CASE("NodeJSTestRunner::runTestSuiteFromFile nonexistent", "[NodeJSTestRunner][Phase6]") {
+    auto report = NodeJSTestRunner::runTestSuiteFromFile("/nonexistent/test_suite_config.txt");
+    REQUIRE(report.total_tests == 0);
+}
+
+TEST_CASE("NodeJSTestRunner::runTestSuiteParallel empty", "[NodeJSTestRunner][Phase6]") {
+    std::vector<std::string> files;
+    auto report = NodeJSTestRunner::runTestSuiteParallel(files, {}, 4);
+    REQUIRE(report.total_tests == 0);
+    REQUIRE(report.passed_tests == 0);
+}
+
+TEST_CASE("NodeJSTestRunner::runTestsForCI empty config", "[NodeJSTestRunner][Phase6]") {
+    auto ci = NodeJSTestRunner::runTestsForCI("/nonexistent/config.txt", 80.0, "");
+    REQUIRE_FALSE(ci.success);
+    REQUIRE(ci.report.find("No tests") != std::string::npos);
 }
