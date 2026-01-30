@@ -398,6 +398,23 @@ protojs -e "console.log('Hello')"
 
 ---
 
+## Phase 6 (C++ / tooling APIs)
+
+Phase 6 adds **npm support**, **performance benchmarking**, and **Node.js test compatibility** as C++ libraries used by the runtime and tooling. These are not exposed as JavaScript APIs; they are used by the build/test/benchmark infrastructure.
+
+| API | Purpose |
+|-----|--------|
+| **Semver** (`src/npm/Semver.h`) | Version parsing, comparison, range satisfaction (`satisfies`, `findHighest`), normalization. |
+| **NPMRegistry** (`src/npm/NPMRegistry.h`) | Fetch package metadata, resolve version, download tarball, search packages. |
+| **BenchmarkRunner** (`src/benchmarking/BenchmarkRunner.h`) | Run benchmark scripts (protoJS/Node), compare time/memory, generate text/JSON/HTML reports. |
+| **NodeJSTestRunner** (`src/testing/NodeJSTestRunner.h`) | Run tests with Node.js and protoJS, compare output, generate compatibility reports and gap lists. |
+
+**Full API details, data structures, and C++ usage:** [Phase 6 module guides](PHASE6_MODULE_GUIDES.md).
+
+**Runnable usage examples (CLI and scripts):** [Examples – Phase 6](EXAMPLES.md#phase-6-benchmarking-and-test-compatibility).
+
+---
+
 ## Implementation Notes
 
 ### Phase 1 (Current)
@@ -440,3 +457,4 @@ Some complex conversions (such as objects with functions) may not be supported i
 - [protoCore Module](PROTOCORE_MODULE.md)
 - [Thread Pool Configuration](THREAD_POOLS.md)
 - [Advanced Examples](EXAMPLES.md)
+- [Phase 6 module guides (npm, benchmarking, Node.js test)](PHASE6_MODULE_GUIDES.md)

@@ -94,8 +94,57 @@ console.log("Arch:", process.arch());
 console.log("CWD:", process.cwd());
 ```
 
+## Phase 6: Benchmarking and test compatibility
+
+Phase 6 provides benchmarking and Node.js test compatibility via C++ (BenchmarkRunner, NodeJSTestRunner). Scripts run with the protoJS CLI; the runner infrastructure executes them and compares with Node.js.
+
+### Running a benchmark script
+
+Run any JavaScript file as a benchmark (timing and output are captured by the runner):
+
+```bash
+# Run with protoJS
+./protojs tests/benchmarks/minimal_test.js
+
+# Run with Node.js (for comparison)
+node tests/benchmarks/minimal_test.js
+```
+
+### Phase 6 benchmark suite
+
+Run the dedicated Phase 6 benchmark script (version-style and report-style workloads):
+
+```bash
+./protojs tests/benchmarks/phase6_benchmark_suite.js
+```
+
+Example output: per-operation timings (version parse, array filter/sort, object iteration, string report).
+
+### Minimal benchmark script (runner-compatible)
+
+Scripts that print results and exit can be used as benchmark inputs:
+
+```javascript
+// my_benchmark.js
+const start = Date.now();
+for (let i = 0; i < 1e6; i++) { /* work */ }
+console.log("Elapsed:", Date.now() - start, "ms");
+```
+
+Run: `./protojs my_benchmark.js`. The BenchmarkRunner C++ API runs such scripts and records time/memory.
+
+### Node.js test compatibility
+
+To compare protoJS vs Node.js on a test file, the NodeJSTestRunner (C++) runs both and compares stdout. From the project root with `protojs` and `node` on `PATH`:
+
+- Test file example: `tests/integration/basic/hello_world.js`
+- The runner executes `./protojs <file>` and `node <file>`, then compares output.
+
+See [Phase 6 module guides](PHASE6_MODULE_GUIDES.md) for C++ API usage (runSuite, runTest, generateReport, exportToJSON/HTML).
+
 ## References
 
 - [API Reference](API_REFERENCE.md)
 - [Deferred Guide](DEFERRED_USAGE.md)
 - [protoCore Module](PROTOCORE_MODULE.md)
+- [Phase 6 module guides (npm, benchmarking, Node.js test)](PHASE6_MODULE_GUIDES.md)

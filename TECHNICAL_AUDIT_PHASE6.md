@@ -267,8 +267,8 @@ Phase 6 implementation is now complete. All priorities have been successfully de
 
 2. **Documentation** ✅ *Implemented*
    - Module guides for new modules: [docs/PHASE6_MODULE_GUIDES.md](docs/PHASE6_MODULE_GUIDES.md) (npm, BenchmarkRunner, NodeJSTestRunner)
-   - API documentation updates: API summary and usage examples in PHASE6_MODULE_GUIDES.md
-   - Usage examples: C++ usage examples for Semver, NPMRegistry, BenchmarkRunner, NodeJSTestRunner
+   - API documentation updates: [docs/API_REFERENCE.md](docs/API_REFERENCE.md) Phase 6 section (Semver, NPMRegistry, BenchmarkRunner, NodeJSTestRunner); API summary and C++ usage in PHASE6_MODULE_GUIDES.md
+   - Usage examples: C++ examples in PHASE6_MODULE_GUIDES.md; runnable CLI/script examples in [docs/EXAMPLES.md](docs/EXAMPLES.md) (benchmark scripts, Phase 6 suite, Node.js compatibility)
 
 3. **Future Enhancements**:
    - Full JSON parser for npm registry
