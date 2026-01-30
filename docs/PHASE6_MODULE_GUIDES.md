@@ -141,16 +141,25 @@ auto names = NPMRegistry::searchPackages("lodash", 10);
 | Method | Purpose |
 |--------|--------|
 | `BenchmarkRunner::runBenchmark(file, options)` | Run a single benchmark script with protoJS; returns `BenchmarkResult`. |
+| `BenchmarkRunner::runBenchmarkRepeated(file, iterations, options)` | Run benchmark N times; returns result with stats (mean, median, stddev, min, max). |
 | `BenchmarkRunner::runSuite(suite)` | Run multiple benchmark files; returns `vector<BenchmarkResult>`. |
 | `BenchmarkRunner::compareWithNodeJS(file, options)` | Run script with protoJS and Node.js; returns comparison result. |
 | `BenchmarkRunner::generateReport(results, format)` | Generate text report (`"text"`, `"json"`, `"html"`). |
 | `BenchmarkRunner::exportToJSON(results)` | Export results as JSON. |
 | `BenchmarkRunner::exportToHTML(results)` | Export results as HTML. |
+| `BenchmarkRunner::computeStats(samples)` | Compute mean, median, stddev, min, max from run times. |
+| `BenchmarkRunner::detectRegressions(current, baseline, thresholdPercent)` | Return names of benchmarks that regressed (current time &gt; baseline × (1 + threshold/100)). |
+| `BenchmarkRunner::saveBaseline(results, path)` | Save results to CSV for later regression comparison. |
+| `BenchmarkRunner::loadBaseline(path)` | Load baseline results from CSV. |
+| `BenchmarkRunner::runSuiteFromFile(configPath)` | **Automated execution:** run suite from config file (first line = name, rest = paths). |
+| `BenchmarkRunner::runForCI(suiteConfig, baselinePath, thresholdPercent, reportPath)` | **CI/CD:** run suite, compare to baseline, write report; returns `CIRunResult` (success, regressed list, report). |
 
 ### Data Structures
 
-- **BenchmarkResult**: `name`, `protojs_time_ms`, `nodejs_time_ms`, `speedup`, `memory_usage_bytes`, `success`, `error_message`.
+- **BenchmarkResult**: `name`, `protojs_time_ms`, `nodejs_time_ms`, `speedup`, `memory_usage_bytes`, `success`, `error_message`; optional stats: `has_stats`, `median_ms`, `stddev_ms`, `min_ms`, `max_ms`, `iterations_run`.
+- **BenchmarkStats**: `mean_ms`, `median_ms`, `stddev_ms`, `min_ms`, `max_ms`, `iterations`.
 - **BenchmarkSuite**: `name`, `test_files` (vector of paths), `options` (map).
+- **CIRunResult**: `success` (no regression), `regressed` (names), `report` (text).
 
 ### Usage Example (C++)
 
@@ -177,9 +186,21 @@ std::string report = BenchmarkRunner::generateReport(results, "text");
 // Compare with Node.js
 BenchmarkResult cmp = BenchmarkRunner::compareWithNodeJS("/path/to/benchmark.js", options);
 // cmp.protojs_time_ms, cmp.nodejs_time_ms, cmp.speedup
+
+// Statistical analysis: run N times, get mean/median/stddev
+BenchmarkResult r2 = BenchmarkRunner::runBenchmarkRepeated("/path/to/benchmark.js", 5, options);
+if (r2.has_stats) printf("mean=%.2f median=%.2f stddev=%.2f\n", r2.protojs_time_ms, r2.median_ms, r2.stddev_ms);
+
+// Regression detection and CI
+auto current = BenchmarkRunner::runSuiteFromFile("/path/to/suite_config.txt");
+BenchmarkRunner::saveBaseline(current, "/path/to/baseline.csv");
+auto baseline = BenchmarkRunner::loadBaseline("/path/to/baseline.csv");
+auto regressed = BenchmarkRunner::detectRegressions(current, baseline, 10.0);  // 10% threshold
+CIRunResult ci = BenchmarkRunner::runForCI("/path/to/suite_config.txt", "/path/to/baseline.csv", 10.0, "report.txt");
+if (!ci.success) for (const auto& name : ci.regressed) printf("Regression: %s\n", name.c_str());
 ```
 
-**Note:** Execution uses `runtime + " " + scriptPath` (e.g. `protojs script.js`, `node script.js`). Ensure `protojs` and `node` are on `PATH` when using comparison.
+**Note:** Execution uses `runtime + " " + scriptPath` (e.g. `protojs script.js`, `node script.js`). Ensure `protojs` and `node` are on `PATH` when using comparison. **Config file format** for `runSuiteFromFile`: first non-empty non-comment line = suite name; following lines = benchmark paths (one per line). **CI/CD:** Call `runForCI(suiteConfig, baselinePath, thresholdPercent, reportPath)` from your build; exit with non-zero if `!ci.success`.
 
 ---
 

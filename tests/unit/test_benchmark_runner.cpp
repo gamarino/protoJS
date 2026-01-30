@@ -79,3 +79,56 @@ TEST_CASE("BenchmarkRunner::runBenchmark (integration)", "[BenchmarkRunner][Phas
         REQUIRE(result.protojs_time_ms >= 0);
     }
 }
+
+TEST_CASE("BenchmarkRunner::computeStats", "[BenchmarkRunner][Phase6]") {
+    std::vector<double> samples = { 10.0, 20.0, 30.0, 40.0, 50.0 };
+    auto stats = BenchmarkRunner::computeStats(samples);
+    REQUIRE(stats.iterations == 5);
+    REQUIRE(stats.mean_ms == 30.0);
+    REQUIRE(stats.median_ms == 30.0);
+    REQUIRE(stats.min_ms == 10.0);
+    REQUIRE(stats.max_ms == 50.0);
+    REQUIRE(stats.stddev_ms > 0);
+}
+
+TEST_CASE("BenchmarkRunner::detectRegressions", "[BenchmarkRunner][Phase6]") {
+    std::vector<BenchmarkResult> baseline = { { "a.js", 100.0, 0, 0, 0, true, "", false, 0, 0, 0, 0, 0 } };
+    std::vector<BenchmarkResult> current = { { "a.js", 120.0, 0, 0, 0, true, "", false, 0, 0, 0, 0, 0 } };
+    auto regressed = BenchmarkRunner::detectRegressions(current, baseline, 10.0);
+    REQUIRE(regressed.size() == 1);
+    REQUIRE(regressed[0] == "a.js");
+    current[0].protojs_time_ms = 109.0;
+    regressed = BenchmarkRunner::detectRegressions(current, baseline, 10.0);
+    REQUIRE(regressed.empty());
+}
+
+TEST_CASE("BenchmarkRunner::saveBaseline and loadBaseline", "[BenchmarkRunner][Phase6]") {
+    std::vector<BenchmarkResult> results = { { "x.js", 5.0, 4.0, 0.8, 1024, true, "", false, 0, 0, 0, 0, 0 } };
+    std::string path = "/tmp/protojs_baseline_test.csv";
+    REQUIRE(BenchmarkRunner::saveBaseline(results, path));
+    auto loaded = BenchmarkRunner::loadBaseline(path);
+    REQUIRE(loaded.size() == 1);
+    REQUIRE(loaded[0].name == "x.js");
+    REQUIRE(loaded[0].protojs_time_ms == 5.0);
+    REQUIRE(loaded[0].success);
+    std::remove(path.c_str());
+}
+
+TEST_CASE("BenchmarkRunner::runSuiteFromFile empty or no file", "[BenchmarkRunner][Phase6]") {
+    auto results = BenchmarkRunner::runSuiteFromFile("/nonexistent/suite_config.txt");
+    REQUIRE(results.empty());
+}
+
+TEST_CASE("BenchmarkRunner::runForCI no baseline", "[BenchmarkRunner][Phase6]") {
+    std::string root = getTestProjectRoot();
+    std::string configPath = root + "/tests/benchmarks/suite_config.txt";
+    std::string baselinePath = "/tmp/protojs_ci_baseline_nonexistent.csv";
+    if (root.empty() || !std::ifstream(configPath).good()) {
+        WARN("Skipping: suite_config.txt not found");
+        return;
+    }
+    auto ci = BenchmarkRunner::runForCI(configPath, baselinePath, 10.0, "");
+    REQUIRE(ci.success);
+    bool hasReport = (ci.report.find("No baseline") != std::string::npos) || (ci.report.find("Benchmark") != std::string::npos);
+    REQUIRE(hasReport);
+}

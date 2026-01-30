@@ -1,0 +1,5 @@
+# Benchmark suite config (first non-empty line = suite name, rest = benchmark paths)
+# Used by BenchmarkRunner::runSuiteFromFile and runForCI
+Phase 6 automated suite
+tests/benchmarks/minimal_test.js
+tests/benchmarks/phase6_benchmark_suite.js

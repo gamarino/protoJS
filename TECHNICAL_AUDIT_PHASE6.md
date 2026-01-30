@@ -285,11 +285,11 @@ Phase 6 implementation is now complete. All priorities have been successfully de
    - ~~Parallel downloads~~ ✅ Done (NPMRegistry::downloadPackages with maxConcurrency; InstallOptions::parallelDownloads, default 4)
    - ~~Progress reporting~~ ✅ Done (downloadPackage progress, setProgressCallback)
 
-2. **Benchmarking Enhancements**:
-   - Statistical analysis
-   - Regression detection
-   - Automated execution
-   - CI/CD integration
+2. **Benchmarking Enhancements** ✅ *Implemented*
+   - Statistical analysis: `runBenchmarkRepeated`, `computeStats` (mean, median, stddev, min, max); `BenchmarkResult.has_stats`, `median_ms`, `stddev_ms`, etc.
+   - Regression detection: `detectRegressions(current, baseline, thresholdPercent)`, `saveBaseline`/`loadBaseline` (CSV).
+   - Automated execution: `runSuiteFromFile(configPath)` — config: first line = suite name, rest = benchmark paths.
+   - CI/CD integration: `runForCI(suiteConfig, baselinePath, thresholdPercent, reportPath)` returns `CIRunResult` (success, regressed list, report); sample config `tests/benchmarks/suite_config.txt`.
 
 3. **Test Compatibility Enhancements**:
    - Test caching
