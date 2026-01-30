@@ -23,7 +23,8 @@
 |----------|---------|-----------|
 | [README.md](README.md) | Project overview and getting started | 5 min |
 | [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md) | High-level project summary | 3 min |
-| [TECHNICAL_AUDIT_PHASE5.md](TECHNICAL_AUDIT_PHASE5.md) | Phase 5 technical audit (most recent) | 20 min |
+| [TECHNICAL_AUDIT_PHASE5.md](TECHNICAL_AUDIT_PHASE5.md) | Phase 5 technical audit | 20 min |
+| [TECHNICAL_AUDIT_PHASE6.md](TECHNICAL_AUDIT_PHASE6.md) | Phase 6 technical audit (most recent) | 20 min |
 | [COMMERCIAL_IMPACT_REPORT.md](COMMERCIAL_IMPACT_REPORT.md) | Commercial impact and market opportunities | 15 min |
 | [docs/PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md) | Phase 2 completion report | 15 min |
 | [docs/PHASE3_COMPLETION.md](docs/PHASE3_COMPLETION.md) | Phase 3 completion report | 15 min |
@@ -72,6 +73,8 @@
 | [docs/PHASE3_GCBRIDGE.md](docs/PHASE3_GCBRIDGE.md) | Garbage collection bridge | 15 min |
 | [docs/PHASE3_PERFORMANCE_OPTIMIZATION.md](docs/PHASE3_PERFORMANCE_OPTIMIZATION.md) | Performance optimizations | 15 min |
 | [docs/PHASE3_TESTING_INFRASTRUCTURE.md](docs/PHASE3_TESTING_INFRASTRUCTURE.md) | Testing infrastructure | 15 min |
+| [docs/PHASE6_COMPLETION.md](docs/PHASE6_COMPLETION.md) | Phase 6 completion report | 15 min |
+| [docs/PHASE6_MODULE_GUIDES.md](docs/PHASE6_MODULE_GUIDES.md) | **Phase 6 module guides (npm, benchmarking, Node.js test)** | 20 min |
 
 ---
 

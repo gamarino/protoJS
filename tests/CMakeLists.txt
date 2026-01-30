@@ -26,6 +26,11 @@ if(TEST_SOURCES)
         ${CMAKE_SOURCE_DIR}/src/CPUThreadPool.cpp
         ${CMAKE_SOURCE_DIR}/src/IOThreadPool.cpp
         ${CMAKE_SOURCE_DIR}/src/EventLoop.cpp
+        # Phase 6: npm, benchmarking, Node.js test compatibility
+        ${CMAKE_SOURCE_DIR}/src/npm/Semver.cpp
+        ${CMAKE_SOURCE_DIR}/src/npm/NPMRegistry.cpp
+        ${CMAKE_SOURCE_DIR}/src/benchmarking/BenchmarkRunner.cpp
+        ${CMAKE_SOURCE_DIR}/src/testing/NodeJSTestRunner.cpp
     )
 
     # Include directories
@@ -34,6 +39,11 @@ if(TEST_SOURCES)
         ${CMAKE_SOURCE_DIR}/src
         ${PROTOCORE_DIR}
         ${PROTOCORE_DIR}/headers
+    )
+
+    # Allow Phase 6 integration tests to find test scripts (set PROTOJS_TEST_PROJECT_ROOT)
+    target_compile_definitions(protojs_tests PRIVATE
+        PROTOJS_TEST_PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
     )
 
     # Add tests to CTest

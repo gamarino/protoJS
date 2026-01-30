@@ -115,7 +115,7 @@ bool Semver::satisfies(const std::string& version, const std::string& range) {
         if (!parse(version, vMajor, vMinor, vPatch, vPrerelease, vBuild)) return false;
         
         if (vMajor != major) return false;
-        if (vMinor != minor) return vMinor > minor;
+        if (vMinor != minor) return false;  // ~1.2.x means <1.3.0, so same minor only
         return vPatch >= patch;
     } else if (op == "^") {
         // Caret range: ^1.2.3 means >=1.2.3 <2.0.0
