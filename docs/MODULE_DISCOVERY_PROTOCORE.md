@@ -22,8 +22,8 @@ This document describes how protoJS integrates with protoCore's module discovery
    - **Resolution chain** — platform-dependent default (e.g. `[".", "/usr/lib/proto", ...]`) or a custom chain set via `setResolutionChain`.
    - **Module roots** — modules loaded via `getImportModule` are registered as GC roots in this space so they are not collected.
 
-2. **Optional use of getImportModule**  
-   When loading **native addons** or **custom backends** (e.g. DB, remote), protoJS can call protoCore's `getImportModule(&pSpace, logicalPath, "exports")` **before** or **after** file-based resolution. If the result is not `PROTO_NONE`, the host can convert the returned ProtoObject (wrapper with attribute `exports`) to a JS value and use it, keeping caching and GC roots in protoCore.
+2. **require() uses getImportModule for bare specifiers**  
+   For **bare specifiers** (e.g. `require("mymodule")` or `require("fs")` — not starting with `./`, `../`, or `/`), protoJS calls protoCore's `getImportModule(space, logicalPath, "exports")` **first**. If a provider or the default chain resolves the logical path, the returned module (wrapper attribute `exports`) is converted to a JS value via `TypeBridge::toJS`, cached under `umd:<specifier>`, and returned. If `getImportModule` returns nothing, resolution **falls back** to file-based `ModuleResolver` (built-ins like `path`, `fs`, and relative paths are resolved as before).
 
 3. **ProviderRegistry**  
    Custom `ModuleProvider` implementations can be registered in protoCore's `ProviderRegistry::instance()`. The resolution chain can reference them with `provider:alias` or `provider:GUID`. protoJS does not register providers by default; host code or extensions can do so.
@@ -50,7 +50,7 @@ To customize the chain (e.g. add a custom path or a provider), use protoCore's A
 - **Custom providers** (e.g. `provider:odoo_db`) registered in `ProviderRegistry` that resolve modules by logical path.
 - **Unified caching** — one global `SharedModuleCache` in protoCore so that the same logical path returns the same module across contexts that share the same semantics.
 
-protoJS's current `require()` and ESM loaders do **not** call `getImportModule` by default; they use `ModuleResolver` + `CommonJSLoader` / `ESModuleLoader`. Adding an optional first step that calls `getImportModule` for a given logical path is a natural extension and keeps caching and GC in protoCore.
+protoJS's **require()** calls `getImportModule` for every **bare** specifier first; ESM loaders still use `ModuleResolver` + `ESModuleLoader` only. Custom providers registered in protoCore's `ProviderRegistry` (and the default `FileSystemProvider` chain) can thus supply modules for bare IDs; otherwise resolution falls back to file-based lookup.
 
 ---
 

@@ -2,7 +2,9 @@
 #include "ModuleResolver.h"
 #include "ModuleCache.h"
 #include "../JSContext.h"
+#include "../TypeBridge.h"
 #include "../native/DynamicLibraryLoader.h"
+#include "headers/protoCore.h"
 #include <fstream>
 #include <sstream>
 #include <mutex>
@@ -28,12 +30,55 @@ void CommonJSLoader::init(JSContext* ctx) {
     JS_FreeValue(ctx, global_obj);
 }
 
+static bool isBareSpecifier(const std::string& specifier) {
+    if (specifier.empty()) return false;
+    if (specifier[0] == '.') {
+        if (specifier.size() >= 2 && specifier[1] == '.') return false;
+        return false;
+    }
+    if (specifier[0] == '/') return false;
+    return true;
+}
+
 JSValue CommonJSLoader::require(
     const std::string& specifier,
     const std::string& fromPath,
     JSContext* ctx
 ) {
-    // Resolve module
+    // Unified Module Discovery (protoCore): try getImportModule first for bare specifiers
+    if (isBareSpecifier(specifier)) {
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        proto::ProtoSpace* space = wrapper ? wrapper->getProtoSpace() : nullptr;
+        proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+        if (space && pContext) {
+            const std::string umdCacheKey = "umd:" + specifier;
+            {
+                std::lock_guard<std::mutex> lock(cacheMutex);
+                auto it = moduleCache.find(umdCacheKey);
+                if (it != moduleCache.end()) {
+                    return JS_DupValue(ctx, it->second);
+                }
+            }
+            const proto::ProtoObject* umdWrapper = proto::getImportModule(space, specifier.c_str(), "exports");
+            if (umdWrapper && umdWrapper != PROTO_NONE) {
+                const proto::ProtoString* exportsName = proto::ProtoString::fromUTF8String(pContext, "exports");
+                if (exportsName) {
+                    const proto::ProtoObject* exportsObj = umdWrapper->getAttribute(pContext, exportsName);
+                    if (exportsObj && exportsObj != PROTO_NONE) {
+                        JSValue jsv = TypeBridge::toJS(ctx, exportsObj, pContext);
+                        if (!JS_IsException(jsv)) {
+                            std::lock_guard<std::mutex> lock(cacheMutex);
+                            moduleCache[umdCacheKey] = JS_DupValue(ctx, jsv);
+                            return jsv;
+                        }
+                        JS_FreeValue(ctx, jsv);
+                    }
+                }
+            }
+        }
+    }
+
+    // Resolve module (file-based)
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
         return JS_ThrowTypeError(ctx, ("Cannot find module: " + specifier).c_str());
