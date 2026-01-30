@@ -39,12 +39,13 @@ void DynamicLibraryLoader::unload(LoadedModule* module) {
     }
 }
 
-bool DynamicLibraryLoader::initializeModule(LoadedModule* module, JSContext* ctx, proto::ProtoContext* pContext) {
-    if (!module || !module->info || !module->info->init) return false;
-    JSValue moduleObj = JS_NewObject(ctx);
-    int result = module->info->init(ctx, pContext, moduleObj);
-    JS_FreeValue(ctx, moduleObj);
-    return result == 0;
+JSValue DynamicLibraryLoader::initializeModule(LoadedModule* module, JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject) {
+    if (!module || !module->info || !module->info->init) return JS_EXCEPTION;
+    int result = module->info->init(ctx, pContext, moduleObject);
+    if (result != 0) return JS_EXCEPTION;
+    JSValue exports = JS_GetPropertyStr(ctx, moduleObject, "exports");
+    if (JS_IsException(exports)) return JS_EXCEPTION;
+    return JS_DupValue(ctx, exports);
 }
 
 std::string DynamicLibraryLoader::getLibraryExtension() {

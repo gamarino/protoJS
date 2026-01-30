@@ -186,6 +186,17 @@ int main(int argc, char** argv) {
     protojs::VisualProfiler::init(wrapper.getJSContext());
     protojs::IntegratedDebugger::init(wrapper.getJSContext());
 
+    // Set __filename and __dirname for main script so require() resolves relative to script dir
+    {
+        JSContext* ctx = wrapper.getJSContext();
+        JSValue global = JS_GetGlobalObject(ctx);
+        JS_SetPropertyStr(ctx, global, "__filename", JS_NewString(ctx, filename.c_str()));
+        size_t lastSlash = filename.find_last_of("/\\");
+        std::string dirname = (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".";
+        JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
+        JS_FreeValue(ctx, global);
+    }
+
     // Handle syntax check
     if (syntaxCheck) {
         // For syntax check, we'd parse without executing

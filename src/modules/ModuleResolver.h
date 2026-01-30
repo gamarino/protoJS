@@ -37,6 +37,11 @@ public:
     static std::string getDirectory(const std::string& filePath);
     static std::string normalizePath(const std::string& path);
 
+    /** Extension order for resolution: native first (.node, .so/.dll/.dylib, .protojs), then .js, .mjs */
+    static std::vector<std::string> getResolutionOrderExtensions();
+    /** True if filePath has a native addon extension (.node, .so, .dll, .dylib, .protojs) */
+    static bool isNativeExtension(const std::string& filePath);
+
 private:
     static std::string findPackageJson(const std::string& dir);
     static ResolveResult resolveNodeModules(
@@ -57,9 +62,11 @@ private:
     );
     static std::string tryExtensions(
         const std::string& basePath,
-        const std::vector<std::string>& extensions = {".js", ".mjs", ".protojs"}
+        const std::vector<std::string>& extensions
     );
     static std::string tryDirectory(const std::string& dirPath);
+    static std::string getLibraryExtensionPlatform();
+    static void setTypeFromPath(ResolveResult& result);
 };
 
 } // namespace protojs

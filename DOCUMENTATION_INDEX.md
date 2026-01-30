@@ -54,6 +54,7 @@
 | [docs/DEFERRED_USAGE.md](docs/DEFERRED_USAGE.md) | Deferred execution guide | 15 min |
 | [docs/THREAD_POOLS.md](docs/THREAD_POOLS.md) | Thread pool architecture | 15 min |
 | [docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md) | ProtoCore integration | 15 min |
+| [docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md) | Native addon modules (C++ shared libraries) | 15 min |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and solutions | 15 min |
 
 ### 📊 Phase-Specific Documentation

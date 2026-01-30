@@ -1,6 +1,7 @@
 #include "VisualProfiler.h"
 #include "../modules/fs/FSModule.h"
 #include <sstream>
+#include <fstream>
 #include <iomanip>
 #include <ctime>
 

@@ -302,6 +302,7 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 - **[docs/EXAMPLES.md](docs/EXAMPLES.md)** - Advanced examples
 - **[docs/DEFERRED_USAGE.md](docs/DEFERRED_USAGE.md)** - Deferred usage guide
 - **[docs/PROTOCORE_MODULE.md](docs/PROTOCORE_MODULE.md)** - protoCore module guide
+- **[docs/NATIVE_MODULES.md](docs/NATIVE_MODULES.md)** - Native addon modules (C++ shared libraries)
 - **[docs/THREAD_POOLS.md](docs/THREAD_POOLS.md)** - Thread pool configuration
 - **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Common problem solutions
 
@@ -469,7 +470,7 @@ For more details, see [PLAN.md](PLAN.md).
 - ✅ **dns module** (DNS resolution, reverse lookup, service lookup)
 
 **System Features:**
-- ✅ **Module system** (CommonJS require, ES Modules import/export, Module interop)
+- ✅ **Module system** (CommonJS require, ES Modules import/export, Module interop; **require** loads JS or native addons (.node/.so/.protojs) transparently)
 - ✅ **CLI compatibility** (Node.js flags: --version, --print, --check, --input-type=module)
 - ✅ **REPL** (Interactive read-eval-print loop with multi-line support)
 - ✅ **npm integration framework** (PackageResolver, PackageInstaller, ScriptExecutor)

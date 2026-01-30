@@ -86,6 +86,7 @@ add_executable(protojs
     src/memory/MemoryAnalyzer.cpp
     src/profiling/Profiler.cpp
     src/profiling/VisualProfiler.cpp
+    src/debugging/IntegratedDebugger.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp
@@ -105,6 +106,7 @@ add_executable(protojs
 )
 
 # Link Libs (protoCore is the official name of the shared library)
+# -rdynamic: export symbols so dlopen'd native addons can resolve QuickJS/protoCore symbols
 target_link_libraries(protojs
     PRIVATE
     ${PROTOCORE_LIBRARY}
@@ -114,10 +116,41 @@ target_link_libraries(protojs
     ssl
     crypto
 )
+target_link_options(protojs PRIVATE -rdynamic)
 
 # Build settings for protoCore
 # protoCore must be built as a shared library first (libprotoCore.so / .dylib / .dll).
 # Build: cd ../protoCore && cmake -B build -S . && cmake --build build --target protoCore
+
+# Native addon for tests (shared library; symbols resolved when loaded by protojs)
+add_library(simple_addon SHARED tests/native_addons/simple/simple_addon.cpp)
+target_include_directories(simple_addon PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/deps/quickjs
+    ${PROTOCORE_DIR}
+    ${PROTOCORE_DIR}/headers
+)
+set_target_properties(simple_addon PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "simple"
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/native_addons/simple
+)
+target_link_libraries(simple_addon PRIVATE dl)
+
+# Fixture addon for resolution-order test (output next to fixture.js)
+add_library(fixture_addon SHARED tests/native_addons/fixture/fixture_addon.cpp)
+target_include_directories(fixture_addon PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/deps/quickjs
+    ${PROTOCORE_DIR}
+    ${PROTOCORE_DIR}/headers
+)
+set_target_properties(fixture_addon PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "fixture"
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
+)
+target_link_libraries(fixture_addon PRIVATE dl)
 
 # Testing Framework (Catch2)
 option(BUILD_TESTING "Build the testing tree" ON)

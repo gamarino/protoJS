@@ -28,7 +28,6 @@ public:
     static JSValue stopMemoryProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue getMemoryProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
 
-private:
     struct ProfileEntry {
         std::string name;
         double startTime;
@@ -37,7 +36,8 @@ private:
         uint64_t memoryBefore;
         uint64_t memoryAfter;
     };
-    
+
+private:
     static std::vector<ProfileEntry> profileEntries;
     static bool profiling;
     static std::chrono::high_resolution_clock::time_point profileStart;

@@ -1,4 +1,5 @@
 #include "IntegratedDebugger.h"
+#include <algorithm>
 #include <sstream>
 #include <iostream>
 #include <sys/socket.h>

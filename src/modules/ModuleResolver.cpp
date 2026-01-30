@@ -7,9 +7,44 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+#define PROTOJS_LIB_EXT ".dll"
+#elif defined(__APPLE__)
+#define PROTOJS_LIB_EXT ".dylib"
+#else
+#define PROTOJS_LIB_EXT ".so"
+#endif
+
 namespace protojs {
 
 namespace fs = std::filesystem;
+
+std::string ModuleResolver::getLibraryExtensionPlatform() {
+    return PROTOJS_LIB_EXT;
+}
+
+std::vector<std::string> ModuleResolver::getResolutionOrderExtensions() {
+    return {".node", getLibraryExtensionPlatform(), ".protojs", ".js", ".mjs"};
+}
+
+bool ModuleResolver::isNativeExtension(const std::string& filePath) {
+    if (filePath.size() >= 5 && filePath.substr(filePath.size() - 5) == ".node") return true;
+    if (filePath.size() >= 3 && filePath.substr(filePath.size() - 3) == ".so") return true;
+    if (filePath.size() >= 4 && filePath.substr(filePath.size() - 4) == ".dll") return true;
+    if (filePath.size() >= 6 && filePath.substr(filePath.size() - 6) == ".dylib") return true;
+    if (filePath.size() >= 8 && filePath.substr(filePath.size() - 8) == ".protojs") return true;
+    return false;
+}
+
+void ModuleResolver::setTypeFromPath(ResolveResult& result) {
+    if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
+        result.type = ModuleType::ESM;
+    } else if (isNativeExtension(result.filePath)) {
+        result.type = ModuleType::Native;
+    } else {
+        result.type = ModuleType::CommonJS;
+    }
+}
 
 ResolveResult ModuleResolver::resolve(
     const std::string& specifier,
@@ -28,25 +63,14 @@ ResolveResult ModuleResolver::resolve(
     if (specifier[0] == '/') {
         result.filePath = normalizePath(specifier);
         if (isFile(result.filePath)) {
-            // Determine type from extension
-            if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
-                result.type = ModuleType::ESM;
-            } else if (result.filePath.size() >= 8 && result.filePath.substr(result.filePath.size() - 8) == ".protojs") {
-                result.type = ModuleType::Native;
-            } else {
-                result.type = ModuleType::CommonJS;
-            }
+            setTypeFromPath(result);
             return result;
         }
-        // Try with extensions
-        std::string withExt = tryExtensions(result.filePath);
+        // Try with extensions (native first: .node, .so/.dll/.dylib, .protojs, then .js, .mjs)
+        std::string withExt = tryExtensions(result.filePath, getResolutionOrderExtensions());
         if (!withExt.empty()) {
             result.filePath = withExt;
-            if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
-                result.type = ModuleType::ESM;
-            } else if (result.filePath.size() >= 8 && result.filePath.substr(result.filePath.size() - 8) == ".protojs") {
-                result.type = ModuleType::Native;
-            }
+            setTypeFromPath(result);
             return result;
         }
         // Try as directory
@@ -54,9 +78,7 @@ ResolveResult ModuleResolver::resolve(
             std::string indexFile = tryDirectory(result.filePath);
             if (!indexFile.empty()) {
                 result.filePath = indexFile;
-                if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
-                    result.type = ModuleType::ESM;
-                }
+                setTypeFromPath(result);
                 return result;
             }
         }
@@ -71,25 +93,15 @@ ResolveResult ModuleResolver::resolve(
         
         if (isFile(resolved)) {
             result.filePath = resolved;
-            if (resolved.size() >= 4 && resolved.substr(resolved.size() - 4) == ".mjs") {
-                result.type = ModuleType::ESM;
-            } else if (resolved.size() >= 8 && resolved.substr(resolved.size() - 8) == ".protojs") {
-                result.type = ModuleType::Native;
-            } else {
-                result.type = ModuleType::CommonJS;
-            }
+            setTypeFromPath(result);
             return result;
         }
         
-        // Try with extensions
-        std::string withExt = tryExtensions(resolved);
+        // Try with extensions (native first)
+        std::string withExt = tryExtensions(resolved, getResolutionOrderExtensions());
         if (!withExt.empty()) {
             result.filePath = withExt;
-            if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
-                result.type = ModuleType::ESM;
-            } else if (result.filePath.size() >= 8 && result.filePath.substr(result.filePath.size() - 8) == ".protojs") {
-                result.type = ModuleType::Native;
-            }
+            setTypeFromPath(result);
             return result;
         }
         
@@ -98,9 +110,7 @@ ResolveResult ModuleResolver::resolve(
             std::string indexFile = tryDirectory(resolved);
             if (!indexFile.empty()) {
                 result.filePath = indexFile;
-                if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
-                    result.type = ModuleType::ESM;
-                }
+                setTypeFromPath(result);
                 return result;
             }
         }
@@ -249,16 +259,15 @@ ResolveResult ModuleResolver::resolveNodeModules(
                         std::string fullPath = packageDir + "/" + entryPoint;
                         if (isFile(fullPath)) {
                             result.filePath = normalizePath(fullPath);
+                            setTypeFromPath(result);
                             return result;
                         }
                         
-                        // Try with extensions
-                        std::string withExt = tryExtensions(packageDir + "/" + entryPoint);
+                        // Try with extensions (native first)
+                        std::string withExt = tryExtensions(packageDir + "/" + entryPoint, getResolutionOrderExtensions());
                         if (!withExt.empty()) {
                             result.filePath = normalizePath(withExt);
-                            if (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs") {
-                                result.type = ModuleType::ESM;
-                            }
+                            setTypeFromPath(result);
                             return result;
                         }
                         
@@ -267,6 +276,7 @@ ResolveResult ModuleResolver::resolveNodeModules(
                             std::string indexFile = tryDirectory(packageDir + "/" + entryPoint);
                             if (!indexFile.empty()) {
                                 result.filePath = normalizePath(indexFile);
+                                setTypeFromPath(result);
                                 return result;
                             }
                         }
@@ -309,19 +319,15 @@ ResolveResult ModuleResolver::resolveExports(
         std::string exportPath = packageDir + "/" + it->second;
         if (isFile(exportPath)) {
             result.filePath = normalizePath(exportPath);
-            result.type = (type == "module" || (exportPath.size() >= 4 && exportPath.substr(exportPath.size() - 4) == ".mjs"))
-                ? ModuleType::ESM 
-                : ModuleType::CommonJS;
+            setTypeFromPath(result);
             return result;
         }
         
-        // Try with extensions
-        std::string withExt = tryExtensions(exportPath);
+        // Try with extensions (native first)
+        std::string withExt = tryExtensions(exportPath, getResolutionOrderExtensions());
         if (!withExt.empty()) {
             result.filePath = normalizePath(withExt);
-            result.type = (type == "module" || (result.filePath.size() >= 4 && result.filePath.substr(result.filePath.size() - 4) == ".mjs"))
-                ? ModuleType::ESM
-                : ModuleType::CommonJS;
+            setTypeFromPath(result);
             return result;
         }
     }
@@ -409,10 +415,14 @@ std::string ModuleResolver::tryExtensions(const std::string& basePath, const std
 }
 
 std::string ModuleResolver::tryDirectory(const std::string& dirPath) {
+    // Native first: index.node, index.<platform>, index.protojs, then index.js, index.mjs
+    std::string libExt = getLibraryExtensionPlatform();
     std::vector<std::string> indexFiles = {
+        "index.node",
+        "index" + libExt,
+        "index.protojs",
         "index.js",
-        "index.mjs",
-        "index.protojs"
+        "index.mjs"
     };
     
     for (const auto& indexFile : indexFiles) {

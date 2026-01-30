@@ -18,7 +18,8 @@ class DynamicLibraryLoader {
 public:
     static LoadedModule* load(const std::string& filePath);
     static void unload(LoadedModule* module);
-    static bool initializeModule(LoadedModule* module, JSContext* ctx, proto::ProtoContext* pContext);
+    /** Call native init with caller-provided moduleObject (with "exports"); returns JS_DupValue of moduleObject.exports, or JS_EXCEPTION on error. */
+    static JSValue initializeModule(LoadedModule* module, JSContext* ctx, proto::ProtoContext* pContext, JSValue moduleObject);
     static std::string getLibraryExtension();
     static std::string getLibraryPrefix();
 

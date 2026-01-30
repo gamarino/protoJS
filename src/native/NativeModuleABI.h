@@ -20,9 +20,13 @@ namespace protojs {
  * 
  * Called when module is loaded to initialize exports.
  * 
+ * The moduleObject has CommonJS shape: { id, filename, exports, loaded, children, parent }.
+ * The loader creates it with an empty "exports" object. The init function must register
+ * all exported values on moduleObject.exports (e.g. via JS_SetPropertyStr(ctx, exports, "key", value)).
+ * 
  * @param ctx QuickJS context
  * @param pContext protoCore context
- * @param moduleObject JavaScript module object to populate
+ * @param moduleObject JavaScript module object (with "exports" property to populate)
  * @return 0 on success, non-zero on error
  */
 typedef int (*ProtoJSNativeModuleInit)(
@@ -82,6 +86,8 @@ struct ProtoJSNativeModuleInfo {
     ProtoJSNativeModuleInfo() 
         : abiVersion(0), name(nullptr), version(nullptr), 
           init(nullptr), cleanup(nullptr) {}
+    ProtoJSNativeModuleInfo(int ver, const char* n, const char* v, ProtoJSNativeModuleInit i, ProtoJSNativeModuleCleanup c)
+        : abiVersion(ver), name(n), version(v), init(i), cleanup(c) {}
 };
 
 } // namespace protojs

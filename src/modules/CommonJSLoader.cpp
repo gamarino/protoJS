@@ -1,6 +1,8 @@
 #include "CommonJSLoader.h"
 #include "ModuleResolver.h"
 #include "ModuleCache.h"
+#include "../JSContext.h"
+#include "../native/DynamicLibraryLoader.h"
 #include <fstream>
 #include <sstream>
 #include <mutex>
@@ -48,7 +50,34 @@ JSValue CommonJSLoader::require(
         }
     }
     
-    // Read source
+    // Native module: load shared library and run init
+    if (resolved.type == ModuleType::Native) {
+        LoadedModule* loaded = DynamicLibraryLoader::load(resolved.filePath);
+        if (!loaded) {
+            return JS_ThrowTypeError(ctx, ("Cannot load native module: " + resolved.filePath).c_str());
+        }
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+        if (!pContext) {
+            DynamicLibraryLoader::unload(loaded);
+            return JS_ThrowTypeError(ctx, "Native module load: ProtoContext not available");
+        }
+        JSValue moduleObj = createModuleObject(resolved.filePath, ctx);
+        JSValue exports = DynamicLibraryLoader::initializeModule(loaded, ctx, pContext, moduleObj);
+        JS_FreeValue(ctx, moduleObj);
+        if (JS_IsException(exports)) {
+            DynamicLibraryLoader::unload(loaded);
+            return exports;
+        }
+        // Keep library loaded (no unload); cache exports
+        {
+            std::lock_guard<std::mutex> lock(cacheMutex);
+            moduleCache[cacheKey] = JS_DupValue(ctx, exports);
+        }
+        return exports;
+    }
+    
+    // JavaScript module: read source and evaluate
     std::ifstream file(resolved.filePath);
     if (!file.is_open()) {
         return JS_ThrowTypeError(ctx, ("Cannot open module: " + resolved.filePath).c_str());
