@@ -111,6 +111,6 @@ const mutable = protoCore.makeMutable(immutable);
 
 ## Module Discovery (protoCore)
 
-protoCore provides a **Unified Module Discovery and Provider System**: configurable resolution chain per `ProtoSpace`, `ProviderRegistry` of `ModuleProvider`s, and `getImportModule` with a shared, thread-safe module cache. protoJS uses a `ProtoSpace` per context; that space carries the resolution chain and module roots.
+protoCore provides a **Unified Module Discovery and Provider System**: configurable resolution chain per `ProtoSpace`, `ProviderRegistry` of `ModuleProvider`s, and `ProtoSpace::getImportModule` with a shared, thread-safe module cache. protoJS uses a `ProtoSpace` per context; that space carries the resolution chain and module roots.
 
-For how protoJS integrates with this system and when to use `getImportModule` from host code, see **[MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md)**. For the full specification, see protoCore’s `docs/MODULE_DISCOVERY.md`.
+For how protoJS integrates with this system and when to use `ProtoSpace::getImportModule` from host code, see **[MODULE_DISCOVERY_PROTOCORE.md](MODULE_DISCOVERY_PROTOCORE.md)**. For the full specification, see protoCore’s `docs/MODULE_DISCOVERY.md`.

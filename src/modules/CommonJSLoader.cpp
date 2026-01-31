@@ -45,7 +45,7 @@ JSValue CommonJSLoader::require(
     const std::string& fromPath,
     JSContext* ctx
 ) {
-    // Unified Module Discovery (protoCore): try getImportModule first for bare specifiers
+    // Unified Module Discovery (protoCore): try ProtoSpace::getImportModule first for bare specifiers
     if (isBareSpecifier(specifier)) {
         JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
         proto::ProtoSpace* space = wrapper ? wrapper->getProtoSpace() : nullptr;
@@ -59,7 +59,7 @@ JSValue CommonJSLoader::require(
                     return JS_DupValue(ctx, it->second);
                 }
             }
-            const proto::ProtoObject* umdWrapper = proto::getImportModule(space, specifier.c_str(), "exports");
+            const proto::ProtoObject* umdWrapper = space->getImportModule(specifier.c_str(), "exports");
             if (umdWrapper && umdWrapper != PROTO_NONE) {
                 const proto::ProtoString* exportsName = proto::ProtoString::fromUTF8String(pContext, "exports");
                 if (exportsName) {

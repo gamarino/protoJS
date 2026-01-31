@@ -1,4 +1,4 @@
-// Test Unified Module Discovery (UMD): require() tries protoCore getImportModule first for bare specifiers.
+// Test Unified Module Discovery (UMD): require() tries protoCore ProtoSpace::getImportModule first for bare specifiers.
 // Bare specifiers (no ./ or ../ or /) are resolved via protoCore's resolution chain; on miss, file-based resolution is used.
 
 console.log("=== UMD bare specifier tests ===\n");

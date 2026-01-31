@@ -1,5 +1,5 @@
 // Test CommonJS require functionality.
-// For bare specifiers (e.g. 'path'), protoJS tries protoCore Unified Module Discovery (getImportModule) first, then file-based resolution.
+// For bare specifiers (e.g. 'path'), protoJS tries protoCore Unified Module Discovery (ProtoSpace::getImportModule) first, then file-based resolution.
 
 console.log("=== CommonJS require Tests ===\n");
 

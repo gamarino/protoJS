@@ -172,8 +172,8 @@ Phase 6 implementation is now complete. All priorities have been successfully de
 
 protoJS **uses** protoCore’s **Unified Module Discovery** in `require()`:
 
-- **Bare specifiers**: For every **bare** specifier (e.g. `require("mymodule")`), protoJS calls protoCore's `getImportModule(space, logicalPath, "exports")` **first**; on hit, module is converted via `TypeBridge::toJS` and cached under `umd:<specifier>`.
-- **Fallback**: If `getImportModule` returns nothing, resolution **falls back** to file-based `ModuleResolver` (built-ins like `path`, `fs`, and relative paths unchanged).
+- **Bare specifiers**: For every **bare** specifier (e.g. `require("mymodule")`), protoJS calls protoCore's `space->getImportModule(logicalPath, "exports")` **first**; on hit, module is converted via `TypeBridge::toJS` and cached under `umd:<specifier>`.
+- **Fallback**: If `ProtoSpace::getImportModule` returns nothing, resolution **falls back** to file-based `ModuleResolver` (built-ins like `path`, `fs`, and relative paths unchanged).
 - **ProtoSpace**: Each `JSContextWrapper` holds a `proto::ProtoSpace`; custom chain via `setResolutionChain`; custom providers via `ProviderRegistry::instance()`.
 
 **Documentation**:
