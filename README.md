@@ -9,7 +9,13 @@
 
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
-protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore)as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
+protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
+
+### Community & Open Review
+
+Beyond formal audits, this project is officially **open for Community Review and Suggestions**.
+
+We welcome architectural feedback, edge-case identification, and performance critiques. While the core vision is firm, the path to perfection is a collective effort of the "Swarm."
 
 ---
 
@@ -286,6 +292,22 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
+## The Swarm of One
+
+**The Swarm of One** is the transition from "Individual Contributor" to "System Architect": a single human architect orchestrating a swarm of specialized AI agents to tackle high-density infrastructure that previously required entire R&D departments.
+
+In protoJS, that meant going from infrastructure to a full runtime—and a **unified memory bridge (UMD)** across language paradigms—in record time. The same protoCore cells that back Python and C++ now back JavaScript; type bridges, module resolution, and concurrency were designed and implemented with AI as a force multiplier. The result is the democratization of high-level engineering: one architect, one vision, amplified.
+
+---
+
+## The Methodology: AI-Augmented Engineering
+
+This project was built using **extensive AI-augmentation tools** to empower human vision and strategic design.
+
+This is not "AI-generated code" in the traditional sense; it is **AI-amplified architecture**. The vision, the constraints, and the trade-offs are human; the execution is accelerated by AI as a force multiplier for complex system design. We don't just use AI—we embrace it as the unavoidable present of software engineering.
+
+---
+
 ## 📚 Documentation
 
 ### Main Documentation
@@ -535,6 +557,10 @@ SOFTWARE.
 - **protoCore**: Runtime foundation
 - **QuickJS**: JavaScript parser and compiler
 - **Fabrice Bellard**: Creator of QuickJS
+
+---
+
+**Don't just watch the shift. Lead it.** The tools are here, the barrier is gone, and the only limit is the clarity of your vision. Join the review, test the limits, and become part of the Swarm of One. Let's build the future of computing, one cell at a time.
 
 ---
 
