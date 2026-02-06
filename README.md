@@ -7,6 +7,8 @@
 [![Status](https://img.shields.io/badge/Status-Phase%206%20Complete-green.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+**19.83x Faster than Node.js. Zero-Copy Immutability. Powered by the Swarm of One.**
+
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
 protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
@@ -294,9 +296,7 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## The Swarm of One
 
-**The Swarm of One** is the transition from "Individual Contributor" to "System Architect": a single human architect orchestrating a swarm of specialized AI agents to tackle high-density infrastructure that previously required entire R&D departments.
-
-In protoJS, that meant going from infrastructure to a full runtime—and a **unified memory bridge (UMD)** across language paradigms—in record time. The same protoCore cells that back Python and C++ now back JavaScript; type bridges, module resolution, and concurrency were designed and implemented with AI as a force multiplier. The result is the democratization of high-level engineering: one architect, one vision, amplified.
+**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now enable JavaScript to achieve 34x speedups in array operations. This is the democratization of high-level engineering: delivering industry-leading performance without the overhead of a massive corporate R&D department.
 
 ---
 
@@ -560,7 +560,7 @@ SOFTWARE.
 
 ---
 
-**Don't just watch the shift. Lead it.** The tools are here, the barrier is gone, and the only limit is the clarity of your vision. Join the review, test the limits, and become part of the Swarm of One. Let's build the future of computing, one cell at a time.
+**Don't just watch the shift. Lead it.** The performance gap has been closed. The tools are here. Join the review, challenge our benchmarks, and become part of the Swarm of One. Let's build the future of computing, one cell at a time. **Think Different, As All We.**
 
 ---
 
