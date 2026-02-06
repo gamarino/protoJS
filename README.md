@@ -40,8 +40,10 @@ We welcome architectural feedback, edge-case identification, and performance cri
 - **Deferred with Worker Threads**: `Deferred` automatically executes in worker threads, utilizing all processor cores transparently
 - **Immutability by default**: Arrays and objects can be immutable, sharing structure between threads without copying
 - **Advanced collections**: Access to `ProtoSet`, `ProtoMultiset`, `ProtoSparseList`, and `ProtoTuple` from JavaScript
-- **No GIL**: Real concurrency without Global Interpreter Lock
-- **Efficient GC**: Concurrent Garbage Collector from protoCore
+- **No GIL**: Real concurrency without Global Interpreter Lock—courtesy of **protoCore**'s GIL-free architecture
+- **Efficient GC**: **protoCore**'s concurrent garbage collector manages object lifecycle with minimal pauses
+
+Built to be the cornerstone of a unified, polyglot environment where JS, Python, and C++ share the same memory DNA.
 
 ---
 
@@ -302,9 +304,9 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## The Methodology: AI-Augmented Engineering
 
-This project was built using **extensive AI-augmentation tools** to empower human vision and strategic design.
+This project was built using **extensive AI-augmentation tools** to empower human vision and strategic design. This is not "AI-generated code" in the traditional sense; it is **AI-amplified architecture**.
 
-This is not "AI-generated code" in the traditional sense; it is **AI-amplified architecture**. The vision, the constraints, and the trade-offs are human; the execution is accelerated by AI as a force multiplier for complex system design. We don't just use AI—we embrace it as the unavoidable present of software engineering.
+We embrace AI as the **great equalizer**. protoJS is not "AI-generated"; it is AI-amplified architecture. It represents the unavoidable present where human strategic design—focused on lock-free concurrency and structural sharing—is executed with the precision and speed of a digital swarm. We are proving that a single focused mind can outpace legacy ecosystems.
 
 ---
 
@@ -559,6 +561,8 @@ SOFTWARE.
 - **Fabrice Bellard**: Creator of QuickJS
 
 ---
+
+## Lead the Shift
 
 **Don't just watch the shift. Lead it.** The performance gap has been closed. The tools are here. Join the review, challenge our benchmarks, and become part of the Swarm of One. Let's build the future of computing, one cell at a time. **Think Different, As All We.**
 
