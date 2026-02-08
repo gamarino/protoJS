@@ -309,11 +309,10 @@ GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
     std::lock_guard<std::mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) {
-        // Return empty report
-        report.orphanedJSValues = pContext->newList();
-        report.orphanedProtoObjects = pContext->newList();
-        report.totalLeaks = pContext->fromInteger(0);
-        report.leakAge = pContext->fromDouble(0.0);
+        report.orphanedJSValues = nullptr;
+        report.orphanedProtoObjects = nullptr;
+        report.totalLeaks = nullptr;
+        report.leakAge = nullptr;
         return report;
     }
 
@@ -384,8 +383,8 @@ GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
 void GCBridge::reportLeaks(JSContext* ctx) {
     MemoryLeakReport report = detectLeaks(ctx);
     proto::ProtoContext* pContext = getProtoContext(ctx);
-    if (!pContext) return;
-    
+    if (!pContext || !report.totalLeaks) return;
+
     long long totalLeaks = report.totalLeaks->asLong(pContext);
     
     if (totalLeaks == 0) {
@@ -405,14 +404,13 @@ GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
     std::lock_guard<std::mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) {
-        // Return empty stats
-        stats.totalJSValues = pContext->fromInteger(0);
-        stats.totalProtoObjects = pContext->fromInteger(0);
-        stats.registeredRoots = pContext->fromInteger(0);
-        stats.weakReferences = pContext->fromInteger(0);
-        stats.leakedObjects = pContext->fromInteger(0);
-        stats.memoryUsed = pContext->fromInteger(0);
-        stats.gcCycles = pContext->fromInteger(0);
+        stats.totalJSValues = nullptr;
+        stats.totalProtoObjects = nullptr;
+        stats.registeredRoots = nullptr;
+        stats.weakReferences = nullptr;
+        stats.leakedObjects = nullptr;
+        stats.memoryUsed = nullptr;
+        stats.gcCycles = nullptr;
         return stats;
     }
 
@@ -460,7 +458,7 @@ GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
     
     // Count leaked objects
     MemoryLeakReport leakReport = detectLeaks(ctx);
-    stats.leakedObjects = leakReport.totalLeaks;
+    stats.leakedObjects = leakReport.totalLeaks ? leakReport.totalLeaks : pContext->fromInteger(0);
     
     return stats;
 }
