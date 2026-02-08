@@ -13,3 +13,10 @@ All notable changes to protoJS are documented in this file.
 - Full project recompilation: protoCore + protoJS clean build
 - All 33 unit tests passing (ctest)
 - Integration tests verified (hello_world, arithmetic, modules)
+
+### Performance (2026-02-07)
+
+- Performance suite executed successfully: `run_nodejs_comparison.js` (5/5 benchmarks)
+- **Array operations:** 34–45x faster than Node.js (immutable structural sharing)
+- **Overall speedup:** ~10–45x depending on workload
+- Added [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with run report and analysis
