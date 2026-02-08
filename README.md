@@ -13,6 +13,9 @@ Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
 protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
 
+> [!WARNING]
+> This project is officially **open for Community Review and Suggestions**. It is **not production ready**. We welcome architectural feedback, edge-case identification, and performance critiques.
+
 ### Community & Open Review
 
 Beyond formal audits, this project is officially **open for Community Review and Suggestions**.
@@ -429,7 +432,7 @@ For detailed benchmark analysis and results, see [docs/BENCHMARK_ANALYSIS.md](do
 - [x] Child Process module (process spawning)
 - [x] DNS module (DNS resolution)
 
-**Goal:** Production-ready developer tools and advanced networking capabilities.
+**Goal:** Experimental (Open for Review) developer tools and advanced networking capabilities.
 
 ### Phase 6: Ecosystem & Compatibility (Completed)
 
@@ -590,7 +593,7 @@ SOFTWARE.
 - CLI tools available: REPL and Node.js-compatible flags
 - Ready for Phase 7: Advanced features and optimizations
 - API may change in future phases
-- Recommended for development and production use
+- **Recommended for development, testing, and review; not for production use.**
 
 ---
 
