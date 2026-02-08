@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,fixture.so -o /home/gamarino/Documentos/proyectos/protoJS/tests/integration/native_addons/fixture.so CMakeFiles/fixture_addon.dir/tests/native_addons/fixture/fixture_addon.cpp.o  -ldl 

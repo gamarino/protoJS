@@ -516,6 +516,9 @@ MEMORYCHECK_COMMAND:FILEPATH=MEMORYCHECK_COMMAND-NOTFOUND
 //File that contains suppressions for the memory checker
 MEMORYCHECK_SUPPRESSIONS_FILE:FILEPATH=
 
+//Path to a library.
+PROTOCORE_LIBRARY:FILEPATH=/home/gamarino/Documentos/proyectos/protoCore/build/libprotoCore.so
+
 //Name of the computer/site where compile is being run
 SITE:STRING=DEV12
 

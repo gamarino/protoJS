@@ -223,14 +223,14 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/ranges_uninitialized.h \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h \
+ /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/vector \
+ /usr/include/c++/13/bits/stl_vector.h \
+ /usr/include/c++/13/bits/stl_bvector.h \
+ /usr/include/c++/13/bits/vector.tcc \
  /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
- /usr/include/c++/13/thread /usr/include/c++/13/vector \
- /usr/include/c++/13/bits/stl_vector.h \
- /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/queue \
+ /usr/include/c++/13/thread /usr/include/c++/13/queue \
  /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
  /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_heap.h \
  /usr/include/c++/13/bits/stl_queue.h /usr/include/c++/13/mutex \
@@ -288,6 +288,10 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
  /usr/include/c++/13/charconv /usr/include/c++/13/optional \
  /usr/include/c++/13/span /usr/include/c++/13/variant \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/VisualProfiler.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/memory/MemoryAnalyzer.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \

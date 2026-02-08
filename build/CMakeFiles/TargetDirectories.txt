@@ -1,4 +1,6 @@
 /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/protojs.dir
+/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/simple_addon.dir
+/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/fixture_addon.dir
 /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/Experimental.dir
 /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/Nightly.dir
 /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/Continuous.dir

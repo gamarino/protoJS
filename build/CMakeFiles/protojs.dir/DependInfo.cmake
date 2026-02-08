@@ -23,7 +23,9 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/JSContext.cpp" "CMakeFiles/protojs.dir/src/JSContext.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/JSContext.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp" "CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/TypeBridge.cpp" "CMakeFiles/protojs.dir/src/TypeBridge.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/TypeBridge.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp" "CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/console.cpp" "CMakeFiles/protojs.dir/src/console.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/console.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.cpp" "CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.cpp" "CMakeFiles/protojs.dir/src/logging/Logger.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/logging/Logger.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/main.cpp" "CMakeFiles/protojs.dir/src/main.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/main.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/memory/MemoryAnalyzer.cpp" "CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.o.d"
@@ -54,12 +56,16 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/monitoring/Metrics.cpp" "CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.cpp" "CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/native/NativeModuleWrapper.cpp" "CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.cpp" "CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.cpp" "CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp" "CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp" "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/npm/ScriptExecutor.cpp" "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.cpp" "CMakeFiles/protojs.dir/src/npm/Semver.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/npm/Semver.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.cpp" "CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/profiling/VisualProfiler.cpp" "CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.cpp" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp" "CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

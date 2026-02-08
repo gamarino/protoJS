@@ -12,9 +12,18 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp" "tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_benchmark_runner.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_event_loop.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_io_thread_pool.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_main.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_nodejs_test_runner.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_npm_registry.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_semver.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_thread_pools.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o.d"
   )
 

@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,simple.so -o tests/native_addons/simple/simple.so CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o  -ldl 

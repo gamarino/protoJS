@@ -247,6 +247,18 @@ CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: \
  /usr/include/c++/13/optional \
  /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/span /usr/include/c++/13/variant \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /usr/include/c++/13/atomic /usr/include/c++/13/condition_variable \
+ /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
+ /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
+ /usr/include/c++/13/bits/atomic_timed_wait.h \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
+ /usr/include/x86_64-linux-gnu/bits/semaphore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../native/DynamicLibraryLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../native/NativeModuleABI.h \
  /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \

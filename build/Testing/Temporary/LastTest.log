@@ -1,0 +1,665 @@
+Start testing: Feb 07 23:58 -03
+----------------------------------------------------------
+1/33 Testing: BenchmarkRunner::generateReport text format
+1/33 Test: BenchmarkRunner::generateReport text format
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::generateReport text format"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::generateReport text format" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::generateReport text format"
+Randomness seeded to: 3964354220
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::generateReport text format" end time: Feb 07 23:58 -03
+"BenchmarkRunner::generateReport text format" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/33 Testing: BenchmarkRunner::exportToJSON
+2/33 Test: BenchmarkRunner::exportToJSON
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::exportToJSON"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::exportToJSON" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::exportToJSON"
+Randomness seeded to: 984690366
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::exportToJSON" end time: Feb 07 23:58 -03
+"BenchmarkRunner::exportToJSON" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/33 Testing: BenchmarkRunner::runSuite structure
+3/33 Test: BenchmarkRunner::runSuite structure
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::runSuite structure"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::runSuite structure" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::runSuite structure"
+Randomness seeded to: 3294769832
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::runSuite structure" end time: Feb 07 23:58 -03
+"BenchmarkRunner::runSuite structure" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/33 Testing: BenchmarkRunner::computeStats
+4/33 Test: BenchmarkRunner::computeStats
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::computeStats"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::computeStats" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::computeStats"
+Randomness seeded to: 3971759402
+===============================================================================
+All tests passed (6 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::computeStats" end time: Feb 07 23:58 -03
+"BenchmarkRunner::computeStats" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/33 Testing: BenchmarkRunner::detectRegressions
+5/33 Test: BenchmarkRunner::detectRegressions
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::detectRegressions"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::detectRegressions" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::detectRegressions"
+Randomness seeded to: 349965173
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::detectRegressions" end time: Feb 07 23:58 -03
+"BenchmarkRunner::detectRegressions" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/33 Testing: BenchmarkRunner::saveBaseline and loadBaseline
+6/33 Test: BenchmarkRunner::saveBaseline and loadBaseline
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::saveBaseline and loadBaseline"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::saveBaseline and loadBaseline" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::saveBaseline and loadBaseline"
+Randomness seeded to: 1259271643
+===============================================================================
+All tests passed (5 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::saveBaseline and loadBaseline" end time: Feb 07 23:58 -03
+"BenchmarkRunner::saveBaseline and loadBaseline" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/33 Testing: BenchmarkRunner::runSuiteFromFile empty or no file
+7/33 Test: BenchmarkRunner::runSuiteFromFile empty or no file
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::runSuiteFromFile empty or no file"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::runSuiteFromFile empty or no file" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::runSuiteFromFile empty or no file"
+Randomness seeded to: 1932915671
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::runSuiteFromFile empty or no file" end time: Feb 07 23:58 -03
+"BenchmarkRunner::runSuiteFromFile empty or no file" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/33 Testing: BenchmarkRunner::runForCI no baseline
+8/33 Test: BenchmarkRunner::runForCI no baseline
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "BenchmarkRunner::runForCI no baseline"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"BenchmarkRunner::runForCI no baseline" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "BenchmarkRunner::runForCI no baseline"
+Randomness seeded to: 2120551661
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"BenchmarkRunner::runForCI no baseline" end time: Feb 07 23:58 -03
+"BenchmarkRunner::runForCI no baseline" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/33 Testing: EventLoop: Singleton
+9/33 Test: EventLoop: Singleton
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "EventLoop: Singleton"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"EventLoop: Singleton" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "EventLoop: Singleton"
+Randomness seeded to: 4203533707
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"EventLoop: Singleton" end time: Feb 07 23:58 -03
+"EventLoop: Singleton" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/33 Testing: EventLoop: Enqueue and process
+10/33 Test: EventLoop: Enqueue and process
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "EventLoop: Enqueue and process"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"EventLoop: Enqueue and process" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "EventLoop: Enqueue and process"
+Randomness seeded to: 2007222598
+===============================================================================
+All tests passed (5 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"EventLoop: Enqueue and process" end time: Feb 07 23:58 -03
+"EventLoop: Enqueue and process" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/33 Testing: EventLoop: Exception handling
+11/33 Test: EventLoop: Exception handling
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "EventLoop: Exception handling"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"EventLoop: Exception handling" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "EventLoop: Exception handling"
+Randomness seeded to: 2622734088
+Exception in event loop callback: Test exception
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"EventLoop: Exception handling" end time: Feb 07 23:58 -03
+"EventLoop: Exception handling" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/33 Testing: IOThreadPool: Singleton and initialization
+12/33 Test: IOThreadPool: Singleton and initialization
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "IOThreadPool: Singleton and initialization"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"IOThreadPool: Singleton and initialization" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "IOThreadPool: Singleton and initialization"
+Randomness seeded to: 3042509432
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"IOThreadPool: Singleton and initialization" end time: Feb 07 23:58 -03
+"IOThreadPool: Singleton and initialization" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/33 Testing: IOThreadPool: I/O simulation
+13/33 Test: IOThreadPool: I/O simulation
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "IOThreadPool: I/O simulation"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"IOThreadPool: I/O simulation" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "IOThreadPool: I/O simulation"
+Randomness seeded to: 920732870
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"IOThreadPool: I/O simulation" end time: Feb 07 23:58 -03
+"IOThreadPool: I/O simulation" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/33 Testing: NodeJSTestRunner::generateReport text format
+14/33 Test: NodeJSTestRunner::generateReport text format
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::generateReport text format"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::generateReport text format" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::generateReport text format"
+Randomness seeded to: 2001977551
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::generateReport text format" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::generateReport text format" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/33 Testing: NodeJSTestRunner::exportToJSON
+15/33 Test: NodeJSTestRunner::exportToJSON
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::exportToJSON"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::exportToJSON" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::exportToJSON"
+Randomness seeded to: 1489140835
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::exportToJSON" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::exportToJSON" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/33 Testing: NodeJSTestRunner::identifyGaps
+16/33 Test: NodeJSTestRunner::identifyGaps
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::identifyGaps"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::identifyGaps" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::identifyGaps"
+Randomness seeded to: 1596728977
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::identifyGaps" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::identifyGaps" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/33 Testing: NodeJSTestRunner::runTestSuite empty
+17/33 Test: NodeJSTestRunner::runTestSuite empty
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::runTestSuite empty"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::runTestSuite empty" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::runTestSuite empty"
+Randomness seeded to: 2266885407
+===============================================================================
+All tests passed (3 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::runTestSuite empty" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::runTestSuite empty" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/33 Testing: NodeJSTestRunner::test cache
+18/33 Test: NodeJSTestRunner::test cache
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::test cache"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::test cache" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::test cache"
+Randomness seeded to: 925750391
+===============================================================================
+test cases: 1 | 1 passed
+assertions: - none -
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::test cache" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::test cache" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/33 Testing: NodeJSTestRunner::getCoverageSummary
+19/33 Test: NodeJSTestRunner::getCoverageSummary
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::getCoverageSummary"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::getCoverageSummary" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::getCoverageSummary"
+Randomness seeded to: 1787074087
+===============================================================================
+All tests passed (8 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::getCoverageSummary" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::getCoverageSummary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+20/33 Testing: NodeJSTestRunner::exportCoverageReport
+20/33 Test: NodeJSTestRunner::exportCoverageReport
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::exportCoverageReport"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::exportCoverageReport" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::exportCoverageReport"
+Randomness seeded to: 3107143932
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::exportCoverageReport" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::exportCoverageReport" time elapsed: 00:00:00
+----------------------------------------------------------
+
+21/33 Testing: NodeJSTestRunner::runTestSuiteFromFile nonexistent
+21/33 Test: NodeJSTestRunner::runTestSuiteFromFile nonexistent
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::runTestSuiteFromFile nonexistent"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::runTestSuiteFromFile nonexistent" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::runTestSuiteFromFile nonexistent"
+Randomness seeded to: 1351589768
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::runTestSuiteFromFile nonexistent" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::runTestSuiteFromFile nonexistent" time elapsed: 00:00:00
+----------------------------------------------------------
+
+22/33 Testing: NodeJSTestRunner::runTestSuiteParallel empty
+22/33 Test: NodeJSTestRunner::runTestSuiteParallel empty
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::runTestSuiteParallel empty"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::runTestSuiteParallel empty" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::runTestSuiteParallel empty"
+Randomness seeded to: 3510080225
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::runTestSuiteParallel empty" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::runTestSuiteParallel empty" time elapsed: 00:00:00
+----------------------------------------------------------
+
+23/33 Testing: NodeJSTestRunner::runTestsForCI empty config
+23/33 Test: NodeJSTestRunner::runTestsForCI empty config
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NodeJSTestRunner::runTestsForCI empty config"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NodeJSTestRunner::runTestsForCI empty config" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NodeJSTestRunner::runTestsForCI empty config"
+Randomness seeded to: 221317003
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NodeJSTestRunner::runTestsForCI empty config" end time: Feb 07 23:58 -03
+"NodeJSTestRunner::runTestsForCI empty config" time elapsed: 00:00:00
+----------------------------------------------------------
+
+24/33 Testing: NPMRegistry::DEFAULT_REGISTRY
+24/33 Test: NPMRegistry::DEFAULT_REGISTRY
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NPMRegistry::DEFAULT_REGISTRY"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NPMRegistry::DEFAULT_REGISTRY" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NPMRegistry::DEFAULT_REGISTRY"
+Randomness seeded to: 2018880760
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"NPMRegistry::DEFAULT_REGISTRY" end time: Feb 07 23:58 -03
+"NPMRegistry::DEFAULT_REGISTRY" time elapsed: 00:00:00
+----------------------------------------------------------
+
+25/33 Testing: NPMRegistry and Semver integration
+25/33 Test: NPMRegistry and Semver integration
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "NPMRegistry and Semver integration"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"NPMRegistry and Semver integration" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "NPMRegistry and Semver integration"
+Randomness seeded to: 2525150591
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"NPMRegistry and Semver integration" end time: Feb 07 23:58 -03
+"NPMRegistry and Semver integration" time elapsed: 00:00:00
+----------------------------------------------------------
+
+26/33 Testing: Semver::parse
+26/33 Test: Semver::parse
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "Semver::parse"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"Semver::parse" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "Semver::parse"
+Randomness seeded to: 4236690088
+===============================================================================
+All tests passed (21 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"Semver::parse" end time: Feb 07 23:58 -03
+"Semver::parse" time elapsed: 00:00:00
+----------------------------------------------------------
+
+27/33 Testing: Semver::compare
+27/33 Test: Semver::compare
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "Semver::compare"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"Semver::compare" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "Semver::compare"
+Randomness seeded to: 3069249470
+===============================================================================
+All tests passed (8 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"Semver::compare" end time: Feb 07 23:58 -03
+"Semver::compare" time elapsed: 00:00:00
+----------------------------------------------------------
+
+28/33 Testing: Semver::satisfies
+28/33 Test: Semver::satisfies
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "Semver::satisfies"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"Semver::satisfies" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "Semver::satisfies"
+Randomness seeded to: 3235173822
+===============================================================================
+All tests passed (17 assertions in 1 test case)
+
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"Semver::satisfies" end time: Feb 07 23:58 -03
+"Semver::satisfies" time elapsed: 00:00:00
+----------------------------------------------------------
+
+29/33 Testing: Semver::findHighest
+29/33 Test: Semver::findHighest
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "Semver::findHighest"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"Semver::findHighest" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "Semver::findHighest"
+Randomness seeded to: 1987755230
+===============================================================================
+All tests passed (6 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Semver::findHighest" end time: Feb 07 23:58 -03
+"Semver::findHighest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+30/33 Testing: Semver::normalize
+30/33 Test: Semver::normalize
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "Semver::normalize"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"Semver::normalize" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "Semver::normalize"
+Randomness seeded to: 2562024827
+===============================================================================
+All tests passed (4 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Semver::normalize" end time: Feb 07 23:58 -03
+"Semver::normalize" time elapsed: 00:00:00
+----------------------------------------------------------
+
+31/33 Testing: ThreadPoolExecutor: Legacy tests
+31/33 Test: ThreadPoolExecutor: Legacy tests
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "ThreadPoolExecutor: Legacy tests"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"ThreadPoolExecutor: Legacy tests" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "ThreadPoolExecutor: Legacy tests"
+Randomness seeded to: 2469564756
+===============================================================================
+All tests passed (12 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"ThreadPoolExecutor: Legacy tests" end time: Feb 07 23:58 -03
+"ThreadPoolExecutor: Legacy tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+32/33 Testing: CPUThreadPool: Legacy tests
+32/33 Test: CPUThreadPool: Legacy tests
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "CPUThreadPool: Legacy tests"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"CPUThreadPool: Legacy tests" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "CPUThreadPool: Legacy tests"
+Randomness seeded to: 343556469
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CPUThreadPool: Legacy tests" end time: Feb 07 23:58 -03
+"CPUThreadPool: Legacy tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+33/33 Testing: IOThreadPool: Legacy tests
+33/33 Test: IOThreadPool: Legacy tests
+Command: "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests" "IOThreadPool: Legacy tests"
+Directory: /home/gamarino/Documentos/proyectos/protoJS/build/tests
+"IOThreadPool: Legacy tests" start time: Feb 07 23:58 -03
+Output:
+----------------------------------------------------------
+Filters: "IOThreadPool: Legacy tests"
+Randomness seeded to: 1549092320
+===============================================================================
+All tests passed (2 assertions in 1 test case)
+
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"IOThreadPool: Legacy tests" end time: Feb 07 23:58 -03
+"IOThreadPool: Legacy tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Feb 07 23:58 -03

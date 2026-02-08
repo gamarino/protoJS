@@ -140,6 +140,32 @@ protojs/fast:
 .PHONY : protojs/fast
 
 #=============================================================================
+# Target rules for targets named simple_addon
+
+# Build rule for target.
+simple_addon: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 simple_addon
+.PHONY : simple_addon
+
+# fast build rule for target.
+simple_addon/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/simple_addon.dir/build.make CMakeFiles/simple_addon.dir/build
+.PHONY : simple_addon/fast
+
+#=============================================================================
+# Target rules for targets named fixture_addon
+
+# Build rule for target.
+fixture_addon: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 fixture_addon
+.PHONY : fixture_addon
+
+# fast build rule for target.
+fixture_addon/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fixture_addon.dir/build.make CMakeFiles/fixture_addon.dir/build
+.PHONY : fixture_addon/fast
+
+#=============================================================================
 # Target rules for targets named Experimental
 
 # Build rule for target.
@@ -902,6 +928,30 @@ src/TypeBridge.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/TypeBridge.cpp.s
 .PHONY : src/TypeBridge.cpp.s
 
+src/benchmarking/BenchmarkRunner.o: src/benchmarking/BenchmarkRunner.cpp.o
+.PHONY : src/benchmarking/BenchmarkRunner.o
+
+# target to build an object file
+src/benchmarking/BenchmarkRunner.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.o
+.PHONY : src/benchmarking/BenchmarkRunner.cpp.o
+
+src/benchmarking/BenchmarkRunner.i: src/benchmarking/BenchmarkRunner.cpp.i
+.PHONY : src/benchmarking/BenchmarkRunner.i
+
+# target to preprocess a source file
+src/benchmarking/BenchmarkRunner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.i
+.PHONY : src/benchmarking/BenchmarkRunner.cpp.i
+
+src/benchmarking/BenchmarkRunner.s: src/benchmarking/BenchmarkRunner.cpp.s
+.PHONY : src/benchmarking/BenchmarkRunner.s
+
+# target to generate assembly for a file
+src/benchmarking/BenchmarkRunner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.s
+.PHONY : src/benchmarking/BenchmarkRunner.cpp.s
+
 src/console.o: src/console.cpp.o
 .PHONY : src/console.o
 
@@ -925,6 +975,30 @@ src/console.s: src/console.cpp.s
 src/console.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/console.cpp.s
 .PHONY : src/console.cpp.s
+
+src/debugging/IntegratedDebugger.o: src/debugging/IntegratedDebugger.cpp.o
+.PHONY : src/debugging/IntegratedDebugger.o
+
+# target to build an object file
+src/debugging/IntegratedDebugger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.o
+.PHONY : src/debugging/IntegratedDebugger.cpp.o
+
+src/debugging/IntegratedDebugger.i: src/debugging/IntegratedDebugger.cpp.i
+.PHONY : src/debugging/IntegratedDebugger.i
+
+# target to preprocess a source file
+src/debugging/IntegratedDebugger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.i
+.PHONY : src/debugging/IntegratedDebugger.cpp.i
+
+src/debugging/IntegratedDebugger.s: src/debugging/IntegratedDebugger.cpp.s
+.PHONY : src/debugging/IntegratedDebugger.s
+
+# target to generate assembly for a file
+src/debugging/IntegratedDebugger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.s
+.PHONY : src/debugging/IntegratedDebugger.cpp.s
 
 src/logging/Logger.o: src/logging/Logger.cpp.o
 .PHONY : src/logging/Logger.o
@@ -1646,6 +1720,54 @@ src/native/NativeModuleWrapper.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.s
 .PHONY : src/native/NativeModuleWrapper.cpp.s
 
+src/npm/JsonParser.o: src/npm/JsonParser.cpp.o
+.PHONY : src/npm/JsonParser.o
+
+# target to build an object file
+src/npm/JsonParser.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.o
+.PHONY : src/npm/JsonParser.cpp.o
+
+src/npm/JsonParser.i: src/npm/JsonParser.cpp.i
+.PHONY : src/npm/JsonParser.i
+
+# target to preprocess a source file
+src/npm/JsonParser.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.i
+.PHONY : src/npm/JsonParser.cpp.i
+
+src/npm/JsonParser.s: src/npm/JsonParser.cpp.s
+.PHONY : src/npm/JsonParser.s
+
+# target to generate assembly for a file
+src/npm/JsonParser.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.s
+.PHONY : src/npm/JsonParser.cpp.s
+
+src/npm/NPMRegistry.o: src/npm/NPMRegistry.cpp.o
+.PHONY : src/npm/NPMRegistry.o
+
+# target to build an object file
+src/npm/NPMRegistry.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.o
+.PHONY : src/npm/NPMRegistry.cpp.o
+
+src/npm/NPMRegistry.i: src/npm/NPMRegistry.cpp.i
+.PHONY : src/npm/NPMRegistry.i
+
+# target to preprocess a source file
+src/npm/NPMRegistry.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.i
+.PHONY : src/npm/NPMRegistry.cpp.i
+
+src/npm/NPMRegistry.s: src/npm/NPMRegistry.cpp.s
+.PHONY : src/npm/NPMRegistry.s
+
+# target to generate assembly for a file
+src/npm/NPMRegistry.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.s
+.PHONY : src/npm/NPMRegistry.cpp.s
+
 src/npm/PackageInstaller.o: src/npm/PackageInstaller.cpp.o
 .PHONY : src/npm/PackageInstaller.o
 
@@ -1717,6 +1839,30 @@ src/npm/ScriptExecutor.s: src/npm/ScriptExecutor.cpp.s
 src/npm/ScriptExecutor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s
 .PHONY : src/npm/ScriptExecutor.cpp.s
+
+src/npm/Semver.o: src/npm/Semver.cpp.o
+.PHONY : src/npm/Semver.o
+
+# target to build an object file
+src/npm/Semver.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/Semver.cpp.o
+.PHONY : src/npm/Semver.cpp.o
+
+src/npm/Semver.i: src/npm/Semver.cpp.i
+.PHONY : src/npm/Semver.i
+
+# target to preprocess a source file
+src/npm/Semver.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/Semver.cpp.i
+.PHONY : src/npm/Semver.cpp.i
+
+src/npm/Semver.s: src/npm/Semver.cpp.s
+.PHONY : src/npm/Semver.s
+
+# target to generate assembly for a file
+src/npm/Semver.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/Semver.cpp.s
+.PHONY : src/npm/Semver.cpp.s
 
 src/profiling/Profiler.o: src/profiling/Profiler.cpp.o
 .PHONY : src/profiling/Profiler.o
@@ -1790,6 +1936,78 @@ src/repl/REPL.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.s
 .PHONY : src/repl/REPL.cpp.s
 
+src/testing/NodeJSTestRunner.o: src/testing/NodeJSTestRunner.cpp.o
+.PHONY : src/testing/NodeJSTestRunner.o
+
+# target to build an object file
+src/testing/NodeJSTestRunner.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.o
+.PHONY : src/testing/NodeJSTestRunner.cpp.o
+
+src/testing/NodeJSTestRunner.i: src/testing/NodeJSTestRunner.cpp.i
+.PHONY : src/testing/NodeJSTestRunner.i
+
+# target to preprocess a source file
+src/testing/NodeJSTestRunner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.i
+.PHONY : src/testing/NodeJSTestRunner.cpp.i
+
+src/testing/NodeJSTestRunner.s: src/testing/NodeJSTestRunner.cpp.s
+.PHONY : src/testing/NodeJSTestRunner.s
+
+# target to generate assembly for a file
+src/testing/NodeJSTestRunner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.s
+.PHONY : src/testing/NodeJSTestRunner.cpp.s
+
+tests/native_addons/fixture/fixture_addon.o: tests/native_addons/fixture/fixture_addon.cpp.o
+.PHONY : tests/native_addons/fixture/fixture_addon.o
+
+# target to build an object file
+tests/native_addons/fixture/fixture_addon.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fixture_addon.dir/build.make CMakeFiles/fixture_addon.dir/tests/native_addons/fixture/fixture_addon.cpp.o
+.PHONY : tests/native_addons/fixture/fixture_addon.cpp.o
+
+tests/native_addons/fixture/fixture_addon.i: tests/native_addons/fixture/fixture_addon.cpp.i
+.PHONY : tests/native_addons/fixture/fixture_addon.i
+
+# target to preprocess a source file
+tests/native_addons/fixture/fixture_addon.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fixture_addon.dir/build.make CMakeFiles/fixture_addon.dir/tests/native_addons/fixture/fixture_addon.cpp.i
+.PHONY : tests/native_addons/fixture/fixture_addon.cpp.i
+
+tests/native_addons/fixture/fixture_addon.s: tests/native_addons/fixture/fixture_addon.cpp.s
+.PHONY : tests/native_addons/fixture/fixture_addon.s
+
+# target to generate assembly for a file
+tests/native_addons/fixture/fixture_addon.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fixture_addon.dir/build.make CMakeFiles/fixture_addon.dir/tests/native_addons/fixture/fixture_addon.cpp.s
+.PHONY : tests/native_addons/fixture/fixture_addon.cpp.s
+
+tests/native_addons/simple/simple_addon.o: tests/native_addons/simple/simple_addon.cpp.o
+.PHONY : tests/native_addons/simple/simple_addon.o
+
+# target to build an object file
+tests/native_addons/simple/simple_addon.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/simple_addon.dir/build.make CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o
+.PHONY : tests/native_addons/simple/simple_addon.cpp.o
+
+tests/native_addons/simple/simple_addon.i: tests/native_addons/simple/simple_addon.cpp.i
+.PHONY : tests/native_addons/simple/simple_addon.i
+
+# target to preprocess a source file
+tests/native_addons/simple/simple_addon.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/simple_addon.dir/build.make CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.i
+.PHONY : tests/native_addons/simple/simple_addon.cpp.i
+
+tests/native_addons/simple/simple_addon.s: tests/native_addons/simple/simple_addon.cpp.s
+.PHONY : tests/native_addons/simple/simple_addon.s
+
+# target to generate assembly for a file
+tests/native_addons/simple/simple_addon.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/simple_addon.dir/build.make CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.s
+.PHONY : tests/native_addons/simple/simple_addon.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -1829,8 +2047,10 @@ help:
 	@echo "... NightlyUpdate"
 	@echo "... Catch2"
 	@echo "... Catch2WithMain"
+	@echo "... fixture_addon"
 	@echo "... protojs"
 	@echo "... protojs_tests"
+	@echo "... simple_addon"
 	@echo "... deps/quickjs/cutils.o"
 	@echo "... deps/quickjs/cutils.i"
 	@echo "... deps/quickjs/cutils.s"
@@ -1876,9 +2096,15 @@ help:
 	@echo "... src/TypeBridge.o"
 	@echo "... src/TypeBridge.i"
 	@echo "... src/TypeBridge.s"
+	@echo "... src/benchmarking/BenchmarkRunner.o"
+	@echo "... src/benchmarking/BenchmarkRunner.i"
+	@echo "... src/benchmarking/BenchmarkRunner.s"
 	@echo "... src/console.o"
 	@echo "... src/console.i"
 	@echo "... src/console.s"
+	@echo "... src/debugging/IntegratedDebugger.o"
+	@echo "... src/debugging/IntegratedDebugger.i"
+	@echo "... src/debugging/IntegratedDebugger.s"
 	@echo "... src/logging/Logger.o"
 	@echo "... src/logging/Logger.i"
 	@echo "... src/logging/Logger.s"
@@ -1969,6 +2195,12 @@ help:
 	@echo "... src/native/NativeModuleWrapper.o"
 	@echo "... src/native/NativeModuleWrapper.i"
 	@echo "... src/native/NativeModuleWrapper.s"
+	@echo "... src/npm/JsonParser.o"
+	@echo "... src/npm/JsonParser.i"
+	@echo "... src/npm/JsonParser.s"
+	@echo "... src/npm/NPMRegistry.o"
+	@echo "... src/npm/NPMRegistry.i"
+	@echo "... src/npm/NPMRegistry.s"
 	@echo "... src/npm/PackageInstaller.o"
 	@echo "... src/npm/PackageInstaller.i"
 	@echo "... src/npm/PackageInstaller.s"
@@ -1978,6 +2210,9 @@ help:
 	@echo "... src/npm/ScriptExecutor.o"
 	@echo "... src/npm/ScriptExecutor.i"
 	@echo "... src/npm/ScriptExecutor.s"
+	@echo "... src/npm/Semver.o"
+	@echo "... src/npm/Semver.i"
+	@echo "... src/npm/Semver.s"
 	@echo "... src/profiling/Profiler.o"
 	@echo "... src/profiling/Profiler.i"
 	@echo "... src/profiling/Profiler.s"
@@ -1987,6 +2222,15 @@ help:
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"
+	@echo "... src/testing/NodeJSTestRunner.o"
+	@echo "... src/testing/NodeJSTestRunner.i"
+	@echo "... src/testing/NodeJSTestRunner.s"
+	@echo "... tests/native_addons/fixture/fixture_addon.o"
+	@echo "... tests/native_addons/fixture/fixture_addon.i"
+	@echo "... tests/native_addons/fixture/fixture_addon.s"
+	@echo "... tests/native_addons/simple/simple_addon.o"
+	@echo "... tests/native_addons/simple/simple_addon.i"
+	@echo "... tests/native_addons/simple/simple_addon.s"
 .PHONY : help
 
 

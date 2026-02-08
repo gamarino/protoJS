@@ -236,6 +236,150 @@ __/src/ThreadPoolExecutor.cpp.s:
 	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.s
 .PHONY : __/src/ThreadPoolExecutor.cpp.s
 
+__/src/benchmarking/BenchmarkRunner.o: __/src/benchmarking/BenchmarkRunner.cpp.o
+.PHONY : __/src/benchmarking/BenchmarkRunner.o
+
+# target to build an object file
+__/src/benchmarking/BenchmarkRunner.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o
+.PHONY : __/src/benchmarking/BenchmarkRunner.cpp.o
+
+__/src/benchmarking/BenchmarkRunner.i: __/src/benchmarking/BenchmarkRunner.cpp.i
+.PHONY : __/src/benchmarking/BenchmarkRunner.i
+
+# target to preprocess a source file
+__/src/benchmarking/BenchmarkRunner.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.i
+.PHONY : __/src/benchmarking/BenchmarkRunner.cpp.i
+
+__/src/benchmarking/BenchmarkRunner.s: __/src/benchmarking/BenchmarkRunner.cpp.s
+.PHONY : __/src/benchmarking/BenchmarkRunner.s
+
+# target to generate assembly for a file
+__/src/benchmarking/BenchmarkRunner.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.s
+.PHONY : __/src/benchmarking/BenchmarkRunner.cpp.s
+
+__/src/npm/JsonParser.o: __/src/npm/JsonParser.cpp.o
+.PHONY : __/src/npm/JsonParser.o
+
+# target to build an object file
+__/src/npm/JsonParser.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o
+.PHONY : __/src/npm/JsonParser.cpp.o
+
+__/src/npm/JsonParser.i: __/src/npm/JsonParser.cpp.i
+.PHONY : __/src/npm/JsonParser.i
+
+# target to preprocess a source file
+__/src/npm/JsonParser.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.i
+.PHONY : __/src/npm/JsonParser.cpp.i
+
+__/src/npm/JsonParser.s: __/src/npm/JsonParser.cpp.s
+.PHONY : __/src/npm/JsonParser.s
+
+# target to generate assembly for a file
+__/src/npm/JsonParser.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.s
+.PHONY : __/src/npm/JsonParser.cpp.s
+
+__/src/npm/NPMRegistry.o: __/src/npm/NPMRegistry.cpp.o
+.PHONY : __/src/npm/NPMRegistry.o
+
+# target to build an object file
+__/src/npm/NPMRegistry.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o
+.PHONY : __/src/npm/NPMRegistry.cpp.o
+
+__/src/npm/NPMRegistry.i: __/src/npm/NPMRegistry.cpp.i
+.PHONY : __/src/npm/NPMRegistry.i
+
+# target to preprocess a source file
+__/src/npm/NPMRegistry.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.i
+.PHONY : __/src/npm/NPMRegistry.cpp.i
+
+__/src/npm/NPMRegistry.s: __/src/npm/NPMRegistry.cpp.s
+.PHONY : __/src/npm/NPMRegistry.s
+
+# target to generate assembly for a file
+__/src/npm/NPMRegistry.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.s
+.PHONY : __/src/npm/NPMRegistry.cpp.s
+
+__/src/npm/Semver.o: __/src/npm/Semver.cpp.o
+.PHONY : __/src/npm/Semver.o
+
+# target to build an object file
+__/src/npm/Semver.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o
+.PHONY : __/src/npm/Semver.cpp.o
+
+__/src/npm/Semver.i: __/src/npm/Semver.cpp.i
+.PHONY : __/src/npm/Semver.i
+
+# target to preprocess a source file
+__/src/npm/Semver.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.i
+.PHONY : __/src/npm/Semver.cpp.i
+
+__/src/npm/Semver.s: __/src/npm/Semver.cpp.s
+.PHONY : __/src/npm/Semver.s
+
+# target to generate assembly for a file
+__/src/npm/Semver.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.s
+.PHONY : __/src/npm/Semver.cpp.s
+
+__/src/testing/NodeJSTestRunner.o: __/src/testing/NodeJSTestRunner.cpp.o
+.PHONY : __/src/testing/NodeJSTestRunner.o
+
+# target to build an object file
+__/src/testing/NodeJSTestRunner.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o
+.PHONY : __/src/testing/NodeJSTestRunner.cpp.o
+
+__/src/testing/NodeJSTestRunner.i: __/src/testing/NodeJSTestRunner.cpp.i
+.PHONY : __/src/testing/NodeJSTestRunner.i
+
+# target to preprocess a source file
+__/src/testing/NodeJSTestRunner.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.i
+.PHONY : __/src/testing/NodeJSTestRunner.cpp.i
+
+__/src/testing/NodeJSTestRunner.s: __/src/testing/NodeJSTestRunner.cpp.s
+.PHONY : __/src/testing/NodeJSTestRunner.s
+
+# target to generate assembly for a file
+__/src/testing/NodeJSTestRunner.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.s
+.PHONY : __/src/testing/NodeJSTestRunner.cpp.s
+
+unit/test_benchmark_runner.o: unit/test_benchmark_runner.cpp.o
+.PHONY : unit/test_benchmark_runner.o
+
+# target to build an object file
+unit/test_benchmark_runner.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o
+.PHONY : unit/test_benchmark_runner.cpp.o
+
+unit/test_benchmark_runner.i: unit/test_benchmark_runner.cpp.i
+.PHONY : unit/test_benchmark_runner.i
+
+# target to preprocess a source file
+unit/test_benchmark_runner.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.i
+.PHONY : unit/test_benchmark_runner.cpp.i
+
+unit/test_benchmark_runner.s: unit/test_benchmark_runner.cpp.s
+.PHONY : unit/test_benchmark_runner.s
+
+# target to generate assembly for a file
+unit/test_benchmark_runner.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.s
+.PHONY : unit/test_benchmark_runner.cpp.s
+
 unit/test_event_loop.o: unit/test_event_loop.cpp.o
 .PHONY : unit/test_event_loop.o
 
@@ -308,6 +452,78 @@ unit/test_main.cpp.s:
 	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.s
 .PHONY : unit/test_main.cpp.s
 
+unit/test_nodejs_test_runner.o: unit/test_nodejs_test_runner.cpp.o
+.PHONY : unit/test_nodejs_test_runner.o
+
+# target to build an object file
+unit/test_nodejs_test_runner.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o
+.PHONY : unit/test_nodejs_test_runner.cpp.o
+
+unit/test_nodejs_test_runner.i: unit/test_nodejs_test_runner.cpp.i
+.PHONY : unit/test_nodejs_test_runner.i
+
+# target to preprocess a source file
+unit/test_nodejs_test_runner.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.i
+.PHONY : unit/test_nodejs_test_runner.cpp.i
+
+unit/test_nodejs_test_runner.s: unit/test_nodejs_test_runner.cpp.s
+.PHONY : unit/test_nodejs_test_runner.s
+
+# target to generate assembly for a file
+unit/test_nodejs_test_runner.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.s
+.PHONY : unit/test_nodejs_test_runner.cpp.s
+
+unit/test_npm_registry.o: unit/test_npm_registry.cpp.o
+.PHONY : unit/test_npm_registry.o
+
+# target to build an object file
+unit/test_npm_registry.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o
+.PHONY : unit/test_npm_registry.cpp.o
+
+unit/test_npm_registry.i: unit/test_npm_registry.cpp.i
+.PHONY : unit/test_npm_registry.i
+
+# target to preprocess a source file
+unit/test_npm_registry.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.i
+.PHONY : unit/test_npm_registry.cpp.i
+
+unit/test_npm_registry.s: unit/test_npm_registry.cpp.s
+.PHONY : unit/test_npm_registry.s
+
+# target to generate assembly for a file
+unit/test_npm_registry.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.s
+.PHONY : unit/test_npm_registry.cpp.s
+
+unit/test_semver.o: unit/test_semver.cpp.o
+.PHONY : unit/test_semver.o
+
+# target to build an object file
+unit/test_semver.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o
+.PHONY : unit/test_semver.cpp.o
+
+unit/test_semver.i: unit/test_semver.cpp.i
+.PHONY : unit/test_semver.i
+
+# target to preprocess a source file
+unit/test_semver.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.i
+.PHONY : unit/test_semver.cpp.i
+
+unit/test_semver.s: unit/test_semver.cpp.s
+.PHONY : unit/test_semver.s
+
+# target to generate assembly for a file
+unit/test_semver.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.s
+.PHONY : unit/test_semver.cpp.s
+
 unit/test_thread_pools.o: unit/test_thread_pools.cpp.o
 .PHONY : unit/test_thread_pools.o
 
@@ -354,6 +570,24 @@ help:
 	@echo "... __/src/ThreadPoolExecutor.o"
 	@echo "... __/src/ThreadPoolExecutor.i"
 	@echo "... __/src/ThreadPoolExecutor.s"
+	@echo "... __/src/benchmarking/BenchmarkRunner.o"
+	@echo "... __/src/benchmarking/BenchmarkRunner.i"
+	@echo "... __/src/benchmarking/BenchmarkRunner.s"
+	@echo "... __/src/npm/JsonParser.o"
+	@echo "... __/src/npm/JsonParser.i"
+	@echo "... __/src/npm/JsonParser.s"
+	@echo "... __/src/npm/NPMRegistry.o"
+	@echo "... __/src/npm/NPMRegistry.i"
+	@echo "... __/src/npm/NPMRegistry.s"
+	@echo "... __/src/npm/Semver.o"
+	@echo "... __/src/npm/Semver.i"
+	@echo "... __/src/npm/Semver.s"
+	@echo "... __/src/testing/NodeJSTestRunner.o"
+	@echo "... __/src/testing/NodeJSTestRunner.i"
+	@echo "... __/src/testing/NodeJSTestRunner.s"
+	@echo "... unit/test_benchmark_runner.o"
+	@echo "... unit/test_benchmark_runner.i"
+	@echo "... unit/test_benchmark_runner.s"
 	@echo "... unit/test_event_loop.o"
 	@echo "... unit/test_event_loop.i"
 	@echo "... unit/test_event_loop.s"
@@ -363,6 +597,15 @@ help:
 	@echo "... unit/test_main.o"
 	@echo "... unit/test_main.i"
 	@echo "... unit/test_main.s"
+	@echo "... unit/test_nodejs_test_runner.o"
+	@echo "... unit/test_nodejs_test_runner.i"
+	@echo "... unit/test_nodejs_test_runner.s"
+	@echo "... unit/test_npm_registry.o"
+	@echo "... unit/test_npm_registry.i"
+	@echo "... unit/test_npm_registry.s"
+	@echo "... unit/test_semver.o"
+	@echo "... unit/test_semver.i"
+	@echo "... unit/test_semver.s"
 	@echo "... unit/test_thread_pools.o"
 	@echo "... unit/test_thread_pools.i"
 	@echo "... unit/test_thread_pools.s"

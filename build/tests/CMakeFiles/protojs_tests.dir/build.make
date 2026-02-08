@@ -69,10 +69,24 @@ include tests/CMakeFiles/protojs_tests.dir/progress.make
 # Include the compile flags for this target's objects.
 include tests/CMakeFiles/protojs_tests.dir/flags.make
 
+tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_benchmark_runner.cpp
+tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_benchmark_runner.cpp
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_benchmark_runner.cpp > CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_benchmark_runner.cpp -o CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.s
+
 tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_event_loop.cpp
 tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_event_loop.cpp
 
 tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.i: cmake_force
@@ -86,7 +100,7 @@ tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.s: cmake_force
 tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_io_thread_pool.cpp
 tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_io_thread_pool.cpp
 
 tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.i: cmake_force
@@ -100,7 +114,7 @@ tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.s: cmake_force
 tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_main.cpp
 tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_main.cpp
 
 tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.i: cmake_force
@@ -111,10 +125,52 @@ tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/unit/test_main.cpp.s"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_main.cpp -o CMakeFiles/protojs_tests.dir/unit/test_main.cpp.s
 
+tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_nodejs_test_runner.cpp
+tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_nodejs_test_runner.cpp
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_nodejs_test_runner.cpp > CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_nodejs_test_runner.cpp -o CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.s
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_npm_registry.cpp
+tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_npm_registry.cpp
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_npm_registry.cpp > CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_npm_registry.cpp -o CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.s
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_semver.cpp
+tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_semver.cpp
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_semver.cpp > CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_semver.cpp -o CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.s
+
 tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_thread_pools.cpp
 tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o -MF CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o.d -o CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_thread_pools.cpp
 
 tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.i: cmake_force
@@ -128,7 +184,7 @@ tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.s: cmake_force
 tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp
 tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp
 
 tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.i: cmake_force
@@ -142,7 +198,7 @@ tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.s: cmake_force
 tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.cpp
 tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.cpp
 
 tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.i: cmake_force
@@ -156,7 +212,7 @@ tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.s: cmake_force
 tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp
 tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp
 
 tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.i: cmake_force
@@ -170,7 +226,7 @@ tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.s: cmake_force
 tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
 tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp
 tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp
 
 tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.i: cmake_force
@@ -181,34 +237,122 @@ tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.s"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.cpp -o CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.s
 
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.cpp
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.cpp
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.cpp > CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.cpp -o CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.s
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.cpp
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.cpp
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.cpp > CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.cpp -o CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.s
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.cpp
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.cpp
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.cpp > CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.cpp -o CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.s
+
+tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp
+tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp
+
+tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp > CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp -o CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.s
+
+tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o: tests/CMakeFiles/protojs_tests.dir/flags.make
+tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp
+tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o: tests/CMakeFiles/protojs_tests.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o -MF CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o.d -o CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp
+
+tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.i"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp > CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.i
+
+tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.s"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp -o CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.s
+
 # Object files for target protojs_tests
 protojs_tests_OBJECTS = \
+"CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o" \
 "CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o" \
 "CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o" \
 "CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o" \
+"CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o" \
+"CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o" \
+"CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o" \
 "CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o" \
 "CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o" \
 "CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o" \
 "CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o" \
-"CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o"
+"CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o" \
+"CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o" \
+"CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o" \
+"CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o" \
+"CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o" \
+"CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o"
 
 # External object files for target protojs_tests
 protojs_tests_EXTERNAL_OBJECTS =
 
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_main.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_nodejs_test_runner.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_npm_registry.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_semver.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/unit/test_thread_pools.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/ThreadPoolExecutor.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/CPUThreadPool.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/IOThreadPool.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/EventLoop.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/npm/JsonParser.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/npm/Semver.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/npm/NPMRegistry.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/benchmarking/BenchmarkRunner.cpp.o
+tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/__/src/testing/NodeJSTestRunner.cpp.o
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/build.make
 tests/protojs_tests: _deps/catch2-build/src/libCatch2Main.a
-tests/protojs_tests: /home/gamarino/Documentos/proyectos/protoJS/../protoCore/build/libproto.a
+tests/protojs_tests: /home/gamarino/Documentos/proyectos/protoCore/build/libprotoCore.so
 tests/protojs_tests: _deps/catch2-build/src/libCatch2.a
 tests/protojs_tests: tests/CMakeFiles/protojs_tests.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable protojs_tests"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Linking CXX executable protojs_tests"
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/protojs_tests.dir/link.txt --verbose=$(VERBOSE)
 	cd /home/gamarino/Documentos/proyectos/protoJS/build/tests && /usr/bin/cmake -D TEST_TARGET=protojs_tests -D TEST_EXECUTABLE=/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests -D TEST_EXECUTOR= -D TEST_WORKING_DIR=/home/gamarino/Documentos/proyectos/protoJS/build/tests -D TEST_SPEC= -D TEST_EXTRA_ARGS= -D TEST_PROPERTIES= -D TEST_PREFIX= -D TEST_SUFFIX= -D TEST_LIST=protojs_tests_TESTS -D TEST_REPORTER= -D TEST_OUTPUT_DIR= -D TEST_OUTPUT_PREFIX= -D TEST_OUTPUT_SUFFIX= -D TEST_DL_PATHS= -D CTEST_FILE=/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests-b12d07c_tests.cmake -P /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/extras/CatchAddTests.cmake
 
