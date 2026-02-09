@@ -43,7 +43,11 @@ The executable will be `build/protojs` (or `build/protojs.exe` on Windows). Run 
 
 ### Option A: Install from .deb (Debian / Ubuntu)
 
-1. **Install protoCore** (if not already installed), e.g. from a .deb package or build from source and install to a path where the linker can find it.
+1. **Install protoCore** (if not already installed). The protoCore .deb built with CPack installs with package name **`protocore`** (lowercase). Install it first, e.g.:
+   ```bash
+   sudo dpkg -i protoCore-1.0.0-Linux.deb
+   ```
+   Or build protoCore from source and install to a path where the linker can find it.
 2. **Install the protoJS .deb package:**
 
    ```bash

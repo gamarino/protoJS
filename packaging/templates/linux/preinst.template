@@ -2,16 +2,22 @@
 set -e
 
 MIN_VERSION="1.0.0"
-PACKAGE_NAME="protoCore"
+PACKAGE_NAME=""
+# CPack generates the protoCore .deb with lowercase name "protocore"; check both for compatibility
+for pkg in protocore protoCore; do
+    if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "ok installed"; then
+        PACKAGE_NAME="$pkg"
+        break
+    fi
+done
 
-echo "Checking for $PACKAGE_NAME dependency..."
-
-if ! dpkg-query -W -f='${Status}' "$PACKAGE_NAME" 2>/dev/null | grep -q "ok installed"; then
+if [ -z "$PACKAGE_NAME" ]; then
     echo "ERROR: protoCore is not installed." >&2
     echo "Please install protoCore before installing protoJS." >&2
     exit 1
 fi
 
+echo "Checking for protoCore dependency..."
 INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "$PACKAGE_NAME")
 
 if dpkg --compare-versions "$INSTALLED_VERSION" lt "$MIN_VERSION"; then

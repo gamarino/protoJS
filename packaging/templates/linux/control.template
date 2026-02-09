@@ -2,7 +2,7 @@ Package: protoJS
 Version: ${VERSION}
 Architecture: amd64
 Maintainer: ${MAINTAINER}
-Depends: protoCore (>= 1.0.0)
+Depends: protocore (>= 1.0.0)
 Section: utils
 Priority: optional
 Description: protoJS runtime for JavaScript execution.

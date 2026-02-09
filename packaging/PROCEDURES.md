@@ -61,7 +61,7 @@ protojs -e "console.log('Hello from protoJS')"
 sudo apt remove protoJS
 ```
 
-**Note:** The `preinst` script checks that protoCore (>= 1.0.0) is installed; otherwise the package installation will fail with a clear error. See [DOCUMENTATION.md](DOCUMENTATION.md) for user-facing messages.
+**Note:** The `preinst` script checks that protoCore (>= 1.0.0) is installed; it looks for the package under the name **`protocore`** (lowercase, as produced by CPack) or `protoCore`. The `control` template declares `Depends: protocore (>= 1.0.0)` to match. See [DOCUMENTATION.md](DOCUMENTATION.md) for user-facing messages.
 
 ---
 
