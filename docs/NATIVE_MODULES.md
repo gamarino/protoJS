@@ -6,9 +6,11 @@
 
 protoJS supports loading **native addons** (shared libraries written in C++) via the same `require()` API used for JavaScript modules. There is no syntax change: `require('./my_module')` loads either a JavaScript file or a native addon depending on **resolution order**.
 
-## Resolution Order (Native First)
+## Resolution Order
 
-When you `require('./mi_modulo')`, the loader looks for a module in this order:
+**Built-in modules:** Core modules (e.g. `fs`, `path`, `stream`, `crypto`, `buffer`, `net`, `http`, `events`, `util`, `url`, `dgram`, `cluster`, `worker_threads`, `child_process`, `dns`, `protoCore`) are resolved first by name. For example, `require('fs')` returns the same object as the global `fs`.
+
+**File-based resolution:** When you `require('./mi_modulo')` or a bare specifier that is not a built-in, the loader looks for a module in this order:
 
 1. **Native addon:** `mi_modulo.node`, then `mi_modulo.so` (or `.dll` / `.dylib` on Windows/macOS), then `mi_modulo.protojs`
 2. **JavaScript:** `mi_modulo.js`, then `mi_modulo.mjs`

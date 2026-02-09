@@ -497,7 +497,7 @@ For more details, see [PLAN.md](PLAN.md).
 - ✅ **dns module** (DNS resolution, reverse lookup, service lookup)
 
 **System Features:**
-- ✅ **Module system** (CommonJS require, ES Modules import/export, Module interop; **require** loads JS or native addons (.node/.so/.protojs) transparently)
+- ✅ **Module system** (CommonJS require, ES Modules import/export, Module interop; **require** resolves built-in modules by name (e.g. `require('fs')`, `require('path')`, `require('buffer')`) and loads JS or native addons (.node/.so/.protojs) transparently)
 - ✅ **CLI compatibility** (Node.js flags: --version, --print, --check, --input-type=module)
 - ✅ **REPL** (Interactive read-eval-print loop with multi-line support)
 - ✅ **npm integration framework** (PackageResolver, PackageInstaller, ScriptExecutor)

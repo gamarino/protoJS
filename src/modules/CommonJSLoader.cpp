@@ -78,6 +78,37 @@ JSValue CommonJSLoader::require(
         }
     }
 
+    // Built-in modules: resolve from global object (Node.js-style require('fs'), require('path'), etc.)
+    if (isBareSpecifier(specifier)) {
+        JSValue global_obj = JS_GetGlobalObject(ctx);
+        JSValue builtin = JS_UNDEFINED;
+        if (specifier == "buffer") {
+            builtin = JS_GetPropertyStr(ctx, global_obj, "Buffer");
+            if (!JS_IsUndefined(builtin)) {
+                JSValue exports = JS_NewObject(ctx);
+                JS_SetPropertyStr(ctx, exports, "Buffer", builtin);
+                JS_FreeValue(ctx, builtin);
+                builtin = exports;
+            }
+        } else {
+            builtin = JS_GetPropertyStr(ctx, global_obj, specifier.c_str());
+        }
+        JS_FreeValue(ctx, global_obj);
+        if (!JS_IsUndefined(builtin)) {
+            std::string cacheKey = "builtin:" + specifier;
+            {
+                std::lock_guard<std::mutex> lock(cacheMutex);
+                auto it = moduleCache.find(cacheKey);
+                if (it != moduleCache.end()) {
+                    JS_FreeValue(ctx, builtin);
+                    return JS_DupValue(ctx, it->second);
+                }
+                moduleCache[cacheKey] = JS_DupValue(ctx, builtin);
+            }
+            return builtin;
+        }
+    }
+
     // Resolve module (file-based)
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
