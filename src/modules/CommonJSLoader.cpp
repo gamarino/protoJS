@@ -59,7 +59,7 @@ JSValue CommonJSLoader::require(
                     return JS_DupValue(ctx, it->second);
                 }
             }
-            const proto::ProtoObject* umdWrapper = space->getImportModule(specifier.c_str(), "exports");
+            const proto::ProtoObject* umdWrapper = space->getImportModule(pContext, specifier.c_str(), "exports");
             if (umdWrapper && umdWrapper != PROTO_NONE) {
                 const proto::ProtoString* exportsName = proto::ProtoString::fromUTF8String(pContext, "exports");
                 if (exportsName) {
@@ -112,7 +112,7 @@ JSValue CommonJSLoader::require(
     // Resolve module (file-based)
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
-        return JS_ThrowTypeError(ctx, ("Cannot find module: " + specifier).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot find module: " + specifier).c_str());
     }
     
     std::string cacheKey = resolved.filePath;
@@ -130,7 +130,7 @@ JSValue CommonJSLoader::require(
     if (resolved.type == ModuleType::Native) {
         LoadedModule* loaded = DynamicLibraryLoader::load(resolved.filePath);
         if (!loaded) {
-            return JS_ThrowTypeError(ctx, ("Cannot load native module: " + resolved.filePath).c_str());
+            return JS_ThrowTypeError(ctx, "%s", ("Cannot load native module: " + resolved.filePath).c_str());
         }
         JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
         proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
@@ -156,7 +156,7 @@ JSValue CommonJSLoader::require(
     // JavaScript module: read source and evaluate
     std::ifstream file(resolved.filePath);
     if (!file.is_open()) {
-        return JS_ThrowTypeError(ctx, ("Cannot open module: " + resolved.filePath).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot open module: " + resolved.filePath).c_str());
     }
     
     std::stringstream buffer;
@@ -224,7 +224,7 @@ JSValue CommonJSLoader::requireResolve(
 ) {
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
-        return JS_ThrowTypeError(ctx, ("Cannot resolve module: " + specifier).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot resolve module: " + specifier).c_str());
     }
     return JS_NewString(ctx, resolved.filePath.c_str());
 }

@@ -52,7 +52,7 @@ JSValue IOModule::readFile(JSContext* ctx, JSValueConst this_val, int argc, JSVa
         return JS_NewString(ctx, content.c_str());
     } catch (const std::exception& e) {
         std::string errorMsg = "readFile error: " + std::string(e.what());
-        return JS_ThrowTypeError(ctx, errorMsg.c_str());
+        return JS_ThrowTypeError(ctx, "%s", errorMsg.c_str());
     }
 }
 
@@ -90,7 +90,7 @@ JSValue IOModule::writeFile(JSContext* ctx, JSValueConst this_val, int argc, JSV
         return JS_NewBool(ctx, success);
     } catch (const std::exception& e) {
         std::string errorMsg = "writeFile error: " + std::string(e.what());
-        return JS_ThrowTypeError(ctx, errorMsg.c_str());
+        return JS_ThrowTypeError(ctx, "%s", errorMsg.c_str());
     }
 }
 

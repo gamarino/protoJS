@@ -395,7 +395,7 @@ JSValue FSModule::readdirSync(JSContext* ctx, JSValueConst this_val, int argc, J
     } catch (const std::exception& e) {
         JS_FreeCString(ctx, pathStr);
         JS_FreeValue(ctx, arr);
-        return JS_ThrowTypeError(ctx, ("Cannot read directory: " + std::string(e.what())).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot read directory: " + std::string(e.what())).c_str());
     }
     
     JS_FreeCString(ctx, pathStr);
@@ -545,7 +545,7 @@ JSValue FSModule::copyFileSync(JSContext* ctx, JSValueConst this_val, int argc, 
     } catch (const std::exception& e) {
         JS_FreeCString(ctx, srcPath);
         JS_FreeCString(ctx, destPath);
-        return JS_ThrowTypeError(ctx, ("Cannot copy file: " + std::string(e.what())).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot copy file: " + std::string(e.what())).c_str());
     }
     
     JS_FreeCString(ctx, srcPath);

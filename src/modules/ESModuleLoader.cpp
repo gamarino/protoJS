@@ -24,18 +24,18 @@ JSValue ESModuleLoader::loadModule(
     // Resolve module
     ResolveResult resolved = ModuleResolver::resolve(specifier, fromPath, ctx);
     if (resolved.filePath.empty()) {
-        return JS_ThrowTypeError(ctx, ("Module not found: " + specifier).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Module not found: " + specifier).c_str());
     }
     
     if (resolved.type != ModuleType::ESM) {
         // Will be handled by interop layer
-        return JS_ThrowTypeError(ctx, ("Not an ES module: " + specifier).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Not an ES module: " + specifier).c_str());
     }
     
     // Read source
     std::ifstream file(resolved.filePath);
     if (!file.is_open()) {
-        return JS_ThrowTypeError(ctx, ("Cannot open module: " + resolved.filePath).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Cannot open module: " + resolved.filePath).c_str());
     }
     
     std::stringstream buffer;
@@ -45,7 +45,7 @@ JSValue ESModuleLoader::loadModule(
     // Parse module
     auto record = parseModule(resolved.filePath, source, ctx);
     if (!record) {
-        return JS_ThrowTypeError(ctx, ("Failed to parse module: " + resolved.filePath).c_str());
+        return JS_ThrowTypeError(ctx, "%s", ("Failed to parse module: " + resolved.filePath).c_str());
     }
     
     record->specifier = specifier;

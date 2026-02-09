@@ -72,7 +72,7 @@ JSValue DNSModule::lookup(JSContext* ctx, JSValueConst this_val, int argc, JSVal
         
         int err = getaddrinfo(host.c_str(), nullptr, &hints, &result);
         if (err != 0) {
-            return JS_ThrowTypeError(ctx, gai_strerror(err));
+            return JS_ThrowTypeError(ctx, "%s", gai_strerror(err));
         }
         
         char ip[INET6_ADDRSTRLEN];
