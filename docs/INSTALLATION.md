@@ -48,7 +48,12 @@ The executable will be `build/protojs` (or `build/protojs.exe` on Windows). Run 
    sudo dpkg -i protoCore-1.0.0-Linux.deb
    ```
    Or build protoCore from source and install to a path where the linker can find it.
-2. **Install the protoJS .deb package:**
+2. **Build the protoJS .deb** from the current project (the package’s preinst checks for the `protocore` package; an old .deb built before this fix will fail). From the protoJS repo root:
+   ```bash
+   ./packaging/build_deb.sh
+   # optional: export VERSION=0.1.0 MAINTAINER="Your Name <email@example.com>"
+   ```
+3. **Install the protoJS .deb package:**
 
    ```bash
    sudo dpkg -i protoJS_0.1.0_amd64.deb
@@ -61,20 +66,20 @@ The executable will be `build/protojs` (or `build/protojs.exe` on Windows). Run 
    sudo dpkg -i protoJS_0.1.0_amd64.deb
    ```
 
-3. **Verify:**
+4. **Verify:**
 
    ```bash
    protojs --version
    protojs -e "console.log('OK')"
    ```
 
-4. **Uninstall:**
+5. **Uninstall:**
 
    ```bash
    sudo apt remove protoJS
    ```
 
-The .deb package installs the `protojs` binary to `/usr/bin` and runs a pre-install script that checks for protoCore (version >= 1.0.0).
+The .deb package installs the `protojs` binary to `/usr/bin` and runs a pre-install script that checks for the **`protocore`** package (version >= 1.0.0). You must build the .deb from the current templates (e.g. run `./packaging/build_deb.sh`) so the preinst looks for the correct package name; an older .deb may report "protoCore is not installed" even when protocore is installed.
 
 ### Option B: Install from .rpm (Fedora / RHEL / openSUSE)
 

@@ -8,6 +8,8 @@ This document describes how to build distribution packages for protoJS on Linux 
 - protoCore installed or built so that dependency checks in installers can pass
 - Platform-specific tools: `dpkg-deb` (deb), `rpmbuild` (rpm), `pkgbuild`/`productbuild` (macOS), WiX Toolset (Windows)
 
+**Quick .deb build (Debian/Ubuntu):** From the protoJS project root, run `./packaging/build_deb.sh` to generate only the .deb for the current system. This uses the latest templates (preinst checks for the `protocore` package). Then install with `sudo dpkg -i protoJS_0.1.0_amd64.deb`.
+
 ---
 
 ## 1. Linux: Debian/Ubuntu (.deb)
