@@ -1,3 +1,7 @@
+**Installation guide:** For end-user installation instructions (from-source build, .deb, .rpm, .pkg, .msi), see [../docs/INSTALLATION.md](../docs/INSTALLATION.md). For packager build steps, see [PROCEDURES.md](PROCEDURES.md).
+
+---
+
 ### User-Facing Error Messages
 
 **protoCore** is the official name of the shared library dependency (`libprotoCore.so` / `libprotoCore.dylib` / `protoCore.dll`). When protoCore is missing or the version is incompatible, the following error messages MUST be displayed by the installer/package manager:

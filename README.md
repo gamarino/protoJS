@@ -59,6 +59,17 @@ Built to be the cornerstone of a unified, polyglot environment where JS, Python,
 
 ---
 
+## 📦 Installation
+
+- **From packages:** Install protoCore first, then install protoJS using your platform package:
+  - **Linux (Debian/Ubuntu):** `sudo dpkg -i protoJS_0.1.0_amd64.deb`
+  - **Linux (Fedora/RHEL):** `sudo dnf install protoJS-0.1.0-1.x86_64.rpm`
+  - **macOS:** Open `protoJS-0.1.0.pkg` and follow the installer (installs to `/usr/local/bin`)
+  - **Windows:** Run `protoJS-0.1.0.msi` (adds protoJS to PATH)
+- **From source:** See [Building](#-building) below. Full step-by-step instructions for all platforms (build, .deb, .rpm, .pkg, .msi) are in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+
+---
+
 ## 🚀 Building
 
 protoJS links against the **protoCore shared library** (official name: **protoCore**). Build protoCore first, then protoJS.
@@ -317,6 +328,7 @@ We embrace AI as the **great equalizer**. protoJS is not "AI-generated"; it is A
 
 ### Main Documentation
 
+- **[docs/INSTALLATION.md](docs/INSTALLATION.md)** - **Installation guide** (Linux .deb/.rpm, macOS .pkg, Windows .msi, and from source)
 - **[PLAN.md](PLAN.md)** - Detailed implementation plan (Phase 1 and future)
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Detailed technical architecture
 - **[TESTING_STRATEGY.md](TESTING_STRATEGY.md)** - Testing strategy

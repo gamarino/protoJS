@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- WiX template for protoJS MSI. Replace PUT-GUID-HERE-2 and PUT-GUID-HERE-3 with unique GUIDs (e.g. from uuidgen).
+     Product Id="*" generates a new GUID per build; UpgradeCode must be fixed for upgrades. -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Id="*" Name="protoJS" Language="1033" Version="0.1.0.0" Manufacturer="protoJS Team" UpgradeCode="PUT-GUID-HERE-1">
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" />

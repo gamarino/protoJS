@@ -50,6 +50,9 @@
 
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
+| [docs/INSTALLATION.md](docs/INSTALLATION.md) | **Installation guide** (Linux .deb/.rpm, macOS .pkg, Windows .msi, from source) | 15 min |
+| [packaging/PROCEDURES.md](packaging/PROCEDURES.md) | Packaging and release procedures for all platforms | 15 min |
+| [packaging/DOCUMENTATION.md](packaging/DOCUMENTATION.md) | Packager docs: error messages, release checklist | 10 min |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Complete API reference | 30 min |
 | [docs/EXAMPLES.md](docs/EXAMPLES.md) | Code examples and usage patterns | 20 min |
 | [docs/DEFERRED_USAGE.md](docs/DEFERRED_USAGE.md) | Deferred execution guide | 15 min |
