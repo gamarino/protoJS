@@ -7,24 +7,43 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 
-# Paths
-set(PROTOCORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../protoCore)
+include(GNUInstallDirs)
+
 set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/quickjs)
 
-# Find protoCore shared library (official name: protoCore)
-# Search in build/ and build_check/
-find_library(PROTOCORE_LIBRARY NAMES protoCore
-    PATHS ${PROTOCORE_DIR}/build ${PROTOCORE_DIR}/build_check
-    NO_DEFAULT_PATH
-)
-if(NOT PROTOCORE_LIBRARY)
-    message(FATAL_ERROR "protoCore shared library not found. Build protoCore first:\n  cd ${PROTOCORE_DIR} && cmake -B build -S . && cmake --build build --target protoCore")
+# --- protoCore: use installed package or build from sibling directory ---
+# For packaging: set PROTO_CORE_PREFIX to the install prefix of protoCore (e.g. /usr/local or $HOME/.local).
+# For development: leave unset to find protoCore in ../protoCore/build or ../protoCore/build_check.
+if(DEFINED PROTO_CORE_PREFIX)
+    find_library(PROTOCORE_LIBRARY NAMES protoCore
+        HINTS "${PROTO_CORE_PREFIX}" PATH_SUFFIXES lib lib64)
+    find_path(PROTO_CORE_INCLUDE_DIR NAMES protoCore.h
+        HINTS "${PROTO_CORE_PREFIX}" PATH_SUFFIXES include)
+    if(PROTOCORE_LIBRARY AND PROTO_CORE_INCLUDE_DIR)
+        set(PROTOCORE_INCLUDE_DIRS "${PROTO_CORE_INCLUDE_DIR}")
+        include_directories(${PROTO_CORE_INCLUDE_DIR})
+        message(STATUS "Using installed protoCore: ${PROTOCORE_LIBRARY}")
+    else()
+        message(FATAL_ERROR "PROTO_CORE_PREFIX=${PROTO_CORE_PREFIX} set but protoCore not found. "
+            "Need libprotoCore and include/protoCore.h under that prefix.")
+    endif()
+else()
+    set(PROTOCORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../protoCore)
+    find_library(PROTOCORE_LIBRARY NAMES protoCore
+        PATHS ${PROTOCORE_DIR}/build ${PROTOCORE_DIR}/build_check
+        NO_DEFAULT_PATH
+    )
+    if(NOT PROTOCORE_LIBRARY)
+        message(FATAL_ERROR "protoCore shared library not found. Build protoCore first:\n  cd ${PROTOCORE_DIR} && cmake -B build -S . && cmake --build build --target protoCore")
+    endif()
+    set(PROTOCORE_INCLUDE_DIRS ${PROTOCORE_DIR} ${PROTOCORE_DIR}/headers)
+    include_directories(${PROTOCORE_DIR} ${PROTOCORE_DIR}/headers)
+    message(STATUS "Found protoCore: ${PROTOCORE_LIBRARY}")
+    # Build-tree RPATH so protojs finds libprotoCore without LD_LIBRARY_PATH/DYLD_LIBRARY_PATH
+    get_filename_component(PROTOCORE_LIBRARY_DIR "${PROTOCORE_LIBRARY}" DIRECTORY)
+    set(CMAKE_BUILD_RPATH "${PROTOCORE_LIBRARY_DIR}")
+    set(CMAKE_BUILD_RPATH_USE_LINK_PATH TRUE)
 endif()
-message(STATUS "Found protoCore: ${PROTOCORE_LIBRARY}")
-
-# ProtoCore Headers
-include_directories(${PROTOCORE_DIR})
-include_directories(${PROTOCORE_DIR}/headers)
 
 # QuickJS Headers
 include_directories(${QUICKJS_DIR})
@@ -128,8 +147,7 @@ add_library(simple_addon SHARED tests/native_addons/simple/simple_addon.cpp)
 target_include_directories(simple_addon PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/deps/quickjs
-    ${PROTOCORE_DIR}
-    ${PROTOCORE_DIR}/headers
+    ${PROTOCORE_INCLUDE_DIRS}
 )
 set_target_properties(simple_addon PROPERTIES
     PREFIX ""
@@ -143,8 +161,7 @@ add_library(fixture_addon SHARED tests/native_addons/fixture/fixture_addon.cpp)
 target_include_directories(fixture_addon PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/deps/quickjs
-    ${PROTOCORE_DIR}
-    ${PROTOCORE_DIR}/headers
+    ${PROTOCORE_INCLUDE_DIRS}
 )
 set_target_properties(fixture_addon PROPERTIES
     PREFIX ""
@@ -152,6 +169,22 @@ set_target_properties(fixture_addon PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/integration/native_addons
 )
 target_link_libraries(fixture_addon PRIVATE dl)
+
+# --- Install RPATH: installed binary finds libprotoCore without LD_LIBRARY_PATH ---
+if(UNIX)
+    if(APPLE)
+        set(_rpath_exe "@executable_path/../${CMAKE_INSTALL_LIBDIR}")
+    else()
+        set(_rpath_exe "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+    endif()
+    set_target_properties(protojs PROPERTIES INSTALL_RPATH "${_rpath_exe}")
+endif()
+
+# --- Install rules ---
+install(TARGETS protojs
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT protoJS
+)
 
 # Testing Framework (Catch2)
 option(BUILD_TESTING "Build the testing tree" ON)

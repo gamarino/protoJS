@@ -11,7 +11,7 @@
 
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
-protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/gamarino/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
+protoJS is a JavaScript runtime that uses **protoCore** (https://github.com/numaes/protoCore) as the foundation for internal object representation, memory management, and concurrency. It uses **QuickJS** as a parser and compiler, but completely replaces the QuickJS runtime with protoCore, leveraging its unique features of immutability, GIL-free concurrency, and efficiency.
 
 > [!WARNING]
 > This project is officially **open for Community Review and Suggestions**. It is **not production ready**. We welcome architectural feedback, edge-case identification, and performance critiques.
@@ -66,28 +66,30 @@ Built to be the cornerstone of a unified, polyglot environment where JS, Python,
   - **Linux (Fedora/RHEL):** `sudo dnf install protoJS-0.1.0-1.x86_64.rpm`
   - **macOS:** Open `protoJS-0.1.0.pkg` and follow the installer (installs to `/usr/local/bin`)
   - **Windows:** Run `protoJS-0.1.0.msi` (adds protoJS to PATH)
-- **From source:** See [Building](#-building) below. Full step-by-step instructions for all platforms (build, .deb, .rpm, .pkg, .msi) are in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
+- **From source:** Build as in [Building](#-building); then run from `build/` (RPATH set) or `cmake --build build --target install` to install to a prefix. Full instructions (install prefix, PROTO_CORE_PREFIX, .deb/.rpm/.pkg/.msi) are in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
 ---
 
 ## 🚀 Building
 
-protoJS links against the **protoCore shared library** (official name: **protoCore**). Build protoCore first, then protoJS.
+protoJS links against the **protoCore shared library** (official name: **protoCore**). Build protoCore first, then protoJS. For packaging or when protoCore is already installed, use `-DPROTO_CORE_PREFIX=<prefix>`. See [docs/INSTALLATION.md](docs/INSTALLATION.md) for details.
 
 ```bash
-# 1. Build protoCore shared library (official name: protoCore)
+# 1. Build protoCore shared library
 cd ../protoCore
 cmake -B build -S .
 cmake --build build --target protoCore
 
-# 2. Build protoJS (finds libprotoCore.so / libprotoCore.dylib / protoCore.dll)
+# 2. Build protoJS (finds libprotoCore in ../protoCore/build or build_check)
 cd ../protoJS
 mkdir -p build && cd build
 cmake ..
-make
+cmake --build .
+# Optional: install to a prefix (default /usr/local)
+# cmake --build . --target install
 ```
 
-If protoCore was built in a different directory (e.g. `build_check`), CMake will search for the shared library there automatically.
+When protoCore is built in a sibling directory, **RPATH is set** so you can run `./build/protojs` without setting `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`. If you use an installed protoCore (`-DPROTO_CORE_PREFIX=...`), the installed `protojs` binary uses RPATH to find the library.
 
 ---
 
@@ -95,8 +97,12 @@ If protoCore was built in a different directory (e.g. `build_check`), CMake will
 
 ### Run a script
 
+From the build directory or after install:
+
 ```bash
-./protojs script.js
+# From build directory (RPATH set; no LD_LIBRARY_PATH needed)
+./build/protojs script.js
+# Or after install: protojs script.js
 ```
 
 ### Execute inline code
@@ -611,5 +617,5 @@ SOFTWARE.
 
 ## 🔗 Related Links
 
-- [protoCore](../protoCore/) - Runtime foundation
+- [protoCore](https://github.com/numaes/protoCore) - Runtime foundation
 - [QuickJS](https://bellard.org/quickjs/) - JavaScript parser

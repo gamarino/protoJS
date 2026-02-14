@@ -6,7 +6,7 @@ This guide covers installing protoJS on **Linux** (.deb and .rpm), **macOS**, an
 
 ## Prerequisites
 
-- **protoCore** — Required. The runtime expects `libprotoCore.so` (Linux), `libprotoCore.dylib` (macOS), or `protoCore.dll` (Windows). Install a compatible protoCore package or build it from source (see [protoCore](https://github.com/gamarino/protoCore)).
+- **protoCore** — Required. The runtime expects `libprotoCore.so` (Linux), `libprotoCore.dylib` (macOS), or `protoCore.dll` (Windows). Install a compatible protoCore package or build it from source (see [protoCore](https://github.com/numaes/protoCore)).
 - **C++20** compiler (GCC 10+, Clang 12+, or MSVC 2019+)
 - **CMake** 3.16+
 - **OpenSSL** development headers (for crypto module; often `libssl-dev` / `openssl-devel` / system SDK)
@@ -24,18 +24,47 @@ cmake -B build -S .
 cmake --build build --target protoCore
 cd ..
 
-# 2. Build protoJS
+# 2. Build protoJS (finds libprotoCore in ../protoCore/build or build_check)
 cd protoJS
 mkdir -p build && cd build
 cmake ..
 cmake --build .
+# Optional: install to a prefix (default /usr/local)
+# cmake --build . --target install
 ```
 
-The executable will be `build/protojs` (or `build/protojs.exe` on Windows). Run from the project root:
+The executable will be `build/protojs` (or `build/protojs.exe` on Windows). When protoCore is built in a sibling directory, **RPATH is set** so you can run without setting `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`:
 
 ```bash
 ./build/protojs -e "console.log('Hello, protoJS')"
 ```
+
+### Using an installed protoCore (packaging)
+
+To build protoJS against an already installed protoCore (e.g. for packaging or product shipping), set `PROTO_CORE_PREFIX` to the install prefix where protoCore is installed:
+
+```bash
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DPROTO_CORE_PREFIX=/usr/local
+cmake --build build
+```
+
+When `PROTO_CORE_PREFIX` is set, CMake looks for `libprotoCore` and `include/protoCore.h` under that prefix. The installed `protojs` binary uses RPATH to find the library, so no `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH` is needed after install.
+
+### Installation prefix and install target
+
+By default, `cmake --build build --target install` installs the `protojs` executable to **`/usr/local/bin`** (or the value of `CMAKE_INSTALL_PREFIX` at configure time). To install elsewhere:
+
+```bash
+# User-local (no sudo)
+cmake -B build -S . -DCMAKE_INSTALL_PREFIX=$HOME/.local
+cmake --build build --target install
+# Add $HOME/.local/bin to PATH
+
+# Custom prefix
+cmake -B build -S . -DCMAKE_INSTALL_PREFIX=/opt/protoJS
+```
+
+See [Where to install: executables and libraries](#where-to-install-executables-and-libraries) below for standard layout.
 
 ---
 
@@ -139,22 +168,38 @@ See [packaging/PROCEDURES.md](../packaging/PROCEDURES.md) for step-by-step comma
 
 ### Option B: Build from source
 
-After building as in “Building from Source”, run:
+After building as in “Building from Source”, run from the build directory. When protoCore is in a sibling build dir, **RPATH is set** so no `DYLD_LIBRARY_PATH` is needed:
 
 ```bash
 ./build/protojs -e "console.log('Hello, protoJS')"
 ```
 
-To install into `/usr/local/bin` manually:
+To install into a prefix (e.g. `/usr/local`), use the install target so RPATH is set correctly:
 
 ```bash
-cp build/protojs /usr/local/bin/
-# Ensure libprotoCore.dylib is in /usr/local/lib or set DYLD_LIBRARY_PATH
+cmake -B build -S . -DCMAKE_INSTALL_PREFIX=/usr/local
+cmake --build build --target install
+# Ensure /usr/local/bin is in PATH; libprotoCore should be in /usr/local/lib
 ```
 
 ### Building the .pkg
 
 See [packaging/PROCEDURES.md](../packaging/PROCEDURES.md) for `pkgbuild` and `productbuild` commands. Signing and notarization are recommended for distribution outside the Mac App Store.
+
+---
+
+## Where to install: executables and libraries
+
+Standard practice follows the **Filesystem Hierarchy Standard (FHS)** and CMake's `GNUInstallDirs`:
+
+| Content      | Typical path under prefix | Purpose |
+|-------------|---------------------------|--------|
+| Executables | `bin/`                    | User-facing programs (`protojs`) |
+| Libraries   | `lib/` (or `lib64/` on some distros) | Shared libs (e.g. `libprotoCore` when installed with protoJS) |
+
+- **Default prefix `/usr/local`**: Common for "install from source" on a single machine. System packagers use their own prefix (e.g. `/usr`).
+- **User install (no root)**: Use `-DCMAKE_INSTALL_PREFIX=$HOME/.local`, then add `$HOME/.local/bin` to `PATH`. Installed binaries use RPATH to find `libprotoCore` in `$HOME/.local/lib` when both are installed under the same prefix.
+- **Packaging**: For distro packages or product shipping, install protoCore as its own package, then build protoJS with `-DPROTO_CORE_PREFIX=<prefix>` and install only the `protojs` executable under the chosen prefix. RPATH ensures the loader finds libprotoCore without `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`.
 
 ---
 
@@ -203,8 +248,8 @@ You need **WiX Toolset** v3.11 or later. See [packaging/PROCEDURES.md](../packag
 
 ## Troubleshooting
 
-- **“protoCore is not installed”** — Install or build protoCore first. On Linux, use the system package if available (`apt install protoCore` / `dnf install protoCore`); otherwise build from source and install the shared library to a standard path or set `LD_LIBRARY_PATH` (Linux), `DYLD_LIBRARY_PATH` (macOS), or `PATH` (Windows) so the loader can find it.
+- **“protoCore is not installed”** — Install or build protoCore first. When you use the install target, **RPATH is set** so the installed `protojs` finds `libprotoCore` in the same prefix (e.g. `prefix/lib`) without `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`. If you copy the binary manually or use a custom layout, set `LD_LIBRARY_PATH` (Linux), `DYLD_LIBRARY_PATH` (macOS), or `PATH` (Windows) so the loader can find the library.
 - **“Cannot find module” at runtime** — For script execution, run from the appropriate working directory so that `require()` and file paths resolve correctly.
-- **Linux: linker errors when building** — Install OpenSSL development packages (e.g. `libssl-dev`, `openssl-devel`) and ensure protoCore is built and findable by CMake (e.g. in `../protoCore/build`).
+- **Linux: linker errors when building** — Install OpenSSL development packages (e.g. `libssl-dev`, `openssl-devel`) and ensure protoCore is built and findable by CMake (e.g. in `../protoCore/build`), or set `-DPROTO_CORE_PREFIX=<prefix>` to use an installed protoCore.
 
 For more details, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) and [packaging/DOCUMENTATION.md](../packaging/DOCUMENTATION.md).
