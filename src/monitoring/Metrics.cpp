@@ -36,6 +36,9 @@ void Metrics::incrementCounter(proto::ProtoContext* pContext, const proto::Proto
     const proto::ProtoObject* currentValue = storage->has(pContext, keyHash) 
         ? storage->getAt(pContext, keyHash) 
         : pContext->fromDouble(0.0);
+    if (currentValue == PROTO_NONE || !currentValue) {
+        currentValue = pContext->fromDouble(0.0);
+    }
     
     double current = currentValue->asDouble(pContext);
     double increment = value ? value->asDouble(pContext) : 1.0;
@@ -52,7 +55,8 @@ const proto::ProtoObject* Metrics::getCounter(proto::ProtoContext* pContext, con
     unsigned long keyHash = key->getHash(pContext);
     
     if (storage->has(pContext, keyHash)) {
-        return storage->getAt(pContext, keyHash);
+        const proto::ProtoObject* v = storage->getAt(pContext, keyHash);
+        if (v && v != PROTO_NONE) return v;
     }
     
     return pContext->fromDouble(0.0);
@@ -77,6 +81,9 @@ void Metrics::addGauge(proto::ProtoContext* pContext, const proto::ProtoString* 
     const proto::ProtoObject* currentValue = storage->has(pContext, keyHash)
         ? storage->getAt(pContext, keyHash)
         : pContext->fromDouble(0.0);
+    if (currentValue == PROTO_NONE || !currentValue) {
+        currentValue = pContext->fromDouble(0.0);
+    }
     
     double current = currentValue->asDouble(pContext);
     double add = value->asDouble(pContext);
@@ -93,7 +100,8 @@ const proto::ProtoObject* Metrics::getGauge(proto::ProtoContext* pContext, const
     unsigned long keyHash = key->getHash(pContext);
     
     if (storage->has(pContext, keyHash)) {
-        return storage->getAt(pContext, keyHash);
+        const proto::ProtoObject* v = storage->getAt(pContext, keyHash);
+        if (v && v != PROTO_NONE) return v;
     }
     
     return pContext->fromDouble(0.0);
@@ -109,6 +117,9 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     const proto::ProtoObject* statsObj = storage->has(pContext, keyHash)
         ? storage->getAt(pContext, keyHash)
         : nullptr;
+    if (!statsObj || statsObj == PROTO_NONE) {
+        statsObj = nullptr;
+    }
     
     if (!statsObj) {
         // Create new HistogramStats object
@@ -144,18 +155,21 @@ void Metrics::recordHistogram(proto::ProtoContext* pContext, const proto::ProtoS
     
     // Update sum
     const proto::ProtoObject* currentSumObj = statsObj->getAttribute(pContext, sumKey);
-    double currentSum = currentSumObj->asDouble(pContext);
+    double currentSum = (currentSumObj && currentSumObj != PROTO_NONE) ? currentSumObj->asDouble(pContext) : 0.0;
     statsObj = statsObj->setAttribute(pContext, sumKey, pContext->fromDouble(currentSum + val));
     
     // Update count
     const proto::ProtoObject* currentCountObj = statsObj->getAttribute(pContext, countKey);
-    long long currentCount = currentCountObj->asLong(pContext);
+    long long currentCount = (currentCountObj && currentCountObj != PROTO_NONE) ? currentCountObj->asLong(pContext) : 0;
     statsObj = statsObj->setAttribute(pContext, countKey, pContext->fromInteger(currentCount + 1));
     
     // Update bucket counts
     const proto::ProtoObject* bucketsObj = statsObj->getAttribute(pContext, bucketsKey);
-    const proto::ProtoList* buckets = bucketsObj->asList(pContext);
     const proto::ProtoObject* countsObj = statsObj->getAttribute(pContext, countsKey);
+    if (!bucketsObj || bucketsObj == PROTO_NONE || !countsObj || countsObj == PROTO_NONE) {
+        return;  // Defensive: skip bucket update if attributes missing
+    }
+    const proto::ProtoList* buckets = bucketsObj->asList(pContext);
     const proto::ProtoList* counts = countsObj->asList(pContext);
     
     // Find appropriate bucket and increment
@@ -187,22 +201,27 @@ HistogramStats Metrics::getHistogram(proto::ProtoContext* pContext, const proto:
     
     if (storage->has(pContext, keyHash)) {
         const proto::ProtoObject* statsObj = storage->getAt(pContext, keyHash);
-        const proto::ProtoString* bucketsKey = pContext->fromUTF8String("buckets")->asString(pContext);
-        const proto::ProtoString* countsKey = pContext->fromUTF8String("counts")->asString(pContext);
-        const proto::ProtoString* sumKey = pContext->fromUTF8String("sum")->asString(pContext);
-        const proto::ProtoString* countKey = pContext->fromUTF8String("count")->asString(pContext);
-        
-        stats.buckets = statsObj->getAttribute(pContext, bucketsKey)->asList(pContext);
-        stats.counts = statsObj->getAttribute(pContext, countsKey)->asList(pContext);
-        stats.sum = statsObj->getAttribute(pContext, sumKey);
-        stats.count = statsObj->getAttribute(pContext, countKey);
-    } else {
-        // Return empty stats
-        stats.buckets = pContext->newList();
-        stats.counts = pContext->newList();
-        stats.sum = pContext->fromDouble(0.0);
-        stats.count = pContext->fromInteger(0);
+        if (statsObj && statsObj != PROTO_NONE) {
+            const proto::ProtoString* bucketsKey = pContext->fromUTF8String("buckets")->asString(pContext);
+            const proto::ProtoString* countsKey = pContext->fromUTF8String("counts")->asString(pContext);
+            const proto::ProtoString* sumKey = pContext->fromUTF8String("sum")->asString(pContext);
+            const proto::ProtoString* countKey = pContext->fromUTF8String("count")->asString(pContext);
+            
+            const proto::ProtoObject* b = statsObj->getAttribute(pContext, bucketsKey);
+            const proto::ProtoObject* c = statsObj->getAttribute(pContext, countsKey);
+            const proto::ProtoObject* s = statsObj->getAttribute(pContext, sumKey);
+            const proto::ProtoObject* n = statsObj->getAttribute(pContext, countKey);
+            if (b && b != PROTO_NONE) stats.buckets = b->asList(pContext);
+            if (c && c != PROTO_NONE) stats.counts = c->asList(pContext);
+            if (s && s != PROTO_NONE) stats.sum = s;
+            if (n && n != PROTO_NONE) stats.count = n;
+        }
     }
+    // Ensure all fields have defaults when missing (e.g. PROTO_NONE from getAttribute)
+    if (!stats.buckets) stats.buckets = pContext->newList();
+    if (!stats.counts) stats.counts = pContext->newList();
+    if (!stats.sum) stats.sum = pContext->fromDouble(0.0);
+    if (!stats.count) stats.count = pContext->fromInteger(0);
     
     return stats;
 }

@@ -63,7 +63,7 @@ JSValue ExecutionEngine::opGetProperty(JSContext* ctx, JSValue obj, JSAtom prop)
                 const proto::ProtoObject* attr = protoObj->getAttribute(pContext, propStr);
                 JS_FreeCString(ctx, propName);
                 
-                if (attr) {
+                if (attr && attr != PROTO_NONE) {
                     JSValue result = TypeBridge::toJS(ctx, attr, pContext);
                     JS_FreeAtom(ctx, prop);
                     return result;

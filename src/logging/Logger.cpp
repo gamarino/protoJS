@@ -48,7 +48,8 @@ const proto::ProtoObject* Logger::getLevel(proto::ProtoContext* pContext) {
     unsigned long levelKeyHash = levelKey->getHash(pContext);
     
     if (storage->has(pContext, levelKeyHash)) {
-        return storage->getAt(pContext, levelKeyHash);
+        const proto::ProtoObject* levelObj = storage->getAt(pContext, levelKeyHash);
+        if (levelObj && levelObj != PROTO_NONE) return levelObj;
     }
     
     // Default to INFO
