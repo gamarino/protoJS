@@ -44,7 +44,8 @@
 | [TESTING_STRATEGY.md](TESTING_STRATEGY.md) | Testing approach and strategies | 15 min |
 | [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md) | Performance testing methodology | 15 min |
 | [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) | Performance benchmarks and results | 20 min |
-| [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md) | **Node.js comparison benchmark analysis** | 25 min |
+| [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md) | Node.js comparison (legacy wall-clock) | 25 min |
+| [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) | **Standard benchmark results and analysis (protoJS vs Node, in-process)** | 15 min |
 
 ### 📚 Developer Documentation
 

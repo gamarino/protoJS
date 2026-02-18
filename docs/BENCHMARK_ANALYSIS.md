@@ -1,15 +1,27 @@
 # Performance Benchmark Analysis: protoJS vs Node.js
 
-**Document Version:** 1.0.0  
-**Date:** January 27, 2026  
+**Document Version:** 1.1  
+**Date:** January 27, 2026 (updated 2026-02-18)  
 **Tested Versions:** protoJS 0.6.0 vs Node.js 22.17.0  
-**Status:** Complete and Verified
+**Status:** See “Standard suite (recommended)” below for current, comparable results.
 
 ---
 
-## Abstract
+## Standard suite (recommended)
 
-This document presents a comprehensive performance analysis comparing protoJS, a modern JavaScript runtime built on protoCore, with Node.js across multiple benchmark scenarios. The analysis demonstrates protoJS's superior performance characteristics, achieving an overall speedup of **19.83x** compared to Node.js, with particularly exceptional results in array operations (34.18x faster) and consistent improvements across all tested categories.
+For **comparable, significant results** use the **standard** benchmark suite. It uses self-contained scripts and **in-process** time (median of 5 runs), so speedups are meaningful.
+
+- **Results and analysis:** [BENCHMARK_STANDARD_RESULTS.md](BENCHMARK_STANDARD_RESULTS.md)
+- **Run:** `node tests/benchmarks/run_standard_comparison.js` or `run_nodejs_comparison.js --standard`
+- **Summary:** Node.js is ~11.8x faster than protoJS (geometric mean, 7 benchmarks); protoJS is relatively strongest on object_property (2.3x) and array_literal (2.5x).
+
+The remainder of this document describes the **legacy** comparison (wall-clock, mixed workloads). That run can show protoJS “faster” due to different workloads or early exit; for fair comparison use the standard suite.
+
+---
+
+## Abstract (legacy suite)
+
+This document presents a performance analysis comparing protoJS with Node.js across multiple benchmark scenarios. The **legacy** suite (wall-clock) reported protoJS faster in some runs; the **standard** suite (in-process, same code in both engines) shows Node.js ~11x faster. See [BENCHMARK_STANDARD_RESULTS.md](BENCHMARK_STANDARD_RESULTS.md) for current results and interpretation.
 
 ---
 

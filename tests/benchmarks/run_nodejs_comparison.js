@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // Node.js Comparison Benchmark Runner
-// Runs benchmarks with both protoJS and Node.js and compares results
+// Runs benchmarks with both protoJS and Node.js and compares results.
+//
+// Usage:
+//   node run_nodejs_comparison.js           # Legacy suite (wall-clock)
+//   node run_nodejs_comparison.js --standard # Standard suite (in-process time, significant results)
 
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
@@ -285,6 +289,13 @@ function generateHTMLReport(outputPath) {
 
 // Main execution
 async function main() {
+    const useStandard = process.argv.slice(2).includes('--standard');
+    if (useStandard) {
+        console.log('Running standard benchmark suite (in-process time comparison).\n');
+        const { main: runStandard } = require('./run_standard_comparison.js');
+        return runStandard();
+    }
+
     console.log('🚀 Starting Node.js Comparison Benchmarks');
     console.log('='.repeat(60));
     
