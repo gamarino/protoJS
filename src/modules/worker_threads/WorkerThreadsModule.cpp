@@ -16,6 +16,7 @@ static JSClassID worker_thread_class_id;
 static thread_local bool is_worker_thread = false;
 static thread_local JSValue worker_data_value = JS_UNDEFINED;
 static thread_local JSValue parent_port_value = JS_UNDEFINED;
+static std::atomic<int> active_worker_count{0};
 
 struct WorkerThreadData {
     std::thread workerThread;
@@ -23,17 +24,20 @@ struct WorkerThreadData {
     JSContext* workerContext;
     JSContext* mainContext;
     JSValue workerObj;
+    /** EventEmitter instance for worker (main context); used by workerOn/workerEmit to avoid GetPropertyStr on Worker. */
+    JSValue workerEventsObj;
     std::string filename;
-    JSValue workerData;
+    /** JSON-serialized workerData (main context); parsed in worker context. */
+    std::string workerDataJson;
     std::mutex messageMutex;
     std::queue<JSValue> messageQueue;
     std::atomic<bool> terminated{false};
     std::atomic<bool> running{true};
-    
-    WorkerThreadData(JSContext* mainCtx, JSValue worker, const std::string& file, JSValue data)
-        : mainContext(mainCtx), workerObj(worker), filename(file), workerData(data),
+
+    WorkerThreadData(JSContext* mainCtx, JSValue worker, JSValue eventsObj, const std::string& file, std::string dataJson)
+        : mainContext(mainCtx), workerObj(worker), workerEventsObj(eventsObj), filename(file), workerDataJson(std::move(dataJson)),
           workerRuntime(nullptr), workerContext(nullptr) {}
-    
+
     ~WorkerThreadData() {
         if (workerThread.joinable()) {
             terminated = true;
@@ -49,8 +53,8 @@ struct WorkerThreadData {
         if (!JS_IsUndefined(workerObj)) {
             JS_FreeValueRT(JS_GetRuntime(mainContext), workerObj);
         }
-        if (!JS_IsUndefined(workerData)) {
-            JS_FreeValueRT(JS_GetRuntime(mainContext), workerData);
+        if (!JS_IsUndefined(workerEventsObj)) {
+            JS_FreeValueRT(JS_GetRuntime(mainContext), workerEventsObj);
         }
     }
 };
@@ -67,6 +71,8 @@ void WorkerThreadsModule::init(JSContext* ctx) {
     JS_NewClass(rt, worker_thread_class_id, &workerClassDef);
     
     JSValue workerProto = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, workerProto, "on", JS_NewCFunction(ctx, workerOn, "on", 2));
+    JS_SetPropertyStr(ctx, workerProto, "emit", JS_NewCFunction(ctx, workerEmit, "emit", 2));
     JS_SetPropertyStr(ctx, workerProto, "postMessage", JS_NewCFunction(ctx, workerPostMessage, "postMessage", 1));
     JS_SetPropertyStr(ctx, workerProto, "terminate", JS_NewCFunction(ctx, workerTerminate, "terminate", 0));
     JS_SetClassProto(ctx, worker_thread_class_id, workerProto);
@@ -104,50 +110,74 @@ JSValue WorkerThreadsModule::WorkerConstructor(JSContext* ctx, JSValueConst new_
     std::string filePath(filename);
     JS_FreeCString(ctx, filename);
     
-    // Parse options (second argument)
-    JSValue workerData = JS_UNDEFINED;
+    // Parse options (second argument) and serialize workerData so it can be used in the worker context
+    std::string workerDataJson;
     if (argc > 1 && JS_IsObject(argv[1])) {
         JSValue dataVal = JS_GetPropertyStr(ctx, argv[1], "workerData");
         if (!JS_IsUndefined(dataVal)) {
-            workerData = JS_DupValue(ctx, dataVal);
+            JSValue jsonVal = JS_JSONStringify(ctx, dataVal, JS_UNDEFINED, JS_UNDEFINED);
+            JS_FreeValue(ctx, dataVal);
+            if (!JS_IsException(jsonVal)) {
+                size_t len = 0;
+                const char* cstr = JS_ToCStringLen(ctx, &len, jsonVal);
+                if (cstr) {
+                    workerDataJson.assign(cstr, len);
+                    JS_FreeCString(ctx, cstr);
+                }
+                JS_FreeValue(ctx, jsonVal);
+            }
         }
-        JS_FreeValue(ctx, dataVal);
     }
-    
+
     JSValue worker = JS_NewObjectClass(ctx, worker_thread_class_id);
     if (JS_IsException(worker)) {
-        if (!JS_IsUndefined(workerData)) {
-            JS_FreeValue(ctx, workerData);
-        }
         return worker;
     }
-    
-    // Create EventEmitter for worker
-    JSValue eventEmitterCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "EventEmitter");
+
+    // Create EventEmitter for worker (EventEmitter lives under global.events, not global)
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+    JSValue eventsMod = JS_GetPropertyStr(ctx, global_obj, "events");
+    JS_FreeValue(ctx, global_obj);
+    JSValue eventEmitterCtor = JS_IsUndefined(eventsMod) ? JS_UNDEFINED : JS_GetPropertyStr(ctx, eventsMod, "EventEmitter");
+    JS_FreeValue(ctx, eventsMod);
+    JSValue emitter = JS_UNDEFINED;
     if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(ctx, eventEmitterCtor)) {
-        JSValue emitter = JS_CallConstructor(ctx, eventEmitterCtor, 0, nullptr);
+        emitter = JS_CallConstructor(ctx, eventEmitterCtor, 0, nullptr);
         if (!JS_IsException(emitter)) {
-            JS_SetPropertyStr(ctx, worker, "_events", emitter);
+            JS_SetPropertyStr(ctx, worker, "_events", JS_DupValue(ctx, emitter));
         }
-        JS_FreeValue(ctx, emitter);
     }
     JS_FreeValue(ctx, eventEmitterCtor);
-    
-    WorkerThreadData* data = new WorkerThreadData(ctx, JS_DupValue(ctx, worker), filePath, workerData);
+
+    WorkerThreadData* data = new WorkerThreadData(ctx, JS_DupValue(ctx, worker),
+        JS_IsException(emitter) ? JS_UNDEFINED : JS_DupValue(ctx, emitter),
+        filePath, std::move(workerDataJson));
+    if (!JS_IsUndefined(emitter) && !JS_IsException(emitter)) {
+        JS_FreeValue(ctx, emitter);
+    }
     JS_SetOpaque(worker, data);
-    
-    // Start worker thread
-    data->workerThread = std::thread([data]() {
-        workerThreadExecution(data->mainContext, data->filename, data->workerData, data->workerObj);
-    });
-    
+
+    // Start worker thread (set to false to test main-thread only)
+    const bool startThread = true;
+    if (startThread) {
+        active_worker_count++;
+        data->workerThread = std::thread([data]() {
+            workerThreadExecution(data->mainContext, data->filename, data->workerDataJson, data->workerObj);
+            active_worker_count--;
+        });
+    }
+
     return worker;
 }
 
-void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::string& filename, JSValue workerData, JSValue workerObj) {
+int WorkerThreadsModule::getActiveWorkerCount() {
+    return active_worker_count.load();
+}
+
+void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::string& filename, const std::string& workerDataJson, JSValue workerObj) {
     is_worker_thread = true;
-    worker_data_value = workerData;
-    
+    worker_data_value = JS_UNDEFINED;
+
     // Create runtime and context for worker thread
     JSRuntime* workerRt = JS_NewRuntime();
     if (!workerRt) {
@@ -205,16 +235,8 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
     // Store data pointer in parentPort opaque for postMessage access
     JS_SetOpaque(parentPort, data);
     
-    // Create postMessage function
-    JS_SetPropertyStr(workerCtx, parentPort, "postMessage", JS_NewCFunction(workerCtx, 
-        [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-            WorkerThreadData* wdata = static_cast<WorkerThreadData*>(JS_GetOpaque(this_val, 0));
-            if (wdata && argc > 0) {
-                JSValue message = JS_DupValue(ctx, argv[0]);
-                sendMessageToMain(wdata->mainContext, wdata->workerObj, message);
-            }
-            return JS_UNDEFINED;
-        }, "postMessage", 1));
+    // Create postMessage function (serializes message to JSON so it can be parsed in main context)
+    JS_SetPropertyStr(workerCtx, parentPort, "postMessage", JS_NewCFunction(workerCtx, workerParentPortPostMessage, "postMessage", 1));
     
     parent_port_value = parentPort;
     
@@ -223,13 +245,18 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
     JS_SetPropertyStr(workerCtx, global, "parentPort", JS_DupValue(workerCtx, parentPort));
     JS_FreeValue(workerCtx, global);
     
-    // Set workerData in global scope
-    if (!JS_IsUndefined(workerData)) {
-        JSValue global = JS_GetGlobalObject(workerCtx);
-        JS_SetPropertyStr(workerCtx, global, "workerData", JS_DupValue(workerCtx, workerData));
-        JS_FreeValue(workerCtx, global);
+    // Set workerData in global scope (parsed from JSON so it belongs to this context)
+    if (!workerDataJson.empty()) {
+        JSValue parsed = JS_ParseJSON(workerCtx, workerDataJson.c_str(), workerDataJson.size(), "<workerData>");
+        if (!JS_IsException(parsed)) {
+            worker_data_value = JS_DupValue(workerCtx, parsed);
+            JSValue global = JS_GetGlobalObject(workerCtx);
+            JS_SetPropertyStr(workerCtx, global, "workerData", JS_DupValue(workerCtx, parsed));
+            JS_FreeValue(workerCtx, global);
+            JS_FreeValue(workerCtx, parsed);
+        }
     }
-    
+
     // Load and execute worker script
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -293,18 +320,42 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
     });
 }
 
-void WorkerThreadsModule::sendMessageToMain(JSContext* mainCtx, JSValue workerObj, JSValue message) {
-    EventLoop::getInstance().enqueueCallback([mainCtx, workerObj, message]() {
-        JSValue emit = JS_GetPropertyStr(mainCtx, workerObj, "emit");
-        if (JS_IsFunction(mainCtx, emit)) {
+void WorkerThreadsModule::sendMessageToMainJson(JSContext* mainCtx, JSValue workerObj, const std::string& jsonMessage) {
+    EventLoop::getInstance().enqueueCallback([mainCtx, workerObj, jsonMessage]() {
+        JSValue message = JS_ParseJSON(mainCtx, jsonMessage.c_str(), jsonMessage.size(), "<worker message>");
+        if (JS_IsException(message)) {
+            message = JS_NULL;
+        }
+        JSValue emitFn = JS_GetPropertyStr(mainCtx, workerObj, "emit");
+        if (JS_IsFunction(mainCtx, emitFn)) {
             JSValue messageEvent = JS_NewString(mainCtx, "message");
-            JSValue args[] = {messageEvent, message};
-            JS_Call(mainCtx, emit, workerObj, 2, args);
+            JSValue args[] = { messageEvent, message };
+            JS_Call(mainCtx, emitFn, workerObj, 2, args);
             JS_FreeValue(mainCtx, messageEvent);
         }
-        JS_FreeValue(mainCtx, emit);
+        JS_FreeValue(mainCtx, emitFn);
         JS_FreeValue(mainCtx, message);
     });
+}
+
+JSValue WorkerThreadsModule::workerParentPortPostMessage(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    WorkerThreadData* wdata = static_cast<WorkerThreadData*>(JS_GetOpaque(this_val, 0));
+    if (!wdata || argc < 1) {
+        return JS_UNDEFINED;
+    }
+    JSValue jsonVal = JS_JSONStringify(ctx, argv[0], JS_UNDEFINED, JS_UNDEFINED);
+    if (JS_IsException(jsonVal)) {
+        return jsonVal;
+    }
+    size_t len = 0;
+    const char* cstr = JS_ToCStringLen(ctx, &len, jsonVal);
+    std::string copy(cstr ? cstr : "null", cstr ? len : 4);
+    if (cstr) {
+        JS_FreeCString(ctx, cstr);
+    }
+    JS_FreeValue(ctx, jsonVal);
+    sendMessageToMainJson(wdata->mainContext, wdata->workerObj, copy);
+    return JS_UNDEFINED;
 }
 
 JSValue WorkerThreadsModule::workerPostMessage(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
@@ -339,6 +390,54 @@ JSValue WorkerThreadsModule::workerPostMessage(JSContext* ctx, JSValueConst this
     }
     
     return JS_UNDEFINED;
+}
+
+JSValue WorkerThreadsModule::workerEmit(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 1) {
+        return JS_ThrowTypeError(ctx, "emit expects at least event name");
+    }
+    WorkerThreadData* data = static_cast<WorkerThreadData*>(JS_GetOpaque(this_val, worker_thread_class_id));
+    if (!data || JS_IsUndefined(data->workerEventsObj)) {
+        return JS_UNDEFINED;
+    }
+    JSValue emitMethod = JS_GetPropertyStr(ctx, data->workerEventsObj, "emit");
+    if (!JS_IsFunction(ctx, emitMethod)) {
+        JS_FreeValue(ctx, emitMethod);
+        return JS_UNDEFINED;
+    }
+    const int maxEmitArgs = 8;
+    JSValue args[maxEmitArgs];
+    int n = argc > maxEmitArgs ? maxEmitArgs : argc;
+    for (int i = 0; i < n; i++) {
+        args[i] = JS_DupValue(ctx, argv[i]);
+    }
+    JSValue result = JS_Call(ctx, emitMethod, data->workerEventsObj, n, args);
+    for (int i = 0; i < n; i++) {
+        JS_FreeValue(ctx, args[i]);
+    }
+    JS_FreeValue(ctx, emitMethod);
+    return result;
+}
+
+JSValue WorkerThreadsModule::workerOn(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    if (argc < 2 || !JS_IsFunction(ctx, argv[1])) {
+        return JS_ThrowTypeError(ctx, "on expects (eventName, callback)");
+    }
+    WorkerThreadData* data = static_cast<WorkerThreadData*>(JS_GetOpaque(this_val, worker_thread_class_id));
+    if (!data || JS_IsUndefined(data->workerEventsObj)) {
+        return JS_ThrowTypeError(ctx, "Worker has no _events (EventEmitter not available)");
+    }
+    JSValue onMethod = JS_GetPropertyStr(ctx, data->workerEventsObj, "on");
+    if (!JS_IsFunction(ctx, onMethod)) {
+        JS_FreeValue(ctx, onMethod);
+        return JS_ThrowTypeError(ctx, "Worker._events.on is not a function");
+    }
+    JSValue args[2] = { JS_DupValue(ctx, argv[0]), JS_DupValue(ctx, argv[1]) };
+    JSValue result = JS_Call(ctx, onMethod, data->workerEventsObj, 2, args);
+    JS_FreeValue(ctx, args[0]);
+    JS_FreeValue(ctx, args[1]);
+    JS_FreeValue(ctx, onMethod);
+    return result;
 }
 
 JSValue WorkerThreadsModule::workerTerminate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {

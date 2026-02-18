@@ -229,16 +229,15 @@ int main(int argc, char** argv) {
         }
     }
     
-    // Process event loop to handle any Deferred callbacks
-    // Wait for all callbacks to complete (with timeout)
+    // Process event loop: handle Deferred/Worker callbacks and wait for worker threads
     auto start = std::chrono::steady_clock::now();
-    const auto timeout = std::chrono::seconds(30); // 30 second timeout
-    
-    while (protojs::EventLoop::getInstance().hasPendingCallbacks()) {
+    const auto timeout = std::chrono::seconds(30);
+
+    while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
+           protojs::WorkerThreadsModule::getActiveWorkerCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        
-        // Check timeout
+
         auto now = std::chrono::steady_clock::now();
         if (now - start > timeout) {
             std::cerr << "Warning: Event loop timeout reached. Some callbacks may not have completed." << std::endl;

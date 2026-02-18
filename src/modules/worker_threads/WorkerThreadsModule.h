@@ -13,10 +13,14 @@ namespace protojs {
 class WorkerThreadsModule {
 public:
     static void init(JSContext* ctx);
+    /** Number of worker threads currently running (so main loop can wait for them). */
+    static int getActiveWorkerCount();
 
 private:
     // Worker class methods
     static JSValue WorkerConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
+    static JSValue workerOn(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    static JSValue workerEmit(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue workerPostMessage(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue workerTerminate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static void WorkerFinalizer(JSRuntime* rt, JSValue val);
@@ -27,8 +31,11 @@ private:
     static JSValue workerDataGetter(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
     // Helper functions
-    static void workerThreadExecution(JSContext* mainCtx, const std::string& filename, JSValue workerData, JSValue workerObj);
-    static void sendMessageToMain(JSContext* mainCtx, JSValue workerObj, JSValue message);
+    static void workerThreadExecution(JSContext* mainCtx, const std::string& filename, const std::string& workerDataJson, JSValue workerObj);
+    /** Sends a message to the main thread. Message must be serialized to JSON in the worker context before calling. */
+    static void sendMessageToMainJson(JSContext* mainCtx, JSValue workerObj, const std::string& jsonMessage);
+    /** Worker's parentPort.postMessage: serializes argv[0] to JSON and calls sendMessageToMainJson. */
+    static JSValue workerParentPortPostMessage(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
 };
 
 } // namespace protojs
