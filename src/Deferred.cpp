@@ -200,8 +200,56 @@ JSValue Deferred::catch_(JSContext* ctx, JSValueConst this_val, int argc, JSValu
 
 static std::atomic<int> active_deferred_count{0};
 
+Deferred::DeferredTask::DeferredTask(JSContext* ctx, JSValue f, uint8_t* serialized, size_t serializedSize,
+                                     JSValue res, JSValue rej, JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w,
+                                     JSValue deferred_obj, std::string fn_source)
+    : func(f), serializedFunc(serialized), serializedFuncSize(serializedSize),
+      resolve(res), reject(rej), mainJSContext(ctx), rt(runtime), space(s), wrapper(w),
+      deferredObj(deferred_obj), functionSource(std::move(fn_source)) {}
+
+Deferred::DeferredTask::~DeferredTask() {
+    if (serializedFunc) free(serializedFunc);
+    if (serializedResult) free(serializedResult);
+}
+
 int Deferred::getActiveDeferredCount() {
     return active_deferred_count.load();
+}
+
+std::pair<JSValue, Deferred::TaskHandle> Deferred::createPending(JSContext* ctx, JSContextWrapper* wrapper) {
+    proto::ProtoSpace* space = wrapper->getProtoSpace();
+    JSRuntime* rt = wrapper->getJSRuntime();
+    JSValue resolve = JS_NewCFunction(ctx, [](JSContext*, JSValueConst, int, JSValueConst*) { return JS_UNDEFINED; }, "resolve", 1);
+    JSValue reject = JS_NewCFunction(ctx, [](JSContext*, JSValueConst, int, JSValueConst*) { return JS_UNDEFINED; }, "reject", 1);
+    JSValue obj = JS_NewObjectClass(ctx, protojs_deferred_class_id);
+    if (JS_IsException(obj)) return { obj, nullptr };
+    auto task = std::make_shared<DeferredTask>(
+        ctx, JS_UNDEFINED, nullptr, 0, resolve, reject, rt, space, wrapper,
+        JS_DupValue(ctx, obj), std::string());
+    struct OpaqueHolder { std::shared_ptr<DeferredTask> task; };
+    OpaqueHolder* holder = new OpaqueHolder{ task };
+    JS_SetOpaque(obj, holder);
+    return std::make_pair(obj, task);
+}
+
+void Deferred::incrementActiveCount() {
+    active_deferred_count++;
+}
+
+void Deferred::resolveTaskFromNative(TaskHandle task, JSValue resultValue) {
+    active_deferred_count--;
+    JSContext* ctx = task->mainJSContext;
+    task->isResolved = true;
+    task->result = JS_DupValue(ctx, resultValue);
+    if (!JS_IsUndefined(task->thenCallback)) {
+        JSValue thenArgs[] = { task->result };
+        JSValue r = JS_Call(ctx, task->thenCallback, JS_UNDEFINED, 1, thenArgs);
+        JS_FreeValue(ctx, r);
+    }
+    if (!JS_IsUndefined(task->deferredObj)) {
+        JS_FreeValue(ctx, task->deferredObj);
+        task->deferredObj = JS_UNDEFINED;
+    }
 }
 
 void Deferred::executeTaskInWorkerThread(std::shared_ptr<DeferredTask> task) {

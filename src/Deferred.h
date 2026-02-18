@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace protojs {
 
@@ -22,58 +23,43 @@ class JSContextWrapper;
  */
 class Deferred {
 public:
-    static void init(JSContext* ctx, JSContextWrapper* wrapper);
-    /** Number of Deferred tasks in flight (so main loop can wait for them). */
-    static int getActiveDeferredCount();
-
-private:
-    // Lightweight task structure (not a full ProtoThread)
+    /** Lightweight task structure (public so TaskHandle can be used across modules). */
     struct DeferredTask {
-        JSValue func;                    // Function from main context (for reference)
-        uint8_t* serializedFunc;        // Serialized function bytecode buffer
-        size_t serializedFuncSize;      // Size of serialized buffer
+        JSValue func = JS_UNDEFINED;
+        uint8_t* serializedFunc = nullptr;
+        size_t serializedFuncSize = 0;
         JSValue resolve;
         JSValue reject;
-        JSContext* mainJSContext;  // Main thread context (for callbacks)
-        JSRuntime* rt;              // Shared runtime
-        proto::ProtoSpace* space;
-        JSContextWrapper* wrapper;
-        
-        // Promise state
+        JSContext* mainJSContext = nullptr;
+        JSRuntime* rt = nullptr;
+        proto::ProtoSpace* space = nullptr;
+        JSContextWrapper* wrapper = nullptr;
         JSValue result = JS_UNDEFINED;
         JSValue error = JS_UNDEFINED;
         bool isResolved = false;
         bool isRejected = false;
         JSValue thenCallback = JS_UNDEFINED;
         JSValue catchCallback = JS_UNDEFINED;
-        /** Hold ref to Deferred object so it is not GC'd before completion (keeps callbacks valid). */
         JSValue deferredObj = JS_UNDEFINED;
-        /** Function source (from .toString()) for execution in worker runtime when bytecode is not portable. */
         std::string functionSource;
+        uint8_t* serializedResult = nullptr;
+        size_t serializedResultSize = 0;
+        bool hasError = false;
 
-        // Result from worker thread
-        uint8_t* serializedResult = nullptr;  // Serialized result buffer
-        size_t serializedResultSize = 0;     // Size of result buffer
-        bool hasError = false;                // Whether execution resulted in error
-        
         DeferredTask(JSContext* ctx, JSValue f, uint8_t* serialized, size_t serializedSize,
                      JSValue res, JSValue rej, JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w,
-                     JSValue deferred_obj, std::string fn_source)
-            : func(f), serializedFunc(serialized), serializedFuncSize(serializedSize),
-              resolve(res), reject(rej), mainJSContext(ctx), 
-              rt(runtime), space(s), wrapper(w), deferredObj(deferred_obj), functionSource(std::move(fn_source)) {}
-        
-        ~DeferredTask() {
-            // Free serialized buffers (malloc'd so safe at process exit when rt may be gone)
-            if (serializedFunc) {
-                free(serializedFunc);
-            }
-            if (serializedResult) {
-                free(serializedResult);
-            }
-        }
+                     JSValue deferred_obj, std::string fn_source);
+        ~DeferredTask();
     };
-    
+
+    static void init(JSContext* ctx, JSContextWrapper* wrapper);
+    static int getActiveDeferredCount();
+    using TaskHandle = std::shared_ptr<DeferredTask>;
+    static std::pair<JSValue, TaskHandle> createPending(JSContext* ctx, JSContextWrapper* wrapper);
+    static void resolveTaskFromNative(TaskHandle task, JSValue resultValue);
+    static void incrementActiveCount();
+
+private:
     static JSValue constructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
     static void finalizer(JSRuntime* rt, JSValue val);
     static JSValue then(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);

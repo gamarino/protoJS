@@ -53,6 +53,9 @@ private:
     static JSValue IsImmutable(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue MakeImmutable(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue MakeMutable(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+
+    /** Run a registered native worker in a protoCore thread; returns a Deferred (no serialization). */
+    static JSValue RunInThread(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
 };
 
 } // namespace protojs
