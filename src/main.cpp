@@ -234,7 +234,8 @@ int main(int argc, char** argv) {
     const auto timeout = std::chrono::seconds(30);
 
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
-           protojs::WorkerThreadsModule::getActiveWorkerCount() > 0) {
+           protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
+           protojs::Deferred::getActiveDeferredCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

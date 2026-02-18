@@ -10,15 +10,15 @@
 
 | Benchmark       | protoJS (ms) | Node.js (ms) | Node faster |
 |----------------|--------------|--------------|-------------|
-| array_literal  | 8            | 3            | **2.67x**   |
-| control_flow   | 64           | 8            | **8x**      |
-| function_calls | 88           | 1            | **88x**     |
-| numeric_loop   | 45           | 1            | **45x**     |
-| object_property| 107          | 45           | **2.38x**   |
-| parallel_cpu   | 258          | 8            | **32.25x**  |
-| string_concat  | 6            | 2            | **3x**      |
+| array_literal  | 13           | 4            | **3.25x**   |
+| control_flow   | 82           | 9            | **9.11x**   |
+| function_calls | 113          | 2            | **56.50x**  |
+| numeric_loop   | 72           | 2            | **36x**     |
+| object_property| 130          | 54           | **2.41x**   |
+| parallel_cpu   | 125          | 9            | **13.89x**  |
+| string_concat  | 8            | 2            | **4x**      |
 
-- **Geometric mean:** Node.js **11x** faster than protoJS.
+- **Geometric mean:** Node.js **9.70x** faster than protoJS.
 - **All 7 benchmarks** completed successfully on both engines.
 
 ---
@@ -27,7 +27,7 @@
 
 - **Fair comparison:** Same self-contained scripts in both engines; median of 5 runs; in-process time only (no wall-clock or startup noise).
 - **Engine model:** Node uses V8 (JIT); protoJS is interpreted. Large gaps on CPU-bound and call-heavy benchmarks are expected; smaller gaps on object/array workloads show relative strength of protoJS's object path.
-- **parallel_cpu:** Intended to run in parallel on protoJS (workers) vs sequential on Node to expose multithreading advantage. Currently runs **sequential on both** until worker message delivery (postMessage → main-thread 'message' event) is fully verified; Worker EventEmitter wiring (`events.EventEmitter`, `.on`, `.emit`) and cross-context message serialization (worker→main JSON) are in place.
+- **parallel_cpu:** Runs in **parallel on protoJS** (Deferred + CPU thread pool; function source evaluated in worker threads) vs sequential on Node. Same total CPU work (4×2e6 iterations); protoJS wall time is the median over 5 rounds of 4 parallel tasks.
 
 ### Per-benchmark notes
 
@@ -38,7 +38,7 @@
 | function_calls | Call overhead much higher in interpreter (decode, dispatch, frame setup). |
 | numeric_loop   | Pure CPU loop; JIT vs interpreter explains large gap. |
 | object_property| Closest ratio; property access is a relative strength for protoJS. |
-| parallel_cpu   | 4×2e6 iterations; will show protoJS advantage when run in parallel. |
+| parallel_cpu   | 4×2e6 iterations; protoJS runs 4 tasks in parallel via Deferred (multithreading). |
 | string_concat  | V8 optimizes string handling; protoJS does more work per concat. |
 
 ---

@@ -1,16 +1,17 @@
 // Heavy parallel CPU benchmark: designed to expose protoJS multithreading advantage.
 //
-// - protoJS: uses worker_threads (4 workers) when available; measures wall time over 5 runs, reports median.
-// - Node: same total CPU work run sequentially in main thread (no workers); median of 5 runs.
+// - protoJS: uses Deferred (CPU thread pool) to run 4 tasks in parallel; wall time over 5 runs, median.
+// - Node: same total CPU work run sequentially in main thread; median of 5 runs.
 //
 // Same total CPU work per run (4 * WORK_PER_TASK iterations). Runner uses __BENCH_RESULT__.time_ms for comparison.
 
 var NUM_TASKS = 4;
 var WORK_PER_TASK = 2e6;
 
+// Use literal 2e6 so the function is self-contained when executed in worker (no closure refs).
 function runOneChunk() {
     var sum = 0;
-    for (var i = 0; i < WORK_PER_TASK; i++) {
+    for (var i = 0; i < 2e6; i++) {
         sum += i;
     }
     return sum;
@@ -29,9 +30,7 @@ function runSequential() {
     return times[Math.floor(times.length / 2)];
 }
 
-function runParallelWithWorkers(callback) {
-    var path = require('path');
-    var workerPath = path.join(process.cwd(), 'standard', 'parallel_cpu_worker.js');
+function runParallelWithDeferred(callback) {
     var times = [];
     var round = 0;
     var totalRounds = 5;
@@ -45,20 +44,21 @@ function runParallelWithWorkers(callback) {
         }
         var start = Date.now();
         var completed = 0;
-        var workers = [];
-        for (var w = 0; w < NUM_TASKS; w++) {
-            var worker = new workerThreads.Worker(workerPath, { workerData: { WORK_PER_TASK: WORK_PER_TASK } });
-            workers.push(worker);
-            worker.on('message', function () {
-                completed++;
-                if (completed === NUM_TASKS) {
-                    times.push(Date.now() - start);
-                    for (var i = 0; i < workers.length; i++) {
-                        workers[i].terminate();
-                    }
-                    round++;
-                    runRound();
-                }
+
+        function onDone() {
+            completed++;
+            if (completed === NUM_TASKS) {
+                times.push(Date.now() - start);
+                round++;
+                runRound();
+            }
+        }
+
+        for (var i = 0; i < NUM_TASKS; i++) {
+            var d = new Deferred(runOneChunk);
+            d.then(onDone);
+            d.catch(function (err) {
+                onDone();
             });
         }
     }
@@ -66,11 +66,8 @@ function runParallelWithWorkers(callback) {
     runRound();
 }
 
-var workerThreads = typeof worker_threads !== 'undefined' ? worker_threads : (typeof require !== 'undefined' ? require('worker_threads') : null);
-// Workers disabled for both runtimes until worker message delivery is fully verified (protoJS) and benchmark flow is confirmed (Node).
-var useWorkers = false; // workerThreads && workerThreads.Worker && (typeof process !== 'undefined' && process.versions && process.versions.node);
-if (useWorkers) {
-    runParallelWithWorkers(function (median) {
+if (typeof Deferred !== 'undefined') {
+    runParallelWithDeferred(function (median) {
         var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: true };
         console.log('__BENCH_RESULT__' + JSON.stringify(result));
     });

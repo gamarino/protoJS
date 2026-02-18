@@ -5,8 +5,10 @@
 #include "headers/protoCore.h"
 #include "CPUThreadPool.h"
 #include "EventLoop.h"
+#include <atomic>
 #include <functional>
 #include <memory>
+#include <string>
 
 namespace protojs {
 
@@ -21,6 +23,8 @@ class JSContextWrapper;
 class Deferred {
 public:
     static void init(JSContext* ctx, JSContextWrapper* wrapper);
+    /** Number of Deferred tasks in flight (so main loop can wait for them). */
+    static int getActiveDeferredCount();
 
 private:
     // Lightweight task structure (not a full ProtoThread)
@@ -42,25 +46,30 @@ private:
         bool isRejected = false;
         JSValue thenCallback = JS_UNDEFINED;
         JSValue catchCallback = JS_UNDEFINED;
-        
+        /** Hold ref to Deferred object so it is not GC'd before completion (keeps callbacks valid). */
+        JSValue deferredObj = JS_UNDEFINED;
+        /** Function source (from .toString()) for execution in worker runtime when bytecode is not portable. */
+        std::string functionSource;
+
         // Result from worker thread
         uint8_t* serializedResult = nullptr;  // Serialized result buffer
         size_t serializedResultSize = 0;     // Size of result buffer
         bool hasError = false;                // Whether execution resulted in error
         
         DeferredTask(JSContext* ctx, JSValue f, uint8_t* serialized, size_t serializedSize,
-                     JSValue res, JSValue rej, JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w)
+                     JSValue res, JSValue rej, JSRuntime* runtime, proto::ProtoSpace* s, JSContextWrapper* w,
+                     JSValue deferred_obj, std::string fn_source)
             : func(f), serializedFunc(serialized), serializedFuncSize(serializedSize),
               resolve(res), reject(rej), mainJSContext(ctx), 
-              rt(runtime), space(s), wrapper(w) {}
+              rt(runtime), space(s), wrapper(w), deferredObj(deferred_obj), functionSource(std::move(fn_source)) {}
         
         ~DeferredTask() {
-            // Free serialized buffers (allocated with js_malloc_rt)
+            // Free serialized buffers (malloc'd so safe at process exit when rt may be gone)
             if (serializedFunc) {
-                js_free_rt(rt, serializedFunc);
+                free(serializedFunc);
             }
             if (serializedResult) {
-                js_free_rt(rt, serializedResult);
+                free(serializedResult);
             }
         }
     };
