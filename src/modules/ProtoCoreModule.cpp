@@ -1,12 +1,46 @@
 #include "ProtoCoreModule.h"
 #include "../TypeBridge.h"
 #include "../JSContext.h"
+#include "../Deferred.h"
+#include "../EventLoop.h"
+#include "../CPUThreadPool.h"
 #include "quickjs.h"
 #include <iostream>
+#include <unordered_map>
+#include <string>
+#include <tuple>
 
 namespace protojs {
 
 static JSClassID protojs_set_class_id;
+static std::unordered_map<std::string, proto::ProtoMethod> s_nativeWorkers;
+
+// Native CPU chunk: LCG workload (same as JS runOneChunk). args = [resultHolder, iterations].
+// Data-dependent loop; not trivially optimizable. Writes result to resultHolder["value"].
+static const proto::ProtoObject* cpuChunkWorker(
+    proto::ProtoContext* context,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* parentLink,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kwargs)
+{
+    (void)self;
+    (void)parentLink;
+    (void)kwargs;
+    if (!args || args->getSize(context) < 2) return PROTO_NONE;
+    const proto::ProtoObject* holder = args->getAt(context, 0);
+    const proto::ProtoObject* iterObj = args->getAt(context, 1);
+    long long n = iterObj->asLong(context);
+    uint32_t state = 1;
+    uint64_t sum = 0;
+    for (long long i = 0; i < n; i++) {
+        state = static_cast<uint32_t>(static_cast<uint64_t>(state) * 1103515245ULL + 12345ULL);
+        sum += state;
+    }
+    const proto::ProtoString* key = context->fromUTF8String("value")->asString(context);
+    holder->setAttribute(context, key, context->fromLong(static_cast<long long>(sum)));
+    return PROTO_NONE;
+}
 static JSClassID protojs_multiset_class_id;
 static JSClassID protojs_sparselist_class_id;
 
@@ -93,7 +127,10 @@ void ProtoCoreModule::init(JSContext* ctx) {
     JS_SetPropertyStr(ctx, protoCoreModule, "isImmutable", JS_NewCFunction(ctx, IsImmutable, "isImmutable", 1));
     JS_SetPropertyStr(ctx, protoCoreModule, "makeImmutable", JS_NewCFunction(ctx, MakeImmutable, "makeImmutable", 1));
     JS_SetPropertyStr(ctx, protoCoreModule, "makeMutable", JS_NewCFunction(ctx, MakeMutable, "makeMutable", 1));
-    
+    JS_SetPropertyStr(ctx, protoCoreModule, "runInThread", JS_NewCFunction(ctx, RunInThread, "runInThread", 2));
+
+    s_nativeWorkers["cpuChunk"] = cpuChunkWorker;
+
     // Add to global scope
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JS_SetPropertyStr(ctx, global_obj, "protoCore", protoCoreModule);
@@ -553,6 +590,69 @@ JSValue ProtoCoreModule::MakeMutable(JSContext* ctx, JSValueConst this_val, int 
     const proto::ProtoObject* mutableObj = pObj->clone(pContext, true);
     
     return TypeBridge::toJS(ctx, mutableObj, pContext);
+}
+
+JSValue ProtoCoreModule::RunInThread(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    (void)this_val;
+    if (argc < 1 || !JS_IsString(argv[0])) {
+        return JS_ThrowTypeError(ctx, "runInThread(workerName, args) expects string workerName");
+    }
+    JSContextWrapper* wrapper = getWrapper(ctx);
+    if (!wrapper) return JS_ThrowTypeError(ctx, "ProtoCoreModule: JSContextWrapper not found");
+    proto::ProtoSpace* space = wrapper->getProtoSpace();
+    proto::ProtoContext* pContext = wrapper->getProtoContext();
+
+    const char* nameCstr = JS_ToCString(ctx, argv[0]);
+    std::string workerName(nameCstr ? nameCstr : "");
+    JS_FreeCString(ctx, nameCstr);
+    auto it = s_nativeWorkers.find(workerName);
+    if (it == s_nativeWorkers.end()) {
+        std::string msg = "runInThread: unknown worker '" + workerName + "'";
+        return JS_ThrowTypeError(ctx, "%s", msg.c_str());
+    }
+    proto::ProtoMethod method = it->second;
+
+    const proto::ProtoObject* resultHolder = pContext->newObject(true);
+    const proto::ProtoList* argsList = pContext->newList();
+    argsList = argsList->appendLast(pContext, resultHolder);
+    if (argc >= 2 && JS_IsArray(ctx, argv[1])) {
+        uint32_t len;
+        JSValue lenVal = JS_GetPropertyStr(ctx, argv[1], "length");
+        JS_ToUint32(ctx, &len, lenVal);
+        JS_FreeValue(ctx, lenVal);
+        for (uint32_t i = 0; i < len; i++) {
+            JSValue item = JS_GetPropertyUint32(ctx, argv[1], i);
+            const proto::ProtoObject* pItem = TypeBridge::fromJS(ctx, item, pContext);
+            argsList = argsList->appendLast(pContext, pItem);
+            JS_FreeValue(ctx, item);
+        }
+    }
+
+    const proto::ProtoString* threadName = pContext->fromUTF8String(("deferred-" + workerName).c_str())->asString(pContext);
+    const proto::ProtoThread* thread = space->newThread(pContext, threadName, method, argsList, nullptr);
+    if (!thread) {
+        return JS_ThrowTypeError(ctx, "runInThread: failed to create thread");
+    }
+
+    Deferred::TaskHandle taskHandle;
+    JSValue deferredObj;
+    std::tie(deferredObj, taskHandle) = Deferred::createPending(ctx, wrapper);
+    if (JS_IsException(deferredObj)) return deferredObj;
+
+    Deferred::incrementActiveCount();
+    CPUThreadPool::getInstance().getExecutor().submit([thread, taskHandle, resultHolder, wrapper, pContext]() {
+        const_cast<proto::ProtoThread*>(thread)->join(const_cast<proto::ProtoContext*>(pContext));
+        EventLoop::getInstance().enqueueCallback([taskHandle, resultHolder, wrapper]() {
+            JSContext* mainCtx = wrapper->getJSContext();
+            proto::ProtoContext* pCtx = wrapper->getProtoContext();
+            const proto::ProtoString* valueKey = pCtx->fromUTF8String("value")->asString(pCtx);
+            const proto::ProtoObject* result = resultHolder->getAttribute(pCtx, valueKey);
+            JSValue resultJS = TypeBridge::toJS(mainCtx, result, pCtx);
+            Deferred::resolveTaskFromNative(taskHandle, resultJS);
+        });
+    });
+
+    return deferredObj;
 }
 
 } // namespace protojs

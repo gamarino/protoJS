@@ -102,6 +102,23 @@ const immutable = protoCore.makeImmutable(obj);
 const mutable = protoCore.makeMutable(immutable);
 ```
 
+## Native multithreading (`runInThread`)
+
+Run a registered native worker in a protoCore thread with **no serialization**: the worker runs in the same ProtoSpace, and the result stays in shared memory. Returns a Deferred (thenable).
+
+```javascript
+// Run the built-in "cpuChunk" worker with one argument (e.g. iterations)
+const d = protoCore.runInThread('cpuChunk', [2e6]);
+d.then(function (result) {
+    console.log(result); // sum 0..2e6-1
+});
+d.catch(function (err) {
+    console.error(err);
+});
+```
+
+Built-in workers: `cpuChunk` (args: `[iterations]`) runs an LCG (linear congruential) loop for that many iterations and returns the accumulated value. The workload is data-dependent and not trivially optimizable by JIT, for fair parallel benchmarks. Use for CPU-bound parallel work without copying data between threads.
+
 ## Advantages
 
 - **Immutability**: Eliminates shared state bugs
