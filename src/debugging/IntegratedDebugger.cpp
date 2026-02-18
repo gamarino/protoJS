@@ -1,4 +1,5 @@
 #include "IntegratedDebugger.h"
+#include "../ExecutionEngine.h"
 #include <algorithm>
 #include <sstream>
 #include <iostream>
@@ -192,6 +193,34 @@ JSValue IntegratedDebugger::continueExecution(JSContext* ctx, JSValueConst this_
     return JS_NewBool(ctx, true);
 }
 
+void IntegratedDebugger::pushFrame(JSContext* ctx) {
+    proto::ProtoContext* pContext = ExecutionEngine::getProtoContext(ctx);
+    CallFrame frame;
+    frame.functionName = "(global)";
+    frame.scriptId = (pContext && pContext->currentFileName) ? pContext->currentFileName : "";
+    frame.lineNumber = pContext ? pContext->currentLineNumber : 0;
+    frame.columnNumber = 0;
+    std::lock_guard<std::mutex> lock(callStackMutex);
+    callStack.push_back(frame);
+}
+
+void IntegratedDebugger::popFrame() {
+    std::lock_guard<std::mutex> lock(callStackMutex);
+    if (!callStack.empty()) {
+        callStack.pop_back();
+    }
+}
+
+bool IntegratedDebugger::checkBreakpoint(const std::string& scriptId, int lineNumber) {
+    std::lock_guard<std::mutex> lock(breakpointsMutex);
+    for (const auto& bp : breakpoints) {
+        if (bp.enabled && bp.scriptId == scriptId && bp.lineNumber == lineNumber) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void IntegratedDebugger::cdpServerThread(int port) {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) {
@@ -270,18 +299,6 @@ std::string IntegratedDebugger::generateCDPError(int id, const std::string& erro
     std::stringstream ss;
     ss << "{\"id\":" << id << ",\"error\":{\"message\":\"" << error << "\"}}";
     return ss.str();
-}
-
-bool IntegratedDebugger::checkBreakpoint(const std::string& scriptId, int lineNumber) {
-    std::lock_guard<std::mutex> lock(breakpointsMutex);
-    
-    for (const auto& bp : breakpoints) {
-        if (bp.enabled && bp.scriptId == scriptId && bp.lineNumber == lineNumber) {
-            return true;
-        }
-    }
-    
-    return false;
 }
 
 void IntegratedDebugger::pauseExecution() {

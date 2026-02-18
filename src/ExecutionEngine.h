@@ -64,13 +64,13 @@ public:
      */
     static int opCompare(JSContext* ctx, JSValue a, JSValue b);
 
-private:
     /**
-     * @brief Get ProtoContext from JSContext
-     * Uses JSContextWrapper stored in JSContext opaque
+     * @brief Get ProtoContext from JSContext (e.g. for debugger file/line tracking).
+     * Uses JSContextWrapper stored in JSContext opaque.
      */
     static proto::ProtoContext* getProtoContext(JSContext* ctx);
 
+private:
     /**
      * @brief Check if an object should be handled by protoCore
      */

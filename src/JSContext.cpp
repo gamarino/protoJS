@@ -4,6 +4,7 @@
 #include "EventLoop.h"
 #include "GCBridge.h"
 #include "ExecutionEngine.h"
+#include "debugging/IntegratedDebugger.h"
 #include <iostream>
 
 namespace protojs {
@@ -56,8 +57,22 @@ JSContextWrapper::~JSContextWrapper() {
 }
 
 JSValue JSContextWrapper::eval(const std::string& code, const std::string& filename) {
+    currentScript_ = filename;
+    pContext->currentFileName = currentScript_.empty() ? nullptr : &currentScript_[0];
+    pContext->currentLineNumber = 1;
+
+    IntegratedDebugger::pushFrame(ctx);
+    if (IntegratedDebugger::checkBreakpoint(filename, 1)) {
+        IntegratedDebugger::pauseExecution();
+    }
+
     JSValue val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
-    
+
+    IntegratedDebugger::popFrame();
+    pContext->currentFileName = nullptr;
+    pContext->currentLineNumber = 0;
+    currentScript_.clear();
+
     if (JS_IsException(val)) {
         JSValue exception = JS_GetException(ctx);
         const char* str = JS_ToCString(ctx, exception);
@@ -67,7 +82,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         }
         JS_FreeValue(ctx, exception);
     }
-    
+
     return val;
 }
 

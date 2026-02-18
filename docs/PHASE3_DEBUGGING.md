@@ -169,6 +169,34 @@ public:
 
 ---
 
+## ProtoContext File/Line Tracking
+
+The runtime keeps the **current script file** and **current line number** on the protoCore `ProtoContext` so the debugger and other code can know where execution is.
+
+### Where and when they are set
+
+- **`ProtoContext::currentFileName`** and **`ProtoContext::currentLineNumber`** are set in **`JSContextWrapper::eval()`** (see `src/JSContext.cpp`):
+  - Before `JS_Eval`: `currentFileName` is set to the script path (the `filename` argument, e.g. path passed to `protojs script.js` or `"eval"` for `-e`), and `currentLineNumber` is set to `1` (script entry). The string is kept in `JSContextWrapper::currentScript_` so the pointer remains valid for the duration of the eval.
+  - After `JS_Eval` returns (normal or exception): both are cleared (`currentFileName = nullptr`, `currentLineNumber = 0`).
+- **Line granularity:** Only script entry (line 1) is updated. Per-line updates would require a QuickJS execution hook (e.g. bytecode or interrupt handler with line info), which is not currently used. So breakpoints are only checked at script entry for line 1.
+
+### How the debugger uses them
+
+- **Breakpoints:** `IntegratedDebugger::checkBreakpoint(scriptId, lineNumber)` is called from `eval()` after setting file/line. Breakpoints are matched by `scriptId` (same string as the script path) and `lineNumber`. Only a breakpoint at line 1 can be hit during this check; finer-grained hits would need per-line hooks.
+- **Call stack:** When entering eval, `IntegratedDebugger::pushFrame(ctx)` is called. It reads `ExecutionEngine::getProtoContext(ctx)` and pushes a `CallFrame` with `scriptId = currentFileName`, `lineNumber = currentLineNumber`, and `functionName = "(global)"`. When eval exits, `popFrame()` is called. Thus `debugger.getCallStack()` returns at least the current script and line (and any additional frames if pushFrame/popFrame are used elsewhere).
+- **CDP:** The same script path and line can be exposed in CDP responses (e.g. call frame locations) when the debugger builds frames from `ProtoContext` or from the internal call stack.
+
+### Relevant code paths
+
+| Purpose | Path |
+|--------|------|
+| Set/clear file and line | `protoJS/src/JSContext.cpp` — `JSContextWrapper::eval()` |
+| Get ProtoContext from JS | `protoJS/src/ExecutionEngine.cpp` — `ExecutionEngine::getProtoContext(ctx)` |
+| Breakpoint check at entry | `protoJS/src/JSContext.cpp` — before `JS_Eval`, calls `IntegratedDebugger::checkBreakpoint` and `pauseExecution()` |
+| Call stack push/pop | `protoJS/src/debugging/IntegratedDebugger.cpp` — `pushFrame(ctx)`, `popFrame()`; `getCallStack()` returns the pushed frames |
+
+---
+
 ## Call Stack Inspection
 
 ### Call Stack

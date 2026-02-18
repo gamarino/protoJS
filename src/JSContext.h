@@ -48,6 +48,8 @@ private:
     JSContext* ctx;
     proto::ProtoSpace pSpace;
     proto::ProtoContext* pContext;
+    /** Current script path for ProtoContext::currentFileName (keeps pointer valid during eval). */
+    std::string currentScript_;
 };
 
 } // namespace protojs

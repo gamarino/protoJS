@@ -97,6 +97,28 @@ public:
      */
     static JSValue continueExecution(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
 
+    /**
+     * @brief Push current execution frame (file/line from ProtoContext) for call stack.
+     * Called by the runtime when entering script eval.
+     */
+    static void pushFrame(JSContext* ctx);
+
+    /**
+     * @brief Pop the top call stack frame. Called when leaving script eval.
+     */
+    static void popFrame();
+
+    /**
+     * @brief Check whether a breakpoint is set for the given script and line.
+     * Used by the runtime to decide whether to pause (e.g. at script entry).
+     */
+    static bool checkBreakpoint(const std::string& scriptId, int lineNumber);
+
+    /**
+     * @brief Pause execution (e.g. when a breakpoint is hit). Called by the runtime.
+     */
+    static void pauseExecution();
+
 private:
     static void cdpServerThread(int port);
     static void handleCDPMessage(const std::string& message);
@@ -112,9 +134,7 @@ private:
     static std::mutex callStackMutex;
     static JSContext* debugContext;
     static int nextBreakpointId;
-    
-    static bool checkBreakpoint(const std::string& scriptId, int lineNumber);
-    static void pauseExecution();
+
     static void resumeExecution();
 };
 
