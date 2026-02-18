@@ -1,24 +1,32 @@
-# Standard Benchmark Results: protoJS vs Node.js
+# Standard Benchmark Results: protoJS vs Node.js and protoJS vs QuickJS
 
-**Last run:** 2026-02-14  
+Two comparisons are maintained for the same standard suite:
+
+- **protoJS vs Node.js** — interpreter vs V8 (JIT); run with `run_standard_comparison.js`.
+- **protoJS vs QuickJS** — interpreter vs interpreter; run with `run_standard_comparison_quickjs.js`.
+
 **Suite:** `tests/benchmarks/standard/`  
-**Runner:** `node tests/benchmarks/run_standard_comparison.js` or `run_nodejs_comparison.js --standard`
+**Last run:** 2026-02-18
 
 ---
 
-## Results (in-process median time, 5 runs)
+## 1. protoJS vs Node.js
+
+**Runner:** `node tests/benchmarks/run_standard_comparison.js` (or `run_nodejs_comparison.js --standard`)
+
+### Results (in-process median time, 5 runs)
 
 | Benchmark       | protoJS (ms) | Node.js (ms) | Winner      |
 |----------------|--------------|--------------|-------------|
-| array_literal  | 10           | 3            | Node **3.33x** |
-| control_flow   | 64           | 5            | Node **12.80x** |
-| function_calls | 81           | 1            | Node **81x**   |
-| numeric_loop   | 45           | 1            | Node **45x**   |
-| object_property| 124          | 36           | Node **3.44x** |
+| array_literal  | 6            | 3            | Node **2.00x** |
+| control_flow   | 51           | 9            | Node **5.67x** |
+| function_calls | 73           | 2            | Node **36.50x** |
+| numeric_loop   | 37           | 1            | Node **37.00x** |
+| object_property| 88           | 34           | Node **2.59x** |
 | parallel_cpu   | 22           | 41           | **protoJS 1.86x** |
-| string_concat  | 5            | 1            | Node **5x**    |
+| string_concat  | 5            | 1            | Node **5.00x** |
 
-- **Geometric mean:** Node.js **7.58x** faster than protoJS (in-process).
+- **Geometric mean:** Node.js **5.22x** faster than protoJS (in-process).
 - **protoJS wins:** 1/7 (parallel_cpu). All 7 benchmarks completed on both engines.
 
 ---
@@ -43,13 +51,52 @@
 
 ---
 
-## How to run
+## 2. protoJS vs QuickJS
+
+**Runner:** `node tests/benchmarks/run_standard_comparison_quickjs.js`
+
+Interpreter-vs-interpreter comparison. QuickJS must be built first:
+
+```bash
+cd deps/quickjs && make qjs
+```
+
+Then from the protoJS project root:
+
+```bash
+node tests/benchmarks/run_standard_comparison_quickjs.js
+```
+
+### Results (in-process median time, 5 runs)
+
+| Benchmark       | protoJS (ms) | QuickJS (ms) | Winner        |
+|----------------|--------------|--------------|---------------|
+| array_literal  | 6            | 5            | QuickJS **1.20x** |
+| control_flow   | 60           | 44           | QuickJS **1.36x** |
+| function_calls | 71           | 79           | **protoJS 1.11x** |
+| numeric_loop   | 37           | 33           | QuickJS **1.12x** |
+| object_property| 101          | 64           | QuickJS **1.58x** |
+| parallel_cpu   | 22           | 630          | **protoJS 28.64x** |
+| string_concat  | 5            | 5            | tie **1.00x** |
+
+- **Geometric mean:** QuickJS **1.41x** faster than protoJS on single-thread; protoJS wins **2/7** (function_calls, parallel_cpu).
+- **Output:** Script prints the table and writes `tests/benchmarks/results/standard_comparison_quickjs.json`.
+
+For **interpretation and real-case server load impact**, see [BENCHMARK_STANDARD_ANALYSIS.md](BENCHMARK_STANDARD_ANALYSIS.md).
+
+---
+
+## How to run (both comparisons)
 
 From the protoJS project root:
 
-```bash
-node tests/benchmarks/run_standard_comparison.js
-```
+| Comparison        | Command |
+|-------------------|--------|
+| protoJS vs Node.js   | `node tests/benchmarks/run_standard_comparison.js` |
+| protoJS vs QuickJS   | `node tests/benchmarks/run_standard_comparison_quickjs.js` (requires `deps/quickjs/qjs`) |
 
-JSON report: `tests/benchmarks/results/standard_comparison.json`  
-Detailed analysis: `tests/benchmarks/results/standard_comparison_analysis.md`
+**Output files:**
+
+- Node: `tests/benchmarks/results/standard_comparison.json`  
+  Detailed analysis: `tests/benchmarks/results/standard_comparison_analysis.md`
+- QuickJS: `tests/benchmarks/results/standard_comparison_quickjs.json`
