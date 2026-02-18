@@ -96,7 +96,33 @@
 
 ---
 
-## 4. Conclusions
+## 4. Memory, GC, and shared data (protoJS vs Node/V8)
+
+Beyond raw CPU, server workloads are often constrained by **memory limits**, **GC latency**, and **cost of sharing data** across workers. Here ProtoCore-based runtimes (protoJS) differ sharply from Node.js (V8).
+
+### 4.1 V8 practical memory limit (~2 GB)
+
+- V8 enforces a **practical heap limit** on the order of **~2 GB** per isolate (and typically per Node process without special flags). Large in-memory caches, big response buffers, or shared database-backed state can hit this ceiling and force partitioning or off-heap storage.
+- **Impact:** Servers that keep large amounts of **common information** in memory (e.g. reference data, cached query results, metadata) may need multiple Node processes or external stores to stay under the limit, adding complexity and often more serialization.
+
+### 4.2 GC pauses
+
+- V8’s generational GC can produce **multi-millisecond** stop-the-world pauses under load, which show up as latency spikes (e.g. p99) in latency-sensitive services.
+- ProtoCore-based runtimes target **sub-millisecond GC pauses** (&lt; 1 ms), which can materially improve **tail latency** and predictability for request-handling paths that allocate.
+
+### 4.3 Sharing information and metadata: serialization vs shared memory
+
+- **Node (workers):** Sharing data between workers requires **serialization** (e.g. structured clone, JSON). Passing large or frequently updated **common data** (config, DB-backed metadata, caches) to each worker is expensive: copy cost, CPU for encode/decode, and duplicated memory per worker. Keeping a single source of truth in the main thread and messaging it to workers scales poorly when that data is big or hot.
+- **ProtoJS (ProtoCore):** **Shared memory** and shared structures across threads are a core feature. Metadata and common database-derived state can be **shared by reference** without serialization. Workers can read the same maps, arrays, or objects without copying or custom serialization layers.
+- **Impact on servers sharing database/common information:** Workloads that rely on **shared reference data**, **metadata**, or **cached DB results** across many logical workers or handlers can be **deeply impacted**:
+  - In Node, every worker typically gets its own copy (or pays serialization and message-passing overhead), and the 2 GB limit applies per process. Scaling “one big shared cache” is hard.
+  - In protoJS, the same cache or metadata can be shared in memory; no serialization round-trips for reads, and memory usage does not multiply by worker count for that data. Latency and CPU spent on sharing drop significantly.
+
+**Summary:** For servers that share large or hot **common information** (DB caches, metadata, config), protoJS’s **shared-memory model** and **absence of per-worker serialization** can outweigh the raw ~5x CPU advantage of V8. Combined with **higher practical memory headroom** and **lower GC pauses** (&lt; 1 ms), ProtoCore-based runtimes can be a better fit for **memory- and latency-sensitive** services that rely on shared state.
+
+---
+
+## 5. Conclusions
 
 1. **Comparisons are valid:** Same code path in both engines, median of 5 runs, in-process time only. Node vs protoJS and QuickJS vs protoJS are comparable and significant.
 
@@ -104,6 +130,8 @@
 
 3. **QuickJS:** Interpreter-to-interpreter, **~1.4x** in QuickJS's favour on single-thread; **protoJS ~28x** ahead when parallelism is used (parallel_cpu). protoJS is suitable as an embedded or script runtime where **multi-threaded CPU** work is important.
 
-4. **Reproduce:** From protoJS project root:
+4. **Memory, GC, and shared data:** V8’s **~2 GB** practical heap limit, **multi-ms GC pauses**, and the need to **serialize** common data across Node workers make protoJS attractive for servers that share **database-backed or common metadata**: ProtoCore offers **shared memory** (no serialization for shared state), **sub-ms GC pauses**, and a model where one shared cache does not duplicate per worker. Servers that are **memory- or latency-sensitive** and rely on shared state can be deeply impacted in favour of protoJS.
+
+5. **Reproduce:** From protoJS project root:
    - Node: `node tests/benchmarks/run_standard_comparison.js`
    - QuickJS: `node tests/benchmarks/run_standard_comparison_quickjs.js` (requires `deps/quickjs/qjs`)

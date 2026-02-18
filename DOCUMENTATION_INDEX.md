@@ -1,7 +1,7 @@
 # ProtoJS Documentation Index
 
-**Last Updated**: January 24, 2026  
-**Project Status**: Phase 5 Complete
+**Last Updated**: February 2026  
+**Project Status**: Phase 6 Complete — Current state documented (benchmarks, analysis, technical audit)
 
 ---
 
@@ -9,7 +9,7 @@
 
 1. **New to ProtoJS?** Start here: [README.md](README.md)
 2. **Project Overview**: [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)
-3. **Current Status**: [TECHNICAL_AUDIT_PHASE5.md](TECHNICAL_AUDIT_PHASE5.md)
+3. **Current Status**: [TECHNICAL_AUDIT_PHASE6.md](TECHNICAL_AUDIT_PHASE6.md)
 4. **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
 5. **Project Plan**: [PLAN.md](PLAN.md)
 
@@ -45,7 +45,8 @@
 | [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md) | Performance testing methodology | 15 min |
 | [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) | Performance benchmarks and results | 20 min |
 | [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md) | Node.js comparison (legacy wall-clock) | 25 min |
-| [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) | **Standard benchmark results and analysis (protoJS vs Node, in-process)** | 15 min |
+| [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) | **Standard benchmark results (protoJS vs Node.js and vs QuickJS)** | 15 min |
+| [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md) | **Analysis: server-load impact, memory/GC, shared data (V8 vs ProtoCore)** | 20 min |
 
 ### 📚 Developer Documentation
 

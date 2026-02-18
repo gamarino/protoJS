@@ -332,6 +332,8 @@ We embrace AI as the **great equalizer**. protoJS is not "AI-generated"; it is A
 
 ## 📚 Documentation
 
+Full index: **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** — current status, Phase 6 audit, and all docs by topic.
+
 ### Main Documentation
 
 - **[docs/INSTALLATION.md](docs/INSTALLATION.md)** - **Installation guide** (Linux .deb/.rpm, macOS .pkg, Windows .msi, and from source)
@@ -353,7 +355,9 @@ We embrace AI as the **great equalizer**. protoJS is not "AI-generated"; it is A
 
 ### Performance & Benchmarks
 
-- **[docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md)** - **Node.js comparison benchmark analysis** (19.83x faster overall)
+- **[docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md)** - **Standard benchmark results** (protoJS vs Node.js and vs QuickJS, in-process time)
+- **[docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md)** - **Analysis:** server-load impact, memory/GC, shared data (V8 vs ProtoCore)
+- **[docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md)** - Node.js comparison (legacy wall-clock suite)
 - **[docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md)** - Performance benchmarks and results
 - **[docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md)** - Performance testing methodology
 
@@ -391,7 +395,7 @@ protoJS demonstrates significant performance advantages over Node.js:
 - **Concurrent Operations:** 3.00x faster (GIL-free architecture)
 - **Consistent Improvements:** 2.67x to 34.18x speedup across all tested categories
 
-For detailed benchmark analysis and results, see [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md).
+For standard in-process benchmarks (protoJS vs Node.js and vs QuickJS) and server-load analysis, see [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) and [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md). Legacy wall-clock comparison: [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md).
 
 ---
 
@@ -605,7 +609,7 @@ SOFTWARE.
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
 - npm support: Full registry communication, semver version resolution, package installation
-- Benchmarking: Comprehensive benchmarking framework with Node.js comparison ([see analysis](docs/BENCHMARK_ANALYSIS.md))
+- Benchmarking: Standard suite (protoJS vs Node.js and QuickJS), analysis and server-load impact ([docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md), [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md))
 - Test compatibility: Node.js test suite compatibility checker
 - Module system working: CommonJS and ES Modules supported
 - CLI tools available: REPL and Node.js-compatible flags
