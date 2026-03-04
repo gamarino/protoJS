@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T05:04:09.126Z",
+  "patterns": [
+    "built-ins/SetIteratorPrototype/next"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/SetIteratorPrototype/next/does-not-have-mapiterator-internal-slots-set.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/does-not-have-mapiterator-internal-slots.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/iteration-mutable.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/iteration.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/length.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/name.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/this-not-object-throw-entries.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/this-not-object-throw-keys.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/this-not-object-throw-prototype-iterator.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SetIteratorPrototype/next/this-not-object-throw-values.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
