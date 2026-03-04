@@ -192,6 +192,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/RegExp` | 1879 | 1687 | 0 | 192 | 0 | Official Test262 subset. |
 | `built-ins/RegExp/prototype` | 487 | 458 | 0 | 29 | 0 | Official Test262 subset. |
 | `built-ins/RegExp/prototype/exec` | 79 | 79 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/RegExp/prototype/test` | 45 | 45 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
