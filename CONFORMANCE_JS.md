@@ -147,6 +147,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Number/prototype/toFixed` | 16 | 16 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Number/prototype/toString` | 90 | 90 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Number/prototype/valueOf` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Object/defineProperties` | 632 | 632 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
