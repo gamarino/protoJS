@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T05:30:20.342Z",
+  "patterns": [
+    "built-ins/Date/prototype/setUTCFullYear"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Date/prototype/setUTCFullYear/date-value-read-before-tonumber-when-date-is-invalid.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCFullYear/date-value-read-before-tonumber-when-date-is-valid.js",
+      "result": "passed",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCFullYear/length.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCFullYear/name.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCFullYear/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCFullYear/prop-desc.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
