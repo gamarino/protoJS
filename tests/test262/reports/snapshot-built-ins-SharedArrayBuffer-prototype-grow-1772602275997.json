@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T05:31:15.996Z",
+  "patterns": [
+    "built-ins/SharedArrayBuffer/prototype/grow"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 15,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/descriptor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/extensible.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/grow-larger-size.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/grow-same-size.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/grow-smaller-size.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/length.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/name.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/new-length-excessive.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/new-length-negative.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/new-length-non-number.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/nonconstructor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/this-is-not-arraybuffer-object.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/this-is-not-resizable-arraybuffer-object.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/SharedArrayBuffer/prototype/grow/this-is-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
