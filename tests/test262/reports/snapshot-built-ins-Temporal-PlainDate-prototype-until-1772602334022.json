@@ -1,0 +1,589 @@
+{
+  "generatedAt": "2026-03-04T05:32:14.022Z",
+  "patterns": [
+    "built-ins/Temporal/PlainDate/prototype/until"
+  ],
+  "total": 82,
+  "summary": {
+    "passed": 82,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-leap-second.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-number.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-plaindatetime.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-case-insensitive.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-invalid-iso-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-iso-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-leap-second.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-string.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-wrong-type.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-propertybag-calendar-year-zero.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-calendar-annotation-invalid-key.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-calendar-annotation.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-calendar-invalid-iso-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-critical-unknown-annotation.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-date-with-utc-offset.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-invalid.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-limits.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-minus-sign.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-multiple-calendar.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-multiple-time-zone.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-time-separators.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-time-zone-annotation.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-unknown-annotation.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-string-with-utc-designator.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-wrong-type.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/argument-zoneddatetime-slots.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/basic-arithmetic.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/basic-conversions.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/basic.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/blank-result.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/branding.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/builtin.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/calendar-id-match.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/calendar-temporal-object.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/infinity-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/largestunit-default.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/largestunit-invalid-string.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/largestunit-plurals-accepted.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/largestunit-smallestunit-mismatch.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/largestunit-undefined.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/largestunit-wrong-type.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/leap-year-arithmetic.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/length.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/name.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/no-fractional-minutes-hours.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/no-options.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/options-object.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/options-read-before-algorithmic-validation.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/options-wrong-type.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/order-of-operations.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/prop-desc.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/round-cross-unit-boundary.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/rounding-relative.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingincrement-nan.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingincrement-non-integer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingincrement-out-of-range.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingincrement-undefined.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingincrement-wrong-type.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingincrement.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-ceil.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-expand.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-floor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-halfCeil.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-halfEven.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-halfExpand.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-halfFloor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-halfTrunc.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-invalid-string.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-trunc.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-undefined.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/roundingmode-wrong-type.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/smallestunit-higher-units.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/smallestunit-invalid-string.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/smallestunit-plurals-accepted.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/smallestunit-undefined.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/smallestunit-wrong-type.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/throws-if-rounded-date-outside-valid-iso-range.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/throws-with-time-units.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/weeks-months.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/year-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/until/zero-length-duration-result.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
