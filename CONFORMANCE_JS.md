@@ -308,6 +308,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/String/prototype/matchAll` | 25 | 25 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/String/prototype/search` | 43 | 43 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Number/prototype/toPrecision` | 17 | 17 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Number/prototype/toLocaleString` | 4 | 4 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
