@@ -173,6 +173,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/String/prototype/startsWith` | 21 | 21 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/String/prototype/substring` | 46 | 46 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/ceil` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Math/round` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
