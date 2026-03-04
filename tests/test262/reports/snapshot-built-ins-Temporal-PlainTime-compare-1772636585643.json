@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-03-04T15:03:05.643Z",
+  "patterns": [
+    "built-ins/Temporal/PlainTime/compare"
+  ],
+  "total": 31,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 31,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-cast.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-cast.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-number.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-number.js: Test262Error: A number (1) is not a valid ISO string for PlainT"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-propertybag-optional-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-propertybag-optional-properties.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-calendar-annotation-invalid-key.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-calendar-annotation-invalid-key.js: Test262Error: annotation keys m"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-calendar-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-calendar-annotation.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-critical-unknown-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-critical-unknown-annotation.js: Test262Error: reject unknown annota"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-date-with-utc-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-date-with-utc-offset.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-minus-sign.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-minus-sign.js: Test262Error: variant minus sign: 1976-11-18T15:23:3"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-multiple-calendar.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-multiple-calendar.js: Test262Error: reject more than one calendar a"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-multiple-time-zone.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-multiple-time-zone.js: Test262Error: reject more than one time zone"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-no-implicit-midnight.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-no-implicit-midnight.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-time-designator-required-for-disambiguation.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-time-designator-required-for-disambiguation.js: ReferenceError: 'Te"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-time-separators.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-time-separators.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-time-zone-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-time-zone-annotation.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-unknown-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-unknown-annotation.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-with-time-designator.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-with-time-designator.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-string-with-utc-designator.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-string-with-utc-designator.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-wrong-type.js: Test262Error: undefined does not convert to a valid ISO str"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/argument-zoneddatetime-negative-epochnanoseconds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__argument-zoneddatetime-negative-epochnanoseconds.js: ReferenceError: 'Temporal' is "
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/basic.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__basic.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/exhaustive.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__exhaustive.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__leap-second.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/name.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/no-fractional-minutes-hours.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__no-fractional-minutes-hours.js: Test262Error: Fractional minutes not allowed in tim"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__not-a-constructor.js: Test262Error: Calling as constructor Expected a TypeError but"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/plaintime-propertybag-no-time-units.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__plaintime-propertybag-no-time-units.js: Test262Error: TypeError if no properties ar"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/use-internal-slots.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__use-internal-slots.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/compare/year-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainTime__compare__year-zero.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

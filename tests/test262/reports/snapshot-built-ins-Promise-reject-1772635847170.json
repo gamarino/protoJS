@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T14:50:47.170Z",
+  "patterns": [
+    "built-ins/Promise/reject"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 5,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Promise/reject/S25.4.4.4_A1.1_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/S25.4.4.4_A2.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__reject__S25.4.4.4_A2.1_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/reject/S25.4.4.4_A3.1_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/capability-executor-called-twice.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/capability-executor-not-callable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/capability-invocation-error.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/capability-invocation.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/ctx-ctor-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/ctx-ctor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/ctx-non-ctor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/ctx-non-object.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/reject/length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__reject__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/reject/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__reject__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/reject/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__reject__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/reject/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__reject__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

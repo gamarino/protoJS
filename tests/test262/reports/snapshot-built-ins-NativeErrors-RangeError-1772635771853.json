@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T14:49:31.853Z",
+  "patterns": [
+    "built-ins/NativeErrors/RangeError"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 9,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/NativeErrors/RangeError/constructor.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/instance-proto.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/is-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__is-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/is-error-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/proto-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__proto-from-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/proto.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__prototype__constructor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prototype/message.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__prototype__message.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prototype/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__prototype__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prototype/not-error-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/NativeErrors/RangeError/prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__NativeErrors__RangeError__prototype.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

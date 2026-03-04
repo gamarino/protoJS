@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T15:05:18.297Z",
+  "patterns": [
+    "built-ins/ShadowRealm/prototype/importValue"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 2,
+    "failed_semantics": 12,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__import-value.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_FIXTURE.js",
+      "result": "failed_syntax",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__import-value_FIXTURE.js: SyntaxError: unsupported keyword: export"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_syntax_error_FIXTURE.js",
+      "result": "failed_syntax",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__import-value_syntax_error_FIXTURE.js: SyntaxError: expecting ';'"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_throws_FIXTURE.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/not-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__not-constructor.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__proto.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/specifier-tostring.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__specifier-tostring.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-if-exportname-not-string.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-if-exportname-not-string.js: ReferenceError: 'ShadowRealm' is not def"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-if-import-value-does-not-exist.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-if-import-value-does-not-exist.js: ReferenceError: 'ShadowRealm' is n"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-syntax-error.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-typeerror-import-syntax-error.js: ReferenceError: 'ShadowRealm' is no"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-typeerror-import-throws.js: ReferenceError: 'ShadowRealm' is not defi"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/validates-realm-object.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__validates-realm-object.js: ReferenceError: 'ShadowRealm' is not defined"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-03-04T14:51:45.201Z",
+  "patterns": [
+    "built-ins/Math/atan"
+  ],
+  "total": 7,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Math/atan/S15.8.2.4_A1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/atan/S15.8.2.4_A2.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/atan/S15.8.2.4_A3.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/atan/length.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Math__atan__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Math/atan/name.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Math__atan__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Math/atan/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Math__atan__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Math/atan/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Math__atan__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

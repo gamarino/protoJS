@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T14:57:32.305Z",
+  "patterns": [
+    "built-ins/Function/internals/Call"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/internals/Call/class-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Call__class-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Call/class-ctor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

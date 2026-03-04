@@ -1,0 +1,169 @@
+{
+  "generatedAt": "2026-03-04T14:58:53.023Z",
+  "patterns": [
+    "built-ins/SuppressedError"
+  ],
+  "total": 22,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 22,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/SuppressedError/is-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__is-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/message-method-prop-cast.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__message-method-prop-cast.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/message-method-prop.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__message-method-prop.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/message-tostring-abrupt-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__message-tostring-abrupt-symbol.js: Test262Error: toPrimitive Expected a TypeError but got a Refe"
+    },
+    {
+      "path": "built-ins/SuppressedError/message-tostring-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__message-tostring-abrupt.js: Test262Error: toPrimitive Expected a Test262Error but got a Referenc"
+    },
+    {
+      "path": "built-ins/SuppressedError/message-undefined-no-prop.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__message-undefined-no-prop.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/newtarget-is-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__newtarget-is-undefined.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/newtarget-proto-custom.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__newtarget-proto-custom.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/newtarget-proto-fallback.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__newtarget-proto-fallback.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/newtarget-proto.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__newtarget-proto.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/order-of-args-evaluation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__order-of-args-evaluation.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prop-desc.js: Test262Error: Expected SameValue(«\"undefined\"», «\"function\"») to be true"
+    },
+    {
+      "path": "built-ins/SuppressedError/proto-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__proto-from-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__proto.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prototype__constructor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prototype/errors-absent-on-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prototype__errors-absent-on-prototype.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prototype/message.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prototype__message.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prototype/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prototype__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prototype/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prototype__prop-desc.js: ReferenceError: 'SuppressedError' is not defined"
+    },
+    {
+      "path": "built-ins/SuppressedError/prototype/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__SuppressedError__prototype__proto.js: ReferenceError: 'SuppressedError' is not defined"
+    }
+  ]
+}

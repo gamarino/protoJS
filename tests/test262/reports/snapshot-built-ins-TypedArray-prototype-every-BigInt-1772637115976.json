@@ -1,0 +1,127 @@
+{
+  "generatedAt": "2026-03-04T15:11:55.975Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/every/BigInt"
+  ],
+  "total": 16,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 16,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-arguments-with-thisarg.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-arguments-with-thisarg.js: ReferenceError: 'testWithBigIntTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-arguments-without-thisarg.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-arguments-without-thisarg.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-detachbuffer.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-no-interaction-over-non-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-no-interaction-over-non-integer.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-not-callable-throws.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-not-called-on-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-not-called-on-empty.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-return-does-not-change-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-return-does-not-change-instance.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-returns-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-returns-abrupt.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-set-value-during-interaction.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-set-value-during-interaction.js: ReferenceError: 'testWithBigInt"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-this.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-this.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/returns-false-if-any-cb-returns-false.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__returns-false-if-any-cb-returns-false.js: ReferenceError: 'testWithBigIntTy"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/returns-true-if-every-cb-returns-true.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__returns-true-if-every-cb-returns-true.js: ReferenceError: 'testWithBigIntTy"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__values-are-not-cached.js: ReferenceError: 'testWithBigIntTypedArrayConstruc"
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "generatedAt": "2026-03-04T14:53:07.054Z",
+  "patterns": [
+    "built-ins/Object/prototype/valueOf"
+  ],
+  "total": 20,
+  "summary": {
+    "passed": 17,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/prototype/valueOf/15.2.4.4-1.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/15.2.4.4-2.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A10.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__prototype__valueOf__S15.2.4.4_A10.js: ReferenceError: 'verifyNotWritable' is not defined"
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A11.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A12.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A13.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A14.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A15.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T4.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T5.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T6.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A1_T7.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A6.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A8.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/S15.2.4.4_A9.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/name.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__prototype__valueOf__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Object/prototype/valueOf/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__prototype__valueOf__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    }
+  ]
+}

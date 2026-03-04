@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-03-04T15:00:55.740Z",
+  "patterns": [
+    "built-ins/Temporal/Duration/from"
+  ],
+  "total": 31,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 31,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-duration-max.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-duration-max.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-duration-out-of-range.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-duration-out-of-range.js: Test262Error: string with days > max is out of range"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-duration-precision-exact-numerical-values.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-duration-precision-exact-numerical-values.js: ReferenceError: 'Temporal' is no"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-duration.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-duration.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-existing-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-existing-object.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-non-string.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-non-string.js: Test262Error: no argument Expected a TypeError but got a Refere"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-object-invalid.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-object-invalid.js: Test262Error: Expected a RangeError but got a ReferenceErro"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-propertybag-optional-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-propertybag-optional-properties.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-propertybag.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-propertybag.js: ReferenceError: 'TemporalHelpers' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string-fractional-precision.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string-fractional-precision.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string-fractional-units-rounding-mode.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string-fractional-units-rounding-mode.js: ReferenceError: 'Temporal' is not de"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string-fractional-with-zero-subparts.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string-fractional-with-zero-subparts.js: Test262Error: Expected a RangeError b"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string-invalid.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string-invalid.js: Test262Error: Expected a RangeError but got a ReferenceErro"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string-is-infinity.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string-is-infinity.js: Test262Error: Expected a RangeError but got a Reference"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string-negative-fractional-units.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string-negative-fractional-units.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/argument-string.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__argument-string.js: ReferenceError: 'TemporalHelpers' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/blank-duration.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__blank-duration.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/get-property-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__get-property-throws.js: Test262Error: name = years Expected a Test262Error but got a Re"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/infinity-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__infinity-throws-rangeerror.js: Test262Error: Expected a RangeError but got a ReferenceE"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/invalid-type.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__invalid-type.js: Test262Error: name = years, value = Symbol() Expected a TypeError but "
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/lower-limit.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__lower-limit.js: ReferenceError: 'TemporalHelpers' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/negative-inifinity-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__negative-inifinity-throws-rangeerror.js: Test262Error: Expected a RangeError but got a "
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/non-integer-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__non-integer-throws-rangeerror.js: Test262Error: Expected a RangeError but got a Referen"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__not-a-constructor.js: Test262Error: Calling as constructor Expected a TypeError but got"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/order-of-operations.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__order-of-operations.js: ReferenceError: 'TemporalHelpers' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/string-with-skipped-units.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__string-with-skipped-units.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Duration/from/subclassing-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__from__subclassing-ignored.js: ReferenceError: 'TemporalHelpers' is not defined"
+    }
+  ]
+}

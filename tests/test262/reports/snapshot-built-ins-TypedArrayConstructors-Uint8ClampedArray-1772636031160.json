@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T14:53:51.160Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/Uint8ClampedArray"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 9,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/BYTES_PER_ELEMENT.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__BYTES_PER_ELEMENT.js: ReferenceError: 'verifyNotEnumerable' is not def"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/constructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/is-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__is-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/length.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__proto.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/BYTES_PER_ELEMENT.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype__BYTES_PER_ELEMENT.js: ReferenceError: 'verifyNotEnumerable'"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype__constructor.js: ReferenceError: 'verifyNotEnumerable' is no"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype__proto.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

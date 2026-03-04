@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T15:09:27.857Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 10,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/balance-negative-time-units.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__balance-negative-time-units.js: ReferenceError: 'Temporal' i"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/limits.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__limits.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/name.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/negative-epochnanoseconds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__negative-epochnanoseconds.js: ReferenceError: 'Temporal' is "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__not-a-constructor.js: Test262Error: Calling as constructor E"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/pre-epoch.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__pre-epoch.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/toPlainDateTime/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__toPlainDateTime__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-03-04T14:56:51.199Z",
+  "patterns": [
+    "built-ins/Atomics/notify/bigint"
+  ],
+  "total": 8,
+  "summary": {
+    "passed": 5,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/notify/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bigint__bad-range.js: ReferenceError: 'testWithAtomicsOutOfBoundsIndices' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-bigint64-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-count-evaluation-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-index-evaluation-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-non-shared-int-views-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-returns-0.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/notify-all-on-loc.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bigint__notify-all-on-loc.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bigint__null-bufferdata-throws.js: Test262Error: An unexpected error occurred when detaching Arr"
+    }
+  ]
+}

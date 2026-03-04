@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-03-04T15:12:22.814Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/join/BigInt"
+  ],
+  "total": 9,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 9,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/custom-separator-result-from-tostring-on-each-simple-value.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__custom-separator-result-from-tostring-on-each-simple-value.js: ReferenceErro"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/detached-buffer-during-fromIndex-returns-single-comma.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__detached-buffer-during-fromIndex-returns-single-comma.js: ReferenceError: 't"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/empty-instance-empty-string.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__empty-instance-empty-string.js: ReferenceError: 'testWithBigIntTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is not"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/result-from-tostring-on-each-simple-value.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__result-from-tostring-on-each-simple-value.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/return-abrupt-from-separator-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__return-abrupt-from-separator-symbol.js: ReferenceError: 'testWithBigIntTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/return-abrupt-from-separator.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__return-abrupt-from-separator.js: ReferenceError: 'testWithBigIntTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/join/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__join__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is no"
+    }
+  ]
+}

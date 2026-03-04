@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T14:53:43.515Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/at"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 15,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/at/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/coerced-index-resize.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__coerced-index-resize.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/index-argument-tointeger.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__index-argument-tointeger.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/index-non-numeric-argument-tointeger-invalid.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__index-non-numeric-argument-tointeger-invalid.js: ReferenceError: 'TypedArray' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/index-non-numeric-argument-tointeger.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__index-non-numeric-argument-tointeger.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__length.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__name.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/return-abrupt-from-this.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__return-abrupt-from-this.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/returns-item-relative-index.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__returns-item-relative-index.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/returns-item.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__returns-item.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/returns-undefined-for-holes-in-sparse-arrays.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__returns-undefined-for-holes-in-sparse-arrays.js: ReferenceError: 'TypedArray' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/at/returns-undefined-for-out-of-range-index.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__at__returns-undefined-for-out-of-range-index.js: ReferenceError: 'TypedArray' is not defin"
+    }
+  ]
+}

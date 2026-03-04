@@ -1,0 +1,204 @@
+{
+  "generatedAt": "2026-03-04T15:11:24.739Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/internals/Set/BigInt"
+  ],
+  "total": 27,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 25,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/bigint-tobigint64.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/bigint-tobiguint64.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/boolean-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__boolean-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-not-numeric-index.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__detached-buffer-key-is-not-numeric-index.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__detached-buffer-key-is-symbol.js: ReferenceError: 'testWithBigInt"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__detached-buffer-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/indexed-value.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__indexed-value.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-canonical-invalid-index-prototype-chain-set.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-canonical-invalid-index-prototype-chain-set.js: ReferenceE"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-canonical-invalid-index-reflect-set.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-canonical-invalid-index-reflect-set.js: ReferenceError: 't"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-minus-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-minus-zero.js: ReferenceError: 'testWithBigIntTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-canonical-index.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-not-canonical-index.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-not-integer.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-numeric-index-set-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-not-numeric-index-set-throws.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-numeric-index.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-not-numeric-index.js: ReferenceError: 'testWithBigIntTyped"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-out-of-bounds.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-symbol.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-valid-index-prototype-chain-set.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-valid-index-prototype-chain-set.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-valid-index-reflect-set.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__key-is-valid-index-reflect-set.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/null-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__null-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/number-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__number-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/string-nan-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__string-nan-tobigint.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/string-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__string-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/symbol-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__symbol-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/tonumber-value-detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__tonumber-value-detached-buffer.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/tonumber-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__tonumber-value-throws.js: ReferenceError: 'testWithBigIntTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/undefined-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__Set__BigInt__undefined-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    }
+  ]
+}

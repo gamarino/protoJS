@@ -1,0 +1,190 @@
+{
+  "generatedAt": "2026-03-04T14:54:01.790Z",
+  "patterns": [
+    "built-ins/AggregateError"
+  ],
+  "total": 25,
+  "summary": {
+    "passed": 12,
+    "failed_syntax": 0,
+    "failed_semantics": 13,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AggregateError/cause-property.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__cause-property.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/errors-iterabletolist-failures.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/errors-iterabletolist.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/is-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__is-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/length.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/message-method-prop-cast.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__message-method-prop-cast.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/message-method-prop.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__message-method-prop.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/message-tostring-abrupt-symbol.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-tostring-abrupt.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-undefined-no-prop.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-is-undefined.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-proto-custom.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-proto-fallback.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-proto.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/order-of-args-evaluation.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__order-of-args-evaluation.js: ReferenceError: 'checkSequence' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/proto-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__proto-from-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/proto.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__prototype__constructor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/errors-absent-on-prototype.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/message.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__prototype__message.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/name.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__prototype__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AggregateError__prototype__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

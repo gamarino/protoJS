@@ -1,0 +1,652 @@
+{
+  "generatedAt": "2026-03-04T15:12:47.038Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/slice"
+  ],
+  "total": 91,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 91,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__arraylength-internal.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-custom-ctor-other-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer-custom-ctor-other-targettype.js: ReferenceError: 'testWithB"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-custom-ctor-same-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer-custom-ctor-same-targettype.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-get-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer-get-ctor.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-speciesctor-get-species-custom-ctor-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer-speciesctor-get-species-custom-ctor-throws.js: ReferenceErr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-zero-count-custom-ctor-other-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer-zero-count-custom-ctor-other-targettype.js: ReferenceError:"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-zero-count-custom-ctor-same-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer-zero-count-custom-ctor-same-targettype.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/infinity.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__infinity.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/minus-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__minus-zero.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/result-does-not-copy-ordinary-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__result-does-not-copy-ordinary-properties.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/results-with-different-length.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__results-with-different-length.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/results-with-empty-length.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__results-with-empty-length.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/results-with-same-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__results-with-same-length.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/return-abrupt-from-end-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__return-abrupt-from-end-symbol.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/return-abrupt-from-end.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__return-abrupt-from-end.js: ReferenceError: 'testWithBigIntTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/return-abrupt-from-start-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__return-abrupt-from-start-symbol.js: ReferenceError: 'testWithBigIntTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/return-abrupt-from-start.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__return-abrupt-from-start.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/set-values-from-different-ctor-type.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__set-values-from-different-ctor-type.js: ReferenceError: 'testWithBigIntType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-destination-resizable.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-destination-resizable.js: ReferenceError: 'testWithBigIntTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-ctor-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-ctor-abrupt.js: ReferenceError: 'testWithBigIntTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-ctor-inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-ctor-inherited.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-ctor-returns-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-ctor-returns-throws.js: ReferenceError: 'testWithBigIntType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-ctor.js: ReferenceError: 'testWithBigIntTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-abrupt.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor-invocation.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor-invocation.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor-length-throws-resizable-arraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor-length-throws-resizable-arraybuffer.js:"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor-length-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor-length-throws.js: ReferenceError: 'test"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor-length.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor-returns-another-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor-returns-another-instance.js: ReferenceE"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor-throws.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-custom-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-custom-ctor.js: ReferenceError: 'testWithBigIntType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-returns-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-returns-throws.js: ReferenceError: 'testWithBigIntT"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species-use-default-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species-use-default-ctor.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/speciesctor-get-species.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__speciesctor-get-species.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/tointeger-end.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__tointeger-end.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/BigInt/tointeger-start.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__BigInt__tointeger-start.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__arraylength-internal.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/bit-precision.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__bit-precision.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/coerced-start-end-grow.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__coerced-start-end-grow.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/coerced-start-end-shrink.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__coerced-start-end-shrink.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-other-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer-custom-ctor-other-targettype.js: ReferenceError: 'testWithTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-same-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer-custom-ctor-same-targettype.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer-get-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer-get-ctor.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer-speciesctor-get-species-custom-ctor-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer-speciesctor-get-species-custom-ctor-throws.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer-zero-count-custom-ctor-other-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer-zero-count-custom-ctor-other-targettype.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer-zero-count-custom-ctor-same-targettype.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer-zero-count-custom-ctor-same-targettype.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/infinity.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__infinity.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/minus-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__minus-zero.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/resize-count-bytes-to-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__resize-count-bytes-to-zero.js: ReferenceError: 'typedArrayConstructors' is not defi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/result-does-not-copy-ordinary-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__result-does-not-copy-ordinary-properties.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/results-with-different-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__results-with-different-length.js: ReferenceError: 'testWithTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/results-with-empty-length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__results-with-empty-length.js: ReferenceError: 'testWithTypedArrayConstructors' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/results-with-same-length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__results-with-same-length.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/return-abrupt-from-end-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__return-abrupt-from-end-symbol.js: ReferenceError: 'testWithTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/return-abrupt-from-end.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__return-abrupt-from-end.js: ReferenceError: 'testWithTypedArrayConstructors' is not "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/return-abrupt-from-start-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__return-abrupt-from-start-symbol.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/return-abrupt-from-start.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__return-abrupt-from-start.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/set-values-from-different-ctor-type.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__set-values-from-different-ctor-type.js: ReferenceError: 'testWithTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-destination-resizable.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-destination-resizable.js: ReferenceError: 'testWithTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-ctor-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-ctor-abrupt.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-ctor-inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-ctor-inherited.js: ReferenceError: 'testWithTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-ctor-returns-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-ctor-returns-throws.js: ReferenceError: 'testWithTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-ctor.js: ReferenceError: 'testWithTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-abrupt.js: ReferenceError: 'testWithTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor-invocation.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor-invocation.js: ReferenceError: 'testWithTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor-length-throws-resizable-arraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor-length-throws-resizable-arraybuffer.js: Referen"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor-length-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor-length-throws.js: ReferenceError: 'testWithType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor-length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor-length.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor-returns-another-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor-returns-another-instance.js: ReferenceError: 't"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor-throws.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-custom-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-custom-ctor.js: ReferenceError: 'testWithTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-returns-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-returns-throws.js: ReferenceError: 'testWithTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species-use-default-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species-use-default-ctor.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-get-species.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-get-species.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-resize.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-resize.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/speciesctor-return-same-buffer-with-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__speciesctor-return-same-buffer-with-offset.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/tointeger-end.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__tointeger-end.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/slice/tointeger-start.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__slice__tointeger-start.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    }
+  ]
+}

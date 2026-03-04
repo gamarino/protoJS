@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-03-04T15:13:04.214Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/values"
+  ],
+  "total": 21,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 19,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/iter-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__iter-prototype.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/return-itor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__return-itor.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/iter-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__iter-prototype.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/make-in-bounds-after-exhausted.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/make-out-of-bounds-after-exhausted.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/resizable-buffer-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__resizable-buffer-grow-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/resizable-buffer-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__resizable-buffer-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not defi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/return-itor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__return-itor.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not defined"
+    }
+  ]
+}

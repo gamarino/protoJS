@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-03-04T14:51:50.219Z",
+  "patterns": [
+    "built-ins/TypedArray/from"
+  ],
+  "total": 21,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 17,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/from/arylk-get-length-error.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__arylk-get-length-error.js: Test262Error: Expected a Test262Error but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/arylk-to-length-error.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__arylk-to-length-error.js: Test262Error: Expected a Test262Error but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/from-array-mapper-detaches-result.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__from-array-mapper-detaches-result.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/from-array-mapper-makes-result-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/from/from-typedarray-into-itself-mapper-detaches-result.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__from-typedarray-into-itself-mapper-detaches-result.js: ReferenceError: '$DETACHBUFFER' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/from/from-typedarray-into-itself-mapper-makes-result-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/from/from-typedarray-mapper-detaches-result.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__from-typedarray-mapper-detaches-result.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/from-typedarray-mapper-makes-result-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/from/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__invoked-as-method.js: Test262Error: Expected a TypeError but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/iter-access-error.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__iter-access-error.js: Test262Error: Expected a Test262Error but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/iter-invoke-error.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__iter-invoke-error.js: Test262Error: Expected a Test262Error but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/iter-next-error.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__iter-next-error.js: Test262Error: Expected a Test262Error but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/iter-next-value-error.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__iter-next-value-error.js: Test262Error: Expected a Test262Error but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/from/iterated-array-changed-by-tonumber.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/from/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/mapfn-is-not-callable.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__mapfn-is-not-callable.js: Test262Error: mapfn is null Expected a TypeError but got a ReferenceE"
+    },
+    {
+      "path": "built-ins/TypedArray/from/name.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/from/this-is-not-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__from__this-is-not-constructor.js: ReferenceError: 'TypedArray' is not defined"
+    }
+  ]
+}

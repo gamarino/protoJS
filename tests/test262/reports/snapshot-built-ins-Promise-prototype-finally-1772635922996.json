@@ -1,0 +1,218 @@
+{
+  "generatedAt": "2026-03-04T14:52:02.995Z",
+  "patterns": [
+    "built-ins/Promise/prototype/finally"
+  ],
+  "total": 29,
+  "summary": {
+    "passed": 13,
+    "failed_syntax": 0,
+    "failed_semantics": 16,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Promise/prototype/finally/invokes-then-with-function.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__invokes-then-with-function.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/invokes-then-with-non-function.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/is-a-function.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/is-a-method.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/rejected-observable-then-calls-PromiseResolve.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__rejected-observable-then-calls-PromiseResolve.js: ReferenceError: '$DONE' is not def"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/rejected-observable-then-calls-argument.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/rejected-observable-then-calls.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__rejected-observable-then-calls.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/rejection-reason-no-fulfill.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__rejection-reason-no-fulfill.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/rejection-reason-override-with-throw.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__rejection-reason-override-with-throw.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/resolution-value-no-override.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__resolution-value-no-override.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/resolved-observable-then-calls-PromiseResolve.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__resolved-observable-then-calls-PromiseResolve.js: ReferenceError: '$DONE' is not def"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/resolved-observable-then-calls-argument.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__resolved-observable-then-calls-argument.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/resolved-observable-then-calls.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__resolved-observable-then-calls.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/species-constructor-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/species-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__species-constructor.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/subclass-reject-count.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__subclass-reject-count.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/subclass-resolve-count.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__prototype__finally__subclass-resolve-count.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/subclass-species-constructor-reject-count.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/subclass-species-constructor-resolve-count.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/this-value-non-object.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/this-value-proxy.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/this-value-then-not-callable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/this-value-then-poisoned.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/this-value-then-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/prototype/finally/this-value-thenable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

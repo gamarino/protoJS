@@ -1,0 +1,127 @@
+{
+  "generatedAt": "2026-03-04T15:09:36.359Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/withCalendar"
+  ],
+  "total": 16,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 16,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-case-insensitive.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-case-insensitive.js: ReferenceError: 'Temporal' is not"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-invalid-iso-string.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-invalid-iso-string.js: ReferenceError: 'Temporal' is n"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-iso-string.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-iso-string.js: ReferenceError: 'Temporal' is not defin"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-string-leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-string-leap-second.js: ReferenceError: 'Temporal' is n"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-string.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-string.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-temporal-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-temporal-object.js: ReferenceError: 'Temporal' is not "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-time-string.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-time-string.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/calendar-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__calendar-wrong-type.js: ReferenceError: 'Temporal' is not defin"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/length.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/missing-argument.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__missing-argument.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/name.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__not-a-constructor.js: Test262Error: Calling as constructor Expe"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/withCalendar/subclassing-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__withCalendar__subclassing-ignored.js: ReferenceError: 'TemporalHelpers' is no"
+    }
+  ]
+}

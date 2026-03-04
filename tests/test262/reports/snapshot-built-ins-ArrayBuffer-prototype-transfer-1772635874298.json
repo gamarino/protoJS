@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-03-04T14:51:14.297Z",
+  "patterns": [
+    "built-ins/ArrayBuffer/prototype/transfer"
+  ],
+  "total": 24,
+  "summary": {
+    "passed": 18,
+    "failed_syntax": 0,
+    "failed_semantics": 6,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__transfer__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/extensible.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-larger-no-resizable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-larger.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-same-no-resizable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-same.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-smaller-no-resizable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-smaller.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-zero-no-resizable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-zero.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-larger.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-same.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-smaller.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-zero.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__transfer__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__transfer__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/new-length-excessive.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/new-length-non-number.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__transfer__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/this-is-detached.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__transfer__this-is-detached.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/this-is-immutable-arraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__transfer__this-is-immutable-arraybuffer.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/this-is-not-arraybuffer-object.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/transfer/this-is-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

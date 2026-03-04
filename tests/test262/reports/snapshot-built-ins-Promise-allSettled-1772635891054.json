@@ -1,0 +1,743 @@
+{
+  "generatedAt": "2026-03-04T14:51:31.054Z",
+  "patterns": [
+    "built-ins/Promise/allSettled"
+  ],
+  "total": 104,
+  "summary": {
+    "passed": 35,
+    "failed_syntax": 0,
+    "failed_semantics": 69,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Promise/allSettled/call-resolve-element-after-return.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__call-resolve-element-after-return.js: Test262Error: ReferenceError: 'checkSettledPromises' i"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/call-resolve-element-items.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__call-resolve-element-items.js: Test262Error: ReferenceError: 'checkSettledPromises' is not d"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/call-resolve-element.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__call-resolve-element.js: Test262Error: ReferenceError: 'checkSettledPromises' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/capability-executor-called-twice.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/capability-executor-not-callable.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/capability-resolve-throws-no-close.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/capability-resolve-throws-reject.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/ctx-ctor-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/ctx-ctor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/ctx-non-ctor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/ctx-non-object.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/does-not-invoke-array-setters.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__does-not-invoke-array-setters.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-error-close.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-resolve-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-get-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-resolve-get-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-get-error.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-resolve-get-error.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-get-once-multiple-calls.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-get-once-no-calls.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-on-promises-every-iteration-of-custom.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-resolve-on-promises-every-iteration-of-custom.js: ReferenceError: '$DONE' is not defi"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-on-promises-every-iteration-of-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-resolve-on-promises-every-iteration-of-promise.js: ReferenceError: '$DONE' is not def"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-on-values-every-iteration-of-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-resolve-on-values-every-iteration-of-promise.js: ReferenceError: '$DONE' is not defin"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve-return.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-resolve.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-then-error-close.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-then-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-then-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-then-get-error-close.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-then-get-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__invoke-then-get-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/invoke-then.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/is-function.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-false-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-false-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-null-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-null-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-number-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-number-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-poisoned.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-poisoned.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-string-resolve.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-string-resolve.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-symbol-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-symbol-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-true-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-true-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-arg-is-undefined-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-arg-is-undefined-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-false-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-false-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-null-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-null-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-number-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-number-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-string-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-string-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-symbol-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-symbol-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-true-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-true-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-assigned-undefined-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-assigned-undefined-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-next-err-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-next-err-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-next-val-err-no-close.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-next-val-err-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-next-val-err-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-false-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-false-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-null-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-null-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-number-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-number-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-string-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-string-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-symbol-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-symbol-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-true-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-true-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-returns-undefined-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-returns-undefined-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-step-err-no-close.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/iter-step-err-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__iter-step-err-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/new-reject-function.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/new-resolve-function.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-deferred.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__reject-deferred.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-extensible.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__reject-element-function-length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-multiple-calls.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__reject-element-function-name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-nonconstructor.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-property-order.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-element-function-prototype.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-ignored-deferred.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__reject-ignored-deferred.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-ignored-immed.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__reject-ignored-immed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/reject-immed.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__reject-immed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-before-loop-exit-from-same.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-before-loop-exit-from-same.js: ReferenceError: 'checkSettledPromises' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-before-loop-exit.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-before-loop-exit.js: Test262Error: ReferenceError: 'checkSettledPromises' is not def"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-element-function-extensible.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-element-function-length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-element-function-length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-element-function-name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-element-function-name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-element-function-nonconstructor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-element-function-property-order.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-element-function-prototype.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-from-same-thenable.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-from-same-thenable.js: ReferenceError: 'checkSettledPromises' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-ignores-late-rejection-deferred.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-ignores-late-rejection-deferred.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-ignores-late-rejection.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-ignores-late-rejection.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-non-callable.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-non-callable.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-non-thenable.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-non-thenable.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-not-callable-reject-with-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-not-callable-reject-with-typeerror.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-poisoned-then.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-thenable.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolve-thenable.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-throws-iterator-return-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolve-throws-iterator-return-null-or-undefined.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-all-fulfilled.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-all-fulfilled.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-all-mixed.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-all-mixed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-all-rejected.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-all-rejected.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-immed.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-immed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-sequence-extra-ticks.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-sequence-extra-ticks.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-sequence-mixed.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-sequence-mixed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-sequence-with-rejections.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-sequence-with-rejections.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-sequence.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolved-then-catch-finally.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolved-then-catch-finally.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolves-empty-array.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolves-empty-array.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/resolves-to-array.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__allSettled__resolves-to-array.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/allSettled/returns-promise.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/allSettled/species-get-error.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

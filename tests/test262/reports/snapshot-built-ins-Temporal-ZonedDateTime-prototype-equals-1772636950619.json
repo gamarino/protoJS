@@ -1,0 +1,393 @@
+{
+  "generatedAt": "2026-03-04T15:09:10.618Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/equals"
+  ],
+  "total": 54,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 54,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-object.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-object.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-case-insensitive.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-case-insensitive.js: ReferenceError: 'T"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-invalid-iso-string.js",
+      "result": "failed_semantics",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-invalid-iso-string.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-iso-string.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-iso-string.js: ReferenceError: 'Tempora"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-leap-second.js: ReferenceError: 'Tempor"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-string.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-string.js: ReferenceError: 'Temporal' i"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-wrong-type.js: ReferenceError: 'Tempora"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-calendar-year-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-calendar-year-zero.js: ReferenceError: 'Temporal"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-invalid-offset-string.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-invalid-offset-string.js: ReferenceError: 'Tempo"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-offset-not-agreeing-with-timezone.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-offset-not-agreeing-with-timezone.js: ReferenceE"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-optional-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-optional-properties.js: ReferenceError: 'Tempora"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-case-insensitive.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-case-insensitive.js: ReferenceError: 'T"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-normalize-offset-strings.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-normalize-offset-strings.js: ReferenceE"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-string-datetime.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-string-datetime.js: ReferenceError: 'Te"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-string-leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-string-leap-second.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-string-multiple-offsets.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-string-multiple-offsets.js: ReferenceEr"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-string-sub-minute-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-string-sub-minute-offset.js: ReferenceE"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-string-year-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-string-year-zero.js: ReferenceError: 'T"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-string.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-string.js: ReferenceError: 'Temporal' i"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-propertybag-timezone-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-propertybag-timezone-wrong-type.js: ReferenceError: 'Tempora"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-calendar-annotation-invalid-key.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-calendar-annotation-invalid-key.js: ReferenceError: '"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-calendar-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-calendar-annotation.js: ReferenceError: 'Temporal' is"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-calendar-invalid-iso-string.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-calendar-invalid-iso-string.js: ReferenceError: 'Temp"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-critical-unknown-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-critical-unknown-annotation.js: ReferenceError: 'Temp"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-date-with-utc-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-date-with-utc-offset.js: ReferenceError: 'Temporal' i"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-limits.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-limits.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-minus-sign.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-minus-sign.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-multiple-calendar.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-multiple-calendar.js: ReferenceError: 'Temporal' is n"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-multiple-time-zone.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-multiple-time-zone.js: ReferenceError: 'Temporal' is "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-sub-minute-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-sub-minute-offset.js: ReferenceError: 'Temporal' is n"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-time-separators.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-time-separators.js: ReferenceError: 'Temporal' is not"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-time-zone-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-time-zone-annotation.js: ReferenceError: 'Temporal' i"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-string-unknown-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-string-unknown-annotation.js: ReferenceError: 'Temporal' is "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-valid.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-valid.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/argument-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__argument-wrong-type.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/calendar-temporal-object.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__calendar-temporal-object.js: ReferenceError: 'TemporalHelpers' is not"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/casts-argument.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__casts-argument.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/constructed-from-equivalent-parameters-are-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__constructed-from-equivalent-parameters-are-equal.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/different-instant-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__different-instant-not-equal.js: ReferenceError: 'Temporal' is not def"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/different-time-zone-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__different-time-zone-not-equal.js: ReferenceError: 'Temporal' is not d"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/infinity-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__infinity-throws-rangeerror.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__leap-second.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/name.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/no-fractional-minutes-hours.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__no-fractional-minutes-hours.js: ReferenceError: 'Temporal' is not def"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__not-a-constructor.js: Test262Error: Calling as constructor Expected a"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/order-of-operations.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__order-of-operations.js: ReferenceError: 'TemporalHelpers' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/requires-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__requires-properties.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/year-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__year-zero.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/zoneddatetime-string-multiple-offsets.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__zoneddatetime-string-multiple-offsets.js: ReferenceError: 'Temporal' "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/equals/zoneddatetime-string.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__equals__zoneddatetime-string.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

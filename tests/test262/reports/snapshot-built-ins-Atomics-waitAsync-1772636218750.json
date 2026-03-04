@@ -1,0 +1,722 @@
+{
+  "generatedAt": "2026-03-04T14:56:58.750Z",
+  "patterns": [
+    "built-ins/Atomics/waitAsync"
+  ],
+  "total": 101,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 101,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/waitAsync/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bad-range.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expected Sa"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__bad-range.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Exp"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/false-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__false-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/false-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__false-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__good-views.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Ex"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/nan-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__nan-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/negative-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__negative-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/negative-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__negative-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/negative-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__negative-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-no-operation.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-no-operation.js: Test262Error: The value of `typeof Atomics.waitAs"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-add.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-add.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-and.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-and.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-compareExchange.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-compareExchange.js: Test262Error: The value of `typeof Atomics."
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-exchange.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-exchange.js: Test262Error: The value of `typeof Atomics.waitAsy"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-or.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-or.js: Test262Error: The value of `typeof Atomics.waitAsync` is"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-store.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-store.js: Test262Error: The value of `typeof Atomics.waitAsync`"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-sub.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-sub.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-xor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-xor.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/non-bigint64-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__non-bigint64-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsy"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/non-shared-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__non-shared-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/not-a-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__not-a-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/not-an-object-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__not-an-object-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fu"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__null-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/null-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__null-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/null-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__null-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/object-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__object-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/object-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__object-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"func"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/out-of-range-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__out-of-range-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/poisoned-object-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__poisoned-object-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/poisoned-object-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__poisoned-object-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.wai"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-index-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-index-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAs"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-value-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-value-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-value-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/true-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__true-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/true-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__true-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/undefined-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__undefined-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync`"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/undefined-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__undefined-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/undefined-index-defaults-to-zero-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__undefined-index-defaults-to-zero-agent.js: Test262Error: The value of `typeof Atomics"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/value-not-equal-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__value-not-equal-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__value-not-equal.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/waiterlist-block-indexedposition-wake.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__waiterlist-block-indexedposition-wake.js: Test262Error: The value of `typeof Atomics."
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/was-woken-before-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__was-woken-before-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/false-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__false-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/false-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__false-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Exp"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__good-views.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expected S"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/implicit-infinity-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__implicit-infinity-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/is-function.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__is-function.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expected "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/nan-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__nan-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/negative-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__negative-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/negative-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__negative-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/negative-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__negative-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expe"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-no-operation.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-no-operation.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-add.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-add.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-and.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-and.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-compareExchange.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-compareExchange.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-exchange.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-exchange.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-or.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-or.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-store.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-store.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fun"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-sub.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-sub.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-xor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-xor.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/non-int32-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__non-int32-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fun"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/non-shared-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__non-shared-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fu"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/not-a-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__not-a-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/not-an-object-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__not-an-object-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__null-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/null-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__null-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/null-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__null-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expe"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/object-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__object-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/object-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__object-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Ex"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/out-of-range-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__out-of-range-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/poisoned-object-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__poisoned-object-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomics.waitA"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/poisoned-object-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__poisoned-object-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/retrieve-length-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__retrieve-length-before-index-coercion.js: Test262Error: Expected a RangeError but got a TypeE"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-promise-resolves-to-ok.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-promise-resolves-to-ok.js: Test262Error: The value of `typeof "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-promise-resolves-to-timed-out.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-promise-resolves-to-timed-out.js: Test262Error: The value of `"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-string-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-string-not-equal.js: Test262Error: The value of `typeof Atomic"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-string-timed-out.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-string-timed-out.js: Test262Error: The value of `typeof Atomic"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-index-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-index-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-value-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-value-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-value-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/true-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__true-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/true-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__true-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expe"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/undefined-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__undefined-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fun"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/undefined-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__undefined-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/undefined-index-defaults-to-zero-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__undefined-index-defaults-to-zero-agent.js: Test262Error: The value of `typeof Atomics.waitAsy"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__validate-arraytype-before-index-coercion.js: Test262Error: The value of `typeof Atomics.waitA"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/validate-arraytype-before-timeout-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__validate-arraytype-before-timeout-coercion.js: Test262Error: The value of `typeof Atomics.wai"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__validate-arraytype-before-value-coercion.js: Test262Error: The value of `typeof Atomics.waitA"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/value-not-equal-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__value-not-equal-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__value-not-equal.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expec"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__waiterlist-block-indexedposition-wake.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__was-woken-before-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    }
+  ]
+}

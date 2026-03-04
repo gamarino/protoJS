@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T14:56:54.005Z",
+  "patterns": [
+    "built-ins/Atomics/sub/bigint"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/sub/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    }
+  ]
+}

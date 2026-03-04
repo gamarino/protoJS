@@ -1,0 +1,484 @@
+{
+  "generatedAt": "2026-03-04T14:58:21.368Z",
+  "patterns": [
+    "built-ins/ShadowRealm"
+  ],
+  "total": 67,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 3,
+    "failed_semantics": 63,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/length-throws-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__length-throws-typeerror.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__length.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/name-throws-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__name-throws-typeerror.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__name.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/throws-typeerror-on-revoked-proxy.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__throws-typeerror-on-revoked-proxy.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__constructor.js: Test262Error: This test must fail if ShadowRealm is not a function Expected SameValu"
+    },
+    {
+      "path": "built-ins/ShadowRealm/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/extensibility.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__extensibility.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/instance-extensibility.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__instance-extensibility.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/instance.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__instance.js: Test262Error: This test must fail if ShadowRealm is not a function Expected SameValue(«"
+    },
+    {
+      "path": "built-ins/ShadowRealm/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__proto.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/Symbol.toStringTag.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__Symbol.toStringTag.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/errors-from-the-other-realm-is-wrapped-into-a-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__errors-from-the-other-realm-is-wrapped-into-a-typeerror.js: ReferenceError: 'Sh"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/globalthis-available-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__globalthis-available-properties.js: ReferenceError: 'ShadowRealm' is not define"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/globalthis-config-only-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__globalthis-config-only-properties.js: ReferenceError: 'ShadowRealm' is not defi"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/globalthis-ordinary-object.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__globalthis-ordinary-object.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/nested-realms.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__nested-realms.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/no-conditional-strict-mode.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__no-conditional-strict-mode.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/not-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__not-constructor.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__proto.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/returns-primitive-values.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__returns-primitive-values.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/returns-proxy-callable-object.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__returns-proxy-callable-object.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/returns-symbol-values.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__returns-symbol-values.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/throws-error-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__throws-error-from-ctor-realm.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/throws-syntaxerror-on-bad-syntax.js",
+      "result": "failed_syntax",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__throws-syntaxerror-on-bad-syntax.js: ReferenceError: 'ShadowRealm' is not defin"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/throws-typeerror-if-evaluation-resolves-to-non-primitive.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__throws-typeerror-if-evaluation-resolves-to-non-primitive.js: ReferenceError: 'S"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/throws-typeerror-wrap-throwing.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__throws-typeerror-wrap-throwing.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/throws-when-argument-is-not-a-string.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__throws-when-argument-is-not-a-string.js: ReferenceError: 'ShadowRealm' is not d"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/validates-realm-object.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__validates-realm-object.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-arguments-are-wrapped-into-the-inner-realm-extended.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-arguments-are-wrapped-into-the-inner-realm-extended.js: Refere"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-arguments-are-wrapped-into-the-inner-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-arguments-are-wrapped-into-the-inner-realm.js: ReferenceError:"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-from-return-values-share-no-identity.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-from-return-values-share-no-identity.js: ReferenceError: 'Shad"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-multiple-different-realms-nested.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-multiple-different-realms-nested.js: ReferenceError: 'ShadowRe"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-multiple-different-realms.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-multiple-different-realms.js: ReferenceError: 'ShadowRealm' is"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-observing-their-scopes.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-observing-their-scopes.js: ReferenceError: 'ShadowRealm' is no"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-proto-from-caller-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-proto-from-caller-realm.js: ReferenceError: 'ShadowRealm' is n"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-proxied-observes-boundary.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-proxied-observes-boundary.js: ReferenceError: 'ShadowRealm' is"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-throws-typeerror-from-caller-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-throws-typeerror-from-caller-realm.js: ReferenceError: 'Shadow"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-throws-typeerror-on-exceptional-exit.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-throws-typeerror-on-exceptional-exit.js: ReferenceError: 'Shad"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-throws-typeerror-on-non-primitive-arguments.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-throws-typeerror-on-non-primitive-arguments.js: ReferenceError"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-throws-typeerror-on-non-primitive-returns.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-function-throws-typeerror-on-non-primitive-returns.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-accepts-callable-objects.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-functions-accepts-callable-objects.js: ReferenceError: 'ShadowRealm' is"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-can-resolve-callable-returns.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-functions-can-resolve-callable-returns.js: ReferenceError: 'ShadowRealm"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-new-wrapping-on-each-evaluation.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-functions-new-wrapping-on-each-evaluation.js: ReferenceError: 'ShadowRe"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-share-no-properties-extended.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-functions-share-no-properties-extended.js: ReferenceError: 'ShadowRealm"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-share-no-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__evaluate__wrapped-functions-share-no-properties.js: ReferenceError: 'ShadowRealm' is not "
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__import-value.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_FIXTURE.js",
+      "result": "failed_syntax",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__import-value_FIXTURE.js: SyntaxError: unsupported keyword: export"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_syntax_error_FIXTURE.js",
+      "result": "failed_syntax",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__import-value_syntax_error_FIXTURE.js: SyntaxError: expecting ';'"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_throws_FIXTURE.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/not-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__not-constructor.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__proto.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/specifier-tostring.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__specifier-tostring.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-if-exportname-not-string.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-if-exportname-not-string.js: ReferenceError: 'ShadowRealm' is not def"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-if-import-value-does-not-exist.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-if-import-value-does-not-exist.js: ReferenceError: 'ShadowRealm' is n"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-syntax-error.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-typeerror-import-syntax-error.js: ReferenceError: 'ShadowRealm' is no"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__throws-typeerror-import-throws.js: ReferenceError: 'ShadowRealm' is not defi"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/validates-realm-object.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__importValue__validates-realm-object.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__prototype__proto.js: ReferenceError: 'ShadowRealm' is not defined"
+    }
+  ]
+}

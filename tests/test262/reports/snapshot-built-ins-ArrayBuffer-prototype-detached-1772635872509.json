@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T14:51:12.509Z",
+  "patterns": [
+    "built-ins/ArrayBuffer/prototype/detached"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 5,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/detached-buffer-resizable.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__detached__detached-buffer-resizable.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__detached__detached-buffer.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/invoked-as-accessor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__detached__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__detached__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayBuffer__prototype__detached__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/this-has-no-arraybufferdata-internal.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/this-is-sharedarraybuffer-resizable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/detached/this-is-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

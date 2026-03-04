@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-04T15:12:08.692Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/findLast/BigInt"
+  ],
+  "total": 13,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 13,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/get-length-ignores-length-prop.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__get-length-ignores-length-prop.js: ReferenceError: 'TypedArray' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-call-changes-value.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-call-changes-value.js: ReferenceError: 'testWithBigIntTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-call-parameters.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-call-parameters.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-call-this-non-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-call-this-non-strict.js: ReferenceError: 'testWithBigIntTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-call-this-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-call-this-strict.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-is-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-is-not-callable-throws.js: ReferenceError: 'testWithBigIntType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-may-detach-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-may-detach-buffer.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/predicate-not-called-on-empty-array.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__predicate-not-called-on-empty-array.js: ReferenceError: 'testWithBigIntT"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/return-abrupt-from-predicate-call.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__return-abrupt-from-predicate-call.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/return-found-value-predicate-result-is-true.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__return-found-value-predicate-result-is-true.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/findLast/BigInt/return-undefined-if-predicate-returns-false-value.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__findLast__BigInt__return-undefined-if-predicate-returns-false-value.js: ReferenceError: 't"
+    }
+  ]
+}

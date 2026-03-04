@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-03-04T15:12:58.071Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/Symbol.toStringTag"
+  ],
+  "total": 18,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 18,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/invoked-as-accessor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__invoked-as-accessor.js: ReferenceError: 'TypedArray' is not de"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__invoked-as-func.js: ReferenceError: 'TypedArray' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__length.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__name.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/return-typedarrayname.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__return-typedarrayname.js: ReferenceError: 'testWithBigIntTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/this-has-no-typedarrayname-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__this-has-no-typedarrayname-internal.js: ReferenceError: 'Typed"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__BigInt__this-is-not-object.js: ReferenceError: 'TypedArray' is not def"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/invoked-as-accessor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__invoked-as-accessor.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__length.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__name.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/return-typedarrayname.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__return-typedarrayname.js: ReferenceError: 'testWithTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/this-has-no-typedarrayname-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__this-has-no-typedarrayname-internal.js: ReferenceError: 'TypedArray' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.toStringTag__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    }
+  ]
+}

@@ -1,0 +1,281 @@
+{
+  "generatedAt": "2026-03-04T15:12:03.619Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/find"
+  ],
+  "total": 38,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 38,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/get-length-ignores-length-prop.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__get-length-ignores-length-prop.js: ReferenceError: 'TypedArray' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-changes-value.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-call-changes-value.js: ReferenceError: 'testWithBigIntTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-parameters.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-call-parameters.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-this-non-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-call-this-non-strict.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-this-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-call-this-strict.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-is-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-is-not-callable-throws.js: ReferenceError: 'testWithBigIntTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-may-detach-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-may-detach-buffer.js: ReferenceError: 'testWithBigIntTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-not-called-on-empty-array.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__predicate-not-called-on-empty-array.js: ReferenceError: 'testWithBigIntTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-abrupt-from-predicate-call.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__return-abrupt-from-predicate-call.js: ReferenceError: 'testWithBigIntTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-found-value-predicate-result-is-true.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__return-found-value-predicate-result-is-true.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-undefined-if-predicate-returns-false-value.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__BigInt__return-undefined-if-predicate-returns-false-value.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/callbackfn-resize.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__callbackfn-resize.js: ReferenceError: 'testWithTypedArrayConstructors' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/get-length-ignores-length-prop.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__get-length-ignores-length-prop.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-call-changes-value.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-call-changes-value.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-call-parameters.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-call-parameters.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-call-this-non-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-call-this-non-strict.js: ReferenceError: 'testWithTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-call-this-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-call-this-strict.js: ReferenceError: 'testWithTypedArrayConstructors' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-is-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-is-not-callable-throws.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-may-detach-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-may-detach-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/predicate-not-called-on-empty-array.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__predicate-not-called-on-empty-array.js: ReferenceError: 'testWithTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/resizable-buffer-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__resizable-buffer-grow-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/resizable-buffer-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__resizable-buffer-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/return-abrupt-from-predicate-call.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__return-abrupt-from-predicate-call.js: ReferenceError: 'testWithTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/return-found-value-predicate-result-is-true.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__return-found-value-predicate-result-is-true.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/return-undefined-if-predicate-returns-false-value.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__return-undefined-if-predicate-returns-false-value.js: ReferenceError: 'testWithTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__find__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not defined"
+    }
+  ]
+}

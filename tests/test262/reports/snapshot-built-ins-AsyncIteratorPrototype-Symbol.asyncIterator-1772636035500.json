@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T14:53:55.500Z",
+  "patterns": [
+    "built-ins/AsyncIteratorPrototype/Symbol.asyncIterator"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncIteratorPrototype/Symbol.asyncIterator/length.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncIteratorPrototype__Symbol.asyncIterator__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncIteratorPrototype/Symbol.asyncIterator/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncIteratorPrototype__Symbol.asyncIterator__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncIteratorPrototype/Symbol.asyncIterator/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncIteratorPrototype__Symbol.asyncIterator__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncIteratorPrototype/Symbol.asyncIterator/return-val.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

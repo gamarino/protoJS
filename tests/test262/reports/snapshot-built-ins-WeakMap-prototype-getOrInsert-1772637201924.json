@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-03-04T15:13:21.924Z",
+  "patterns": [
+    "built-ins/WeakMap/prototype/getOrInsert"
+  ],
+  "total": 17,
+  "summary": {
+    "passed": 13,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/adds-object-element.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/adds-symbol-element.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/does-not-have-weakmapdata-internal-slot-array.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/does-not-have-weakmapdata-internal-slot-map.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/does-not-have-weakmapdata-internal-slot-object.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/does-not-have-weakmapdata-internal-slot-set.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/does-not-have-weakmapdata-internal-slot-weakmap-prototype.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/getOrInsert.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__WeakMap__prototype__getOrInsert__getOrInsert.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/length.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__WeakMap__prototype__getOrInsert__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__WeakMap__prototype__getOrInsert__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__WeakMap__prototype__getOrInsert__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-not-present-object-key.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-not-present-symbol-key.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-present-object-key.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-present-symbol-key.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/this-not-object-throw.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/getOrInsert/throw-if-key-cannot-be-held-weakly.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

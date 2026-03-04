@@ -1,0 +1,274 @@
+{
+  "generatedAt": "2026-03-04T15:06:55.933Z",
+  "patterns": [
+    "built-ins/RegExp/property-escapes/generated/strings"
+  ],
+  "total": 28,
+  "summary": {
+    "passed": 21,
+    "failed_syntax": 0,
+    "failed_semantics": 7,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Basic_Emoji-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Basic_Emoji-negative-CharacterClass.js: SyntaxError: negated charac"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Basic_Emoji-negative-P.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Basic_Emoji-negative-P.js: SyntaxError: unknown unicode property na"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Basic_Emoji-negative-u.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Basic_Emoji-negative-u.js: SyntaxError: unknown unicode property na"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Basic_Emoji.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Basic_Emoji.js: ReferenceError: 'testPropertyOfStrings' is not defi"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Emoji_Keycap_Sequence-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Emoji_Keycap_Sequence-negative-CharacterClass.js: SyntaxError: nega"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Emoji_Keycap_Sequence-negative-P.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Emoji_Keycap_Sequence-negative-P.js: SyntaxError: unknown unicode p"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Emoji_Keycap_Sequence-negative-u.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Emoji_Keycap_Sequence-negative-u.js: SyntaxError: unknown unicode p"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/Emoji_Keycap_Sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__Emoji_Keycap_Sequence.js: ReferenceError: 'testPropertyOfStrings' i"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji-negative-CharacterClass.js: SyntaxError: negated characte"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji-negative-P.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji-negative-P.js: SyntaxError: unknown unicode property name"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji-negative-u.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji-negative-u.js: SyntaxError: unknown unicode property name"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji.js: ReferenceError: 'testPropertyOfStrings' is not define"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Flag_Sequence-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Flag_Sequence-negative-CharacterClass.js: SyntaxError: ne"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Flag_Sequence-negative-P.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Flag_Sequence-negative-P.js: SyntaxError: unknown unicode"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Flag_Sequence-negative-u.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Flag_Sequence-negative-u.js: SyntaxError: unknown unicode"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Flag_Sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Flag_Sequence.js: ReferenceError: 'testPropertyOfStrings'"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Modifier_Sequence-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Modifier_Sequence-negative-CharacterClass.js: SyntaxError"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Modifier_Sequence-negative-P.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Modifier_Sequence-negative-P.js: SyntaxError: unknown uni"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Modifier_Sequence-negative-u.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Modifier_Sequence-negative-u.js: SyntaxError: unknown uni"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Modifier_Sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Modifier_Sequence.js: ReferenceError: 'testPropertyOfStri"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Tag_Sequence-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Tag_Sequence-negative-CharacterClass.js: SyntaxError: neg"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Tag_Sequence-negative-P.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Tag_Sequence-negative-P.js: SyntaxError: unknown unicode "
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Tag_Sequence-negative-u.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Tag_Sequence-negative-u.js: SyntaxError: unknown unicode "
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_Tag_Sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_Tag_Sequence.js: ReferenceError: 'testPropertyOfStrings' "
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_ZWJ_Sequence-negative-CharacterClass.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_ZWJ_Sequence-negative-CharacterClass.js: SyntaxError: neg"
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_ZWJ_Sequence-negative-P.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_ZWJ_Sequence-negative-P.js: SyntaxError: unknown unicode "
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_ZWJ_Sequence-negative-u.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_ZWJ_Sequence-negative-u.js: SyntaxError: unknown unicode "
+    },
+    {
+      "path": "built-ins/RegExp/property-escapes/generated/strings/RGI_Emoji_ZWJ_Sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__property-escapes__generated__strings__RGI_Emoji_ZWJ_Sequence.js: ReferenceError: 'testPropertyOfStrings' "
+    }
+  ]
+}

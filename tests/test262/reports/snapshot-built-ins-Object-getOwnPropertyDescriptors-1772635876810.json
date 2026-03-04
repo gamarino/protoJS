@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-03-04T14:51:16.809Z",
+  "patterns": [
+    "built-ins/Object/getOwnPropertyDescriptors"
+  ],
+  "total": 18,
+  "summary": {
+    "passed": 12,
+    "failed_syntax": 0,
+    "failed_semantics": 6,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/exception-not-object-coercible.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/function-length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptors__function-length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/function-name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptors__function-name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/function-property-descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptors__function-property-descriptor.js: ReferenceError: 'verifyProperty' is not defin"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/inherited-properties-omitted.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/normal-object.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptors__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/observable-operations.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptors__observable-operations.js: ReferenceError: 'allowProxyTraps' is not defined"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/order-after-define-property.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/primitive-booleans.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/primitive-numbers.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/primitive-strings.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/primitive-symbols.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/proxy-no-ownkeys-returned-keys-order.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/proxy-undefined-descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptors__proxy-undefined-descriptor.js: ReferenceError: 'allowProxyTraps' is not define"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/symbols-included.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/tamper-with-global-object.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptors/tamper-with-object-keys.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

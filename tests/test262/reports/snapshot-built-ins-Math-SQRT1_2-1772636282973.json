@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T14:58:02.972Z",
+  "patterns": [
+    "built-ins/Math/SQRT1_2"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Math/SQRT1_2/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Math__SQRT1_2__prop-desc.js: ReferenceError: 'verifyNotEnumerable' is not defined"
+    },
+    {
+      "path": "built-ins/Math/SQRT1_2/value.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

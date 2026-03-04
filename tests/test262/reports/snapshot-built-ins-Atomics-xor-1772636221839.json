@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T14:57:01.839Z",
+  "patterns": [
+    "built-ins/Atomics/xor"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 14,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/xor/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/xor/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/xor/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/xor/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/Atomics/xor/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/xor/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    }
+  ]
+}

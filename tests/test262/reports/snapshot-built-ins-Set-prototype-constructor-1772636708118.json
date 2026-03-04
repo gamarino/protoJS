@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T15:05:08.118Z",
+  "patterns": [
+    "built-ins/Set/prototype/constructor"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Set/prototype/constructor/set-prototype-constructor-intrinsic.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Set/prototype/constructor/set-prototype-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Set__prototype__constructor__set-prototype-constructor.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

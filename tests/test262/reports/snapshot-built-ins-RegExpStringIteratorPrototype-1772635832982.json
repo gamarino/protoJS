@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-03-04T14:50:32.982Z",
+  "patterns": [
+    "built-ins/RegExpStringIteratorPrototype"
+  ],
+  "total": 17,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 7,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/Symbol.toStringTag.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__Symbol.toStringTag.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/ancestry.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec-call-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec-get-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec-match-get-0-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec-match-get-0-tostring-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec-match-get-0-tostring.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec-not-callable.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__next__custom-regexpexec-not-callable.js: ReferenceError: 'matchValidator' is not d"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/custom-regexpexec.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__next__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__next__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/next-iteration-global.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__next__next-iteration-global.js: ReferenceError: 'matchValidator' is not defined"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/next-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__next__next-iteration.js: ReferenceError: 'matchValidator' is not defined"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/next-missing-internal-slots.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExpStringIteratorPrototype__next__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/regexp-tolength-lastindex-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExpStringIteratorPrototype/next/this-is-not-object-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

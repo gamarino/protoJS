@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T14:50:55.973Z",
+  "patterns": [
+    "built-ins/AsyncGeneratorFunction/prototype"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/Symbol.toStringTag.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__Symbol.toStringTag.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__constructor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/extensibility.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/not-callable.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__prototype.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T15:09:14.450Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/millisecond"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/millisecond/balance-negative-time-units.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__millisecond__balance-negative-time-units.js: ReferenceError: 'Temporal' is no"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/millisecond/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__millisecond__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/millisecond/negative-epochnanoseconds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__millisecond__negative-epochnanoseconds.js: ReferenceError: 'Temporal' is not "
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/millisecond/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__millisecond__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

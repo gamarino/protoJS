@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T15:01:33.759Z",
+  "patterns": [
+    "built-ins/Temporal/Now/plainTimeISO"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 10,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/length.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/return-value.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__return-value.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/timezone-string-datetime.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__timezone-string-datetime.js: Test262Error: bare date-time string is not a time zone "
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/timezone-string-leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__timezone-string-leap-second.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/timezone-string-sub-minute-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__timezone-string-sub-minute-offset.js: Test262Error: -12:12:59.9 is not a valid time "
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/timezone-string-year-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__timezone-string-year-zero.js: Test262Error: reject minus zero as extended year Expec"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/timezone-string.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__timezone-string.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/timezone-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__timezone-wrong-type.js: Test262Error: null does not convert to a valid ISO string Ex"
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainTimeISO/toPlainTime-override.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Now__plainTimeISO__toPlainTime-override.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

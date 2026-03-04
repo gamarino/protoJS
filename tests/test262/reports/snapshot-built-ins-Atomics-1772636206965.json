@@ -1,0 +1,2689 @@
+{
+  "generatedAt": "2026-03-04T14:56:46.964Z",
+  "patterns": [
+    "built-ins/Atomics"
+  ],
+  "total": 382,
+  "summary": {
+    "passed": 54,
+    "failed_syntax": 0,
+    "failed_semantics": 328,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/Symbol.toStringTag.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__Symbol.toStringTag.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/add/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/add/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/add/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/Atomics/add/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/add/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/add/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__add__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/and/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/and/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/and/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/and/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/Atomics/and/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/and/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/and/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__and__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayCo"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/validate-arraytype-before-expectedValue-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__validate-arraytype-before-expectedValue-coercion.js: ReferenceError: 'nonAtomicsFriendl"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedAr"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/validate-arraytype-before-replacementValue-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__validate-arraytype-before-replacementValue-coercion.js: ReferenceError: 'nonAtomicsFrie"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/exchange/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/name.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is n"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/nonshared-int-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__nonshared-int-views.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/Atomics/exchange/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayCons"
+    },
+    {
+      "path": "built-ins/Atomics/exchange/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__exchange__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayCons"
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/bigint/expected-return-value.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__isLockFree__bigint__expected-return-value.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/corner-cases.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__isLockFree__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__isLockFree__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__isLockFree__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/isLockFree/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__isLockFree__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/load/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/load/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not d"
+    },
+    {
+      "path": "built-ins/Atomics/load/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/Atomics/load/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/load/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__load__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/Atomics/notify/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bad-range.js: ReferenceError: 'testWithAtomicsOutOfBoundsIndices' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bigint__bad-range.js: ReferenceError: 'testWithAtomicsOutOfBoundsIndices' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-bigint64-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-count-evaluation-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-index-evaluation-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-non-shared-int-views-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/non-shared-bufferdata-returns-0.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/notify-all-on-loc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bigint__notify-all-on-loc.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/bigint/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__bigint__null-bufferdata-throws.js: Test262Error: An unexpected error occurred when detaching Arr"
+    },
+    {
+      "path": "built-ins/Atomics/notify/count-boundary-cases.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/count-defaults-to-infinity-missing.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__count-defaults-to-infinity-missing.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/count-defaults-to-infinity-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__count-defaults-to-infinity-undefined.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/count-from-nans.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__count-from-nans.js: ReferenceError: 'NaNs' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/count-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/count-tointeger-throws-then-wake-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/negative-count.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__negative-count.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/negative-index-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-int32-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-shared-bufferdata-count-evaluation-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-shared-bufferdata-index-evaluation-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-shared-bufferdata-non-shared-int-views-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-shared-bufferdata-returns-0.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-shared-int-views.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/not-a-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/not-an-object-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-all-on-loc.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-all-on-loc.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-all.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-all.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-in-order-one-time.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-in-order-one-time.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-in-order.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-in-order.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-nan.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-nan.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-one.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-one.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-renotify-noop.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-renotify-noop.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-two.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-two.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-with-no-agents-waiting.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-with-no-agents-waiting.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-with-no-matching-agents-waiting.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-with-no-matching-agents-waiting.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/notify-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__notify-zero.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__null-bufferdata-throws.js: Test262Error: An unexpected error occurred when detaching ArrayBuffer"
+    },
+    {
+      "path": "built-ins/Atomics/notify/out-of-range-index-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-detached.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__retrieve-length-before-index-coercion-non-shared-detached.js: ReferenceError: '$DETACHBUFFER' is"
+    },
+    {
+      "path": "built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-resize-to-zero.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/retrieve-length-before-index-coercion.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/symbol-for-index-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/notify/undefined-index-defaults-to-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__undefined-index-defaults-to-zero.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/notify/validate-arraytype-before-count-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__validate-arraytype-before-count-coercion.js: ReferenceError: 'typedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/notify/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__notify__validate-arraytype-before-index-coercion.js: ReferenceError: 'typedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/or/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defi"
+    },
+    {
+      "path": "built-ins/Atomics/or/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/or/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/length.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/or/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' i"
+    },
+    {
+      "path": "built-ins/Atomics/or/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/or/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/Atomics/or/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__or__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/Atomics/pause/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__pause__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/pause/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__pause__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/pause/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__pause__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/pause/non-integral-iterationnumber-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/pause/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__pause__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/pause/returns-undefined.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/proto.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/store/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not d"
+    },
+    {
+      "path": "built-ins/Atomics/store/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/expected-return-value-negative-zero.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/store/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/store/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/length.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not "
+    },
+    {
+      "path": "built-ins/Atomics/store/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/Atomics/store/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/Atomics/store/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/Atomics/sub/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/sub/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/sub/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/sub/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/Atomics/sub/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/sub/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/sub/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__sub__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bad-range.js: ReferenceError: 'testWithAtomicsOutOfBoundsIndices' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__bad-range.js: ReferenceError: 'testWithAtomicsOutOfBoundsIndices' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/cannot-suspend-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/false-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__false-for-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/false-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__false-for-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/nan-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__nan-for-timeout.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/negative-index-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/negative-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__negative-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/negative-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__negative-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-no-operation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-no-operation.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-add.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-add.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-and.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-and.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-compareExchange.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-compareExchange.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-exchange.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-exchange.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-or.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-or.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-store.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-store.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-sub.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-sub.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-xor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__no-spurious-wakeup-on-xor.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/non-bigint64-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/non-shared-bufferdata-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__null-bufferdata-throws.js: Test262Error: An unexpected error occurred when detaching Array"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/out-of-range-index-throws.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__value-not-equal.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/waiterlist-block-indexedposition-wake.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__waiterlist-block-indexedposition-wake.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/waiterlist-order-of-operations-is-fifo.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__waiterlist-order-of-operations-is-fifo.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/bigint/was-woken-before-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__bigint__was-woken-before-timeout.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/cannot-suspend-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/false-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__false-for-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/false-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__false-for-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__good-views.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/nan-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__nan-for-timeout.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/negative-index-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/negative-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__negative-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/negative-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__negative-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-no-operation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-no-operation.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-add.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-add.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-and.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-and.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-compareExchange.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-compareExchange.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-exchange.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-exchange.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-or.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-or.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-store.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-store.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-sub.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-sub.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/no-spurious-wakeup-on-xor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__no-spurious-wakeup-on-xor.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/non-int32-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/non-shared-bufferdata-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/not-a-typedarray-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/not-an-object-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__null-bufferdata-throws.js: Test262Error: An unexpected error occurred when detaching ArrayBuffer: "
+    },
+    {
+      "path": "built-ins/Atomics/wait/null-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__null-for-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/null-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__null-for-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/object-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__object-for-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/object-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__object-for-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/out-of-range-index-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/poisoned-object-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__poisoned-object-for-timeout-throws-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/poisoned-object-for-timeout-throws.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/retrieve-length-before-index-coercion.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/symbol-for-index-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__symbol-for-index-throws-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/symbol-for-index-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/symbol-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__symbol-for-timeout-throws-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/symbol-for-timeout-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/symbol-for-value-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__symbol-for-value-throws-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/symbol-for-value-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/wait/true-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__true-for-timeout-agent.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/true-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__true-for-timeout.js: TypeError: cannot block in this thread"
+    },
+    {
+      "path": "built-ins/Atomics/wait/undefined-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__undefined-for-timeout.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/undefined-index-defaults-to-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__undefined-index-defaults-to-zero.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__validate-arraytype-before-index-coercion.js: ReferenceError: 'typedArrayConstructors' is not defin"
+    },
+    {
+      "path": "built-ins/Atomics/wait/validate-arraytype-before-timeout-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__validate-arraytype-before-timeout-coercion.js: ReferenceError: 'typedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/wait/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__validate-arraytype-before-value-coercion.js: ReferenceError: 'typedArrayConstructors' is not defin"
+    },
+    {
+      "path": "built-ins/Atomics/wait/value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__value-not-equal.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/wait-index-value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__wait-index-value-not-equal.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/waiterlist-block-indexedposition-wake.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__waiterlist-block-indexedposition-wake.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/waiterlist-order-of-operations-is-fifo.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__waiterlist-order-of-operations-is-fifo.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/wait/was-woken-before-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__wait__was-woken-before-timeout.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bad-range.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expected Sa"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__bad-range.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Exp"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/false-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__false-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/false-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__false-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__good-views.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Ex"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/nan-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__nan-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/negative-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__negative-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/negative-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__negative-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/negative-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__negative-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-no-operation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-no-operation.js: Test262Error: The value of `typeof Atomics.waitAs"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-add.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-add.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-and.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-and.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-compareExchange.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-compareExchange.js: Test262Error: The value of `typeof Atomics."
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-exchange.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-exchange.js: Test262Error: The value of `typeof Atomics.waitAsy"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-or.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-or.js: Test262Error: The value of `typeof Atomics.waitAsync` is"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-store.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-store.js: Test262Error: The value of `typeof Atomics.waitAsync`"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-sub.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-sub.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-xor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__no-spurious-wakeup-on-xor.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/non-bigint64-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__non-bigint64-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsy"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/non-shared-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__non-shared-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/not-a-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__not-a-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/not-an-object-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__not-an-object-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fu"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__null-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/null-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__null-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/null-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__null-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/object-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__object-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/object-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__object-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"func"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/out-of-range-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__out-of-range-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/poisoned-object-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__poisoned-object-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/poisoned-object-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__poisoned-object-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.wai"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-index-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-index-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAs"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` i"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-value-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-value-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/symbol-for-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__symbol-for-value-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/true-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__true-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/true-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__true-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/undefined-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__undefined-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync`"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/undefined-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__undefined-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/undefined-index-defaults-to-zero-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__undefined-index-defaults-to-zero-agent.js: Test262Error: The value of `typeof Atomics"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/value-not-equal-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__value-not-equal-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__value-not-equal.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/waiterlist-block-indexedposition-wake.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__waiterlist-block-indexedposition-wake.js: Test262Error: The value of `typeof Atomics."
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/bigint/was-woken-before-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__bigint__was-woken-before-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/false-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__false-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/false-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__false-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Exp"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__good-views.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expected S"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/implicit-infinity-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__implicit-infinity-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/is-function.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__is-function.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expected "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/nan-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__nan-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/negative-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__negative-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/negative-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__negative-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/negative-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__negative-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expe"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-no-operation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-no-operation.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-add.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-add.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-and.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-and.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-compareExchange.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-compareExchange.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-exchange.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-exchange.js: Test262Error: The value of `typeof Atomics.waitAsync` is \""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-or.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-or.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-store.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-store.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fun"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-sub.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-sub.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/no-spurious-wakeup-on-xor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__no-spurious-wakeup-on-xor.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/non-int32-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__non-int32-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fun"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/non-shared-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__non-shared-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fu"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/not-a-typedarray-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__not-a-typedarray-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/not-an-object-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__not-an-object-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/null-bufferdata-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__null-bufferdata-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/null-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__null-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/null-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__null-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expe"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/object-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__object-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/object-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__object-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Ex"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/out-of-range-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__out-of-range-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/poisoned-object-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__poisoned-object-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomics.waitA"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/poisoned-object-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__poisoned-object-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/retrieve-length-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__retrieve-length-before-index-coercion.js: Test262Error: Expected a RangeError but got a TypeE"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-promise-resolves-to-ok.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-promise-resolves-to-ok.js: Test262Error: The value of `typeof "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-promise-resolves-to-timed-out.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-promise-resolves-to-timed-out.js: Test262Error: The value of `"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-string-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-string-not-equal.js: Test262Error: The value of `typeof Atomic"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/returns-result-object-value-is-string-timed-out.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__returns-result-object-value-is-string-timed-out.js: Test262Error: The value of `typeof Atomic"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-index-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-index-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-index-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-index-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-timeout-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-timeout-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is "
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-timeout-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-timeout-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"funct"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-value-throws-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-value-throws-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"f"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/symbol-for-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__symbol-for-value-throws.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functio"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/true-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__true-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/true-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__true-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expe"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/undefined-for-timeout-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__undefined-for-timeout-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"fun"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/undefined-for-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__undefined-for-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/undefined-index-defaults-to-zero-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__undefined-index-defaults-to-zero-agent.js: Test262Error: The value of `typeof Atomics.waitAsy"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__validate-arraytype-before-index-coercion.js: Test262Error: The value of `typeof Atomics.waitA"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/validate-arraytype-before-timeout-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__validate-arraytype-before-timeout-coercion.js: Test262Error: The value of `typeof Atomics.wai"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__validate-arraytype-before-value-coercion.js: Test262Error: The value of `typeof Atomics.waitA"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/value-not-equal-agent.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__value-not-equal-agent.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\""
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/value-not-equal.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__value-not-equal.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"function\" Expec"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/waiterlist-block-indexedposition-wake.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__waiterlist-block-indexedposition-wake.js: Test262Error: The value of `typeof Atomics.waitAsyn"
+    },
+    {
+      "path": "built-ins/Atomics/waitAsync/was-woken-before-timeout.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__waitAsync__was-woken-before-timeout.js: Test262Error: The value of `typeof Atomics.waitAsync` is \"functi"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/xor/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/xor/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/xor/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/Atomics/xor/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/xor/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    },
+    {
+      "path": "built-ins/Atomics/xor/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__xor__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstruct"
+    }
+  ]
+}

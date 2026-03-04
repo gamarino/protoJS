@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T14:49:20.062Z",
+  "patterns": [
+    "built-ins/JSON/isRawJSON"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 6,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/JSON/isRawJSON/basic.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__isRawJSON__basic.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/JSON/isRawJSON/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__isRawJSON__builtin.js: Test262Error: JSON.isRawJSON is extensible"
+    },
+    {
+      "path": "built-ins/JSON/isRawJSON/length.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__isRawJSON__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/isRawJSON/name.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__isRawJSON__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/isRawJSON/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__isRawJSON__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/isRawJSON/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__isRawJSON__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

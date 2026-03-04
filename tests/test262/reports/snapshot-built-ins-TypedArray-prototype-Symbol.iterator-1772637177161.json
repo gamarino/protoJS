@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T15:12:57.161Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/Symbol.iterator"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.iterator/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__Symbol.iterator__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    }
+  ]
+}

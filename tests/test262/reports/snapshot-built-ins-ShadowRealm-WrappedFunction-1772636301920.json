@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-03-04T14:58:21.920Z",
+  "patterns": [
+    "built-ins/ShadowRealm/WrappedFunction"
+  ],
+  "total": 5,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 5,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/length-throws-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__length-throws-typeerror.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__length.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/name-throws-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__name-throws-typeerror.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__name.js: ReferenceError: 'ShadowRealm' is not defined"
+    },
+    {
+      "path": "built-ins/ShadowRealm/WrappedFunction/throws-typeerror-on-revoked-proxy.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ShadowRealm__WrappedFunction__throws-typeerror-on-revoked-proxy.js: ReferenceError: 'ShadowRealm' is not defined"
+    }
+  ]
+}

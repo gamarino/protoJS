@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T15:01:20.241Z",
+  "patterns": [
+    "built-ins/Temporal/Instant/fromEpochMilliseconds"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 10,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/argument.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__argument.js: Test262Error: number Expected a TypeError but got a Refere"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/basic.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__basic.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/limits.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__limits.js: Test262Error: Expected a RangeError but got a ReferenceError"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/name.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/non-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__non-integer.js: Test262Error: undefined Expected a RangeError but got a"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__not-a-constructor.js: Test262Error: Calling as constructor Expected a T"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/Instant/fromEpochMilliseconds/subclassing-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Instant__fromEpochMilliseconds__subclassing-ignored.js: ReferenceError: 'TemporalHelpers' is not define"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-04T15:13:09.930Z",
+  "patterns": [
+    "built-ins/Uint8Array/fromBase64"
+  ],
+  "total": 13,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 2,
+    "failed_semantics": 10,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Uint8Array/fromBase64/alphabet.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__alphabet.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/ignores-receiver.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__ignores-receiver.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/illegal-characters.js",
+      "result": "failed_syntax",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__illegal-characters.js: Test262Error: Expected a SyntaxError but got a TypeError"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/last-chunk-handling.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__last-chunk-handling.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/last-chunk-invalid.js",
+      "result": "failed_syntax",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__last-chunk-invalid.js: Test262Error: Expected a SyntaxError but got a TypeError"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/name.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/option-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__option-coercion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/results.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__results.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/string-coercion.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/whitespace.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__fromBase64__whitespace.js: TypeError: not a function"
+    }
+  ]
+}

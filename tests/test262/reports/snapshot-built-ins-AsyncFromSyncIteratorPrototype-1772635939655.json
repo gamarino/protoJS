@@ -1,0 +1,281 @@
+{
+  "generatedAt": "2026-03-04T14:52:19.655Z",
+  "patterns": [
+    "built-ins/AsyncFromSyncIteratorPrototype"
+  ],
+  "total": 38,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 37,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/absent-value-not-passed.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__absent-value-not-passed.js: ReferenceError: 'asyncTest' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/for-await-iterator-next-rejected-promise-close.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__for-await-iterator-next-rejected-promise-close.js: ReferenceError: 'asyncTe"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/for-await-next-rejected-promise-close.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__for-await-next-rejected-promise-close.js: ReferenceError: 'asyncTest' is no"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/iterator-result-poisoned-done.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__iterator-result-poisoned-done.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/iterator-result-poisoned-value.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__iterator-result-poisoned-value.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/iterator-result-poisoned-wrapper.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__iterator-result-poisoned-wrapper.js: ReferenceError: 'asyncTest' is not def"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/iterator-result-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__iterator-result-prototype.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/iterator-result-rejected.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__iterator-result-rejected.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/iterator-result-unwrap-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__iterator-result-unwrap-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/next-result-poisoned-wrapper.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__next-result-poisoned-wrapper.js: ReferenceError: 'asyncTest' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/return-promise.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/yield-iterator-next-rejected-promise-close.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__yield-iterator-next-rejected-promise-close.js: ReferenceError: 'asyncTest' "
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/next/yield-next-rejected-promise-close.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__next__yield-next-rejected-promise-close.js: ReferenceError: 'asyncTest' is not de"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/absent-value-not-passed.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__absent-value-not-passed.js: ReferenceError: 'asyncTest' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/iterator-result-poisoned-done.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__iterator-result-poisoned-done.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/iterator-result-poisoned-value.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__iterator-result-poisoned-value.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/iterator-result-unwrap-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__iterator-result-unwrap-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/iterator-result.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__iterator-result.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/poisoned-get-return.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__poisoned-get-return.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/poisoned-return.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__poisoned-return.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/result-object-error.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__result-object-error.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/return-null.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__return-null.js: ReferenceError: 'asyncTest' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/return/return-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__return__return-undefined.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-poisoned-done.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__iterator-result-poisoned-done.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-poisoned-value.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__iterator-result-poisoned-value.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-rejected-promise-close.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__iterator-result-rejected-promise-close.js: ReferenceError: 'asyncTest' is "
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result-unwrap-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__iterator-result-unwrap-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/iterator-result.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__iterator-result.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/poisoned-get-throw.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__poisoned-get-throw.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/poisoned-throw.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__poisoned-throw.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/result-object-error.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__result-object-error.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-null.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-null.js: ReferenceError: 'asyncTest' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-result-poisoned-wrapper.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-result-poisoned-wrapper.js: ReferenceError: 'asyncTest' is not defin"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-undefined-get-return-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-undefined-get-return-undefined.js: ReferenceError: 'asyncTest' is no"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-undefined-poisoned-return.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-undefined-poisoned-return.js: ReferenceError: 'asyncTest' is not def"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-undefined-return-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-undefined-return-not-object.js: ReferenceError: 'asyncTest' is not d"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-undefined-return-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-undefined-return-object.js: ReferenceError: 'asyncTest' is not defin"
+    },
+    {
+      "path": "built-ins/AsyncFromSyncIteratorPrototype/throw/throw-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncFromSyncIteratorPrototype__throw__throw-undefined.js: ReferenceError: 'asyncTest' is not defined"
+    }
+  ]
+}

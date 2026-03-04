@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T14:50:39.186Z",
+  "patterns": [
+    "built-ins/Symbol/toPrimitive"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 2,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Symbol/toPrimitive/cross-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Symbol__toPrimitive__cross-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Symbol/toPrimitive/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Symbol__toPrimitive__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

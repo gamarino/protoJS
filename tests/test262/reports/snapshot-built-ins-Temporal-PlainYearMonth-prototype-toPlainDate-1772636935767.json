@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-03-04T15:08:55.767Z",
+  "patterns": [
+    "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate"
+  ],
+  "total": 12,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 12,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/argument-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__argument-not-object.js: ReferenceError: 'Temporal' is not defin"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/basic.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__basic.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/default-overflow-behaviour.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__default-overflow-behaviour.js: ReferenceError: 'Temporal' is no"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/infinity-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__infinity-throws-rangeerror.js: ReferenceError: 'Temporal' is no"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/limits.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__limits.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__not-a-constructor.js: Test262Error: Calling as constructor Expe"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/order-of-operations.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__order-of-operations.js: ReferenceError: 'TemporalHelpers' is no"
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/toPlainDate/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainYearMonth__prototype__toPlainDate__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

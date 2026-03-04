@@ -1,0 +1,673 @@
+{
+  "generatedAt": "2026-03-04T14:51:35.982Z",
+  "patterns": [
+    "built-ins/Promise/race"
+  ],
+  "total": 94,
+  "summary": {
+    "passed": 36,
+    "failed_syntax": 0,
+    "failed_semantics": 58,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A1.1_T1.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A2.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A2.2_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A2.2_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A2.2_T2.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A2.2_T3.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A2.2_T3.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A3.1_T1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A3.1_T2.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A4.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A4.1_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A4.1_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A4.1_T2.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A5.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A5.1_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A6.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A6.1_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A6.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A6.2_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A7.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A7.1_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A7.1_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A7.1_T2.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A7.1_T3.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A7.1_T3.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A7.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A7.2_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A7.3_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A7.3_T1.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/S25.4.4.3_A7.3_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__S25.4.4.3_A7.3_T2.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/capability-executor-called-twice.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/capability-executor-not-callable.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/ctx-ctor-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/ctx-ctor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/ctx-non-ctor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/ctx-non-object.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-error-close.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-error-reject.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-get-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-resolve-get-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-get-error.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-resolve-get-error.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-get-once-multiple-calls.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-get-once-no-calls.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-on-promises-every-iteration-of-custom.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-resolve-on-promises-every-iteration-of-custom.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-on-promises-every-iteration-of-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-resolve-on-promises-every-iteration-of-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-on-values-every-iteration-of-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-resolve-on-values-every-iteration-of-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve-return.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-resolve.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-then-error-close.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-then-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-then-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-then-get-error-close.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-then-get-error-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__invoke-then-get-error-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/invoke-then.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-false-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-false-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-null-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-null-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-number-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-number-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-string-resolve.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-string-resolve.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-symbol-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-symbol-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-true-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-true-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-arg-is-undefined-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-arg-is-undefined-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-false-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-false-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-null-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-null-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-number-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-number-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-string-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-string-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-symbol-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-symbol-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-true-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-true-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-assigned-undefined-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-assigned-undefined-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-next-val-err-no-close.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/iter-next-val-err-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-next-val-err-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-false-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-false-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-null-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-null-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-number-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-number-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-string-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-string-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-symbol-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-symbol-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-true-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-true-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-returns-undefined-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-returns-undefined-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/iter-step-err-no-close.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/iter-step-err-reject.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__iter-step-err-reject.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/reject-deferred.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/reject-from-same-thenable.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__reject-from-same-thenable.js: ReferenceError: 'checkSequence' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/reject-ignored-deferred.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/reject-ignored-immed.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/reject-immed.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-from-same-thenable.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolve-from-same-thenable.js: ReferenceError: 'checkSequence' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-ignores-late-rejection-deferred.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolve-ignores-late-rejection-deferred.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-ignores-late-rejection.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolve-ignores-late-rejection.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-non-callable.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolve-non-callable.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-non-obj.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-non-thenable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-poisoned-then.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-prms-cstm-then.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-self.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-thenable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-throws-iterator-return-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolve-throws-iterator-return-null-or-undefined.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/resolved-sequence-extra-ticks.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolved-sequence-extra-ticks.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolved-sequence-mixed.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolved-sequence-mixed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolved-sequence-with-rejections.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolved-sequence-with-rejections.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolved-sequence.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolved-sequence.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/resolved-then-catch-finally.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Promise__race__resolved-then-catch-finally.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/Promise/race/same-reject-function.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/same-resolve-function.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/race/species-get-error.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

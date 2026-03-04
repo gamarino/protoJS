@@ -1,0 +1,176 @@
+{
+  "generatedAt": "2026-03-04T14:50:55.465Z",
+  "patterns": [
+    "built-ins/AsyncGeneratorFunction"
+  ],
+  "total": 23,
+  "summary": {
+    "passed": 5,
+    "failed_syntax": 0,
+    "failed_semantics": 18,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncGeneratorFunction/extensibility.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/has-instance.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/instance-await-expr-in-param.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__instance-await-expr-in-param.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/instance-construct-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/instance-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__instance-length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/instance-name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__instance-name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/instance-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__instance-prototype.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/instance-yield-expr-in-param.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__instance-yield-expr-in-param.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/invoked-as-constructor-no-arguments.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__invoked-as-constructor-no-arguments.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/invoked-as-function-multiple-arguments.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__invoked-as-function-multiple-arguments.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/invoked-as-function-no-arguments.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__invoked-as-function-no-arguments.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/invoked-as-function-single-argument.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__invoked-as-function-single-argument.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/is-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__is-a-constructor.js: ReferenceError: 'getWellKnownIntrinsicObject' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/length.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/proto-from-ctor-realm-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__proto-from-ctor-realm-prototype.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/proto-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__proto-from-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/Symbol.toStringTag.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__Symbol.toStringTag.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__constructor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/extensibility.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/not-callable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorFunction__prototype__prototype.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

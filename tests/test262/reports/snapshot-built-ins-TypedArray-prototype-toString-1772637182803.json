@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T15:13:02.802Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/toString"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/toString/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toString__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toString/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toString__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not defi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toString/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toString__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    }
+  ]
+}

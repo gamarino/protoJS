@@ -1,0 +1,393 @@
+{
+  "generatedAt": "2026-03-04T15:10:55.215Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/ctors/buffer-arg"
+  ],
+  "total": 54,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 54,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/bufferbyteoffset-throws-from-modulo-element-size-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__bufferbyteoffset-throws-from-modulo-element-size-sab.js: ReferenceErro"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/bufferbyteoffset-throws-from-modulo-element-size.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__bufferbyteoffset-throws-from-modulo-element-size.js: ReferenceError: '"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-is-negative-throws-sab.js: ReferenceError: 'testWithTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-is-negative-throws.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-zero-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-is-negative-zero-sab.js: ReferenceError: 'testWithTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-is-negative-zero.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-symbol-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-is-symbol-throws-sab.js: ReferenceError: 'testWithTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-symbol-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-is-symbol-throws.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-throws-from-modulo-element-size-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-throws-from-modulo-element-size-sab.js: ReferenceError: 'te"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-throws-from-modulo-element-size.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-throws-from-modulo-element-size.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-to-number-detachbuffer.js: ReferenceError: 'testWithTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-to-number-throws-sab.js: ReferenceError: 'testWithTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__byteoffset-to-number-throws.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/custom-proto-access-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__custom-proto-access-throws-sab.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/custom-proto-access-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__custom-proto-access-throws.js: ReferenceError: 'testWithTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length-and-offset-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-length-and-offset-sab.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length-and-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-length-and-offset.js: ReferenceError: 'testWithTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-length-sab.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-length.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-negative-length-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-negative-length-sab.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-negative-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-negative-length.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-offset-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-offset-sab.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__defined-offset.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/detachedbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__detachedbuffer.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-length-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__excessive-length-throws-sab.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-length-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__excessive-length-throws.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-offset-throws-resizable-ab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__excessive-offset-throws-resizable-ab.js: ReferenceError: 'testWithType"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-offset-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__excessive-offset-throws-sab.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__excessive-offset-throws.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/invoked-with-undefined-newtarget-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__invoked-with-undefined-newtarget-sab.js: ReferenceError: 'testWithType"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/invoked-with-undefined-newtarget.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__invoked-with-undefined-newtarget.js: ReferenceError: 'testWithTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/is-referenced-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__is-referenced-sab.js: ReferenceError: 'testWithTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/is-referenced.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__is-referenced.js: ReferenceError: 'testWithTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-access-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__length-access-throws-sab.js: ReferenceError: 'testWithTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-access-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__length-access-throws.js: ReferenceError: 'testWithTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-is-symbol-throws-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__length-is-symbol-throws-sab.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-is-symbol-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__length-is-symbol-throws.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-to-number-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__length-to-number-detachbuffer.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/new-instance-extensibility-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__new-instance-extensibility-sab.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/new-instance-extensibility.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__new-instance-extensibility.js: ReferenceError: 'testWithTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__proto-from-ctor-realm-sab.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__proto-from-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/resizable-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__resizable-out-of-bounds.js: ReferenceError: 'CreateResizableArrayBuffe"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/returns-new-instance-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__returns-new-instance-sab.js: ReferenceError: 'testWithTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/returns-new-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__returns-new-instance.js: ReferenceError: 'testWithTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-bytelength-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__toindex-bytelength-sab.js: ReferenceError: 'testWithTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-bytelength.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__toindex-bytelength.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-byteoffset-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__toindex-byteoffset-sab.js: ReferenceError: 'testWithTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-byteoffset.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__toindex-byteoffset.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/typedarray-backed-by-sharedarraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__typedarray-backed-by-sharedarraybuffer.js: ReferenceError: 'testWithTy"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-custom-proto-if-object-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__use-custom-proto-if-object-sab.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-custom-proto-if-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__use-custom-proto-if-object.js: ReferenceError: 'testWithTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-default-proto-if-custom-proto-is-not-object-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__use-default-proto-if-custom-proto-is-not-object-sab.js: ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors__buffer-arg__use-default-proto-if-custom-proto-is-not-object.js: ReferenceError: 't"
+    }
+  ]
+}

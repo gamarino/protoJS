@@ -1,0 +1,267 @@
+{
+  "generatedAt": "2026-03-04T14:50:54.574Z",
+  "patterns": [
+    "built-ins/Iterator/zip"
+  ],
+  "total": 36,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 33,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Iterator/zip/basic-longest.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__basic-longest.js: ReferenceError: 'forEachSequenceCombination' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/basic-shortest.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__basic-shortest.js: ReferenceError: 'forEachSequenceCombination' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/basic-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__basic-strict.js: ReferenceError: 'forEachSequenceCombination' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/is-function.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__is-function.js: Test262Error: The value of `typeof Iterator.zip` is 'function' Expected SameValue("
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterables-containing-string-objects.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterables-containing-string-objects.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterables-iteration-after-reading-options.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterables-iteration-after-reading-options.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterables-iteration-get-iterator-flattenable-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterables-iteration-get-iterator-flattenable-abrupt-completion.js: Test262Error: Actual [] and exp"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterables-iteration-iterator-step-value-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterables-iteration-iterator-step-value-abrupt-completion.js: Test262Error: Expected a ExpectedErr"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterables-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterables-iteration.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterables-primitive.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-non-iterable.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-iterator-close-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-iterator-close-abrupt-completion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-iterator-step-value-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-iterator-step-value-abrupt-completion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-longest-iterator-close-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-longest-iterator-close-abrupt-completion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-shortest-iterator-close-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-shortest-iterator-close-abrupt-completion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-strict-iterator-close-i-is-not-zero-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-strict-iterator-close-i-is-not-zero-abrupt-completion.js: TypeError: not a "
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-strict-iterator-close-i-is-zero-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-strict-iterator-close-i-is-zero-abrupt-completion.js: TypeError: not a func"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration-strict-iterator-step-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration-strict-iterator-step-abrupt-completion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/iterator-zip-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__iterator-zip-iteration.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/non-constructible.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/zip/options-mode.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__options-mode.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/options-padding.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__options-padding.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/options.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__options.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/padding-iteration-get-iterator-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__padding-iteration-get-iterator-abrupt-completion.js: Test262Error: Expected a ExpectedError but go"
+    },
+    {
+      "path": "built-ins/Iterator/zip/padding-iteration-iterator-close-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__padding-iteration-iterator-close-abrupt-completion.js: Test262Error: Expected a ExpectedError but "
+    },
+    {
+      "path": "built-ins/Iterator/zip/padding-iteration-iterator-step-value-abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__padding-iteration-iterator-step-value-abrupt-completion.js: Test262Error: Expected a ExpectedError"
+    },
+    {
+      "path": "built-ins/Iterator/zip/padding-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__padding-iteration.js: ReferenceError: 'allowProxyTraps' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Iterator/zip/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__proto.js: TypeError: not an object"
+    },
+    {
+      "path": "built-ins/Iterator/zip/result-is-iterator.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__result-is-iterator.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/suspended-start-iterator-close-calls-next.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__suspended-start-iterator-close-calls-next.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/suspended-start-iterator-close-calls-return.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__suspended-start-iterator-close-calls-return.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/suspended-yield-iterator-close-calls-next.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__suspended-yield-iterator-close-calls-next.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Iterator/zip/suspended-yield-iterator-close-calls-return.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Iterator__zip__suspended-yield-iterator-close-calls-return.js: TypeError: not a function"
+    }
+  ]
+}

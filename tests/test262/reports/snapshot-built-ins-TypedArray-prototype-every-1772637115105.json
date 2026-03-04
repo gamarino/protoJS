@@ -1,0 +1,323 @@
+{
+  "generatedAt": "2026-03-04T15:11:55.104Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/every"
+  ],
+  "total": 44,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 44,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-arguments-with-thisarg.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-arguments-with-thisarg.js: ReferenceError: 'testWithBigIntTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-arguments-without-thisarg.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-arguments-without-thisarg.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-detachbuffer.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-no-interaction-over-non-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-no-interaction-over-non-integer.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-not-callable-throws.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-not-called-on-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-not-called-on-empty.js: ReferenceError: 'testWithBigIntTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-return-does-not-change-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-return-does-not-change-instance.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-returns-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-returns-abrupt.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-set-value-during-interaction.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-set-value-during-interaction.js: ReferenceError: 'testWithBigInt"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-this.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__callbackfn-this.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/returns-false-if-any-cb-returns-false.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__returns-false-if-any-cb-returns-false.js: ReferenceError: 'testWithBigIntTy"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/returns-true-if-every-cb-returns-true.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__returns-true-if-every-cb-returns-true.js: ReferenceError: 'testWithBigIntTy"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__BigInt__values-are-not-cached.js: ReferenceError: 'testWithBigIntTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-arguments-with-thisarg.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-arguments-with-thisarg.js: ReferenceError: 'testWithTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-arguments-without-thisarg.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-arguments-without-thisarg.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-detachbuffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-no-interaction-over-non-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-no-interaction-over-non-integer.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-not-callable-throws.js: ReferenceError: 'testWithTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-not-called-on-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-not-called-on-empty.js: ReferenceError: 'testWithTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-resize.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-resize.js: ReferenceError: 'testWithTypedArrayConstructors' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-return-does-not-change-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-return-does-not-change-instance.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-returns-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-returns-abrupt.js: ReferenceError: 'testWithTypedArrayConstructors' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-set-value-during-interaction.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-set-value-during-interaction.js: ReferenceError: 'testWithTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-this.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__callbackfn-this.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/resizable-buffer-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__resizable-buffer-grow-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/resizable-buffer-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__resizable-buffer-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/returns-false-if-any-cb-returns-false.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__returns-false-if-any-cb-returns-false.js: ReferenceError: 'testWithTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/returns-true-if-every-cb-returns-true.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__returns-true-if-every-cb-returns-true.js: ReferenceError: 'testWithTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__every__values-are-not-cached.js: ReferenceError: 'testWithTypedArrayConstructors' is not d"
+    }
+  ]
+}

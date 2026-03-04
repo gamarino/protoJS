@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-03-04T15:12:17.227Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/includes/BigInt"
+  ],
+  "total": 14,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 14,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/detached-buffer-during-fromIndex-returns-false-for-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__detached-buffer-during-fromIndex-returns-false-for-zero.js: ReferenceErr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/detached-buffer-during-fromIndex-returns-true-for-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__detached-buffer-during-fromIndex-returns-true-for-undefined.js: Referenc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/fromIndex-equal-or-greater-length-returns-false.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__fromIndex-equal-or-greater-length-returns-false.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/fromIndex-infinity.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__fromIndex-infinity.js: ReferenceError: 'testWithBigIntTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/fromIndex-minus-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__fromIndex-minus-zero.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/length-zero-returns-false.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__length-zero-returns-false.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/return-abrupt-tointeger-fromindex-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__return-abrupt-tointeger-fromindex-symbol.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/return-abrupt-tointeger-fromindex.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__return-abrupt-tointeger-fromindex.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/search-found-returns-true.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__search-found-returns-true.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/search-not-found-returns-false.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__search-not-found-returns-false.js: ReferenceError: 'testWithBigIntTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/includes/BigInt/tointeger-fromindex.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__includes__BigInt__tointeger-fromindex.js: ReferenceError: 'testWithBigIntTypedArrayConstru"
+    }
+  ]
+}

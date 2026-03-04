@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T15:11:47.211Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/BYTES_PER_ELEMENT.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype__BYTES_PER_ELEMENT.js: ReferenceError: 'verifyNotEnumerable'"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype__constructor.js: ReferenceError: 'verifyNotEnumerable' is no"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Uint8ClampedArray__prototype__proto.js: ReferenceError: 'TypedArray' is not defined"
+    }
+  ]
+}

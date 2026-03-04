@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-03-04T15:13:13.119Z",
+  "patterns": [
+    "built-ins/Uint8Array/prototype/setFromBase64"
+  ],
+  "total": 17,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 3,
+    "failed_semantics": 13,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/alphabet.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__alphabet.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__detached-buffer.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/illegal-characters.js",
+      "result": "failed_syntax",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__illegal-characters.js: Test262Error: Expected a SyntaxError but got a TypeE"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/last-chunk-handling.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__last-chunk-handling.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/length.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/name.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/option-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__option-coercion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/results.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__results.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/string-coercion.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/subarray.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__subarray.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/target-size.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__target-size.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/trailing-garbage-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__trailing-garbage-empty.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/trailing-garbage.js",
+      "result": "failed_syntax",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__trailing-garbage.js: Test262Error: \"#\" is rejected with lastChunkHandling=\""
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/whitespace.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__whitespace.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/writes-up-to-error.js",
+      "result": "failed_syntax",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__writes-up-to-error.js: Test262Error: illegal character in second chunk Expe"
+    }
+  ]
+}

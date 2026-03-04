@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-03-04T15:11:18.289Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt"
+  ],
+  "total": 12,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 12,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-not-number.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__detached-buffer-key-is-not-number.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__detached-buffer-key-is-symbol.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__detached-buffer-realm.js: ReferenceError: '$262' is no"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/enumerate-detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__enumerate-detached-buffer.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/index-prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__index-prop-desc.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-minus-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__key-is-minus-zero.js: ReferenceError: 'testWithBigIntT"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-not-canonical-index.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__key-is-not-canonical-index.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-not-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__key-is-not-integer.js: ReferenceError: 'testWithBigInt"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-not-numeric-index.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__key-is-not-numeric-index.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__key-is-out-of-bounds.js: ReferenceError: 'testWithBigI"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__internals__GetOwnProperty__BigInt__key-is-symbol.js: ReferenceError: 'testWithBigIntTyped"
+    }
+  ]
+}

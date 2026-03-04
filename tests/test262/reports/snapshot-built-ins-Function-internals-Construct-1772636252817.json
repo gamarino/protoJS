@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T14:57:32.817Z",
+  "patterns": [
+    "built-ins/Function/internals/Construct"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/internals/Construct/base-ctor-revoked-proxy-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Construct__base-ctor-revoked-proxy-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/base-ctor-revoked-proxy.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-return-val-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Construct__derived-return-val-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-return-val.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-this-uninitialized-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Construct__derived-this-uninitialized-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-this-uninitialized.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-04T14:52:27.710Z",
+  "patterns": [
+    "built-ins/DataView/prototype/byteOffset"
+  ],
+  "total": 13,
+  "summary": {
+    "passed": 9,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DataView__prototype__byteOffset__detached-buffer.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/invoked-as-accessor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DataView__prototype__byteOffset__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DataView__prototype__byteOffset__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DataView__prototype__byteOffset__prop-desc.js: ReferenceError: 'verifyNotEnumerable' is not defined"
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/resizable-array-buffer-auto.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/resizable-array-buffer-fixed.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/return-byteoffset-sab.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/return-byteoffset.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/this-has-no-dataview-internal-sab.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/this-has-no-dataview-internal.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/byteOffset/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

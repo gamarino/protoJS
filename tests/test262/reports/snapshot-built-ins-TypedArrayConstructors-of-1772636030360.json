@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-03-04T14:53:50.360Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/of"
+  ],
+  "total": 26,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 26,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/argument-is-symbol-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__argument-is-symbol-throws.js: ReferenceError: 'testWithBigIntTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/argument-number-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__argument-number-value-throws.js: ReferenceError: 'testWithBigIntTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor-does-not-instantiate-ta-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__custom-ctor-does-not-instantiate-ta-throws.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor-returns-other-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__custom-ctor-returns-other-instance.js: ReferenceError: 'testWithBigIntTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor-returns-smaller-instance-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__custom-ctor-returns-smaller-instance-throws.js: ReferenceError: 'testWithBigI"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__custom-ctor.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__inherited.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not d"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__invoked-as-func.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/new-instance-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__new-instance-empty.js: ReferenceError: 'testWithBigIntTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/new-instance-using-custom-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__new-instance-using-custom-ctor.js: ReferenceError: 'testWithBigIntTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/new-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__new-instance.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/this-is-not-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__BigInt__this-is-not-constructor.js: ReferenceError: 'testWithBigIntTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/argument-is-symbol-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__argument-is-symbol-throws.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/argument-number-value-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__argument-number-value-throws.js: ReferenceError: 'testWithTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor-does-not-instantiate-ta-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__custom-ctor-does-not-instantiate-ta-throws.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor-returns-other-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__custom-ctor-returns-other-instance.js: ReferenceError: 'testWithTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor-returns-smaller-instance-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__custom-ctor-returns-smaller-instance-throws.js: ReferenceError: 'testWithTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__custom-ctor.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__inherited.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__invoked-as-func.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/nan-conversion.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__nan-conversion.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__new-instance-empty.js: ReferenceError: 'testWithTypedArrayConstructors' is not define"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance-from-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__new-instance-from-zero.js: ReferenceError: 'testWithTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance-using-custom-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__new-instance-using-custom-ctor.js: ReferenceError: 'testWithTypedArrayConstructors' i"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__new-instance.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/this-is-not-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__of__this-is-not-constructor.js: ReferenceError: 'testWithTypedArrayConstructors' is not d"
+    }
+  ]
+}

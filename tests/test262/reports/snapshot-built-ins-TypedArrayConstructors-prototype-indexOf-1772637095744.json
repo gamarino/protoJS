@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T15:11:35.744Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/prototype/indexOf"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 2,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/indexOf/bigint-inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__prototype__indexOf__bigint-inherited.js: ReferenceError: 'testWithBigIntTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/indexOf/inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__prototype__indexOf__inherited.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    }
+  ]
+}

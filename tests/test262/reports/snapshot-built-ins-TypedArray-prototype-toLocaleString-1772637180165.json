@@ -1,0 +1,288 @@
+{
+  "generatedAt": "2026-03-04T15:13:00.165Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/toLocaleString"
+  ],
+  "total": 39,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 39,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/calls-tolocalestring-from-each-value.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__calls-tolocalestring-from-each-value.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/calls-tostring-from-each-value.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__calls-tostring-from-each-value.js: ReferenceError: 'testWithBigInt"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/calls-valueof-from-each-value.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__calls-valueof-from-each-value.js: ReferenceError: 'testWithBigIntT"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/empty-instance-returns-empty-string.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__empty-instance-returns-empty-string.js: ReferenceError: 'testWithB"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-firstelement-tolocalestring.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-firstelement-tolocalestring.js: ReferenceError:"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-firstelement-tostring.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-firstelement-tostring.js: ReferenceError: 'test"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-firstelement-valueof.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-firstelement-valueof.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-nextelement-tolocalestring.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-nextelement-tolocalestring.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-nextelement-tostring.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-nextelement-tostring.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-nextelement-valueof.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-nextelement-valueof.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedAr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/BigInt/return-result.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__BigInt__return-result.js: ReferenceError: 'testWithBigIntTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/calls-tolocalestring-from-each-value.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__calls-tolocalestring-from-each-value.js: ReferenceError: 'testWithTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/calls-tostring-from-each-value.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__calls-tostring-from-each-value.js: ReferenceError: 'testWithTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/calls-valueof-from-each-value.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__calls-valueof-from-each-value.js: ReferenceError: 'testWithTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/empty-instance-returns-empty-string.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__empty-instance-returns-empty-string.js: ReferenceError: 'testWithTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-firstelement-tolocalestring.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-firstelement-tolocalestring.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-firstelement-tostring.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-firstelement-tostring.js: ReferenceError: 'testWithType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-firstelement-valueof.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-firstelement-valueof.js: ReferenceError: 'testWithTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-nextelement-tolocalestring.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-nextelement-tolocalestring.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-nextelement-tostring.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-nextelement-tostring.js: ReferenceError: 'testWithTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-nextelement-valueof.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-nextelement-valueof.js: ReferenceError: 'testWithTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/return-result.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__return-result.js: ReferenceError: 'testWithTypedArrayConstructors' is not "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not de"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/user-provided-tolocalestring-grow.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__user-provided-tolocalestring-grow.js: ReferenceError: 'ctors' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toLocaleString/user-provided-tolocalestring-shrink.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__toLocaleString__user-provided-tolocalestring-shrink.js: ReferenceError: 'ctors' is not def"
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+{
+  "generatedAt": "2026-03-04T15:08:20.951Z",
+  "patterns": [
+    "built-ins/Temporal/PlainDateTime/prototype/withPlainTime"
+  ],
+  "total": 36,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 36,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-number.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-number.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-object-insufficient-data.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-object-insufficient-data.js: ReferenceError: 'Tempora"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-propertybag-optional-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-propertybag-optional-properties.js: ReferenceError: '"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-calendar-annotation-invalid-key.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-calendar-annotation-invalid-key.js: ReferenceE"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-calendar-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-calendar-annotation.js: ReferenceError: 'Tempo"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-critical-unknown-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-critical-unknown-annotation.js: ReferenceError"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-date-with-utc-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-date-with-utc-offset.js: ReferenceError: 'Temp"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-minus-sign.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-minus-sign.js: ReferenceError: 'Temporal' is n"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-multiple-calendar.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-multiple-calendar.js: ReferenceError: 'Tempora"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-multiple-time-zone.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-multiple-time-zone.js: ReferenceError: 'Tempor"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-no-implicit-midnight.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-no-implicit-midnight.js: ReferenceError: 'Temp"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-time-designator-required-for-disambiguation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-time-designator-required-for-disambiguation.js"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-time-separators.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-time-separators.js: ReferenceError: 'Temporal'"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-time-zone-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-time-zone-annotation.js: ReferenceError: 'Temp"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-unknown-annotation.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-unknown-annotation.js: ReferenceError: 'Tempor"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-with-time-designator.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-with-time-designator.js: ReferenceError: 'Temp"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-with-utc-designator.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-with-utc-designator.js: ReferenceError: 'Tempo"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-without-time-designator.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-string-without-time-designator.js: ReferenceError: 'T"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-time.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-time.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-wrong-type.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-zoneddatetime-balance-negative-time-units.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-zoneddatetime-balance-negative-time-units.js: Referen"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-zoneddatetime-negative-epochnanoseconds.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__argument-zoneddatetime-negative-epochnanoseconds.js: Reference"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/leap-second.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__leap-second.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/no-argument-default-to-midnight.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__no-argument-default-to-midnight.js: ReferenceError: 'Temporal'"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__not-a-constructor.js: Test262Error: Calling as constructor Exp"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/order-of-operations.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__order-of-operations.js: ReferenceError: 'TemporalHelpers' is n"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/plaintime-propertybag-no-time-units.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__plaintime-propertybag-no-time-units.js: ReferenceError: 'Tempo"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/subclassing-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__subclassing-ignored.js: ReferenceError: 'TemporalHelpers' is n"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/throws-if-combined-date-time-outside-valid-iso-range.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__throws-if-combined-date-time-outside-valid-iso-range.js: Refer"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/time-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__time-undefined.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/withPlainTime/year-zero.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__withPlainTime__year-zero.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T14:58:56.427Z",
+  "patterns": [
+    "built-ins/Symbol/asyncDispose"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Symbol/asyncDispose/cross-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Symbol__asyncDispose__cross-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Symbol/asyncDispose/no-key.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Symbol__asyncDispose__no-key.js: TypeError: not a symbol"
+    },
+    {
+      "path": "built-ins/Symbol/asyncDispose/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Symbol__asyncDispose__prop-desc.js: Test262Error: Expected SameValue(«\"undefined\"», «\"symbol\"») to be true"
+    }
+  ]
+}

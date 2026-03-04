@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-03-04T14:53:18.899Z",
+  "patterns": [
+    "built-ins/RegExp/CharacterClassEscapes"
+  ],
+  "total": 12,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 12,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-negative-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-digit-class-escape-negative-cases.js: ReferenceError: 'buildString"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-positive-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-digit-class-escape-positive-cases.js: ReferenceError: 'buildString"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-negative-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-non-digit-class-escape-negative-cases.js: ReferenceError: 'buildSt"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-positive-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-non-digit-class-escape-positive-cases.js: ReferenceError: 'buildSt"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-negative-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-non-whitespace-class-escape-negative-cases.js: ReferenceError: 'bu"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-positive-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-non-whitespace-class-escape-positive-cases.js: ReferenceError: 'bu"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-negative-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-non-word-class-escape-negative-cases.js: ReferenceError: 'buildStr"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-positive-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-non-word-class-escape-positive-cases.js: ReferenceError: 'buildStr"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-negative-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-whitespace-class-escape-negative-cases.js: ReferenceError: 'buildS"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-positive-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-whitespace-class-escape-positive-cases.js: ReferenceError: 'buildS"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-negative-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-word-class-escape-negative-cases.js: ReferenceError: 'buildString'"
+    },
+    {
+      "path": "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-positive-cases.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__CharacterClassEscapes__character-class-word-class-escape-positive-cases.js: ReferenceError: 'buildString'"
+    }
+  ]
+}

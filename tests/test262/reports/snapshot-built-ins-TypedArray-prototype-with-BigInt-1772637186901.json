@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T15:13:06.901Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/with/BigInt"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/with/BigInt/early-type-coercion-bigint.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__with__BigInt__early-type-coercion-bigint.js: ReferenceError: 'testWithBigIntTypedArrayCons"
+    }
+  ]
+}

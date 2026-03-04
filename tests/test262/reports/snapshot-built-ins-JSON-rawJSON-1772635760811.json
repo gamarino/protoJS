@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T14:49:20.810Z",
+  "patterns": [
+    "built-ins/JSON/rawJSON"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 2,
+    "failed_semantics": 8,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/JSON/rawJSON/basic.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__basic.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/bigint-raw-json-can-be-stringified.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__bigint-raw-json-can-be-stringified.js: TypeError: cannot convert to object"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__builtin.js: Test262Error: JSON.rawJSON is extensible"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/illegal-empty-and-start-end-chars.js",
+      "result": "failed_syntax",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__illegal-empty-and-start-end-chars.js: Test262Error: Expected a SyntaxError but got a TypeError"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/invalid-JSON-text.js",
+      "result": "failed_syntax",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__invalid-JSON-text.js: Test262Error: Expected a SyntaxError but got a TypeError"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/length.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/name.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/JSON/rawJSON/returns-expected-object.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__JSON__rawJSON__returns-expected-object.js: TypeError: not a function"
+    }
+  ]
+}

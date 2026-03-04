@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T15:05:15.012Z",
+  "patterns": [
+    "built-ins/Set/prototype/Symbol.toStringTag"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Set/prototype/Symbol.toStringTag/property-descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Set__prototype__Symbol.toStringTag__property-descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

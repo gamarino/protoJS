@@ -1,0 +1,218 @@
+{
+  "generatedAt": "2026-03-04T14:51:20.490Z",
+  "patterns": [
+    "built-ins/Proxy/construct"
+  ],
+  "total": 29,
+  "summary": {
+    "passed": 18,
+    "failed_syntax": 0,
+    "failed_semantics": 11,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Proxy/construct/arguments-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__arguments-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/call-parameters-new-target.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/call-parameters.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/call-result.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/null-handler-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__null-handler-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/null-handler.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-is-abrupt.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-boolean-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__return-not-object-throws-boolean-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-boolean.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-null-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__return-not-object-throws-null-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-null.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-number-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__return-not-object-throws-number-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-number.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-string-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__return-not-object-throws-string-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-string.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-symbol-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__return-not-object-throws-symbol-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-symbol.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-undefined-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__return-not-object-throws-undefined-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/return-not-object-throws-undefined.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-missing-target-is-proxy.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-not-callable-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__trap-is-not-callable-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-null-target-is-proxy.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-null.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-undefined-no-property.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-undefined-proto-from-cross-realm-newtarget.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__trap-is-undefined-proto-from-cross-realm-newtarget.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-undefined-proto-from-newtarget-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__construct__trap-is-undefined-proto-from-newtarget-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-undefined-target-is-proxy.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/construct/trap-is-undefined.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

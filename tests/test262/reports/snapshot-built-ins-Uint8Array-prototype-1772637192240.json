@@ -1,0 +1,337 @@
+{
+  "generatedAt": "2026-03-04T15:13:12.239Z",
+  "patterns": [
+    "built-ins/Uint8Array/prototype"
+  ],
+  "total": 46,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 6,
+    "failed_semantics": 38,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/alphabet.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__alphabet.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__detached-buffer.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/illegal-characters.js",
+      "result": "failed_syntax",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__illegal-characters.js: Test262Error: Expected a SyntaxError but got a TypeE"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/last-chunk-handling.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__last-chunk-handling.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/option-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__option-coercion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/results.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__results.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/string-coercion.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/subarray.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__subarray.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/target-size.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__target-size.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/trailing-garbage-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__trailing-garbage-empty.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/trailing-garbage.js",
+      "result": "failed_syntax",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__trailing-garbage.js: Test262Error: \"#\" is rejected with lastChunkHandling=\""
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/whitespace.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__whitespace.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromBase64/writes-up-to-error.js",
+      "result": "failed_syntax",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromBase64__writes-up-to-error.js: Test262Error: illegal character in second chunk Expe"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__detached-buffer.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/illegal-characters.js",
+      "result": "failed_syntax",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__illegal-characters.js: Test262Error: Expected a SyntaxError but got a TypeErro"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/results.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__results.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/string-coercion.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/subarray.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__subarray.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/target-size.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__target-size.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/throws-when-string-length-is-odd.js",
+      "result": "failed_syntax",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__throws-when-string-length-is-odd.js: Test262Error: Uint8Array has length 0 Exp"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/setFromHex/writes-up-to-error.js",
+      "result": "failed_syntax",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__setFromHex__writes-up-to-error.js: Test262Error: Expected a SyntaxError but got a TypeErro"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/alphabet.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__alphabet.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__detached-buffer.js: Test262Error: Expected SameValue(«0», «1») to be true"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/length.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/omit-padding.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__omit-padding.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/option-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__option-coercion.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/receiver-not-uint8array.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__receiver-not-uint8array.js: ReferenceError: 'testWithTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/results.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toBase64__results.js: TypeError: not a function"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__detached-buffer.js: ReferenceError: '$DETACHBUFFER' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/name.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/nonconstructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__nonconstructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/receiver-not-uint8array.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__receiver-not-uint8array.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toHex/results.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Uint8Array__prototype__toHex__results.js: TypeError: not a function"
+    }
+  ]
+}

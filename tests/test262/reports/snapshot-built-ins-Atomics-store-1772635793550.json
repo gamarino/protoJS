@@ -1,0 +1,127 @@
+{
+  "generatedAt": "2026-03-04T14:49:53.550Z",
+  "patterns": [
+    "built-ins/Atomics/store"
+  ],
+  "total": 16,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 14,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/store/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bad-range.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not d"
+    },
+    {
+      "path": "built-ins/Atomics/store/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__descriptor.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/expected-return-value-negative-zero.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/store/expected-return-value.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/store/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__good-views.js: ReferenceError: 'nonClampedIntArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/length.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/name.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__non-shared-bufferdata.js: ReferenceError: 'testWithAtomicsFriendlyTypedArrayConstructors' is not "
+    },
+    {
+      "path": "built-ins/Atomics/store/non-shared-int-views-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__non-shared-int-views-throws.js: ReferenceError: 'testWithNonAtomicsFriendlyTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/Atomics/store/non-views.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__non-views.js: ReferenceError: 'testWithAtomicsNonViewValues' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Atomics/store/validate-arraytype-before-index-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__validate-arraytype-before-index-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/Atomics/store/validate-arraytype-before-value-coercion.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__store__validate-arraytype-before-value-coercion.js: ReferenceError: 'nonAtomicsFriendlyTypedArrayConstru"
+    }
+  ]
+}

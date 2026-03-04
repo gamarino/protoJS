@@ -1,0 +1,365 @@
+{
+  "generatedAt": "2026-03-04T15:12:36.721Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/reduceRight"
+  ],
+  "total": 50,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 50,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-arguments-custom-accumulator.js",
+      "result": "failed_semantics",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-arguments-custom-accumulator.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-arguments-default-accumulator.js",
+      "result": "failed_semantics",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-arguments-default-accumulator.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-detachbuffer.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-is-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-is-not-callable-throws.js: ReferenceError: 'testWithBigInt"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-no-iteration-over-non-integer-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-no-iteration-over-non-integer-properties.js: ReferenceErro"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-not-called-on-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-not-called-on-empty.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-return-does-not-change-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-return-does-not-change-instance.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-returns-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-returns-abrupt.js: ReferenceError: 'testWithBigIntTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-set-value-during-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-set-value-during-iteration.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-this.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__callbackfn-this.js: ReferenceError: 'testWithBigIntTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/empty-instance-return-initialvalue.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__empty-instance-return-initialvalue.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/empty-instance-with-no-initialvalue-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__empty-instance-with-no-initialvalue-throws.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/result-is-last-callbackfn-return.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__result-is-last-callbackfn-return.js: ReferenceError: 'testWithBigIntT"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/result-of-any-type.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__result-of-any-type.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/return-first-value-without-callbackfn.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__return-first-value-without-callbackfn.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/BigInt/values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__BigInt__values-are-not-cached.js: ReferenceError: 'testWithBigIntTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-arguments-custom-accumulator.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-arguments-custom-accumulator.js: ReferenceError: 'testWithTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-arguments-default-accumulator.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-arguments-default-accumulator.js: ReferenceError: 'testWithTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-detachbuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-detachbuffer.js: ReferenceError: 'testWithTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-is-not-callable-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-is-not-callable-throws.js: ReferenceError: 'testWithTypedArrayCons"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-no-iteration-over-non-integer-properties.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-no-iteration-over-non-integer-properties.js: ReferenceError: 'test"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-not-called-on-empty.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-not-called-on-empty.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-resize.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-resize.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-return-does-not-change-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-return-does-not-change-instance.js: ReferenceError: 'testWithTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-returns-abrupt.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-returns-abrupt.js: ReferenceError: 'testWithTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-set-value-during-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-set-value-during-iteration.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/callbackfn-this.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__callbackfn-this.js: ReferenceError: 'testWithTypedArrayConstructors' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__detached-buffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/empty-instance-return-initialvalue.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__empty-instance-return-initialvalue.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/empty-instance-with-no-initialvalue-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__empty-instance-with-no-initialvalue-throws.js: ReferenceError: 'testWithTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/get-length-uses-internal-arraylength.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__get-length-uses-internal-arraylength.js: ReferenceError: 'TypedArray' is not "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/length.js",
+      "result": "failed_semantics",
+      "durationMs": 93,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/name.js",
+      "result": "failed_semantics",
+      "durationMs": 100,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/resizable-buffer-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__resizable-buffer-grow-mid-iteration.js: ReferenceError: 'ctors' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/resizable-buffer-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__resizable-buffer-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/result-is-last-callbackfn-return.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__result-is-last-callbackfn-return.js: ReferenceError: 'testWithTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/result-of-any-type.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__result-of-any-type.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is not"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/return-first-value-without-callbackfn.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__return-first-value-without-callbackfn.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduceRight/values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__reduceRight__values-are-not-cached.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    }
+  ]
+}

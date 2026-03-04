@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-03-04T15:06:19.372Z",
+  "patterns": [
+    "built-ins/Date/prototype/toTemporalInstant"
+  ],
+  "total": 8,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 8,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/this-value-invalid-date.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__this-value-invalid-date.js: Test262Error: Expected a RangeError but got a Typ"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/this-value-non-date.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__this-value-non-date.js: Test262Error: Expected SameValue(«\"undefined\"», «\"fun"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/this-value-non-object.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__this-value-non-object.js: Test262Error: Expected SameValue(«\"undefined\"», «\"f"
+    },
+    {
+      "path": "built-ins/Date/prototype/toTemporalInstant/this-value-valid-date.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Date__prototype__toTemporalInstant__this-value-valid-date.js: TypeError: not a function"
+    }
+  ]
+}

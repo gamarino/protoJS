@@ -1,0 +1,575 @@
+{
+  "generatedAt": "2026-03-04T14:50:35.835Z",
+  "patterns": [
+    "built-ins/Function/prototype/toString"
+  ],
+  "total": 80,
+  "summary": {
+    "passed": 9,
+    "failed_syntax": 0,
+    "failed_semantics": 71,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/prototype/toString/AsyncFunction.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__AsyncFunction.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/AsyncGenerator.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__AsyncGenerator.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/Function.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__Function.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/GeneratorFunction.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__GeneratorFunction.js: ReferenceError: 'assertToStringOrNativeFunction' is not defi"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A10.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__S15.3.4.2_A10.js: ReferenceError: 'verifyNotWritable' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A11.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A12.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A13.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A14.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A16.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A6.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A8.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/S15.3.4.2_A9.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/arrow-function.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__arrow-function.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-arrow-function.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-arrow-function.js: ReferenceError: 'assertToStringOrNativeFunction' is not d"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-function-declaration.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-function-declaration.js: ReferenceError: 'assertToStringOrNativeFunction' is"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-function-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-function-expression.js: ReferenceError: 'assertToStringOrNativeFunction' is "
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-declaration.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-declaration.js: ReferenceError: 'assertToStringOrNativeFunction' i"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-expression.js: ReferenceError: 'assertToStringOrNativeFunction' is"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-method-class-expression-static.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-method-class-expression-static.js: ReferenceError: 'assertToString"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-method-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-method-class-expression.js: ReferenceError: 'assertToStringOrNativ"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-method-class-statement-static.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-method-class-statement-static.js: ReferenceError: 'assertToStringO"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-method-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-method-class-statement.js: ReferenceError: 'assertToStringOrNative"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-generator-method-object.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-generator-method-object.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-method-class-expression-static.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-method-class-expression-static.js: ReferenceError: 'assertToStringOrNativeFu"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-method-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-method-class-expression.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-method-class-statement-static.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-method-class-statement-static.js: ReferenceError: 'assertToStringOrNativeFun"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-method-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-method-class-statement.js: ReferenceError: 'assertToStringOrNativeFunction' "
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/async-method-object.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__async-method-object.js: ReferenceError: 'assertToStringOrNativeFunction' is not de"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/bound-function.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__bound-function.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/built-in-function-object.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__built-in-function-object.js: ReferenceError: 'WellKnownIntrinsicObjects' is not de"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/class-declaration-complex-heritage.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__class-declaration-complex-heritage.js: ReferenceError: 'assertToStringOrNativeFunc"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/class-declaration-explicit-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__class-declaration-explicit-ctor.js: ReferenceError: 'assertToStringOrNativeFunctio"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/class-declaration-implicit-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__class-declaration-implicit-ctor.js: ReferenceError: 'assertToStringOrNativeFunctio"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/class-expression-explicit-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__class-expression-explicit-ctor.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/class-expression-implicit-ctor.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__class-expression-implicit-ctor.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/function-declaration-non-simple-parameter-list.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__function-declaration-non-simple-parameter-list.js: ReferenceError: 'assertToString"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/function-declaration.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__function-declaration.js: ReferenceError: 'assertToStringOrNativeFunction' is not d"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/function-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__function-expression.js: ReferenceError: 'assertToStringOrNativeFunction' is not de"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/generator-function-declaration.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__generator-function-declaration.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/generator-function-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__generator-function-expression.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/generator-method.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__generator-method.js: ReferenceError: 'assertToStringOrNativeFunction' is not defin"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/getter-class-expression-static.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__getter-class-expression-static.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/getter-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__getter-class-expression.js: ReferenceError: 'assertToStringOrNativeFunction' is no"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/getter-class-statement-static.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__getter-class-statement-static.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/getter-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__getter-class-statement.js: ReferenceError: 'assertToStringOrNativeFunction' is not"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/getter-object.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__getter-object.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/line-terminator-normalisation-CR-LF.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__line-terminator-normalisation-CR-LF.js: ReferenceError: 'assertToStringOrNativeFun"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/line-terminator-normalisation-CR.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__line-terminator-normalisation-CR.js: ReferenceError: 'assertToStringOrNativeFuncti"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/line-terminator-normalisation-LF.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__line-terminator-normalisation-LF.js: ReferenceError: 'assertToStringOrNativeFuncti"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/method-class-expression-static.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__method-class-expression-static.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/method-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__method-class-expression.js: ReferenceError: 'assertToStringOrNativeFunction' is no"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/method-class-statement-static.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__method-class-statement-static.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/method-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__method-class-statement.js: ReferenceError: 'assertToStringOrNativeFunction' is not"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/method-computed-property-name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__method-computed-property-name.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/method-object.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__method-object.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/private-method-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__private-method-class-expression.js: ReferenceError: 'assertToStringOrNativeFunctio"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/private-method-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__private-method-class-statement.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/private-static-method-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__private-static-method-class-expression.js: ReferenceError: 'assertToStringOrNative"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/private-static-method-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__private-static-method-class-statement.js: ReferenceError: 'assertToStringOrNativeF"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-arrow-function.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-arrow-function.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-async-function.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-async-function.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-async-generator-function.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-async-generator-function.js: ReferenceError: 'assertNativeFunction' is not d"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-async-generator-method-definition.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-async-generator-method-definition.js: ReferenceError: 'assertNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-async-method-definition.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-async-method-definition.js: ReferenceError: 'assertNativeFunction' is not de"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-bound-function.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-bound-function.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-class.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-class.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-function-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-function-expression.js: ReferenceError: 'assertNativeFunction' is not define"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-generator-function.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-generator-function.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-method-definition.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__proxy-method-definition.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/proxy-non-callable-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/setter-class-expression-static.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__setter-class-expression-static.js: ReferenceError: 'assertToStringOrNativeFunction"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/setter-class-expression.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__setter-class-expression.js: ReferenceError: 'assertToStringOrNativeFunction' is no"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/setter-class-statement-static.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__setter-class-statement-static.js: ReferenceError: 'assertToStringOrNativeFunction'"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/setter-class-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__setter-class-statement.js: ReferenceError: 'assertToStringOrNativeFunction' is not"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/setter-object.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__setter-object.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/symbol-named-builtins.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__symbol-named-builtins.js: ReferenceError: 'assertNativeFunction' is not defined"
+    },
+    {
+      "path": "built-ins/Function/prototype/toString/unicode.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__toString__unicode.js: ReferenceError: 'assertToStringOrNativeFunction' is not defined"
+    }
+  ]
+}

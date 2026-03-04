@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T15:07:15.287Z",
+  "patterns": [
+    "built-ins/Temporal/Duration/prototype/toStringTag"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Duration/prototype/toStringTag/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__Duration__prototype__toStringTag__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-03-04T15:06:19.886Z",
+  "patterns": [
+    "built-ins/DisposableStack/prototype/disposed"
+  ],
+  "total": 7,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 7,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/does-not-have-disposablestate-internal-slot.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__does-not-have-disposablestate-internal-slot.js: ReferenceError: 'Disposable"
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/getter.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__getter.js: ReferenceError: 'DisposableStack' is not defined"
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/length.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__length.js: ReferenceError: 'DisposableStack' is not defined"
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__name.js: ReferenceError: 'DisposableStack' is not defined"
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/returns-false-when-not-disposed.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__returns-false-when-not-disposed.js: ReferenceError: 'DisposableStack' is no"
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/returns-true-when-disposed.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__returns-true-when-disposed.js: ReferenceError: 'DisposableStack' is not def"
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/this-not-object-throw.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__DisposableStack__prototype__disposed__this-not-object-throw.js: ReferenceError: 'DisposableStack' is not defined"
+    }
+  ]
+}

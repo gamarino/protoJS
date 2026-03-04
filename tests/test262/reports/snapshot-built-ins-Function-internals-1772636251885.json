@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-03-04T14:57:31.884Z",
+  "patterns": [
+    "built-ins/Function/internals"
+  ],
+  "total": 8,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/internals/Call/class-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Call__class-ctor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Call/class-ctor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/base-ctor-revoked-proxy-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Construct__base-ctor-revoked-proxy-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/base-ctor-revoked-proxy.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-return-val-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Construct__derived-return-val-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-return-val.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-this-uninitialized-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__internals__Construct__derived-this-uninitialized-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-this-uninitialized.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

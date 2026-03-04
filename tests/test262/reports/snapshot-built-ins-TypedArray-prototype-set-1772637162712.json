@@ -1,0 +1,778 @@
+{
+  "generatedAt": "2026-03-04T15:12:42.712Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/set"
+  ],
+  "total": 109,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 106,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-negative-integer-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-negative-integer-offset-throws.js: ReferenceError: 'testWithBigIntT"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-offset-tointeger.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-offset-tointeger.js: ReferenceError: 'testWithBigIntTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-primitive-toobject.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-primitive-toobject.js: ReferenceError: 'testWithBigIntTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-src-get-length.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-src-get-length.js: ReferenceError: 'testWithBigI"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-src-get-value.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-src-get-value.js: ReferenceError: 'testWithBigIn"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-src-length-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-src-length-symbol.js: ReferenceError: 'testWithB"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-src-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-src-length.js: ReferenceError: 'testWithBigIntTy"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-src-tonumber-value-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-src-tonumber-value-symbol.js: ReferenceError: 't"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-src-tonumber-value.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-src-tonumber-value.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-tointeger-offset-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-tointeger-offset-symbol.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-tointeger-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-tointeger-offset.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-return-abrupt-from-toobject-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-return-abrupt-from-toobject-offset.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-set-values-in-order.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-set-values-in-order.js: ReferenceError: 'testWithBigIntTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-set-values.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-set-values.js: ReferenceError: 'testWithBigIntTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-src-tonumber-value-type-conversions.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-src-tonumber-value-type-conversions.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-src-values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-src-values-are-not-cached.js: ReferenceError: 'testWithBigIntTypedA"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-target-arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-target-arraylength-internal.js: ReferenceError: 'TypedArray' is not"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-targetbuffer-detached-on-tointeger-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-targetbuffer-detached-on-tointeger-offset-throws.js: ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/array-arg-targetbuffer-detached-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__array-arg-targetbuffer-detached-throws.js: ReferenceError: 'testWithBigIntTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/bigint-tobigint64.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/bigint-tobiguint64.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/boolean-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__boolean-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/null-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__null-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/number-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__number-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/src-typedarray-big.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__src-typedarray-big.js: ReferenceError: 'testWithBigIntTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/src-typedarray-not-big-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__src-typedarray-not-big-throws.js: ReferenceError: 'testWithTypedArrayConstruc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/string-nan-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__string-nan-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/string-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__string-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/symbol-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__symbol-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-negative-integer-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-negative-integer-offset-throws.js: ReferenceError: 'testWithBi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-offset-tointeger.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-offset-tointeger.js: ReferenceError: 'testWithBigIntTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-return-abrupt-from-tointeger-offset-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-return-abrupt-from-tointeger-offset-symbol.js: ReferenceError:"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-return-abrupt-from-tointeger-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-return-abrupt-from-tointeger-offset.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-diff-buffer-other-type-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-diff-buffer-other-type-sab.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-diff-buffer-other-type.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-diff-buffer-other-type.js: ReferenceError: 'testWit"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-diff-buffer-same-type-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-diff-buffer-same-type-sab.js: ReferenceError: 'test"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-diff-buffer-same-type.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-diff-buffer-same-type.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-same-buffer-same-type-resized.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-same-buffer-same-type-resized.js: ReferenceError: '"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-same-buffer-same-type-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-same-buffer-same-type-sab.js: ReferenceError: 'test"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-set-values-same-buffer-same-type.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-set-values-same-buffer-same-type.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-src-arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-src-arraylength-internal.js: ReferenceError: 'TypedArray' is n"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-src-byteoffset-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-src-byteoffset-internal.js: ReferenceError: 'TypedArray' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-src-range-greather-than-target-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-src-range-greather-than-target-throws-rangeerror.js: Reference"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js: Referenc"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-target-arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-target-arraylength-internal.js: ReferenceError: 'TypedArray' i"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-target-byteoffset-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-target-byteoffset-internal.js: ReferenceError: 'TypedArray' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-target-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-target-out-of-bounds.js: ReferenceError: 'TypedArray' is not d"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js: Refer"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/BigInt/undefined-tobigint.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__BigInt__undefined-tobigint.js: ReferenceError: 'testWithBigIntTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-negative-integer-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-negative-integer-offset-throws.js: ReferenceError: 'testWithTypedArrayConst"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-offset-tointeger.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-offset-tointeger.js: ReferenceError: 'testWithTypedArrayConstructors' is no"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-primitive-toobject.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-primitive-toobject.js: ReferenceError: 'testWithTypedArrayConstructors' is "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-src-get-length.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-src-get-length.js: ReferenceError: 'testWithTypedArrayCo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-src-get-value.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-src-get-value.js: ReferenceError: 'testWithTypedArrayCon"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-src-length-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-src-length-symbol.js: ReferenceError: 'testWithTypedArra"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-src-length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-src-length.js: ReferenceError: 'testWithTypedArrayConstr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-src-tonumber-value-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-src-tonumber-value-symbol.js: ReferenceError: 'testWithT"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-src-tonumber-value.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-src-tonumber-value.js: ReferenceError: 'testWithTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-tointeger-offset-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-tointeger-offset-symbol.js: ReferenceError: 'testWithTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-tointeger-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-tointeger-offset.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-return-abrupt-from-toobject-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-return-abrupt-from-toobject-offset.js: ReferenceError: 'testWithTypedArrayC"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-set-values-in-order.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-set-values-in-order.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-set-values.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-set-values.js: ReferenceError: 'testWithTypedArrayConstructors' is not defi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-src-tonumber-value-conversions.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-src-tonumber-value-conversions.js: ReferenceError: 'testTypedArrayConversio"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-src-tonumber-value-type-conversions.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-src-tonumber-value-type-conversions.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-src-values-are-not-cached.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-src-values-are-not-cached.js: ReferenceError: 'testWithTypedArrayConstructo"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-target-arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-target-arraylength-internal.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-get-src-value-no-throw.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-targetbuffer-detached-on-get-src-value-no-throw.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-tointeger-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-targetbuffer-detached-on-tointeger-offset-throws.js: ReferenceError: 'testW"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__array-arg-targetbuffer-detached-throws.js: ReferenceError: 'testWithTypedArrayConstru"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/array-arg-value-conversion-resizes-array-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/bit-precision.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__bit-precision.js: ReferenceError: 'testWithTypedArrayConstructors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/invoked-as-func.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__invoked-as-func.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/invoked-as-method.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__invoked-as-method.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__prop-desc.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/src-typedarray-big-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__src-typedarray-big-throws.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/target-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__target-grow-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/target-grow-source-length-getter.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__target-grow-source-length-getter.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/target-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__target-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/target-shrink-source-length-getter.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__target-shrink-source-length-getter.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/this-backed-by-resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__this-backed-by-resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/this-is-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__this-is-not-object.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/this-is-not-typedarray-instance.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__this-is-not-typedarray-instance.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-negative-integer-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-negative-integer-offset-throws.js: ReferenceError: 'testWithTypedArray"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-offset-tointeger.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-offset-tointeger.js: ReferenceError: 'testWithTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-return-abrupt-from-tointeger-offset-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-return-abrupt-from-tointeger-offset-symbol.js: ReferenceError: 'testWi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-return-abrupt-from-tointeger-offset.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-return-abrupt-from-tointeger-offset.js: ReferenceError: 'testWithTyped"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-diff-buffer-other-type-conversions-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-diff-buffer-other-type-conversions-sab.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-diff-buffer-other-type-conversions.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-diff-buffer-other-type-conversions.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-diff-buffer-other-type-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-diff-buffer-other-type-sab.js: ReferenceError: 'testWithTyp"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-diff-buffer-other-type.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-diff-buffer-other-type.js: ReferenceError: 'testWithTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-diff-buffer-same-type-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-diff-buffer-same-type-sab.js: ReferenceError: 'testWithType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-diff-buffer-same-type.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-diff-buffer-same-type.js: ReferenceError: 'testWithTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-same-buffer-other-type.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-same-buffer-other-type.js: ReferenceError: 'testWithTypedAr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-same-buffer-same-type-resized.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-same-buffer-same-type-resized.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-same-buffer-same-type-sab.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-same-buffer-same-type-sab.js: ReferenceError: 'testWithType"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-set-values-same-buffer-same-type.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-set-values-same-buffer-same-type.js: ReferenceError: 'testWithTypedArr"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-src-arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-src-arraylength-internal.js: ReferenceError: 'TypedArray' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-src-backed-by-resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-src-backed-by-resizable-buffer.js: ReferenceError: 'ctors' is not defi"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-src-byteoffset-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-src-byteoffset-internal.js: ReferenceError: 'TypedArray' is not define"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-src-range-greather-than-target-throws-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-src-range-greather-than-target-throws-rangeerror.js: ReferenceError: '"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js: ReferenceError: "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-target-arraylength-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-target-arraylength-internal.js: ReferenceError: 'TypedArray' is not de"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-target-byteoffset-internal.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-target-byteoffset-internal.js: ReferenceError: 'TypedArray' is not def"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-target-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-target-out-of-bounds.js: ReferenceError: 'TypedArray' is not defined"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/set/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__set__typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js: ReferenceErro"
+    }
+  ]
+}

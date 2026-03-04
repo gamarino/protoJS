@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T15:11:39.013Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/prototype/map"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 2,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/map/bigint-inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__prototype__map__bigint-inherited.js: ReferenceError: 'testWithBigIntTypedArrayConstructor"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/map/inherited.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__prototype__map__inherited.js: ReferenceError: 'testWithTypedArrayConstructors' is not def"
+    }
+  ]
+}

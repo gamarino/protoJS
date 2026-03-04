@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T15:04:15.086Z",
+  "patterns": [
+    "built-ins/Atomics/compareExchange/bigint"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/compareExchange/bigint/bad-range.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bigint__bad-range.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not def"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/bigint/good-views.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bigint__good-views.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is not de"
+    },
+    {
+      "path": "built-ins/Atomics/compareExchange/bigint/non-shared-bufferdata.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__compareExchange__bigint__non-shared-bufferdata.js: ReferenceError: 'testWithBigIntTypedArrayConstructors"
+    }
+  ]
+}

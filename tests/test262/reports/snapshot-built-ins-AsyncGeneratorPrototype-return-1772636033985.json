@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-03-04T14:53:53.984Z",
+  "patterns": [
+    "built-ins/AsyncGeneratorPrototype/return"
+  ],
+  "total": 19,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 17,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/iterator-result-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__iterator-result-prototype.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/length.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/name.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/request-queue-order-state-executing.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__request-queue-order-state-executing.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-promise.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-state-completed-broken-promise.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-state-completed.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-state-completed.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedStart-broken-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedStart-broken-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedStart-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedStart-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedStart.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedStart.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-broken-promise-try-catch.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedYield-broken-promise-try-catch.js: ReferenceError: '$DONE' is no"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedYield-promise.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-try-finally-return.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedYield-try-finally-return.js: ReferenceError: '$DONE' is not defi"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-try-finally-throw.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedYield-try-finally-throw.js: ReferenceError: '$DONE' is not defin"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield-try-finally.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedYield-try-finally.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/return-suspendedYield.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__return-suspendedYield.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/this-val-not-async-generator.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__this-val-not-async-generator.js: ReferenceError: '$DONE' is not defined"
+    },
+    {
+      "path": "built-ins/AsyncGeneratorPrototype/return/this-val-not-object.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__AsyncGeneratorPrototype__return__this-val-not-object.js: ReferenceError: '$DONE' is not defined"
+    }
+  ]
+}

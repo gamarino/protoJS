@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T15:13:04.928Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/values/BigInt"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/detached-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__detached-buffer.js: ReferenceError: 'testWithBigIntTypedArrayConstructors'"
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/iter-prototype.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__iter-prototype.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__return-abrupt-from-this-out-of-bounds.js: ReferenceError: 'TypedArray' is "
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/values/BigInt/return-itor.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArray__prototype__values__BigInt__return-itor.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is "
+    }
+  ]
+}

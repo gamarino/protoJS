@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T14:56:49.175Z",
+  "patterns": [
+    "built-ins/Atomics/isLockFree/bigint"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/isLockFree/bigint/expected-return-value.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Atomics__isLockFree__bigint__expected-return-value.js: ReferenceError: 'testWithBigIntTypedArrayConstructors' is "
+    }
+  ]
+}

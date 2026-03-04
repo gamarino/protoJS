@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T15:11:01.956Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/Int32Array/prototype"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Int32Array__prototype__BYTES_PER_ELEMENT.js: ReferenceError: 'verifyNotEnumerable' is not"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Int32Array__prototype__constructor.js: ReferenceError: 'verifyNotEnumerable' is not defin"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/proto.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__Int32Array__prototype__proto.js: ReferenceError: 'TypedArray' is not defined"
+    }
+  ]
+}

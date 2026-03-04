@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T15:04:52.652Z",
+  "patterns": [
+    "built-ins/Function/prototype/arguments"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/prototype/arguments/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Function__prototype__arguments__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

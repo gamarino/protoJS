@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-03-04T14:51:21.645Z",
+  "patterns": [
+    "built-ins/Proxy/defineProperty"
+  ],
+  "total": 24,
+  "summary": {
+    "passed": 13,
+    "failed_syntax": 0,
+    "failed_semantics": 11,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Proxy/defineProperty/call-parameters.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/desc-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__desc-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/null-handler-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__null-handler-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/null-handler.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/return-boolean-and-define-target.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__return-boolean-and-define-target.js: ReferenceError: 'verifyEqualTo' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/return-is-abrupt.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-configurable-desc-not-configurable-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__targetdesc-configurable-desc-not-configurable-realm.js: ReferenceError: '$262' is not defi"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-configurable-desc-not-configurable.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-not-compatible-descriptor-not-configurable-target-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__targetdesc-not-compatible-descriptor-not-configurable-target-realm.js: ReferenceError: '$2"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-not-compatible-descriptor-not-configurable-target.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-not-compatible-descriptor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__targetdesc-not-compatible-descriptor-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-not-compatible-descriptor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-not-configurable-writable-desc-not-writable.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-undefined-not-configurable-descriptor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__targetdesc-undefined-not-configurable-descriptor-realm.js: ReferenceError: '$262' is not d"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-undefined-not-configurable-descriptor.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-undefined-target-is-not-extensible-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__targetdesc-undefined-target-is-not-extensible-realm.js: ReferenceError: '$262' is not defi"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/targetdesc-undefined-target-is-not-extensible.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-is-missing-target-is-proxy.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-is-not-callable-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__trap-is-not-callable-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-is-null-target-is-proxy.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__trap-is-null-target-is-proxy.js: ReferenceError: 'verifyNotWritable' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-is-undefined-target-is-proxy.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-is-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Proxy__defineProperty__trap-is-undefined.js: ReferenceError: 'verifyEqualTo' is not defined"
+    },
+    {
+      "path": "built-ins/Proxy/defineProperty/trap-return-is-false.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

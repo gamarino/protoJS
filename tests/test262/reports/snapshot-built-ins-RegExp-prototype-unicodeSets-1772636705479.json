@@ -1,0 +1,368 @@
+{
+  "generatedAt": "2026-03-04T15:05:05.478Z",
+  "patterns": [
+    "built-ins/RegExp/prototype/unicodeSets"
+  ],
+  "total": 38,
+  "summary": {
+    "passed": 34,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-01.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-01.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-02.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-02.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-03.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-03.js: SyntaxError: unexpected end"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-04.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-04.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-05.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-05.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-06.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-06.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-07.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-07.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-08.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-08.js: SyntaxError: invalid character in class in reg"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-09.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-09.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-10.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-10.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-11.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-11.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-12.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-12.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-13.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-13.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-14.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-14.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-15.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-15.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-16.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-16.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-17.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-17.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-18.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-18.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-19.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-19.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-20.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-20.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-21.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-21.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-22.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-22.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-23.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-23.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-24.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-24.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-25.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-25.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-26.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-26.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-27.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-27.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/breaking-change-from-u-to-v-28.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__breaking-change-from-u-to-v-28.js: SyntaxError: invalid class set operation in re"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/cross-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__cross-realm.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/this-val-invalid-obj.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/this-val-non-obj.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/this-val-regexp-prototype.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/this-val-regexp.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/uv-flags-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/RegExp/prototype/unicodeSets/uv-flags.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__RegExp__prototype__unicodeSets__uv-flags.js: SyntaxError: invalid regular expression flags"
+    }
+  ]
+}

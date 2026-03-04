@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T15:10:53.387Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 11,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/custom-proto-access-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__custom-proto-access-throws.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/new-instance-extensibility.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__new-instance-extensibility.js: ReferenceError: 'testWithBig"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-buffer-ctor-species-null.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__other-ctor-buffer-ctor-species-null.js: ReferenceError: 'te"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-buffer-ctor-species-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__other-ctor-buffer-ctor-species-undefined.js: ReferenceError"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-returns-new-typedarray.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__other-ctor-returns-new-typedarray.js: ReferenceError: 'test"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/proto-from-ctor-realm.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__proto-from-ctor-realm.js: ReferenceError: '$262' is not def"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-buffer-ctor-species-null.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__same-ctor-buffer-ctor-species-null.js: ReferenceError: 'tes"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-buffer-ctor-species-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__same-ctor-buffer-ctor-species-undefined.js: ReferenceError:"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-returns-new-cloned-typedarray.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__same-ctor-returns-new-cloned-typedarray.js: ReferenceError:"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/src-typedarray-not-big-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__src-typedarray-not-big-throws.js: ReferenceError: 'testWith"
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/undefined-newtarget-throws.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__TypedArrayConstructors__ctors-bigint__typedarray-arg__undefined-newtarget-throws.js: ReferenceError: 'testWithBig"
+    }
+  ]
+}

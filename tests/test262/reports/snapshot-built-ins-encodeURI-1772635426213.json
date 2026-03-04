@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-03-04T14:43:46.213Z",
+  "patterns": [
+    "built-ins/encodeURI"
+  ],
+  "total": 31,
+  "summary": {
+    "passed": 21,
+    "failed_syntax": 0,
+    "failed_semantics": 10,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A1.1_T1.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A1.1_T2.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A1.2_T1.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A1.2_T2.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A1.3_T1.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A2.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A2.1_T1.js: ReferenceError: 'decimalToPercentHexString' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A2.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A2.2_T1.js: ReferenceError: 'decimalToPercentHexString' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A2.3_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A2.3_T1.js: ReferenceError: 'decimalToPercentHexString' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A2.4_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A2.4_T1.js: ReferenceError: 'decimalToPercentHexString' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A2.4_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A2.4_T2.js: ReferenceError: 'decimalToPercentHexString' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A2.5_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A2.5_T1.js: ReferenceError: 'decimalToPercentHexString' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A3.1_T1.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A3.2_T1.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A3.2_T2.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A3.2_T3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A3.3_T1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A4_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A4_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A4_T3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A4_T4.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.2.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.3.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__S15.1.3.3_A5.3.js: ReferenceError: 'verifyNotWritable' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.4.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.5.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.6.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A5.7.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/S15.1.3.3_A6_T1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/encodeURI/name.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/encodeURI/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__encodeURI__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

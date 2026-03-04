@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T14:42:23.813Z",
+  "patterns": [
+    "built-ins/ArrayIteratorPrototype/Symbol.toStringTag"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ArrayIteratorPrototype/Symbol.toStringTag/property-descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__ArrayIteratorPrototype__Symbol.toStringTag__property-descriptor.js: ReferenceError: 'verifyProperty' is not defin"
+    },
+    {
+      "path": "built-ins/ArrayIteratorPrototype/Symbol.toStringTag/value-direct.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayIteratorPrototype/Symbol.toStringTag/value-from-to-string.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T15:09:17.689Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/offsetNanoseconds"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 2,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/offsetNanoseconds/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__offsetNanoseconds__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/offsetNanoseconds/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__ZonedDateTime__prototype__offsetNanoseconds__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}
