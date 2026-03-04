@@ -197,7 +197,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Date/now` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Date/parse` | 8 | 8 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Date/prototype` | 485 | 485 | 0 | 0 | 0 | Official Test262 subset. |
-| `built-ins/RegExp` | 1879 | 1687 | 0 | 192 | 0 | Official Test262 subset. |
+| `built-ins/RegExp` | 1879 | 1687 | 0 | 192 | 0 | Official Test262 subset (re-run 2026-03-04). |
 | `built-ins/RegExp/prototype` | 487 | 458 | 0 | 29 | 0 | Official Test262 subset. |
 | `built-ins/RegExp/prototype/exec` | 79 | 79 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/RegExp/prototype/test` | 45 | 45 | 0 | 0 | 0 | Official Test262 subset. |
