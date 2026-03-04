@@ -987,6 +987,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/TypedArrayConstructors/internals/Delete/BigInt` | 19 | 19 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArrayConstructors/internals/Get` | 28 | 28 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArrayConstructors/internals/Get/BigInt` | 14 | 14 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/TypedArrayConstructors/internals/GetOwnProperty` | 24 | 24 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
