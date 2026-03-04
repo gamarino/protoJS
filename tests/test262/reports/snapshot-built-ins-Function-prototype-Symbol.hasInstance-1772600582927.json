@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T05:03:02.927Z",
+  "patterns": [
+    "built-ins/Function/prototype/Symbol.hasInstance"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 11,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/length.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/name.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/prop-desc.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/this-val-bound-target.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/this-val-not-callable.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/this-val-poisoned-prototype.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/this-val-prototype-non-obj.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/value-get-prototype-of-err.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/value-negative.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/value-non-obj.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/prototype/Symbol.hasInstance/value-positive.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
