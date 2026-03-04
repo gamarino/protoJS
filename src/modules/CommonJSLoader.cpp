@@ -210,7 +210,6 @@ JSValue CommonJSLoader::createModuleObject(
     JS_SetPropertyStr(ctx, moduleObj, "children", JS_NewArray(ctx));
     JS_SetPropertyStr(ctx, moduleObj, "parent", JS_NULL);
     
-    JS_FreeValue(ctx, exportsObj);
     return moduleObj;
 }
 
