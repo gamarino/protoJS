@@ -958,6 +958,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/ThrowTypeError` | 14 | 14 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArray` | 1438 | 1438 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArrayConstructors` | 736 | 736 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/TypedArrayConstructors/BigInt64Array` | 12 | 12 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
