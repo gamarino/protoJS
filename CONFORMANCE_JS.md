@@ -400,6 +400,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Math/acosh` | 7 | 7 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/asinh` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/atanh` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Math/cbrt` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
