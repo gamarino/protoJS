@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-04T05:52:04.036Z",
+  "patterns": [
+    "built-ins/Uint8Array/fromBase64"
+  ],
+  "total": 13,
+  "summary": {
+    "passed": 13,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Uint8Array/fromBase64/alphabet.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/descriptor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/ignores-receiver.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/illegal-characters.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/last-chunk-handling.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/last-chunk-invalid.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/length.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/name.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/nonconstructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/option-coercion.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/results.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/string-coercion.js",
+      "result": "passed",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromBase64/whitespace.js",
+      "result": "passed",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

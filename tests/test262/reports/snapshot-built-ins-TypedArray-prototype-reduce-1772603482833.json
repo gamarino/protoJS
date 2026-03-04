@@ -1,0 +1,365 @@
+{
+  "generatedAt": "2026-03-04T05:51:22.833Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/reduce"
+  ],
+  "total": 50,
+  "summary": {
+    "passed": 50,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-arguments-custom-accumulator.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-arguments-default-accumulator.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-is-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-no-iteration-over-non-integer-properties.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-not-called-on-empty.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-return-does-not-change-instance.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-returns-abrupt.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-set-value-during-iteration.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-this.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/empty-instance-return-initialvalue.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/empty-instance-with-no-initialvalue-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/result-is-last-callbackfn-return.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/result-of-any-type.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/return-first-value-without-callbackfn.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/BigInt/values-are-not-cached.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-arguments-custom-accumulator.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-arguments-default-accumulator.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-is-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-no-iteration-over-non-integer-properties.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-not-called-on-empty.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-resize.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-return-does-not-change-instance.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-returns-abrupt.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-set-value-during-iteration.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/callbackfn-this.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/empty-instance-return-initialvalue.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/empty-instance-with-no-initialvalue-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/get-length-uses-internal-arraylength.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/invoked-as-method.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/length.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/name.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/prop-desc.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/resizable-buffer-grow-mid-iteration.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/resizable-buffer-shrink-mid-iteration.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/result-is-last-callbackfn-return.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/result-of-any-type.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/return-first-value-without-callbackfn.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/this-is-not-typedarray-instance.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/reduce/values-are-not-cached.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

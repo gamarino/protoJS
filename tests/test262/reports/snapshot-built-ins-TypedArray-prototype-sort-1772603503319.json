@@ -1,0 +1,260 @@
+{
+  "generatedAt": "2026-03-04T05:51:43.319Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/sort"
+  ],
+  "total": 35,
+  "summary": {
+    "passed": 35,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/arraylength-internal.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/comparefn-call-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/comparefn-calls.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/comparefn-is-undefined.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/comparefn-nonfunction-call-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/return-same-instance.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/sortcompare-with-no-tostring.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/BigInt/sorted-values.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/arraylength-internal.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-call-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-calls.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-grow.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-is-undefined.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-nonfunction-call-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/comparefn-shrink.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/invoked-as-method.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/length.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/name.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/prop-desc.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/resizable-buffer-default-comparator.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/return-same-instance.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/sort-tonumber.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/sortcompare-with-no-tostring.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/sorted-values-nan.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/sorted-values.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/stability.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/sort/this-is-not-typedarray-instance.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

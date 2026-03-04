@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-03-04T05:52:11.505Z",
+  "patterns": [
+    "built-ins/undefined"
+  ],
+  "total": 8,
+  "summary": {
+    "passed": 8,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/undefined/15.1.1.3-0.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/15.1.1.3-1.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/15.1.1.3-2.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/15.1.1.3-3.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/S15.1.1.3_A1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/S15.1.1.3_A3_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/S15.1.1.3_A4.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/undefined/prop-desc.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

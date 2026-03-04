@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-03-04T05:51:54.163Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/toReversed"
+  ],
+  "total": 9,
+  "summary": {
+    "passed": 9,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/ignores-species.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/immutable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/length-property-ignored.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/length.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/name.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/property-descriptor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/reverses.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/toReversed/this-value-invalid.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,323 @@
+{
+  "generatedAt": "2026-03-04T05:50:43.555Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/every"
+  ],
+  "total": 44,
+  "summary": {
+    "passed": 44,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-arguments-with-thisarg.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-arguments-without-thisarg.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-no-interaction-over-non-integer.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-not-called-on-empty.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-return-does-not-change-instance.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-returns-abrupt.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-set-value-during-interaction.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/callbackfn-this.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/returns-false-if-any-cb-returns-false.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/returns-true-if-every-cb-returns-true.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/BigInt/values-are-not-cached.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-arguments-with-thisarg.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-arguments-without-thisarg.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-no-interaction-over-non-integer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-not-called-on-empty.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-resize.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-return-does-not-change-instance.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-returns-abrupt.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-set-value-during-interaction.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/callbackfn-this.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/get-length-uses-internal-arraylength.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/invoked-as-method.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/length.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/name.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/prop-desc.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/resizable-buffer-grow-mid-iteration.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/resizable-buffer-shrink-mid-iteration.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/returns-false-if-any-cb-returns-false.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/returns-true-if-every-cb-returns-true.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/this-is-not-typedarray-instance.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/every/values-are-not-cached.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

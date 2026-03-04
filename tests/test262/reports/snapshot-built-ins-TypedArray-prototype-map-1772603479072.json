@@ -1,0 +1,603 @@
+{
+  "generatedAt": "2026-03-04T05:51:19.071Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/map"
+  ],
+  "total": 84,
+  "summary": {
+    "passed": 84,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/arraylength-internal.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-arguments-with-thisarg.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-arguments-without-thisarg.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-no-interaction-over-non-integer-properties.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-not-called-on-empty.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-return-affects-returned-object.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-return-does-not-change-instance.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-return-does-not-copy-non-integer-properties.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-returns-abrupt.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-set-value-during-interaction.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/callbackfn-this.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/return-new-typedarray-from-empty-length.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/return-new-typedarray-from-positive-length.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-destination-resizable.js",
+      "result": "passed",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-ctor-abrupt.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-ctor-inherited.js",
+      "result": "passed",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-ctor-returns-throws.js",
+      "result": "passed",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-ctor.js",
+      "result": "passed",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-abrupt.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor-invocation.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor-length-throws-resizable-arraybuffer.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor-length-throws.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor-length.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor-returns-another-instance.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor-throws.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-custom-ctor.js",
+      "result": "passed",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-returns-throws.js",
+      "result": "passed",
+      "durationMs": 57,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species-use-default-ctor.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/speciesctor-get-species.js",
+      "result": "passed",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/BigInt/values-are-not-cached.js",
+      "result": "passed",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/arraylength-internal.js",
+      "result": "passed",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-arguments-with-thisarg.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-arguments-without-thisarg.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-no-interaction-over-non-integer-properties.js",
+      "result": "passed",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-not-called-on-empty.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-resize.js",
+      "result": "passed",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-return-affects-returned-object.js",
+      "result": "passed",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-return-does-not-change-instance.js",
+      "result": "passed",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-return-does-not-copy-non-integer-properties.js",
+      "result": "passed",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-returns-abrupt.js",
+      "result": "passed",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-set-value-during-interaction.js",
+      "result": "passed",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/callbackfn-this.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/invoked-as-method.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/length.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/name.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/prop-desc.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/resizable-buffer-grow-mid-iteration.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/resizable-buffer-shrink-mid-iteration.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/return-new-typedarray-conversion-operation-consistent-nan.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/return-new-typedarray-conversion-operation.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/return-new-typedarray-from-empty-length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/return-new-typedarray-from-positive-length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-destination-resizable.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-ctor-abrupt.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-ctor-inherited.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-ctor-returns-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-ctor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-abrupt.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor-invocation.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor-length-throws-resizable-arraybuffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor-length-throws.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor-length.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor-returns-another-instance.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor-throws.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-custom-ctor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-returns-throws.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species-use-default-ctor.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-get-species.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-resizable-buffer-grow.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/speciesctor-resizable-buffer-shrink.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/this-is-not-typedarray-instance.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/map/values-are-not-cached.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

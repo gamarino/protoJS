@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-03-04T05:51:50.810Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt"
+  ],
+  "total": 9,
+  "summary": {
+    "passed": 9,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/invoked-as-accessor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/length.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/name.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/prop-desc.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/return-typedarrayname.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/this-has-no-typedarrayname-internal.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,316 @@
+{
+  "generatedAt": "2026-03-04T05:51:06.997Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/indexOf"
+  ],
+  "total": 43,
+  "summary": {
+    "passed": 43,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/fromIndex-equal-or-greater-length-returns-minus-one.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/fromIndex-infinity.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/fromIndex-minus-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/get-length-uses-internal-arraylength.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/length-zero-returns-minus-one.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/no-arg.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/return-abrupt-tointeger-fromindex-symbol.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/return-abrupt-tointeger-fromindex.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/search-found-returns-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/search-not-found-returns-minus-one.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/BigInt/tointeger-fromindex.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/coerced-searchelement-fromindex-grow.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/coerced-searchelement-fromindex-shrink.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/fromIndex-equal-or-greater-length-returns-minus-one.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/fromIndex-infinity.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/fromIndex-minus-zero.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/get-length-uses-internal-arraylength.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/invoked-as-method.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/length-zero-returns-minus-one.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/length.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/name.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/no-arg.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/prop-desc.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/resizable-buffer-special-float-values.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/return-abrupt-tointeger-fromindex-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/return-abrupt-tointeger-fromindex.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/search-found-returns-index.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/search-not-found-returns-minus-one.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/strict-comparison.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/this-is-not-typedarray-instance.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/indexOf/tointeger-fromindex.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

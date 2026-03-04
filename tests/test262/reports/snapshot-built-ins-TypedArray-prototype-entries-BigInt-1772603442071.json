@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T05:50:42.070Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/entries/BigInt"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/entries/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/entries/BigInt/iter-prototype.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/entries/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/entries/BigInt/return-itor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

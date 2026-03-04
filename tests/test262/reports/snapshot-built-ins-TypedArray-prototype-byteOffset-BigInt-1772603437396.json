@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T05:50:37.396Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/byteOffset/BigInt"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/byteOffset/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/byteOffset/BigInt/resizable-array-buffer-auto.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/byteOffset/BigInt/resizable-array-buffer-fixed.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/byteOffset/BigInt/return-byteoffset.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T05:50:34.183Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/Uint8Array/prototype"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

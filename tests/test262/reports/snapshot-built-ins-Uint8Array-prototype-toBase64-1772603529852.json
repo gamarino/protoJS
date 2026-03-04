@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T05:52:09.852Z",
+  "patterns": [
+    "built-ins/Uint8Array/prototype/toBase64"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/alphabet.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/descriptor.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/length.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/name.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/nonconstructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/omit-padding.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/option-coercion.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/receiver-not-uint8array.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/prototype/toBase64/results.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

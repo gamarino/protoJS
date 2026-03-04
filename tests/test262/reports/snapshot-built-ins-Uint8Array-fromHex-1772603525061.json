@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-03-04T05:52:05.060Z",
+  "patterns": [
+    "built-ins/Uint8Array/fromHex"
+  ],
+  "total": 9,
+  "summary": {
+    "passed": 9,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Uint8Array/fromHex/descriptor.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/ignores-receiver.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/illegal-characters.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/length.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/name.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/nonconstructor.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/odd-length-input.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/results.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Uint8Array/fromHex/string-coercion.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

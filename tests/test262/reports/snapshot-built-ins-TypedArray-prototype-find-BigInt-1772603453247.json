@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-04T05:50:53.246Z",
+  "patterns": [
+    "built-ins/TypedArray/prototype/find/BigInt"
+  ],
+  "total": 13,
+  "summary": {
+    "passed": 13,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/get-length-ignores-length-prop.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-changes-value.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-parameters.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-this-non-strict.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-call-this-strict.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-is-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-may-detach-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/predicate-not-called-on-empty-array.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-abrupt-from-predicate-call.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-abrupt-from-this-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-found-value-predicate-result-is-true.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArray/prototype/find/BigInt/return-undefined-if-predicate-returns-false-value.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
