@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T05:31:27.534Z",
+  "patterns": [
+    "built-ins/Temporal/Duration/prototype/sign"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Duration/prototype/sign/blank-duration.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Duration/prototype/sign/branding.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Duration/prototype/sign/prop-desc.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
