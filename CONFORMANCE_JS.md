@@ -83,6 +83,8 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/unshift`    |    22 |     22 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/unshift/**`. |
 | `built-ins/Array/prototype/values`    |    12 |     12 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/values/**`. |
 | `built-ins/Array/prototype/Symbol.iterator` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Array/prototype/Symbol.unscopables` | 4 | 4 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Array/prototype/with` | 21 | 21 | 0 | 0 | 0 | Official Test262 subset. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
