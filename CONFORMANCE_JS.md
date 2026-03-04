@@ -391,6 +391,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Iterator/prototype/forEach` | 27 | 27 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Iterator/prototype/reduce` | 30 | 30 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Iterator/prototype/some` | 33 | 33 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Iterator/prototype/Symbol.iterator` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
