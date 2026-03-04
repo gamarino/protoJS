@@ -757,6 +757,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Object/prototype/__defineGetter__` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Object/prototype/__defineSetter__` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Object/prototype/__lookupGetter__` | 16 | 16 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Object/prototype/__lookupSetter__` | 16 | 16 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
