@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T05:31:59.775Z",
+  "patterns": [
+    "built-ins/Temporal/PlainDate/prototype/monthCode"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/monthCode/basic.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/monthCode/branding.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/monthCode/no-leap-months.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDate/prototype/monthCode/prop-desc.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
