@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-03-04T05:35:23.362Z",
+  "patterns": [
+    "built-ins/Temporal/PlainDateTime/prototype/toPlainTime"
+  ],
+  "total": 7,
+  "summary": {
+    "passed": 7,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/basic.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/branding.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/builtin.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/length.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/name.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/toPlainTime/prop-desc.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
