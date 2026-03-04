@@ -1,0 +1,498 @@
+{
+  "generatedAt": "2026-03-04T15:43:08.587Z",
+  "patterns": [
+    "built-ins/Array/prototype/concat"
+  ],
+  "total": 69,
+  "summary": {
+    "passed": 67,
+    "failed_syntax": 0,
+    "failed_semantics": 2,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/concat/15.4.4.4-5-b-iii-3-b-1.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/15.4.4.4-5-c-i-1.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like-length-to-string-throws.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like-length-value-of-throws.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like-negative-length.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like-primitive-non-number-length.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like-string-length.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like-to-length-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_array-like.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_holey-sloppy-arguments.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_length-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_no-prototype.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_sloppy-arguments-throws.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_sloppy-arguments-with-dupes.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_sloppy-arguments.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-boolean-wrapper.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-function.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-getter-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-number-wrapper.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-reg-exp.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-sparse-object.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_spreadable-string-wrapper.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/Array.prototype.concat_strict-arguments.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A1_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A1_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A1_T3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A1_T4.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A2_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A2_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A3_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A3_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/S15.4.4.4_A3_T3.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/arg-length-exceeding-integer-limit.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/arg-length-near-integer-limit.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/call-with-boolean.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-ctor-non-object.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-ctor-poisoned.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-non-array.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-proto-from-ctor-realm-array.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__concat__create-proto-from-ctor-realm-array.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-proto-from-ctor-realm-non-array.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__concat__create-proto-from-ctor-realm-non-array.js: ReferenceError: '$262' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-proxy.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-revoked-proxy.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-abrupt.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-non-ctor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-non-extensible-spreadable.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-non-extensible.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-null.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-poisoned.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-undef.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-with-non-configurable-property-spreadable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-with-non-configurable-property.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-with-non-writable-property-spreadable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species-with-non-writable-property.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/create-species.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-get-err.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-get-order.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-is-array-proxy-revoked.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-proxy-revoked.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-proxy.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-val-falsey.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-val-truthy.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/is-concat-spreadable-val-undefined.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/length.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/name.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/concat/prop-desc.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "generatedAt": "2026-03-04T15:37:33.302Z",
+  "patterns": [
+    "built-ins/Array/prototype/find"
+  ],
+  "total": 23,
+  "summary": {
+    "passed": 14,
+    "failed_syntax": 0,
+    "failed_semantics": 9,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/find/array-altered-during-loop.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/call-with-boolean.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/callbackfn-resize-arraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__callbackfn-resize-arraybuffer.js: ReferenceError: 'testWithTypedArrayConstructors' is not"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/length.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-call-parameters.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-call-this-non-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-call-this-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-call-this-strict.js: Test262Error: Expected SameValue(«[object global]», «undef"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-called-for-each-array-property.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-is-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-not-called-on-empty-array.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/resizable-buffer-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__resizable-buffer-grow-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/resizable-buffer-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__resizable-buffer-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-predicate-call.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-property.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-this-length-as-symbol.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-this-length.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-this.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-found-value-predicate-result-is-true.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-undefined-if-predicate-returns-false-value.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

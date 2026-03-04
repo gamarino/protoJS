@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T15:44:16.230Z",
+  "patterns": [
+    "built-ins/Array/prototype/Symbol.unscopables"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 4,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/array-find-from-last.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/change-array-by-copy.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/prop-desc.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/value.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

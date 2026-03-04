@@ -108,6 +108,16 @@ function parseFrontMatter(source) {
     if (trimmed.startsWith("includes:")) {
       inIncludes = true;
       inNegative = false;
+      // Support inline includes: [a.js, b.js]
+      const inline = trimmed.match(/includes:\s*\[([^\]]+)\]/);
+      if (inline) {
+        for (const part of inline[1].split(",")) {
+          const name = part.trim().replace(/^["']|["']$/g, "");
+          if (name && /\.js$/.test(name)) {
+            result.includes.push(name);
+          }
+        }
+      }
       continue;
     }
     if (

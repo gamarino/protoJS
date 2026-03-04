@@ -1,0 +1,169 @@
+{
+  "generatedAt": "2026-03-04T15:37:32.276Z",
+  "patterns": [
+    "built-ins/Array/prototype/fill"
+  ],
+  "total": 22,
+  "summary": {
+    "passed": 16,
+    "failed_syntax": 0,
+    "failed_semantics": 6,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/fill/call-with-boolean.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/coerced-indexes.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/fill-values-custom-start-and-end.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/fill-values-relative-end.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/fill-values-relative-start.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/fill-values.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/length-near-integer-limit.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/length.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__fill__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/name.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__fill__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__fill__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__fill__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__fill__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-end-as-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-end.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-setting-property-value.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-start-as-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-start.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-this-length-as-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-this-length.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-abrupt-from-this.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/return-this.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/fill/typed-array-resize.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__fill__typed-array-resize.js: ReferenceError: 'ctors' is not defined"
+    }
+  ]
+}

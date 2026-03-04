@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-03-04T15:37:35.390Z",
+  "patterns": [
+    "built-ins/Array/prototype/findLast"
+  ],
+  "total": 24,
+  "summary": {
+    "passed": 15,
+    "failed_syntax": 0,
+    "failed_semantics": 9,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/findLast/array-altered-during-loop.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/call-with-boolean.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/callbackfn-resize-arraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__callbackfn-resize-arraybuffer.js: ReferenceError: 'testWithTypedArrayConstructors' is"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/length.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/maximum-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/name.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/predicate-call-parameters.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/predicate-call-this-non-strict.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/predicate-call-this-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__predicate-call-this-strict.js: Test262Error: Expected SameValue(«[object global]», «u"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/predicate-called-for-each-array-property.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/predicate-is-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/predicate-not-called-on-empty-array.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/resizable-buffer-grow-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__resizable-buffer-grow-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/resizable-buffer-shrink-mid-iteration.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__resizable-buffer-shrink-mid-iteration.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLast__resizable-buffer.js: ReferenceError: 'ctors' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-abrupt-from-predicate-call.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-abrupt-from-property.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-abrupt-from-this-length-as-symbol.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-abrupt-from-this-length.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-abrupt-from-this.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-found-value-predicate-result-is-true.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/findLast/return-undefined-if-predicate-returns-false-value.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

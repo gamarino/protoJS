@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T15:38:21.332Z",
+  "patterns": [
+    "built-ins/Array/prototype/toString"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 7,
+    "failed_syntax": 0,
+    "failed_semantics": 4,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/toString/S15.4.4.2_A1_T1.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/S15.4.4.2_A1_T2.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/S15.4.4.2_A1_T3.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/S15.4.4.2_A1_T4.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/S15.4.4.2_A3_T1.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/call-with-boolean.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/length.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toString__length.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/name.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toString__name.js: ReferenceError: 'verifyProperty' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/non-callable-join-string-tag.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toString__not-a-constructor.js: ReferenceError: 'isConstructor' is not defined"
+    },
+    {
+      "path": "built-ins/Array/prototype/toString/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toString__prop-desc.js: ReferenceError: 'verifyProperty' is not defined"
+    }
+  ]
+}

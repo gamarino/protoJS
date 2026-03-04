@@ -165,7 +165,16 @@ function main() {
   console.log("protojs binary:", PROTOJS_BIN);
 
   let doc = fs.readFileSync(DOC_PATH, "utf8");
-  const patterns = extractPatternsFromDoc(doc);
+  let patterns = extractPatternsFromDoc(doc);
+
+  // Focus on the high-value batches we care about now:
+  // - built-ins/Object/defineProperty
+  // - All built-ins/Array/prototype/* subsets
+  patterns = patterns.filter(
+    (p) =>
+      p === "built-ins/Object/defineProperty" ||
+      p.startsWith("built-ins/Array/prototype/")
+  );
 
   console.log(`Found ${patterns.length} patterns in CONFORMANCE_JS.md`);
 

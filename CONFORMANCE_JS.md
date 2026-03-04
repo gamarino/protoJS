@@ -53,46 +53,46 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 |-------------------------------------|-------|--------|-----------------|--------------------|----------|-------|
 | `built-ins/Object`                  |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
 | `built-ins/Array/isArray`           | 29 | 26 | 0 | 3 | 0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
-| `built-ins/Array/prototype/push`    | 24 | 20 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/push/**`. |
-| `built-ins/Array/prototype/map`     | 216 | 204 | 0 | 12 | 0 | Official Test262 subset under `built-ins/Array/prototype/map/**`. |
-| `built-ins/Array/prototype/filter`  | 242 | 230 | 0 | 12 | 0 | Official Test262 subset under `built-ins/Array/prototype/filter/**`. |
-| `built-ins/Array/prototype/forEach` | 190 | 182 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/forEach/**`. |
-| `built-ins/Array/prototype/includes`| 30 | 23 | 0 | 7 | 0 | Official Test262 subset under `built-ins/Array/prototype/includes/**`. |
-| `built-ins/Array/prototype/indexOf` | 201 | 192 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/indexOf/**`. |
-| `built-ins/Array/prototype/join`    | 23 | 16 | 0 | 7 | 0 | Official Test262 subset under `built-ins/Array/prototype/join/**`. |
-| `built-ins/Array/prototype/at`      | 13 | 8 | 0 | 5 | 0 | Official Test262 subset under `built-ins/Array/prototype/at/**`. |
-| `built-ins/Array/prototype/concat` | 69 | 58 | 0 | 11 | 0 | Official Test262 subset under `built-ins/Array/prototype/concat/**`. |
-| `built-ins/Array/prototype/copyWithin` | 39 | 34 | 0 | 5 | 0 | Official Test262 subset under `built-ins/Array/prototype/copyWithin/**`. |
-| `built-ins/Array/prototype/entries`   | 12 | 5 | 0 | 7 | 0 | Official Test262 subset under `built-ins/Array/prototype/entries/**`. |
-| `built-ins/Array/prototype/every`     | 218 | 210 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/every/**`. |
-| `built-ins/Array/prototype/fill`       | 22 | 16 | 0 | 6 | 0 | Official Test262 subset under `built-ins/Array/prototype/fill/**`. |
-| `built-ins/Array/prototype/find`       | 23 | 14 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/find/**`. |
-| `built-ins/Array/prototype/findIndex`  | 23 | 14 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/findIndex/**`. |
-| `built-ins/Array/prototype/findLast`   | 24 | 15 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/findLast/**`. |
-| `built-ins/Array/prototype/findLastIndex` | 24 | 15 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/findLastIndex/**`. |
-| `built-ins/Array/prototype/flat`         | 19 | 14 | 0 | 5 | 0 | Official Test262 subset under `built-ins/Array/prototype/flat/**`. |
-| `built-ins/Array/prototype/flatMap`     | 24 | 17 | 0 | 7 | 0 | Official Test262 subset under `built-ins/Array/prototype/flatMap/**`. |
-| `built-ins/Array/prototype/keys`       | 12 | 5 | 0 | 7 | 0 | Official Test262 subset under `built-ins/Array/prototype/keys/**`. |
-| `built-ins/Array/prototype/lastIndexOf` | 198 | 190 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/lastIndexOf/**`. |
-| `built-ins/Array/prototype/pop`         | 23 | 19 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/pop/**`. |
-| `built-ins/Array/prototype/reduce`     | 260 | 252 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/reduce/**`. |
-| `built-ins/Array/prototype/reduceRight`| 260 | 252 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/reduceRight/**`. |
-| `built-ins/Array/prototype/reverse`   | 18 | 12 | 0 | 6 | 0 | Official Test262 subset under `built-ins/Array/prototype/reverse/**`. |
-| `built-ins/Array/prototype/shift`     | 20 | 16 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/shift/**`. |
-| `built-ins/Array/prototype/slice`     | 71 | 60 | 0 | 11 | 0 | Official Test262 subset under `built-ins/Array/prototype/slice/**`. |
-| `built-ins/Array/prototype/some`     | 219 | 211 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/some/**`. |
-| `built-ins/Array/prototype/sort`     | 54 | 46 | 0 | 8 | 0 | Official Test262 subset under `built-ins/Array/prototype/sort/**`. |
-| `built-ins/Array/prototype/splice`   | 81 | 72 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/splice/**`. |
-| `built-ins/Array/prototype/toLocaleString` | 12 | 3 | 0 | 9 | 0 | Official Test262 subset under `built-ins/Array/prototype/toLocaleString/**`. |
-| `built-ins/Array/prototype/toReversed`     | 17 | 13 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/toReversed/**`. |
-| `built-ins/Array/prototype/toSorted`      | 21 | 17 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/toSorted/**`. |
-| `built-ins/Array/prototype/toSpliced`    | 30 | 26 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/toSpliced/**`. |
-| `built-ins/Array/prototype/toString`    | 11 | 7 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/toString/**`. |
-| `built-ins/Array/prototype/unshift`    | 22 | 18 | 0 | 4 | 0 | Official Test262 subset under `built-ins/Array/prototype/unshift/**`. |
-| `built-ins/Array/prototype/values`    | 12 | 5 | 0 | 7 | 0 | Official Test262 subset under `built-ins/Array/prototype/values/**`. |
-| `built-ins/Array/prototype/Symbol.iterator` | 1 | 0 | 0 | 1 | 0 | Official Test262 subset. |
-| `built-ins/Array/prototype/Symbol.unscopables` | 4 | 0 | 0 | 4 | 0 | Official Test262 subset. |
-| `built-ins/Array/prototype/with` | 21 | 17 | 0 | 4 | 0 | Official Test262 subset. |
+| `built-ins/Array/prototype/push`    | 24 | 24 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/push/**`. |
+| `built-ins/Array/prototype/map`     | 216 | 214 | 0 | 2 | 0 | Official Test262 subset under `built-ins/Array/prototype/map/**`. |
+| `built-ins/Array/prototype/filter`  | 242 | 240 | 0 | 2 | 0 | Official Test262 subset under `built-ins/Array/prototype/filter/**`. |
+| `built-ins/Array/prototype/forEach` | 190 | 190 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/forEach/**`. |
+| `built-ins/Array/prototype/includes`| 30 | 30 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/includes/**`. |
+| `built-ins/Array/prototype/indexOf` | 201 | 201 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/indexOf/**`. |
+| `built-ins/Array/prototype/join`    | 23 | 23 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/join/**`. |
+| `built-ins/Array/prototype/at`      | 13 | 13 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/at/**`. |
+| `built-ins/Array/prototype/concat` | 69 | 67 | 0 | 2 | 0 | Official Test262 subset under `built-ins/Array/prototype/concat/**`. |
+| `built-ins/Array/prototype/copyWithin` | 39 | 39 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/copyWithin/**`. |
+| `built-ins/Array/prototype/entries`   | 12 | 12 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/entries/**`. |
+| `built-ins/Array/prototype/every`     | 218 | 218 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/every/**`. |
+| `built-ins/Array/prototype/fill`       | 22 | 22 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/fill/**`. |
+| `built-ins/Array/prototype/find`       | 23 | 22 | 0 | 1 | 0 | Official Test262 subset under `built-ins/Array/prototype/find/**`. |
+| `built-ins/Array/prototype/findIndex`  | 23 | 22 | 0 | 1 | 0 | Official Test262 subset under `built-ins/Array/prototype/findIndex/**`. |
+| `built-ins/Array/prototype/findLast`   | 24 | 23 | 0 | 1 | 0 | Official Test262 subset under `built-ins/Array/prototype/findLast/**`. |
+| `built-ins/Array/prototype/findLastIndex` | 24 | 23 | 0 | 1 | 0 | Official Test262 subset under `built-ins/Array/prototype/findLastIndex/**`. |
+| `built-ins/Array/prototype/flat`         | 19 | 19 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/flat/**`. |
+| `built-ins/Array/prototype/flatMap`     | 24 | 23 | 0 | 1 | 0 | Official Test262 subset under `built-ins/Array/prototype/flatMap/**`. |
+| `built-ins/Array/prototype/keys`       | 12 | 12 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/keys/**`. |
+| `built-ins/Array/prototype/lastIndexOf` | 198 | 198 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/lastIndexOf/**`. |
+| `built-ins/Array/prototype/pop`         | 23 | 23 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/pop/**`. |
+| `built-ins/Array/prototype/reduce`     | 260 | 260 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/reduce/**`. |
+| `built-ins/Array/prototype/reduceRight`| 260 | 260 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/reduceRight/**`. |
+| `built-ins/Array/prototype/reverse`   | 18 | 18 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/reverse/**`. |
+| `built-ins/Array/prototype/shift`     | 20 | 20 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/shift/**`. |
+| `built-ins/Array/prototype/slice`     | 71 | 69 | 0 | 2 | 0 | Official Test262 subset under `built-ins/Array/prototype/slice/**`. |
+| `built-ins/Array/prototype/some`     | 219 | 219 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/some/**`. |
+| `built-ins/Array/prototype/sort`     | 54 | 54 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/sort/**`. |
+| `built-ins/Array/prototype/splice`   | 81 | 79 | 0 | 2 | 0 | Official Test262 subset under `built-ins/Array/prototype/splice/**`. |
+| `built-ins/Array/prototype/toLocaleString` | 12 | 10 | 0 | 2 | 0 | Official Test262 subset under `built-ins/Array/prototype/toLocaleString/**`. |
+| `built-ins/Array/prototype/toReversed`     | 17 | 17 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/toReversed/**`. |
+| `built-ins/Array/prototype/toSorted`      | 21 | 21 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/toSorted/**`. |
+| `built-ins/Array/prototype/toSpliced`    | 30 | 30 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/toSpliced/**`. |
+| `built-ins/Array/prototype/toString`    | 11 | 11 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/toString/**`. |
+| `built-ins/Array/prototype/unshift`    | 22 | 22 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/unshift/**`. |
+| `built-ins/Array/prototype/values`    | 12 | 12 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/prototype/values/**`. |
+| `built-ins/Array/prototype/Symbol.iterator` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Array/prototype/Symbol.unscopables` | 4 | 4 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Array/prototype/with` | 21 | 21 | 0 | 0 | 0 | Official Test262 subset. |
 
 | `built-ins/Array/from` | 47 | 38 | 0 | 9 | 0 | Official Test262 subset. |
 | `built-ins/Array/of` | 16 | 10 | 0 | 6 | 0 | Official Test262 subset. |
@@ -118,7 +118,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Object/values` | 20 | 15 | 0 | 5 | 0 | Official Test262 subset. |
 | `built-ins/Object/entries` | 21 | 16 | 0 | 5 | 0 | Official Test262 subset. |
 | `built-ins/Object/is` | 21 | 17 | 0 | 4 | 0 | Official Test262 subset. |
-| `built-ins/Object/defineProperty` | 1131 | 724 | 0 | 407 | 0 | Official Test262 subset. |
+| `built-ins/Object/defineProperty` | 1131 | 1127 | 0 | 4 | 0 | Official Test262 subset. |
 | `built-ins/String/fromCharCode` | 17 | 15 | 0 | 2 | 0 | Official Test262 subset. |
 | `built-ins/String/fromCodePoint` | 11 | 7 | 0 | 4 | 0 | Official Test262 subset. |
 | `built-ins/String/raw` | 30 | 26 | 0 | 4 | 0 | Official Test262 subset. |

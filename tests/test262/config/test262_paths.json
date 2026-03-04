@@ -4,6 +4,6 @@
   "harness_dir": "harness",
   "default_timeout_ms": 5000,
   "patterns": [
-    "built-ins/WeakSet/prototype/constructor"
+    "built-ins/Object/defineProperty"
   ]
 }
