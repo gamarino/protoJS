@@ -362,6 +362,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Atomics/compareExchange` | 16 | 16 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Atomics/exchange` | 16 | 16 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/BigInt/prototype/toLocaleString` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/BigInt/prototype/valueOf` | 8 | 8 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
