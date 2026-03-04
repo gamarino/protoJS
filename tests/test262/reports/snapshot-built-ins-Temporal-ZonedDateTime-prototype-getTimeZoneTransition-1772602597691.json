@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-03-04T05:36:37.690Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition"
+  ],
+  "total": 14,
+  "summary": {
+    "passed": 14,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/branding.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/builtin.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/direction-undefined.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/direction-wrong-type.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/length.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/name.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/offset-timezone-no-transitions.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/options-undefined.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/order-of-operations.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/prop-desc.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/utc-no-transitions.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/wrong-string.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/getTimeZoneTransition/wrong-type.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
