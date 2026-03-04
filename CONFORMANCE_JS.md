@@ -169,6 +169,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/String/prototype/indexOf` | 47 | 47 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/String/prototype/lastIndexOf` | 25 | 25 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/String/prototype/slice` | 38 | 38 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/String/prototype/split` | 120 | 120 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
