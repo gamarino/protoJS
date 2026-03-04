@@ -672,6 +672,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Set/prototype/isDisjointFrom` | 25 | 25 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Set/prototype/isSubsetOf` | 23 | 23 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Set/prototype/isSupersetOf` | 25 | 25 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Set/prototype/keys` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
