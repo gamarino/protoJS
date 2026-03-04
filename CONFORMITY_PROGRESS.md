@@ -25,9 +25,9 @@ This document tracks implementation status of the **TEST_PLAN.md** (Phase 1: Sem
 
 | ID    | Area              | protoPython | protoJS | Notes |
 |-------|-------------------|-------------|---------|-------|
-| 1.2.1 | Module identity   | ✅ Implemented | ⏳ N/A* | `test_module_identity.py` |
-| 1.2.2 | Wrapper vs content| ✅ Implemented | ⏳ N/A* | `test_wrapper_content.py` |
-| 1.2.3 | Re-import         | ✅ Implemented | ⏳ N/A* | `test_reimport.py` |
+| 1.2.1 | Module identity   | ✅ Verified    | ⏳ N/A* | `test_module_identity.py` (protopy) |
+| 1.2.2 | Wrapper vs content| ✅ Verified    | ⏳ N/A* | `test_wrapper_content.py` (protopy) |
+| 1.2.3 | Re-import         | ✅ Verified    | ⏳ N/A* | `test_reimport.py` (protopy) |
 
 \* protoJS: add when UMD/module resolution is under test; same pattern as protoPython.
 
