@@ -689,6 +689,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Symbol/prototype/Symbol.toPrimitive` | 9 | 9 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/Duration/prototype/add` | 34 | 34 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/Duration/prototype/days` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Temporal/Duration/prototype/hours` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
