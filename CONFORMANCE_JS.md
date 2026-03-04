@@ -87,6 +87,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/with` | 21 | 21 | 0 | 0 | 0 | Official Test262 subset. |
 
 | `built-ins/Array/from` | 47 | 47 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Array/of` | 16 | 16 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
