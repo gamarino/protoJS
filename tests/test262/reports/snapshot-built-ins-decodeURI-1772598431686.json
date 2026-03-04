@@ -1,0 +1,400 @@
+{
+  "generatedAt": "2026-03-04T04:27:11.685Z",
+  "patterns": [
+    "built-ins/decodeURI"
+  ],
+  "total": 55,
+  "summary": {
+    "passed": 55,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.10_T1.js",
+      "result": "passed",
+      "durationMs": 134,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.11_T1.js",
+      "result": "passed",
+      "durationMs": 136,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.11_T2.js",
+      "result": "passed",
+      "durationMs": 139,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.12_T1.js",
+      "result": "passed",
+      "durationMs": 126,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.12_T2.js",
+      "result": "passed",
+      "durationMs": 127,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.12_T3.js",
+      "result": "passed",
+      "durationMs": 138,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.13_T1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.13_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.14_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.14_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.14_T3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.14_T4.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.15_T1.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.15_T2.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.15_T3.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.15_T4.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.15_T5.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.15_T6.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.1_T1.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.2_T1.js",
+      "result": "passed",
+      "durationMs": 149,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.2_T2.js",
+      "result": "passed",
+      "durationMs": 130,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.3_T1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.3_T2.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.4_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.5_T1.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.6_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.7_T1.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.8_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.8_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.9_T1.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.9_T2.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A1.9_T3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A2.2_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A2.5_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A3_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A3_T2.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A3_T3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A4_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A4_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A4_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A4_T4.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.2.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.4.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.5.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.6.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A5.7.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/S15.1.3.1_A6_T1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/name.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/decodeURI/prop-desc.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
