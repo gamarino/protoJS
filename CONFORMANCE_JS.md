@@ -55,6 +55,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/at`      |    13 |     13 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/at/**`. |
 | `built-ins/Array/prototype/concat` |    69 |     69 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/concat/**`. |
 | `built-ins/Array/prototype/copyWithin` | 39 |     39 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/copyWithin/**`. |
+| `built-ins/Array/prototype/entries`   |    12 |     12 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/entries/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
