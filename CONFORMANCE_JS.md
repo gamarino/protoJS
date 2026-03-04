@@ -614,6 +614,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/DataView/prototype/getInt32` | 28 | 28 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/DataView/prototype/getInt8` | 17 | 17 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/DataView/prototype/getUint16` | 18 | 18 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/DataView/prototype/getUint32` | 18 | 18 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
