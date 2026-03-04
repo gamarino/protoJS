@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T05:31:22.086Z",
+  "patterns": [
+    "built-ins/Temporal/Duration/prototype/months"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Duration/prototype/months/blank-duration.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Duration/prototype/months/branding.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Duration/prototype/months/prop-desc.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
