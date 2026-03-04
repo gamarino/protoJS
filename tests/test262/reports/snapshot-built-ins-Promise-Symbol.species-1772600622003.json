@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-03-04T05:03:42.003Z",
+  "patterns": [
+    "built-ins/Promise/Symbol.species"
+  ],
+  "total": 5,
+  "summary": {
+    "passed": 5,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Promise/Symbol.species/length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/Symbol.species/prop-desc.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/Symbol.species/return-value.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/Symbol.species/symbol-species-name.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Promise/Symbol.species/symbol-species.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
