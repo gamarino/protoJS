@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T05:03:20.389Z",
+  "patterns": [
+    "built-ins/Map/prototype/size"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 11,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Map/prototype/size/does-not-have-mapdata-internal-slot-set.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/does-not-have-mapdata-internal-slot-weakmap.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/does-not-have-mapdata-internal-slot.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/length.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/name.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/returns-count-of-present-values-before-after-set-clear.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/returns-count-of-present-values-before-after-set-delete.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/returns-count-of-present-values-by-insertion.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/returns-count-of-present-values-by-iterable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/size.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/size/this-not-object-throw.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
