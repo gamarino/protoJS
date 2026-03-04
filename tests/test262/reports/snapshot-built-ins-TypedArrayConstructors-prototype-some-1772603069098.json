@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T05:44:29.098Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/prototype/some"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/some/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/some/inherited.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
