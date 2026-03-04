@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T05:35:50.717Z",
+  "patterns": [
+    "built-ins/Temporal/PlainTime/prototype/nanosecond"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainTime/prototype/nanosecond/branding.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainTime/prototype/nanosecond/prop-desc.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
