@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T05:15:40.720Z",
+  "patterns": [
+    "built-ins/Symbol/asyncIterator"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Symbol/asyncIterator/cross-realm.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Symbol/asyncIterator/prop-desc.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
