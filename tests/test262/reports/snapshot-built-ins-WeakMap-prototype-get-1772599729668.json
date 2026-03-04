@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-04T04:48:49.667Z",
+  "patterns": [
+    "built-ins/WeakMap/prototype/get"
+  ],
+  "total": 13,
+  "summary": {
+    "passed": 13,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/WeakMap/prototype/get/does-not-have-weakmapdata-internal-slot-map.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/does-not-have-weakmapdata-internal-slot-set.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/does-not-have-weakmapdata-internal-slot.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/get.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/length.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/name.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/returns-undefined-if-key-cannot-be-held-weakly.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/returns-undefined-with-object-key.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/returns-undefined-with-symbol-key.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/returns-value-with-object-key.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/returns-value-with-symbol-key.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/WeakMap/prototype/get/this-not-object-throw.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
