@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T05:30:31.621Z",
+  "patterns": [
+    "built-ins/Object/internals"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/internals/DefineOwnProperty/consistent-value-function-arguments.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/internals/DefineOwnProperty/consistent-value-function-caller.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/internals/DefineOwnProperty/consistent-value-regexp-dollar1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/internals/DefineOwnProperty/consistent-writable-regexp-dollar1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/internals/DefineOwnProperty/nan-equivalence-define-own-property-reassign.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/internals/DefineOwnProperty/nan-equivalence-define-own-property-reconfigure.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
