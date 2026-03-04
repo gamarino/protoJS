@@ -767,6 +767,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/RegExp/unicodeSets` | 114 | 114 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/RegExp/unicodeSets/generated` | 114 | 114 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/SharedArrayBuffer/prototype/grow` | 15 | 15 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/SharedArrayBuffer/prototype/growable` | 9 | 9 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
