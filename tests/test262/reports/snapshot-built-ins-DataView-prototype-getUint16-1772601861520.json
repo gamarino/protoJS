@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-03-04T05:24:21.519Z",
+  "patterns": [
+    "built-ins/DataView/prototype/getUint16"
+  ],
+  "total": 18,
+  "summary": {
+    "passed": 18,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/DataView/prototype/getUint16/detached-buffer-after-toindex-byteoffset.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/detached-buffer-before-outofrange-byteoffset.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/index-is-out-of-range.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/length.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/name.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/negative-byteoffset-throws.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/return-abrupt-from-tonumber-byteoffset-symbol.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/return-abrupt-from-tonumber-byteoffset.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/return-value-clean-arraybuffer.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/return-values-custom-offset.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/return-values.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/this-has-no-dataview-internal.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/to-boolean-littleendian.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DataView/prototype/getUint16/toindex-byteoffset.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
