@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T04:25:43.570Z",
+  "patterns": [
+    "built-ins/ArrayIteratorPrototype/Symbol.toStringTag"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ArrayIteratorPrototype/Symbol.toStringTag/property-descriptor.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayIteratorPrototype/Symbol.toStringTag/value-direct.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayIteratorPrototype/Symbol.toStringTag/value-from-to-string.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
