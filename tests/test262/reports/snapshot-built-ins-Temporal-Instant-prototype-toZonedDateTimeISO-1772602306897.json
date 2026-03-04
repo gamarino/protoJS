@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-03-04T05:31:46.897Z",
+  "patterns": [
+    "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO"
+  ],
+  "total": 18,
+  "summary": {
+    "passed": 18,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/branding.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/builtin.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/calendar-is-builtin.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/length.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/name.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/no-observable-array-iteration.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/prop-desc.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-case-insensitive.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-missing.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-string-datetime.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-string-leap-second.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-string-multiple-offsets.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-string-sub-minute-offset.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-string-year-zero.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-string.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/timezone-wrong-type.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Instant/prototype/toZonedDateTimeISO/to-zoned-date-time-iso.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
