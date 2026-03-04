@@ -480,6 +480,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/TypedArrayConstructors/Uint8ClampedArray` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/WeakRef/prototype` | 13 | 13 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/WeakRef/prototype/deref` | 9 | 9 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/AsyncGeneratorPrototype/return` | 19 | 19 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
