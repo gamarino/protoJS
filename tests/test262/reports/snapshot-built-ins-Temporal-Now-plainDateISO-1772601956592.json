@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-03-04T05:25:56.591Z",
+  "patterns": [
+    "built-ins/Temporal/Now/plainDateISO"
+  ],
+  "total": 9,
+  "summary": {
+    "passed": 9,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/length.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/prop-desc.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/return-value.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/timezone-string-datetime.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/timezone-string-leap-second.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/timezone-string-sub-minute-offset.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/timezone-string-year-zero.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/timezone-string.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/Now/plainDateISO/timezone-wrong-type.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
