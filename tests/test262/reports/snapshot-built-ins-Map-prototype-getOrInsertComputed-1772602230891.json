@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-03-04T05:30:30.891Z",
+  "patterns": [
+    "built-ins/Map/prototype/getOrInsertComputed"
+  ],
+  "total": 19,
+  "summary": {
+    "passed": 19,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/append-new-values-normalizes-zero-key.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/append-new-values.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/append-value-if-key-is-not-present-different-key-types.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/callbackfn-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/canonical-key-passed-to-callback.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/check-callback-fn-args.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/check-state-after-callback-fn-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/different-types-function-callbackfn-does-not-throw.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/does-not-evaluate-callbackfn-if-key-present.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/does-not-have-mapdata-internal-slot-set.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/does-not-have-mapdata-internal-slot-weakmap.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/getOrInsertComputed.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/not-a-function-callbackfn-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/overwrites-mutation-from-callbackfn.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/returns-value-if-key-is-not-present-different-key-types.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/returns-value-if-key-is-present-different-key-types.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/returns-value-normalized-zero-key.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Map/prototype/getOrInsertComputed/this-not-object-throw.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
