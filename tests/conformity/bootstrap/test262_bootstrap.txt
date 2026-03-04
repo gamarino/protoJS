@@ -8,6 +8,9 @@ tests/conformity/builtins/test_string_conformity.js   # String ops return new ro
 tests/conformity/builtins/test_array_conformity.js    # Array structural sharing
 tests/conformity/builtins/test_object_conformity.js   # Object get/set/delete and iteration
 
+# Import / module identity (local conformity)
+tests/conformity/import/test_module_identity.js       # require() identity and shared state
+
 # Basic execution (QuickJS/Test262 subset can be added here when integrated)
 # deps/quickjs/tests/test_builtin.js                  # builtin behaviour
 # deps/quickjs/tests/test_std.js                      # basic std

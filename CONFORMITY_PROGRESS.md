@@ -25,11 +25,11 @@ This document tracks implementation status of the **TEST_PLAN.md** (Phase 1: Sem
 
 | ID    | Area              | protoPython | protoJS | Notes |
 |-------|-------------------|-------------|---------|-------|
-| 1.2.1 | Module identity   | ✅ Verified    | ⏳ N/A* | `test_module_identity.py` (protopy) |
+| 1.2.1 | Module identity   | ✅ Verified    | ⚠️ Failing | `test_module_identity.py` (protopy), `tests/conformity/import/test_module_identity.js` (protoJS — malloc crash, indicates loader bug) |
 | 1.2.2 | Wrapper vs content| ✅ Verified    | ⏳ N/A* | `test_wrapper_content.py` (protopy) |
 | 1.2.3 | Re-import         | ✅ Verified    | ⏳ N/A* | `test_reimport.py` (protopy) |
 
-\* protoJS: add when UMD/module resolution is under test; same pattern as protoPython.
+\* protoJS: wrapper/content and re-import tests will be added when UMD/module resolution is exercised at the JS layer; current identity test already stresses CommonJSLoader/module cache.
 
 **const_cast check:**  
 - protoPython: `tests/conformity/scripts/check_const_cast.sh` (run from protoPython root). It greps for `const_cast<...ProtoObject...>` in `PythonEnvironment.cpp`, `ExecutionEngine.cpp`, `SysModule.cpp`. **Current state:** script fails (many hits); the Assertion of Immutability requires *no illegal mutation of shared state* (module wrappers, cache). Passing the contract means either removing forbidden uses or documenting allowed ones; the script is a reminder to review.  
