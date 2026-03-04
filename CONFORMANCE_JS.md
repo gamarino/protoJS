@@ -453,6 +453,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Set/prototype/union` | 29 | 29 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/SetIteratorPrototype/next` | 10 | 10 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Set/Symbol.species` | 4 | 4 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/SharedArrayBuffer/prototype` | 78 | 78 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
