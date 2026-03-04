@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T04:33:25.453Z",
+  "patterns": [
+    "built-ins/Number/MIN_VALUE"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Number/MIN_VALUE/S15.7.3.3_A2.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Number/MIN_VALUE/S15.7.3.3_A3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Number/MIN_VALUE/S15.7.3.3_A4.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
