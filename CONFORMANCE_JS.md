@@ -46,6 +46,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Object`                  |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
 | `built-ins/Array/isArray`           |    29 |     29 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
 | `built-ins/Array/prototype/push`    |    24 |     24 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/push/**`. |
+| `built-ins/Array/prototype/map`     |   216 |    216 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/map/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
