@@ -379,6 +379,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/DisposableStack/prototype` | 78 | 78 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Error/prototype/message` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Error/prototype/name` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/FinalizationRegistry` | 47 | 47 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
