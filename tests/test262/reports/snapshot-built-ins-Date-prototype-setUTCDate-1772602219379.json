@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-03-04T05:30:19.378Z",
+  "patterns": [
+    "built-ins/Date/prototype/setUTCDate"
+  ],
+  "total": 7,
+  "summary": {
+    "passed": 7,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/arg-coercion-order.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/date-value-read-before-tonumber-when-date-is-invalid.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/date-value-read-before-tonumber-when-date-is-valid.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/length.js",
+      "result": "passed",
+      "durationMs": 55,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/name.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/setUTCDate/prop-desc.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
