@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-03-04T05:03:29.889Z",
+  "patterns": [
+    "built-ins/Math/sinh"
+  ],
+  "total": 5,
+  "summary": {
+    "passed": 5,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Math/sinh/length.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/sinh/name.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/sinh/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/sinh/prop-desc.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Math/sinh/sinh-specialVals.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
