@@ -514,6 +514,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Atomics/sub` | 15 | 15 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Atomics/sub/bigint` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Atomics/wait` | 77 | 77 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Atomics/waitAsync` | 101 | 101 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
