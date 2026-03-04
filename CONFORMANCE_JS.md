@@ -78,6 +78,8 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/toLocaleString` | 12 | 12 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toLocaleString/**`. |
 | `built-ins/Array/prototype/toReversed`     |    17 |     17 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toReversed/**`. |
 | `built-ins/Array/prototype/toSorted`      |    21 |     21 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toSorted/**`. |
+| `built-ins/Array/prototype/toSpliced`    |    30 |     30 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toSpliced/**`. |
+| `built-ins/Array/prototype/toString`    |    11 |     11 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toString/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
