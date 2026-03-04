@@ -1,0 +1,190 @@
+{
+  "generatedAt": "2026-03-04T05:09:53.248Z",
+  "patterns": [
+    "built-ins/AggregateError"
+  ],
+  "total": 25,
+  "summary": {
+    "passed": 25,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AggregateError/cause-property.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/errors-iterabletolist-failures.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/errors-iterabletolist.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-method-prop-cast.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-method-prop.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-tostring-abrupt-symbol.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-tostring-abrupt.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/message-undefined-no-prop.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/name.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-is-undefined.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-proto-custom.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-proto-fallback.js",
+      "result": "passed",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/newtarget-proto.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/order-of-args-evaluation.js",
+      "result": "passed",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prop-desc.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/proto.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/errors-absent-on-prototype.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/message.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/name.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/prop-desc.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AggregateError/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
