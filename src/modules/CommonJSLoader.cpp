@@ -166,12 +166,6 @@ JSValue CommonJSLoader::require(
     // Create module object
     JSValue moduleObj = createModuleObject(resolved.filePath, ctx);
     
-    // Cache module immediately (for circular dependency handling)
-    {
-        std::lock_guard<std::mutex> lock(cacheMutex);
-        moduleCache[cacheKey] = JS_DupValue(ctx, moduleObj);
-    }
-    
     // Wrap and execute module
     JSValue wrapped = wrapModule(source, resolved.filePath, ctx);
     if (JS_IsException(wrapped)) {
@@ -187,7 +181,10 @@ JSValue CommonJSLoader::require(
     // Update cache with final exports
     {
         std::lock_guard<std::mutex> lock(cacheMutex);
-        JS_FreeValueRT(JS_GetRuntime(ctx), moduleCache[cacheKey]);
+        auto it = moduleCache.find(cacheKey);
+        if (it != moduleCache.end()) {
+            JS_FreeValueRT(JS_GetRuntime(ctx), it->second);
+        }
         moduleCache[cacheKey] = JS_DupValue(ctx, exports);
     }
     
