@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T05:41:49.261Z",
+  "patterns": [
+    "built-ins/Temporal/ZonedDateTime/prototype/offsetNanoseconds"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/offsetNanoseconds/branding.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/ZonedDateTime/prototype/offsetNanoseconds/prop-desc.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
