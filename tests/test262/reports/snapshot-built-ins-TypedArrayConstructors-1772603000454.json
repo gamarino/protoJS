@@ -1,0 +1,5167 @@
+{
+  "generatedAt": "2026-03-04T05:43:20.454Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors"
+  ],
+  "total": 736,
+  "summary": {
+    "passed": 736,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/constructor.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/length.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/name.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/prop-desc.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/proto.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigInt64Array/prototype.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/length.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/name.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/prop-desc.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/proto.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/BigUint64Array/prototype.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/name.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/proto.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float32Array/prototype.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/constructor.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/length.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/name.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/proto.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Float64Array/prototype.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/constructor.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/length.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/name.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/proto.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int16Array/prototype.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/constructor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/length.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/name.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/proto.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int32Array/prototype.js",
+      "result": "passed",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/constructor.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/length.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/name.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/proto.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Int8Array/prototype.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/constructor.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/length.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/name.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/proto.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint16Array/prototype.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/length.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/name.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/proto.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint32Array/prototype.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/constructor.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/length.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/name.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/proto.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8Array/prototype.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/constructor.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/is-a-constructor.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/length.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/name.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/proto.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/BYTES_PER_ELEMENT.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/not-typedarray-object.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype/proto.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/Uint8ClampedArray/prototype.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/bufferbyteoffset-throws-from-modulo-element-size-sab.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/bufferbyteoffset-throws-from-modulo-element-size.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-throws-sab.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-throws.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-zero-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-negative-zero.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-symbol-throws-sab.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-throws-from-modulo-element-size-sab.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-throws-from-modulo-element-size.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-throws-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-throws.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/custom-proto-access-throws-sab.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length-and-offset-sab.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length-and-offset.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length-sab.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-length.js",
+      "result": "passed",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-negative-length-sab.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-negative-length.js",
+      "result": "passed",
+      "durationMs": 67,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-offset-sab.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/defined-offset.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/detachedbuffer.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-length-throws-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-length-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-offset-throws-resizable-ab.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-offset-throws-sab.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/excessive-offset-throws.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/invoked-with-undefined-newtarget-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/invoked-with-undefined-newtarget.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/is-referenced-sab.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/is-referenced.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-access-throws-sab.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-access-throws.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-is-symbol-throws-sab.js",
+      "result": "passed",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/length-to-number-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/new-instance-extensibility-sab.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm-sab.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/resizable-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/returns-new-instance-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/returns-new-instance.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-bytelength-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-bytelength.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-byteoffset-sab.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/toindex-byteoffset.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/typedarray-backed-by-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-custom-proto-if-object-sab.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-default-proto-if-custom-proto-is-not-object-sab.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/buffer-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/init-zeros.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/is-infinity-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/is-negative-integer-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/returns-object.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/toindex-length.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/length-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 60,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/returns-object.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-args/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/no-species.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/as-array-returns.js",
+      "result": "passed",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
+      "result": "passed",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/conversion-operation-consistent-nan.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/conversion-operation.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/iterated-array-changed-by-tonumber.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/iterated-array-with-modified-array-iterator.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/iterating-throws.js",
+      "result": "passed",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/iterator-is-null-as-array-like.js",
+      "result": "passed",
+      "durationMs": 63,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/iterator-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/iterator-throws.js",
+      "result": "passed",
+      "durationMs": 82,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/length-excessive-throws.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/length-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/length-throws.js",
+      "result": "passed",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/returns.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-from-property.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-obj-to-primitive-typeerror.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-obj-to-primitive.js",
+      "result": "passed",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-obj-tostring.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-obj-valueof-typeerror.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-obj-valueof.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-property.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/throws-setting-symbol-property.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/object-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/other-ctor-returns-new-typedarray.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/returns-new-instance.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/same-ctor-buffer-ctor-species-null.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/same-ctor-buffer-ctor-species-undefined.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/same-ctor-returns-new-cloned-typedarray.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/src-typedarray-big-throws.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/src-typedarray-resizable-buffer.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/throw-type-error-before-custom-proto-access.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors/typedarray-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/bufferbyteoffset-throws-from-modulo-element-size-sab.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/bufferbyteoffset-throws-from-modulo-element-size.js",
+      "result": "passed",
+      "durationMs": 63,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-is-negative-throws-sab.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-is-negative-throws.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-is-negative-zero-sab.js",
+      "result": "passed",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-is-negative-zero.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-is-symbol-throws-sab.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-throws-from-modulo-element-size-sab.js",
+      "result": "passed",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-throws-from-modulo-element-size.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-to-number-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-to-number-throws-sab.js",
+      "result": "passed",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-to-number-throws.js",
+      "result": "passed",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/custom-proto-access-throws-sab.js",
+      "result": "passed",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-length-and-offset-sab.js",
+      "result": "passed",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-length-and-offset.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-length-sab.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-length.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-negative-length-sab.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-negative-length.js",
+      "result": "passed",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-offset-sab.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/defined-offset.js",
+      "result": "passed",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/detachedbuffer.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/excessive-length-throws-sab.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/excessive-length-throws.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/excessive-offset-throws-sab.js",
+      "result": "passed",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/excessive-offset-throws.js",
+      "result": "passed",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/invoked-with-undefined-newtarget-sab.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/invoked-with-undefined-newtarget.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/is-referenced-sab.js",
+      "result": "passed",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/is-referenced.js",
+      "result": "passed",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-access-throws-sab.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-access-throws.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-is-symbol-throws-sab.js",
+      "result": "passed",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-to-number-detachbuffer.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/new-instance-extensibility-sab.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/proto-from-ctor-realm-sab.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/returns-new-instance-sab.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/returns-new-instance.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/toindex-bytelength-sab.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/toindex-bytelength.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/toindex-byteoffset-sab.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/toindex-byteoffset.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/typedarray-backed-by-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/use-custom-proto-if-object-sab.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/use-default-proto-if-custom-proto-is-not-object-sab.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/init-zeros.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/is-infinity-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/is-negative-integer-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/returns-object.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/toindex-length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/length-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/returns-object.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/no-args/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/as-array-returns.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/as-generator-iterable-returns.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/bigint-tobigint64.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/bigint-tobiguint64.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/boolean-tobigint.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/iterating-throws.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/iterator-not-callable-throws.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/iterator-throws.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/length-excessive-throws.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/length-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/length-throws.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/null-tobigint.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/number-tobigint.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/string-nan-tobigint.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/string-tobigint.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/symbol-tobigint.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-from-property.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-obj-to-primitive-typeerror.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-obj-to-primitive.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-obj-tostring.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-obj-valueof-typeerror.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-obj-valueof.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-property.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/throws-setting-symbol-property.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/undefined-tobigint.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/use-custom-proto-if-object.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/use-default-proto-if-custom-proto-is-not-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-buffer-ctor-species-null.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-buffer-ctor-species-undefined.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-returns-new-typedarray.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-buffer-ctor-species-null.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-buffer-ctor-species-undefined.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-returns-new-cloned-typedarray.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/src-typedarray-not-big-throws.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/arylk-get-length-error.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/arylk-to-length-error.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/custom-ctor-does-not-instantiate-ta-throws.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/custom-ctor-returns-other-instance.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/custom-ctor-returns-smaller-instance-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/custom-ctor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/inherited.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/iter-access-error.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/iter-invoke-error.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/iter-next-error.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/iter-next-value-error.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/mapfn-abrupt-completion.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/mapfn-arguments.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/mapfn-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/mapfn-this-with-thisarg.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/mapfn-this-without-thisarg-non-strict.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/mapfn-this-without-thisarg-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/new-instance-empty.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/new-instance-from-ordinary-object.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/new-instance-from-sparse-array.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/new-instance-using-custom-ctor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/new-instance-with-mapfn.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/new-instance-without-mapfn.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/property-abrupt-completion.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/set-value-abrupt-completion.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/source-value-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/BigInt/this-is-not-constructor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/arylk-get-length-error.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/arylk-to-length-error.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/custom-ctor-does-not-instantiate-ta-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/custom-ctor-returns-other-instance.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/custom-ctor-returns-smaller-instance-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/custom-ctor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/inherited.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/iter-access-error.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/iter-invoke-error.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/iter-next-error.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/iter-next-value-error.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/mapfn-abrupt-completion.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/mapfn-arguments.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/mapfn-is-not-callable.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/mapfn-this-with-thisarg.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/mapfn-this-without-thisarg-non-strict.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/mapfn-this-without-thisarg-strict.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/nan-conversion.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-empty.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-from-ordinary-object.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-from-sparse-array.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-from-zero.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-using-custom-ctor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-with-mapfn.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/new-instance-without-mapfn.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/property-abrupt-completion.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/set-value-abrupt-completion.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/source-value-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/from/this-is-not-constructor.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/desc-value-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer-throws-realm.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-greater-than-last-index.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-lower-than-zero.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-not-numeric-index-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-accessor-desc-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-accessor-desc.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-desc-configurable.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-desc-not-configurable-throws.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-desc-not-enumerable-throws.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-desc-not-enumerable.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-desc-not-writable-throws.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex-desc-not-writable.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-numericindex.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/non-extensible-new-key.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/non-extensible-redefine-key.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/set-value.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/this-is-not-extensible.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/tonumber-value-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/conversion-operation-consistent-nan.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/conversion-operation.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/desc-value-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer-throws-realm.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-greater-than-last-index.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-lower-than-zero.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-not-numeric-index-throws.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-accessor-desc-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-accessor-desc.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-desc-configurable.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-desc-not-configurable-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-desc-not-enumerable-throws.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-desc-not-enumerable.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-desc-not-writable-throws.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex-desc-not-writable.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-numericindex.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/non-extensible-new-key.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/non-extensible-redefine-key.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/set-value.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/this-is-not-extensible.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/DefineOwnProperty/tonumber-value-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/indexed-value-ab-non-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/indexed-value-ab-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/indexed-value-sab-non-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/indexed-value-sab-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/infinity-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-canonical-index-non-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-canonical-index-strict.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-minus-zero-non-strict.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-minus-zero-strict.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-numeric-index-get-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-numeric-index-non-strict.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-not-numeric-index-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-out-of-bounds-non-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-out-of-bounds-strict.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/BigInt/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/indexed-value-ab-non-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/indexed-value-ab-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/indexed-value-sab-non-strict.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/indexed-value-sab-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/infinity-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-canonical-index-non-strict.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-canonical-index-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-minus-zero-non-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-minus-zero-strict.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-numeric-index-get-throws.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-numeric-index-non-strict.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-not-numeric-index-strict.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-out-of-bounds-non-strict.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-out-of-bounds-strict.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Delete/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/indexed-value-sab.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/indexed-value.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/infinity-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-not-minus-zero.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-not-numeric-index-get-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/BigInt/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/detached-buffer-key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/indexed-value-sab.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/indexed-value.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/infinity-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-not-minus-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-not-numeric-index-get-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Get/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-not-number.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/enumerate-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/index-prop-desc.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-key-is-not-number.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/enumerate-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/index-prop-desc.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/key-is-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/GetOwnProperty/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/abrupt-from-ordinary-has-parent-hasproperty.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-key-is-not-number.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/indexed-value.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/infinity-with-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/inherited-property.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-greater-than-last-index.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-lower-than-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/abrupt-from-ordinary-has-parent-hasproperty.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-key-is-not-number.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/indexed-value.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/infinity-with-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/inherited-property.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-greater-than-last-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-lower-than-zero.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/resizable-array-buffer-auto.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/HasProperty/resizable-array-buffer-fixed.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/BigInt/integer-indexes-and-string-and-symbol-keys-.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/BigInt/integer-indexes-and-string-keys.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/BigInt/integer-indexes.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/BigInt/not-enumerable-keys.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/integer-indexes-and-string-and-symbol-keys-.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/integer-indexes-and-string-keys.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/integer-indexes-resizable-array-buffer-auto.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/integer-indexes-resizable-array-buffer-fixed.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/integer-indexes.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/OwnPropertyKeys/not-enumerable-keys.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/bigint-tobigint64.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/bigint-tobiguint64.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/boolean-tobigint.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/indexed-value.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-canonical-invalid-index-prototype-chain-set.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-canonical-invalid-index-reflect-set.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-numeric-index-set-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-valid-index-prototype-chain-set.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/key-is-valid-index-reflect-set.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/null-tobigint.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/number-tobigint.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/string-nan-tobigint.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/string-tobigint.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/symbol-tobigint.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/tonumber-value-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/tonumber-value-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/BigInt/undefined-tobigint.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/bigint-tonumber.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/conversion-operation-consistent-nan.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/conversion-operation.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/detached-buffer-key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/detached-buffer-key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/detached-buffer-realm.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/indexed-value.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-canonical-invalid-index-prototype-chain-set.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-canonical-invalid-index-reflect-set.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-in-bounds-receiver-is-not-typed-array.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-minus-zero.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-not-canonical-index.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-not-integer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-not-numeric-index-set-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-not-numeric-index.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-out-of-bounds-receiver-is-not-object.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-out-of-bounds-receiver-is-not-typed-array.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-out-of-bounds-receiver-is-proto.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-out-of-bounds.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-valid-index-prototype-chain-set.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/key-is-valid-index-reflect-set.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/resized-out-of-bounds-to-in-bounds-index.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/tonumber-value-detached-buffer.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/internals/Set/tonumber-value-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/argument-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/argument-number-value-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor-does-not-instantiate-ta-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor-returns-other-instance.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor-returns-smaller-instance-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/custom-ctor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/new-instance-empty.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/new-instance-using-custom-ctor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/new-instance.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/BigInt/this-is-not-constructor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/argument-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/argument-number-value-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor-does-not-instantiate-ta-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor-returns-other-instance.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor-returns-smaller-instance-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/custom-ctor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/nan-conversion.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance-empty.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance-from-zero.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance-using-custom-ctor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/new-instance.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/of/this-is-not-constructor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/Symbol.iterator.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/Symbol.toStringTag/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/Symbol.toStringTag/inherited.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/bigint-Symbol.iterator.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/buffer/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/buffer/inherited.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/byteLength/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/byteLength/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/byteOffset/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/byteOffset/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/copyWithin/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/copyWithin/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/entries/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/entries/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/every/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/every/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/fill/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/fill/inherited.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/filter/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/filter/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/find/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/find/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/findIndex/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/findIndex/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/forEach/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/forEach/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/indexOf/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/indexOf/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/join/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/join/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/keys/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/keys/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/lastIndexOf/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/lastIndexOf/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/length/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/length/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/map/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/map/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/reduce/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/reduce/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/reduceRight/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/reduceRight/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/reverse/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/reverse/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/set/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/set/inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/slice/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/slice/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/some/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/some/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/sort/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/sort/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/subarray/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/subarray/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/toLocaleString/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/toLocaleString/inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/toString/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/toString/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/values/bigint-inherited.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/prototype/values/inherited.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
