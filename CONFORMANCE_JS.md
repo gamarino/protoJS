@@ -865,6 +865,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Temporal/PlainMonthDay/prototype/calendarId` | 2 | 2 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/PlainMonthDay/prototype/day` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/PlainMonthDay/prototype/equals` | 35 | 35 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Temporal/PlainMonthDay/prototype/month` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
