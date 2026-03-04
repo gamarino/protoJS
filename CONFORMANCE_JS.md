@@ -70,6 +70,8 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/reduce`     |   260 |    260 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/reduce/**`. |
 | `built-ins/Array/prototype/reduceRight`|   260 |    260 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/reduceRight/**`. |
 | `built-ins/Array/prototype/reverse`   |    18 |     18 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/reverse/**`. |
+| `built-ins/Array/prototype/shift`     |    20 |     20 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/shift/**`. |
+| `built-ins/Array/prototype/slice`     |    71 |     71 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/slice/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
