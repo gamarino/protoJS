@@ -753,6 +753,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Function/prototype/caller-arguments` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Map/prototype/getOrInsertComputed` | 19 | 19 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Object/internals` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Object/internals/DefineOwnProperty` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
