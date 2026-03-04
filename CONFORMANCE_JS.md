@@ -121,6 +121,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/JSON/parse` | 77 | 77 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/JSON/stringify` | 66 | 66 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/decodeURI` | 55 | 55 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/encodeURI` | 31 | 31 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
