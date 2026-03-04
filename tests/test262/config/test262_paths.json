@@ -4,7 +4,6 @@
   "harness_dir": "harness",
   "default_timeout_ms": 10000,
   "patterns": [
-    "built-ins/Array/prototype/map"
+    "built-ins/Array/prototype/join"
   ]
 }
-

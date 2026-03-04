@@ -47,6 +47,11 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/isArray`           |    29 |     29 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
 | `built-ins/Array/prototype/push`    |    24 |     24 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/push/**`. |
 | `built-ins/Array/prototype/map`     |   216 |    216 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/map/**`. |
+| `built-ins/Array/prototype/filter`  |   242 |    242 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/filter/**`. |
+| `built-ins/Array/prototype/forEach` |   190 |    190 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/forEach/**`. |
+| `built-ins/Array/prototype/includes`|    30 |     30 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/includes/**`. |
+| `built-ins/Array/prototype/indexOf` |   201 |    201 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/indexOf/**`. |
+| `built-ins/Array/prototype/join`    |    23 |     23 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/join/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
