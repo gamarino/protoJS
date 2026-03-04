@@ -80,6 +80,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/toSorted`      |    21 |     21 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toSorted/**`. |
 | `built-ins/Array/prototype/toSpliced`    |    30 |     30 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toSpliced/**`. |
 | `built-ins/Array/prototype/toString`    |    11 |     11 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toString/**`. |
+| `built-ins/Array/prototype/unshift`    |    22 |     22 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/unshift/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
