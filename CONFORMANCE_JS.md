@@ -583,6 +583,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Temporal/PlainDate/compare` | 41 | 41 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/PlainDate/from` | 70 | 70 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/PlainDate/prototype` | 506 | 506 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Temporal/PlainDateTime` | 751 | 751 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
