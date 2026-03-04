@@ -406,6 +406,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Math/expm1` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/fround` | 9 | 9 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/hypot` | 12 | 12 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Math/imul` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
