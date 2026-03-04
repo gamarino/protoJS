@@ -607,6 +607,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/AsyncIteratorPrototype/Symbol.asyncDispose` | 9 | 9 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Atomics/add/bigint` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Atomics/compareExchange/bigint` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Atomics/exchange/bigint` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
