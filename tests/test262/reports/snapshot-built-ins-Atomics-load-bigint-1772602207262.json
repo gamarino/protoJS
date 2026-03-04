@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-04T05:30:07.262Z",
+  "patterns": [
+    "built-ins/Atomics/load/bigint"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 3,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Atomics/load/bigint/bad-range.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/load/bigint/good-views.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Atomics/load/bigint/non-shared-bufferdata.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
