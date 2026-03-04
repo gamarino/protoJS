@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-03-04T04:41:38.798Z",
+  "patterns": [
+    "built-ins/Reflect/set"
+  ],
+  "total": 18,
+  "summary": {
+    "passed": 18,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Reflect/set/call-prototype-property-set.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/creates-a-data-descriptor.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/different-property-descriptors.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/length.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/name.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/receiver-is-not-object.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/return-abrupt-from-property-key.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/return-abrupt-from-result.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/return-false-if-receiver-is-not-writable.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/return-false-if-target-is-not-writable.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/set-value-on-accessor-descriptor-with-receiver.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/set-value-on-accessor-descriptor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/set-value-on-data-descriptor.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/set.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/symbol-property.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/target-is-not-object-throws.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Reflect/set/target-is-symbol-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
