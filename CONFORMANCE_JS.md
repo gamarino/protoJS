@@ -577,6 +577,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Temporal/Now/plainDateTimeISO` | 13 | 13 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/Now/plainTimeISO` | 10 | 10 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/Now/timeZoneId` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Temporal/Now/toStringTag` | 2 | 2 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
