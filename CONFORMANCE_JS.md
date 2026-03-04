@@ -411,6 +411,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Math/log1p` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/log2` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Math/sinh` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Math/tanh` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
