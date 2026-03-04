@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T04:47:33.926Z",
+  "patterns": [
+    "built-ins/AsyncGeneratorFunction/prototype"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/Symbol.toStringTag.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/constructor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/extensibility.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/not-callable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/prop-desc.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncGeneratorFunction/prototype/prototype.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
