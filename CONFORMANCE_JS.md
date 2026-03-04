@@ -153,6 +153,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Object/getOwnPropertyDescriptor` | 310 | 310 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Object/getOwnPropertyNames` | 45 | 45 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Object/getPrototypeOf` | 39 | 39 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/Object/hasOwn` | 62 | 62 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
