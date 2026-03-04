@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T05:14:00.320Z",
+  "patterns": [
+    "built-ins/Function/internals/Construct"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Function/internals/Construct/base-ctor-revoked-proxy-realm.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/base-ctor-revoked-proxy.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-return-val-realm.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-return-val.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-this-uninitialized-realm.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Function/internals/Construct/derived-this-uninitialized.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
