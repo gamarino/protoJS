@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T05:15:42.899Z",
+  "patterns": [
+    "built-ins/Symbol/isConcatSpreadable"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Symbol/isConcatSpreadable/cross-realm.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Symbol/isConcatSpreadable/prop-desc.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
