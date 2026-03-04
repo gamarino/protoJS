@@ -1,0 +1,92 @@
+{
+  "generatedAt": "2026-03-04T05:43:37.109Z",
+  "patterns": [
+    "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg"
+  ],
+  "total": 11,
+  "summary": {
+    "passed": 11,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/custom-proto-access-throws.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/new-instance-extensibility.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-buffer-ctor-species-null.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-buffer-ctor-species-undefined.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/other-ctor-returns-new-typedarray.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/proto-from-ctor-realm.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-buffer-ctor-species-null.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-buffer-ctor-species-undefined.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/same-ctor-returns-new-cloned-typedarray.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/src-typedarray-not-big-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/undefined-newtarget-throws.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
