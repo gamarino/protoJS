@@ -26,13 +26,17 @@ function readJSON(p) {
 
 function getConfig() {
   const cfg = readJSON(CONFIG_PATH);
-  const root = process.env.TEST262_ROOT || cfg.test262_root;
+  const rootRaw = process.env.TEST262_ROOT || cfg.test262_root;
+  const root = path.isAbsolute(rootRaw) ? rootRaw : path.join(REPO_ROOT, rootRaw);
   if (!root || !fs.existsSync(root)) {
     throw new Error(
       "Test262 root not found. Set TEST262_ROOT env or update tests/test262/config/test262_paths.json"
     );
   }
-  const harnessDir = cfg.harness_dir || path.join(root, "harness");
+  let harnessDir = cfg.harness_dir || path.join(root, "harness");
+  if (!path.isAbsolute(harnessDir)) {
+    harnessDir = path.join(REPO_ROOT, harnessDir);
+  }
   return {
     root,
     harnessDir,

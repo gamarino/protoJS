@@ -1,7 +1,7 @@
 {
-  "//": "Configuration for the Test262 runner. Update paths to match your local checkout.",
-  "test262_root": "/path/to/test262", 
-  "harness_dir": "/path/to/test262/harness",
+  "//": "Configuration for the Test262 runner. By default this points at the local mini-suite under tests/test262; set TEST262_ROOT to a full Test262 checkout to override.",
+  "test262_root": "tests/test262",
+  "harness_dir": "tests/test262/harness",
   "default_timeout_ms": 10000,
   "patterns": [
     "language/expressions",
