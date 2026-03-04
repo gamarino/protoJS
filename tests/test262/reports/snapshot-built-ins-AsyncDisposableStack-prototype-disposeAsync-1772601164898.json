@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-03-04T05:12:44.897Z",
+  "patterns": [
+    "built-ins/AsyncDisposableStack/prototype/disposeAsync"
+  ],
+  "total": 6,
+  "summary": {
+    "passed": 6,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/AsyncDisposableStack/prototype/disposeAsync/length.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncDisposableStack/prototype/disposeAsync/name.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncDisposableStack/prototype/disposeAsync/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncDisposableStack/prototype/disposeAsync/prop-desc.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncDisposableStack/prototype/disposeAsync/this-does-not-have-internal-asyncdisposablestate-rejects.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/AsyncDisposableStack/prototype/disposeAsync/this-not-object-rejects.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
