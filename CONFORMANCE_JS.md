@@ -719,6 +719,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Temporal/ZonedDateTime/prototype/toInstant` | 10 | 10 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/ZonedDateTime/prototype/toString` | 62 | 62 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArrayConstructors/Uint8ClampedArray` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/TypedArray/prototype/at` | 15 | 15 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
