@@ -60,6 +60,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/fill`       |    22 |     22 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/fill/**`. |
 | `built-ins/Array/prototype/find`       |    23 |     23 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/find/**`. |
 | `built-ins/Array/prototype/findIndex`  |    23 |     23 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/findIndex/**`. |
+| `built-ins/Array/prototype/findLast`   |    24 |     24 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/findLast/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
