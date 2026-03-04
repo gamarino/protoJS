@@ -551,6 +551,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/ShadowRealm/WrappedFunction` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/SharedArrayBuffer` | 104 | 104 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/String` | 1223 | 1223 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/SuppressedError` | 22 | 22 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
