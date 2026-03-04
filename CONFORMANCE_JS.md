@@ -39,16 +39,22 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 
 ## 3. Object Model & Immutability
 
-> Initial data is from a local mini-suite under `tests/test262/tests/built-ins/Object`. When pointed at a full Test262 checkout, this section should reflect the official `built-ins/Object/**` results.
+> Initial data is from local tests and a focused subset of the official Test262 suite. When broadening coverage, this section should be regenerated from the latest snapshots in `tests/test262/reports/`.
 
-| Folder              | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
-|---------------------|-------|--------|-----------------|--------------------|----------|-------|
-| `built-ins/Object`  |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
+| Folder                       | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
+|------------------------------|-------|--------|-----------------|--------------------|----------|-------|
+| `built-ins/Object`           |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
+| `built-ins/Array/isArray`    |    29 |     29 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
 
-These tests provide a minimal smoke check that:
+The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
 - Prototype chain reads and writes behave as expected without mutating the shared prototype object.
+
+The `built-ins/Array/isArray` subset confirms that:
+
+- `Array.isArray` correctly distinguishes arrays from non-arrays (including proxies, primitives, and exotic objects), and
+- The protoCore-backed immutability model still preserves JS-level identity and type tagging expected by the ECMAScript specification.
 
 ---
 
