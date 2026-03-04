@@ -1,0 +1,11 @@
+{
+  "//": "Configuration for the Test262 runner. Update paths to match your local checkout.",
+  "test262_root": "/path/to/test262", 
+  "harness_dir": "/path/to/test262/harness",
+  "default_timeout_ms": 10000,
+  "patterns": [
+    "language/expressions",
+    "language/statements"
+  ]
+}
+
