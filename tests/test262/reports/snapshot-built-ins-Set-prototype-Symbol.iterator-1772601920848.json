@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-04T05:25:20.848Z",
+  "patterns": [
+    "built-ins/Set/prototype/Symbol.iterator"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Set/prototype/Symbol.iterator/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
