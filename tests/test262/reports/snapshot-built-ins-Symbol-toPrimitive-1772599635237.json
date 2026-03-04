@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T04:47:15.237Z",
+  "patterns": [
+    "built-ins/Symbol/toPrimitive"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Symbol/toPrimitive/cross-realm.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Symbol/toPrimitive/prop-desc.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
