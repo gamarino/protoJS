@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-03-04T05:25:25.392Z",
+  "patterns": [
+    "built-ins/ShadowRealm/prototype/importValue"
+  ],
+  "total": 15,
+  "summary": {
+    "passed": 15,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/descriptor.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_FIXTURE.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_syntax_error_FIXTURE.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/import-value_throws_FIXTURE.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/length.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/name.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/not-constructor.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/proto.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/specifier-tostring.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-if-exportname-not-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-if-import-value-does-not-exist.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-syntax-error.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ShadowRealm/prototype/importValue/validates-realm-object.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
