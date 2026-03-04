@@ -602,6 +602,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Temporal/ZonedDateTime` | 876 | 876 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/ZonedDateTime/compare` | 49 | 49 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Temporal/ZonedDateTime/from` | 88 | 88 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/AsyncFromSyncIteratorPrototype/return` | 10 | 10 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
