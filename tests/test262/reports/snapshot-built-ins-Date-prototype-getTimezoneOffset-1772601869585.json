@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-03-04T05:24:29.585Z",
+  "patterns": [
+    "built-ins/Date/prototype/getTimezoneOffset"
+  ],
+  "total": 8,
+  "summary": {
+    "passed": 8,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/length.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/name.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/prop-desc.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/this-value-invalid-date.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/this-value-non-date.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/this-value-non-object.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Date/prototype/getTimezoneOffset/this-value-valid-date.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
