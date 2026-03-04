@@ -5,7 +5,9 @@
   "default_timeout_ms": 10000,
   "patterns": [
     "language/expressions",
-    "language/statements"
+    "language/statements",
+    "language/scoping",
+    "built-ins/Object"
   ]
 }
 

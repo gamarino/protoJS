@@ -32,22 +32,23 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
 | `language/expressions`      |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `addition-simple.js`, `unary-negation.js`. |
 | `language/statements`       |     1 |      1 |               0 |                  0 |        0 | Local mini-suite: `if-basic.js`. |
+| `language/scoping`          |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `closure-basic.js`, `let-block.js`. |
 | `language/scoping`          |   TBD |   TBD  |         TBD     |          TBD       |    TBD   | Lexical environments, closures, block scope. |
 
 ---
 
 ## 3. Object Model & Immutability
 
-> Placeholder for future runs over `test262/built-ins/Object/**`.
+> Initial data is from a local mini-suite under `tests/test262/tests/built-ins/Object`. When pointed at a full Test262 checkout, this section should reflect the official `built-ins/Object/**` results.
 
-This section will document:
+| Folder              | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
+|---------------------|-------|--------|-----------------|--------------------|----------|-------|
+| `built-ins/Object`  |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
 
-- Coverage and pass rates for `built-ins/Object` test262 folders.
-- Evidence that every JS-visible “mutation” (property set, defineProperty, prototype changes) is implemented by:
-  - Creating a new root in protoCore’s persistent object graph, and
-  - Propagating that new root back into the owning structure (object, map, or environment) without:
-    - Illegally mutating shared state, or
-    - Breaking JS-level identity (`===`) guarantees.
+These tests provide a minimal smoke check that:
+
+- `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
+- Prototype chain reads and writes behave as expected without mutating the shared prototype object.
 
 ---
 
