@@ -21,6 +21,14 @@ Tests are executed via `tests/test262/runner/test262_runner.js`, which:
 
 The initial focus is on **language semantics and object/scoping behaviour**, not host APIs.
 
+### RegExp and `lastIndex` (immutable backend)
+
+The protoCore backend is immutable by default. ECMA-262 requires RegExp instances with the `global` or `sticky` flag to update their `lastIndex` property in place when `exec()` or `test()` is called. To satisfy Test262 and the spec:
+
+- **RegExp is excluded from the protoCore path** in the ExecutionEngine: `shouldUseProtoCore()` returns `false` for `JS_CLASS_REGEXP`, so get/set property on RegExp always use QuickJS native behaviour.
+- **`lastIndex` is mutated in place** by QuickJS’s `js_regexp_exec` / `js_regexp_set_lastIndex`; no new RegExp instance is created and the caller’s reference continues to see the updated index.
+- This keeps RegExp semantics spec-compliant while the rest of the engine can remain immutable.
+
 ---
 
 ## 2. Language Conformance (Test262 /language/)

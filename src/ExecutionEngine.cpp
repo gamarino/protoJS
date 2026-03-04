@@ -39,8 +39,17 @@ proto::ProtoContext* ExecutionEngine::getProtoContext(JSContext* ctx) {
 }
 
 bool ExecutionEngine::shouldUseProtoCore(JSContext* ctx, JSValue obj) {
+    // RegExp must always use QuickJS native path so that lastIndex is mutated
+    // in place by exec/test (ECMA-262 requires mutable lastIndex for global/sticky).
+    // Value must match JS_CLASS_REGEXP in deps/quickjs/quickjs.c.
+    constexpr unsigned kJS_CLASS_REGEXP = 18;
+    if (JS_IsObject(obj)) {
+        JSClassID id = JS_GetClassID(obj);
+        if (id == kJS_CLASS_REGEXP) {
+            return false;
+        }
+    }
     // Check if object is already a protoCore object
-    // Objects created through protoCore should be handled by protoCore
     const proto::ProtoObject* protoObj = GCBridge::getProtoObject(obj, ctx);
     return protoObj != nullptr;
 }
