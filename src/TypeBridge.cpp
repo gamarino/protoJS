@@ -221,7 +221,9 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         // Map JS Object to protoCore ProtoObject
         const proto::ProtoObject* pObj = pContext->newObject(true); // Mutable by default for JS objects
         
-        // Iterate over JS object properties and set as attributes in protoCore
+        // Iterate over JS object properties and set as attributes in protoCore.
+        // NOTE: ProtoObjects are immutable; setAttribute returns a new root that must
+        // be captured, otherwise updates are silently dropped.
         JSPropertyEnum* props;
         uint32_t prop_count;
         if (JS_GetOwnPropertyNames(ctx, &props, &prop_count, val, JS_GPN_STRING_MASK | JS_GPN_SYMBOL_MASK) == 0) {
@@ -232,7 +234,9 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                 const proto::ProtoObject* pVal = fromJS(ctx, prop_val, pContext);
                 const proto::ProtoString* pName = pContext->fromUTF8String(prop_name)->asString(pContext);
                 
-                pObj->setAttribute(pContext, pName, pVal);
+                if (pName) {
+                    pObj = pObj->setAttribute(pContext, pName, pVal);
+                }
                 
                 JS_FreeValue(ctx, prop_val);
                 JS_FreeCString(ctx, prop_name);
@@ -240,6 +244,9 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             }
             js_free(ctx, props);
         }
+
+        // Register mapping so future operations can resolve back to this protoCore object.
+        GCBridge::registerMapping(val, pObj, ctx);
         return pObj;
     }
 

@@ -38,7 +38,11 @@ static const proto::ProtoObject* cpuChunkWorker(
         sum += state;
     }
     const proto::ProtoString* key = context->fromUTF8String("value")->asString(context);
-    holder->setAttribute(context, key, context->fromLong(static_cast<long long>(sum)));
+    // ProtoObjects are immutable; capture the updated root so callers can
+    // observe the new attribute through their own references.
+    const proto::ProtoObject* newHolder =
+        holder->setAttribute(context, key, context->fromLong(static_cast<long long>(sum)));
+    (void)newHolder; // In this worker, the holder is typically owned by the caller.
     return PROTO_NONE;
 }
 static JSClassID protojs_multiset_class_id;
