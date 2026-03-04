@@ -1,0 +1,274 @@
+{
+  "generatedAt": "2026-03-04T05:36:16.765Z",
+  "patterns": [
+    "built-ins/Temporal/PlainYearMonth/prototype/subtract"
+  ],
+  "total": 37,
+  "summary": {
+    "passed": 37,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-duration-max.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-duration-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-duration-out-of-range.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-invalid-property.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-lower-units.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-mixed-sign.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-not-object.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-propertybag-optional-properties.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-singular-properties.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/argument-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/blank-duration.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/branding.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/builtin-calendar-no-array-iteration.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/builtin.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/end-of-month-out-of-range.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/infinity-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/length.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/limits.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/name.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/negative-infinity-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/non-integer-throws-rangeerror.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/options-invalid.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/options-object.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/options-read-before-algorithmic-validation.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/options-wrong-type.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/order-of-operations.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/overflow-invalid-string.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/overflow-subtracting-months-from-min-year.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/overflow-undefined.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/overflow-wrong-type.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/overflow.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/prop-desc.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/subclassing-ignored.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/subtract-from-last-representable-month.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Temporal/PlainYearMonth/prototype/subtract/throws-if-year-outside-valid-iso-range.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
