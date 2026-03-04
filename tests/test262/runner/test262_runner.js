@@ -33,10 +33,10 @@ function getConfig() {
       "Test262 root not found. Set TEST262_ROOT env or update tests/test262/config/test262_paths.json"
     );
   }
-  let harnessDir = cfg.harness_dir || path.join(root, "harness");
-  if (!path.isAbsolute(harnessDir)) {
-    harnessDir = path.join(REPO_ROOT, harnessDir);
-  }
+  const harnessRaw = cfg.harness_dir || "harness";
+  const harnessDir = path.isAbsolute(harnessRaw)
+    ? harnessRaw
+    : path.join(root, harnessRaw);
   return {
     root,
     harnessDir,
@@ -60,7 +60,12 @@ function getProtoJSBinary() {
 
 function walkTests(root, patterns) {
   const tests = [];
-  const base = path.join(root, "tests");
+  const testsDirName = fs.existsSync(path.join(root, "tests"))
+    ? "tests"
+    : fs.existsSync(path.join(root, "test"))
+    ? "test"
+    : "tests";
+  const base = path.join(root, testsDirName);
   function walk(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const e of entries) {
