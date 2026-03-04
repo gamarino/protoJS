@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T04:33:17.757Z",
+  "patterns": [
+    "built-ins/ArrayBuffer/prototype/byteLength"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/invoked-as-accessor.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/length.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/name.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/prop-desc.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/return-bytelength.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/this-has-no-typedarrayname-internal.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/byteLength/this-is-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
