@@ -1,0 +1,13 @@
+# Minimal bootstrap set for protoJS (Phase 1.3).
+# Test262 test paths or local conformity tests; optional # rationale.
+# Run with protoJS Test262 runner or run_conformity.js.
+
+# Built-in types (local conformity)
+tests/conformity/builtins/test_number_conformity.js   # Number arithmetic and identity
+tests/conformity/builtins/test_string_conformity.js   # String ops return new roots
+tests/conformity/builtins/test_array_conformity.js    # Array structural sharing
+tests/conformity/builtins/test_object_conformity.js   # Object get/set/delete and iteration
+
+# Basic execution (QuickJS/Test262 subset can be added here when integrated)
+# deps/quickjs/tests/test_builtin.js                  # builtin behaviour
+# deps/quickjs/tests/test_std.js                      # basic std
