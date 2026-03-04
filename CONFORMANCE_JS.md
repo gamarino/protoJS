@@ -1006,6 +1006,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/TypedArrayConstructors/prototype/fill` | 2 | 2 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArrayConstructors/prototype/filter` | 2 | 2 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/TypedArrayConstructors/prototype/find` | 2 | 2 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/TypedArrayConstructors/prototype/findIndex` | 2 | 2 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
