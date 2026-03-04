@@ -548,6 +548,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Proxy/enumerate` | 1 | 1 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Reflect` | 153 | 153 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/ShadowRealm` | 67 | 67 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/ShadowRealm/WrappedFunction` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
