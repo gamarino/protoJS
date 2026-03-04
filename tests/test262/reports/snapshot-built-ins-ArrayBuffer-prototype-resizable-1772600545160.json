@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T05:02:25.160Z",
+  "patterns": [
+    "built-ins/ArrayBuffer/prototype/resizable"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/detached-buffer.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/invoked-as-accessor.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/invoked-as-func.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/length.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/name.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/prop-desc.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/return-resizable.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/this-has-no-arraybufferdata-internal.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/this-is-not-object.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/ArrayBuffer/prototype/resizable/this-is-sharedarraybuffer.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
