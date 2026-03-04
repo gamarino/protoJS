@@ -4,6 +4,6 @@
   "harness_dir": "harness",
   "default_timeout_ms": 10000,
   "patterns": [
-    "built-ins/Object/prototype/__defineSetter__"
+    "built-ins/Object/prototype/__lookupGetter__"
   ]
 }
