@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-04T05:25:12.634Z",
+  "patterns": [
+    "built-ins/Set/prototype/constructor"
+  ],
+  "total": 2,
+  "summary": {
+    "passed": 2,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Set/prototype/constructor/set-prototype-constructor-intrinsic.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Set/prototype/constructor/set-prototype-constructor.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
