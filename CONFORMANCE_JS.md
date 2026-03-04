@@ -74,6 +74,8 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Array/prototype/slice`     |    71 |     71 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/slice/**`. |
 | `built-ins/Array/prototype/some`     |   219 |    219 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/some/**`. |
 | `built-ins/Array/prototype/sort`     |    54 |     54 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/sort/**`. |
+| `built-ins/Array/prototype/splice`   |    81 |     81 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/splice/**`. |
+| `built-ins/Array/prototype/toLocaleString` | 12 | 12 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/toLocaleString/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
