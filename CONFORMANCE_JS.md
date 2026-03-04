@@ -733,6 +733,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/DataView/prototype/getFloat16` | 21 | 21 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/DataView/prototype/setBigInt64` | 24 | 24 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/DataView/prototype/setBigUint64` | 3 | 3 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/DataView/prototype/setFloat16` | 24 | 24 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
