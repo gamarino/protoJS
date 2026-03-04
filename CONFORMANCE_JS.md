@@ -499,6 +499,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/AsyncDisposableStack/prototype/defer` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/AsyncDisposableStack/prototype/disposeAsync` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/AsyncDisposableStack/prototype/disposed` | 5 | 5 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/AsyncDisposableStack/prototype/move` | 6 | 6 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
