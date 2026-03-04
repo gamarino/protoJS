@@ -215,6 +215,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/Reflect/apply` | 9 | 9 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Iterator/from` | 19 | 19 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Iterator/prototype` | 373 | 373 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/GeneratorFunction` | 23 | 23 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
