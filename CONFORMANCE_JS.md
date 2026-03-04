@@ -382,6 +382,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | `built-ins/FinalizationRegistry` | 47 | 47 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/FinalizationRegistry/prototype` | 31 | 31 | 0 | 0 | 0 | Official Test262 subset. |
 | `built-ins/Function/prototype/Symbol.hasInstance` | 11 | 11 | 0 | 0 | 0 | Official Test262 subset. |
+| `built-ins/GeneratorPrototype/return` | 23 | 23 | 0 | 0 | 0 | Official Test262 subset. |
 The `built-ins/Object` mini-suite provides a smoke check that:
 
 - `Object.defineProperty` correctly creates own data properties with the expected descriptor; and
