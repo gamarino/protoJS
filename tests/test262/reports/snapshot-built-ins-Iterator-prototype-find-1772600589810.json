@@ -1,0 +1,239 @@
+{
+  "generatedAt": "2026-03-04T05:03:09.810Z",
+  "patterns": [
+    "built-ins/Iterator/prototype/find"
+  ],
+  "total": 32,
+  "summary": {
+    "passed": 32,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Iterator/prototype/find/argument-effect-order.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/argument-validation-failure-closes-underlying.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/callable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/get-next-method-only-once.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/get-next-method-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/get-return-method-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/is-function.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/iterator-already-exhausted.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/iterator-has-no-return.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/iterator-return-method-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/length.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/name.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/next-method-returns-non-object.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/next-method-returns-throwing-done.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/next-method-returns-throwing-value-done.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/next-method-returns-throwing-value.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/next-method-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/non-callable-predicate.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/non-constructible.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-args.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-returns-falsey-then-truthy.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-returns-falsey.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-returns-non-boolean.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-returns-truthy.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-this.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-throws-then-closing-iterator-also-throws.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/predicate-throws.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/prop-desc.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/proto.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/this-non-callable-next.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/this-non-object.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Iterator/prototype/find/this-plain-iterator.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
