@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-04T05:03:35.684Z",
+  "patterns": [
+    "built-ins/Object/prototype/isPrototypeOf"
+  ],
+  "total": 10,
+  "summary": {
+    "passed": 10,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/arg-is-proxy.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/builtin.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/length.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/name.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/null-this-and-object-arg-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/null-this-and-primitive-arg-returns-false.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/this-value-is-in-prototype-chain-of-arg.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/undefined-this-and-object-arg-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/prototype/isPrototypeOf/undefined-this-and-primitive-arg-returns-false.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
