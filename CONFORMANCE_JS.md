@@ -41,10 +41,11 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 
 > Initial data is from local tests and a focused subset of the official Test262 suite. When broadening coverage, this section should be regenerated from the latest snapshots in `tests/test262/reports/`.
 
-| Folder                       | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
-|------------------------------|-------|--------|-----------------|--------------------|----------|-------|
-| `built-ins/Object`           |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
-| `built-ins/Array/isArray`    |    29 |     29 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
+| Folder                              | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
+|-------------------------------------|-------|--------|-----------------|--------------------|----------|-------|
+| `built-ins/Object`                  |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
+| `built-ins/Array/isArray`           |    29 |     29 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
+| `built-ins/Array/prototype/push`    |    24 |     24 |               0 |                  0 |        0 | Official Test262 subset under `built-ins/Array/prototype/push/**`. |
 
 The `built-ins/Object` mini-suite provides a smoke check that:
 
