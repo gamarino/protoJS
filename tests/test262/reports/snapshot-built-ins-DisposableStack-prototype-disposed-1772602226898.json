@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-03-04T05:30:26.897Z",
+  "patterns": [
+    "built-ins/DisposableStack/prototype/disposed"
+  ],
+  "total": 7,
+  "summary": {
+    "passed": 7,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/does-not-have-disposablestate-internal-slot.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/getter.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/length.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/name.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/returns-false-when-not-disposed.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/returns-true-when-disposed.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/DisposableStack/prototype/disposed/this-not-object-throw.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}
