@@ -98,31 +98,36 @@ function parseFrontMatter(source) {
   let inIncludes = false;
   for (let line of yaml) {
     if (!line) continue;
-    if (line.startsWith("negative:")) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("negative:")) {
       inNegative = true;
       inIncludes = false;
       result.negative = { phase: null, type: null };
       continue;
     }
-    if (line.startsWith("includes:")) {
+    if (trimmed.startsWith("includes:")) {
       inIncludes = true;
       inNegative = false;
       continue;
     }
-    if (line[0] !== "-" && !line.startsWith("phase:") && !line.startsWith("type:")) {
+    if (
+      trimmed[0] !== "-" &&
+      !trimmed.startsWith("phase:") &&
+      !trimmed.startsWith("type:")
+    ) {
       // Reset simple blocks when another top-level key appears
       inNegative = false;
       inIncludes = false;
     }
     if (inNegative) {
-      const mPhase = line.match(/phase:\s*(\w+)/);
+      const mPhase = trimmed.match(/phase:\s*(\w+)/);
       if (mPhase) result.negative.phase = mPhase[1];
-      const mType = line.match(/type:\s*(\w+)/);
+      const mType = trimmed.match(/type:\s*(\w+)/);
       if (mType) result.negative.type = mType[1];
       continue;
     }
     if (inIncludes) {
-      const mInc = line.match(/-+\s*([\w.-]+\.js)/);
+      const mInc = trimmed.match(/-+\s*([\w.-]+\.js)/);
       if (mInc) result.includes.push(mInc[1]);
     }
   }
@@ -188,18 +193,38 @@ function runOne(proto, cfg, test) {
       },
       (error, stdout, stderr) => {
         const durationMs = Date.now() - start;
+        const outStr = stdout || "";
+        const errStr = stderr || "";
+        // Some protojs builds may report uncaught JS exceptions to stderr
+        // without using a non-zero exit code. Detect these and synthesize
+        // an Error object so classification still sees a failure.
+        let effError = error;
+        const combined = errStr + outStr;
+        if (
+          !effError &&
+          /Exception in /.test(combined) &&
+          /(SyntaxError|TypeError|ReferenceError|RangeError|Test262Error)/i.test(
+            combined
+          )
+        ) {
+          effError = new Error(
+            combined.split("\n").find((l) => l.includes("Exception")) || combined
+          );
+        }
         let result;
-        if (error && error.killed) {
+        if (effError && effError.killed) {
           result = "timeout";
         } else {
-          result = classifyResult(meta, error, stdout, stderr);
+          result = classifyResult(meta, effError, outStr, errStr);
         }
         resolve({
           path: test.rel,
           result,
           durationMs,
           negative: meta.negative,
-          errorSummary: error ? String(error.message || "").slice(0, 200) : null
+          errorSummary: effError
+            ? String(effError.message || "").slice(0, 200)
+            : null
         });
       }
     );
