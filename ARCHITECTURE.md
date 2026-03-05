@@ -123,7 +123,9 @@ The runtime must initialise ProtoContext (e.g. via its constructor with `paramet
 
 **Phase 4 (wire compile → load → run):** The eval entry point supports the protoCore path via `setUseProtoEval(true)`. The CLI accepts `--proto-eval` or the environment variable `PROTOJS_USE_PROTO_EVAL=1` to run scripts through the ProtoInterpreter. The Test262 runner can use the protoCore path by setting `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true` in `tests/test262/config/test262_paths.json`.
 
-**Phase 5 (legacy path context, no std::vector):** On the legacy path, `eval()` sets the thread-local `g_currentProtoContext` to the root context around `JS_Eval` and restores it afterwards so ExecutionEngine hooks always see a valid ProtoContext. The interpreter uses only ProtoContext for stack and locals (no `std::vector`); see `src/runtime/README.md`. Next: Test262 conformance on the protoCore path and optional default to protoCore for CLI.
+**Phase 5 (legacy path context, no std::vector):** On the legacy path, `eval()` sets the thread-local `g_currentProtoContext` to the root context around `JS_Eval` and restores it afterwards so ExecutionEngine hooks always see a valid ProtoContext. The interpreter uses only ProtoContext for stack and locals (no `std::vector`); see `src/runtime/README.md`.
+
+**Phase 6 (Test262 conformance on protoCore path):** Run Test262 with `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true`; document pass/fail by category in `CONFORMANCE_JS.md`; fix missing opcodes/built-ins to improve conformance. Optionally make protoCore the default CLI path.
 
 ### 2. TypeBridge
 

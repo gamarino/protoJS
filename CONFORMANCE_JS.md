@@ -30,6 +30,19 @@ The protoCore backend is immutable by default. ECMA-262 requires RegExp instance
 - **`lastIndex` is mutated in place** by QuickJS’s `js_regexp_exec` / `js_regexp_set_lastIndex`; no new RegExp instance is created and the caller’s reference continues to see the updated index.
 - This keeps RegExp semantics spec-compliant while the rest of the engine can remain immutable.
 
+### Phase 6 (Option B): Conformance on protoCore path
+
+**Phase 6** measures conformance when every test runs on the **protoCore interpreter** (compile → load → run, no QuickJS execution). Use the same runner with:
+
+- **Environment:** `TEST262_USE_PROTO_EVAL=1`, or  
+- **Config:** `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`.
+
+The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Results (pass/fail/timeout) should be filled from the JSON snapshots in `tests/test262/reports/` after each run. Focus: fix missing opcodes and built-ins in the ProtoInterpreter and TypeBridge to improve these numbers. See `src/runtime/README.md` § Phase 6.
+
+| Path / category (protoCore) | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
+|-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
+| *To be filled from runner with use_proto_eval* | — | — | — | — | — | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js` |
+
 ---
 
 ## 2. Language Conformance (Test262 /language/)

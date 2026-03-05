@@ -45,6 +45,15 @@ Phase 5 completes the Option B runtime behaviour and sets the stage for conforma
 - **Stack and locals in ProtoContext only:** All interpreter state (operand stack and local/argument slots) is stored in `ProtoContext::closureLocals`; no `std::vector` is used so the GC sees every reference (see § "Absolute rule" above).
 - **Next (Phase 6 / conformance):** Run Test262 on the protoCore path (`TEST262_USE_PROTO_EVAL=1`), document pass/fail by category, and fix missing opcodes or built-ins to improve conformance. Optionally make the protoCore path the default for the CLI.
 
+## Phase 6 (Test262 conformance on protoCore path)
+
+Phase 6 focuses on **conformance of the protoCore interpreter** (Option B path):
+
+- **Run Test262 on protoCore:** Use the same runner (`tests/test262/runner/test262_runner.js`) with `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`. The runner passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process so every test runs via compile → load → run (no QuickJS interpreter).
+- **Document results:** Update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts per category from the JSON snapshots in `tests/test262/reports/`.
+- **Fix gaps:** Address missing opcodes, built-in methods, or coercion in the ProtoInterpreter and TypeBridge so more tests pass; re-run and update the report.
+- **Optional:** Make the protoCore path the default for the CLI (e.g. `--proto-eval` by default and `--legacy` for QuickJS execution).
+
 ## Enabling
 
 Set `JSContextWrapper::setUseProtoEval(true)`. Then `eval()` uses compile → load → run and converts the result to `JSValue` only at the boundary. Default is the legacy path (`JS_Eval`).
