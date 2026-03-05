@@ -94,7 +94,7 @@ class JSContextWrapper {
 
 1. **Legacy path (default):** `eval()` calls `JS_Eval()`; QuickJS parses, compiles, and executes bytecode. TypeBridge, GCBridge, QuickJSArrayBridge, and ExecutionEngine are used to mirror or intercept operations between QuickJS and protoCore.
 
-2. **protoCore path:** Enabled with `setUseProtoEval(true)`. `eval()` uses compile-only (`protojs::compileToBytecode`), then `loadBytecode()` to build a `ProtoBytecodeModule` (proto constant pool, nested functions), then `runBytecode()` via **ProtoInterpreter**. Stack and locals are `ProtoObject*`; no QuickJS interpreter or heap is used for script execution. Result is converted to JSValue only at the boundary with `TypeBridge::toJS`.
+2. **protoCore path:** Enabled with `setUseProtoEval(true)`. `eval()` uses a **compile-only frontend** (`protojs::compileToBytecode`) backed by QuickJS to parse and emit bytecode, then `loadBytecode()` copies that bytecode and its constant pool into a `ProtoBytecodeModule` owned entirely by protoJS (no raw `JSFunctionBytecode*` or `JSValue*` are stored). Finally, `runBytecode()` executes the copied buffer via **ProtoInterpreter**. Stack and locals are `ProtoObject*`; no QuickJS interpreter or heap is used for script execution. Result is converted to JSValue only at the boundary with `TypeBridge::toJS`.
 
 **Bridges on each path:**
 

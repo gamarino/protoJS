@@ -48,7 +48,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* globalObj,
                                       JSContext* jsContextForAtoms) {
-    if (!pContext || !module || !globalObj || !module->bytecode) return PROTO_NONE;
+    if (!pContext || !module || !globalObj) return PROTO_NONE;
     const uint8_t* buf = module->buf();
     int len = module->bufLen();
     if (!buf || len <= 0) return PROTO_NONE;
@@ -165,13 +165,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         args = args->appendLast(pContext, stack[stack.size() - argc + i]);
                     }
                     for (uint32_t i = 0; i <= argc; i++) stack.pop_back();
-                    const proto::ProtoObject* thisVal = argc > 0 ? stack.empty() ? globalObj : stack.back() : globalObj;
-                    ProtoBytecodeModule nestedMod;
-                    nestedMod.bytecode = nf.first;
-                    nestedMod.jsContext = module->jsContext;
-                    nestedMod.protoCpool = nf.second;
-                    nestedMod.nestedFunctions = nested;
-                    const proto::ProtoObject* result = runBytecode(pContext, &nestedMod, thisVal, jsContextForAtoms);
+                    const proto::ProtoObject* thisVal =
+                        argc > 0 ? (stack.empty() ? globalObj : stack.back()) : globalObj;
+                    const proto::ProtoObject* result =
+                        runBytecode(pContext, &nf, thisVal, jsContextForAtoms);
                     stack.push_back(result ? result : PROTO_NONE);
                 } else if (func && func->isMethod(pContext)) {
                     const proto::ProtoObject* thisVal = stack[stack.size() - argc - 1];

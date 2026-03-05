@@ -2,8 +2,8 @@
 #define PROTOJS_PROTO_BYTECODE_MODULE_H
 
 /**
- * Loaded representation of QuickJS bytecode for the ProtoCore interpreter.
- * Holds bytecode pointer, proto constant pool, and optional atom cache.
+ * Loaded representation of compiled JavaScript for the ProtoCore interpreter.
+ * Holds a copy of the bytecode buffer, proto constant pool, and optional atom cache.
  */
 
 #include "headers/protoCore.h"
@@ -16,22 +16,30 @@ struct JSContext;
 namespace protojs {
 
 struct ProtoBytecodeModule {
-    /** QuickJS bytecode (valid while compile JSContext is alive). */
-    void* bytecode{nullptr};
     /** Compile context for atom resolution (JS_AtomToCString). */
     JSContext* jsContext{nullptr};
+
+    /** Copy of the bytecode buffer (no dependency on JSFunctionBytecode lifetime). */
+    std::vector<uint8_t> bytecode;
+
+    /** Function metadata copied from the frontend. */
+    uint16_t argCount_{0};
+    uint16_t varCount_{0};
+    uint16_t stackSize_{0};
+
     /** Proto constant pool: cpool[i] -> ProtoObject. */
     std::vector<const proto::ProtoObject*> protoCpool;
-    /** Nested bytecode functions: id -> (bytecode, protoCpool). Interpreter uses this for call. */
-    std::vector<std::pair<void*, std::vector<const proto::ProtoObject*>>> nestedFunctions;
+
+    /** Nested bytecode functions, fully translated to ProtoBytecodeModule. */
+    std::vector<ProtoBytecodeModule> nestedFunctions;
     /** Lazily filled: atom index -> ProtoString (for get_field etc.). */
     std::unordered_map<uint32_t, const proto::ProtoString*> atomToProto;
 
-    unsigned argCount() const;
-    unsigned varCount() const;
-    unsigned stackSize() const;
-    const uint8_t* buf() const;
-    int bufLen() const;
+    unsigned argCount() const { return argCount_; }
+    unsigned varCount() const { return varCount_; }
+    unsigned stackSize() const { return stackSize_; }
+    const uint8_t* buf() const { return bytecode.empty() ? nullptr : bytecode.data(); }
+    int bufLen() const { return static_cast<int>(bytecode.size()); }
 };
 
 /**
