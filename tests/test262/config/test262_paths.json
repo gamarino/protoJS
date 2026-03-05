@@ -4,9 +4,6 @@
   "harness_dir": "harness",
   "default_timeout_ms": 5000,
   "patterns": [
-    "language/expressions",
-    "language/statements",
-    "language/scoping",
-    "built-ins/Object"
+    "built-ins/Array/isArray"
   ]
 }

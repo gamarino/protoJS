@@ -52,7 +52,7 @@ When `TEST262_ROOT` points to a full Test262 checkout, these numbers should be r
 | Folder                              | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-------------------------------------|-------|--------|-----------------|--------------------|----------|-------|
 | `built-ins/Object`                  |     2 |      2 |               0 |                  0 |        0 | Local mini-suite: `defineProperty-basic.js`, `prototype-chain.js`. |
-| `built-ins/Array/isArray`           | 29 | 26 | 0 | 3 | 0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
+| `built-ins/Array/isArray`           | 29 | 29 | 0 | 0 | 0 | Official Test262 subset under `built-ins/Array/isArray/**`. |
 | `built-ins/Array/prototype/push`    | 24 | 0 | 0 | 0 | 24 | Official Test262 subset under `built-ins/Array/prototype/push/**`. |
 | `built-ins/Array/prototype/map`     | 216 | 0 | 0 | 0 | 216 | Official Test262 subset under `built-ins/Array/prototype/map/**`. |
 | `built-ins/Array/prototype/filter`  | 242 | 0 | 0 | 0 | 242 | Official Test262 subset under `built-ins/Array/prototype/filter/**`. |

@@ -14,10 +14,20 @@ This directory implements the **Reuse Parser, Full protoCore Runtime** path: Qui
 |------|------|
 | `QuickJSBytecodeExport.h` | Declares the C API to get bytecode from a compile-only function and to read its fields (buf, len, arg_count, cpool, etc.). |
 | `ProtoCompileOnly.h/cpp` | `compileToBytecode(ctx, source, len, filename)` → opaque bytecode pointer. |
-| `ProtoBytecodeModule.h` | Loaded module: bytecode pointer, `protoCpool`, `nestedFunctions`, atom cache. |
+| `ProtoBytecodeModule.h` | Loaded module: copied bytecode buffer, `protoCpool`, `nestedFunctions`, atom cache and function metadata (arg/var/stack sizes). |
 | `ProtoBytecodeLoader.cpp` | `loadBytecode(ctx, bytecode, pContext, out)` → fills `ProtoBytecodeModule`. |
 | `QuickJSOpcodeEnum.h` | Opcode enum matching QuickJS for interpreter dispatch. |
-| `ProtoInterpreter.h/cpp` | `runBytecode(pContext, module, globalObj, jsContextForAtoms)` → result `ProtoObject*`. |
+| `ProtoInterpreter.h/cpp` | `runBytecode(pContext, module, thisObj, args, globalObj, jsContextForAtoms)` → result `ProtoObject*`. |
+
+## Status (Phase 3)
+
+The Phase 3 interpreter implements the primary QuickJS opcode groups needed for the current protoJS runtime:
+
+- **Stack and constants**: full family of `push_*`, `dup/*`, `swap/*`, `rot/*`, plus constant pool and atom-based loads.
+- **Locals, arguments and lexical environment**: `get/put/set_loc*`, `get/put/set_arg*`, `get/put/set_var_ref*`, plus the `_check` variants used for TDZ and lexical checks.
+- **Properties and arrays**: `get/put_field*`, `define_field`, and array access opcodes (`get/put_array_el*`) mapped to `ProtoObject` attributes and interned `ProtoString` keys.
+- **Control flow**: unconditional and conditional jumps (`goto*`, `if_true*`, `if_false*`) implemented in terms of JS-style truthiness (`toBool`).
+- **Calls**: bytecode function calls and `ProtoMethod` calls are routed through `runBytecode` and protoCore’s `call` model, with a proper `this` binding and argument list.
 
 ## Enabling
 

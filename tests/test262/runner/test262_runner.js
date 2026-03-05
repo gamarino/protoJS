@@ -87,7 +87,7 @@ function walkTests(root, patterns) {
 }
 
 function parseFrontMatter(source) {
-  const result = { negative: null, includes: [] };
+  const result = { negative: null, includes: [], flags: {} };
   const start = source.indexOf("/*---");
   if (start === -1) return result;
   const end = source.indexOf("---*/", start + 5);
@@ -96,18 +96,21 @@ function parseFrontMatter(source) {
 
   let inNegative = false;
   let inIncludes = false;
+  let inFlags = false;
   for (let line of yaml) {
     if (!line) continue;
     const trimmed = line.trimStart();
     if (trimmed.startsWith("negative:")) {
       inNegative = true;
       inIncludes = false;
+      inFlags = false;
       result.negative = { phase: null, type: null };
       continue;
     }
     if (trimmed.startsWith("includes:")) {
       inIncludes = true;
       inNegative = false;
+      inFlags = false;
       // Support inline includes: [a.js, b.js]
       const inline = trimmed.match(/includes:\s*\[([^\]]+)\]/);
       if (inline) {
@@ -120,14 +123,32 @@ function parseFrontMatter(source) {
       }
       continue;
     }
+    if (trimmed.startsWith("flags:")) {
+      inFlags = true;
+      inNegative = false;
+      inIncludes = false;
+      // Support inline flags: [onlyStrict, ...]
+      const inline = trimmed.match(/flags:\s*\[([^\]]+)\]/);
+      if (inline) {
+        for (const part of inline[1].split(",")) {
+          const name = part.trim().replace(/^["']|["']$/g, "");
+          if (name) {
+            result.flags[name] = true;
+          }
+        }
+      }
+      continue;
+    }
     if (
       trimmed[0] !== "-" &&
       !trimmed.startsWith("phase:") &&
-      !trimmed.startsWith("type:")
+      !trimmed.startsWith("type:") &&
+      !trimmed.startsWith("flags:")
     ) {
       // Reset simple blocks when another top-level key appears
       inNegative = false;
       inIncludes = false;
+      inFlags = false;
     }
     if (inNegative) {
       const mPhase = trimmed.match(/phase:\s*(\w+)/);
@@ -139,6 +160,13 @@ function parseFrontMatter(source) {
     if (inIncludes) {
       const mInc = trimmed.match(/-+\s*([\w.-]+\.js)/);
       if (mInc) result.includes.push(mInc[1]);
+      continue;
+    }
+    if (inFlags) {
+      const mFlag = trimmed.match(/-+\s*(\w+)/);
+      if (mFlag) {
+        result.flags[mFlag[1]] = true;
+      }
     }
   }
   return result;
@@ -160,6 +188,10 @@ function buildTestFile(cfg, test) {
     if (fs.existsSync(p)) {
       parts.push(fs.readFileSync(p, "utf8"));
     }
+  }
+  // Honor Test262 flags (partial support: onlyStrict).
+  if (meta.flags && (meta.flags.onlyStrict || meta.flags["onlyStrict"])) {
+    parts.push('"use strict";');
   }
   parts.push(src);
 

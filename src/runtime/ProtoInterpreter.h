@@ -15,12 +15,19 @@ struct JSContext;
 namespace protojs {
 
 /**
- * Run the loaded bytecode module with the given global object as scope.
+ * Run the loaded bytecode module with the given `this` value, arguments and
+ * global object.
+ *
+ * - `thisObj`: JS `this` binding for this frame.
+ * - `args`: positional arguments for the frame (may be null for top-level).
+ * - `globalObj`: global scope object for resolving global variables.
+ *
  * Returns the result ProtoObject, or PROTO_NONE on error/exception.
- * globalObj: used as "this" and as the variable scope for global names.
  */
 const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
+                                      const proto::ProtoObject* thisObj,
+                                      const proto::ProtoList* args,
                                       const proto::ProtoObject* globalObj,
                                       JSContext* jsContextForAtoms);
 

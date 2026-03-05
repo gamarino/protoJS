@@ -90,18 +90,19 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str());
         if (!bytecode) {
             val = JS_GetException(ctx);
-        } else {
-            protojs::ProtoBytecodeModule module;
-            if (!protojs::loadBytecode(ctx, bytecode, pContext, &module)) {
-                val = JS_EXCEPTION;
             } else {
-                JSValue globalVal = JS_GetGlobalObject(ctx);
-                const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, pContext);
-                JS_FreeValue(ctx, globalVal);
-                const proto::ProtoObject* result = protojs::runBytecode(pContext, &module, globalObj, ctx);
-                val = TypeBridge::toJS(ctx, result, pContext);
+                protojs::ProtoBytecodeModule module;
+                if (!protojs::loadBytecode(ctx, bytecode, pContext, &module)) {
+                    val = JS_EXCEPTION;
+                } else {
+                    JSValue globalVal = JS_GetGlobalObject(ctx);
+                    const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, pContext);
+                    JS_FreeValue(ctx, globalVal);
+                    const proto::ProtoObject* result =
+                        protojs::runBytecode(pContext, &module, globalObj, nullptr, globalObj, ctx);
+                    val = TypeBridge::toJS(ctx, result, pContext);
+                }
             }
-        }
     } else {
         val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
     }
