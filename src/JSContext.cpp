@@ -14,6 +14,9 @@
 
 namespace protojs {
 
+// See JSContext.h for semantics.
+thread_local proto::ProtoContext* g_currentProtoContext = nullptr;
+
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
     std::cerr << "[protojs] JSContextWrapper: creating QuickJS runtime/context" << std::endl;
     rt = JS_NewRuntime();
@@ -87,22 +90,31 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     std::cerr << "[protojs] eval start: " << filename << std::endl;
     JSValue val;
     if (useProtoEval_) {
+        // protoCore path: run this eval in a stack-scoped ProtoContext frame.
+        proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
+        frameCtx.currentFileName = pContext->currentFileName;
+        frameCtx.currentLineNumber = pContext->currentLineNumber;
+
         void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str());
         if (!bytecode) {
             val = JS_GetException(ctx);
+        } else {
+            protojs::ProtoBytecodeModule module;
+            if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
+                val = JS_EXCEPTION;
             } else {
-                protojs::ProtoBytecodeModule module;
-                if (!protojs::loadBytecode(ctx, bytecode, pContext, &module)) {
-                    val = JS_EXCEPTION;
-                } else {
-                    JSValue globalVal = JS_GetGlobalObject(ctx);
-                    const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, pContext);
-                    JS_FreeValue(ctx, globalVal);
-                    const proto::ProtoObject* result =
-                        protojs::runBytecode(pContext, &module, globalObj, nullptr, globalObj, ctx);
-                    val = TypeBridge::toJS(ctx, result, pContext);
-                }
+                JSValue globalVal = JS_GetGlobalObject(ctx);
+                const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
+                JS_FreeValue(ctx, globalVal);
+
+                const proto::ProtoObject* result =
+                    protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
+                // Hand the result back to the previous context for GC purposes.
+                frameCtx.returnValue = result;
+
+                val = TypeBridge::toJS(ctx, result, &frameCtx);
             }
+        }
     } else {
         val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
     }

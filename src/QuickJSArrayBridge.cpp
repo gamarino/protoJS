@@ -53,83 +53,24 @@ void protojs_array_mirror_after_set_index(JSContext* ctx,
                                           JSValueConst this_obj,
                                           uint32_t idx)
 {
-    // Temporarily disabled: legacy QuickJS path no longer mirrors array writes
-    // into protoCore. This avoids hangs observed with numeric length-only
-    // arrays (e.g. new Array(10)) while the new protoCore interpreter path
-    // (Option B) is being built out. JS semantics remain those of QuickJS.
+    // Legacy QuickJS array bridge intentionally disabled.
+    // - On the protoCore eval path, the QuickJS interpreter does not run, so
+    //   no array mirroring is needed; arrays are handled directly by
+    //   ProtoArrayAdapter / ProtoInterpreter on the protoCore heap.
+    // - On the legacy JS_Eval path, QuickJS arrays behave exactly like in
+    //   upstream QuickJS; no protoCore backing is maintained.
     (void)ctx;
     (void)this_obj;
     (void)idx;
-    return;
-
-    // Only handle real Arrays; bail out quickly otherwise.
-    if (!JS_IsArray(ctx, this_obj)) {
-        return;
-    }
-
-    proto::ProtoContext* pContext =
-        protojs::ExecutionEngine::getProtoContext(ctx);
-    if (!pContext) {
-        return;
-    }
-
-    // Obtain or create the backing array in protoCore.
-    const proto::ProtoObject* backing =
-        protojs::ensure_array_backing(ctx, this_obj, pContext);
-
-    // Read the current JS value at the index and mirror it.
-    JSValue val = JS_GetPropertyUint32(ctx, this_obj, idx);
-    if (JS_IsException(val)) {
-        return;
-    }
-
-    const proto::ProtoObject* pVal =
-        protojs::TypeBridge::fromJS(ctx, val, pContext);
-    JS_FreeValue(ctx, val);
-
-    const proto::ProtoString* indexKey = protojs::ProtoJSStringCache::getIndexKey(pContext, idx);
-    const proto::ProtoObject* newBacking = backing->setAttribute(pContext, indexKey, pVal);
-
-    protojs::GCBridge::registerMapping((JSValue)this_obj, newBacking, ctx);
 }
 
 void protojs_array_mirror_after_set_length(JSContext* ctx,
                                            JSValueConst this_obj)
 {
-    // Temporarily disabled; see comment in protojs_array_mirror_after_set_index.
+    // See comment in protojs_array_mirror_after_set_index: the legacy array
+    // mirroring bridge is fully disabled.
     (void)ctx;
     (void)this_obj;
-    return;
-
-    // Only handle real Arrays; bail out quickly otherwise.
-    if (!JS_IsArray(ctx, this_obj)) {
-        return;
-    }
-
-    proto::ProtoContext* pContext =
-        protojs::ExecutionEngine::getProtoContext(ctx);
-    if (!pContext) {
-        return;
-    }
-
-    // Obtain or create backing, then read JS length and mirror to protoCore.
-    const proto::ProtoObject* backing =
-        protojs::ensure_array_backing(ctx, this_obj, pContext);
-
-    JSValue lenVal = JS_GetPropertyStr(ctx, this_obj, "length");
-    if (JS_IsException(lenVal)) {
-        return;
-    }
-    uint32_t len = 0;
-    if (JS_ToUint32(ctx, &len, lenVal) < 0) {
-        JS_FreeValue(ctx, lenVal);
-        return;
-    }
-    JS_FreeValue(ctx, lenVal);
-
-    const proto::ProtoString* lengthKey = protojs::ProtoJSStringCache::getKey(pContext, "length");
-    const proto::ProtoObject* newBacking = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(static_cast<long long>(len)));
-    protojs::GCBridge::registerMapping((JSValue)this_obj, newBacking, ctx);
 }
 
 } // extern "C"

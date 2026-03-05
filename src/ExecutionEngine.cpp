@@ -1,29 +1,18 @@
 #include "ExecutionEngine.h"
 #include "JSContext.h"
-#include "ProtoArrayAdapter.h"
 #include "ProtoJSStringCache.h"
-#include <mutex>
 #include <string>
-#include <cstring>
 
 namespace protojs {
-
-// Map JSContext to ProtoContext using protoCore ProtoSparseList
-// Key: JSContext* hash (via pointer value)  
-// Value: ProtoContext* wrapped in ProtoExternalPointer
-// Note: We need a ProtoContext to access the map, so we'll use JSContextWrapper
-// For now, we'll rely on JSContextWrapper stored in JSContext opaque
-static std::mutex contextMutex;
 
 void ExecutionEngine::initialize(JSContext* ctx, proto::ProtoContext* pContext) {
     // ExecutionEngine doesn't need to store context mapping
     // It can always get ProtoContext from JSContextWrapper stored in JSContext opaque
     // This is more efficient and avoids the need for a global map
     
-    // Set up QuickJS class operations to intercept
-    // Note: QuickJS doesn't provide direct hooks for all operations,
-    // so we'll use a combination of class operations and property accessors
-    // For now, we'll intercept at the TypeBridge level during conversions
+    // QuickJS hooks are installed in deps/quickjs/quickjs.c.
+    // ExecutionEngine itself only needs to be able to retrieve ProtoContext
+    // from the JSContextWrapper stored in the JSContext opaque.
 }
 
 void ExecutionEngine::cleanup(JSContext* ctx) {
@@ -31,7 +20,15 @@ void ExecutionEngine::cleanup(JSContext* ctx) {
 }
 
 proto::ProtoContext* ExecutionEngine::getProtoContext(JSContext* ctx) {
-    // Get from JSContextWrapper stored in JSContext opaque
+    // Prefer an explicit current context when one is active (e.g. legacy
+    // QuickJS execution wrapped in a stack-scoped ProtoContext frame).
+    if (g_currentProtoContext) {
+        return g_currentProtoContext;
+    }
+
+    // Fallback: use the root context from JSContextWrapper stored in JSContext
+    // opaque. This is sufficient for bootstrap and for callers that only need
+    // space-level information.
     JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
     if (wrapper) {
         return wrapper->getProtoContext();

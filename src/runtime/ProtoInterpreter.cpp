@@ -9,10 +9,103 @@
 #include <cstring>
 #include <cstdlib>
 #include <limits>
+#include <string>
 
 namespace protojs {
 
 namespace {
+
+/** Slot and stack storage use ProtoContext::closureLocals only (no std::vector); GC sees all references. */
+
+static unsigned long slotKey(proto::ProtoContext* ctx, unsigned int index) {
+    if (!ctx) return 0;
+    std::string s = std::to_string(index);
+    const proto::ProtoObject* o = ctx->fromUTF8String(s.c_str());
+    const proto::ProtoString* ps = o ? o->asString(ctx) : nullptr;
+    return ps ? static_cast<unsigned long>(ps->getHash(ctx)) : 0;
+}
+
+static unsigned long stackKey(proto::ProtoContext* ctx) {
+    if (!ctx) return 0;
+    const proto::ProtoObject* o = ctx->fromUTF8String("__stack__");
+    const proto::ProtoString* ps = o ? o->asString(ctx) : nullptr;
+    return ps ? static_cast<unsigned long>(ps->getHash(ctx)) : 0;
+}
+
+static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
+    if (!ctx || !ctx->closureLocals) return PROTO_NONE;
+    const proto::ProtoObject* v = ctx->closureLocals->getAt(ctx, slotKey(ctx, index));
+    return (v && v != PROTO_NONE) ? v : PROTO_NONE;
+}
+
+static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
+    if (!ctx || !ctx->closureLocals) return;
+    const proto::ProtoObject* val = value ? value : PROTO_NONE;
+    ctx->closureLocals = ctx->closureLocals->setAt(ctx, slotKey(ctx, index), val);
+}
+
+static void initStack(proto::ProtoContext* ctx) {
+    if (!ctx || !ctx->closureLocals) return;
+    const proto::ProtoList* empty = ctx->newList();
+    ctx->closureLocals = ctx->closureLocals->setAt(ctx, stackKey(ctx), empty ? empty->asObject(ctx) : PROTO_NONE);
+}
+
+static void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
+    if (!ctx || !ctx->closureLocals) return;
+    unsigned long sk = stackKey(ctx);
+    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
+    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
+    if (!list) list = ctx->newList();
+    const proto::ProtoList* next = list->appendLast(ctx, value ? value : PROTO_NONE);
+    ctx->closureLocals = ctx->closureLocals->setAt(ctx, sk, next ? next->asObject(ctx) : (list ? list->asObject(ctx) : PROTO_NONE));
+}
+
+static void stackPop(proto::ProtoContext* ctx) {
+    if (!ctx || !ctx->closureLocals) return;
+    unsigned long sk = stackKey(ctx);
+    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
+    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
+    if (!list) return;
+    unsigned long n = list->getSize(ctx);
+    if (n == 0) return;
+    const proto::ProtoList* next = list->getSlice(ctx, 0, static_cast<int>(n - 1));
+    ctx->closureLocals = ctx->closureLocals->setAt(ctx, sk, next ? next->asObject(ctx) : ctx->newList()->asObject(ctx));
+}
+
+static const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
+    if (!ctx || !ctx->closureLocals) return PROTO_NONE;
+    unsigned long sk = stackKey(ctx);
+    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
+    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
+    if (!list) return PROTO_NONE;
+    unsigned long n = list->getSize(ctx);
+    if (n == 0) return PROTO_NONE;
+    return list->getAt(ctx, static_cast<int>(n - 1));
+}
+
+static unsigned long stackSize(proto::ProtoContext* ctx) {
+    if (!ctx || !ctx->closureLocals) return 0;
+    unsigned long sk = stackKey(ctx);
+    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
+    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
+    return list ? list->getSize(ctx) : 0;
+}
+
+static bool stackEmpty(proto::ProtoContext* ctx) {
+    return stackSize(ctx) == 0;
+}
+
+/** Get stack element by 0-based index from top (0 = top, 1 = next, ...). */
+static const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, unsigned long fromTop) {
+    if (!ctx || !ctx->closureLocals) return PROTO_NONE;
+    unsigned long sk = stackKey(ctx);
+    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
+    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
+    if (!list) return PROTO_NONE;
+    unsigned long n = list->getSize(ctx);
+    if (fromTop >= n) return PROTO_NONE;
+    return list->getAt(ctx, static_cast<int>(n - 1 - fromTop));
+}
 
 static inline uint32_t get_u32(const uint8_t* p) {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
@@ -159,20 +252,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     if (!buf || len <= 0) return PROTO_NONE;
     const std::vector<const proto::ProtoObject*>& cpool = module->protoCpool;
     const auto& nested = module->nestedFunctions;
-    unsigned stackSize = module->stackSize();
     unsigned argCount = module->argCount();
     unsigned varCount = module->varCount();
-    unsigned numLocals = argCount + varCount;
-    std::vector<const proto::ProtoObject*> stack;
-    stack.reserve(stackSize + 16);
-    std::vector<const proto::ProtoObject*> locals(numLocals, PROTO_NONE);
-    // Bind formal parameters from the provided argument list.
-    if (args) {
-        for (unsigned i = 0; i < argCount; ++i) {
-            const proto::ProtoObject* v = args->getAt(pContext, static_cast<int>(i));
-            locals[i] = v ? v : PROTO_NONE;
-        }
-    }
+    // Locals and stack live only in ProtoContext::closureLocals (GC-visible). No std::vector.
+    initStack(pContext);
     int pc = 0;
     ProtoBytecodeModule* mod = const_cast<ProtoBytecodeModule*>(module);
 
@@ -181,43 +264,43 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         switch (opcode) {
             // --- Constant and immediate pushes ---
             case OP_push_minus1:
-                stack.push_back(pContext->fromInteger(-1));
+                stackPush(pContext,pContext->fromInteger(-1));
                 break;
             case OP_push_0:
-                stack.push_back(pContext->fromInteger(0));
+                stackPush(pContext,pContext->fromInteger(0));
                 break;
             case OP_push_1:
-                stack.push_back(pContext->fromInteger(1));
+                stackPush(pContext,pContext->fromInteger(1));
                 break;
             case OP_push_2:
-                stack.push_back(pContext->fromInteger(2));
+                stackPush(pContext,pContext->fromInteger(2));
                 break;
             case OP_push_3:
-                stack.push_back(pContext->fromInteger(3));
+                stackPush(pContext,pContext->fromInteger(3));
                 break;
             case OP_push_4:
-                stack.push_back(pContext->fromInteger(4));
+                stackPush(pContext,pContext->fromInteger(4));
                 break;
             case OP_push_5:
-                stack.push_back(pContext->fromInteger(5));
+                stackPush(pContext,pContext->fromInteger(5));
                 break;
             case OP_push_6:
-                stack.push_back(pContext->fromInteger(6));
+                stackPush(pContext,pContext->fromInteger(6));
                 break;
             case OP_push_7:
-                stack.push_back(pContext->fromInteger(7));
+                stackPush(pContext,pContext->fromInteger(7));
                 break;
             case OP_push_i8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 int8_t v = static_cast<int8_t>(buf[pc++]);
-                stack.push_back(pContext->fromInteger(static_cast<long long>(v)));
+                stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
                 break;
             }
             case OP_push_i16: {
                 if (pc + 2 > len) return PROTO_NONE;
                 int16_t v = static_cast<int16_t>(get_u16(buf + pc));
                 pc += 2;
-                stack.push_back(pContext->fromInteger(static_cast<long long>(v)));
+                stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
                 break;
             }
             case OP_push_i32: {
@@ -225,272 +308,266 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 4 > len) return PROTO_NONE;
                 int32_t v = (int32_t)get_u32(buf + pc);
                 pc += 4;
-                stack.push_back(pContext->fromInteger(static_cast<long long>(v)));
+                stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
                 break;
             }
             case OP_push_const8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t idx = buf[pc++];
                 if (idx < cpool.size())
-                    stack.push_back(cpool[idx]);
+                    stackPush(pContext,cpool[idx]);
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_push_empty_string:
-                stack.push_back(pContext->fromUTF8String(""));
+                stackPush(pContext,pContext->fromUTF8String(""));
                 break;
             case OP_push_this:
                 // Use the current frame's `this` binding; fall back to global object.
-                stack.push_back(thisObj ? thisObj : (globalObj ? globalObj : PROTO_NONE));
+                stackPush(pContext,thisObj ? thisObj : (globalObj ? globalObj : PROTO_NONE));
                 break;
             case OP_special_object: {
                 // TODO: Implement arguments/new.target/etc. wiring.
                 if (pc + 1 > len) return PROTO_NONE;
                 pc += 1; // skip kind
-                stack.push_back(PROTO_NONE);
+                stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_rest: {
                 // TODO: Implement rest parameter materialization once call/arg opcodes are wired.
                 if (pc + 2 > len) return PROTO_NONE;
                 pc += 2; // skip u16 argument index
-                stack.push_back(PROTO_NONE);
+                stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_return: {
-                if (stack.empty()) return PROTO_NONE;
-                const proto::ProtoObject* result = stack.back();
+                if (stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* result = stackTop(pContext);
                 return result;
             }
             case OP_return_undef:
                 return PROTO_NONE;
             case OP_drop:
-                if (!stack.empty()) stack.pop_back();
+                if (!stackEmpty(pContext)) stackPop(pContext);
                 break;
             case OP_nip:
-                if (stack.size() < 2) return PROTO_NONE;
-                // a b -> b (drop next-to-top)
-                stack[stack.size() - 2] = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                { const proto::ProtoObject* top = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, top); }
                 break;
             case OP_nip1:
-                if (stack.size() < 3) return PROTO_NONE;
-                // a b c -> b c (drop bottom of top-3 window)
-                stack.erase(stack.end() - 3);
+                if (stackSize(pContext) < 3) return PROTO_NONE;
+                { const proto::ProtoObject* c = stackTop(pContext); stackPop(pContext); const proto::ProtoObject* b = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, b); stackPush(pContext, c); }
                 break;
             case OP_dup:
-                if (!stack.empty()) stack.push_back(stack.back());
+                if (!stackEmpty(pContext)) stackPush(pContext, stackTop(pContext));
                 break;
             case OP_dup1:
-                if (stack.size() < 2) return PROTO_NONE;
-                // a b -> a a b
-                stack.insert(stack.end() - 1, stack[stack.size() - 2]);
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                { const proto::ProtoObject* top = stackTop(pContext); const proto::ProtoObject* second = stackAt(pContext, 1); stackPush(pContext, second); stackPush(pContext, top); }
                 break;
             case OP_dup2:
-                if (stack.size() < 2) return PROTO_NONE;
-                // a b -> a b a b
-                stack.push_back(stack[stack.size() - 2]);
-                stack.push_back(stack[stack.size() - 2]); // last element before push is original b
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                stackPush(pContext, stackAt(pContext, 1));
+                stackPush(pContext, stackAt(pContext, 1));
                 break;
             case OP_dup3:
-                if (stack.size() < 3) return PROTO_NONE;
-                // a b c -> a b c a b c
-                stack.push_back(stack[stack.size() - 3]);
-                stack.push_back(stack[stack.size() - 3]); // now original b
-                stack.push_back(stack[stack.size() - 3]); // now original c
+                if (stackSize(pContext) < 3) return PROTO_NONE;
+                stackPush(pContext, stackAt(pContext, 2));
+                stackPush(pContext, stackAt(pContext, 2));
+                stackPush(pContext, stackAt(pContext, 2));
                 break;
             case OP_insert2:
-                if (stack.size() < 2) return PROTO_NONE;
+                if (stackSize(pContext) < 2) return PROTO_NONE;
                 // obj a -> a obj a
                 {
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* obj = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(obj);
-                    stack.push_back(a);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,obj);
+                    stackPush(pContext,a);
                 }
                 break;
             case OP_insert3:
-                if (stack.size() < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) return PROTO_NONE;
                 // obj prop a -> a obj prop a
                 {
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* prop = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* obj = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(obj);
-                    stack.push_back(prop);
-                    stack.push_back(a);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* prop = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,obj);
+                    stackPush(pContext,prop);
+                    stackPush(pContext,a);
                 }
                 break;
             case OP_insert4:
-                if (stack.size() < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) return PROTO_NONE;
                 // this obj prop a -> a this obj prop a
                 {
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* prop = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* obj = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* thisVal = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(thisVal);
-                    stack.push_back(obj);
-                    stack.push_back(prop);
-                    stack.push_back(a);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* prop = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* thisVal = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,thisVal);
+                    stackPush(pContext,obj);
+                    stackPush(pContext,prop);
+                    stackPush(pContext,a);
                 }
                 break;
             case OP_perm3:
-                if (stack.size() < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) return PROTO_NONE;
                 // obj a b -> a obj b
                 {
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* obj = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(obj);
-                    stack.push_back(b);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,obj);
+                    stackPush(pContext,b);
                 }
                 break;
             case OP_perm4:
-                if (stack.size() < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) return PROTO_NONE;
                 // obj prop a b -> a obj prop b
                 {
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* prop = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* obj = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(obj);
-                    stack.push_back(prop);
-                    stack.push_back(b);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* prop = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,obj);
+                    stackPush(pContext,prop);
+                    stackPush(pContext,b);
                 }
                 break;
             case OP_perm5:
-                if (stack.size() < 5) return PROTO_NONE;
+                if (stackSize(pContext) < 5) return PROTO_NONE;
                 // this obj prop a b -> a this obj prop b
                 {
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* prop = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* obj = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* thisVal = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(thisVal);
-                    stack.push_back(obj);
-                    stack.push_back(prop);
-                    stack.push_back(b);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* prop = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* thisVal = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,thisVal);
+                    stackPush(pContext,obj);
+                    stackPush(pContext,prop);
+                    stackPush(pContext,b);
                 }
                 break;
             case OP_swap:
-                if (stack.size() < 2) return PROTO_NONE;
-                std::swap(stack[stack.size() - 1], stack[stack.size() - 2]);
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                { const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext); const proto::ProtoObject* b = stackTop(pContext); stackPop(pContext); stackPush(pContext, a); stackPush(pContext, b); }
                 break;
             case OP_swap2:
-                if (stack.size() < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) return PROTO_NONE;
                 // a b c d -> c d a b
                 {
-                    const proto::ProtoObject* d = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* c = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    stack.push_back(c);
-                    stack.push_back(d);
-                    stack.push_back(a);
-                    stack.push_back(b);
+                    const proto::ProtoObject* d = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* c = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,c);
+                    stackPush(pContext,d);
+                    stackPush(pContext,a);
+                    stackPush(pContext,b);
                 }
                 break;
             case OP_rot3l:
-                if (stack.size() < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) return PROTO_NONE;
                 // x a b -> a b x
                 {
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* x = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(b);
-                    stack.push_back(x);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* x = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,b);
+                    stackPush(pContext,x);
                 }
                 break;
             case OP_rot3r:
-                if (stack.size() < 3) return PROTO_NONE;
+                if (stackSize(pContext) < 3) return PROTO_NONE;
                 // a b x -> x a b
                 {
-                    const proto::ProtoObject* x = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    stack.push_back(x);
-                    stack.push_back(a);
-                    stack.push_back(b);
+                    const proto::ProtoObject* x = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,x);
+                    stackPush(pContext,a);
+                    stackPush(pContext,b);
                 }
                 break;
             case OP_rot4l:
-                if (stack.size() < 4) return PROTO_NONE;
+                if (stackSize(pContext) < 4) return PROTO_NONE;
                 // x a b c -> a b c x
                 {
-                    const proto::ProtoObject* c = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* x = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(b);
-                    stack.push_back(c);
-                    stack.push_back(x);
+                    const proto::ProtoObject* c = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* x = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,b);
+                    stackPush(pContext,c);
+                    stackPush(pContext,x);
                 }
                 break;
             case OP_rot5l:
-                if (stack.size() < 5) return PROTO_NONE;
+                if (stackSize(pContext) < 5) return PROTO_NONE;
                 // x a b c d -> a b c d x
                 {
-                    const proto::ProtoObject* d = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* c = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* b = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* a = stack.back();
-                    stack.pop_back();
-                    const proto::ProtoObject* x = stack.back();
-                    stack.pop_back();
-                    stack.push_back(a);
-                    stack.push_back(b);
-                    stack.push_back(c);
-                    stack.push_back(d);
-                    stack.push_back(x);
+                    const proto::ProtoObject* d = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* c = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* b = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* a = stackTop(pContext);
+                    stackPop(pContext);
+                    const proto::ProtoObject* x = stackTop(pContext);
+                    stackPop(pContext);
+                    stackPush(pContext,a);
+                    stackPush(pContext,b);
+                    stackPush(pContext,c);
+                    stackPush(pContext,d);
+                    stackPush(pContext,x);
                 }
                 break;
             case OP_push_const: {
@@ -498,9 +575,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
                 if (idx < cpool.size())
-                    stack.push_back(cpool[idx]);
+                    stackPush(pContext,cpool[idx]);
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_push_atom_value: {
@@ -509,38 +586,38 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 4;
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !globalObj) {
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                     break;
                 }
                 const proto::ProtoObject* val = globalObj->getAttribute(pContext, key, true);
-                stack.push_back(val ? val : PROTO_NONE);
+                stackPush(pContext,val ? val : PROTO_NONE);
                 break;
             }
             // Short local/arg accessors (loc8/arg8 and loc0-3/arg0-3)
             case OP_get_loc8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    stack.push_back(locals[argCount + locIndex]);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_loc8: {
-                if (pc + 1 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_set_loc8: {
-                if (pc + 1 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
-                const proto::ProtoObject* val = stack.back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_get_arg0:
@@ -548,83 +625,83 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             case OP_get_arg2:
             case OP_get_arg3: {
                 unsigned idx = static_cast<unsigned>(opcode - OP_get_arg0);
-                if (idx < argCount && idx < locals.size())
-                    stack.push_back(locals[idx]);
+                if (idx < argCount && idx < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, idx));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_arg0:
             case OP_put_arg1:
             case OP_put_arg2:
             case OP_put_arg3: {
-                if (stack.empty()) return PROTO_NONE;
+                if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_arg0);
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (idx < argCount && idx < locals.size())
-                    locals[idx] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (idx < argCount && idx < (argCount + varCount))
+                    setSlot(pContext, idx, val);
                 break;
             }
             case OP_set_arg0:
             case OP_set_arg1:
             case OP_set_arg2:
             case OP_set_arg3: {
-                if (stack.empty()) return PROTO_NONE;
+                if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_arg0);
-                const proto::ProtoObject* val = stack.back();
-                if (idx < argCount && idx < locals.size())
-                    locals[idx] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (idx < argCount && idx < (argCount + varCount))
+                    setSlot(pContext, idx, val);
                 break;
             }
             case OP_get_var_ref: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                if (refIndex < varCount && (argCount + refIndex) < locals.size())
-                    stack.push_back(locals[argCount + refIndex]);
+                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + refIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_var_ref: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (refIndex < varCount && (argCount + refIndex) < locals.size())
-                    locals[argCount + refIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + refIndex, val);
                 break;
             }
             case OP_set_var_ref: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                if (refIndex < varCount && (argCount + refIndex) < locals.size())
-                    locals[argCount + refIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + refIndex, val);
                 break;
             }
             case OP_get_var_ref_check: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                if (refIndex < varCount && (argCount + refIndex) < locals.size())
-                    stack.push_back(locals[argCount + refIndex]);
+                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + refIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_var_ref_check:
             case OP_put_var_ref_check_init: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (refIndex < varCount && (argCount + refIndex) < locals.size())
-                    locals[argCount + refIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + refIndex, val);
                 break;
             }
             case OP_close_loc: {
@@ -638,33 +715,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             case OP_get_loc2:
             case OP_get_loc3: {
                 unsigned idx = static_cast<unsigned>(opcode - OP_get_loc0);
-                if (idx < varCount && (argCount + idx) < locals.size())
-                    stack.push_back(locals[argCount + idx]);
+                if (idx < varCount && (argCount + idx) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + idx));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_loc0:
             case OP_put_loc1:
             case OP_put_loc2:
             case OP_put_loc3: {
-                if (stack.empty()) return PROTO_NONE;
+                if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_loc0);
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (idx < varCount && (argCount + idx) < locals.size())
-                    locals[argCount + idx] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (idx < varCount && (argCount + idx) < (argCount + varCount))
+                    setSlot(pContext, argCount + idx, val);
                 break;
             }
             case OP_set_loc0:
             case OP_set_loc1:
             case OP_set_loc2:
             case OP_set_loc3: {
-                if (stack.empty()) return PROTO_NONE;
+                if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_loc0);
-                const proto::ProtoObject* val = stack.back();
-                if (idx < varCount && (argCount + idx) < locals.size())
-                    locals[argCount + idx] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (idx < varCount && (argCount + idx) < (argCount + varCount))
+                    setSlot(pContext, argCount + idx, val);
                 break;
             }
             // --- Locals, arguments, and variable references ---
@@ -672,225 +749,225 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    stack.push_back(locals[argCount + locIndex]);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_loc: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_set_loc: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_get_arg: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
-                if (argIndex < argCount && argIndex < locals.size())
-                    stack.push_back(locals[argIndex]);
+                if (argIndex < argCount && argIndex < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_arg: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (argIndex < argCount && argIndex < locals.size())
-                    locals[argIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (argIndex < argCount && argIndex < (argCount + varCount))
+                    setSlot(pContext, argIndex, val);
                 break;
             }
             case OP_set_arg: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                if (argIndex < argCount && argIndex < locals.size())
-                    locals[argIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (argIndex < argCount && argIndex < (argCount + varCount))
+                    setSlot(pContext, argIndex, val);
                 break;
             }
             case OP_set_loc_uninitialized: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = PROTO_NONE;
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, PROTO_NONE);
                 break;
             }
             case OP_get_loc_check: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    stack.push_back(locals[argCount + locIndex]);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_put_loc_check: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_set_loc_check: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_put_loc_check_init: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    locals[argCount + locIndex] = val;
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, val);
                 break;
             }
             case OP_get_loc_checkthis: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < locals.size())
-                    stack.push_back(locals[argCount + locIndex]);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 break;
             }
             case OP_get_field: {
-                if (pc + 4 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
-                const proto::ProtoObject* obj = stack.back();
-                stack.pop_back();
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                if (!key) { stack.push_back(PROTO_NONE); break; }
+                if (!key) { stackPush(pContext,PROTO_NONE); break; }
                 const proto::ProtoObject* val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stack.push_back(val && val != PROTO_NONE ? val : PROTO_NONE);
+                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_get_field2: {
-                if (pc + 4 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
-                const proto::ProtoObject* obj = stack.back();
+                const proto::ProtoObject* obj = stackTop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 const proto::ProtoObject* val =
                     (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stack.push_back(val && val != PROTO_NONE ? val : PROTO_NONE);
+                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_put_field: {
-                if (pc + 4 > len || stack.size() < 2) return PROTO_NONE;
+                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
-                const proto::ProtoObject* val = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* obj = stack.back();
-                stack.pop_back();
+                const proto::ProtoObject* val = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
-                    stack.push_back(newObj ? newObj : obj);
+                    stackPush(pContext,newObj ? newObj : obj);
                 }
                 break;
             }
             case OP_define_field: {
-                if (pc + 4 > len || stack.size() < 2) return PROTO_NONE;
+                if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
-                const proto::ProtoObject* value = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* obj = stack.back();
-                stack.pop_back();
+                const proto::ProtoObject* value = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
-                    stack.push_back(newObj ? newObj : obj);
+                    stackPush(pContext,newObj ? newObj : obj);
                 } else {
-                    stack.push_back(PROTO_NONE);
+                    stackPush(pContext,PROTO_NONE);
                 }
                 break;
             }
             case OP_object: {
                 const proto::ProtoObject* newObj = pContext->newObject(true);
-                stack.push_back(newObj);
+                stackPush(pContext,newObj);
                 break;
             }
             // --- Array element helpers (implemented via property semantics) ---
             case OP_get_array_el: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* index = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* obj = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* index = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* keyObj = toString(pContext, index);
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
                 const proto::ProtoObject* val =
                     (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stack.push_back(val && val != PROTO_NONE ? val : PROTO_NONE);
+                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_get_array_el2: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* index = stack.back();
-                const proto::ProtoObject* obj = stack[stack.size() - 2];
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* index = stackTop(pContext);
+                const proto::ProtoObject* obj = stackAt(pContext, 1);
                 const proto::ProtoObject* keyObj = toString(pContext, index);
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
                 const proto::ProtoObject* val =
                     (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stack.push_back(val && val != PROTO_NONE ? val : PROTO_NONE);
+                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_get_array_el3: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* index = stack.back();
-                const proto::ProtoObject* obj = stack[stack.size() - 2];
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* index = stackTop(pContext);
+                const proto::ProtoObject* obj = stackAt(pContext, 1);
                 const proto::ProtoObject* keyObj = toString(pContext, index);
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
                 const proto::ProtoObject* val =
                     (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stack.push_back(index);
-                stack.push_back(val && val != PROTO_NONE ? val : PROTO_NONE);
+                stackPush(pContext,index);
+                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_put_array_el: {
-                if (stack.size() < 3) return PROTO_NONE;
-                const proto::ProtoObject* value = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* index = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* obj = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 3) return PROTO_NONE;
+                const proto::ProtoObject* value = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* index = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* keyObj = toString(pContext, index);
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
@@ -901,16 +978,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_undefined:
-                stack.push_back(PROTO_NONE);
+                stackPush(pContext,PROTO_NONE);
                 break;
             case OP_null:
-                stack.push_back(PROTO_NONE);
+                stackPush(pContext,PROTO_NONE);
                 break;
             case OP_push_false:
-                stack.push_back(PROTO_FALSE);
+                stackPush(pContext,PROTO_FALSE);
                 break;
             case OP_push_true:
-                stack.push_back(PROTO_TRUE);
+                stackPush(pContext,PROTO_TRUE);
                 break;
             // --- Control flow ---
             case OP_goto: {
@@ -932,9 +1009,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_if_true: {
-                if (pc + 4 > len || stack.empty()) return PROTO_NONE;
-                const proto::ProtoObject* cond = stack.back();
-                stack.pop_back();
+                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* cond = stackTop(pContext);
+                stackPop(pContext);
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
                 if (toBool(pContext, cond)) {
@@ -943,9 +1020,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_if_false: {
-                if (pc + 4 > len || stack.empty()) return PROTO_NONE;
-                const proto::ProtoObject* cond = stack.back();
-                stack.pop_back();
+                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* cond = stackTop(pContext);
+                stackPop(pContext);
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
                 if (!toBool(pContext, cond)) {
@@ -954,9 +1031,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_if_true8: {
-                if (pc + 1 > len || stack.empty()) return PROTO_NONE;
-                const proto::ProtoObject* cond = stack.back();
-                stack.pop_back();
+                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* cond = stackTop(pContext);
+                stackPop(pContext);
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (toBool(pContext, cond)) {
                     pc += off;
@@ -966,9 +1043,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_if_false8: {
-                if (pc + 1 > len || stack.empty()) return PROTO_NONE;
-                const proto::ProtoObject* cond = stack.back();
-                stack.pop_back();
+                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* cond = stackTop(pContext);
+                stackPop(pContext);
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (!toBool(pContext, cond)) {
                     pc += off;
@@ -978,86 +1055,100 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_add: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* a = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* res = a ? a->add(pContext, b) : PROTO_NONE;
-                stack.push_back(res ? res : PROTO_NONE);
+                stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
             case OP_mul: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* a = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* res = a ? a->multiply(pContext, b) : PROTO_NONE;
-                stack.push_back(res ? res : PROTO_NONE);
+                stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
             case OP_div: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* a = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* res = a ? a->divide(pContext, b) : PROTO_NONE;
-                stack.push_back(res ? res : PROTO_NONE);
+                stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
             case OP_sub: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* a = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* res = a ? a->subtract(pContext, b) : PROTO_NONE;
-                stack.push_back(res ? res : PROTO_NONE);
+                stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
             case OP_mod: {
-                if (stack.size() < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stack.back();
-                stack.pop_back();
-                const proto::ProtoObject* a = stack.back();
-                stack.pop_back();
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* res = a ? a->modulo(pContext, b) : PROTO_NONE;
-                stack.push_back(res ? res : PROTO_NONE);
+                stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
             case OP_call: {
-                if (pc + 2 > len || stack.empty()) return PROTO_NONE;
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t argc = get_u16(buf + pc);
                 pc += 2;
-                if (stack.size() < argc + 1) return PROTO_NONE;
-                const proto::ProtoObject* func = stack[stack.size() - argc - 1];
+                if (stackSize(pContext) < argc + 1) return PROTO_NONE;
+                const proto::ProtoObject* func = stackAt(pContext, argc);
                 int bcId = getBytecodeId(pContext, func);
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size()) {
                     const auto& nf = nested[bcId];
-                    const proto::ProtoList* args = pContext->newList();
-                    for (uint32_t i = 0; i < argc; i++) {
-                        args = args->appendLast(pContext, stack[stack.size() - argc + i]);
-                    }
-                    for (uint32_t i = 0; i <= argc; i++) stack.pop_back();
-                    const proto::ProtoObject* thisVal =
-                        argc > 0 ? (stack.empty() ? globalObj : stack.back()) : globalObj;
-                    const proto::ProtoObject* result =
-                        runBytecode(pContext, &nf, thisVal, args, globalObj, jsContextForAtoms);
-                    stack.push_back(result ? result : PROTO_NONE);
-                } else if (func && func->isMethod(pContext)) {
-                    const proto::ProtoObject* thisVal = stack[stack.size() - argc - 1];
-                    const proto::ProtoList* args = pContext->newList();
+                    const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
-                        args = args->appendLast(pContext, stack[stack.size() - argc + i]);
-                    for (uint32_t i = 0; i <= argc; i++) stack.pop_back();
+                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    const proto::ProtoObject* thisVal =
+                        argc > 0 ? stackAt(pContext, argc) : globalObj;
+                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+
+                    // Execute nested bytecode in a child ProtoContext frame so that
+                    // allocations are tied to the call frame and can be handed back
+                    // to the parent context on return. Bind args into child's closureLocals
+                    // (GC-visible) so getSlot/get_arg see them.
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+                    childCtx.currentFileName = pContext->currentFileName;
+                    childCtx.currentLineNumber = pContext->currentLineNumber;
+                    for (uint32_t i = 0; i < argc; i++)
+                        setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+
+                    const proto::ProtoObject* result =
+                        runBytecode(&childCtx, &nf, thisVal, argsList, globalObj, jsContextForAtoms);
+                    // Preserve the result for GC: the destructor will create a
+                    // ReturnReference in the parent context.
+                    childCtx.returnValue = result;
+
+                    stackPush(pContext, result ? result : PROTO_NONE);
+                } else if (func && func->isMethod(pContext)) {
+                    const proto::ProtoObject* thisVal = stackAt(pContext, argc);
+                    const proto::ProtoList* argsList = pContext->newList();
+                    for (uint32_t i = 0; i < argc; i++)
+                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                     const proto::ProtoObject* result = func->call(pContext, nullptr,
-                        ProtoJSStringCache::getKey(pContext, "call"), thisVal, args, nullptr);
-                    stack.push_back(result ? result : PROTO_NONE);
+                        ProtoJSStringCache::getKey(pContext, "call"), thisVal, argsList, nullptr);
+                    stackPush(pContext,result ? result : PROTO_NONE);
                 } else {
-                    for (uint32_t i = 0; i <= argc; i++) stack.pop_back();
-                    stack.push_back(PROTO_NONE);
+                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                    stackPush(pContext,PROTO_NONE);
                 }
                 break;
             }

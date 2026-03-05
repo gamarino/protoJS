@@ -2,11 +2,15 @@
 
 This directory implements the **Reuse Parser, Full protoCore Runtime** path: QuickJS is used only to parse and compile JavaScript to bytecode; execution is done by a protoCore-native interpreter.
 
+## Absolute rule: no std::vector for execution state
+
+**Local variables and the operand stack must not use `std::vector`.** They are not considered by the garbage collector. The only valid storage for locals and stack is **ProtoContext** (via `closureLocals` and, where applicable, automatic locals). All slot and stack reads/writes in the interpreter go through ProtoContext so the GC can trace every reference.
+
 ## Flow
 
 1. **Compile only:** `ProtoCompileOnly.cpp` calls `JS_Eval(..., JS_EVAL_FLAG_COMPILE_ONLY)` and obtains the top-level `JSFunctionBytecode*` via `protojs_get_function_bytecode()` (implemented in `deps/quickjs/quickjs.c`).
 2. **Load:** `ProtoBytecodeLoader.cpp` converts the bytecode into a `ProtoBytecodeModule`: constant pool → `ProtoObject*`, nested functions → placeholder objects with `__bytecode_id__`, atom resolution deferred to the interpreter.
-3. **Run:** `ProtoInterpreter.cpp` executes the bytecode with a `ProtoObject*` stack and locals; opcodes are dispatched in terms of `ProtoContext` and `ProtoObject` (get/put field, call, return, etc.).
+3. **Run:** `ProtoInterpreter.cpp` executes the bytecode using **only** ProtoContext: the operand stack is a `ProtoList` stored in `closureLocals` under a reserved key, and local/argument slots are entries in `closureLocals` keyed by slot index. Opcodes are dispatched in terms of `ProtoContext` and `ProtoObject` (get/put field, call, return, etc.).
 
 ## Components
 
@@ -24,7 +28,7 @@ This directory implements the **Reuse Parser, Full protoCore Runtime** path: Qui
 The Phase 3 interpreter implements the primary QuickJS opcode groups needed for the current protoJS runtime:
 
 - **Stack and constants**: full family of `push_*`, `dup/*`, `swap/*`, `rot/*`, plus constant pool and atom-based loads.
-- **Locals, arguments and lexical environment**: `get/put/set_loc*`, `get/put/set_arg*`, `get/put/set_var_ref*`, plus the `_check` variants used for TDZ and lexical checks.
+- **Locals, arguments and lexical environment**: `get/put/set_loc*`, `get/put/set_arg*`, `get/put/set_var_ref*`, plus the `_check` variants used for TDZ and lexical checks. Locals can be implemented as **automatic variables** (by index, discarded on return) or as a **ProtoSparseList** keyed by interned variable name for closure support; the dictionary may be immutable (snapshot semantics) or mutable (closures see latest state). See ARCHITECTURE.md § 1.3a.
 - **Properties and arrays**: `get/put_field*`, `define_field`, and array access opcodes (`get/put_array_el*`) mapped to `ProtoObject` attributes and interned `ProtoString` keys.
 - **Control flow**: unconditional and conditional jumps (`goto*`, `if_true*`, `if_false*`) implemented in terms of JS-style truthiness (`toBool`).
 - **Calls**: bytecode function calls and `ProtoMethod` calls are routed through `runBytecode` and protoCore’s `call` model, with a proper `this` binding and argument list.

@@ -8,6 +8,12 @@
 
 namespace protojs {
 
+// Current execution context for protoCore on the protoJS side.
+// For the protoCore eval path, this is always passed explicitly as a
+// stack-scoped ProtoContext; for legacy QuickJS execution, this may be
+// null (no active protoCore frame).
+extern thread_local proto::ProtoContext* g_currentProtoContext;
+
 class JSContextWrapper {
 public:
     /**
@@ -77,7 +83,7 @@ private:
     JSRuntime* rt;
     JSContext* ctx;
     proto::ProtoSpace pSpace;
-    proto::ProtoContext* pContext;
+    proto::ProtoContext* pContext; // rootContext owned by ProtoSpace
     JSPrototypes jsPrototypes_;
     /** Current script path for ProtoContext::currentFileName (keeps pointer valid during eval). */
     std::string currentScript_;

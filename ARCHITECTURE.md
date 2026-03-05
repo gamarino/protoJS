@@ -56,14 +56,18 @@ class JSContextWrapper {
     JSRuntime* rt;              // QuickJS runtime (solo para parser)
     JSContext* ctx;              // QuickJS context
     proto::ProtoSpace pSpace;    // protoCore space (GC, memoria)
-    proto::ProtoContext* pContext; // protoCore execution context
+    proto::ProtoContext* pContext; // protoCore root context (space->rootContext)
 };
 ```
 
 **Decisiones de diseño:**
-- Un `ProtoSpace` por `JSRuntime` (comparte GC)
-- Un `ProtoContext` por `JSContext` (aislamiento de ejecución)
-- QuickJS runtime se usa solo para parsing/compiling, no para ejecución real
+- Un `ProtoSpace` por `JSRuntime` (comparte GC).
+- Un `ProtoContext` raíz (`space.rootContext`) por `JSContextWrapper` para bootstrap y raíces globales.
+- Ejecución real en protoCore se hace en **contextos de pila (RAII)**:
+  - Cada llamada top-level a `eval()` en la ruta protoCore crea un `ProtoContext` automático en la pila encadenado a `rootContext`.
+  - Cada llamada anidada a una función bytecode en `ProtoInterpreter` crea su propio `ProtoContext` hijo encadenado al anterior.
+  - Al destruirse el `ProtoContext`, su destructor entrega la generación joven al GC y, si `returnValue` está definido, crea un `ReturnReference` en el contexto padre para preservar el resultado.
+- QuickJS runtime se usa solo para parsing/compiling, no para ejecución real en la ruta protoCore.
 - Al construir el wrapper se ejecuta `BootstrapJSPrototypes`: se inicializan el prototipo base JS (Object) y los derivados (Array, Arguments, RegExp) como hijos de `ProtoSpace::objectPrototype` y se guardan en `JSPrototypes` para crear instancias con `newChild(ctx, true)`.
 
 ### 1.1 ProtoObject-Based Object Model and String Interning
@@ -87,6 +91,20 @@ class JSContextWrapper {
 **Single inheritance:** New plain objects and arrays are created with `prototype->newChild(ctx, true)` so that they are mutable and inherit from the given prototype (e.g. JS Object or Array prototype). Derived prototypes (Array, Arguments, RegExp, Number) are created as `objectProto->newChild(ctx, false)`.
 
 **Multiple inheritance:** When an object must have more than one prototype (e.g. mixins or multiple base prototypes), use `obj->addParent(ctx, otherProto)` after creation. protoCore's object model supports **multiple parents**; the prototype chain is walked according to protoCore's resolution rules. Example: create with `objectProto->newChild(ctx, true)` then call `newObj->addParent(ctx, mixinProto)` to add a second parent.
+
+### 1.3a Local variables in ProtoContext
+
+Local variables for functions/methods are managed when the **ProtoContext** is initialised. They can be represented in two ways:
+
+- **Automatic variables (by index):** Storage is an array of slots indexed by the compiler/runtime (e.g. `automaticLocals` in protoCore). These are **discarded when the function returns**; they are not retained for closures.
+
+- **Name-keyed dictionary (ProtoSparseList):** Entries are keyed by the **address (or hash) of an interned string** (the variable name). This dictionary can outlive the function and is used for **closures**: any reference captured at call time continues to refer to the same storage. The dictionary itself can be:
+  - **Immutable:** A reference taken at a given instant is a **snapshot** of the contents at that moment and does not change; later updates in the same scope are not visible to that reference.
+  - **Mutable:** Closures that hold a reference see the **latest state** of the dictionary whenever they read.
+
+The runtime must initialise ProtoContext (e.g. via its constructor with `parameterNames`, `localNames`, `args`, `kwargs`) so that automatic slots and/or the name-keyed dictionary are set up according to the compiled function and the chosen semantics (automatic-only, closure dictionary immutable, or closure dictionary mutable).
+
+**Interpreter rule (absolute):** The ProtoInterpreter must **not** use `std::vector` (or any C++ container outside protoCore) for local variables or the operand stack; the GC does not trace them. All slot and stack storage goes through **ProtoContext** (e.g. `closureLocals`: slot keys by index, and a reserved key for the evaluation stack implemented as a `ProtoList`). See `src/runtime/README.md` § "Absolute rule: no std::vector for execution state".
 
 ### 1.4 Eval Paths: Legacy vs protoCore (Option B)
 
