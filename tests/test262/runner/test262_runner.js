@@ -37,11 +37,14 @@ function getConfig() {
   const harnessDir = path.isAbsolute(harnessRaw)
     ? harnessRaw
     : path.join(root, harnessRaw);
+  const useProtoEval =
+    process.env.TEST262_USE_PROTO_EVAL === "1" || cfg.use_proto_eval === true;
   return {
     root,
     harnessDir,
     defaultTimeoutMs: cfg.default_timeout_ms || 10000,
-    patterns: cfg.patterns && cfg.patterns.length ? cfg.patterns : ["language/expressions"]
+    patterns: cfg.patterns && cfg.patterns.length ? cfg.patterns : ["language/expressions"],
+    useProtoEval
   };
 }
 
@@ -224,6 +227,10 @@ function classifyResult(meta, err, stdout, stderr) {
 function runOne(proto, cfg, test) {
   const { tmpPath, meta } = buildTestFile(cfg, test);
   const start = Date.now();
+  const env =
+    cfg.useProtoEval
+      ? { ...process.env, PROTOJS_USE_PROTO_EVAL: "1" }
+      : process.env;
   return new Promise((resolve) => {
     const child = execFile(
       proto,
@@ -231,7 +238,8 @@ function runOne(proto, cfg, test) {
       {
         cwd: REPO_ROOT,
         timeout: cfg.defaultTimeoutMs,
-        maxBuffer: 512 * 1024
+        maxBuffer: 512 * 1024,
+        env
       },
       (error, stdout, stderr) => {
         const durationMs = Date.now() - start;

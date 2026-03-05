@@ -29,9 +29,20 @@ The Phase 3 interpreter implements the primary QuickJS opcode groups needed for 
 - **Control flow**: unconditional and conditional jumps (`goto*`, `if_true*`, `if_false*`) implemented in terms of JS-style truthiness (`toBool`).
 - **Calls**: bytecode function calls and `ProtoMethod` calls are routed through `runBytecode` and protoCore’s `call` model, with a proper `this` binding and argument list.
 
+## Phase 4 (wire compile → load → run)
+
+Phase 4 is complete: the eval entry point uses the protoCore path when `setUseProtoEval(true)` is set. The CLI supports `--proto-eval` and `PROTOJS_USE_PROTO_EVAL=1`; the Test262 runner supports `TEST262_USE_PROTO_EVAL=1` or config `use_proto_eval: true`. See `ARCHITECTURE.md` § 1.4.
+
 ## Enabling
 
 Set `JSContextWrapper::setUseProtoEval(true)`. Then `eval()` uses compile → load → run and converts the result to `JSValue` only at the boundary. Default is the legacy path (`JS_Eval`).
+
+From the CLI, you can enable the protoCore path by either:
+
+- Passing `--proto-eval`, or
+- Setting `PROTOJS_USE_PROTO_EVAL=1` in the environment.
+
+For Test262: set `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json` so the runner invokes protojs with the protoCore path.
 
 ## Bridges
 

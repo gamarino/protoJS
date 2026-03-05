@@ -1,5 +1,7 @@
 #include "ExecutionEngine.h"
 #include "JSContext.h"
+#include "ProtoArrayAdapter.h"
+#include "ProtoJSStringCache.h"
 #include <mutex>
 #include <string>
 #include <cstring>
@@ -68,7 +70,7 @@ JSValue ExecutionEngine::opGetProperty(JSContext* ctx, JSValue obj, JSAtom prop)
             // Get property from protoCore object
             const char* propName = JS_AtomToCString(ctx, prop);
             if (propName) {
-                const proto::ProtoString* propStr = pContext->fromUTF8String(propName)->asString(pContext);
+                const proto::ProtoString* propStr = ProtoJSStringCache::getKey(pContext, propName);
                 const proto::ProtoObject* attr = protoObj->getAttribute(pContext, propStr);
                 JS_FreeCString(ctx, propName);
                 
@@ -99,7 +101,7 @@ int ExecutionEngine::opSetProperty(JSContext* ctx, JSValue obj, JSAtom prop, JSV
             // Set property in protoCore object
             const char* propName = JS_AtomToCString(ctx, prop);
             if (propName) {
-                const proto::ProtoString* propStr = pContext->fromUTF8String(propName)->asString(pContext);
+                const proto::ProtoString* propStr = ProtoJSStringCache::getKey(pContext, propName);
                 const proto::ProtoObject* valObj = TypeBridge::fromJS(ctx, val, pContext);
                 
                 // Note: protoCore objects are immutable by default
@@ -158,9 +160,15 @@ JSValue ExecutionEngine::opNewObject(JSContext* ctx, JSValueConst proto) {
     if (!pContext) {
         return JS_NewObject(ctx);
     }
-    
-    // Create protoCore object
-    const proto::ProtoObject* protoObj = pContext->newObject(true); // Mutable by default
+
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    const proto::ProtoObject* objectProto = wrapper ? wrapper->getJSObjectPrototype() : nullptr;
+    if (!objectProto) {
+        return JS_NewObject(ctx);
+    }
+
+    // Create mutable instance as child of JS Object prototype
+    const proto::ProtoObject* protoObj = objectProto->newChild(pContext, true);
     
     // Convert to JS and register mapping
     JSValue jsObj = TypeBridge::toJS(ctx, protoObj, pContext);
@@ -174,14 +182,20 @@ JSValue ExecutionEngine::opNewArray(JSContext* ctx) {
     if (!pContext) {
         return JS_NewArray(ctx);
     }
-    
-    // Create protoCore list
-    const proto::ProtoList* list = pContext->newList();
-    
-    // Convert to JS array and register mapping
-    JSValue jsArr = TypeBridge::toJS(ctx, list->asObject(pContext), pContext);
-    GCBridge::registerMapping(jsArr, list->asObject(pContext), ctx);
-    
+
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    const proto::ProtoObject* arrayProto = wrapper ? wrapper->getJSArrayPrototype() : nullptr;
+    if (!arrayProto) {
+        return JS_NewArray(ctx);
+    }
+
+    // Create mutable array instance as child of JS Array prototype; direct attributes "0", "1", ..., "length"
+    const proto::ProtoObject* backing = arrayProto->newChild(pContext, true);
+    const proto::ProtoString* lengthKey = ProtoJSStringCache::getKey(pContext, "length");
+    backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
+
+    JSValue jsArr = JS_NewArray(ctx);
+    GCBridge::registerMapping(jsArr, backing, ctx);
     return jsArr;
 }
 

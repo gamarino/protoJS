@@ -1,5 +1,6 @@
 #include "GCBridge.h"
 #include "JSContext.h"
+#include "ProtoJSStringCache.h"
 #include <iostream>
 #include <cstring>
 #include <sstream>
@@ -42,31 +43,31 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
     const proto::ProtoObject* mappingObj = pContext->newObject(true); // Mutable
     
     // Store JSValue tag as string
-    const proto::ProtoString* jsValTagKey1 = pContext->fromUTF8String("jsValueTag")->asString(pContext);
+    const proto::ProtoString* jsValTagKey1 = ProtoJSStringCache::getKey(pContext, "jsValueTag");
     mappingObj = mappingObj->setAttribute(pContext, jsValTagKey1, stringAsObject(jsKey, pContext));
     
     // Store ProtoObject reference
-    const proto::ProtoString* protoObjKey = pContext->fromUTF8String("protoObj")->asString(pContext);
+    const proto::ProtoString* protoObjKey = ProtoJSStringCache::getKey(pContext, "protoObj");
     mappingObj = mappingObj->setAttribute(pContext, protoObjKey, const_cast<proto::ProtoObject*>(protoObj));
     
     // Store flags
-    const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
+    const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
     mappingObj = mappingObj->setAttribute(pContext, isRootKey, pContext->fromBoolean(false));
     
-    const proto::ProtoString* isWeakKey = pContext->fromUTF8String("isWeakRef")->asString(pContext);
+    const proto::ProtoString* isWeakKey = ProtoJSStringCache::getKey(pContext, "isWeakRef");
     mappingObj = mappingObj->setAttribute(pContext, isWeakKey, pContext->fromBoolean(false));
     
     // Store timestamp
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();
     double timestamp = std::chrono::duration<double>(duration).count();
-    const proto::ProtoString* timestampKey = pContext->fromUTF8String("createdTimestamp")->asString(pContext);
+    const proto::ProtoString* timestampKey = ProtoJSStringCache::getKey(pContext, "createdTimestamp");
     mappingObj = mappingObj->setAttribute(pContext, timestampKey, pContext->fromDouble(timestamp));
     
     // Store JSValue tag as integer (pure protoCore - no C++ objects)
     // JSValue is a 64-bit value, we'll store it as a LargeInteger
     uint64_t jsValTag = getJSValueTag(jsVal);
-    const proto::ProtoString* jsValTagKey = pContext->fromUTF8String("_jsValueTag")->asString(pContext);
+    const proto::ProtoString* jsValTagKey = ProtoJSStringCache::getKey(pContext, "_jsValueTag");
     // Store as string representation for now (can be converted to LargeInteger if needed)
     std::ostringstream tagStr;
     tagStr << jsValTag;
@@ -77,7 +78,7 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
     // This is the only place we use C++ objects, and only because JSValue is external
     JSValue* jsValPtr = new JSValue(JS_DupValue(ctx, jsVal));
     const proto::ProtoObject* jsValWrapper = createExternalPointerWrapper(jsValPtr, pContext);
-    const proto::ProtoString* jsValKey = pContext->fromUTF8String("_jsValuePtr")->asString(pContext);
+    const proto::ProtoString* jsValKey = ProtoJSStringCache::getKey(pContext, "_jsValuePtr");
     mappingObj = mappingObj->setAttribute(pContext, jsValKey, jsValWrapper);
     
     // Store in context mappings: jsKeyHash -> mappingObj
@@ -109,7 +110,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
         if (!mappingObj || mappingObj == PROTO_NONE) return;
         
         // Get isRoot flag
-        const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
+        const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
         const proto::ProtoObject* isRootObj = mappingObj->getAttribute(pContext, isRootKey);
         bool isRoot = isRootObj && isRootObj != PROTO_NONE && isRootObj->asBoolean(pContext);
         
@@ -118,7 +119,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
         }
         
         // Get JSValue from ExternalPointer and free it
-        const proto::ProtoString* jsValKey = pContext->fromUTF8String("_jsValuePtr")->asString(pContext);
+        const proto::ProtoString* jsValKey = ProtoJSStringCache::getKey(pContext, "_jsValuePtr");
         const proto::ProtoObject* jsValWrapper = mappingObj->getAttribute(pContext, jsValKey);
         if (jsValWrapper && jsValWrapper != PROTO_NONE) {
             // Access ExternalPointer - we need the pointer value
@@ -129,7 +130,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
         }
         
         // Get protoObj for reverse mapping removal
-        const proto::ProtoString* protoObjKey = pContext->fromUTF8String("protoObj")->asString(pContext);
+        const proto::ProtoString* protoObjKey = ProtoJSStringCache::getKey(pContext, "protoObj");
         const proto::ProtoObject* storedProtoObj = mappingObj->getAttribute(pContext, protoObjKey);
         
         // Remove from mappings
@@ -157,7 +158,7 @@ const proto::ProtoObject* GCBridge::getProtoObject(JSValue jsVal, JSContext* ctx
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
         if (!mappingObj || mappingObj == PROTO_NONE) return nullptr;
-        const proto::ProtoString* protoObjKey = pContext->fromUTF8String("protoObj")->asString(pContext);
+        const proto::ProtoString* protoObjKey = ProtoJSStringCache::getKey(pContext, "protoObj");
         const proto::ProtoObject* protoObj = mappingObj->getAttribute(pContext, protoObjKey);
         return (protoObj && protoObj != PROTO_NONE) ? protoObj : nullptr;
     }
@@ -199,7 +200,7 @@ void GCBridge::registerRoot(JSValue jsVal, const proto::ProtoObject* protoObj, J
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
         if (!mappingObj || mappingObj == PROTO_NONE) return;
-        const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
+        const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
         mappingObj = mappingObj->setAttribute(pContext, isRootKey, pContext->fromBoolean(true));
         
         // Update mappings with modified object
@@ -224,7 +225,7 @@ void GCBridge::unregisterRoot(JSValue jsVal, JSContext* ctx) {
     if (ctxMappings->has(pContext, jsKeyHash)) {
         const proto::ProtoObject* mappingObj = ctxMappings->getAt(pContext, jsKeyHash);
         if (!mappingObj || mappingObj == PROTO_NONE) return;
-        const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
+        const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
         mappingObj = mappingObj->setAttribute(pContext, isRootKey, pContext->fromBoolean(false));
         
         // Update mappings
@@ -246,31 +247,31 @@ void GCBridge::registerWeakRef(JSValue jsVal, const proto::ProtoObject* protoObj
     const proto::ProtoObject* mappingObj = pContext->newObject(true);
     
     // Store JSValue tag
-    const proto::ProtoString* jsValTagKey = pContext->fromUTF8String("jsValueTag")->asString(pContext);
+    const proto::ProtoString* jsValTagKey = ProtoJSStringCache::getKey(pContext, "jsValueTag");
     mappingObj = mappingObj->setAttribute(pContext, jsValTagKey, stringAsObject(jsKey, pContext));
     
     // Store ProtoObject
-    const proto::ProtoString* protoObjKey = pContext->fromUTF8String("protoObj")->asString(pContext);
+    const proto::ProtoString* protoObjKey = ProtoJSStringCache::getKey(pContext, "protoObj");
     mappingObj = mappingObj->setAttribute(pContext, protoObjKey, const_cast<proto::ProtoObject*>(protoObj));
     
     // Store flags
-    const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
+    const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
     mappingObj = mappingObj->setAttribute(pContext, isRootKey, pContext->fromBoolean(false));
     
-    const proto::ProtoString* isWeakKey = pContext->fromUTF8String("isWeakRef")->asString(pContext);
+    const proto::ProtoString* isWeakKey = ProtoJSStringCache::getKey(pContext, "isWeakRef");
     mappingObj = mappingObj->setAttribute(pContext, isWeakKey, pContext->fromBoolean(true));
     
     // Store timestamp
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();
     double timestamp = std::chrono::duration<double>(duration).count();
-    const proto::ProtoString* timestampKey = pContext->fromUTF8String("createdTimestamp")->asString(pContext);
+    const proto::ProtoString* timestampKey = ProtoJSStringCache::getKey(pContext, "createdTimestamp");
     mappingObj = mappingObj->setAttribute(pContext, timestampKey, pContext->fromDouble(timestamp));
     
     // Store JSValue in ExternalPointer (necessary for QuickJS integration)
     JSValue* jsValPtr = new JSValue(JS_DupValue(ctx, jsVal));
     const proto::ProtoObject* jsValWrapper = createExternalPointerWrapper(jsValPtr, pContext);
-    const proto::ProtoString* jsValKey = pContext->fromUTF8String("_jsValuePtr")->asString(pContext);
+    const proto::ProtoString* jsValKey = ProtoJSStringCache::getKey(pContext, "_jsValuePtr");
     mappingObj = mappingObj->setAttribute(pContext, jsValKey, jsValWrapper);
     
     const proto::ProtoSparseList* newMappings = ctxMappings->setAt(pContext, jsKeyHash, mappingObj);
@@ -291,7 +292,7 @@ void GCBridge::unregisterWeakRef(JSValue jsVal, JSContext* ctx) {
         if (!mappingObj || mappingObj == PROTO_NONE) return;
         
         // Check if it's a weak ref
-        const proto::ProtoString* isWeakKey = pContext->fromUTF8String("isWeakRef")->asString(pContext);
+        const proto::ProtoString* isWeakKey = ProtoJSStringCache::getKey(pContext, "isWeakRef");
         const proto::ProtoObject* isWeakObj = mappingObj->getAttribute(pContext, isWeakKey);
         bool isWeak = isWeakObj && isWeakObj != PROTO_NONE && isWeakObj->asBoolean(pContext);
         
@@ -300,7 +301,7 @@ void GCBridge::unregisterWeakRef(JSValue jsVal, JSContext* ctx) {
             // Note: Since we can't easily access ExternalPointer contents,
             // the JSValue will be freed when the ExternalPointer is finalized by protoCore GC
             // In a full implementation, we'd need proper ExternalPointer access
-            const proto::ProtoString* jsValKey = pContext->fromUTF8String("_jsValuePtr")->asString(pContext);
+            const proto::ProtoString* jsValKey = ProtoJSStringCache::getKey(pContext, "_jsValuePtr");
             const proto::ProtoObject* jsValWrapper = mappingObj->getAttribute(pContext, jsValKey);
             // JSValue cleanup will happen via ExternalPointer finalizer
             
@@ -339,13 +340,13 @@ GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
         const proto::ProtoObject* mappingObj = iter->nextValue(pContext);
         
         // Extract data from mapping object
-        const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
+        const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
         const proto::ProtoObject* isRootObj = mappingObj->getAttribute(pContext, isRootKey);
         bool isRoot = isRootObj && isRootObj != PROTO_NONE && isRootObj->asBoolean(pContext);
         
         if (isRoot) {
             // Get JSValue tag to check if active
-            const proto::ProtoString* jsValTagKey = pContext->fromUTF8String("jsValueTag")->asString(pContext);
+            const proto::ProtoString* jsValTagKey = ProtoJSStringCache::getKey(pContext, "jsValueTag");
             const proto::ProtoObject* jsValTagObj = mappingObj->getAttribute(pContext, jsValTagKey);
             
             // For leak detection, we check if the JSValue is still active
@@ -353,11 +354,11 @@ GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
             // In a full implementation, we'd need to track JSValue lifecycle better
             
             // Get protoObj
-            const proto::ProtoString* protoObjKey = pContext->fromUTF8String("protoObj")->asString(pContext);
+            const proto::ProtoString* protoObjKey = ProtoJSStringCache::getKey(pContext, "protoObj");
             const proto::ProtoObject* protoObj = mappingObj->getAttribute(pContext, protoObjKey);
             
             // Get timestamp
-            const proto::ProtoString* timestampKey = pContext->fromUTF8String("createdTimestamp")->asString(pContext);
+            const proto::ProtoString* timestampKey = ProtoJSStringCache::getKey(pContext, "createdTimestamp");
             const proto::ProtoObject* timestampObj = mappingObj->getAttribute(pContext, timestampKey);
             double timestamp = (timestampObj && timestampObj != PROTO_NONE) ? timestampObj->asDouble(pContext) : 0.0;
             
@@ -427,8 +428,8 @@ GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
     
     // Count roots and weak refs
     const proto::ProtoSparseListIterator* iter = ctxMappings->getIterator(pContext);
-    const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
-    const proto::ProtoString* isWeakKey = pContext->fromUTF8String("isWeakRef")->asString(pContext);
+    const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
+    const proto::ProtoString* isWeakKey = ProtoJSStringCache::getKey(pContext, "isWeakRef");
     
     while (iter && iter->hasNext(pContext)) {
         const proto::ProtoObject* mappingObj = iter->nextValue(pContext);
@@ -475,7 +476,7 @@ void GCBridge::cleanup(JSContext* ctx) {
     if (!pContext) return;
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
-    const proto::ProtoString* jsValKey = pContext->fromUTF8String("_jsValuePtr")->asString(pContext);
+    const proto::ProtoString* jsValKey = ProtoJSStringCache::getKey(pContext, "_jsValuePtr");
     
     // Free all JSValues stored in ExternalPointers
     // Note: Since we can't easily access ExternalPointer contents,
@@ -486,6 +487,8 @@ void GCBridge::cleanup(JSContext* ctx) {
     // Clear mappings for this context
     const proto::ProtoSparseList* emptyMappings = pContext->newSparseList();
     setContextMappings(ctx, emptyMappings, pContext);
+
+    ProtoJSStringCache::clearForContext(pContext);
 }
 
 void GCBridge::scanRoots(proto::ProtoSpace* space, JSContext* ctx) {
@@ -494,8 +497,8 @@ void GCBridge::scanRoots(proto::ProtoSpace* space, JSContext* ctx) {
     if (!pContext) return;
 
     const proto::ProtoSparseList* ctxMappings = getContextMappings(ctx, pContext);
-    const proto::ProtoString* isRootKey = pContext->fromUTF8String("isRoot")->asString(pContext);
-    const proto::ProtoString* protoObjKey = pContext->fromUTF8String("protoObj")->asString(pContext);
+    const proto::ProtoString* isRootKey = ProtoJSStringCache::getKey(pContext, "isRoot");
+    const proto::ProtoString* protoObjKey = ProtoJSStringCache::getKey(pContext, "protoObj");
     
     const proto::ProtoSparseListIterator* iter = ctxMappings->getIterator(pContext);
     while (iter && iter->hasNext(pContext)) {
@@ -631,7 +634,7 @@ const proto::ProtoObject* GCBridge::createExternalPointerWrapper(void* ptr, prot
     const proto::ProtoObject* wrapper = pContext->newObject(true);
     
     // Store pointer as encoded string
-    const proto::ProtoString* ptrKey = pContext->fromUTF8String("_externalPtr")->asString(pContext);
+    const proto::ProtoString* ptrKey = ProtoJSStringCache::getKey(pContext, "_externalPtr");
     const proto::ProtoString* ptrValue = pContext->fromUTF8String(ptrStr.c_str())->asString(pContext);
     
     // Use direct cast as workaround for asObject()

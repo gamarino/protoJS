@@ -46,6 +46,7 @@ void printUsage(const char* programName) {
     std::cerr << "  -c, --check          Syntax check only" << std::endl;
     std::cerr << "  -v, --version        Show version" << std::endl;
     std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
+    std::cerr << "  --proto-eval         Use protoCore interpreter for eval (compile-only + ProtoInterpreter)" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -64,6 +65,7 @@ int main(int argc, char** argv) {
     bool syntaxCheck = false;
     bool showVersion = false;
     bool inputTypeModule = false;
+    bool useProtoEvalCli = false;
 
     // Parse arguments
     int i = 1;
@@ -87,6 +89,8 @@ int main(int argc, char** argv) {
             showVersion = true;
         } else if (arg == "--input-type=module") {
             inputTypeModule = true;
+        } else if (arg == "--proto-eval") {
+            useProtoEvalCli = true;
         } else if (arg[0] != '-') {
             filename = arg;
             std::ifstream file(filename);
@@ -115,6 +119,13 @@ int main(int argc, char** argv) {
     if (code.empty() && !executeCode && !syntaxCheck) {
         std::cerr << "[protojs] CLI: creating JSContextWrapper for REPL" << std::endl;
         protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
+
+        // Enable protoCore eval path if requested via CLI flag or environment.
+        const char* protoEvalEnv = std::getenv("PROTOJS_USE_PROTO_EVAL");
+        if (useProtoEvalCli || (protoEvalEnv && std::string(protoEvalEnv) == "1")) {
+            std::cerr << "[protojs] CLI: enabling protoCore eval path (compile-only + ProtoInterpreter)" << std::endl;
+            wrapper.setUseProtoEval(true);
+        }
         
         // Initialize all modules for REPL
         protojs::Console::init(wrapper.getJSContext());
@@ -157,6 +168,15 @@ int main(int argc, char** argv) {
     // Create wrapper with thread pool configuration
     std::cerr << "[protojs] CLI: creating JSContextWrapper for script" << std::endl;
     protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
+
+    // Enable protoCore eval path if requested via CLI flag or environment.
+    {
+        const char* protoEvalEnv = std::getenv("PROTOJS_USE_PROTO_EVAL");
+        if (useProtoEvalCli || (protoEvalEnv && std::string(protoEvalEnv) == "1")) {
+            std::cerr << "[protojs] CLI: enabling protoCore eval path (compile-only + ProtoInterpreter)" << std::endl;
+            wrapper.setUseProtoEval(true);
+        }
+    }
     
     // Initialize modules
     std::cerr << "[protojs] CLI: initializing core modules" << std::endl;

@@ -103,6 +103,8 @@ class JSContextWrapper {
 
 **Deliverable:** Clear separation: "protoCore path" = no bridges during execution; "legacy path" = current behavior. Use `useProtoEval()` / `setUseProtoEval(bool)` to switch.
 
+**Phase 4 (wire compile → load → run):** The eval entry point supports the protoCore path via `setUseProtoEval(true)`. The CLI accepts `--proto-eval` or the environment variable `PROTOJS_USE_PROTO_EVAL=1` to run scripts through the ProtoInterpreter. The Test262 runner can use the protoCore path by setting `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true` in `tests/test262/config/test262_paths.json`.
+
 ### 2. TypeBridge
 
 **Responsabilidad:** Conversión bidireccional entre tipos JavaScript (QuickJS) y tipos protoCore.

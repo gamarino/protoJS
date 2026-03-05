@@ -12,7 +12,8 @@ Tests are executed via `tests/test262/runner/test262_runner.js`, which:
 
 - Reads `tests/test262/config/test262_paths.json` (or `TEST262_ROOT` env) to locate the Test262 tree.
 - Prepends `harness/assert.js`, `harness/sta.js`, and any `includes` declared in the YAML front-matter.
-- Runs each test with the `protojs` binary and classifies results as:
+- Runs each test with the `protojs` binary (default: legacy path). To run tests on the **protoCore interpreter path**, set `TEST262_USE_PROTO_EVAL=1` or add `"use_proto_eval": true` in the config; the runner will pass `PROTOJS_USE_PROTO_EVAL=1` to the process.
+- Classifies results as:
   - `passed`
   - `failed_syntax`
   - `failed_semantics`
