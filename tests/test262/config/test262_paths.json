@@ -4,6 +4,9 @@
   "harness_dir": "harness",
   "default_timeout_ms": 5000,
   "patterns": [
-    "built-ins/Object/defineProperty"
+    "language/expressions",
+    "language/statements",
+    "language/scoping",
+    "built-ins/Object"
   ]
 }
