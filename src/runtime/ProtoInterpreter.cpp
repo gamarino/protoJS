@@ -65,6 +65,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     while (pc >= 0 && pc < len) {
         int opcode = buf[pc++];
         switch (opcode) {
+            case OP_push_i32: {
+                // push_i32 encodes a 32-bit signed immediate.
+                if (pc + 4 > len) return PROTO_NONE;
+                int32_t v = (int32_t)get_u32(buf + pc);
+                pc += 4;
+                stack.push_back(pContext->fromInteger(static_cast<long long>(v)));
+                break;
+            }
             case OP_return: {
                 if (stack.empty()) return PROTO_NONE;
                 const proto::ProtoObject* result = stack.back();
@@ -151,6 +159,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             case OP_push_true:
                 stack.push_back(PROTO_TRUE);
                 break;
+            case OP_add: {
+                if (stack.size() < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stack.back();
+                stack.pop_back();
+                const proto::ProtoObject* a = stack.back();
+                stack.pop_back();
+                const proto::ProtoObject* res = a ? a->add(pContext, b) : PROTO_NONE;
+                stack.push_back(res ? res : PROTO_NONE);
+                break;
+            }
+            case OP_mul: {
+                if (stack.size() < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stack.back();
+                stack.pop_back();
+                const proto::ProtoObject* a = stack.back();
+                stack.pop_back();
+                const proto::ProtoObject* res = a ? a->multiply(pContext, b) : PROTO_NONE;
+                stack.push_back(res ? res : PROTO_NONE);
+                break;
+            }
+            case OP_div: {
+                if (stack.size() < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stack.back();
+                stack.pop_back();
+                const proto::ProtoObject* a = stack.back();
+                stack.pop_back();
+                const proto::ProtoObject* res = a ? a->divide(pContext, b) : PROTO_NONE;
+                stack.push_back(res ? res : PROTO_NONE);
+                break;
+            }
             case OP_call: {
                 if (pc + 2 > len || stack.empty()) return PROTO_NONE;
                 uint32_t argc = get_u16(buf + pc);
