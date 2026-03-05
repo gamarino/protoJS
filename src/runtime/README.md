@@ -49,7 +49,7 @@ Phase 5 completes the Option B runtime behaviour and sets the stage for conforma
 
 Phase 6 focuses on **conformance of the protoCore interpreter** (Option B path):
 
-- **Run Test262 on protoCore:** Use the same runner (`tests/test262/runner/test262_runner.js`) with `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`. The runner passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process so every test runs via compile → load → run (no QuickJS interpreter).
+- **Run Test262 on protoCore:** Use the same runner (`tests/test262/runner/test262_runner.js`) with `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`. The runner passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process so every test runs via compile → load → run (no QuickJS interpreter). The default config expects the Test262 repo **at the same level as protoJS** (e.g. `proyectos/protoJS` and `proyectos/test262`); override with `TEST262_ROOT` if needed.
 - **Document results:** Update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts per category from the JSON snapshots in `tests/test262/reports/`.
 - **Fix gaps:** Address missing opcodes, built-in methods, or coercion in the ProtoInterpreter and TypeBridge so more tests pass; re-run and update the report.
 - **Optional:** Make the protoCore path the default for the CLI (e.g. `--proto-eval` by default and `--legacy` for QuickJS execution).

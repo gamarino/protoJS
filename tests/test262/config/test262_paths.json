@@ -1,6 +1,6 @@
 {
-  "//": "Configuration for the Test262 runner. By default this points at the local mini-suite under tests/test262; set TEST262_ROOT to a full Test262 checkout to override.",
-  "test262_root": "tests/test262",
+  "//": "Test262 root: sibling repo at same level as protoJS (e.g. proyectos/test262). Override with TEST262_ROOT env if needed.",
+  "test262_root": "../test262",
   "harness_dir": "harness",
   "default_timeout_ms": 5000,
   "patterns": [
