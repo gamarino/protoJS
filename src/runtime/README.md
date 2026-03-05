@@ -31,7 +31,7 @@ The Phase 3 interpreter implements the primary QuickJS opcode groups needed for 
 - **Locals, arguments and lexical environment**: `get/put/set_loc*`, `get/put/set_arg*`, `get/put/set_var_ref*`, plus the `_check` variants used for TDZ and lexical checks. Locals can be implemented as **automatic variables** (by index, discarded on return) or as a **ProtoSparseList** keyed by interned variable name for closure support; the dictionary may be immutable (snapshot semantics) or mutable (closures see latest state). See ARCHITECTURE.md § 1.3a.
 - **Properties and arrays**: `get/put_field*`, `define_field`, and array access opcodes (`get/put_array_el*`) mapped to `ProtoObject` attributes and interned `ProtoString` keys.
 - **Control flow**: unconditional and conditional jumps (`goto*`, `if_true*`, `if_false*`) implemented in terms of JS-style truthiness (`toBool`).
-- **Calls**: bytecode function calls and `ProtoMethod` calls are routed through `runBytecode` and protoCore’s `call` model, with a proper `this` binding and argument list.
+- **Calls**: bytecode function calls and `ProtoMethod` calls are routed through `runBytecode` and protoCore’s `call` model, with a proper `this` binding and argument list. **Phase 6** adds `OP_call_method`, `OP_tail_call_method`, and `OP_call_constructor`. **Phase 7** adds comparison, logical, `typeof`, `instanceof`, `in`, and `delete` operators.
 
 ## Phase 4 (wire compile → load → run)
 
@@ -53,6 +53,14 @@ Phase 6 focuses on **conformance of the protoCore interpreter** (Option B path):
 - **Document results:** Update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts per category from the JSON snapshots in `tests/test262/reports/`.
 - **Fix gaps:** Address missing opcodes, built-in methods, or coercion in the ProtoInterpreter and TypeBridge so more tests pass; re-run and update the report.
 - **Optional:** Make the protoCore path the default for the CLI (e.g. `--proto-eval` by default and `--legacy` for QuickJS execution).
+
+## Phase 8 (directed tests and documentation)
+
+Phase 8 completes the Phase 3 interpreter cycle with **targeted tests** and **documented coverage**:
+
+- **Directed smoke test:** Run `node tests/test262/runner/proto_eval_smoke.js` from the protoJS root. This script invokes protojs with `PROTOJS_USE_PROTO_EVAL=1` and a short list of expressions (arithmetic, `typeof`, comparison, `Array.isArray`) and asserts exit code 0. Use it to quickly verify the protoCore path after interpreter changes.
+- **Test262 mini-suites:** Use the same runner with `TEST262_USE_PROTO_EVAL=1` and config patterns (e.g. `built-ins/Array/isArray`) to run selected Test262 categories. Snapshot results go to `tests/test262/reports/`; update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts.
+- **Coverage notes:** Phase 6 (calls/constructors) and Phase 7 (operators) are implemented in the interpreter; coverage is documented in this README and in `ARCHITECTURE.md` § 1.4.
 
 ## Enabling
 

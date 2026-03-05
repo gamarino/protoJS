@@ -127,6 +127,8 @@ The runtime must initialise ProtoContext (e.g. via its constructor with `paramet
 
 **Phase 6 (Test262 conformance on protoCore path):** Run Test262 with `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true`; document pass/fail by category in `CONFORMANCE_JS.md`; fix missing opcodes/built-ins to improve conformance. Optionally make protoCore the default CLI path.
 
+**Phase 8 (directed tests and documentation):** A directed smoke test (`node tests/test262/runner/proto_eval_smoke.js`) runs protojs with the protoCore path on a short list of expressions (arithmetic, typeof, comparison, Array.isArray). Test262 mini-suites are run via the same runner with `use_proto_eval`; coverage is documented in `CONFORMANCE_JS.md` § Phase 6 table and in `src/runtime/README.md` § Phase 8.
+
 ### 2. TypeBridge
 
 **Responsabilidad:** Conversión bidireccional entre tipos JavaScript (QuickJS) y tipos protoCore.

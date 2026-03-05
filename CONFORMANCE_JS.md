@@ -41,7 +41,7 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 
 | Path / category (protoCore) | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
-| *To be filled from runner with use_proto_eval* | — | — | — | — | — | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js` |
+| `built-ins/Array/isArray`   | 29 | 29 | 0 | 0 | 0 | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Sibling Test262 repo at `../test262`. |
 
 ---
 
