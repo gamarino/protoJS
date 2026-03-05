@@ -1,7 +1,7 @@
 # ProtoJS Documentation Index
 
 **Last Updated**: February 2026  
-**Project Status**: Phase 6 Complete — Current state documented (benchmarks, analysis, technical audit)
+**Project Status**: Current state documented (technical audit, Option B runtime, Test262)
 
 ---
 
@@ -9,7 +9,7 @@
 
 1. **New to ProtoJS?** Start here: [README.md](README.md)
 2. **Project Overview**: [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)
-3. **Current Status**: [TECHNICAL_AUDIT_PHASE6.md](TECHNICAL_AUDIT_PHASE6.md)
+3. **Current Status**: [TECHNICAL_AUDIT.md](TECHNICAL_AUDIT.md)
 4. **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
 5. **Project Plan**: [PLAN.md](PLAN.md)
 
@@ -23,8 +23,7 @@
 |----------|---------|-----------|
 | [README.md](README.md) | Project overview and getting started | 5 min |
 | [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md) | High-level project summary | 3 min |
-| [TECHNICAL_AUDIT_PHASE5.md](TECHNICAL_AUDIT_PHASE5.md) | Phase 5 technical audit | 20 min |
-| [TECHNICAL_AUDIT_PHASE6.md](TECHNICAL_AUDIT_PHASE6.md) | Phase 6 technical audit (most recent) | 20 min |
+| [TECHNICAL_AUDIT.md](TECHNICAL_AUDIT.md) | Technical audit (architecture, protoCore interpreter, testing, current state) | 15 min |
 | [COMMERCIAL_IMPACT_REPORT.md](COMMERCIAL_IMPACT_REPORT.md) | Commercial impact and market opportunities | 15 min |
 | [docs/PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md) | Phase 2 completion report | 15 min |
 | [docs/PHASE3_COMPLETION.md](docs/PHASE3_COMPLETION.md) | Phase 3 completion report | 15 min |
@@ -88,7 +87,7 @@
 
 ### For Project Managers
 1. [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md) (3 min)
-2. [TECHNICAL_AUDIT_PHASE5.md](TECHNICAL_AUDIT_PHASE5.md) - Section 1 & 12 (5 min)
+2. [TECHNICAL_AUDIT.md](TECHNICAL_AUDIT.md) - Executive Summary & §2–3 (5 min)
 3. [COMMERCIAL_IMPACT_REPORT.md](COMMERCIAL_IMPACT_REPORT.md) (15 min)
 4. [PLAN.md](PLAN.md) - Executive Summary (5 min)
 
@@ -123,7 +122,7 @@
 
 ### Critical Files
 - **Main Plan**: `PLAN.md` (comprehensive project plan)
-- **Current Audit**: `TECHNICAL_AUDIT_PHASE5.md` (latest status)
+- **Current Audit**: `TECHNICAL_AUDIT.md` (latest status)
 - **Architecture**: `ARCHITECTURE.md`
 - **Build**: `CMakeLists.txt`
 - **Tests**: Test suite in `tests/` directory
@@ -174,7 +173,7 @@ README.md (start here)
 ├── COMMERCIAL_IMPACT_REPORT.md
 ├── ARCHITECTURE.md
 ├── PLAN.md
-│   └── TECHNICAL_AUDIT_PHASE5.md
+│   └── TECHNICAL_AUDIT.md
 ├── docs/
 │   ├── API_REFERENCE.md
 │   ├── EXAMPLES.md
@@ -193,7 +192,7 @@ README.md (start here)
 ## Support & Questions
 
 ### For Questions About:
-- **Project Status**: Check [TECHNICAL_AUDIT_PHASE5.md](TECHNICAL_AUDIT_PHASE5.md) Section 1
+- **Project Status**: Check [TECHNICAL_AUDIT.md](TECHNICAL_AUDIT.md) §1–2
 - **Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md) and [PLAN.md](PLAN.md)
 - **API Usage**: Review [docs/API_REFERENCE.md](docs/API_REFERENCE.md) and [docs/EXAMPLES.md](docs/EXAMPLES.md)
 - **Next Steps**: Check [PLAN.md](PLAN.md) for Phase 6 planning
@@ -214,5 +213,5 @@ README.md (start here)
 
 ---
 
-**Last Updated**: January 27, 2026  
-**Next Update**: Upon Phase 7 planning
+**Last Updated**: March 2026  
+**Next Update**: As needed (audit and docs updated)

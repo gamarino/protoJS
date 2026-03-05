@@ -72,4 +72,4 @@ The Phase 6 unit tests include a test that runs `runForCI` with no baseline (see
 ## References
 
 - [Phase 6 module guides](PHASE6_MODULE_GUIDES.md) — BenchmarkRunner API summary and examples.
-- [Technical audit Phase 6](../TECHNICAL_AUDIT_PHASE6.md) — Benchmarking enhancements section.
+- [Technical audit](../TECHNICAL_AUDIT.md) — Testing and conformance section.

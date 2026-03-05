@@ -317,6 +317,6 @@ Use it with the BenchmarkRunner (C++) or your own runner to track Phase 6–rela
 ## 7. References
 
 - **Phase 6 completion:** [PHASE6_COMPLETION.md](PHASE6_COMPLETION.md)
-- **Technical audit:** [TECHNICAL_AUDIT_PHASE6.md](../TECHNICAL_AUDIT_PHASE6.md)
+- **Technical audit:** [TECHNICAL_AUDIT.md](../TECHNICAL_AUDIT.md)
 - **Performance testing:** [PERFORMANCE_TESTING.md](PERFORMANCE_TESTING.md)
 - **Testing strategy:** [TESTING_STRATEGY.md](../TESTING_STRATEGY.md)
