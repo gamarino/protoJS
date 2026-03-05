@@ -53,6 +53,15 @@ void protojs_array_mirror_after_set_index(JSContext* ctx,
                                           JSValueConst this_obj,
                                           uint32_t idx)
 {
+    // Temporarily disabled: legacy QuickJS path no longer mirrors array writes
+    // into protoCore. This avoids hangs observed with numeric length-only
+    // arrays (e.g. new Array(10)) while the new protoCore interpreter path
+    // (Option B) is being built out. JS semantics remain those of QuickJS.
+    (void)ctx;
+    (void)this_obj;
+    (void)idx;
+    return;
+
     // Only handle real Arrays; bail out quickly otherwise.
     if (!JS_IsArray(ctx, this_obj)) {
         return;
@@ -87,6 +96,11 @@ void protojs_array_mirror_after_set_index(JSContext* ctx,
 void protojs_array_mirror_after_set_length(JSContext* ctx,
                                            JSValueConst this_obj)
 {
+    // Temporarily disabled; see comment in protojs_array_mirror_after_set_index.
+    (void)ctx;
+    (void)this_obj;
+    return;
+
     // Only handle real Arrays; bail out quickly otherwise.
     if (!JS_IsArray(ctx, this_obj)) {
         return;
