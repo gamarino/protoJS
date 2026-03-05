@@ -1104,6 +1104,82 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
+            case OP_call_method:
+            case OP_tail_call_method: {
+                // Stack: ... this, func, arg0, ..., arg(argc-1). this = stackAt(argc), func = stackAt(argc+1).
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                uint32_t argc = get_u16(buf + pc);
+                pc += 2;
+                if (stackSize(pContext) < argc + 2) return PROTO_NONE;
+                const proto::ProtoObject* thisVal = stackAt(pContext, argc);
+                const proto::ProtoObject* func = stackAt(pContext, argc + 1);
+                int bcId = getBytecodeId(pContext, func);
+                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size()) {
+                    const auto& nf = nested[bcId];
+                    const proto::ProtoList* argsList = pContext->newList();
+                    for (uint32_t i = 0; i < argc; i++)
+                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+                    childCtx.currentFileName = pContext->currentFileName;
+                    childCtx.currentLineNumber = pContext->currentLineNumber;
+                    for (uint32_t i = 0; i < argc; i++)
+                        setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    const proto::ProtoObject* result =
+                        runBytecode(&childCtx, &nf, thisVal, argsList, globalObj, jsContextForAtoms);
+                    childCtx.returnValue = result;
+                    if (opcode != OP_tail_call_method)
+                        stackPush(pContext, result ? result : PROTO_NONE);
+                } else if (func && func->isMethod(pContext)) {
+                    const proto::ProtoList* argsList = pContext->newList();
+                    for (uint32_t i = 0; i < argc; i++)
+                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                    const proto::ProtoObject* result = func->call(pContext, nullptr,
+                        ProtoJSStringCache::getKey(pContext, "call"), thisVal, argsList, nullptr);
+                    if (opcode != OP_tail_call_method)
+                        stackPush(pContext, result ? result : PROTO_NONE);
+                } else {
+                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                    stackPush(pContext, PROTO_NONE);
+                }
+                break;
+            }
+            case OP_call_constructor: {
+                // Stack: ... func, newTarget, arg0, ..., arg(argc-1). Create new object, call func as ctor, return object or result.
+                if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
+                uint32_t argc = get_u16(buf + pc);
+                pc += 2;
+                if (stackSize(pContext) < argc + 2) return PROTO_NONE;
+                const proto::ProtoObject* func = stackAt(pContext, argc + 1);
+                const proto::ProtoObject* newTarget = stackAt(pContext, argc);
+                const proto::ProtoObject* newObj = pContext->newObject(true);
+                if (!newObj) { for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext); stackPush(pContext, PROTO_NONE); break; }
+                const proto::ProtoList* argsList = pContext->newList();
+                for (uint32_t i = 0; i < argc; i++)
+                    argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                const proto::ProtoObject* result = PROTO_NONE;
+                int bcId = getBytecodeId(pContext, func);
+                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size()) {
+                    const auto& nf = nested[bcId];
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+                    childCtx.currentFileName = pContext->currentFileName;
+                    childCtx.currentLineNumber = pContext->currentLineNumber;
+                    for (uint32_t i = 0; i < argc; i++)
+                        setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    result = runBytecode(&childCtx, &nf, newObj, argsList, globalObj, jsContextForAtoms);
+                    childCtx.returnValue = result;
+                } else if (func && func->isMethod(pContext)) {
+                    result = func->call(pContext, nullptr,
+                        ProtoJSStringCache::getKey(pContext, "call"), newObj, argsList, nullptr);
+                }
+                bool resultIsObject = result && result != PROTO_NONE
+                    && !result->isInteger(pContext) && !result->isDouble(pContext)
+                    && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
+                stackPush(pContext, resultIsObject ? result : newObj);
+                break;
+            }
             case OP_call: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t argc = get_u16(buf + pc);
