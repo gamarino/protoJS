@@ -1104,6 +1104,161 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext,res ? res : PROTO_NONE);
                 break;
             }
+            case OP_eq: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
+                stackPush(pContext, (cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_neq: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
+                stackPush(pContext, (cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_strict_eq: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
+                stackPush(pContext, (cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_strict_neq: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
+                stackPush(pContext, (cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_lt: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : 0;
+                stackPush(pContext, (cmp < 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_lte: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : 0;
+                stackPush(pContext, (cmp <= 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_gt: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : 0;
+                stackPush(pContext, (cmp > 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_gte: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                int cmp = (a && b) ? a->compare(pContext, b) : 0;
+                stackPush(pContext, (cmp >= 0) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_and: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                bool va = toBool(pContext, a);
+                stackPush(pContext, va ? (b ? b : PROTO_NONE) : (a ? a : PROTO_NONE));
+                break;
+            }
+            case OP_or: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* a = stackTop(pContext);
+                stackPop(pContext);
+                bool va = toBool(pContext, a);
+                stackPush(pContext, va ? (a ? a : PROTO_NONE) : (b ? b : PROTO_NONE));
+                break;
+            }
+            case OP_typeof: {
+                if (stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* v = stackTop(pContext);
+                stackPop(pContext);
+                const char* typeStr = "undefined";
+                if (v && v != PROTO_NONE && !v->isNone(pContext)) {
+                    if (v->isBoolean(pContext)) typeStr = "boolean";
+                    else if (v->isInteger(pContext) || v->isDouble(pContext)) typeStr = "number";
+                    else if (v->asString(pContext)) typeStr = "string";
+                    else if (v->isMethod(pContext)) typeStr = "function";
+                    else typeStr = "object";
+                }
+                stackPush(pContext, pContext->fromUTF8String(typeStr));
+                break;
+            }
+            case OP_instanceof: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* func = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoString* protoKey = ProtoJSStringCache::getKey(pContext, "prototype");
+                const proto::ProtoObject* protoObj = func ? func->getAttribute(pContext, protoKey, false) : nullptr;
+                const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE) ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
+                stackPush(pContext, (res == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_in: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* keyVal = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* keyObj = toString(pContext, keyVal);
+                const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                bool has = (obj && key && obj->hasAttribute(pContext, key));
+                stackPush(pContext, has ? PROTO_TRUE : PROTO_FALSE);
+                break;
+            }
+            case OP_delete: {
+                if (stackSize(pContext) < 2) return PROTO_NONE;
+                const proto::ProtoObject* keyVal = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* obj = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* keyObj = toString(pContext, keyVal);
+                const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                if (obj && key) {
+                    const proto::ProtoObject* prev = obj->getAttribute(pContext, key, false);
+                    (void)obj->setAttribute(pContext, key, PROTO_NONE);
+                    (void)prev;
+                }
+                stackPush(pContext, PROTO_TRUE);
+                break;
+            }
             case OP_call_method:
             case OP_tail_call_method: {
                 // Stack: ... this, func, arg0, ..., arg(argc-1). this = stackAt(argc), func = stackAt(argc+1).
