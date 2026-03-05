@@ -116,7 +116,12 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
             }
         }
     } else {
+        // Legacy path: set thread-local current context so ExecutionEngine hooks
+        // (e.g. getProtoContext) see a valid ProtoContext while QuickJS runs.
+        proto::ProtoContext* prev = g_currentProtoContext;
+        g_currentProtoContext = pContext;
         val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+        g_currentProtoContext = prev;
     }
 
     std::cerr << "[protojs] eval done: " << filename << std::endl;

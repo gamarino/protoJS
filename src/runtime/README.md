@@ -37,6 +37,14 @@ The Phase 3 interpreter implements the primary QuickJS opcode groups needed for 
 
 Phase 4 is complete: the eval entry point uses the protoCore path when `setUseProtoEval(true)` is set. The CLI supports `--proto-eval` and `PROTOJS_USE_PROTO_EVAL=1`; the Test262 runner supports `TEST262_USE_PROTO_EVAL=1` or config `use_proto_eval: true`. See `ARCHITECTURE.md` § 1.4.
 
+## Phase 5 (legacy path context + conformance)
+
+Phase 5 completes the Option B runtime behaviour and sets the stage for conformance work:
+
+- **Legacy path and thread-local context:** When the legacy path (`JS_Eval`) is used, the wrapper sets `g_currentProtoContext` to the root context before `JS_Eval` and restores the previous value after. This ensures `ExecutionEngine::getProtoContext(ctx)` returns a valid ProtoContext for any QuickJS hooks that run during legacy execution.
+- **Stack and locals in ProtoContext only:** All interpreter state (operand stack and local/argument slots) is stored in `ProtoContext::closureLocals`; no `std::vector` is used so the GC sees every reference (see § "Absolute rule" above).
+- **Next (Phase 6 / conformance):** Run Test262 on the protoCore path (`TEST262_USE_PROTO_EVAL=1`), document pass/fail by category, and fix missing opcodes or built-ins to improve conformance. Optionally make the protoCore path the default for the CLI.
+
 ## Enabling
 
 Set `JSContextWrapper::setUseProtoEval(true)`. Then `eval()` uses compile → load → run and converts the result to `JSValue` only at the boundary. Default is the legacy path (`JS_Eval`).
