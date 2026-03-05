@@ -22,6 +22,8 @@ Tests are executed via `tests/test262/runner/test262_runner.js`, which:
 
 The initial focus is on **language semantics and object/scoping behaviour**, not host APIs.
 
+**Phase 3 / protoCore path:** Test262 runs on the protoCore interpreter path are supported. Use `TEST262_USE_PROTO_EVAL=1` (or `use_proto_eval: true` in config) so every test runs via compile → load → run without the QuickJS interpreter. Not all Test262 categories have been migrated or validated yet; the Phase 6 table and reports in `tests/test262/reports/` track conformance as patterns are run and updated.
+
 ### RegExp and `lastIndex` (immutable backend)
 
 The protoCore backend is immutable by default. ECMA-262 requires RegExp instances with the `global` or `sticky` flag to update their `lastIndex` property in place when `exec()` or `test()` is called. To satisfy Test262 and the spec:

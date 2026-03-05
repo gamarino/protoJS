@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <limits>
 #include <string>
+#include <cstdio>
 
 namespace protojs {
 
@@ -1383,8 +1384,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 break;
             }
-            default:
+            default: {
+                // Unknown opcode: log for diagnostics; execution cannot continue safely.
+                std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
+                    static_cast<unsigned>(opcode), static_cast<int>(pc - 1));
                 return PROTO_NONE;
+            }
         }
     }
     return PROTO_NONE;

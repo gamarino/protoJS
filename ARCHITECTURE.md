@@ -129,6 +129,8 @@ The runtime must initialise ProtoContext (e.g. via its constructor with `paramet
 
 **Phase 8 (directed tests and documentation):** A directed smoke test (`node tests/test262/runner/proto_eval_smoke.js`) runs protojs with the protoCore path on a short list of expressions (arithmetic, typeof, comparison, Array.isArray). Test262 mini-suites are run via the same runner with `use_proto_eval`; coverage is documented in `CONFORMANCE_JS.md` § Phase 6 table and in `src/runtime/README.md` § Phase 8.
 
+**Phase 9 (Phase 3 cleanup and documentation):** The protoCore interpreter covers the opcode set required for the main execution path (stack, locals, properties, arrays, control flow, calls, constructors, operators). No QuickJS abstraction is used beyond the compile-only frontend; execution is fully in ProtoInterpreter over ProtoContext and ProtoObject. Unknown opcodes are reported explicitly to stderr (opcode and byte offset) instead of silently returning. See `src/runtime/README.md` § Phase 9.
+
 ### 2. TypeBridge
 
 **Responsabilidad:** Conversión bidireccional entre tipos JavaScript (QuickJS) y tipos protoCore.

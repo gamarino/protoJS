@@ -62,6 +62,13 @@ Phase 8 completes the Phase 3 interpreter cycle with **targeted tests** and **do
 - **Test262 mini-suites:** Use the same runner with `TEST262_USE_PROTO_EVAL=1` and config patterns (e.g. `built-ins/Array/isArray`) to run selected Test262 categories. Snapshot results go to `tests/test262/reports/`; update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts.
 - **Coverage notes:** Phase 6 (calls/constructors) and Phase 7 (operators) are implemented in the interpreter; coverage is documented in this README and in `ARCHITECTURE.md` § 1.4.
 
+## Phase 9 (refactor and documentation)
+
+Phase 9 completes the Phase 3 cycle with **cleanup and documentation**:
+
+- **Unknown opcodes:** The interpreter no longer silently returns on an unimplemented opcode. The `default` case in the opcode switch logs the unsupported opcode (hex) and byte offset to stderr and then returns, so missing opcodes are visible during development and Test262 runs.
+- **Documentation:** `ARCHITECTURE.md` § 1.4 states that the protoCore interpreter covers the opcode set needed for the main execution path and uses no QuickJS abstraction beyond the compile frontend. `CONFORMANCE_JS.md` states that Test262 on the protoCore path is supported and tracks results in the Phase 6 table and reports.
+
 ## Enabling
 
 Set `JSContextWrapper::setUseProtoEval(true)`. Then `eval()` uses compile → load → run and converts the result to `JSValue` only at the boundary. Default is the legacy path (`JS_Eval`).
