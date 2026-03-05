@@ -64,6 +64,29 @@ class JSContextWrapper {
 - Un `ProtoSpace` por `JSRuntime` (comparte GC)
 - Un `ProtoContext` por `JSContext` (aislamiento de ejecución)
 - QuickJS runtime se usa solo para parsing/compiling, no para ejecución real
+- Al construir el wrapper se ejecuta `BootstrapJSPrototypes`: se inicializan el prototipo base JS (Object) y los derivados (Array, Arguments, RegExp) como hijos de `ProtoSpace::objectPrototype` y se guardan en `JSPrototypes` para crear instancias con `newChild(ctx, true)`.
+
+### 1.1 ProtoObject-Based Object Model and String Interning
+
+**Object model:** The general object implementation is based on `ProtoObject`. The JS Object base is initialized when creating the ProtoSpace (or at protoJS bootstrap); derived prototypes (Array, Arguments, RegExp) are children of that Object and are created in `BootstrapJSPrototypes`. Objects that are mutable by JavaScript semantics are created with `prototype->newChild(ctx, true)` from the ProtoContext, so that attribute handling is direct (`getAttribute` / `setAttribute`) and does not require extra adapters.
+
+**Direct attribute handling:** Arrays and arguments are represented as a single `ProtoObject` with numeric-named attributes (`"0"`, `"1"`, …) and `"length"`. Index and length writes are reflected with `setAttribute`, and the new root is propagated with `GCBridge::registerMapping`. The main path does not use an "elements" or "values" sub-structure.
+
+**String interning:** All strings in protoCore are interned; `ProtoContext::fromUTF8String` returns a stable pointer per logical string. protoJS caches frequently used `ProtoString` keys (e.g. `"length"`, `"elements"`, `"values"`, `"prototype"`) in `ProtoJSStringCache` per context, so that once a `ProtoString` for a key is obtained, that value can be reused (strings are `ProtoString`).
+
+### 1.2 Numbers: ProtoInteger, ProtoDouble, and Number Prototype
+
+**Integer representation (ProtoInteger):** All JavaScript number values that are integers are represented in protoCore as **ProtoInteger**: either a small integer (embedded 54-bit signed) or a **LargeInteger** when the value exceeds that range. Creation uses `context->fromInteger` or `context->fromLong`. As an improvement over standard JavaScript, **ProtoInteger supports arbitrary (infinite) precision** via protoCore's LargeInteger when values exceed the small-integer range; arithmetic is handled in protoCore without C++ locks.
+
+**Double representation (ProtoDouble):** Non-integer JavaScript numbers are represented as protoCore doubles created with `context->fromDouble`. All numeric semantics that cross the bridge use these types; no C++ `int`/`double` are used as primary storage for JS number semantics.
+
+**Number prototype methods:** Standard JavaScript Number methods (`valueOf`, `toString`, `toFixed`, `toExponential`, `toPrecision`) are implemented in protoJS as ProtoMethods on a shared Number prototype. At bootstrap, `BuildNumberPrototype` creates this prototype from `objectProto->newChild(ctx, false)`, attaches the methods via `setAttribute` and `context->fromMethod`, and assigns it to `space->smallIntegerPrototype`, `space->largeIntegerPrototype`, and `space->doublePrototype`. Method dispatch for numbers then goes through protoCore's `getAttribute` / `call`, with the number as the receiver (`self`).
+
+### 1.3 Object Creation and Inheritance (newChild, addParent)
+
+**Single inheritance:** New plain objects and arrays are created with `prototype->newChild(ctx, true)` so that they are mutable and inherit from the given prototype (e.g. JS Object or Array prototype). Derived prototypes (Array, Arguments, RegExp, Number) are created as `objectProto->newChild(ctx, false)`.
+
+**Multiple inheritance:** When an object must have more than one prototype (e.g. mixins or multiple base prototypes), use `obj->addParent(ctx, otherProto)` after creation. protoCore's object model supports **multiple parents**; the prototype chain is walked according to protoCore's resolution rules. Example: create with `objectProto->newChild(ctx, true)` then call `newObj->addParent(ctx, mixinProto)` to add a second parent.
 
 ### 2. TypeBridge
 

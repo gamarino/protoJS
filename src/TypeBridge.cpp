@@ -1,5 +1,9 @@
 #include "TypeBridge.h"
 #include "GCBridge.h"
+#include "JSContext.h"
+#include "ProtoArrayAdapter.h"
+#include "ProtoArgumentsAdapter.h"
+#include "ProtoJSStringCache.h"
 #include <string>
 #include <vector>
 
@@ -17,7 +21,8 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     if (JS_IsNumber(val)) {
         double d;
         JS_ToFloat64(ctx, &d, val);
-        // Check if it's an integer to use SmallInteger if possible
+        // Integers use ProtoInteger (SmallInteger or LargeInteger via fromInteger/fromLong).
+        // Non-integer numbers use ProtoDouble (context->fromDouble).
         if (d == (long long)d) {
             return pContext->fromInteger((long long)d);
         }
@@ -43,45 +48,42 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     }
 
     if (JS_IsArray(ctx, val)) {
-        // Map JS Array to ProtoList (inmutable) or ProtoSparseList (mutable/sparse)
-        // For Fase 1, we'll use ProtoList for dense arrays (inmutable by default)
+        // JS Arrays are backed by protoCore; use JS Array prototype and newChild(mutable=true).
+        if (const proto::ProtoObject* mapped = GCBridge::getProtoObject(val, ctx)) {
+            return mapped;
+        }
+
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        const proto::ProtoObject* arrayProto = wrapper ? wrapper->getJSArrayPrototype() : nullptr;
+        const proto::ProtoObject* backing;
+        if (arrayProto) {
+            backing = arrayProto->newChild(pContext, true);
+            const proto::ProtoString* lengthKey = ProtoJSStringCache::getKey(pContext, "length");
+            backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
+        } else {
+            backing = ProtoArrayAdapter::createArray(pContext);
+        }
+
         JSValue lenVal = JS_GetPropertyStr(ctx, val, "length");
         uint32_t len;
         JS_ToUint32(ctx, &len, lenVal);
         JS_FreeValue(ctx, lenVal);
 
-        // Check if array is sparse (has holes)
-        bool isSparse = false;
         for (uint32_t i = 0; i < len; i++) {
             if (!JS_HasProperty(ctx, val, i)) {
-                isSparse = true;
-                break;
+                continue; // hole
             }
+            JSValue item = JS_GetPropertyUint32(ctx, val, i);
+            const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
+            const proto::ProtoString* indexKey = ProtoJSStringCache::getIndexKey(pContext, i);
+            backing = backing->setAttribute(pContext, indexKey, pItem);
+            JS_FreeValue(ctx, item);
         }
+        backing = backing->setAttribute(pContext, ProtoJSStringCache::getKey(pContext, "length"), pContext->fromInteger(static_cast<long long>(len)));
 
-        if (isSparse || len > 10000) {
-            // Use ProtoSparseList for sparse or very large arrays
-            const proto::ProtoSparseList* pList = pContext->newSparseList();
-            for (uint32_t i = 0; i < len; i++) {
-                if (JS_HasProperty(ctx, val, i)) {
-                    JSValue item = JS_GetPropertyUint32(ctx, val, i);
-                    const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
-                    pList = pList->setAt(pContext, i, pItem);
-                    JS_FreeValue(ctx, item);
-                }
-            }
-            return pList->asObject(pContext);
-        } else {
-            // Use ProtoList for dense arrays (inmutable)
-            const proto::ProtoList* pList = pContext->newList();
-            for (uint32_t i = 0; i < len; i++) {
-                JSValue item = JS_GetPropertyUint32(ctx, val, i);
-                const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
-                pList = pList->appendLast(pContext, pItem);
-                JS_FreeValue(ctx, item);
-            }
-            return pList->asObject(pContext);
-        }
+        // Register mapping so that future lookups can reuse the same backing.
+        GCBridge::registerMapping(val, backing, ctx);
+        return backing;
     }
 
     if (JS_IsFunction(ctx, val)) {
@@ -94,12 +96,61 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         return pObj;
     }
 
-    // Check for RegExp (class ID 139 = JS_CLASS_REGEXP)
+    // Check for RegExp / Arguments / other special classes
     if (JS_IsObject(val)) {
         JSClassID classId = JS_GetClassID(val);
+
+        // JS_CLASS_ARGUMENTS (8) and JS_CLASS_MAPPED_ARGUMENTS (9) are
+        // mirrored into protoCore using ProtoArgumentsAdapter to provide a
+        // stable, immutable view of their indexed values and length.
+        if (classId == 8 || classId == 9) {
+            if (const proto::ProtoObject* mapped = GCBridge::getProtoObject(val, ctx)) {
+                return mapped;
+            }
+
+            JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+            const proto::ProtoObject* argsProto = wrapper ? wrapper->getJSArgumentsPrototype() : nullptr;
+            const proto::ProtoObject* backing;
+            if (argsProto) {
+                backing = argsProto->newChild(pContext, true);
+                const proto::ProtoString* lengthKey = ProtoJSStringCache::getKey(pContext, "length");
+                backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
+            } else {
+                backing = ProtoArgumentsAdapter::createArguments(pContext);
+            }
+
+            JSValue lenVal = JS_GetPropertyStr(ctx, val, "length");
+            uint32_t len = 0;
+            JS_ToUint32(ctx, &len, lenVal);
+            JS_FreeValue(ctx, lenVal);
+
+            for (uint32_t i = 0; i < len; i++) {
+                if (!JS_HasProperty(ctx, val, i)) {
+                    continue;
+                }
+                JSValue item = JS_GetPropertyUint32(ctx, val, i);
+                const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
+                if (argsProto) {
+                    const proto::ProtoString* indexKey = ProtoJSStringCache::getIndexKey(pContext, i);
+                    backing = backing->setAttribute(pContext, indexKey, pItem);
+                } else {
+                    backing = ProtoArgumentsAdapter::set(pContext, backing, i, pItem);
+                }
+                JS_FreeValue(ctx, item);
+            }
+            if (argsProto) {
+                backing = backing->setAttribute(pContext, ProtoJSStringCache::getKey(pContext, "length"), pContext->fromInteger(static_cast<long long>(len)));
+            }
+
+            GCBridge::registerMapping(val, backing, ctx);
+            return backing;
+        }
+
         if (classId == 139) { // JS_CLASS_REGEXP
-            // Map JS RegExp to protoCore object with pattern and flags
-            const proto::ProtoObject* pObj = pContext->newObject(true);
+            // Map JS RegExp to protoCore object with pattern and flags (mutable for lastIndex etc.)
+            JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+            const proto::ProtoObject* regexpProto = wrapper ? wrapper->getJSRegExpPrototype() : nullptr;
+            const proto::ProtoObject* pObj = regexpProto ? regexpProto->newChild(pContext, true) : pContext->newObject(true);
             
             JSValue sourceVal = JS_GetPropertyStr(ctx, val, "source");
             JSValue flagsVal = JS_GetPropertyStr(ctx, val, "flags");
@@ -107,7 +158,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             if (JS_IsString(sourceVal)) {
                 const char* source = JS_ToCString(ctx, sourceVal);
                 const proto::ProtoObject* pSource = pContext->fromUTF8String(source);
-                const proto::ProtoString* sourceKey = pContext->fromUTF8String("source")->asString(pContext);
+                const proto::ProtoString* sourceKey = ProtoJSStringCache::getKey(pContext, "source");
                 if (sourceKey) {
                     pObj = pObj->setAttribute(pContext, sourceKey, pSource);
                 }
@@ -117,7 +168,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             if (JS_IsString(flagsVal)) {
                 const char* flags = JS_ToCString(ctx, flagsVal);
                 const proto::ProtoObject* pFlags = pContext->fromUTF8String(flags);
-                const proto::ProtoString* flagsKey = pContext->fromUTF8String("flags")->asString(pContext);
+                const proto::ProtoString* flagsKey = ProtoJSStringCache::getKey(pContext, "flags");
                 if (flagsKey) {
                     pObj = pObj->setAttribute(pContext, flagsKey, pFlags);
                 }
@@ -204,7 +255,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         if (JS_IsString(desc)) {
             const char* descStr = JS_ToCString(ctx, desc);
             const proto::ProtoObject* pDesc = pContext->fromUTF8String(descStr);
-            const proto::ProtoString* descKey = pContext->fromUTF8String("description")->asString(pContext);
+            const proto::ProtoString* descKey = ProtoJSStringCache::getKey(pContext, "description");
             if (descKey) {
                 pObj = pObj->setAttribute(pContext, descKey, pDesc);
             }
@@ -218,8 +269,10 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     // TODO: Handle Date objects if needed
 
     if (JS_IsObject(val)) {
-        // Map JS Object to protoCore ProtoObject
-        const proto::ProtoObject* pObj = pContext->newObject(true); // Mutable by default for JS objects
+        // Map JS Object to protoCore ProtoObject (mutable child of JS Object prototype)
+        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+        const proto::ProtoObject* objectProto = wrapper ? wrapper->getJSObjectPrototype() : nullptr;
+        const proto::ProtoObject* pObj = objectProto ? objectProto->newChild(pContext, true) : pContext->newObject(true);
         
         // Iterate over JS object properties and set as attributes in protoCore.
         // NOTE: ProtoObjects are immutable; setAttribute returns a new root that must
@@ -232,7 +285,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                 const char* prop_name = JS_AtomToCString(ctx, props[i].atom);
                 
                 const proto::ProtoObject* pVal = fromJS(ctx, prop_val, pContext);
-                const proto::ProtoString* pName = pContext->fromUTF8String(prop_name)->asString(pContext);
+                const proto::ProtoString* pName = ProtoJSStringCache::getKey(pContext, prop_name);
                 
                 if (pName) {
                     pObj = pObj->setAttribute(pContext, pName, pVal);

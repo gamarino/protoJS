@@ -1,0 +1,19 @@
+#ifndef PROTOJS_NUMBERPROTOTYPE_H
+#define PROTOJS_NUMBERPROTOTYPE_H
+
+#include "headers/protoCore.h"
+
+namespace protojs {
+
+/**
+ * Build the JS Number prototype (valueOf, toString, toFixed, toExponential, toPrecision)
+ * and attach it to the given space as smallIntegerPrototype, largeIntegerPrototype,
+ * and doublePrototype. Call after objectPrototype is available.
+ * numberProto is created as objectProto->newChild(ctx, false).
+ */
+void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
+                         const proto::ProtoObject* objectProto);
+
+} // namespace protojs
+
+#endif // PROTOJS_NUMBERPROTOTYPE_H

@@ -106,6 +106,13 @@ add_executable(protojs
     src/profiling/Profiler.cpp
     src/profiling/VisualProfiler.cpp
     src/debugging/IntegratedDebugger.cpp
+    # protoCore-backed array adapter and QuickJS integration
+    src/ProtoJSStringCache.cpp
+    src/NumberPrototype.cpp
+    src/JSPrototypes.cpp
+    src/ProtoArrayAdapter.cpp
+    src/ProtoArgumentsAdapter.cpp
+    src/QuickJSArrayBridge.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp
