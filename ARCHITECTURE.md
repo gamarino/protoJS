@@ -88,6 +88,21 @@ class JSContextWrapper {
 
 **Multiple inheritance:** When an object must have more than one prototype (e.g. mixins or multiple base prototypes), use `obj->addParent(ctx, otherProto)` after creation. protoCore's object model supports **multiple parents**; the prototype chain is walked according to protoCore's resolution rules. Example: create with `objectProto->newChild(ctx, true)` then call `newObj->addParent(ctx, mixinProto)` to add a second parent.
 
+### 1.4 Eval Paths: Legacy vs protoCore (Option B)
+
+**Two execution paths:**
+
+1. **Legacy path (default):** `eval()` calls `JS_Eval()`; QuickJS parses, compiles, and executes bytecode. TypeBridge, GCBridge, QuickJSArrayBridge, and ExecutionEngine are used to mirror or intercept operations between QuickJS and protoCore.
+
+2. **protoCore path:** Enabled with `setUseProtoEval(true)`. `eval()` uses compile-only (`protojs::compileToBytecode`), then `loadBytecode()` to build a `ProtoBytecodeModule` (proto constant pool, nested functions), then `runBytecode()` via **ProtoInterpreter**. Stack and locals are `ProtoObject*`; no QuickJS interpreter or heap is used for script execution. Result is converted to JSValue only at the boundary with `TypeBridge::toJS`.
+
+**Bridges on each path:**
+
+- **protoCore path:** No QuickJS interpreter runs; therefore **QuickJSArrayBridge** and **ExecutionEngine** op* are not invoked during execution. **TypeBridge** and **GCBridge** are used only at the boundary (e.g. script result → JSValue, or when building the global object from QuickJS for the interpreter).
+- **Legacy path:** All bridges are used as today (array mirror, execution engine hooks, TypeBridge/GCBridge for dual-heap mapping).
+
+**Deliverable:** Clear separation: "protoCore path" = no bridges during execution; "legacy path" = current behavior. Use `useProtoEval()` / `setUseProtoEval(bool)` to switch.
+
 ### 2. TypeBridge
 
 **Responsabilidad:** Conversión bidireccional entre tipos JavaScript (QuickJS) y tipos protoCore.

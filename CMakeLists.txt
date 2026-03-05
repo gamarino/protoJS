@@ -113,6 +113,10 @@ add_executable(protojs
     src/ProtoArrayAdapter.cpp
     src/ProtoArgumentsAdapter.cpp
     src/QuickJSArrayBridge.cpp
+    # ProtoCore runtime (compile-only + loader + interpreter)
+    src/runtime/ProtoCompileOnly.cpp
+    src/runtime/ProtoBytecodeLoader.cpp
+    src/runtime/ProtoInterpreter.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp

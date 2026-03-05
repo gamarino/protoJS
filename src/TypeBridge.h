@@ -6,6 +6,11 @@
 
 namespace protojs {
 
+/**
+ * TypeBridge: conversion between QuickJS JSValue and protoCore ProtoObject.
+ * Used on both eval paths: legacy (dual-heap mapping during execution) and
+ * protoCore path (only at the boundary: global object and script result).
+ */
 class TypeBridge {
 public:
     /**

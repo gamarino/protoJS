@@ -5,6 +5,11 @@
 #include "GCBridge.h"
 #include "ExecutionEngine.h"
 #include "debugging/IntegratedDebugger.h"
+#include "JSPrototypes.h"
+#include "TypeBridge.h"
+#include "runtime/ProtoCompileOnly.h"
+#include "runtime/ProtoBytecodeModule.h"
+#include "runtime/ProtoInterpreter.h"
 #include <iostream>
 
 namespace protojs {
@@ -15,6 +20,9 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     
     // Initialize protoCore root context
     pContext = pSpace.rootContext;
+    
+    // Bootstrap JS Object and derived prototypes (array, arguments, regexp)
+    BootstrapJSPrototypes(&pSpace, pContext, &jsPrototypes_);
     
     // Initialize GCBridge for this context
     GCBridge::initialize(ctx);
@@ -66,7 +74,26 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         IntegratedDebugger::pauseExecution();
     }
 
-    JSValue val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+    JSValue val;
+    if (useProtoEval_) {
+        void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str());
+        if (!bytecode) {
+            val = JS_GetException(ctx);
+        } else {
+            protojs::ProtoBytecodeModule module;
+            if (!protojs::loadBytecode(ctx, bytecode, pContext, &module)) {
+                val = JS_EXCEPTION;
+            } else {
+                JSValue globalVal = JS_GetGlobalObject(ctx);
+                const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, pContext);
+                JS_FreeValue(ctx, globalVal);
+                const proto::ProtoObject* result = protojs::runBytecode(pContext, &module, globalObj, ctx);
+                val = TypeBridge::toJS(ctx, result, pContext);
+            }
+        }
+    } else {
+        val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+    }
 
     IntegratedDebugger::popFrame();
     pContext->currentFileName = nullptr;

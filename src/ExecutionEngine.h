@@ -9,10 +9,11 @@
 namespace protojs {
 
 /**
- * @brief ExecutionEngine intercepts QuickJS operations and redirects them to protoCore
- * 
- * This engine allows QuickJS to parse and compile JavaScript, but executes
- * operations using protoCore's runtime for better performance and immutability.
+ * ExecutionEngine intercepts QuickJS operations and redirects them to protoCore.
+ * LEGACY PATH ONLY: when eval uses the protoCore path (setUseProtoEval(true)),
+ * execution is handled by ProtoInterpreter; the QuickJS interpreter is not run,
+ * so opGetProperty, opSetProperty, opCall, etc. are not invoked. These hooks
+ * are only used when the legacy JS_Eval path is active.
  */
 class ExecutionEngine {
 public:

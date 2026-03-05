@@ -3,6 +3,7 @@
 
 #include "quickjs.h"
 #include "headers/protoCore.h"
+#include "JSPrototypes.h"
 #include <string>
 
 namespace protojs {
@@ -20,8 +21,17 @@ public:
 
     /**
      * @brief Evaluates JavaScript code.
+     * When useProtoEval() is true, uses compile-only + ProtoBytecodeLoader + ProtoInterpreter
+     * (no QuickJS runtime execution). Otherwise uses legacy JS_Eval path.
      */
     JSValue eval(const std::string& code, const std::string& filename = "eval");
+
+    /**
+     * @brief Use protoCore interpreter path for eval (compile -> load -> run).
+     * Default is false (legacy QuickJS eval).
+     */
+    void setUseProtoEval(bool use) { useProtoEval_ = use; }
+    bool useProtoEval() const { return useProtoEval_; }
 
     /**
      * @brief Returns the QuickJS context.
@@ -43,13 +53,36 @@ public:
      */
     JSRuntime* getJSRuntime() { return rt; }
 
+    /**
+     * @brief Returns the JS Object prototype (base for plain objects).
+     */
+    const proto::ProtoObject* getJSObjectPrototype() const { return jsPrototypes_.object; }
+
+    /**
+     * @brief Returns the JS Array prototype.
+     */
+    const proto::ProtoObject* getJSArrayPrototype() const { return jsPrototypes_.array; }
+
+    /**
+     * @brief Returns the JS Arguments prototype.
+     */
+    const proto::ProtoObject* getJSArgumentsPrototype() const { return jsPrototypes_.arguments; }
+
+    /**
+     * @brief Returns the JS RegExp prototype.
+     */
+    const proto::ProtoObject* getJSRegExpPrototype() const { return jsPrototypes_.regexp; }
+
 private:
     JSRuntime* rt;
     JSContext* ctx;
     proto::ProtoSpace pSpace;
     proto::ProtoContext* pContext;
+    JSPrototypes jsPrototypes_;
     /** Current script path for ProtoContext::currentFileName (keeps pointer valid during eval). */
     std::string currentScript_;
+    /** When true, eval uses protoCore path (compile-only + loader + interpreter). */
+    bool useProtoEval_{false};
 };
 
 } // namespace protojs
