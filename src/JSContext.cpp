@@ -152,13 +152,14 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     currentScript_.clear();
 
     if (JS_IsException(val)) {
-        JSValue exception = JS_GetException(ctx);
-        const char* str = JS_ToCString(ctx, exception);
+        // Use val: the exception was already consumed by JS_GetException when !bytecode
+        // or is the exception from loadBytecode/runBytecode. Do not call JS_GetException(ctx)
+        // again or we may get an uninitialized value that stringifies as "[unsupported type]".
+        const char* str = JS_ToCString(ctx, val);
         if (str) {
-            std::cerr << "Exception in " << filename << ": " << str << std::endl;
+            std::cerr << (bytecode ? "Exception" : "Compile failed") << " in " << filename << ": " << str << std::endl;
             JS_FreeCString(ctx, str);
         }
-        JS_FreeValue(ctx, exception);
     }
 
     return val;

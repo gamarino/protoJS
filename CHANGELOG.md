@@ -22,6 +22,8 @@ All notable changes to protoJS are documented in this file.
 
 - **GCBridge null-pointer handling** (2026-02-07): Fixed `-Wnonnull` compiler warnings and potential undefined behavior in `GCBridge::detectLeaks()` and `GCBridge::getMemoryStats()` when `ProtoContext` is null. Both functions now return early with null/empty values instead of dereferencing a null pointer. Added null checks in `reportLeaks()` and `getMemoryStats()` for defensive handling of empty reports.
 
+- **Exception logging in eval** (2026-03-06): When compile or run failed, the code called `JS_GetException(ctx)` a second time to stringify the exception; the first call had already consumed it, so the second returned an uninitialized value that stringified as "[unsupported type]". Fixed by using the exception value already held in `val` for logging. Real compile/run errors now show the correct message. Standard benchmarks compile and run; `__BENCH_RESULT__` still does not appear in stdout because `console.log` is not yet wired in the protoCore interpreter (host-call bridge).
+
 ### Build & Test
 
 - Full project recompilation: protoCore + protoJS clean build

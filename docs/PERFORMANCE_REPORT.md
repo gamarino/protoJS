@@ -73,7 +73,7 @@ The three-way comparison **Node.js vs QuickJS vs protoJS** is run with `run_node
 | string_concat  | 4            | 12           | —            | Node.js |
 
 - **Node vs QuickJS:** Node wins all 7 benchmarks. **Geometric mean QuickJS/Node: 9.60x** (QuickJS is ~9.6× slower than Node on this suite in terms of in-process execution time).
-- **protoJS:** Did not emit `__BENCH_RESULT__` for the standard scripts in this run (compile path for these files currently fails with `[unsupported type]`). The legacy suite (protoJS vs Node, wall-clock) still runs successfully and shows protoJS ahead of Node.
+- **protoJS:** Does not yet emit `__BENCH_RESULT__` for the standard suite because `console.log` output is not wired to stdout in the protoCore interpreter path (host-call bridge). Compilation of standard scripts succeeds; the previous "[unsupported type]" message was a logging bug (exception was consumed twice), now fixed. The legacy suite (protoJS vs Node, wall-clock) runs successfully and shows protoJS ahead of Node.
 - **Interpretation:** V8 (Node) is much faster than vanilla QuickJS on the same workloads. protoJS, when it runs the legacy benchmarks, beats Node (especially on array-heavy work) by using protoCore’s immutable structures; the standard-suite comparison will be meaningful once protoJS executes those scripts and reports in-process time.
 
 **How to run:** From repo root, `node tests/benchmarks/run_node_quickjs_comparison.js`. Requires built `protojs` and `deps/quickjs/qjs` (build with `cd deps/quickjs && make qjs`). Report: `tests/benchmarks/results/node_quickjs_comparison.json`.
