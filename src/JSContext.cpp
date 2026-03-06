@@ -11,6 +11,7 @@
 #include "runtime/ProtoBytecodeModule.h"
 #include "runtime/ProtoInterpreter.h"
 #include "quickjs.h"
+#include <cstring>
 #include <iostream>
 
 namespace protojs {
@@ -73,12 +74,15 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal(proto::ProtoContext*
         JS_FreeValue(ctx, globalVal);
         return nullptr;
     }
+    // Use pContext (wrapper root) for fromJS so that GCBridge reverse lookup by protoObj hash
+    // uses the same context and finds host functions (e.g. console.log).
+    proto::ProtoContext* bridgeCtx = pContext;
     for (uint32_t i = 0; i < len; i++) {
         JSAtom atom = props[i].atom;
         const char* name = JS_AtomToCString(ctx, atom);
         if (!name) continue;
         JSValue val = JS_GetProperty(ctx, globalVal, atom);
-        const proto::ProtoObject* pv = TypeBridge::fromJS(ctx, val, frameCtx ? frameCtx : pContext);
+        const proto::ProtoObject* pv = TypeBridge::fromJS(ctx, val, bridgeCtx);
         JS_FreeValue(ctx, val);
         const proto::ProtoString* key = pContext->fromUTF8String(name)->asString(pContext);
         obj = obj->setAttribute(pContext, key, pv ? pv : PROTO_NONE);
@@ -122,12 +126,14 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     frameCtx.currentFileName = pContext->currentFileName;
     frameCtx.currentLineNumber = pContext->currentLineNumber;
 
-    void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str());
+    void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str(), &val);
     if (!bytecode) {
-        val = JS_GetException(ctx);
+        std::cerr << "[protojs] compile failed" << std::endl;
+        /* val already set by compileToBytecode out-parameter */
     } else {
         protojs::ProtoBytecodeModule module;
         if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
+            std::cerr << "[protojs] loadBytecode failed" << std::endl;
             val = JS_EXCEPTION;
         } else {
             const proto::ProtoObject* globalObj = getNativeGlobal(&frameCtx);
@@ -135,6 +141,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 JS_ThrowTypeError(ctx, "Failed to build native global (Phase 6)");
                 val = JS_GetException(ctx);
             } else {
+            std::cerr << "[protojs] about to runBytecode" << std::endl;
             const proto::ProtoObject* result =
                 protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &nativeGlobalRoot_, ctx);
             // Hand the result back to the previous context for GC purposes.
@@ -151,14 +158,21 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     pContext->currentLineNumber = 0;
     currentScript_.clear();
 
-    if (JS_IsException(val)) {
-        // Use val: the exception was already consumed by JS_GetException when !bytecode
-        // or is the exception from loadBytecode/runBytecode. Do not call JS_GetException(ctx)
-        // again or we may get an uninitialized value that stringifies as "[unsupported type]".
+    // When !bytecode, val is the actual exception (Error object) from JS_GetException; its tag
+    // is OBJECT not EXCEPTION, so JS_IsException(val) is false. Still report it.
+    if (JS_IsException(val) || !bytecode) {
         const char* str = JS_ToCString(ctx, val);
+        if (!str && JS_IsObject(val)) {
+            JSValue msg = JS_GetPropertyStr(ctx, val, "message");
+            str = JS_ToCString(ctx, msg);
+            JS_FreeValue(ctx, msg);
+        }
         if (str) {
             std::cerr << (bytecode ? "Exception" : "Compile failed") << " in " << filename << ": " << str << std::endl;
             JS_FreeCString(ctx, str);
+        } else {
+            int tag = JS_VALUE_GET_TAG(val);
+            std::cerr << (bytecode ? "Exception" : "Compile failed") << " in " << filename << " (tag=" << tag << ", use JS_TAG_* in quickjs.h)" << std::endl;
         }
     }
 

@@ -17,7 +17,7 @@ This directory implements the **Reuse Parser, Full protoCore Runtime** path: Qui
 | File | Role |
 |------|------|
 | `QuickJSBytecodeExport.h` | Declares the C API to get bytecode from a compile-only function and to read its fields (buf, len, arg_count, cpool, etc.). |
-| `ProtoCompileOnly.h/cpp` | `compileToBytecode(ctx, source, len, filename)` → opaque bytecode pointer. |
+| `ProtoCompileOnly.h/cpp` | `compileToBytecode(ctx, source, len, filename[, outException])` → opaque bytecode pointer; on failure, optional `outException` receives the exception (caller must free). |
 | `ProtoBytecodeModule.h` | Loaded module: copied bytecode buffer, `protoCpool`, `nestedFunctions`, atom cache and function metadata (arg/var/stack sizes). |
 | `ProtoBytecodeLoader.cpp` | `loadBytecode(ctx, bytecode, pContext, out)` → fills `ProtoBytecodeModule`. |
 | `QuickJSOpcodeEnum.h` | Opcode enum matching QuickJS for interpreter dispatch. |
