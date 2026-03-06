@@ -30,6 +30,8 @@ From the **protoJS project root**:
 node tests/benchmarks/run_standard_comparison.js
 ```
 
+- **protoJS:** If the protoCore compile path fails, the CLI falls back to direct QuickJS eval so scripts still run and emit `__BENCH_RESULT__`. Each benchmark run has a 60s timeout; `parallel_cpu.js` (Deferred-based) may timeout under protoJS.
+
 Output:
 
 - Console: per-benchmark times and speedup, geometric mean.

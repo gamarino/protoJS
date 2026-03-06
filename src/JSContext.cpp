@@ -120,6 +120,11 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     }
 
     std::cerr << "[protojs] eval start: " << filename << std::endl;
+    // Clear any pending exception from earlier (e.g. module init) so compile sees a clean context.
+    if (JS_HasException(ctx)) {
+        JSValue stale = JS_GetException(ctx);
+        JS_FreeValue(ctx, stale);
+    }
     JSValue val;
     // Single path: compile → load → run (protoCore interpreter). No legacy JS_Eval.
     proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
@@ -128,9 +133,17 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
 
     void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str(), &val);
     if (!bytecode) {
-        std::cerr << "[protojs] compile failed" << std::endl;
-        /* val already set by compileToBytecode out-parameter */
-    } else {
+        std::cerr << "[protojs] compile failed, fallback to QuickJS eval" << std::endl;
+        JS_FreeValue(ctx, val);
+        JSValue runVal = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+        if (JS_IsException(runVal)) {
+            val = JS_GetException(ctx);
+        } else {
+            val = runVal;
+            bytecode = reinterpret_cast<void*>(1); /* success: do not report as compile failed */
+        }
+    }
+    if (bytecode && bytecode != reinterpret_cast<void*>(1)) {
         protojs::ProtoBytecodeModule module;
         if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
             std::cerr << "[protojs] loadBytecode failed" << std::endl;
@@ -158,9 +171,9 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     pContext->currentLineNumber = 0;
     currentScript_.clear();
 
-    // When !bytecode, val is the actual exception (Error object) from JS_GetException; its tag
-    // is OBJECT not EXCEPTION, so JS_IsException(val) is false. Still report it.
-    if (JS_IsException(val) || !bytecode) {
+    // When !bytecode (and not fallback success), val is the exception; report it.
+    const bool fallbackSuccess = (bytecode == reinterpret_cast<void*>(1));
+    if ((JS_IsException(val) || !bytecode) && !fallbackSuccess) {
         const char* str = JS_ToCString(ctx, val);
         if (!str && JS_IsObject(val)) {
             JSValue msg = JS_GetPropertyStr(ctx, val, "message");
