@@ -73,30 +73,48 @@ The performance test suite consists of the following components:
 
 #### Using protoJS
 
-```bash
-# Load all files in order and run
-./build/protojs -e "$(cat tests/benchmarks/benchmark_runner.js tests/benchmarks/basic_types.js tests/benchmarks/collections.js tests/benchmarks/overall_performance.js tests/benchmarks/compare_engines.js tests/benchmarks/report_generator.js tests/benchmarks/run_all.js)"
-```
-
-Or create a concatenated file:
+The suite detects protoJS via the global `__protojs__` and runs **synchronously** (`runAllBenchmarksSync`) so that benchmarks execute without relying on the Promise job queue. Use the combined file:
 
 ```bash
-cat tests/benchmarks/benchmark_runner.js \
-    tests/benchmarks/basic_types.js \
-    tests/benchmarks/collections.js \
-    tests/benchmarks/overall_performance.js \
-    tests/benchmarks/compare_engines.js \
-    tests/benchmarks/report_generator.js \
-    tests/benchmarks/run_all.js > tests/benchmarks/combined_suite.js
-
-./build/protojs tests/benchmarks/combined_suite.js
+cd tests/benchmarks
+./combine_suite.sh
+../../build/protojs combined_performance_suite.js
 ```
+
+**Current limitation:** Under the protoCore interpreter, host calls (e.g. `console.log`) may not produce visible output; the benchmark logic still runs and completes. For full console output and HTML/JSON reports, run the suite with **Node.js** from `tests/benchmarks` (see below).
 
 #### Using Node.js (for comparison)
 
 ```bash
 node tests/benchmarks/run_all.js
 ```
+
+#### Node vs QuickJS vs protoJS (standard suite)
+
+To compare **Node.js**, **QuickJS** (vanilla `qjs`), and **protoJS** on the same in-process benchmarks:
+
+```bash
+# From repo root; requires built protojs and deps/quickjs/qjs
+node tests/benchmarks/run_node_quickjs_comparison.js
+```
+
+- Uses benchmarks in `tests/benchmarks/standard/` that output `__BENCH_RESULT__` with `time_ms`.
+- Build QuickJS CLI if needed: `cd deps/quickjs && make qjs`.
+- Report: `tests/benchmarks/results/node_quickjs_comparison.json`.
+- See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) for the "Node vs QuickJS" analysis section.
+
+#### protoJS vs Node.js (legacy wall-clock suite)
+
+```bash
+node tests/benchmarks/run_nodejs_comparison.js
+```
+
+Compares protoJS and Node on the legacy 5 benchmarks (array_operations, basic_types, collections, concurrent_operations, overall_performance) using wall-clock time. Reports: `results/nodejs_comparison.json`, `results/nodejs_comparison.html`.
+
+### ProtoJS runtime notes
+
+- When `__protojs__` is set (or `process`/`process.exit` is absent), the suite uses **`runAllBenchmarksSync()`** so execution completes within a single eval (no Promise job queue).
+- **Host calls** (e.g. `console.log`, `console.error`) from the script may not produce visible output when running under the protoCore interpreter; this is a known limitation of the current host-call bridge. The benchmark code still runs to completion. For visible output and file reports, use Node.js as above.
 
 ### Output
 

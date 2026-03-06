@@ -11,7 +11,7 @@ This document contains the performance test results for protoJS. The full intera
 
 ### Latest Node.js comparison (2026-03-06)
 
-The Node.js comparison suite (`run_nodejs_comparison.js`) was run on 2026-03-06: **5/5 benchmarks passed**. protoJS wins all 5. Overall speedup **10.81x** (protoJS avg 42.6 ms vs Node 460.4 ms). Array operations: **45x** faster. See [PERFORMANCE_RUN_2026-02-07.md](PERFORMANCE_RUN_2026-02-07.md) for the full run report and latest results table.
+The Node.js comparison suite (`run_nodejs_comparison.js`) was run on 2026-03-06: **5/5 benchmarks passed**. protoJS wins all 5. Overall speedup **11.93x** (protoJS avg 35.4 ms vs Node 422.2 ms). Array operations: **55.63x** faster. See [PERFORMANCE_RUN_2026-02-07.md](PERFORMANCE_RUN_2026-02-07.md) for the full run report and latest results table.
 
 ### Full performance analysis (2026-03-06)
 
@@ -33,17 +33,17 @@ Run from repo root: `cd tests/benchmarks && ./combine_suite.sh && node combined_
 
 | Benchmark | protoJS (ms) | Node.js (ms) | Speedup | Winner |
 |-----------|--------------|--------------|---------|--------|
-| array_operations.js | 46 | 2,070 | **45.00x** | protoJS |
-| basic_types.js | 41 | 48 | 1.17x | protoJS |
-| collections.js | 43 | 52 | 1.21x | protoJS |
-| concurrent_operations.js | 41 | 61 | 1.49x | protoJS |
-| overall_performance.js | 42 | 71 | 1.69x | protoJS |
+| array_operations.js | 35 | 1,947 | **55.63x** | protoJS |
+| basic_types.js | 39 | 40 | 1.03x | protoJS |
+| collections.js | 34 | 39 | 1.15x | protoJS |
+| concurrent_operations.js | 37 | 49 | 1.32x | protoJS |
+| overall_performance.js | 32 | 36 | 1.13x | protoJS |
 
-**Summary:** 5/5 passed; protoJS wins 5; average protoJS 42.6 ms, Node 460.4 ms; **overall speedup 10.81x**.
+**Summary:** 5/5 passed; protoJS wins 5; average protoJS 35.4 ms, Node 422.2 ms; **overall speedup 11.93x**.
 
 **Findings:**
 - **Array operations** dominate the gap: ~2 s in Node vs ~46 ms in protoJS. Immutable arrays and structural sharing in protoCore avoid full copies on large map/filter/reduce workloads.
-- **Basic types, collections, concurrent, overall** show smaller but consistent wins (1.2–1.7x). protoJS stays in the 41–43 ms band; Node 48–71 ms.
+- **Basic types, collections, concurrent, overall** show smaller but consistent wins (1.03–1.32x). protoJS stays in the 32–39 ms band; Node 36–1,947 ms (array_operations dominates).
 - **Stability:** All benchmarks completed without failures; JSON/HTML reports written successfully.
 
 ### Full suite (41 tests, Node.js)
@@ -55,6 +55,28 @@ The full suite ran in ~30 s. Categories and sample metrics (mean time per iterat
 - **Overall (10):** Startup ~0.004, Throughput ~1.2, Memory (object) ~83.6, Function call ~1.1, Closure ~0.04, Try-catch ~0.1, Type checking ~8.1.
 
 **Notable:** Object property access (172.9 ms mean) and Memory: Object creation (83.6 ms) are the heaviest in the suite; the rest are &lt;25 ms per iteration. Use the generated HTML report for charts and sortable tables.
+
+### Node vs QuickJS (standard suite, 2026-03-06)
+
+The three-way comparison **Node.js vs QuickJS vs protoJS** is run with `run_node_quickjs_comparison.js`. It uses the **standard** benchmarks in `tests/benchmarks/standard/` (self-contained scripts that output `__BENCH_RESULT__` with in-process `time_ms`).
+
+**Latest run (2026-03-06):**
+
+| Benchmark      | Node.js (ms) | QuickJS (ms) | protoJS (ms) | Winner  |
+|----------------|--------------|--------------|--------------|---------|
+| array_literal  | 4            | 12           | —            | Node.js |
+| control_flow   | 9            | 82           | —            | Node.js |
+| function_calls | 2            | 112          | —            | Node.js |
+| numeric_loop   | 1            | 47           | —            | Node.js |
+| object_property| 49           | 97           | —            | Node.js |
+| parallel_cpu   | 58           | 1,019        | —            | Node.js |
+| string_concat  | 4            | 12           | —            | Node.js |
+
+- **Node vs QuickJS:** Node wins all 7 benchmarks. **Geometric mean QuickJS/Node: 9.60x** (QuickJS is ~9.6× slower than Node on this suite in terms of in-process execution time).
+- **protoJS:** Did not emit `__BENCH_RESULT__` for the standard scripts in this run (compile path for these files currently fails with `[unsupported type]`). The legacy suite (protoJS vs Node, wall-clock) still runs successfully and shows protoJS ahead of Node.
+- **Interpretation:** V8 (Node) is much faster than vanilla QuickJS on the same workloads. protoJS, when it runs the legacy benchmarks, beats Node (especially on array-heavy work) by using protoCore’s immutable structures; the standard-suite comparison will be meaningful once protoJS executes those scripts and reports in-process time.
+
+**How to run:** From repo root, `node tests/benchmarks/run_node_quickjs_comparison.js`. Requires built `protojs` and `deps/quickjs/qjs` (build with `cd deps/quickjs && make qjs`). Report: `tests/benchmarks/results/node_quickjs_comparison.json`.
 
 ## Report Contents
 

@@ -10,7 +10,7 @@
 
 The performance suite completed successfully with **5/5 benchmarks passing**. protoJS demonstrates a strong overall advantage, with an **overall speedup of ~10–40x** depending on workload. Array operations show the most significant improvement (~40x faster).
 
-**Latest run (2026-03-06):** 5/5 passed; protoJS wins 5; overall speedup **10.81x** (average protoJS 42.6 ms vs Node 460.4 ms).
+**Latest run (2026-03-06):** 5/5 passed; protoJS wins 5; overall speedup **11.93x** (average protoJS 35.4 ms vs Node 422.2 ms).
 
 ---
 
@@ -19,12 +19,12 @@ The performance suite completed successfully with **5/5 benchmarks passing**. pr
 ### Latest run (2026-03-06)
 
 | Benchmark | protoJS (ms) | Node.js (ms) | Speedup | Winner |
-|-----------|--------------|-------------|---------|--------|
-| array_operations.js | 46 | 2,070 | **45.00x** | protoJS |
-| basic_types.js | 41 | 48 | 1.17x | protoJS |
-| collections.js | 43 | 52 | 1.21x | protoJS |
-| concurrent_operations.js | 41 | 61 | 1.49x | protoJS |
-| overall_performance.js | 42 | 71 | 1.69x | protoJS |
+|-----------|--------------|--------------|---------|--------|
+| array_operations.js | 35 | 1,947 | **55.63x** | protoJS |
+| basic_types.js | 39 | 40 | 1.03x | protoJS |
+| collections.js | 34 | 39 | 1.15x | protoJS |
+| concurrent_operations.js | 37 | 49 | 1.32x | protoJS |
+| overall_performance.js | 32 | 36 | 1.13x | protoJS |
 
 *Note: concurrent_operations; Node.js may report "Deferred not available" (different code paths).*
 
