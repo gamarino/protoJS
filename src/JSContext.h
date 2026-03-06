@@ -8,12 +8,6 @@
 
 namespace protojs {
 
-// Current execution context for protoCore on the protoJS side.
-// For the protoCore eval path, this is always passed explicitly as a
-// stack-scoped ProtoContext; for legacy QuickJS execution, this may be
-// null (no active protoCore frame).
-extern thread_local proto::ProtoContext* g_currentProtoContext;
-
 class JSContextWrapper {
 public:
     /**
@@ -27,14 +21,13 @@ public:
 
     /**
      * @brief Evaluates JavaScript code.
-     * When useProtoEval() is true, uses compile-only + ProtoBytecodeLoader + ProtoInterpreter
-     * (no QuickJS runtime execution). Otherwise uses legacy JS_Eval path.
+     * Uses compile-only + ProtoBytecodeLoader + ProtoInterpreter (single path; no QuickJS runtime execution).
      */
     JSValue eval(const std::string& code, const std::string& filename = "eval");
 
     /**
      * @brief Use protoCore interpreter path for eval (compile -> load -> run).
-     * Default is false (legacy QuickJS eval).
+     * Always true; single execution path.
      */
     void setUseProtoEval(bool use) { useProtoEval_ = use; }
     bool useProtoEval() const { return useProtoEval_; }
@@ -87,8 +80,8 @@ private:
     JSPrototypes jsPrototypes_;
     /** Current script path for ProtoContext::currentFileName (keeps pointer valid during eval). */
     std::string currentScript_;
-    /** When true, eval uses protoCore path (compile-only + loader + interpreter). */
-    bool useProtoEval_{false};
+    /** Always true: eval uses protoCore path (compile-only + loader + interpreter). */
+    bool useProtoEval_{true};
 };
 
 } // namespace protojs

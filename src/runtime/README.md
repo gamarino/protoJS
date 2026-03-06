@@ -41,7 +41,7 @@ Phase 4 is complete: the eval entry point uses the protoCore path when `setUsePr
 
 Phase 5 completes the Option B runtime behaviour and sets the stage for conformance work:
 
-- **Legacy path and thread-local context:** When the legacy path (`JS_Eval`) is used, the wrapper sets `g_currentProtoContext` to the root context before `JS_Eval` and restores the previous value after. This ensures `ExecutionEngine::getProtoContext(ctx)` returns a valid ProtoContext for any QuickJS hooks that run during legacy execution.
+- **Single path:** All script execution uses compile → load → run; there is no legacy `JS_Eval` path. `ExecutionEngine::getProtoContext(ctx)` is used only by the debugger (and similar) to obtain the current ProtoContext from the wrapper.
 - **Stack and locals in ProtoContext only:** All interpreter state (operand stack and local/argument slots) is stored in `ProtoContext::closureLocals`; no `std::vector` is used so the GC sees every reference (see § "Absolute rule" above).
 - **Next (Phase 6 / conformance):** Run Test262 on the protoCore path (`TEST262_USE_PROTO_EVAL=1`), document pass/fail by category, and fix missing opcodes or built-ins to improve conformance. Optionally make the protoCore path the default for the CLI.
 
@@ -52,7 +52,7 @@ Phase 6 focuses on **conformance of the protoCore interpreter** (Option B path):
 - **Run Test262 on protoCore:** Use the same runner (`tests/test262/runner/test262_runner.js`) with `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`. The runner passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process so every test runs via compile → load → run (no QuickJS interpreter). The default config expects the Test262 repo **at the same level as protoJS** (e.g. `proyectos/protoJS` and `proyectos/test262`); override with `TEST262_ROOT` if needed.
 - **Document results:** Update `CONFORMANCE_JS.md` § "Phase 6 (protoCore path)" with pass/fail/timeout counts per category from the JSON snapshots in `tests/test262/reports/`.
 - **Fix gaps:** Address missing opcodes, built-in methods, or coercion in the ProtoInterpreter and TypeBridge so more tests pass; re-run and update the report.
-- **Optional:** Make the protoCore path the default for the CLI (e.g. `--proto-eval` by default and `--legacy` for QuickJS execution).
+- The protoCore path is the only path; the CLI uses it by default.
 
 ## Phase 8 (directed tests and documentation)
 
@@ -71,7 +71,7 @@ Phase 9 completes the Phase 3 cycle with **cleanup and documentation**:
 
 ## Enabling
 
-Set `JSContextWrapper::setUseProtoEval(true)`. Then `eval()` uses compile → load → run and converts the result to `JSValue` only at the boundary. Default is the legacy path (`JS_Eval`).
+The CLI sets `setUseProtoEval(true)` by default. `eval()` always uses compile → load → run and converts the result to `JSValue` only at the boundary.
 
 From the CLI, you can enable the protoCore path by either:
 
@@ -82,4 +82,4 @@ For Test262: set `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `test
 
 ## Bridges
 
-On the protoCore path, **QuickJSArrayBridge** and **ExecutionEngine** are not used during execution (no QuickJS interpreter run). **TypeBridge** and **GCBridge** are used only at the boundary (global object and script result). See `ARCHITECTURE.md` § 1.4.
+**QuickJSArrayBridge** is stubbed (no-ops). **ExecutionEngine** provides only `getProtoContext(ctx)`. **TypeBridge** and **GCBridge** are used at the boundary (global object, script result, host function bridge). See `ARCHITECTURE.md` § 1.4.

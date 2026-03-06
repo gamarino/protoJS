@@ -120,13 +120,9 @@ int main(int argc, char** argv) {
         std::cerr << "[protojs] CLI: creating JSContextWrapper for REPL" << std::endl;
         protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
 
-        // Enable protoCore eval path if requested via CLI flag or environment.
-        const char* protoEvalEnv = std::getenv("PROTOJS_USE_PROTO_EVAL");
-        if (useProtoEvalCli || (protoEvalEnv && std::string(protoEvalEnv) == "1")) {
-            std::cerr << "[protojs] CLI: enabling protoCore eval path (compile-only + ProtoInterpreter)" << std::endl;
-            wrapper.setUseProtoEval(true);
-        }
-        
+        // protoCore is the single execution path (compile → load → run).
+        wrapper.setUseProtoEval(true);
+
         // Initialize all modules for REPL
         protojs::Console::init(wrapper.getJSContext());
         protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
@@ -169,15 +165,9 @@ int main(int argc, char** argv) {
     std::cerr << "[protojs] CLI: creating JSContextWrapper for script" << std::endl;
     protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
 
-    // Enable protoCore eval path if requested via CLI flag or environment.
-    {
-        const char* protoEvalEnv = std::getenv("PROTOJS_USE_PROTO_EVAL");
-        if (useProtoEvalCli || (protoEvalEnv && std::string(protoEvalEnv) == "1")) {
-            std::cerr << "[protojs] CLI: enabling protoCore eval path (compile-only + ProtoInterpreter)" << std::endl;
-            wrapper.setUseProtoEval(true);
-        }
-    }
-    
+    // protoCore is the single execution path (compile → load → run).
+    wrapper.setUseProtoEval(true);
+
     // Initialize modules
     std::cerr << "[protojs] CLI: initializing core modules" << std::endl;
     protojs::Console::init(wrapper.getJSContext());

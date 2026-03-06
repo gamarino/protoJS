@@ -1,6 +1,13 @@
 #include "ESModuleLoader.h"
 #include "ModuleResolver.h"
 #include "ModuleCache.h"
+#include "../JSContext.h"
+#include "../TypeBridge.h"
+#include "../runtime/ProtoCompileOnly.h"
+#include "../runtime/ProtoBytecodeModule.h"
+#include "../runtime/ProtoInterpreter.h"
+#include "quickjs.h"
+#include "headers/protoCore.h"
 #include <fstream>
 #include <sstream>
 #include <regex>
@@ -77,44 +84,59 @@ void ESModuleLoader::evaluateModule(ESModuleRecord* record, JSContext* ctx) {
     if (record->isEvaluated) {
         return;
     }
-    
+
     if (record->isEvaluating) {
-        // Circular dependency - module is being evaluated
-        // Bindings will be live, so we can continue
         return;
     }
-    
+
     record->isEvaluating = true;
-    
-    // Evaluate dependencies first
+
     for (const auto& dep : record->dependencies) {
-        // Dependencies should already be loaded and evaluated
-        // This is handled in resolveDependencies
+        (void)dep;
     }
-    
-    // Evaluate module code
-    JSValue result = JS_Eval(ctx, record->sourceCode.c_str(), 
-                            record->sourceCode.length(),
-                            record->filePath.c_str(),
-                            JS_EVAL_TYPE_MODULE);
-    
-    if (JS_IsException(result)) {
+
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+    if (!pContext) {
+        record->isEvaluating = false;
+        return;
+    }
+
+    void* bytecode = protojs::compileToBytecodeWithFlags(ctx, record->sourceCode.c_str(),
+        record->sourceCode.size(), record->filePath.c_str(), JS_EVAL_TYPE_MODULE);
+    if (!bytecode) {
         JSValue exception = JS_GetException(ctx);
         const char* err = JS_ToCString(ctx, exception);
         if (err) {
-            std::cerr << "Error evaluating module " << record->filePath << ": " << err << std::endl;
+            std::cerr << "Error compiling module " << record->filePath << ": " << err << std::endl;
             JS_FreeCString(ctx, err);
         }
         JS_FreeValue(ctx, exception);
         record->isEvaluating = false;
         return;
     }
-    
-    JS_FreeValue(ctx, result);
-    
-    // Bind imports to exports
+
+    protojs::ProtoBytecodeModule module;
+    proto::ProtoContext frameCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+    if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
+        record->isEvaluating = false;
+        return;
+    }
+
+    JSValue globalVal = JS_GetGlobalObject(ctx);
+    const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
+    JS_FreeValue(ctx, globalVal);
+
+    const proto::ProtoObject* result = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
+    frameCtx.returnValue = result;
+
+    if (!result || result == PROTO_NONE) {
+        record->isEvaluating = false;
+        return;
+    }
+
     bindImports(record, ctx);
-    
+
     record->isEvaluating = false;
     record->isEvaluated = true;
 }

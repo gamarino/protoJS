@@ -21,6 +21,13 @@ namespace protojs {
 void* compileToBytecode(struct JSContext* ctx, const char* source, size_t sourceLen,
                         const char* filename);
 
+/**
+ * Compile source with custom eval flags (e.g. JS_EVAL_TYPE_MODULE for ES modules).
+ * Same as compileToBytecode but uses (flags | JS_EVAL_FLAG_COMPILE_ONLY).
+ */
+void* compileToBytecodeWithFlags(struct JSContext* ctx, const char* source, size_t sourceLen,
+                                 const char* filename, int evalFlags);
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_COMPILE_ONLY_H */

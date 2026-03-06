@@ -1,8 +1,11 @@
 #include "IntegratedDebugger.h"
 #include "../ExecutionEngine.h"
+#include "../JSContext.h"
+#include "quickjs.h"
 #include <algorithm>
 #include <sstream>
 #include <iostream>
+#include <string>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -165,11 +168,17 @@ JSValue IntegratedDebugger::evaluate(JSContext* ctx, JSValueConst this_val, int 
     
     const char* expression = JS_ToCString(ctx, argv[0]);
     if (!expression) return JS_EXCEPTION;
-    
-    JSValue result = JS_Eval(ctx, expression, strlen(expression), "<eval>", JS_EVAL_TYPE_GLOBAL);
-    
+
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    JSValue result;
+    if (wrapper) {
+        result = wrapper->eval(std::string(expression), "<eval>");
+    } else {
+        result = JS_ThrowTypeError(ctx, "Debugger evaluate: no JSContextWrapper");
+    }
+
     JS_FreeCString(ctx, expression);
-    
+
     return result;
 }
 

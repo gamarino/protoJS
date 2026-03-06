@@ -20,20 +20,10 @@ void ExecutionEngine::cleanup(JSContext* ctx) {
 }
 
 proto::ProtoContext* ExecutionEngine::getProtoContext(JSContext* ctx) {
-    // Prefer an explicit current context when one is active (e.g. legacy
-    // QuickJS execution wrapped in a stack-scoped ProtoContext frame).
-    if (g_currentProtoContext) {
-        return g_currentProtoContext;
-    }
-
-    // Fallback: use the root context from JSContextWrapper stored in JSContext
-    // opaque. This is sufficient for bootstrap and for callers that only need
-    // space-level information.
     JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
     if (wrapper) {
         return wrapper->getProtoContext();
     }
-    
     return nullptr;
 }
 

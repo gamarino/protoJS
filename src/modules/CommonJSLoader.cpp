@@ -3,8 +3,13 @@
 #include "ModuleCache.h"
 #include "../JSContext.h"
 #include "../TypeBridge.h"
+#include "../ProtoJSStringCache.h"
+#include "../runtime/ProtoCompileOnly.h"
+#include "../runtime/ProtoBytecodeModule.h"
+#include "../runtime/ProtoInterpreter.h"
 #include "../native/DynamicLibraryLoader.h"
 #include "headers/protoCore.h"
+#include <string>
 #include <fstream>
 #include <sstream>
 #include <mutex>
@@ -289,56 +294,114 @@ JSValue CommonJSLoader::wrapModule(
     const std::string& filename,
     JSContext* ctx
 ) {
-    // Create CommonJS wrapper
+    // Create CommonJS wrapper: script that evaluates to the wrapper function
     std::string wrapped = "(function(exports, require, module, __filename, __dirname) {\n";
     wrapped += source;
     wrapped += "\n});";
-    
-    // Get directory
+
     std::string dirname = ModuleResolver::getDirectory(filename);
-    
-    // Get module object
+
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+    if (!pContext) {
+        return JS_ThrowInternalError(ctx, "CommonJSLoader: no ProtoContext");
+    }
+
+    // Build arguments as JSValues for registration and conversion
     JSValue moduleObj = createModuleObject(filename, ctx);
     JSValue exportsObj = JS_GetPropertyStr(ctx, moduleObj, "exports");
-    
-    // Create require function for this module
     JSValue requireFunc = JS_NewCFunction(ctx, requireImpl, "require", 1);
-    
-    // Evaluate wrapped code
-    JSValue func = JS_Eval(ctx, wrapped.c_str(), wrapped.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
-    if (JS_IsException(func)) {
+    JSValue filenameVal = JS_NewString(ctx, filename.c_str());
+    JSValue dirnameVal = JS_NewString(ctx, dirname.c_str());
+
+    // Compile and load via protoCore path
+    void* bytecode = protojs::compileToBytecode(ctx, wrapped.c_str(), wrapped.size(), filename.c_str());
+    if (!bytecode) {
+        JSValue ex = JS_GetException(ctx);
         JS_FreeValue(ctx, exportsObj);
         JS_FreeValue(ctx, moduleObj);
         JS_FreeValue(ctx, requireFunc);
-        return func;
+        JS_FreeValue(ctx, filenameVal);
+        JS_FreeValue(ctx, dirnameVal);
+        return ex;
     }
-    
-    // Call wrapper function
-    JSValue args[] = {
-        exportsObj,
-        requireFunc,
-        moduleObj,
-        JS_NewString(ctx, filename.c_str()),
-        JS_NewString(ctx, dirname.c_str())
-    };
-    
-    JSValue result = JS_Call(ctx, func, JS_UNDEFINED, 5, args);
-    
-    // Mark module as loaded
+
+    protojs::ProtoBytecodeModule module;
+    proto::ProtoContext frameCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+    if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
+        JS_FreeValue(ctx, exportsObj);
+        JS_FreeValue(ctx, moduleObj);
+        JS_FreeValue(ctx, requireFunc);
+        JS_FreeValue(ctx, filenameVal);
+        JS_FreeValue(ctx, dirnameVal);
+        return JS_EXCEPTION;
+    }
+
+    JSValue globalVal = JS_GetGlobalObject(ctx);
+    const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
+    JS_FreeValue(ctx, globalVal);
+
+    // Run top-level script; result is the wrapper function
+    const proto::ProtoObject* wrapperFunc = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
+    frameCtx.returnValue = wrapperFunc;
+
+    if (!wrapperFunc || wrapperFunc == PROTO_NONE) {
+        JS_FreeValue(ctx, exportsObj);
+        JS_FreeValue(ctx, moduleObj);
+        JS_FreeValue(ctx, requireFunc);
+        JS_FreeValue(ctx, filenameVal);
+        JS_FreeValue(ctx, dirnameVal);
+        return JS_EXCEPTION;
+    }
+
+    // Convert the five arguments to ProtoObjects and call the wrapper function
+    const proto::ProtoObject* exportsProto = TypeBridge::fromJS(ctx, exportsObj, &frameCtx);
+    const proto::ProtoObject* requireProto = TypeBridge::fromJS(ctx, requireFunc, &frameCtx);
+    const proto::ProtoObject* moduleProto = TypeBridge::fromJS(ctx, moduleObj, &frameCtx);
+    const proto::ProtoObject* filenameProto = TypeBridge::fromJS(ctx, filenameVal, &frameCtx);
+    const proto::ProtoObject* dirnameProto = TypeBridge::fromJS(ctx, dirnameVal, &frameCtx);
+
+    const proto::ProtoList* argsList = pContext->newList();
+    if (argsList) {
+        argsList = argsList->appendLast(&frameCtx, exportsProto ? exportsProto : PROTO_NONE);
+        argsList = argsList->appendLast(&frameCtx, requireProto ? requireProto : PROTO_NONE);
+        argsList = argsList->appendLast(&frameCtx, moduleProto ? moduleProto : PROTO_NONE);
+        argsList = argsList->appendLast(&frameCtx, filenameProto ? filenameProto : PROTO_NONE);
+        argsList = argsList->appendLast(&frameCtx, dirnameProto ? dirnameProto : PROTO_NONE);
+    }
+
+    const proto::ProtoString* key = ProtoJSStringCache::getKey(&frameCtx, "__bytecode_id__");
+    const proto::ProtoObject* idVal = wrapperFunc->getAttribute(&frameCtx, key, false);
+    int bcId = (idVal && idVal != PROTO_NONE && idVal->isInteger(&frameCtx)) ? static_cast<int>(idVal->asLong(&frameCtx)) : -1;
+
+    JSValue resultVal = JS_UNDEFINED;
+    if (bcId >= 0 && static_cast<size_t>(bcId) < module.nestedFunctions.size() && argsList) {
+        proto::ProtoContext childCtx(pContext->space, &frameCtx, nullptr, nullptr, nullptr, nullptr);
+        for (int i = 0; i < 5; i++) {
+            std::string s = std::to_string(i);
+            const proto::ProtoObject* o = childCtx.fromUTF8String(s.c_str());
+            const proto::ProtoString* ps = o ? o->asString(&childCtx) : nullptr;
+            unsigned long slotK = ps ? static_cast<unsigned long>(ps->getHash(&childCtx)) : 0;
+            const proto::ProtoObject* arg = argsList->getAt(&childCtx, i);
+            if (childCtx.closureLocals)
+                childCtx.closureLocals = childCtx.closureLocals->setAt(&childCtx, slotK, arg ? arg : PROTO_NONE);
+        }
+        const proto::ProtoObject* result = protojs::runBytecode(&childCtx, &module.nestedFunctions[static_cast<size_t>(bcId)], PROTO_NONE, argsList, globalObj, ctx);
+        childCtx.returnValue = result;
+        resultVal = TypeBridge::toJS(ctx, result ? result : PROTO_NONE, &frameCtx);
+    }
+
     JS_SetPropertyStr(ctx, moduleObj, "loaded", JS_NewBool(ctx, true));
-    
-    JS_FreeValue(ctx, func);
-    JS_FreeValue(ctx, requireFunc);
-    JS_FreeValue(ctx, args[3]); // __filename
-    JS_FreeValue(ctx, args[4]); // __dirname
     JS_FreeValue(ctx, exportsObj);
     JS_FreeValue(ctx, moduleObj);
-    
-    if (JS_IsException(result)) {
-        return result;
+    JS_FreeValue(ctx, requireFunc);
+    JS_FreeValue(ctx, filenameVal);
+    JS_FreeValue(ctx, dirnameVal);
+
+    if (JS_IsException(resultVal)) {
+        return resultVal;
     }
-    
-    JS_FreeValue(ctx, result);
+    JS_FreeValue(ctx, resultVal);
     return JS_UNDEFINED;
 }
 

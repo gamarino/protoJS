@@ -15,8 +15,6 @@
 namespace protojs {
 
 // See JSContext.h for semantics.
-thread_local proto::ProtoContext* g_currentProtoContext = nullptr;
-
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
     std::cerr << "[protojs] JSContextWrapper: creating QuickJS runtime/context" << std::endl;
     rt = JS_NewRuntime();
@@ -35,7 +33,7 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     GCBridge::initialize(ctx);
     std::cerr << "[protojs] JSContextWrapper: GCBridge initialized" << std::endl;
     
-    // Initialize ExecutionEngine
+    // ExecutionEngine stub: getProtoContext only (no legacy hooks; single protoCore path).
     ExecutionEngine::initialize(ctx, pContext);
     std::cerr << "[protojs] JSContextWrapper: ExecutionEngine initialized" << std::endl;
     
@@ -89,39 +87,30 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
 
     std::cerr << "[protojs] eval start: " << filename << std::endl;
     JSValue val;
-    if (useProtoEval_) {
-        // protoCore path: run this eval in a stack-scoped ProtoContext frame.
-        proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
-        frameCtx.currentFileName = pContext->currentFileName;
-        frameCtx.currentLineNumber = pContext->currentLineNumber;
+    // Single path: compile → load → run (protoCore interpreter). No legacy JS_Eval.
+    proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
+    frameCtx.currentFileName = pContext->currentFileName;
+    frameCtx.currentLineNumber = pContext->currentLineNumber;
 
-        void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str());
-        if (!bytecode) {
-            val = JS_GetException(ctx);
-        } else {
-            protojs::ProtoBytecodeModule module;
-            if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
-                val = JS_EXCEPTION;
-            } else {
-                JSValue globalVal = JS_GetGlobalObject(ctx);
-                const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
-                JS_FreeValue(ctx, globalVal);
-
-                const proto::ProtoObject* result =
-                    protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
-                // Hand the result back to the previous context for GC purposes.
-                frameCtx.returnValue = result;
-
-                val = TypeBridge::toJS(ctx, result, &frameCtx);
-            }
-        }
+    void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str());
+    if (!bytecode) {
+        val = JS_GetException(ctx);
     } else {
-        // Legacy path: set thread-local current context so ExecutionEngine hooks
-        // (e.g. getProtoContext) see a valid ProtoContext while QuickJS runs.
-        proto::ProtoContext* prev = g_currentProtoContext;
-        g_currentProtoContext = pContext;
-        val = JS_Eval(ctx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
-        g_currentProtoContext = prev;
+        protojs::ProtoBytecodeModule module;
+        if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
+            val = JS_EXCEPTION;
+        } else {
+            JSValue globalVal = JS_GetGlobalObject(ctx);
+            const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
+            JS_FreeValue(ctx, globalVal);
+
+            const proto::ProtoObject* result =
+                protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
+            // Hand the result back to the previous context for GC purposes.
+            frameCtx.returnValue = result;
+
+            val = TypeBridge::toJS(ctx, result, &frameCtx);
+        }
     }
 
     std::cerr << "[protojs] eval done: " << filename << std::endl;

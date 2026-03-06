@@ -3,6 +3,8 @@
 #include "QuickJSBytecodeExport.h"
 #include "../ProtoJSStringCache.h"
 #include "../JSContext.h"
+#include "../GCBridge.h"
+#include "../TypeBridge.h"
 #include "quickjs.h"
 #include "headers/protoCore.h"
 #include <cmath>
@@ -237,6 +239,45 @@ int getBytecodeId(proto::ProtoContext* pContext, const proto::ProtoObject* obj) 
     if (!val || val == PROTO_NONE || !val->isInteger(pContext)) return -1;
     long long id = val->asLong(pContext);
     return id >= 0 ? static_cast<int>(id) : -1;
+}
+
+/**
+ * Host function bridge: call a QuickJS-backed function from the interpreter.
+ * If func maps to a JSValue function via GCBridge, convert this+args to JSValue,
+ * run JS_Call, convert result back to ProtoObject. Returns PROTO_NONE if not a host function.
+ */
+static const proto::ProtoObject* hostCall(JSContext* ctx, proto::ProtoContext* pContext,
+    const proto::ProtoObject* func, const proto::ProtoObject* thisVal,
+    const proto::ProtoList* argsList) {
+    if (!ctx || !pContext || !func) return PROTO_NONE;
+    JSValue jFunc = GCBridge::getJSValue(func, ctx);
+    if (JS_IsNull(jFunc) || JS_IsUndefined(jFunc) || !JS_IsFunction(ctx, jFunc)) {
+        if (!JS_IsNull(jFunc) && !JS_IsUndefined(jFunc)) JS_FreeValue(ctx, jFunc);
+        return PROTO_NONE;
+    }
+    JSValue jThis = TypeBridge::toJS(ctx, thisVal ? thisVal : PROTO_NONE, pContext);
+    int argc = argsList ? static_cast<int>(argsList->getSize(pContext)) : 0;
+    std::vector<JSValue> argv(static_cast<size_t>(argc));
+    for (int i = 0; i < argc; i++) {
+        const proto::ProtoObject* arg = argsList->getAt(pContext, i);
+        argv[static_cast<size_t>(i)] = TypeBridge::toJS(ctx, arg ? arg : PROTO_NONE, pContext);
+    }
+    JSValue result = JS_Call(ctx, jFunc, jThis, argc, argc > 0 ? argv.data() : nullptr);
+    JS_FreeValue(ctx, jThis);
+    for (int i = 0; i < argc; i++)
+        JS_FreeValue(ctx, argv[static_cast<size_t>(i)]);
+    JS_FreeValue(ctx, jFunc);
+    const proto::ProtoObject* resultProto = PROTO_NONE;
+    if (!JS_IsException(result)) {
+        resultProto = TypeBridge::fromJS(ctx, result, pContext);
+        JS_FreeValue(ctx, result);
+    } else {
+        JSValue ex = JS_GetException(ctx);
+        resultProto = TypeBridge::fromJS(ctx, ex, pContext);
+        JS_FreeValue(ctx, ex);
+        JS_FreeValue(ctx, result);
+    }
+    return resultProto;
 }
 
 } // namespace
@@ -1296,8 +1337,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
+                    const proto::ProtoObject* thisValM = stackAt(pContext, argc);
+                    const proto::ProtoList* argsList = pContext->newList();
+                    for (uint32_t i = 0; i < argc; i++)
+                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    stackPush(pContext, PROTO_NONE);
+                    const proto::ProtoObject* result = hostCall(jsContextForAtoms, pContext, func, thisValM, argsList);
+                    if (opcode != OP_tail_call_method)
+                        stackPush(pContext, result ? result : PROTO_NONE);
                 }
                 break;
             }
@@ -1329,6 +1376,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (func && func->isMethod(pContext)) {
                     result = func->call(pContext, nullptr,
                         ProtoJSStringCache::getKey(pContext, "call"), newObj, argsList, nullptr);
+                } else {
+                    result = hostCall(jsContextForAtoms, pContext, func, newObj, argsList);
                 }
                 bool resultIsObject = result && result != PROTO_NONE
                     && !result->isInteger(pContext) && !result->isDouble(pContext)
@@ -1379,8 +1428,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         ProtoJSStringCache::getKey(pContext, "call"), thisVal, argsList, nullptr);
                     stackPush(pContext,result ? result : PROTO_NONE);
                 } else {
+                    const proto::ProtoObject* thisVal = argc > 0 ? stackAt(pContext, argc) : globalObj;
+                    const proto::ProtoList* argsList = pContext->newList();
+                    for (uint32_t i = 0; i < argc; i++)
+                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                    stackPush(pContext,PROTO_NONE);
+                    const proto::ProtoObject* result = hostCall(jsContextForAtoms, pContext, func, thisVal, argsList);
+                    stackPush(pContext, result ? result : PROTO_NONE);
                 }
                 break;
             }

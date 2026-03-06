@@ -1,4 +1,6 @@
 #include "REPL.h"
+#include "../JSContext.h"
+#include "quickjs.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -39,15 +41,22 @@ void REPL::start(JSContext* ctx) {
         if (isCompleteInput(input) || line.empty()) {
             if (!input.empty()) {
                 history.push_back(input);
-                
-                JSValue result = JS_Eval(ctx, input.c_str(), input.length(), "<repl>", JS_EVAL_TYPE_GLOBAL);
-                
+
+                JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+                JSValue result;
+                if (!wrapper) {
+                    std::cerr << "[REPL] No JSContextWrapper; cannot evaluate." << std::endl;
+                    result = JS_UNDEFINED;
+                } else {
+                    result = wrapper->eval(input, "<repl>");
+                }
+
                 if (JS_IsException(result)) {
                     printError(ctx, JS_GetException(ctx));
                 } else if (!JS_IsUndefined(result)) {
                     printResult(ctx, result);
                 }
-                
+
                 JS_FreeValue(ctx, result);
             }
             
