@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-03-06T05:27:53.052Z",
+  "results": [
+    {
+      "benchmark": "array_literal.js",
+      "name": "array_literal",
+      "protojs_time_ms": 9,
+      "nodejs_time_ms": 4,
+      "speedup": 2.25,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    },
+    {
+      "benchmark": "control_flow.js",
+      "name": "control_flow",
+      "protojs_time_ms": 73,
+      "nodejs_time_ms": 7,
+      "speedup": 10.428571428571429,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    },
+    {
+      "benchmark": "function_calls.js",
+      "name": "function_calls",
+      "protojs_time_ms": 117,
+      "nodejs_time_ms": 2,
+      "speedup": 58.49999999999999,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    },
+    {
+      "benchmark": "numeric_loop.js",
+      "name": "numeric_loop",
+      "protojs_time_ms": 52,
+      "nodejs_time_ms": 2,
+      "speedup": 26,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    },
+    {
+      "benchmark": "object_property.js",
+      "name": "object_property",
+      "protojs_time_ms": 111,
+      "nodejs_time_ms": 51,
+      "speedup": 2.176470588235294,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    },
+    {
+      "benchmark": "parallel_cpu.js",
+      "name": "parallel_cpu",
+      "protojs_time_ms": 42,
+      "nodejs_time_ms": 58,
+      "speedup": 1.380952380952381,
+      "faster": "protoJS",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    },
+    {
+      "benchmark": "string_concat.js",
+      "name": "string_concat",
+      "protojs_time_ms": 7,
+      "nodejs_time_ms": 2,
+      "speedup": 3.5,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "successful": 7,
+    "failed": 0,
+    "geoMeanNodeOverProto": 0.17526240128105075
+  },
+  "_note": "Snapshot from run_standard_comparison.js; full output in tests/benchmarks/results/standard_comparison.json"
+}
