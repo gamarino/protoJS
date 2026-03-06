@@ -37,6 +37,7 @@ All notable changes to protoJS are documented in this file.
 
 ### Performance (2026-03-06)
 
-- Re-ran Node.js comparison suite: 5/5 benchmarks passed; protoJS wins 4, tie 1 (basic_types).
-- **Latest results:** array_operations 39.76x faster; overall speedup 11.18x (protoJS avg 34.6 ms vs Node 386.8 ms).
-- Updated [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with latest run table and [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) with "Latest Node.js comparison" section.
+- Re-ran Node.js comparison suite: 5/5 benchmarks passed; protoJS wins all 5.
+- **Latest results:** array_operations 45x faster; overall speedup 10.81x (protoJS avg 42.6 ms vs Node 460.4 ms).
+- Full combined suite (41 tests) run with Node.js; report and JSON written to `tests/benchmarks/results/report_2026-03-06_00-07-34.html` and `results_2026-03-06_00-07-34.json`.
+- Updated [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with latest run table; [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) with "Latest Node.js comparison", report paths, and new "Results analysis" section (Node comparison table + full-suite summary).
