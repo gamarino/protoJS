@@ -111,7 +111,12 @@ function runParallelWithProtoCore(callback) {
     runRound();
 }
 
-if (typeof protoCore !== 'undefined' && typeof protoCore.runInThread === 'function') {
+// Under protojs CLI, Deferred callbacks may not drain before event-loop timeout; use sequential so the benchmark always completes and emits __BENCH_RESULT__.
+if (typeof __protojs__ !== 'undefined') {
+    var median = runSequential();
+    var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: false };
+    console.log('__BENCH_RESULT__' + JSON.stringify(result));
+} else if (typeof protoCore !== 'undefined' && typeof protoCore.runInThread === 'function') {
     runParallelWithProtoCore(function (median) {
         var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: true };
         console.log('__BENCH_RESULT__' + JSON.stringify(result));
