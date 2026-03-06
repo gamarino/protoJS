@@ -15,6 +15,8 @@ public:
     static void init(JSContext* ctx);
     /** Number of worker threads currently running (so main loop can wait for them). */
     static int getActiveWorkerCount();
+    /** Runs the worker script in the current thread (protoCore path). Used by ProtoThread entry and by std::thread fallback. */
+    static void workerThreadExecution(JSContext* mainCtx, const std::string& filename, const std::string& workerDataJson, JSValue workerObj);
 
 private:
     // Worker class methods
@@ -30,8 +32,7 @@ private:
     static JSValue parentPortGetter(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     static JSValue workerDataGetter(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
-    // Helper functions
-    static void workerThreadExecution(JSContext* mainCtx, const std::string& filename, const std::string& workerDataJson, JSValue workerObj);
+    // Helper functions (workerThreadExecution is public for ProtoThread entry)
     /** Sends a message to the main thread. Message must be serialized to JSON in the worker context before calling. */
     static void sendMessageToMainJson(JSContext* mainCtx, JSValue workerObj, const std::string& jsonMessage);
     /** Worker's parentPort.postMessage: serializes argv[0] to JSON and calls sendMessageToMainJson. */

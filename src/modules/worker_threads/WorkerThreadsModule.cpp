@@ -3,12 +3,17 @@
 #include "../../EventLoop.h"
 #include "../../CPUThreadPool.h"
 #include "../../JSContext.h"
+#include "quickjs.h"
+#include "headers/protoCore.h"
 #include <fstream>
 #include <sstream>
 #include <thread>
 #include <mutex>
 #include <queue>
 #include <atomic>
+#include <memory>
+#include <unordered_map>
+#include <string>
 
 namespace protojs {
 
@@ -18,8 +23,18 @@ static thread_local JSValue worker_data_value = JS_UNDEFINED;
 static thread_local JSValue parent_port_value = JS_UNDEFINED;
 static std::atomic<int> active_worker_count{0};
 
+struct WorkerThreadData;
+/** Map workerId -> WorkerThreadData* for ProtoThread entry lookup. */
+static std::unordered_map<std::string, WorkerThreadData*> s_workerDataMap;
+static std::mutex s_workerDataMutex;
+static std::atomic<uint64_t> s_workerIdCounter{0};
+
 struct WorkerThreadData {
+    /** When using ProtoThread: join this instead of workerThread. */
+    const proto::ProtoThread* protoThread{nullptr};
     std::thread workerThread;
+    /** Worker runs on protoCore path via this wrapper (compile+load+run). Owned here; destroyed after join. */
+    std::unique_ptr<JSContextWrapper> workerWrapper;
     JSRuntime* workerRuntime;
     JSContext* workerContext;
     JSContext* mainContext;
@@ -29,6 +44,7 @@ struct WorkerThreadData {
     std::string filename;
     /** JSON-serialized workerData (main context); parsed in worker context. */
     std::string workerDataJson;
+    std::string workerId;
     std::mutex messageMutex;
     std::queue<JSValue> messageQueue;
     std::atomic<bool> terminated{false};
@@ -39,17 +55,22 @@ struct WorkerThreadData {
           workerRuntime(nullptr), workerContext(nullptr) {}
 
     ~WorkerThreadData() {
+        if (protoThread) {
+            JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(mainContext));
+            if (wrapper) {
+                const_cast<proto::ProtoThread*>(protoThread)->join(wrapper->getProtoContext());
+            }
+        }
         if (workerThread.joinable()) {
             terminated = true;
             running = false;
             workerThread.join();
         }
-        if (workerContext) {
-            JS_FreeContext(workerContext);
+        {
+            std::lock_guard<std::mutex> lock(s_workerDataMutex);
+            s_workerDataMap.erase(workerId);
         }
-        if (workerRuntime) {
-            JS_FreeRuntime(workerRuntime);
-        }
+        workerWrapper.reset();
         if (!JS_IsUndefined(workerObj)) {
             JS_FreeValueRT(JS_GetRuntime(mainContext), workerObj);
         }
@@ -58,6 +79,38 @@ struct WorkerThreadData {
         }
     }
 };
+
+/** ProtoMethod run in the worker OS thread (ProtoThread). Looks up data by workerId and runs worker script. */
+static const proto::ProtoObject* workerProtoThreadEntry(
+    proto::ProtoContext* context,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink* /*parentLink*/,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* /*kwargs*/)
+{
+    if (!context || !args || args->getSize(context) < 1) return PROTO_NONE;
+    const proto::ProtoObject* arg0 = args->getAt(context, 0);
+    if (!arg0 || !arg0->isString(context)) return PROTO_NONE;
+    const proto::ProtoString* idStr = arg0->asString(context);
+    std::string workerId;
+    idStr->toUTF8String(context, workerId);
+
+    WorkerThreadData* data = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(s_workerDataMutex);
+        auto it = s_workerDataMap.find(workerId);
+        if (it != s_workerDataMap.end()) {
+            data = it->second;
+        }
+    }
+    if (data) {
+        WorkerThreadsModule::workerThreadExecution(data->mainContext, data->filename, data->workerDataJson, data->workerObj);
+        active_worker_count--;
+        std::lock_guard<std::mutex> lock(s_workerDataMutex);
+        s_workerDataMap.erase(workerId);
+    }
+    return PROTO_NONE;
+}
 
 void WorkerThreadsModule::init(JSContext* ctx) {
     JSRuntime* rt = JS_GetRuntime(ctx);
@@ -157,9 +210,33 @@ JSValue WorkerThreadsModule::WorkerConstructor(JSContext* ctx, JSValueConst new_
     }
     JS_SetOpaque(worker, data);
 
-    // Start worker thread (set to false to test main-thread only)
-    const bool startThread = true;
-    if (startThread) {
+    data->workerId = "w" + std::to_string(s_workerIdCounter++);
+    {
+        std::lock_guard<std::mutex> lock(s_workerDataMutex);
+        s_workerDataMap[data->workerId] = data;
+    }
+
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    if (wrapper) {
+        proto::ProtoSpace* space = wrapper->getProtoSpace();
+        proto::ProtoContext* pctx = wrapper->getProtoContext();
+        const proto::ProtoList* argsList = pctx->newList();
+        argsList = argsList->appendLast(pctx, pctx->fromUTF8String(data->workerId.c_str()));
+        const proto::ProtoString* threadName = pctx->fromUTF8String(("worker-" + data->workerId).c_str())->asString(pctx);
+        const proto::ProtoThread* thread = space->newThread(pctx, threadName, workerProtoThreadEntry, argsList, nullptr);
+        if (thread) {
+            data->protoThread = thread;
+            active_worker_count++;
+        } else {
+            std::lock_guard<std::mutex> lock(s_workerDataMutex);
+            s_workerDataMap.erase(data->workerId);
+            data->workerThread = std::thread([data]() {
+                workerThreadExecution(data->mainContext, data->filename, data->workerDataJson, data->workerObj);
+                active_worker_count--;
+            });
+            active_worker_count++;
+        }
+    } else {
         active_worker_count++;
         data->workerThread = std::thread([data]() {
             workerThreadExecution(data->mainContext, data->filename, data->workerDataJson, data->workerObj);
@@ -178,51 +255,29 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
     is_worker_thread = true;
     worker_data_value = JS_UNDEFINED;
 
-    // Create runtime and context for worker thread
-    JSRuntime* workerRt = JS_NewRuntime();
-    if (!workerRt) {
-        EventLoop::getInstance().enqueueCallback([mainCtx, workerObj]() {
-            JSValue emit = JS_GetPropertyStr(mainCtx, workerObj, "emit");
-            if (JS_IsFunction(mainCtx, emit)) {
-                JSValue errorEvent = JS_NewString(mainCtx, "error");
-                JSValue error = JS_NewString(mainCtx, "Failed to create worker runtime");
-                JSValue args[] = {errorEvent, error};
-                JS_Call(mainCtx, emit, workerObj, 2, args);
-                JS_FreeValue(mainCtx, errorEvent);
-                JS_FreeValue(mainCtx, error);
-            }
-            JS_FreeValue(mainCtx, emit);
-        });
-        return;
-    }
-    
-    JSContext* workerCtx = JS_NewContext(workerRt);
-    if (!workerCtx) {
-        JS_FreeRuntime(workerRt);
-        EventLoop::getInstance().enqueueCallback([mainCtx, workerObj]() {
-            JSValue emit = JS_GetPropertyStr(mainCtx, workerObj, "emit");
-            if (JS_IsFunction(mainCtx, emit)) {
-                JSValue errorEvent = JS_NewString(mainCtx, "error");
-                JSValue error = JS_NewString(mainCtx, "Failed to create worker context");
-                JSValue args[] = {errorEvent, error};
-                JS_Call(mainCtx, emit, workerObj, 2, args);
-                JS_FreeValue(mainCtx, errorEvent);
-                JS_FreeValue(mainCtx, error);
-            }
-            JS_FreeValue(mainCtx, emit);
-        });
-        return;
-    }
-    
     WorkerThreadData* data = static_cast<WorkerThreadData*>(JS_GetOpaque(workerObj, worker_thread_class_id));
-    if (data) {
-        data->workerRuntime = workerRt;
-        data->workerContext = workerCtx;
+    if (!data) {
+        return;
     }
-    
+
+    // Create worker context via JSContextWrapper (protoCore path: compile+load+run)
+    auto wrapper = std::make_unique<JSContextWrapper>(0, 0, 3.0);
+    wrapper->setUseProtoEval(true);
+    data->workerWrapper = std::move(wrapper);
+    data->workerContext = data->workerWrapper->getJSContext();
+    data->workerRuntime = data->workerWrapper->getJSRuntime();
+
+    JSContext* workerCtx = data->workerContext;
+
+    // EventsModule required for parentPort (EventEmitter)
+    EventsModule::init(workerCtx);
+
     // Create parentPort object (EventEmitter-like)
     JSValue parentPort = JS_NewObject(workerCtx);
-    JSValue eventEmitterCtor = JS_GetPropertyStr(workerCtx, JS_GetGlobalObject(workerCtx), "EventEmitter");
+    JSValue globalObj = JS_GetGlobalObject(workerCtx);
+    JSValue eventsMod = JS_GetPropertyStr(workerCtx, globalObj, "events");
+    JSValue eventEmitterCtor = JS_IsUndefined(eventsMod) ? JS_UNDEFINED : JS_GetPropertyStr(workerCtx, eventsMod, "EventEmitter");
+    JS_FreeValue(workerCtx, eventsMod);
     if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(workerCtx, eventEmitterCtor)) {
         JSValue emitter = JS_CallConstructor(workerCtx, eventEmitterCtor, 0, nullptr);
         if (!JS_IsException(emitter)) {
@@ -231,33 +286,32 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
         JS_FreeValue(workerCtx, emitter);
     }
     JS_FreeValue(workerCtx, eventEmitterCtor);
-    
+
     // Store data pointer in parentPort opaque for postMessage access
     JS_SetOpaque(parentPort, data);
-    
+
     // Create postMessage function (serializes message to JSON so it can be parsed in main context)
     JS_SetPropertyStr(workerCtx, parentPort, "postMessage", JS_NewCFunction(workerCtx, workerParentPortPostMessage, "postMessage", 1));
-    
+
     parent_port_value = parentPort;
-    
+
     // Set parentPort in global scope
-    JSValue global = JS_GetGlobalObject(workerCtx);
-    JS_SetPropertyStr(workerCtx, global, "parentPort", JS_DupValue(workerCtx, parentPort));
-    JS_FreeValue(workerCtx, global);
-    
+    JS_SetPropertyStr(workerCtx, globalObj, "parentPort", JS_DupValue(workerCtx, parentPort));
+    JS_FreeValue(workerCtx, globalObj);
+
     // Set workerData in global scope (parsed from JSON so it belongs to this context)
     if (!workerDataJson.empty()) {
         JSValue parsed = JS_ParseJSON(workerCtx, workerDataJson.c_str(), workerDataJson.size(), "<workerData>");
         if (!JS_IsException(parsed)) {
             worker_data_value = JS_DupValue(workerCtx, parsed);
-            JSValue global = JS_GetGlobalObject(workerCtx);
-            JS_SetPropertyStr(workerCtx, global, "workerData", JS_DupValue(workerCtx, parsed));
-            JS_FreeValue(workerCtx, global);
+            JSValue globalW = JS_GetGlobalObject(workerCtx);
+            JS_SetPropertyStr(workerCtx, globalW, "workerData", JS_DupValue(workerCtx, parsed));
+            JS_FreeValue(workerCtx, globalW);
             JS_FreeValue(workerCtx, parsed);
         }
     }
 
-    // Load and execute worker script
+    // Load worker script from file
     std::ifstream file(filename);
     if (!file.is_open()) {
         EventLoop::getInstance().enqueueCallback([mainCtx, workerObj, filename]() {
@@ -273,27 +327,27 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
             }
             JS_FreeValue(mainCtx, emit);
         });
-        JS_FreeContext(workerCtx);
-        JS_FreeRuntime(workerRt);
         return;
     }
-    
+
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string code = buffer.str();
     file.close();
-    
-    // Execute worker script
-    JSValue result = JS_Eval(workerCtx, code.c_str(), code.length(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+
+    // Execute worker script via protoCore path (compile+load+run)
+    JSValue result = data->workerWrapper->eval(code, filename);
     if (JS_IsException(result)) {
         JSValue exception = JS_GetException(workerCtx);
         const char* error = JS_ToCString(workerCtx, exception);
         if (error) {
-            EventLoop::getInstance().enqueueCallback([mainCtx, workerObj, error]() {
+            std::string errorCopy(error);
+            JS_FreeCString(workerCtx, error);
+            EventLoop::getInstance().enqueueCallback([mainCtx, workerObj, errorCopy]() {
                 JSValue emit = JS_GetPropertyStr(mainCtx, workerObj, "emit");
                 if (JS_IsFunction(mainCtx, emit)) {
                     JSValue errorEvent = JS_NewString(mainCtx, "error");
-                    JSValue errorVal = JS_NewString(mainCtx, error);
+                    JSValue errorVal = JS_NewString(mainCtx, errorCopy.c_str());
                     JSValue args[] = {errorEvent, errorVal};
                     JS_Call(mainCtx, emit, workerObj, 2, args);
                     JS_FreeValue(mainCtx, errorEvent);
@@ -301,12 +355,11 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
                 }
                 JS_FreeValue(mainCtx, emit);
             });
-            JS_FreeCString(workerCtx, error);
         }
         JS_FreeValue(workerCtx, exception);
     }
     JS_FreeValue(workerCtx, result);
-    
+
     // Emit exit event
     EventLoop::getInstance().enqueueCallback([mainCtx, workerObj]() {
         JSValue emit = JS_GetPropertyStr(mainCtx, workerObj, "emit");

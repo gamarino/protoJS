@@ -13,12 +13,12 @@ protoJS is a JavaScript runtime that uses **QuickJS** only for parsing and compi
 
 **Current state (March 2026):**
 
-- **Two eval paths:** Legacy (QuickJS full execution) and protoCore (compile → load → run via ProtoInterpreter). CLI: `--proto-eval` or `PROTOJS_USE_PROTO_EVAL=1`.
+- **Single eval path:** All script execution uses protoCore (compile → load → run via ProtoInterpreter). No legacy `JS_Eval` for main script, REPL, debugger, modules, **workers**, or **Deferred**. Workers and Deferred are implemented as **ProtoThread** (protoCore); each has a JSContextWrapper and runs script via the same path, enabling native multithreading for JavaScript.
 - **Phase 3 full interpreter:** Stack, locals, properties, arrays, control flow, calls, constructors, and operators are implemented; execution state lives only in `ProtoContext` (no `std::vector`). Unknown opcodes are logged to stderr (opcode + byte offset).
 - **Testing:** Directed smoke test (`node tests/test262/runner/proto_eval_smoke.js`) and Test262 runner with protoCore path (`TEST262_USE_PROTO_EVAL=1`). Conformance tracked in `CONFORMANCE_JS.md` (e.g. `built-ins/Array/isArray`: 29/29 on protoCore).
 - **Documentation:** Architecture, runtime flow, and conformance are documented in `ARCHITECTURE.md`, `src/runtime/README.md`, and `CONFORMANCE_JS.md`.
 
-**Overall assessment:** The protoCore execution path is implemented and testable. Conformance and coverage are documented; further Test262 categories and optional default CLI path remain as next steps.
+**Overall assessment:** The protoCore execution path is implemented and testable; workers and Deferred run as ProtoThreads on the same path, providing native multithreading for JavaScript. Conformance and coverage are documented; Phase 6 (optional native global) remains as a next step.
 
 ---
 
@@ -32,9 +32,7 @@ JavaScript source
        ▼
 QuickJS (parser/compiler only)
        │
-       ├── Legacy path: JS_Eval() → QuickJS interpreter (TypeBridge, GCBridge, ExecutionEngine)
-       │
-       └── protoCore path: compileToBytecode() → loadBytecode() → ProtoInterpreter::runBytecode()
+       └── Single path: compileToBytecode() → loadBytecode() → ProtoInterpreter::runBytecode()
                                     │
                                     ▼
                             ProtoContext + ProtoObject only
@@ -45,7 +43,7 @@ QuickJS (parser/compiler only)
 
 | Component | Role |
 |-----------|------|
-| **JSContextWrapper** | Owns JSRuntime, JSContext, ProtoSpace, root ProtoContext. Chooses eval path; on legacy path sets `g_currentProtoContext` around JS_Eval. |
+| **JSContextWrapper** | Owns JSRuntime, JSContext, ProtoSpace, root ProtoContext. Single eval path: compile → load → run (no legacy JS_Eval). |
 | **ProtoCompileOnly / ProtoBytecodeLoader** | Compile-only QuickJS → bytecode; load into ProtoBytecodeModule (buffer, constant pool, nested function placeholders). |
 | **ProtoInterpreter** | Executes bytecode: stack and locals in ProtoContext::closureLocals (ProtoList stack, slot-indexed locals); dispatches opcodes; calls ProtoMethod and nested bytecode; no QuickJS runtime. |
 | **TypeBridge** | Converts JSValue ↔ ProtoObject at boundaries (script result, global object for interpreter). |
@@ -73,10 +71,10 @@ The interpreter implements the main QuickJS opcode groups used on the protoCore 
 
 ---
 
-## 4. Eval Paths and Configuration
+## 4. Eval Path and Configuration
 
-- **Legacy (default):** `eval()` → `JS_Eval()`. QuickJS runs the bytecode; TypeBridge, GCBridge, ExecutionEngine in use. `g_currentProtoContext` is set around JS_Eval so hooks see a valid ProtoContext.
-- **protoCore:** `setUseProtoEval(true)` or CLI `--proto-eval` / `PROTOJS_USE_PROTO_EVAL=1`. Eval uses compile → load → run; only TypeBridge/GCBridge at boundary. Test262 runner: `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true` in `tests/test262/config/test262_paths.json`.
+- **Single path:** All script execution uses compile → load → run (protoCore). No legacy `JS_Eval()` for main script, REPL, or debugger eval. **Workers** and **Deferred** are implemented as **ProtoThread** (protoCore): each gets a JSContextWrapper and runs script via the same compile → load → run path, enabling native multithreading for JavaScript. TypeBridge/GCBridge and host function bridge at boundary.
+- **Test262:** Runner in `tests/test262/runner/test262_runner.js`; use protoCore path via config or `PROTOJS_USE_PROTO_EVAL=1`.
 
 ---
 
@@ -113,14 +111,16 @@ The interpreter implements the main QuickJS opcode groups used on the protoCore 
 - **Conformance:** Only selected Test262 patterns have been run on the protoCore path; full suite not yet validated.
 - **Missing opcodes:** Any bytecode not yet implemented in ProtoInterpreter will trigger the unknown-opcode log and return; adding opcodes or falling back to legacy path for specific features may be needed.
 - **RegExp:** Intentionally left on QuickJS for correct `lastIndex` semantics on the legacy path.
+- **Workers and Deferred:** Both run as ProtoThread (protoCore); each task/worker has a JSContextWrapper and uses compile → load → run. Native multithreading for JavaScript is provided by protoCore’s ProtoThread.
 
 ---
 
 ## 9. Recommendations and Next Steps
 
 1. **Expand Test262 on protoCore:** Run additional patterns (e.g. language/expressions, language/statements), record results in `CONFORMANCE_JS.md`, and address missing opcodes or built-ins.
-2. **Optional:** Make the protoCore path the default CLI path with a `--legacy` flag for QuickJS execution.
-3. **Stability:** Run smoke and selected Test262 regularly after interpreter or loader changes; fix regressions and document new opcodes.
+2. **Phase 6 (optional):** ProtoCore-native global and further Test262 conformance.
+3. **Phase 6 (optional):** ProtoCore-native global — build global as ProtoObject from bootstrap; conversion only at host boundaries.
+4. **Stability:** Run smoke and selected Test262 regularly after interpreter or loader changes; fix regressions and document new opcodes.
 
 ---
 

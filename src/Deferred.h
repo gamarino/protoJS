@@ -16,10 +16,11 @@ namespace protojs {
 class JSContextWrapper;
 
 /**
- * @brief Lightweight task that executes in CPU thread pool.
- * 
- * Similar to Java virtual threads - multiple Deferred tasks can run
- * on the same OS thread from the CPU pool.
+ * @brief Lightweight task that executes in a ProtoThread (native multithreading).
+ *
+ * Deferred tasks are scheduled via ProtoSpace::newThread; each task runs in its own
+ * OS thread (ProtoThread) with a JSContextWrapper and compile+load+run (protoCore path).
+ * Fallback to CPUThreadPool only when wrapper/space is unavailable or newThread fails.
  */
 class Deferred {
 public:
@@ -58,6 +59,8 @@ public:
     static std::pair<JSValue, TaskHandle> createPending(JSContext* ctx, JSContextWrapper* wrapper);
     static void resolveTaskFromNative(TaskHandle task, JSValue resultValue);
     static void incrementActiveCount();
+    /** Runs the task in the current thread using JSContextWrapper (protoCore path). Used by ProtoThread entry. */
+    static void runDeferredTaskInProtoThread(std::shared_ptr<DeferredTask> task);
 
 private:
     static JSValue constructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);

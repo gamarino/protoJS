@@ -106,24 +106,25 @@ The runtime must initialise ProtoContext (e.g. via its constructor with `paramet
 
 **Interpreter rule (absolute):** The ProtoInterpreter must **not** use `std::vector` (or any C++ container outside protoCore) for local variables or the operand stack; the GC does not trace them. All slot and stack storage goes through **ProtoContext** (e.g. `closureLocals`: slot keys by index, and a reserved key for the evaluation stack implemented as a `ProtoList`). See `src/runtime/README.md` § "Absolute rule: no std::vector for execution state".
 
-### 1.4 Eval Paths: Legacy vs protoCore (Option B)
+### 1.4 Eval Path: Single protoCore Path (Option B)
 
-**Two execution paths:**
+**Single execution path:** All user script execution uses the **protoCore path**. There is no legacy `JS_Eval()` path for main script, REPL, or debugger eval.
 
-1. **Legacy path (default):** `eval()` calls `JS_Eval()`; QuickJS parses, compiles, and executes bytecode. TypeBridge, GCBridge, QuickJSArrayBridge, and ExecutionEngine are used to mirror or intercept operations between QuickJS and protoCore.
+1. **eval()** uses a **compile-only frontend** (`protojs::compileToBytecode`) backed by QuickJS to parse and emit bytecode, then `loadBytecode()` copies that bytecode and its constant pool into a `ProtoBytecodeModule`. Finally, `runBytecode()` executes the copied buffer via **ProtoInterpreter**. Stack and locals are `ProtoObject*`; no QuickJS interpreter runs for script execution. Result is converted to JSValue only at the boundary with `TypeBridge::toJS`.
 
-2. **protoCore path:** Enabled with `setUseProtoEval(true)`. `eval()` uses a **compile-only frontend** (`protojs::compileToBytecode`) backed by QuickJS to parse and emit bytecode, then `loadBytecode()` copies that bytecode and its constant pool into a `ProtoBytecodeModule` owned entirely by protoJS (no raw `JSFunctionBytecode*` or `JSValue*` are stored). Finally, `runBytecode()` executes the copied buffer via **ProtoInterpreter**. Stack and locals are `ProtoObject*`; no QuickJS interpreter or heap is used for script execution. Result is converted to JSValue only at the boundary with `TypeBridge::toJS`.
+2. **Module loaders (CommonJS, ES):** Use compile → load → run for module bodies; no `JS_Eval` for user module code.
 
-**Bridges on each path:**
+3. **REPL and debugger evaluate:** Use the wrapper’s `eval()` (same compile → load → run).
 
-- **protoCore path:** No QuickJS interpreter runs; therefore **QuickJSArrayBridge** and **ExecutionEngine** op* are not invoked during execution. **TypeBridge** and **GCBridge** are used only at the boundary (e.g. script result → JSValue, or when building the global object from QuickJS for the interpreter).
-- **Legacy path:** All bridges are used as today (array mirror, execution engine hooks, TypeBridge/GCBridge for dual-heap mapping).
+**Bridges:** **QuickJSArrayBridge** is stubbed (no-ops); **ExecutionEngine** is reduced to `getProtoContext(ctx)` only (no op* hooks). **TypeBridge** and **GCBridge** are used at the boundary (global object, script result, host call bridge). Built-ins (Array, JSON, RegExp, etc.) are invoked via the **host function bridge** in the interpreter (GCBridge + JS_Call).
 
-**Deliverable:** Clear separation: "protoCore path" = no bridges during execution; "legacy path" = current behavior. Use `useProtoEval()` / `setUseProtoEval(bool)` to switch.
+**Phase 4–5 (legacy removed):** `g_currentProtoContext` and the legacy eval branch have been removed. The interpreter uses only ProtoContext for stack and locals (no `std::vector`); see `src/runtime/README.md`.
 
-**Phase 4 (wire compile → load → run):** The eval entry point supports the protoCore path via `setUseProtoEval(true)`. The CLI accepts `--proto-eval` or the environment variable `PROTOJS_USE_PROTO_EVAL=1` to run scripts through the ProtoInterpreter. The Test262 runner can use the protoCore path by setting `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true` in `tests/test262/config/test262_paths.json`.
+**Workers as ProtoThreads:** Worker threads are implemented as **ProtoThread** (protoCore). The main thread creates a worker via `ProtoSpace::newThread()` with a C++ ProtoMethod entry that looks up `WorkerThreadData` by id and runs the worker script. Each worker has its own **JSContextWrapper** (and thus its own ProtoSpace) created inside the worker OS thread; script execution uses the same compile → load → run path as the main thread. No `JS_Eval` is used for worker script. Fallback to `std::thread` exists only when the main context has no wrapper or when `newThread` fails.
 
-**Phase 5 (legacy path context, no std::vector):** On the legacy path, `eval()` sets the thread-local `g_currentProtoContext` to the root context around `JS_Eval` and restores it afterwards so ExecutionEngine hooks always see a valid ProtoContext. The interpreter uses only ProtoContext for stack and locals (no `std::vector`); see `src/runtime/README.md`.
+**Deferred as ProtoThreads:** Deferred tasks (e.g. `new Deferred(fn)`) are scheduled via **ProtoSpace::newThread** (ProtoThread). The entry method receives a task id, looks up the task, and runs it in the same thread using a **JSContextWrapper** and `eval()` (compile → load → run), so the deferred function runs on the protoCore path. No `JS_Eval` or CPU thread pool is used for the task body; fallback to CPUThreadPool exists only when the main context has no wrapper or when `newThread` fails.
+
+**Remaining gaps (single path):** **Phase 6 (optional):** ProtoCore-native global — build the global as a ProtoObject from bootstrap so no QuickJS heap is used for the global object; conversion only at host boundaries.
 
 **Phase 6 (Test262 conformance on protoCore path):** Run Test262 with `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true`; document pass/fail by category in `CONFORMANCE_JS.md`; fix missing opcodes/built-ins to improve conformance. Optionally make protoCore the default CLI path.
 

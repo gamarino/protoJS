@@ -3,15 +3,54 @@
 #include "JSContext.h"
 #include "CPUThreadPool.h"
 #include "EventLoop.h"
+#include "headers/protoCore.h"
 #include <iostream>
 #include <memory>
 #include <cstring>
 #include <cstdlib>
 #include <thread>
+#include <unordered_map>
+#include <mutex>
+#include <string>
 
 namespace protojs {
 
 static JSClassID protojs_deferred_class_id;
+
+/** Map taskId -> DeferredTask for ProtoThread entry lookup. */
+static std::unordered_map<std::string, std::shared_ptr<Deferred::DeferredTask>> s_deferredTaskMap;
+static std::mutex s_deferredTaskMutex;
+static std::atomic<uint64_t> s_deferredTaskIdCounter{0};
+
+/** ProtoMethod run in the Deferred ProtoThread. Looks up task by id and runs it with JSContextWrapper (protoCore path). */
+static const proto::ProtoObject* deferredProtoThreadEntry(
+    proto::ProtoContext* context,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink* /*parentLink*/,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* /*kwargs*/)
+{
+    if (!context || !args || args->getSize(context) < 1) return PROTO_NONE;
+    const proto::ProtoObject* arg0 = args->getAt(context, 0);
+    if (!arg0 || !arg0->isString(context)) return PROTO_NONE;
+    const proto::ProtoString* idStr = arg0->asString(context);
+    std::string taskId;
+    idStr->toUTF8String(context, taskId);
+
+    std::shared_ptr<Deferred::DeferredTask> task;
+    {
+        std::lock_guard<std::mutex> lock(s_deferredTaskMutex);
+        auto it = s_deferredTaskMap.find(taskId);
+        if (it != s_deferredTaskMap.end()) {
+            task = it->second;
+            s_deferredTaskMap.erase(it);
+        }
+    }
+    if (task) {
+        Deferred::runDeferredTaskInProtoThread(task);
+    }
+    return PROTO_NONE;
+}
 
 // Store JSContextWrapper in JSContext opaque data
 static const char* JS_CONTEXT_WRAPPER_KEY = "protojs_wrapper";
@@ -252,8 +291,142 @@ void Deferred::resolveTaskFromNative(TaskHandle task, JSValue resultValue) {
     }
 }
 
+void Deferred::runDeferredTaskInProtoThread(std::shared_ptr<DeferredTask> task) {
+    auto wrapper = std::make_unique<JSContextWrapper>(0, 0, 3.0);
+    wrapper->setUseProtoEval(true);
+    JSContext* workerCtx = wrapper->getJSContext();
+
+    auto enqueueReject = [](std::shared_ptr<DeferredTask> t, const std::string& errorMsg) {
+        EventLoop::getInstance().enqueueCallback([t, errorMsg]() {
+            active_deferred_count--;
+            JSContext* ctx = t->mainJSContext;
+            t->isRejected = true;
+            t->error = JS_NewString(ctx, errorMsg.c_str());
+            if (!JS_IsUndefined(t->catchCallback)) {
+                JSValue catchArgs[] = { t->error };
+                JSValue r = JS_Call(ctx, t->catchCallback, JS_UNDEFINED, 1, catchArgs);
+                JS_FreeValue(ctx, r);
+            }
+            if (!JS_IsUndefined(t->deferredObj)) { JS_FreeValue(ctx, t->deferredObj); t->deferredObj = JS_UNDEFINED; }
+        });
+    };
+    auto enqueueResolve = [](std::shared_ptr<DeferredTask> t, uint8_t* serialized, size_t size) {
+        t->serializedResult = serialized;
+        t->serializedResultSize = size;
+        EventLoop::getInstance().enqueueCallback([t]() {
+            active_deferred_count--;
+            JSContext* ctx = t->mainJSContext;
+            t->isResolved = true;
+            if (t->serializedResult && t->serializedResultSize > 0) {
+                t->result = JS_ReadObject(ctx, t->serializedResult, t->serializedResultSize, JS_READ_OBJ_BYTECODE);
+                if (JS_IsException(t->result)) {
+                    JS_FreeValue(ctx, t->result);
+                    t->result = JS_UNDEFINED;
+                }
+            } else {
+                t->result = JS_UNDEFINED;
+            }
+            if (!JS_IsUndefined(t->thenCallback)) {
+                JSValue thenArgs[] = { t->result };
+                JSValue thenResult = JS_Call(ctx, t->thenCallback, JS_UNDEFINED, 1, thenArgs);
+                JS_FreeValue(ctx, thenResult);
+            }
+            if (t->serializedResult) {
+                free(t->serializedResult);
+                t->serializedResult = nullptr;
+                t->serializedResultSize = 0;
+            }
+            if (!JS_IsUndefined(t->deferredObj)) { JS_FreeValue(ctx, t->deferredObj); t->deferredObj = JS_UNDEFINED; }
+        });
+    };
+
+    try {
+        JSValue result = JS_UNDEFINED;
+        if (!task->functionSource.empty()) {
+            std::string evalCode = "var __deferred_fn = " + task->functionSource + "; __deferred_fn();";
+            result = wrapper->eval(evalCode, "(deferred)");
+        } else if (task->serializedFunc && task->serializedFuncSize > 0) {
+            result = JS_ReadObject(workerCtx, task->serializedFunc, task->serializedFuncSize, JS_READ_OBJ_BYTECODE);
+            if (JS_IsException(result)) {
+                const char* errStr = JS_ToCString(workerCtx, result);
+                std::string errorMsg(errStr ? errStr : "Failed to deserialize function");
+                JS_FreeCString(workerCtx, errStr);
+                JS_FreeValue(workerCtx, result);
+                enqueueReject(task, errorMsg);
+                return;
+            }
+            JSValue callResult = JS_Call(workerCtx, result, JS_UNDEFINED, 0, nullptr);
+            JS_FreeValue(workerCtx, result);
+            result = callResult;
+        } else {
+            enqueueReject(task, "Deferred: no function source or bytecode");
+            return;
+        }
+
+        if (JS_IsException(result)) {
+            std::string errorMsg("Unknown error");
+            JSValue ex = result;
+            JSValue msgVal = JS_GetPropertyStr(workerCtx, ex, "message");
+            if (!JS_IsUndefined(msgVal) && !JS_IsException(msgVal)) {
+                const char* errStr = JS_ToCString(workerCtx, msgVal);
+                if (errStr) { errorMsg = errStr; JS_FreeCString(workerCtx, errStr); }
+                JS_FreeValue(workerCtx, msgVal);
+            }
+            if (errorMsg == "Unknown error") {
+                JSValue strVal = JS_ToString(workerCtx, ex);
+                if (!JS_IsException(strVal)) {
+                    const char* errStr = JS_ToCString(workerCtx, strVal);
+                    if (errStr) { errorMsg = errStr; JS_FreeCString(workerCtx, errStr); }
+                    JS_FreeValue(workerCtx, strVal);
+                }
+            }
+            JS_FreeValue(workerCtx, result);
+            enqueueReject(task, errorMsg);
+            return;
+        }
+
+        size_t resultSize = 0;
+        uint8_t* serializedResult = JS_WriteObject(workerCtx, &resultSize, result, JS_WRITE_OBJ_BYTECODE);
+        JS_FreeValue(workerCtx, result);
+        if (serializedResult && resultSize > 0) {
+            uint8_t* copiedResult = static_cast<uint8_t*>(malloc(resultSize));
+            if (copiedResult) {
+                memcpy(copiedResult, serializedResult, resultSize);
+                js_free(workerCtx, serializedResult);
+                enqueueResolve(task, copiedResult, resultSize);
+            } else {
+                js_free(workerCtx, serializedResult);
+                enqueueResolve(task, nullptr, 0);
+            }
+        } else {
+            enqueueResolve(task, nullptr, 0);
+        }
+    } catch (const std::exception& e) {
+        enqueueReject(task, e.what());
+    }
+}
+
 void Deferred::executeTaskInWorkerThread(std::shared_ptr<DeferredTask> task) {
     active_deferred_count++;
+    if (task->wrapper && task->space) {
+        proto::ProtoSpace* space = task->space;
+        proto::ProtoContext* pctx = task->wrapper->getProtoContext();
+        std::string taskId = "d" + std::to_string(s_deferredTaskIdCounter++);
+        {
+            std::lock_guard<std::mutex> lock(s_deferredTaskMutex);
+            s_deferredTaskMap[taskId] = task;
+        }
+        const proto::ProtoList* argsList = pctx->newList();
+        argsList = argsList->appendLast(pctx, pctx->fromUTF8String(taskId.c_str()));
+        const proto::ProtoString* threadName = pctx->fromUTF8String(("deferred-" + taskId).c_str())->asString(pctx);
+        const proto::ProtoThread* thread = space->newThread(pctx, threadName, deferredProtoThreadEntry, argsList, nullptr);
+        if (!thread) {
+            std::lock_guard<std::mutex> lock(s_deferredTaskMutex);
+            s_deferredTaskMap.erase(taskId);
+            CPUThreadPool::getInstance().getExecutor().submit([task]() { workerThreadExecution(task); });
+        }
+        return;
+    }
     CPUThreadPool& pool = CPUThreadPool::getInstance();
     pool.getExecutor().submit([task]() {
         workerThreadExecution(task);
