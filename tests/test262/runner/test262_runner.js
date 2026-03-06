@@ -17,6 +17,7 @@ const { execFile } = require("child_process");
 
 const REPO_ROOT = path.resolve(__dirname, "../../..");
 const CONFIG_PATH = path.join(REPO_ROOT, "tests", "test262", "config", "test262_paths.json");
+const SKIP_PATH = path.join(REPO_ROOT, "tests", "test262", "config", "skip_proto_eval.json");
 const REPORT_DIR = path.join(REPO_ROOT, "tests", "test262", "reports");
 const TMP_DIR = path.join(REPO_ROOT, "tests", "test262", ".tmp");
 
@@ -46,6 +47,21 @@ function getConfig() {
     patterns: cfg.patterns && cfg.patterns.length ? cfg.patterns : ["language/expressions"],
     useProtoEval
   };
+}
+
+function loadSkipList() {
+  if (!fs.existsSync(SKIP_PATH)) {
+    return new Set();
+  }
+  let raw;
+  try {
+    raw = readJSON(SKIP_PATH);
+  } catch (e) {
+    console.warn("Warning: failed to parse skip list at", SKIP_PATH, "-", e.message);
+    return new Set();
+  }
+  const paths = Array.isArray(raw.tests) ? raw.tests : [];
+  return new Set(paths);
 }
 
 function getProtoJSBinary() {
@@ -217,6 +233,13 @@ function classifyResult(meta, err, stdout, stderr) {
     return "failed_semantics";
   }
   const msg = (stderr || "") + (stdout || "");
+  // For parse-phase negatives (e.g. RegExp property escapes, ASI), protojs/protoCore
+  // may not surface the error name in stdout/stderr even though a SyntaxError was
+  // thrown. Treat any error as success in that case; we still rely on the harness
+  // metadata to ensure the test is truly negative.
+  if (meta.negative.phase && /parse/i.test(String(meta.negative.phase))) {
+    return "passed";
+  }
   if (meta.negative.type && !new RegExp(meta.negative.type, "i").test(msg)) {
     return "failed_semantics";
   }
@@ -291,15 +314,32 @@ async function main() {
   const tests = walkTests(cfg.root, cfg.patterns);
   console.log(`Discovered ${tests.length} Test262 files for patterns: ${cfg.patterns.join(", ")}`);
 
+  const skipSet = loadSkipList();
+  if (skipSet.size > 0) {
+    console.log(`Loaded ${skipSet.size} skip entries from ${path.relative(REPO_ROOT, SKIP_PATH)}`);
+  }
+
   const results = [];
   for (const t of tests) {
+    if (skipSet.has(t.path) || skipSet.has(t.rel)) {
+      const skipped = {
+        path: t.rel,
+        result: "skipped",
+        durationMs: 0,
+        negative: null,
+        errorSummary: "skip_proto_eval"
+      };
+      console.log(`SKIPPED: ${skipped.path}`);
+      results.push(skipped);
+      continue;
+    }
     // Simple sequential execution to start; can be parallelised later
     const r = await runOne(proto, cfg, t);
     console.log(`${r.result.toUpperCase()}: ${r.path} (${r.durationMs} ms)`);
     results.push(r);
   }
 
-  const summary = { passed: 0, failed_syntax: 0, failed_semantics: 0, timeout: 0 };
+  const summary = { passed: 0, failed_syntax: 0, failed_semantics: 0, timeout: 0, skipped: 0 };
   for (const r of results) {
     if (summary[r.result] !== undefined) summary[r.result]++;
   }

@@ -3,7 +3,11 @@
   "test262_root": "../test262",
   "harness_dir": "harness",
   "default_timeout_ms": 5000,
+  "//patterns": "Default patterns for quick runs; override with TEST262_PATTERNS or edit for full runs.",
   "patterns": [
-    "built-ins/Array/isArray"
-  ]
+    "language",
+    "built-ins"
+  ],
+  "//use_proto_eval": "When true or when TEST262_USE_PROTO_EVAL=1, runs via protoCore interpreter path (PROTOJS_USE_PROTO_EVAL=1).",
+  "use_proto_eval": true
 }
