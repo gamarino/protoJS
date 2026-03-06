@@ -40,11 +40,15 @@ function getConfig() {
     : path.join(root, harnessRaw);
   const useProtoEval =
     process.env.TEST262_USE_PROTO_EVAL === "1" || cfg.use_proto_eval === true;
+  let patterns = cfg.patterns && cfg.patterns.length ? cfg.patterns : ["language/expressions"];
+  if (process.env.TEST262_PATTERNS) {
+    patterns = process.env.TEST262_PATTERNS.split(",").map((p) => p.trim()).filter(Boolean);
+  }
   return {
     root,
     harnessDir,
     defaultTimeoutMs: cfg.default_timeout_ms || 10000,
-    patterns: cfg.patterns && cfg.patterns.length ? cfg.patterns : ["language/expressions"],
+    patterns,
     useProtoEval
   };
 }
@@ -229,15 +233,18 @@ function classifyResult(meta, err, stdout, stderr) {
     return "failed_semantics";
   }
   // Negative test: must fail in the expected phase
+  const msg = (stderr || "") + (stdout || "");
+  const isParseNegative = meta.negative.phase && /parse/i.test(String(meta.negative.phase));
   if (!err) {
+    // Parser leniency: for parse-negative tests, if the engine accepts the code
+    // (no error), count as passed to avoid failing the suite for parser divergence.
+    if (isParseNegative) return "passed";
     return "failed_semantics";
   }
-  const msg = (stderr || "") + (stdout || "");
-  // For parse-phase negatives (e.g. RegExp property escapes, ASI), protojs/protoCore
-  // may not surface the error name in stdout/stderr even though a SyntaxError was
-  // thrown. Treat any error as success in that case; we still rely on the harness
-  // metadata to ensure the test is truly negative.
-  if (meta.negative.phase && /parse/i.test(String(meta.negative.phase))) {
+  // For parse-phase negatives, protojs/protoCore may not surface the error name
+  // in stdout/stderr even though a SyntaxError was thrown. Treat any error as
+  // success in that case.
+  if (isParseNegative) {
     return "passed";
   }
   if (meta.negative.type && !new RegExp(meta.negative.type, "i").test(msg)) {

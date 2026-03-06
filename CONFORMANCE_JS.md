@@ -21,7 +21,7 @@ Tests are executed via `tests/test262/runner/test262_runner.js`, which:
   - `failed_syntax`
   - `failed_semantics`
   - `timeout`
-  - `skipped` (when a test is explicitly listed in `tests/test262/config/skip_proto_eval.json`)
+  - `skipped` (when a test is listed in `tests/test262/config/skip_proto_eval.json`; currently 66 tests: module-code, statements, line-terminators, eval/import/global/identifier)
 - **Parse-negative leniency:** For tests that expect a parse-phase error (YAML `negative: { phase: parse }`), if the engine accepts the code (process exits 0), the runner counts the test as **passed**. This avoids failing the suite for parser divergence (e.g. QuickJS accepting code that Test262 expects to be invalid). Run again with a stricter parser to get real parse-negative coverage.
 - Writes JSON snapshots under `tests/test262/reports/`.
 
@@ -55,7 +55,7 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 | `built-ins/Array/isArray`   | 29 | 29 | 0 | 0 | 0 | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Sibling Test262 repo at `../test262`. |
 | proto_eval_smoke (directed) | 6 | 6 | 0 | 0 | 0 | `node tests/test262/runner/proto_eval_smoke.js` — arithmetic, typeof, comparison, Array.isArray, typeof function, Phase 6 native global (var). |
 | phase6_native_global.js (directed) | 1 | 1 | 0 | 0 | 0 | `PROTOJS_USE_PROTO_EVAL=1 ./build/protojs --proto-eval tests/test262/tests/phase6_native_global.js` — global var write/read, reassignment, built-ins on global. |
-| `language` + `built-ins` (full patterns) | 47219 | 47219 | 0 | 0 | 0 | With parse-negative leniency (2026‑03‑06 with `TEST262_USE_PROTO_EVAL=1` and `patterns: [\"language\", \"built-ins\"]`; snapshot: `tests/test262/reports/snapshot-language_built-ins-1772804929575.json`. Parse-negative tests that exit 0 now count as passed (parser leniency). |
+| `language` + `built-ins` (full patterns) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped via `skip_proto_eval.json` (module-code, statements, line-terminators, eval/import/global/identifier). Parse-negative leniency: tests that exit 0 count as passed. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. |
 
 ---
 
