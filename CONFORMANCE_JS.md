@@ -3,6 +3,8 @@
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Initial infrastructure only — snapshot reporting enabled, conformance numbers to be filled from runner output.
 
+**Single entry point and baseline:** To run C++ unit tests, smoke test, Phase 6 script, and optionally Test262: `./tests/run_all_tests.sh` (from repo root). For the testing baseline and how to run each layer, see [tests/README.md](tests/README.md).
+
 ---
 
 ## 1. Scope and Methodology
