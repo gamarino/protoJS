@@ -1,12 +1,17 @@
 # ProtoJS Performance Test Report
 
 **Generated:** January 24, 2026  
+**Last updated:** 2026-03-06 (Node.js comparison run)  
 **Test Suite Version:** 1.0  
 **Status:** Sample Report Generated
 
 ## Overview
 
 This document contains the performance test results for protoJS. The full interactive HTML report is available at [performance/sample_performance_report.html](performance/sample_performance_report.html).
+
+### Latest Node.js comparison (2026-03-06)
+
+The Node.js comparison suite (`run_nodejs_comparison.js`) was run on 2026-03-06: **5/5 benchmarks passed**. protoJS wins 4, tie 1 (basic_types). Overall speedup **11.18x** (protoJS avg 34.6 ms vs Node 386.8 ms). Array operations: **39.76x** faster. See [PERFORMANCE_RUN_2026-02-07.md](PERFORMANCE_RUN_2026-02-07.md) for the full run report and latest results table.
 
 ## Quick Access
 

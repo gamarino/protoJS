@@ -34,3 +34,9 @@ All notable changes to protoJS are documented in this file.
 - **Array operations:** 34–45x faster than Node.js (immutable structural sharing)
 - **Overall speedup:** ~10–45x depending on workload
 - Added [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with run report and analysis
+
+### Performance (2026-03-06)
+
+- Re-ran Node.js comparison suite: 5/5 benchmarks passed; protoJS wins 4, tie 1 (basic_types).
+- **Latest results:** array_operations 39.76x faster; overall speedup 11.18x (protoJS avg 34.6 ms vs Node 386.8 ms).
+- Updated [docs/PERFORMANCE_RUN_2026-02-07.md](docs/PERFORMANCE_RUN_2026-02-07.md) with latest run table and [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) with "Latest Node.js comparison" section.
