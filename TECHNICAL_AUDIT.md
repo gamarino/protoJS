@@ -118,8 +118,8 @@ The interpreter implements the main QuickJS opcode groups used on the protoCore 
 ## 9. Recommendations and Next Steps
 
 1. **Expand Test262 on protoCore:** Run additional patterns (e.g. language/expressions, language/statements), record results in `CONFORMANCE_JS.md`, and address missing opcodes or built-ins.
-2. **Phase 6 (optional):** ProtoCore-native global and further Test262 conformance.
-3. **Phase 6 (optional):** ProtoCore-native global — build global as ProtoObject from bootstrap; conversion only at host boundaries.
+2. **Phase 6 native global:** Implemented: global is a ProtoObject built on first eval from the QuickJS global; `runBytecode` takes `pGlobalRoot` and updates it on put_field/define_field so top-level var persists. Directed test: `node tests/test262/runner/proto_eval_smoke.js` (6 cases).
+3. **Further Test262 conformance:** Run additional patterns and fix missing opcodes/built-ins; document in `CONFORMANCE_JS.md`.
 4. **Stability:** Run smoke and selected Test262 regularly after interpreter or loader changes; fix regressions and document new opcodes.
 
 ---

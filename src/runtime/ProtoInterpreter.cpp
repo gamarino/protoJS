@@ -286,7 +286,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
                                       const proto::ProtoList* args,
-                                      const proto::ProtoObject* globalObj,
+                                      const proto::ProtoObject** pGlobalRoot,
                                       JSContext* jsContextForAtoms) {
     if (!pContext || !module) return PROTO_NONE;
     const uint8_t* buf = module->buf();
@@ -302,6 +302,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ProtoBytecodeModule* mod = const_cast<ProtoBytecodeModule*>(module);
 
     while (pc >= 0 && pc < len) {
+        const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
         int opcode = buf[pc++];
         switch (opcode) {
             // --- Constant and immediate pushes ---
@@ -936,6 +937,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
+                    if (newObj && pGlobalRoot && obj == globalObj)
+                        *pGlobalRoot = newObj;
                     stackPush(pContext,newObj ? newObj : obj);
                 }
                 break;
@@ -951,6 +954,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
+                    if (newObj && pGlobalRoot && obj == globalObj)
+                        *pGlobalRoot = newObj;
                     stackPush(pContext,newObj ? newObj : obj);
                 } else {
                     stackPush(pContext,PROTO_NONE);
@@ -1323,7 +1328,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     for (uint32_t i = 0; i < argc; i++)
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
                     const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, thisVal, argsList, globalObj, jsContextForAtoms);
+                        runBytecode(&childCtx, &nf, thisVal, argsList, pGlobalRoot, jsContextForAtoms);
                     childCtx.returnValue = result;
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
@@ -1371,7 +1376,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     for (uint32_t i = 0; i < argc; i++)
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
-                    result = runBytecode(&childCtx, &nf, newObj, argsList, globalObj, jsContextForAtoms);
+                    result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot, jsContextForAtoms);
                     childCtx.returnValue = result;
                 } else if (func && func->isMethod(pContext)) {
                     result = func->call(pContext, nullptr,
@@ -1412,7 +1417,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
 
                     const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, thisVal, argsList, globalObj, jsContextForAtoms);
+                        runBytecode(&childCtx, &nf, thisVal, argsList, pGlobalRoot, jsContextForAtoms);
                     // Preserve the result for GC: the destructor will create a
                     // ReturnReference in the parent context.
                     childCtx.returnValue = result;

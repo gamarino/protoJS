@@ -20,7 +20,7 @@ namespace protojs {
  *
  * - `thisObj`: JS `this` binding for this frame.
  * - `args`: positional arguments for the frame (may be null for top-level).
- * - `globalObj`: global scope object for resolving global variables.
+ * - `pGlobalRoot`: pointer to current global object; used for reads and updated on put_field (Phase 6).
  *
  * Returns the result ProtoObject, or PROTO_NONE on error/exception.
  */
@@ -28,7 +28,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
                                       const proto::ProtoList* args,
-                                      const proto::ProtoObject* globalObj,
+                                      const proto::ProtoObject** pGlobalRoot,
                                       JSContext* jsContextForAtoms);
 
 } // namespace protojs

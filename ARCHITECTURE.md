@@ -124,7 +124,7 @@ The runtime must initialise ProtoContext (e.g. via its constructor with `paramet
 
 **Deferred as ProtoThreads:** Deferred tasks (e.g. `new Deferred(fn)`) are scheduled via **ProtoSpace::newThread** (ProtoThread). The entry method receives a task id, looks up the task, and runs it in the same thread using a **JSContextWrapper** and `eval()` (compile → load → run), so the deferred function runs on the protoCore path. No `JS_Eval` or CPU thread pool is used for the task body; fallback to CPUThreadPool exists only when the main context has no wrapper or when `newThread` fails.
 
-**Remaining gaps (single path):** **Phase 6 (optional):** ProtoCore-native global — build the global as a ProtoObject from bootstrap so no QuickJS heap is used for the global object; conversion only at host boundaries.
+**Phase 6 (native global):** The global object is built as a **ProtoObject** from bootstrap: on first eval, `getNativeGlobal()` creates a mutable ProtoObject, copies all enumerable own properties from the QuickJS global via `JS_GetOwnPropertyNames` and `TypeBridge::fromJS`, and uses it as the scope for the interpreter. `runBytecode` receives a pointer to the current global root; when the interpreter performs `put_field` or `define_field` on the global, the root is updated so subsequent reads see the new object. No QuickJS heap is used for the global container; conversion only at host boundaries (built-ins remain host-backed via GCBridge).
 
 **Phase 6 (Test262 conformance on protoCore path):** Run Test262 with `TEST262_USE_PROTO_EVAL=1` or `use_proto_eval: true`; document pass/fail by category in `CONFORMANCE_JS.md`; fix missing opcodes/built-ins to improve conformance. Optionally make protoCore the default CLI path.
 

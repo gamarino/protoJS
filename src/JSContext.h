@@ -72,7 +72,15 @@ public:
      */
     const proto::ProtoObject* getJSRegExpPrototype() const { return jsPrototypes_.regexp; }
 
+    /**
+     * @brief Returns the ProtoCore-native global object (Phase 6).
+     * Built on first use from the QuickJS global; used as globalObj in eval.
+     */
+    const proto::ProtoObject* getNativeGlobal(proto::ProtoContext* frameCtx);
+
 private:
+    /** Phase 6: ProtoCore-native global root; built lazily, updated when interpreter mutates global. */
+    mutable const proto::ProtoObject* nativeGlobalRoot_{nullptr};
     JSRuntime* rt;
     JSContext* ctx;
     proto::ProtoSpace pSpace;

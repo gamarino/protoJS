@@ -43,6 +43,7 @@ Phase 5 completes the Option B runtime behaviour and sets the stage for conforma
 
 - **Single path:** All script execution uses compile → load → run; there is no legacy `JS_Eval` path. `ExecutionEngine::getProtoContext(ctx)` is used only by the debugger (and similar) to obtain the current ProtoContext from the wrapper.
 - **Stack and locals in ProtoContext only:** All interpreter state (operand stack and local/argument slots) is stored in `ProtoContext::closureLocals`; no `std::vector` is used so the GC sees every reference (see § "Absolute rule" above).
+- **Phase 6 native global:** The global object is a ProtoObject built on first eval from the QuickJS global; `runBytecode` takes `pGlobalRoot` so that `put_field`/`define_field` on the global update the root and subsequent reads see the new object. See `ARCHITECTURE.md` § 1.4.
 - **Next (Phase 6 / conformance):** Run Test262 on the protoCore path (`TEST262_USE_PROTO_EVAL=1`), document pass/fail by category, and fix missing opcodes or built-ins to improve conformance. Optionally make the protoCore path the default for the CLI.
 
 ## Phase 6 (Test262 conformance on protoCore path)

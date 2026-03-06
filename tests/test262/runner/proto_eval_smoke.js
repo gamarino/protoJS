@@ -35,6 +35,8 @@ const cases = [
   { code: "1 < 2", name: "comparison" },
   { code: "Array.isArray([])", name: "Array.isArray" },
   { code: "typeof function(){}", name: "typeof function" },
+  // Phase 6: native global; top-level var must persist within same eval
+  { code: "var __phase6_global = 1; if (__phase6_global !== 1) throw new Error('global');", name: "Phase6 native global (var)" },
 ];
 
 let failed = 0;

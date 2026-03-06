@@ -10,6 +10,7 @@
 #include "runtime/ProtoCompileOnly.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include "runtime/ProtoInterpreter.h"
+#include "quickjs.h"
 #include <iostream>
 
 namespace protojs {
@@ -60,6 +61,35 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     std::cerr << "[protojs] JSContextWrapper: constructor done" << std::endl;
 }
 
+const proto::ProtoObject* JSContextWrapper::getNativeGlobal(proto::ProtoContext* frameCtx) {
+    if (nativeGlobalRoot_) return nativeGlobalRoot_;
+    if (!jsPrototypes_.object || !pContext) return nullptr;
+    const proto::ProtoObject* obj = jsPrototypes_.object->newChild(pContext, true);
+    if (!obj) return nullptr;
+    JSValue globalVal = JS_GetGlobalObject(ctx);
+    JSPropertyEnum* props = nullptr;
+    uint32_t len = 0;
+    if (JS_GetOwnPropertyNames(ctx, &props, &len, globalVal, JS_GPN_STRING_MASK) != 0) {
+        JS_FreeValue(ctx, globalVal);
+        return nullptr;
+    }
+    for (uint32_t i = 0; i < len; i++) {
+        JSAtom atom = props[i].atom;
+        const char* name = JS_AtomToCString(ctx, atom);
+        if (!name) continue;
+        JSValue val = JS_GetProperty(ctx, globalVal, atom);
+        const proto::ProtoObject* pv = TypeBridge::fromJS(ctx, val, frameCtx ? frameCtx : pContext);
+        JS_FreeValue(ctx, val);
+        const proto::ProtoString* key = pContext->fromUTF8String(name)->asString(pContext);
+        obj = obj->setAttribute(pContext, key, pv ? pv : PROTO_NONE);
+        JS_FreeCString(ctx, name);
+    }
+    JS_FreePropertyEnum(ctx, props, len);
+    JS_FreeValue(ctx, globalVal);
+    nativeGlobalRoot_ = obj;
+    return nativeGlobalRoot_;
+}
+
 JSContextWrapper::~JSContextWrapper() {
     // Cleanup ExecutionEngine
     ExecutionEngine::cleanup(ctx);
@@ -100,16 +130,18 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
             val = JS_EXCEPTION;
         } else {
-            JSValue globalVal = JS_GetGlobalObject(ctx);
-            const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
-            JS_FreeValue(ctx, globalVal);
-
+            const proto::ProtoObject* globalObj = getNativeGlobal(&frameCtx);
+            if (!globalObj) {
+                JS_ThrowTypeError(ctx, "Failed to build native global (Phase 6)");
+                val = JS_GetException(ctx);
+            } else {
             const proto::ProtoObject* result =
-                protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
+                protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &nativeGlobalRoot_, ctx);
             // Hand the result back to the previous context for GC purposes.
             frameCtx.returnValue = result;
 
             val = TypeBridge::toJS(ctx, result, &frameCtx);
+            }
         }
     }
 

@@ -342,7 +342,7 @@ JSValue CommonJSLoader::wrapModule(
     JS_FreeValue(ctx, globalVal);
 
     // Run top-level script; result is the wrapper function
-    const proto::ProtoObject* wrapperFunc = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, globalObj, ctx);
+    const proto::ProtoObject* wrapperFunc = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &globalObj, ctx);
     frameCtx.returnValue = wrapperFunc;
 
     if (!wrapperFunc || wrapperFunc == PROTO_NONE) {
@@ -386,7 +386,7 @@ JSValue CommonJSLoader::wrapModule(
             if (childCtx.closureLocals)
                 childCtx.closureLocals = childCtx.closureLocals->setAt(&childCtx, slotK, arg ? arg : PROTO_NONE);
         }
-        const proto::ProtoObject* result = protojs::runBytecode(&childCtx, &module.nestedFunctions[static_cast<size_t>(bcId)], PROTO_NONE, argsList, globalObj, ctx);
+        const proto::ProtoObject* result = protojs::runBytecode(&childCtx, &module.nestedFunctions[static_cast<size_t>(bcId)], PROTO_NONE, argsList, &globalObj, ctx);
         childCtx.returnValue = result;
         resultVal = TypeBridge::toJS(ctx, result ? result : PROTO_NONE, &frameCtx);
     }

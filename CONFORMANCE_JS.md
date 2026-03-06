@@ -41,9 +41,13 @@ The protoCore backend is immutable by default. ECMA-262 requires RegExp instance
 
 The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Results (pass/fail/timeout) should be filled from the JSON snapshots in `tests/test262/reports/` after each run. Focus: fix missing opcodes and built-ins in the ProtoInterpreter and TypeBridge to improve these numbers. See `src/runtime/README.md` § Phase 6.
 
+**Phase 6 native global:** The global object is a ProtoObject built at first eval from the QuickJS global; top-level `var` assignments update the global root so reads see the new value. Directed smoke test: `node tests/test262/runner/proto_eval_smoke.js` (6 cases, including native global var persistence).
+
 | Path / category (protoCore) | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
 | `built-ins/Array/isArray`   | 29 | 29 | 0 | 0 | 0 | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Sibling Test262 repo at `../test262`. |
+| proto_eval_smoke (directed) | 6 | 6 | 0 | 0 | 0 | `node tests/test262/runner/proto_eval_smoke.js` — arithmetic, typeof, comparison, Array.isArray, typeof function, Phase 6 native global (var). |
+| phase6_native_global.js (directed) | 1 | 1 | 0 | 0 | 0 | `PROTOJS_USE_PROTO_EVAL=1 ./build/protojs --proto-eval tests/test262/tests/phase6_native_global.js` — global var write/read, reassignment, built-ins on global. |
 
 ---
 
