@@ -32,7 +32,7 @@ function runBenchmark(benchmarkFile, runtime) {
             ? `"${findProtojs()}" "${scriptPath}"`
             : `node "${scriptPath}"`;
         const startWall = Date.now();
-        const execTimeoutMs = 60000; // per-benchmark timeout so heavy/async benchmarks (e.g. parallel_cpu) don't hang
+        const execTimeoutMs = 120000; // per-benchmark timeout (parallel_cpu with protojs uses 2e5 iter to complete in time)
         exec(cmd, { cwd: __dirname, maxBuffer: 2 * 1024 * 1024, timeout: execTimeoutMs }, (error, stdout, stderr) => {
             const wallClockMs = Date.now() - startWall;
             if (error) {

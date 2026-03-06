@@ -18,7 +18,7 @@ This gives **significant, comparable results** because both engines execute the 
 | `string_concat.js` | String concatenation | 50k concats, 5 runs |
 | `function_calls.js` | No-op function call overhead | 2e6 calls, 5 runs |
 | `control_flow.js` | Conditionals in loop | 1e6 iterations if/else, 5 runs |
-| `parallel_cpu.js` | Heavy parallel CPU (multithreading) | 4 × (2e6 iterations). Under protojs (`__protojs__`) runs sequential so the benchmark completes (Deferred callbacks may not drain before CLI event-loop timeout). Under Node or other runtimes uses Deferred/protoCore when available. |
+| `parallel_cpu.js` | Heavy parallel CPU (ProtoThreads) | 4 tasks × 5 rounds. Under protojs: `protoCore.runInThread('cpuChunk', …)` with setImmediate stagger; WORK_PER_TASK = 2e5 so the run completes within the runner timeout. Under Node: same workload at 2e6 iter. |
 
 **Note:** `parallel_worker.js` is a worker script used by a potential parallel_cpu implementation (Worker-based), not a standalone benchmark; the runner skips `*_worker.js` files.
 
@@ -30,7 +30,7 @@ From the **protoJS project root**:
 node tests/benchmarks/run_standard_comparison.js
 ```
 
-- **protoJS:** If the protoCore compile path fails, the CLI falls back to direct QuickJS eval so scripts still run and emit `__BENCH_RESULT__`. `parallel_cpu.js` uses the sequential path under protojs so it always completes.
+- **protoJS:** Scripts run (compile fallback to QuickJS eval when needed). `parallel_cpu.js` uses ProtoThreads via `protoCore.runInThread`; thread creation is staggered with `setImmediate` to avoid lock contention. Under protojs the workload per task is 2e5 iterations so the benchmark finishes in time.
 
 Output:
 

@@ -16,11 +16,11 @@ namespace protojs {
 class JSContextWrapper;
 
 /**
- * @brief Lightweight task that executes in a ProtoThread (native multithreading).
+ * @brief Lightweight task that executes in a ProtoThread (protoCore multithreading only).
  *
- * Deferred tasks are scheduled via ProtoSpace::newThread; each task runs in its own
- * OS thread (ProtoThread) with a JSContextWrapper and compile+load+run (protoCore path).
- * Fallback to CPUThreadPool only when wrapper/space is unavailable or newThread fails.
+ * Deferred tasks are scheduled via ProtoSpace::newThread (public API); each task runs in its own
+ * ProtoThread. Roots are tracked by protoCore's GC. No native threads are used for execution.
+ * If wrapper/space is unavailable or newThread fails, the Deferred is rejected (no CPUThreadPool fallback).
  */
 class Deferred {
 public:

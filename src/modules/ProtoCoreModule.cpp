@@ -17,6 +17,7 @@ static std::unordered_map<std::string, proto::ProtoMethod> s_nativeWorkers;
 
 // Native CPU chunk: LCG workload (same as JS runOneChunk). args = [resultHolder, iterations].
 // Data-dependent loop; not trivially optimizable. Writes result to resultHolder["value"].
+// Receives the thread's ProtoContext (caller must be the thread entry that created it).
 static const proto::ProtoObject* cpuChunkWorker(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
@@ -38,12 +39,23 @@ static const proto::ProtoObject* cpuChunkWorker(
         sum += state;
     }
     const proto::ProtoString* key = context->fromUTF8String("value")->asString(context);
-    // ProtoObjects are immutable; capture the updated root so callers can
-    // observe the new attribute through their own references.
     const proto::ProtoObject* newHolder =
         holder->setAttribute(context, key, context->fromLong(static_cast<long long>(sum)));
-    (void)newHolder; // In this worker, the holder is typically owned by the caller.
+    (void)newHolder;
     return PROTO_NONE;
+}
+
+// Thread entry: create first ProtoContext for this thread (nullptr as caller), then run the native worker.
+static const proto::ProtoObject* cpuChunkThreadEntry(
+    proto::ProtoContext* context,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* parentLink,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kwargs)
+{
+    if (!context || !context->space) return PROTO_NONE;
+    proto::ProtoContext threadCtx(context->space, nullptr, nullptr, nullptr, nullptr, nullptr);
+    return cpuChunkWorker(&threadCtx, self, parentLink, args, kwargs);
 }
 static JSClassID protojs_multiset_class_id;
 static JSClassID protojs_sparselist_class_id;
@@ -133,7 +145,7 @@ void ProtoCoreModule::init(JSContext* ctx) {
     JS_SetPropertyStr(ctx, protoCoreModule, "makeMutable", JS_NewCFunction(ctx, MakeMutable, "makeMutable", 1));
     JS_SetPropertyStr(ctx, protoCoreModule, "runInThread", JS_NewCFunction(ctx, RunInThread, "runInThread", 2));
 
-    s_nativeWorkers["cpuChunk"] = cpuChunkWorker;
+    s_nativeWorkers["cpuChunk"] = cpuChunkThreadEntry;
 
     // Add to global scope
     JSValue global_obj = JS_GetGlobalObject(ctx);

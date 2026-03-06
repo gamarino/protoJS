@@ -35,6 +35,17 @@
 #include <thread>
 #include <chrono>
 
+static JSValue js_setImmediate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    (void)this_val;
+    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) return JS_UNDEFINED;
+    JSValue cb = JS_DupValue(ctx, argv[0]);
+    protojs::EventLoop::getInstance().enqueueCallback([ctx, cb]() {
+        JS_Call(ctx, cb, JS_UNDEFINED, 0, nullptr);
+        JS_FreeValue(ctx, cb);
+    });
+    return JS_UNDEFINED;
+}
+
 void printUsage(const char* programName) {
     std::cerr << "Usage: " << programName << " [options] <filename.js> or " << programName << " -e \"code\"" << std::endl;
     std::cerr << "Options:" << std::endl;
@@ -47,6 +58,7 @@ void printUsage(const char* programName) {
     std::cerr << "  -v, --version        Show version" << std::endl;
     std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
     std::cerr << "  --proto-eval         Use protoCore interpreter for eval (compile-only + ProtoInterpreter)" << std::endl;
+    std::cerr << "  --minimal            Minimal init (Console only); use to isolate compile/run issues" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -66,6 +78,7 @@ int main(int argc, char** argv) {
     bool showVersion = false;
     bool inputTypeModule = false;
     bool useProtoEvalCli = false;
+    bool minimalInit = false;
 
     // Parse arguments
     int i = 1;
@@ -91,6 +104,8 @@ int main(int argc, char** argv) {
             inputTypeModule = true;
         } else if (arg == "--proto-eval") {
             useProtoEvalCli = true;
+        } else if (arg == "--minimal") {
+            minimalInit = true;
         } else if (arg[0] != '-') {
             filename = arg;
             std::ifstream file(filename);
@@ -168,10 +183,34 @@ int main(int argc, char** argv) {
     // protoCore is the single execution path (compile → load → run).
     wrapper.setUseProtoEval(true);
 
+    if (minimalInit) {
+        std::cerr << "[protojs] CLI: minimal init (Console only)" << std::endl;
+        protojs::Console::init(wrapper.getJSContext());
+        {
+            JSContext* ctx = wrapper.getJSContext();
+            JSValue global = JS_GetGlobalObject(ctx);
+            JS_SetPropertyStr(ctx, global, "__protojs__", JS_NewBool(ctx, 1));
+            JS_SetPropertyStr(ctx, global, "__filename", JS_NewString(ctx, filename.c_str()));
+            size_t lastSlash = filename.find_last_of("/\\");
+            std::string dirname = (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".";
+            JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
+            JS_FreeValue(ctx, global);
+        }
+        JSValue result = wrapper.eval(code, filename);
+        JS_FreeValue(wrapper.getJSContext(), result);
+        return 0;
+    }
+
     // Initialize modules
     std::cerr << "[protojs] CLI: initializing core modules" << std::endl;
     protojs::Console::init(wrapper.getJSContext());
     std::cerr << "[protojs] CLI: Console initialized" << std::endl;
+    {
+        JSContext* ctx = wrapper.getJSContext();
+        JSValue global = JS_GetGlobalObject(ctx);
+        JS_SetPropertyStr(ctx, global, "__protojs__", JS_NewBool(ctx, 1));
+        JS_FreeValue(ctx, global);
+    }
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
     std::cerr << "[protojs] CLI: Deferred initialized" << std::endl;
     protojs::IOModule::init(wrapper.getJSContext());
@@ -228,7 +267,7 @@ int main(int argc, char** argv) {
     protojs::IntegratedDebugger::init(wrapper.getJSContext());
     std::cerr << "[protojs] CLI: IntegratedDebugger initialized" << std::endl;
 
-    // Set __filename and __dirname for main script so require() resolves relative to script dir
+    // Set __filename, __dirname, and setImmediate for main script
     {
         JSContext* ctx = wrapper.getJSContext();
         JSValue global = JS_GetGlobalObject(ctx);
@@ -236,6 +275,8 @@ int main(int argc, char** argv) {
         size_t lastSlash = filename.find_last_of("/\\");
         std::string dirname = (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".";
         JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
+        JSValue setImmediateFn = JS_NewCFunction(ctx, js_setImmediate, "setImmediate", 1);
+        JS_SetPropertyStr(ctx, global, "setImmediate", setImmediateFn);
         JS_FreeValue(ctx, global);
     }
 
@@ -273,7 +314,7 @@ int main(int argc, char** argv) {
     
     // Process event loop: handle Deferred/Worker callbacks and wait for worker threads
     auto start = std::chrono::steady_clock::now();
-    const auto timeout = std::chrono::seconds(30);
+    const auto timeout = std::chrono::seconds(180);  // Allow parallel_cpu (5 rounds × 4 staggered ProtoThreads, 2e6 iter each) to complete
 
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||

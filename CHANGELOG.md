@@ -6,9 +6,15 @@ All notable changes to protoJS are documented in this file.
 
 ### Added
 
+- **setImmediate in CLI** (2026-03-03): Global `setImmediate(callback)` enqueues to the event loop so scripts can yield between ProtoThread creations and avoid lock contention when creating several threads in quick succession. Used by `parallel_cpu.js` under protoCore.
+
 - **Phase 6: ProtoCore-native global object** (2026-03-03): The global scope is now a ProtoObject built at first eval from the QuickJS global via `JS_GetOwnPropertyNames` and `TypeBridge::fromJS`. No QuickJS heap is used for the global container; conversion only at host boundaries. `runBytecode` accepts `pGlobalRoot` and updates it on `put_field`/`define_field` so top-level `var` assignments persist and subsequent reads see the new object. Directed tests: `proto_eval_smoke.js` (6 cases, including Phase 6 global var) and `tests/test262/tests/phase6_native_global.js`. Docs: ARCHITECTURE.md § 1.4, CONFORMANCE_JS.md Phase 6 table, src/runtime/README.md, TECHNICAL_AUDIT.md.
 
 ### Fixed
+
+- **Multithreading: first ProtoContext in thread entry** (2026-03-03): Deferred and runInThread now create the first ProtoContext inside the thread’s initial function with `nullptr` as caller, so no ProtoContext is shared across threads. `deferredProtoThreadEntry` builds `ProtoContext(space, nullptr, ...)` and uses it for all work; `cpuChunkThreadEntry` does the same and then calls `cpuChunkWorker`. Deferred uses only ProtoThreads (no CPUThreadPool fallback for execution); if `newThread` fails or wrapper/space is missing, the Deferred is rejected. Docs: `src/runtime/README.md` § Multithreading and protoCore.
+
+- **parallel_cpu benchmark under protojs** (2026-03-03): `protoCore.runInThread` tasks are scheduled with `setImmediate` stagger so the main thread yields between `newThread` calls. Under protojs, `WORK_PER_TASK` is 2e5 so the run completes within the runner timeout; Node keeps 2e6. Standard comparison passes all 7 benchmarks; parallel_cpu reports protoJS faster than Node on that benchmark.
 
 - **Packaging** (2026-02-08): Added `packaging/build_deb.sh` to build the protoJS .deb from current templates on Debian/Ubuntu. INSTALLATION and PROCEDURES updated: users must rebuild the .deb (e.g. run `./packaging/build_deb.sh`) after the protocore dependency fix—otherwise an old .deb still reports "protoCore is not installed" when the `protocore` package is installed.
 

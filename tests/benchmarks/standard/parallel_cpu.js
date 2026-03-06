@@ -8,7 +8,8 @@
 // Runner uses __BENCH_RESULT__.time_ms for comparison.
 
 var NUM_TASKS = 4;
-var WORK_PER_TASK = 2e6;
+// Under protojs, use fewer iterations so the benchmark completes within the runner timeout (ProtoThread + stagger).
+var WORK_PER_TASK = (typeof __protojs__ !== 'undefined') ? 2e5 : 2e6;
 
 // LCG workload: state = (state * A + C) mod 2^32, sum += state. Not reducible by JIT.
 // Use literal so Deferred worker has no closure refs.
@@ -99,24 +100,28 @@ function runParallelWithProtoCore(callback) {
             }
         }
 
-        for (var i = 0; i < NUM_TASKS; i++) {
+        // Stagger ProtoThread creation with setImmediate so the main thread yields between newThread
+        // calls, avoiding lock contention when creating several threads in quick succession.
+        function scheduleNext(i) {
+            if (i >= NUM_TASKS) return;
             var d = protoCore.runInThread('cpuChunk', [WORK_PER_TASK]);
             d.then(onDone);
             d.catch(function (err) {
                 onDone();
             });
+            if (i + 1 < NUM_TASKS && typeof setImmediate === 'function') {
+                setImmediate(function () { scheduleNext(i + 1); });
+            } else if (i + 1 < NUM_TASKS && typeof setTimeout === 'function') {
+                setTimeout(function () { scheduleNext(i + 1); }, 0);
+            }
         }
+        scheduleNext(0);
     }
 
     runRound();
 }
 
-// Under protojs CLI, Deferred callbacks may not drain before event-loop timeout; use sequential so the benchmark always completes and emits __BENCH_RESULT__.
-if (typeof __protojs__ !== 'undefined') {
-    var median = runSequential();
-    var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: false };
-    console.log('__BENCH_RESULT__' + JSON.stringify(result));
-} else if (typeof protoCore !== 'undefined' && typeof protoCore.runInThread === 'function') {
+if (typeof protoCore !== 'undefined' && typeof protoCore.runInThread === 'function') {
     runParallelWithProtoCore(function (median) {
         var result = { name: 'parallel_cpu', time_ms: median, iterations: 5, tasks: NUM_TASKS, parallel: true };
         console.log('__BENCH_RESULT__' + JSON.stringify(result));

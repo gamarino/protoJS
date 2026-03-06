@@ -84,3 +84,10 @@ For Test262: set `TEST262_USE_PROTO_EVAL=1` or `"use_proto_eval": true` in `test
 ## Bridges
 
 **QuickJSArrayBridge** is stubbed (no-ops). **ExecutionEngine** provides only `getProtoContext(ctx)`. **TypeBridge** and **GCBridge** are used at the boundary (global object, script result, host function bridge). See `ARCHITECTURE.md` § 1.4.
+
+## Multithreading and protoCore
+
+- **Only ProtoThreads:** Execution of user/script work in parallel uses **only** `ProtoSpace::newThread` (public API in `protoCore.h`). No native (OS) threads are used for execution; otherwise roots would not be tracked by protoCore's GC.
+- **Only public API:** protoJS uses only the public interface from `protoCore.h`. Internal structures of protoCore are not used (they may be used only to debug or understand behaviour).
+- **First ProtoContext in the thread entry:** A ProtoThread runs a function as its main method; that method receives a previous context (may be nullptr). The **initial function** of the thread instantiates the first (and only) `ProtoContext` for that thread with **nullptr** as the caller context, and uses that context for all work. This function never returns; it only ends when the thread ends. So without modifying protoCore, the first ProtoContext is created inside the thread's initial function, with no caller context. ProtoContexts are never shared between threads.
+- **Locks:** In general, users of protoCore do not use locks for object creation. The only valid exception is a lock for loading the module cache.

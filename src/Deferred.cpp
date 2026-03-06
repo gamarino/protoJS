@@ -22,7 +22,7 @@ static std::unordered_map<std::string, std::shared_ptr<Deferred::DeferredTask>> 
 static std::mutex s_deferredTaskMutex;
 static std::atomic<uint64_t> s_deferredTaskIdCounter{0};
 
-/** ProtoMethod run in the Deferred ProtoThread. Looks up task by id and runs it with JSContextWrapper (protoCore path). */
+/** ProtoMethod run as the main function of the Deferred ProtoThread. Creates the first (and only) ProtoContext for this thread with nullptr as caller; never returns (thread ends when work is done). Uses the passed context only to read space, then all work uses the new context. */
 static const proto::ProtoObject* deferredProtoThreadEntry(
     proto::ProtoContext* context,
     const proto::ProtoObject* /*self*/,
@@ -30,12 +30,16 @@ static const proto::ProtoObject* deferredProtoThreadEntry(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* /*kwargs*/)
 {
-    if (!context || !args || args->getSize(context) < 1) return PROTO_NONE;
-    const proto::ProtoObject* arg0 = args->getAt(context, 0);
-    if (!arg0 || !arg0->isString(context)) return PROTO_NONE;
-    const proto::ProtoString* idStr = arg0->asString(context);
+    if (!context || !args) return PROTO_NONE;
+    proto::ProtoSpace* space = context->space;
+    if (!space) return PROTO_NONE;
+    proto::ProtoContext threadCtx(space, nullptr, nullptr, nullptr, nullptr, nullptr);
+    if (args->getSize(&threadCtx) < 1) return PROTO_NONE;
+    const proto::ProtoObject* arg0 = args->getAt(&threadCtx, 0);
+    if (!arg0 || !arg0->isString(&threadCtx)) return PROTO_NONE;
+    const proto::ProtoString* idStr = arg0->asString(&threadCtx);
     std::string taskId;
-    idStr->toUTF8String(context, taskId);
+    idStr->toUTF8String(&threadCtx, taskId);
 
     std::shared_ptr<Deferred::DeferredTask> task;
     {
@@ -99,40 +103,8 @@ JSValue Deferred::constructor(JSContext* ctx, JSValueConst new_target, int argc,
 
     proto::ProtoSpace* space = wrapper->getProtoSpace();
     JSRuntime* rt = wrapper->getJSRuntime();
-    
-    // Serialize the function to bytecode
-    size_t serializedSize = 0;
-    uint8_t* serializedFunc = JS_WriteObject(ctx, &serializedSize, argv[0], JS_WRITE_OBJ_BYTECODE);
-    
-    if (!serializedFunc || serializedSize == 0) {
-        JS_FreeValue(ctx, obj);
-        return JS_ThrowTypeError(ctx, "Deferred: Function not serializable. Functions with complex closures may not be supported.");
-    }
-    
-    // Create resolve and reject callbacks
-    // These will store the result/error and schedule callback execution
-    JSValue resolve = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-        // This will be called from event loop
-        return JS_UNDEFINED;
-    }, "resolve", 1);
-    
-    JSValue reject = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-        // This will be called from event loop
-        return JS_UNDEFINED;
-    }, "reject", 1);
 
-    // Copy serialized buffer to heap (malloc) so destructor can free it without touching runtime at process exit
-    uint8_t* copiedBuffer = static_cast<uint8_t*>(malloc(serializedSize));
-    if (!copiedBuffer) {
-        js_free(ctx, serializedFunc);
-        JS_FreeValue(ctx, obj);
-        return JS_ThrowTypeError(ctx, "Deferred: Failed to allocate memory for serialized function");
-    }
-    memcpy(copiedBuffer, serializedFunc, serializedSize);
-
-    js_free(ctx, serializedFunc);
-
-    // Get function source for execution in worker (bytecode is not portable across runtimes)
+    // Get function source first (fast, no cross-runtime serialization). Worker prefers this.
     std::string functionSource;
     JSValue toStringVal = JS_GetPropertyStr(ctx, argv[0], "toString");
     if (JS_IsFunction(ctx, toStringVal)) {
@@ -147,12 +119,38 @@ JSValue Deferred::constructor(JSContext* ctx, JSValueConst new_target, int argc,
             JS_FreeValue(ctx, sourceVal);
         }
     }
-    
-    // Create task with copied buffer; hold ref to Deferred object so it is not GC'd before completion
+
+    // Resolve/reject callbacks for event-loop completion
+    JSValue resolve = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+        return JS_UNDEFINED;
+    }, "resolve", 1);
+    JSValue reject = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+        return JS_UNDEFINED;
+    }, "reject", 1);
+
+    // Bytecode only when no source (e.g. native); avoids JS_WriteObject on main thread for script functions (can block under load).
+    size_t serializedSize = 0;
+    uint8_t* copiedBuffer = nullptr;
+    if (functionSource.empty()) {
+        uint8_t* serializedFunc = JS_WriteObject(ctx, &serializedSize, argv[0], JS_WRITE_OBJ_BYTECODE);
+        if (serializedFunc && serializedSize > 0) {
+            copiedBuffer = static_cast<uint8_t*>(malloc(serializedSize));
+            if (copiedBuffer) {
+                memcpy(copiedBuffer, serializedFunc, serializedSize);
+            }
+            js_free(ctx, serializedFunc);
+        }
+    }
+    if (functionSource.empty() && (!copiedBuffer || serializedSize == 0)) {
+        JS_FreeValue(ctx, obj);
+        return JS_ThrowTypeError(ctx, "Deferred: Function not serializable (no source, bytecode failed).");
+    }
+
+    // Create task; worker uses functionSource when non-empty, else bytecode
     auto task = std::make_shared<DeferredTask>(
         ctx,
-        JS_DupValue(ctx, argv[0]),  // Keep reference to original function
-        copiedBuffer,                // Copied serialized bytecode (fallback)
+        JS_DupValue(ctx, argv[0]),
+        copiedBuffer,
         serializedSize,
         resolve,
         reject,
@@ -408,6 +406,7 @@ void Deferred::runDeferredTaskInProtoThread(std::shared_ptr<DeferredTask> task) 
 
 void Deferred::executeTaskInWorkerThread(std::shared_ptr<DeferredTask> task) {
     active_deferred_count++;
+    // Only ProtoThreads (protoCore public API): roots tracked by GC; no shared ProtoContext.
     if (task->wrapper && task->space) {
         proto::ProtoSpace* space = task->space;
         proto::ProtoContext* pctx = task->wrapper->getProtoContext();
@@ -423,13 +422,33 @@ void Deferred::executeTaskInWorkerThread(std::shared_ptr<DeferredTask> task) {
         if (!thread) {
             std::lock_guard<std::mutex> lock(s_deferredTaskMutex);
             s_deferredTaskMap.erase(taskId);
-            CPUThreadPool::getInstance().getExecutor().submit([task]() { workerThreadExecution(task); });
+            active_deferred_count--;
+            EventLoop::getInstance().enqueueCallback([task]() {
+                JSContext* ctx = task->mainJSContext;
+                task->isRejected = true;
+                task->error = JS_NewString(ctx, "Deferred: newThread failed (protoCore threading unavailable)");
+                if (!JS_IsUndefined(task->catchCallback)) {
+                    JSValue catchArgs[] = { task->error };
+                    JSValue r = JS_Call(ctx, task->catchCallback, JS_UNDEFINED, 1, catchArgs);
+                    JS_FreeValue(ctx, r);
+                }
+                if (!JS_IsUndefined(task->deferredObj)) { JS_FreeValue(ctx, task->deferredObj); task->deferredObj = JS_UNDEFINED; }
+            });
         }
         return;
     }
-    CPUThreadPool& pool = CPUThreadPool::getInstance();
-    pool.getExecutor().submit([task]() {
-        workerThreadExecution(task);
+    // No wrapper/space: reject; we do not run user code on native threads (roots would not be GC-tracked).
+    active_deferred_count--;
+    EventLoop::getInstance().enqueueCallback([task]() {
+        JSContext* ctx = task->mainJSContext;
+        task->isRejected = true;
+        task->error = JS_NewString(ctx, "Deferred: no ProtoSpace (threading only via protoCore)");
+        if (!JS_IsUndefined(task->catchCallback)) {
+            JSValue catchArgs[] = { task->error };
+            JSValue r = JS_Call(ctx, task->catchCallback, JS_UNDEFINED, 1, catchArgs);
+            JS_FreeValue(ctx, r);
+        }
+        if (!JS_IsUndefined(task->deferredObj)) { JS_FreeValue(ctx, task->deferredObj); task->deferredObj = JS_UNDEFINED; }
     });
 }
 
