@@ -1,79 +1,105 @@
 #include "console.h"
+#include "ProtoNativeModule.h"
 #include <iostream>
+#include <string>
 
 namespace protojs {
 
-static void printValue(JSContext* ctx, JSValueConst val, std::ostream& out) {
-    if (JS_IsString(val)) {
-        const char* str = JS_ToCString(ctx, val);
-        if (str) {
-            out << str;
-            JS_FreeCString(ctx, str);
-        }
-    } else if (JS_IsNumber(val)) {
-        double d;
-        JS_ToFloat64(ctx, &d, val);
-        out << d;
-    } else if (JS_IsBool(val)) {
-        out << (JS_ToBool(ctx, val) ? "true" : "false");
-    } else if (JS_IsNull(val)) {
-        out << "null";
-    } else if (JS_IsUndefined(val)) {
+namespace {
+
+/** Convert a single ProtoObject to its string representation for printing. */
+static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* val,
+                             std::ostream& out) {
+    if (!ctx || !val || val == PROTO_NONE || val->isNone(ctx)) {
         out << "undefined";
-    } else if (JS_IsObject(val)) {
-        const char* str = JS_ToCString(ctx, val);
-        if (str) {
-            out << str;
-            JS_FreeCString(ctx, str);
-        } else {
-            out << "[object Object]";
-        }
-    } else {
-        const char* str = JS_ToCString(ctx, val);
-        if (str) {
-            out << str;
-            JS_FreeCString(ctx, str);
-        }
+        return;
     }
+    if (val->isString(ctx)) {
+        const proto::ProtoString* s = val->asString(ctx);
+        if (s) {
+            std::string tmp;
+            s->toUTF8String(ctx, tmp);
+            out << tmp;
+        }
+        return;
+    }
+    if (val->isBoolean(ctx)) {
+        out << (val->asBoolean(ctx) ? "true" : "false");
+        return;
+    }
+    if (val->isInteger(ctx)) {
+        out << val->asLong(ctx);
+        return;
+    }
+    if (val->isDouble(ctx)) {
+        out << val->asDouble(ctx);
+        return;
+    }
+    /* Objects, arrays, etc. */
+    out << "[object Object]";
 }
 
-JSValue Console::log(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+} // anonymous namespace
+
+const proto::ProtoObject* Console::log(proto::ProtoContext* ctx,
+                                        const proto::ProtoObject* /*self*/,
+                                        const proto::ParentLink* /*parentLink*/,
+                                        const proto::ProtoList* args,
+                                        const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     for (int i = 0; i < argc; i++) {
         if (i > 0) std::cout << " ";
-        printValue(ctx, argv[i], std::cout);
+        printProtoValue(ctx, args->getAt(ctx, i), std::cout);
     }
-    std::cout << std::endl;
-    return JS_UNDEFINED;
+    std::cout << "\n";
+    std::cout.flush();
+    return PROTO_NONE;
 }
 
-JSValue Console::error(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+const proto::ProtoObject* Console::error(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* /*self*/,
+                                          const proto::ParentLink* /*parentLink*/,
+                                          const proto::ProtoList* args,
+                                          const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     for (int i = 0; i < argc; i++) {
         if (i > 0) std::cerr << " ";
-        printValue(ctx, argv[i], std::cerr);
+        printProtoValue(ctx, args->getAt(ctx, i), std::cerr);
     }
-    std::cerr << std::endl;
-    return JS_UNDEFINED;
+    std::cerr << "\n";
+    return PROTO_NONE;
 }
 
-JSValue Console::warn(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+const proto::ProtoObject* Console::warn(proto::ProtoContext* ctx,
+                                         const proto::ProtoObject* /*self*/,
+                                         const proto::ParentLink* /*parentLink*/,
+                                         const proto::ProtoList* args,
+                                         const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
     std::cerr << "Warning: ";
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     for (int i = 0; i < argc; i++) {
         if (i > 0) std::cerr << " ";
-        printValue(ctx, argv[i], std::cerr);
+        printProtoValue(ctx, args->getAt(ctx, i), std::cerr);
     }
-    std::cerr << std::endl;
-    return JS_UNDEFINED;
+    std::cerr << "\n";
+    return PROTO_NONE;
 }
 
-void Console::init(JSContext* ctx) {
-    JSValue console = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, log, "log", 1));
-    JS_SetPropertyStr(ctx, console, "error", JS_NewCFunction(ctx, error, "error", 1));
-    JS_SetPropertyStr(ctx, console, "warn", JS_NewCFunction(ctx, warn, "warn", 1));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "console", console);
-    JS_FreeValue(ctx, global_obj);
+void Console::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj) {
+    if (!ctx || !globalObj) return;
+    static const NativeEntry entries[] = {
+        {"log",   Console::log},
+        {"error", Console::error},
+        {"warn",  Console::warn},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* consoleObj =
+        ProtoNativeModule::buildModule(ctx, entries, 3);
+    if (!consoleObj) return;
+    globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "console", consoleObj);
 }
 
 } // namespace protojs

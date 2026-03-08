@@ -259,7 +259,7 @@ function runOne(proto, cfg, test) {
   const start = Date.now();
   const env =
     cfg.useProtoEval
-      ? { ...process.env, PROTOJS_USE_PROTO_EVAL: "1" }
+      ? { ...process.env, PROTOJS_USE_PROTO_EVAL: "1", PROTOJS_NO_FALLBACK: "1" }
       : process.env;
   return new Promise((resolve) => {
     const child = execFile(

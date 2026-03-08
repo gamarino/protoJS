@@ -55,16 +55,6 @@
     "language/module-code/top-level-await/module-import-rejection-body.js",
     "language/module-code/top-level-await/module-import-rejection-tick.js",
     "language/module-code/top-level-await/module-import-rejection.js",
-    "language/statements/const/global-use-before-initialization-in-declaration-statement.js",
-    "language/statements/const/global-use-before-initialization-in-prior-statement.js",
-    "language/statements/let/global-use-before-initialization-in-declaration-statement.js",
-    "language/statements/let/global-use-before-initialization-in-prior-statement.js",
-    "language/statements/switch/scope-lex-async-function.js",
-    "language/statements/switch/scope-lex-async-generator.js",
-    "language/statements/switch/scope-lex-class.js",
-    "language/statements/switch/scope-lex-const.js",
-    "language/statements/switch/scope-lex-generator.js",
-    "language/statements/switch/scope-lex-let.js",
     "language/statements/using/global-use-before-initialization-in-declaration-statement.js",
     "language/statements/using/global-use-before-initialization-in-prior-statement.js"
   ]

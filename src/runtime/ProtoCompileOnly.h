@@ -15,8 +15,9 @@ namespace protojs {
 /**
  * Compile source to bytecode. Uses JS_Eval with JS_EVAL_FLAG_COMPILE_ONLY.
  * Returns opaque bytecode pointer (JSFunctionBytecode*) or nullptr on parse/compile error.
- * ctx: QuickJS context (must stay alive until loader has finished using the bytecode).
- * outException: if non-null and compile fails, receives the exception value (caller must free).
+ * The bytecode pointer is valid until the JSContext is freed.
+ * ctx: QuickJS context (must stay alive until loadBytecode() completes).
+ * outException: ignored (legacy parameter).
  */
 void* compileToBytecode(struct JSContext* ctx, const char* source, size_t sourceLen,
                         const char* filename, void* outException = nullptr);
@@ -26,7 +27,8 @@ void* compileToBytecode(struct JSContext* ctx, const char* source, size_t source
  * Same as compileToBytecode but uses (flags | JS_EVAL_FLAG_COMPILE_ONLY).
  */
 void* compileToBytecodeWithFlags(struct JSContext* ctx, const char* source, size_t sourceLen,
-                                 const char* filename, int evalFlags, void* outException = nullptr);
+                                 const char* filename, int evalFlags,
+                                 void* outException = nullptr);
 
 } // namespace protojs
 

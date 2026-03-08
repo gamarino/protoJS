@@ -3,6 +3,7 @@
 #include "ProtoJSStringCache.h"
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
 #include <sstream>
 #include <iomanip>
 #include <chrono>
@@ -614,13 +615,23 @@ const proto::ProtoObject* GCBridge::stringAsObject(const proto::ProtoString* str
 }
 
 void* GCBridge::extractExternalPointer(const proto::ProtoObject* wrapper, proto::ProtoContext* pContext) {
-    if (!wrapper) return nullptr;
-    
-    // Workaround: ProtoExternalPointer::getPointer() not implemented in protoCore
-    // For now, return nullptr as a fallback
-    // In production, this would need proper implementation in protoCore
-    // The stored pointer is in an attribute, but we can't easily decode it without protoCore methods
-    
+    if (!wrapper || !pContext) return nullptr;
+    const proto::ProtoString* ptrKey = ProtoJSStringCache::getKey(pContext, "_externalPtr");
+    if (!ptrKey) return nullptr;
+    const proto::ProtoObject* val = wrapper->getAttribute(pContext, ptrKey, false);
+    if (!val || val == PROTO_NONE) return nullptr;
+    const proto::ProtoString* strVal = val->asString(pContext);
+    if (!strVal) return nullptr;
+    std::string hexStr;
+    strVal->toUTF8String(pContext, hexStr);
+    if (hexStr.empty()) return nullptr;
+    const char* start = hexStr.c_str();
+    if (hexStr.size() >= 2 && start[0] == '0' && (start[1] == 'x' || start[1] == 'X'))
+        start += 2;
+    char* end = nullptr;
+    uint64_t ptrVal = std::strtoull(start, &end, 16);
+    if (end && end != start)
+        return reinterpret_cast<void*>(static_cast<uintptr_t>(ptrVal));
     return nullptr;
 }
 

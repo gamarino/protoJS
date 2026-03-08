@@ -72,6 +72,7 @@ add_executable(protojs
     src/monitoring/Metrics.cpp
     src/Deferred.cpp
     src/console.cpp
+    src/ProtoNativeModule.cpp
     src/ThreadPoolExecutor.cpp
     src/CPUThreadPool.cpp
     src/IOThreadPool.cpp

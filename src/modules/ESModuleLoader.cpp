@@ -127,7 +127,7 @@ void ESModuleLoader::evaluateModule(ESModuleRecord* record, JSContext* ctx) {
     const proto::ProtoObject* globalObj = TypeBridge::fromJS(ctx, globalVal, &frameCtx);
     JS_FreeValue(ctx, globalVal);
 
-    const proto::ProtoObject* result = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &globalObj, ctx);
+    const proto::ProtoObject* result = protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &globalObj);
     frameCtx.returnValue = result;
 
     if (!result || result == PROTO_NONE) {

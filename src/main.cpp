@@ -1,4 +1,5 @@
 #include "JSContext.h"
+#include "headers/protoCore.h"
 #include "Deferred.h"
 #include "EventLoop.h"
 #include "console.h"
@@ -139,7 +140,11 @@ int main(int argc, char** argv) {
         wrapper.setUseProtoEval(true);
 
         // Initialize all modules for REPL
-        protojs::Console::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
         protojs::IOModule::init(wrapper.getJSContext());
         protojs::ProtoCoreModule::init(wrapper.getJSContext());
@@ -185,7 +190,11 @@ int main(int argc, char** argv) {
 
     if (minimalInit) {
         std::cerr << "[protojs] CLI: minimal init (Console only)" << std::endl;
-        protojs::Console::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         {
             JSContext* ctx = wrapper.getJSContext();
             JSValue global = JS_GetGlobalObject(ctx);
@@ -203,7 +212,11 @@ int main(int argc, char** argv) {
 
     // Initialize modules
     std::cerr << "[protojs] CLI: initializing core modules" << std::endl;
-    protojs::Console::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     std::cerr << "[protojs] CLI: Console initialized" << std::endl;
     {
         JSContext* ctx = wrapper.getJSContext();
@@ -332,7 +345,8 @@ int main(int argc, char** argv) {
     // Process any remaining callbacks one more time
     protojs::EventLoop::getInstance().processCallbacks();
     
+    const int exitCode = JS_IsException(result) ? 1 : 0;
     JS_FreeValue(wrapper.getJSContext(), result);
 
-    return 0;
+    return exitCode;
 }

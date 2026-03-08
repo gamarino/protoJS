@@ -34,6 +34,10 @@ struct ProtoBytecodeModule {
     std::vector<ProtoBytecodeModule> nestedFunctions;
     /** Lazily filled: atom index -> ProtoString (for get_field etc.). */
     std::unordered_map<uint32_t, const proto::ProtoString*> atomToProto;
+    /** Closure variable names for OP_get_var / OP_put_var (index -> name). */
+    std::vector<std::string> closureVarNames;
+    /** Whether each closure var is lexical (const/let = true, var = false). */
+    std::vector<bool> closureVarIsLexical;
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }

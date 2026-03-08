@@ -7,10 +7,12 @@
 #include "debugging/IntegratedDebugger.h"
 #include "JSPrototypes.h"
 #include "TypeBridge.h"
+#include "ProtoJSStringCache.h"
 #include "runtime/ProtoCompileOnly.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include "runtime/ProtoInterpreter.h"
 #include "quickjs.h"
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 
@@ -62,35 +64,11 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     std::cerr << "[protojs] JSContextWrapper: constructor done" << std::endl;
 }
 
-const proto::ProtoObject* JSContextWrapper::getNativeGlobal(proto::ProtoContext* frameCtx) {
+const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     if (nativeGlobalRoot_) return nativeGlobalRoot_;
     if (!jsPrototypes_.object || !pContext) return nullptr;
-    const proto::ProtoObject* obj = jsPrototypes_.object->newChild(pContext, true);
-    if (!obj) return nullptr;
-    JSValue globalVal = JS_GetGlobalObject(ctx);
-    JSPropertyEnum* props = nullptr;
-    uint32_t len = 0;
-    if (JS_GetOwnPropertyNames(ctx, &props, &len, globalVal, JS_GPN_STRING_MASK) != 0) {
-        JS_FreeValue(ctx, globalVal);
-        return nullptr;
-    }
-    // Use pContext (wrapper root) for fromJS so that GCBridge reverse lookup by protoObj hash
-    // uses the same context and finds host functions (e.g. console.log).
-    proto::ProtoContext* bridgeCtx = pContext;
-    for (uint32_t i = 0; i < len; i++) {
-        JSAtom atom = props[i].atom;
-        const char* name = JS_AtomToCString(ctx, atom);
-        if (!name) continue;
-        JSValue val = JS_GetProperty(ctx, globalVal, atom);
-        const proto::ProtoObject* pv = TypeBridge::fromJS(ctx, val, bridgeCtx);
-        JS_FreeValue(ctx, val);
-        const proto::ProtoString* key = pContext->fromUTF8String(name)->asString(pContext);
-        obj = obj->setAttribute(pContext, key, pv ? pv : PROTO_NONE);
-        JS_FreeCString(ctx, name);
-    }
-    JS_FreePropertyEnum(ctx, props, len);
-    JS_FreeValue(ctx, globalVal);
-    nativeGlobalRoot_ = obj;
+    /* Build a blank global object; converted modules register onto it explicitly. */
+    nativeGlobalRoot_ = jsPrototypes_.object->newChild(pContext, true);
     return nativeGlobalRoot_;
 }
 
@@ -131,36 +109,85 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     frameCtx.currentFileName = pContext->currentFileName;
     frameCtx.currentLineNumber = pContext->currentLineNumber;
 
-    void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str(), &val);
+    bool hadError = false;
+    void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str(), nullptr);
     if (!bytecode) {
-        std::cerr << "[protojs] compile failed, fallback to QuickJS eval" << std::endl;
-        JS_FreeValue(ctx, val);
-        JSValue runVal = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
-        if (JS_IsException(runVal)) {
-            val = JS_GetException(ctx);
+        val = JS_GetException(ctx);
+        const char* noFallback = std::getenv("PROTOJS_NO_FALLBACK");
+        if (noFallback && (noFallback[0] == '1' || noFallback[0] == 't' || noFallback[0] == 'T')) {
+            std::cerr << "[protojs] compile failed (no fallback)" << std::endl;
+            hadError = true;
         } else {
-            val = runVal;
-            bytecode = reinterpret_cast<void*>(1); /* success: do not report as compile failed */
+            std::cerr << "[protojs] compile failed, fallback to QuickJS eval" << std::endl;
+            JS_FreeValue(ctx, val);
+            JSValue runVal = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+            if (JS_IsException(runVal)) {
+                val = JS_GetException(ctx);
+            } else {
+                val = runVal;
+                bytecode = reinterpret_cast<void*>(1); /* success: do not report as compile failed */
+            }
         }
     }
     if (bytecode && bytecode != reinterpret_cast<void*>(1)) {
         protojs::ProtoBytecodeModule module;
         if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
             std::cerr << "[protojs] loadBytecode failed" << std::endl;
+            hadError = true;
             val = JS_EXCEPTION;
         } else {
-            const proto::ProtoObject* globalObj = getNativeGlobal(&frameCtx);
+            const proto::ProtoObject* globalObj = getNativeGlobal();
             if (!globalObj) {
-                JS_ThrowTypeError(ctx, "Failed to build native global (Phase 6)");
-                val = JS_GetException(ctx);
+                std::cerr << "[protojs] getNativeGlobal failed" << std::endl;
+                hadError = true;
+                val = JS_EXCEPTION;
             } else {
-            std::cerr << "[protojs] about to runBytecode" << std::endl;
-            const proto::ProtoObject* result =
-                protojs::runBytecode(&frameCtx, &module, globalObj, nullptr, &nativeGlobalRoot_, ctx);
-            // Hand the result back to the previous context for GC purposes.
-            frameCtx.returnValue = result;
+                std::cerr << "[protojs] about to runBytecode" << std::endl;
+                const proto::ProtoObject* exception = PROTO_NONE;
+                const proto::ProtoObject* result =
+                    protojs::runBytecode(&frameCtx, &module, globalObj, nullptr,
+                                         &nativeGlobalRoot_, &exception);
+                frameCtx.returnValue = result;
 
-            val = TypeBridge::toJS(ctx, result, &frameCtx);
+                if (exception && exception != PROTO_NONE) {
+                    /* Format exception from ProtoObject for error reporting. */
+                    std::string errStr;
+                    const proto::ProtoString* nameKey =
+                        ProtoJSStringCache::getKey(&frameCtx, "name");
+                    const proto::ProtoString* msgKey =
+                        ProtoJSStringCache::getKey(&frameCtx, "message");
+                    if (nameKey) {
+                        const proto::ProtoObject* nv =
+                            exception->getAttribute(&frameCtx, nameKey, false);
+                        if (nv && nv != PROTO_NONE && nv->isString(&frameCtx)) {
+                            std::string tmp;
+                            nv->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
+                            errStr = tmp;
+                        }
+                    }
+                    if (msgKey) {
+                        const proto::ProtoObject* mv =
+                            exception->getAttribute(&frameCtx, msgKey, false);
+                        if (mv && mv != PROTO_NONE && mv->isString(&frameCtx)) {
+                            std::string tmp;
+                            mv->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
+                            if (!errStr.empty()) errStr += ": ";
+                            errStr += tmp;
+                        }
+                    }
+                    if (errStr.empty() && exception->isString(&frameCtx)) {
+                        const proto::ProtoString* s = exception->asString(&frameCtx);
+                        if (s) s->toUTF8String(&frameCtx, errStr);
+                    }
+                    if (!errStr.empty())
+                        std::cerr << "Exception in " << filename << ": " << errStr << std::endl;
+                    else
+                        std::cerr << "Exception in " << filename << " (ProtoObject)" << std::endl;
+                    hadError = true;
+                    val = JS_EXCEPTION;
+                } else {
+                    val = TypeBridge::toJS(ctx, result, &frameCtx);
+                }
             }
         }
     }
@@ -171,22 +198,44 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     pContext->currentLineNumber = 0;
     currentScript_.clear();
 
-    // When !bytecode (and not fallback success), val is the exception; report it.
     const bool fallbackSuccess = (bytecode == reinterpret_cast<void*>(1));
-    if ((JS_IsException(val) || !bytecode) && !fallbackSuccess) {
-        const char* str = JS_ToCString(ctx, val);
-        if (!str && JS_IsObject(val)) {
-            JSValue msg = JS_GetPropertyStr(ctx, val, "message");
-            str = JS_ToCString(ctx, msg);
-            JS_FreeValue(ctx, msg);
+    if (hadError || ((JS_IsException(val) || !bytecode) && !fallbackSuccess)) {
+        /* If val is the JS_EXCEPTION sentinel (proto runtime exception, already printed),
+         * skip JS property access to avoid undefined behaviour on the sentinel JSValue. */
+        const bool valIsActualJSException = !JS_IsException(val) ||
+                                            JS_HasException(ctx);
+        if (valIsActualJSException) {
+            std::string errStr;
+            /* Prefer name + message so Test262 sees "ReferenceError: ..." in stderr. */
+            JSValue nameVal = JS_GetPropertyStr(ctx, val, "name");
+            JSValue msgVal  = JS_GetPropertyStr(ctx, val, "message");
+            const char* name = (!JS_IsUndefined(nameVal) && !JS_IsException(nameVal))
+                               ? JS_ToCString(ctx, nameVal) : nullptr;
+            const char* msg  = (!JS_IsUndefined(msgVal)  && !JS_IsException(msgVal))
+                               ? JS_ToCString(ctx, msgVal) : nullptr;
+            if (name || msg) {
+                errStr = name ? name : "";
+                if (msg) errStr += (errStr.empty() ? "" : ": ") + std::string(msg);
+            }
+            if (name) JS_FreeCString(ctx, name);
+            if (msg)  JS_FreeCString(ctx, msg);
+            JS_FreeValue(ctx, nameVal);
+            JS_FreeValue(ctx, msgVal);
+            if (errStr.empty()) {
+                const char* str = JS_ToCString(ctx, val);
+                if (str) { errStr = str; JS_FreeCString(ctx, str); }
+            }
+            if (!errStr.empty()) {
+                std::cerr << (bytecode ? "Exception" : "Compile failed")
+                          << " in " << filename << ": " << errStr << std::endl;
+            } else if (!hadError) {
+                int tag = JS_VALUE_GET_TAG(val);
+                std::cerr << (bytecode ? "Exception" : "Compile failed")
+                          << " in " << filename << " (tag=" << tag << ")" << std::endl;
+            }
+            if (!JS_IsException(val)) JS_FreeValue(ctx, val);
         }
-        if (str) {
-            std::cerr << (bytecode ? "Exception" : "Compile failed") << " in " << filename << ": " << str << std::endl;
-            JS_FreeCString(ctx, str);
-        } else {
-            int tag = JS_VALUE_GET_TAG(val);
-            std::cerr << (bytecode ? "Exception" : "Compile failed") << " in " << filename << " (tag=" << tag << ", use JS_TAG_* in quickjs.h)" << std::endl;
-        }
+        return JS_EXCEPTION;
     }
 
     return val;

@@ -38,6 +38,12 @@ int protojs_bytecode_cpool_count(void* bytecode);
 const void* protojs_bytecode_cpool(void* bytecode);
 uint16_t protojs_bytecode_closure_var_count(void* bytecode);
 
+/** Return variable name for closure var at index idx; caller must JS_FreeCString. */
+const char* protojs_bytecode_closure_var_name(struct JSContext* ctx, void* bytecode, uint16_t idx);
+
+/** Return 1 if closure var at idx is lexical (const/let), 0 otherwise. */
+int protojs_bytecode_closure_var_is_lexical(void* bytecode, uint16_t idx);
+
 #ifdef __cplusplus
 }
 #endif
