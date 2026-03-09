@@ -1,0 +1,2696 @@
+{
+  "generatedAt": "2026-03-08T02:50:53.582Z",
+  "patterns": [
+    "language/expressions/arrow-function"
+  ],
+  "total": 343,
+  "summary": {
+    "passed": 341,
+    "failed_syntax": 0,
+    "failed_semantics": 2,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/expressions/arrow-function/ArrowFunction_restricted-properties.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/array-destructuring-param-strict-body.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__array-destructuring-para"
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/binding-tests-1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/binding-tests-2.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/binding-tests-3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/capturing-closure-variables-1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/capturing-closure-variables-2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/concisebody-lookahead-assignmentexpression-1.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/arrow/concisebody-lookahead-assignmentexpression-2.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/cannot-override-this-with-thisArg.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-abrupt.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-arg-val-not-undefined.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-arg-val-undefined.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-duplicates.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dflt-params-duplicates.j"
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-ref-later.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-ref-prior.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-ref-self.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-rest.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dflt-params-rest.js\n[pro"
+    },
+    {
+      "path": "language/expressions/arrow-function/dflt-params-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-init-iter-close.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-init-iter-get-err-array-prototype.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-init-iter-get-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-init-iter-no-close.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-name-iter-val.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-elem-init.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-elem-iter.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-elision-init.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-elision-iter.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-empty-init.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-empty-iter.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-rest-init.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-rest-iter.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-ary-val-null.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-exhausted.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-fn-name-class.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-hole.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-undef.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-iter-complete.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-iter-done.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-iter-step-err.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-iter-val-array-prototype.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-iter-val-err.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-iter-val.js",
+      "result": "passed",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-obj-id-init.js",
+      "result": "passed",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-obj-id.js",
+      "result": "passed",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-obj-prop-id-init.js",
+      "result": "passed",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-obj-prop-id.js",
+      "result": "passed",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-obj-val-null.js",
+      "result": "passed",
+      "durationMs": 55,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-obj-val-undef.js",
+      "result": "passed",
+      "durationMs": 67,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elision-exhausted.js",
+      "result": "passed",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elision-step-err.js",
+      "result": "passed",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elision.js",
+      "result": "passed",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-empty.js",
+      "result": "passed",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-ary-elem.js",
+      "result": "passed",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-ary-elision.js",
+      "result": "passed",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-ary-empty.js",
+      "result": "passed",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-ary-rest.js",
+      "result": "passed",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id-direct.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id-elision-next-err.js",
+      "result": "passed",
+      "durationMs": 57,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id-elision.js",
+      "result": "passed",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id-exhausted.js",
+      "result": "passed",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id-iter-step-err.js",
+      "result": "passed",
+      "durationMs": 113,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id-iter-val-err.js",
+      "result": "passed",
+      "durationMs": 103,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-id.js",
+      "result": "passed",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-init-ary.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__ary-ptrn-rest-init"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-init-id.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__ary-ptrn-rest-init"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-init-obj.js",
+      "result": "passed",
+      "durationMs": 80,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__ary-ptrn-rest-init"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-not-final-ary.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__ary-ptrn-rest-not-"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-not-final-id.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__ary-ptrn-rest-not-"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-not-final-obj.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__ary-ptrn-rest-not-"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-obj-id.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-rest-obj-prop-id.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-init-iter-close.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-init-iter-get-err-array-prototype.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-init-iter-get-err.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-init-iter-no-close.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-name-iter-val.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-elem-init.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-elem-iter.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-elision-init.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-elision-iter.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-empty-init.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-empty-iter.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-rest-init.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-rest-iter.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-ary-val-null.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-exhausted.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-hole.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-undef.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-iter-complete.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-iter-done.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-iter-step-err.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-iter-val-array-prototype.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-iter-val-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-id-iter-val.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-obj-id-init.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-obj-id.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-obj-prop-id-init.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-obj-prop-id.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-obj-val-null.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elem-obj-val-undef.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elision-exhausted.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elision-step-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-elision.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-empty.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-ary-elem.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-ary-elision.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-ary-empty.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-ary-rest.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id-direct.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id-elision-next-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id-elision.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id-exhausted.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id-iter-step-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id-iter-val-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-id.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-init-ary.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__dflt-ary-ptrn-rest"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-init-id.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__dflt-ary-ptrn-rest"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-init-obj.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__dflt-ary-ptrn-rest"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-not-final-ary.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__dflt-ary-ptrn-rest"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-not-final-id.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__dflt-ary-ptrn-rest"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-not-final-obj.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__dflt-ary-ptrn-rest"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-obj-id.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-ary-ptrn-rest-obj-prop-id.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-init-null.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-init-undefined.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-empty.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-get-value-err.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-fn-name-class.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-id-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-list-err.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-ary-init.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-ary-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-ary-value-null.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-ary.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-eval-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id-get-value-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id-init.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-id.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-obj-init.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-obj-value-null.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-obj-value-undef.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-prop-obj.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-rest-getter.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-rest-skip-non-enumerable.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/dflt-obj-ptrn-rest-val-obj.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-init-null.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-init-undefined.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-empty.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-get-value-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-fn-name-class.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-id-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-list-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-ary-init.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-ary-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-ary-value-null.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-ary.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-eval-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id-get-value-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id-init.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-id.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-obj-init.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-obj-value-null.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-obj-value-undef.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-prop-obj.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-rest-getter.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-rest-skip-non-enumerable.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/obj-ptrn-rest-val-obj.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-break-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-case-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-catch-escaped.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-class-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-const-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-continue-escaped.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-debugger-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-default-escaped-ext.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-default-escaped.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-default.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-delete-escaped.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-do-escaped.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-else-escaped.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-enum-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-export-escaped.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-extends-escaped-ext.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-extends-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-extends.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-finally-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-for-escaped.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-function-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-if-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-implements-escaped.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-import-escaped.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-in-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-instanceof-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-interface-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-let-escaped.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-new-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-package-escaped.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-private-escaped.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-protected-escaped.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-public-escaped.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-return-escaped.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-static-escaped.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-super-escaped.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-switch-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-this-escaped.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-throw-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-try-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-typeof-escaped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-var-escaped.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-void-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-while-escaped.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/dstr/syntax-error-ident-ref-with-escaped.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__dstr__syntax-error-ident"
+    },
+    {
+      "path": "language/expressions/arrow-function/empty-function-body-returns-undefined.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/eval-var-scope-syntax-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/expression-body-implicit-return.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/extensibility.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/forbidden-ext/b1/arrow-function-forbidden-ext-direct-access-prop-arguments.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/forbidden-ext/b1/arrow-function-forbidden-ext-direct-access-prop-caller.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/forbidden-ext/b2/arrow-function-forbidden-ext-indirect-access-own-prop-caller-get.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/forbidden-ext/b2/arrow-function-forbidden-ext-indirect-access-own-prop-caller-value.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/forbidden-ext/b2/arrow-function-forbidden-ext-indirect-access-prop-caller.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/length-dflt.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-arguments.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-bindings-overriden-by-formal-parameters-non-strict.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-new.target-closure-returned.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-new.target.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-super-call-from-within-constructor.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-super-property-from-within-constructor.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-super-property.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-supercall-from-immediately-invoked-arrow.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/lexical-this.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/low-precedence-expression-body-no-parens.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/name.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/non-strict.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/object-destructuring-param-strict-body.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__object-destructuring-par"
+    },
+    {
+      "path": "language/expressions/arrow-function/object-literal-return-requires-body-parens.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/param-dflt-yield-expr.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__param-dflt-yield-expr.js"
+    },
+    {
+      "path": "language/expressions/arrow-function/param-dflt-yield-id-non-strict.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/param-dflt-yield-id-strict.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/params-duplicate.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__params-duplicate.js\n[pro"
+    },
+    {
+      "path": "language/expressions/arrow-function/params-trailing-comma-multiple.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/params-trailing-comma-single.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/prototype-rules.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/rest-param-strict-body.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__rest-param-strict-body.j"
+    },
+    {
+      "path": "language/expressions/arrow-function/rest-params-trailing-comma-early-error.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__rest-params-trailing-com"
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-body-lex-distinct.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-param-elem-var-close.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-param-elem-var-open.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-param-rest-elem-var-close.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-param-rest-elem-var-open.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-paramsbody-var-close.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__scope-paramsbody-var-clo"
+    },
+    {
+      "path": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__scope-paramsbody-var-ope"
+    },
+    {
+      "path": "language/expressions/arrow-function/statement-body-requires-braces-must-return-explicitly-missing.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/statement-body-requires-braces-must-return-explicitly.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/static-init-await-binding.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__static-init-await-bindin"
+    },
+    {
+      "path": "language/expressions/arrow-function/static-init-await-reference.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__static-init-await-refere"
+    },
+    {
+      "path": "language/expressions/arrow-function/strict.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-arguments.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-concisebody-assignmentexpression.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-eval.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-lineterminator-concisebody-assignmentexpression.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-lineterminator-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-bindingidentifier-yield.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-concisebody-assignmentexpression.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-formalparameters-arguments.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-formalparameters-eval.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-formalparameters-yield.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-includes-rest-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-initialize-1.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-initialize-2.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-lineterminator-concisebody-assignmentexpression.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-lineterminator-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-rest-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/arrowparameters-cover-rest-lineterminator-concisebody-functionbody.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-identifier-futurereservedword.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-identifier-strict-futurereservedword.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-identifier.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-no-arguments.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-no-eval.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-no-yield.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-bindingidentifier-rest.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-arguments.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-array-1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-array-2.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-array-3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-object-1.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-object-2.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-object-3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-object-4.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-object-5.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-binding-object-6.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates-rest.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-duplicates.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__ar"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-eval.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/arrowparameters-cover-no-yield.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/asi-restriction-invalid-parenless-parameters-expression-body.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__as"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/asi-restriction-invalid-parenless-parameters.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__as"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/asi-restriction-invalid.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__as"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/early-errors/use-strict-with-non-simple-param.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__arrow-function__syntax__early-errors__us"
+    },
+    {
+      "path": "language/expressions/arrow-function/syntax/variations.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/throw-new.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/unscopables-with-in-nested-fn.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/arrow-function/unscopables-with.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

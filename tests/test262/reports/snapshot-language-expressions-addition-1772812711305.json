@@ -1,0 +1,352 @@
+{
+  "generatedAt": "2026-03-06T15:58:31.305Z",
+  "patterns": [
+    "language/expressions/addition"
+  ],
+  "total": 48,
+  "summary": {
+    "passed": 48,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/expressions/addition/S11.6.1_A1.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.2_T1.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.2_T2.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.2_T3.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T1.1.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T1.2.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T1.3.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.1.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.2.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.3.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.4.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.5.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T1.1.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T1.2.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.1.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.2.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.3.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.4.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T1.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T2.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T3.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T4.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T5.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T6.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T7.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T8.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T9.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-arithmetic.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-errors.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-toprimitive.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-wrapped-values.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-bigint-to-string.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-err.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-invocation.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-return-obj.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-return-prim.js",
+      "result": "passed",
+      "durationMs": 75,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/get-symbol-to-prim-err.js",
+      "result": "passed",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/order-of-evaluation.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/symbol-to-string.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-03-06T23:04:49.613Z",
+  "patterns": [
+    "language/statements/const/global-use-before-initialization-in-declaration-statement.js"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/statements/const/global-use-before-initialization-in-declaration-statement.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": {
+        "phase": "runtime",
+        "type": "ReferenceError"
+      },
+      "errorSummary": null
+    }
+  ]
+}

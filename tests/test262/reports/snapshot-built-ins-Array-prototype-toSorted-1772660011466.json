@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-03-04T21:33:31.465Z",
+  "patterns": [
+    "built-ins/Array/prototype/toSorted"
+  ],
+  "total": 21,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 21
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/toSorted/comparefn-called-after-get-elements.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__comparefn-called-after-g"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/comparefn-controls-sort.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__comparefn-controls-sort."
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/comparefn-default.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__comparefn-default.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/comparefn-not-a-function.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__comparefn-not-a-function"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/comparefn-stop-after-error.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__comparefn-stop-after-err"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/frozen-this-value.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__frozen-this-value.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/holes-not-preserved.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__holes-not-preserved.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/ignores-species.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__ignores-species.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/immutable.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__immutable.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/length-casted-to-zero.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__length-casted-to-zero.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/length-decreased-while-iterating.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__length-decreased-while-i"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/length-exceeding-array-length-limit.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__length-exceeding-array-l"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/length-increased-while-iterating.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__length-increased-while-i"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/length-tolength.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__length-tolength.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/length.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__length.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/name.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__name.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/not-a-constructor.js",
+      "result": "timeout",
+      "durationMs": 5016,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__not-a-constructor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/property-descriptor.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__property-descriptor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/this-value-boolean.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__this-value-boolean.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/this-value-nullish.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__this-value-nullish.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSorted/zero-or-one-element.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSorted__zero-or-one-element.js\n"
+    }
+  ]
+}

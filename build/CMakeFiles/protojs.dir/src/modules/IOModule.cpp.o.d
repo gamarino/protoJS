@@ -249,7 +249,9 @@ CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o: \
  /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../CPUThreadPool.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../EventLoop.h \
+ /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSPrototypes.h \
  /usr/include/c++/13/fstream /usr/include/c++/13/istream \
  /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/bits/codecvt.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \

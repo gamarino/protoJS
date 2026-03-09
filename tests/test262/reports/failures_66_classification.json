@@ -1,0 +1,533 @@
+{
+  "generatedAt": "2026-03-06T21:03:55.909Z",
+  "results": [
+    {
+      "path": "language/eval-code/direct/strict-caller-global.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/eval-code/direct/var-env-global-lex-non-strict.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/eval-code/indirect/parse-failure-2.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/global-code/decl-lex-restricted-global.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/identifier-resolution/assign-to-global-undefined.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/import/import-attributes/json-invalid.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/import/import-attributes/json-named-bindings.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/import/import-defer/errors/syntax-error/import-defer-of-syntax-error-fails.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-multi-lf.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-multi-ls.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-multi-ps.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-single-cr.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-single-lf.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-single-ls.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/line-terminators/comment-single-ps.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/ambiguous-export-bindings/error-export-from-named-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/ambiguous-export-bindings/error-export-from-named.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/ambiguous-export-bindings/error-import-named-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/ambiguous-export-bindings/error-import-named.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/eval-export-dflt-expr-err-eval.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/eval-export-dflt-expr-err-get-value.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/eval-rqstd-abrupt.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/eval-self-abrupt.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/allow-nlt-before-with.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-key-identifiername.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-key-string-double.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-key-string-single.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-many.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-newlines.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-trlng-comma.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-value-string-double.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/import-attributes/import-attribute-value-string-single.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-iee-err-circular-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-iee-err-circular.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-iee-err-dflt-thru-star-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-iee-err-dflt-thru-star.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-iee-err-not-found-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-iee-err-not-found.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-named-err-dflt-thru-star-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-named-err-dflt-thru-star-dflt.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-named-err-not-found-as.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-named-err-not-found-dflt.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-named-err-not-found.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-resolve-empty-export.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-resolve-empty-import.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-resolve-err-syntax-1.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-resolve-err-syntax-2.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-resolve-order-depth.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-resolve-order-src.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/instn-star-err-not-found.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/top-level-await/await-dynamic-import-rejection.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/top-level-await/module-import-rejection-body.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/top-level-await/module-import-rejection-tick.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/module-code/top-level-await/module-import-rejection.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/const/global-use-before-initialization-in-declaration-statement.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/const/global-use-before-initialization-in-prior-statement.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/let/global-use-before-initialization-in-declaration-statement.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/let/global-use-before-initialization-in-prior-statement.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/switch/scope-lex-async-function.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/switch/scope-lex-async-generator.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/switch/scope-lex-class.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/switch/scope-lex-const.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/switch/scope-lex-generator.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/switch/scope-lex-let.js",
+      "exitCode": 0,
+      "failureType": "passed_or_unknown",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/using/global-use-before-initialization-in-declaration-statement.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    },
+    {
+      "path": "language/statements/using/global-use-before-initialization-in-prior-statement.js",
+      "exitCode": 0,
+      "failureType": "syntax_error",
+      "opcodeHex": null,
+      "opcodeDec": null,
+      "snippet": "[protojs] CLI: creating JSContextWrapper for script [protojs] JSContextWrapper: creating QuickJS runtime/context [protojs] JSContextWrapper: QuickJS context ready [protojs] JSContextWrapper: protoCore context ready [protojs] JSContextWrapper: JS prototypes bootstrapped [protojs] JSContextWrapper: GC"
+    }
+  ]
+}

@@ -253,4 +253,7 @@ CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o: \
  /usr/include/c++/13/backward/auto_ptr.h \
  /usr/include/c++/13/bits/ranges_uninitialized.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/iostream
+ /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/mutex \
+ /usr/include/c++/13/thread \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/../JSPrototypes.h \
+ /usr/include/c++/13/iostream

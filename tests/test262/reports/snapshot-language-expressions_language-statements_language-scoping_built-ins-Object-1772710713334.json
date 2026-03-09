@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-03-05T11:38:33.309Z",
+  "patterns": [
+    "language/expressions",
+    "language/statements",
+    "language/scoping",
+    "built-ins/Object"
+  ],
+  "total": 7,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 7
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/defineProperty-basic.js",
+      "result": "timeout",
+      "durationMs": 5018,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__defineProperty-basic.js\n"
+    },
+    {
+      "path": "built-ins/Object/prototype-chain.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__prototype-chain.js\n"
+    },
+    {
+      "path": "language/expressions/addition-simple.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition-simple.js\n"
+    },
+    {
+      "path": "language/expressions/unary-negation.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__unary-negation.js\n"
+    },
+    {
+      "path": "language/scoping/closure-basic.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__scoping__closure-basic.js\n"
+    },
+    {
+      "path": "language/scoping/let-block.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__scoping__let-block.js\n"
+    },
+    {
+      "path": "language/statements/if-basic.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__if-basic.js\n"
+    }
+  ]
+}

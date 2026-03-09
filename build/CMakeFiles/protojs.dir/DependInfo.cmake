@@ -21,6 +21,13 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.cpp" "CMakeFiles/protojs.dir/src/GCBridge.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/GCBridge.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.cpp" "CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/JSContext.cpp" "CMakeFiles/protojs.dir/src/JSContext.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/JSContext.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.cpp" "CMakeFiles/protojs.dir/src/JSPrototypes.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/JSPrototypes.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/NumberPrototype.cpp" "CMakeFiles/protojs.dir/src/NumberPrototype.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/NumberPrototype.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/ProtoArgumentsAdapter.cpp" "CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/ProtoArrayAdapter.cpp" "CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/ProtoJSStringCache.cpp" "CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/ProtoNativeModule.cpp" "CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/QuickJSArrayBridge.cpp" "CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.cpp" "CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/TypeBridge.cpp" "CMakeFiles/protojs.dir/src/TypeBridge.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/TypeBridge.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/benchmarking/BenchmarkRunner.cpp" "CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.o.d"
@@ -65,6 +72,9 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.cpp" "CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/profiling/VisualProfiler.cpp" "CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.cpp" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/repl/REPL.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoBytecodeLoader.cpp" "CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoCompileOnly.cpp" "CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoInterpreter.cpp" "CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/src/testing/NodeJSTestRunner.cpp" "CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.o" "gcc" "CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.o.d"
   )
 

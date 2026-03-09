@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-03-05T12:33:56.972Z",
+  "patterns": [
+    "built-ins/Temporal/PlainDateTime/prototype/monthsInYear"
+  ],
+  "total": 3,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 3,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/monthsInYear/basic.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__monthsInYear__basic.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/monthsInYear/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__monthsInYear__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/monthsInYear/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__monthsInYear__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

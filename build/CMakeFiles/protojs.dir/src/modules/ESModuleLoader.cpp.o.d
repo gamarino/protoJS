@@ -253,7 +253,24 @@ CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: \
  /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
- /usr/include/c++/13/bits/hashtable_policy.h /usr/include/c++/13/fstream \
+ /usr/include/c++/13/bits/hashtable_policy.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /usr/include/c++/13/atomic /usr/include/c++/13/condition_variable \
+ /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
+ /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
+ /usr/include/c++/13/bits/atomic_timed_wait.h \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
+ /usr/include/x86_64-linux-gnu/bits/semaphore.h \
+ /usr/include/c++/13/thread \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSPrototypes.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoCompileOnly.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoInterpreter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
+ /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/regex \

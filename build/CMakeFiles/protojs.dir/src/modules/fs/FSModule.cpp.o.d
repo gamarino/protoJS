@@ -250,9 +250,11 @@ CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../EventLoop.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../JSContext.h \
  /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../JSPrototypes.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../Deferred.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../CPUThreadPool.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../EventLoop.h \
+ /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
  /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \
  /usr/include/c++/13/bits/locale_facets_nonio.h \

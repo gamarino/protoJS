@@ -256,7 +256,18 @@ CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
+ /usr/include/c++/13/thread \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSPrototypes.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../ProtoJSStringCache.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoCompileOnly.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
+ /usr/include/c++/13/unordered_map \
+ /usr/include/c++/13/bits/unordered_map.h \
+ /usr/include/c++/13/bits/hashtable.h \
+ /usr/include/c++/13/bits/hashtable_policy.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoInterpreter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../native/DynamicLibraryLoader.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../native/NativeModuleABI.h \
  /usr/include/c++/13/fstream \

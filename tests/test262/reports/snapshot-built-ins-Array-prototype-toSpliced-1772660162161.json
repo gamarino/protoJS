@@ -1,0 +1,225 @@
+{
+  "generatedAt": "2026-03-04T21:36:02.161Z",
+  "patterns": [
+    "built-ins/Array/prototype/toSpliced"
+  ],
+  "total": 30,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 30
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/toSpliced/deleteCount-clamped-between-zero-and-remaining-count.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__deleteCount-clamped-bet"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/deleteCount-missing.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__deleteCount-missing.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/deleteCount-undefined.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__deleteCount-undefined.j"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/discarded-element-not-read.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__discarded-element-not-r"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/elements-read-in-order.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__elements-read-in-order."
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/frozen-this-value.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__frozen-this-value.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/holes-not-preserved.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__holes-not-preserved.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/ignores-species.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__ignores-species.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/immutable.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__immutable.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length-casted-to-zero.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length-casted-to-zero.j"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length-clamped-to-2pow53minus1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length-clamped-to-2pow5"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length-decreased-while-iterating.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length-decreased-while-"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length-exceeding-array-length-limit.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length-exceeding-array-"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length-increased-while-iterating.js",
+      "result": "timeout",
+      "durationMs": 5006,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length-increased-while-"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length-tolength.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length-tolength.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/length.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__length.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/mutate-while-iterating.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__mutate-while-iterating."
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/name.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__name.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/not-a-constructor.js",
+      "result": "timeout",
+      "durationMs": 5017,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__not-a-constructor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/property-descriptor.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__property-descriptor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-and-deleteCount-missing.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-and-deleteCount-m"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-and-deleteCount-undefineds.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-and-deleteCount-u"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-bigger-than-length.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-bigger-than-lengt"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-neg-infinity-is-zero.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-neg-infinity-is-z"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-neg-less-than-minus-length-is-zero.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-neg-less-than-min"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-neg-subtracted-from-length.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-neg-subtracted-fr"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/start-undefined-and-deleteCount-missing.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__start-undefined-and-del"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/this-value-boolean.js",
+      "result": "timeout",
+      "durationMs": 5008,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__this-value-boolean.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/this-value-nullish.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__this-value-nullish.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toSpliced/unmodified.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toSpliced__unmodified.js\n"
+    }
+  ]
+}

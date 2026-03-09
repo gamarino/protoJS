@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-03-04T19:44:04.333Z",
+  "patterns": [
+    "built-ins/Array/prototype/findLastIndex"
+  ],
+  "total": 24,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 24
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/array-altered-during-loop.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__array-altered-durin"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/call-with-boolean.js",
+      "result": "timeout",
+      "durationMs": 5008,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__call-with-boolean.j"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/callbackfn-resize-arraybuffer.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__callbackfn-resize-a"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/length.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__length.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/maximum-index.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__maximum-index.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/name.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__name.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/not-a-constructor.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__not-a-constructor.j"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/predicate-call-parameters.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__predicate-call-para"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/predicate-call-this-non-strict.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__predicate-call-this"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/predicate-call-this-strict.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__predicate-call-this"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/predicate-called-for-each-array-property.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__predicate-called-fo"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/predicate-is-not-callable-throws.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__predicate-is-not-ca"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/predicate-not-called-on-empty-array.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__predicate-not-calle"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/prop-desc.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__prop-desc.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/resizable-buffer-grow-mid-iteration.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__resizable-buffer-gr"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/resizable-buffer-shrink-mid-iteration.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__resizable-buffer-sh"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/resizable-buffer.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__resizable-buffer.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-abrupt-from-predicate-call.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-abrupt-from-"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-abrupt-from-property.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-abrupt-from-"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-abrupt-from-this-length-as-symbol.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-abrupt-from-"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-abrupt-from-this-length.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-abrupt-from-"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-abrupt-from-this.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-abrupt-from-"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-index-predicate-result-is-true.js",
+      "result": "timeout",
+      "durationMs": 5017,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-index-predic"
+    },
+    {
+      "path": "built-ins/Array/prototype/findLastIndex/return-negative-one-if-predicate-returns-false-value.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__findLastIndex__return-negative-one"
+    }
+  ]
+}

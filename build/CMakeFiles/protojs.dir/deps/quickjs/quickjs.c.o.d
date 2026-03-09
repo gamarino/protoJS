@@ -80,9 +80,10 @@ CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: \
  /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
  /usr/include/x86_64-linux-gnu/bits/iscanonical.h /usr/include/malloc.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs_array_bridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.h \
  /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/list.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp.h \
  /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libunicode.h \
  /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.h \

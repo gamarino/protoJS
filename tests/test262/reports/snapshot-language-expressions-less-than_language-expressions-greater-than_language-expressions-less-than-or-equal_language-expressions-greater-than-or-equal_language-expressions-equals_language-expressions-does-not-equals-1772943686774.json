@@ -1,0 +1,1904 @@
+{
+  "generatedAt": "2026-03-08T04:21:26.773Z",
+  "patterns": [
+    "language/expressions/less-than",
+    "language/expressions/greater-than",
+    "language/expressions/less-than-or-equal",
+    "language/expressions/greater-than-or-equal",
+    "language/expressions/equals",
+    "language/expressions/does-not-equals"
+  ],
+  "total": 269,
+  "summary": {
+    "passed": 146,
+    "failed_syntax": 0,
+    "failed_semantics": 123,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A1.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A3.1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A3.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A3.2.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A3.3.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A3.3.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A4.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A4.1_T1.js\n[pro"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A4.1_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A4.1_T2.js\n[pro"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A4.2.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A4.3.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A4.3.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A5.1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A5.1.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A5.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A5.2.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A5.3.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A5.3.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A6.1.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A6.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A6.2_T1.js\n[pro"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A6.2_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A6.2_T2.js\n[pro"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.2.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.3.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.3.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.4.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.4.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.5.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.5.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.6.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.6.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.7.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.7.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.8.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.8.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/S11.9.2_A7.9.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__does-not-equals__S11.9.2_A7.9.js\n[protoj"
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-bigint.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-boolean.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-incomparable-primitive.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-non-finite.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-number-extremes.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-object.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/does-not-equals/bigint-and-string.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A3.1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A3.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A3.2.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A3.3.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A3.3.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A4.1_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A4.1_T1.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A4.1_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A4.1_T2.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A4.2.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A4.3.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A4.3.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A5.1.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A5.1.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A5.2.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A5.2.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A5.3.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A5.3.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A6.1.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A6.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A6.2_T1.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A6.2_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A6.2_T2.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.1.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.2.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.3.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.3.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.4.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.4.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.5.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.5.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.6.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.6.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.7.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.7.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.8.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.8.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S11.9.1_A7.9.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S11.9.1_A7.9.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "language/expressions/equals/S9.1_A1_T3.js",
+      "result": "failed_semantics",
+      "durationMs": 1183,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__equals__S9.1_A1_T3.js\n[protojs] CLI: cre"
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-bigint.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-boolean.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-incomparable-primitive.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-non-finite.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-number-extremes.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-object.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/bigint-and-string.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/coerce-symbol-to-prim-err.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/coerce-symbol-to-prim-invocation.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/coerce-symbol-to-prim-return-obj.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/coerce-symbol-to-prim-return-prim.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/get-symbol-to-prim-err.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/symbol-abstract-equality-comparison.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/symbol-strict-equality-comparison.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/equals/to-prim-hint.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/11.8.2-1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/11.8.2-2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/11.8.2-3.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/11.8.2-4.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.2_T1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T1.1.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T1.2.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T1.3.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T2.1.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T2.2.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.4.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T2.4.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.5.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T2.5.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.6.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T2.6.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.7.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.8.js",
+      "result": "failed_semantics",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.1_T2.8.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.1_T2.9.js",
+      "result": "passed",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.2_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.2_T1.1.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A3.2_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A3.2_T1.2.js\n[prot"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.1.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.1.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.10.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.11.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.11.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.12_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.12_T1.js\n[proto"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.12_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.12_T2.js\n[proto"
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.2.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.2.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.3.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.4.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.5.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.5.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.6.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.6.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.7.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.7.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.8.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.8.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/S11.8.2_A4.9.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than__S11.8.2_A4.9.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-bigint.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-boolean.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-incomparable-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-non-finite.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-number-extremes.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-string.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than/bigint-and-symbol.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.2_T1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T1.1"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T1.2"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T1.3.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T1.3"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T2.1"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.2.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T2.2"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.4.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T2.4"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.5.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T2.5"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.6.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T2.6"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.7.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.8.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.1_T2.8"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.1_T2.9.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.2_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.2_T1.1"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A3.2_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A3.2_T1.2"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.1.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.10.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.10.js\n"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.11.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.11.js\n"
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.12_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.12_T1."
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.12_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.12_T2."
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.2.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.4.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.5.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.5.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.6.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.6.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.7.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.7.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.8.js",
+      "result": "failed_semantics",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.8.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/S11.8.4_A4.9.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__greater-than-or-equal__S11.8.4_A4.9.js\n["
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/bigint-and-bigint.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/bigint-and-incomparable-string.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/bigint-and-non-finite.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/bigint-and-number-extremes.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/greater-than-or-equal/bigint-and-string.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A1.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A2.2_T1.js\n[protojs] "
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T1.1.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T1.2.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T1.3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.1.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T2.1.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T2.2.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.4.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T2.4.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.5.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T2.5.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.6.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T2.6.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.7.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.8.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.1_T2.8.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.1_T2.9.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.2_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.2_T1.1.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A3.2_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A3.2_T1.2.js\n[protojs"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.1.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.10.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.11.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.11.js\n[protojs] CL"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.12_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.12_T1.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.12_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.12_T2.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.2.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.4.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.5.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.5.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.6.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.6.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.7.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.7.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.8.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.8.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/S11.8.1_A4.9.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than__S11.8.1_A4.9.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-bigint.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-boolean.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-incomparable-string.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-non-finite.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-number-extremes.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-string.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than/bigint-and-symbol.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/11.8.3-1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/11.8.3-2.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/11.8.3-3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/11.8.3-4.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A1.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.2_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A2.2_T1.js\n["
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T1.1.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T1.2.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T1.3.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T1.3.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T2.1.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T2.2.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.4.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T2.4.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.5.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T2.5.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.6.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T2.6.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.7.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.8.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.1_T2.8.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.1_T2.9.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.2_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.2_T1.1.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A3.2_T1.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A3.2_T1.2.js"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.1.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.1.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.10.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.10.js\n[pr"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.11.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.11.js\n[pr"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.12_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.12_T1.js\n"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.12_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.12_T2.js\n"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.2.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.2.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.3.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.4.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.5.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.5.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.6.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.6.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.7.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.7.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.8.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.8.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/S11.8.3_A4.9.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__less-than-or-equal__S11.8.3_A4.9.js\n[pro"
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/bigint-and-bigint.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/bigint-and-incomparable-string.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/bigint-and-non-finite.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/bigint-and-number-extremes.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/less-than-or-equal/bigint-and-string.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

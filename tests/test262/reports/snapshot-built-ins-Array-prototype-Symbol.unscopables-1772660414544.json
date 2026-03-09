@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-03-04T21:40:14.544Z",
+  "patterns": [
+    "built-ins/Array/prototype/Symbol.unscopables"
+  ],
+  "total": 4,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 4
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/array-find-from-last.js",
+      "result": "timeout",
+      "durationMs": 5015,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__Symbol.unscopables__array-find-fro"
+    },
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/change-array-by-copy.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__Symbol.unscopables__change-array-b"
+    },
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/prop-desc.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__Symbol.unscopables__prop-desc.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/Symbol.unscopables/value.js",
+      "result": "timeout",
+      "durationMs": 5008,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__Symbol.unscopables__value.js\n"
+    }
+  ]
+}

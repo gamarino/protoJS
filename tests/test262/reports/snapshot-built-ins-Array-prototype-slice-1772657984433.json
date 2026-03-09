@@ -1,0 +1,512 @@
+{
+  "generatedAt": "2026-03-04T20:59:44.432Z",
+  "patterns": [
+    "built-ins/Array/prototype/slice"
+  ],
+  "total": 71,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 71
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/slice/15.4.4.10-10-c-ii-1.js",
+      "result": "timeout",
+      "durationMs": 5015,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__15.4.4.10-10-c-ii-1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T1.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T2.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T3.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T4.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T5.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T5.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T6.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T6.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.1_T7.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.1_T7.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.2_T1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.2_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.2_T2.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.2_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.2_T3.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.2_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.2_T4.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.2_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.3_T1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.3_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.3_T2.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.3_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.3_T3.js",
+      "result": "timeout",
+      "durationMs": 5022,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.3_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.3_T4.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.3_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.4_T1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.4_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.4_T2.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.4_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.4_T3.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.4_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.4_T4.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.4_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.5_T1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.5_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A1.5_T2.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A1.5_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.1_T1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.1_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.1_T2.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.1_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.1_T3.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.1_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.1_T4.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.1_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.1_T5.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.1_T5.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.2_T1.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.2_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.2_T2.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.2_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.2_T3.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.2_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.2_T4.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.2_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2.2_T5.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2.2_T5.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2_T1.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2_T2.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2_T3.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2_T4.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2_T4.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2_T5.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2_T5.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A2_T6.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A2_T6.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A3_T1.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A3_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A3_T2.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A3_T2.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A3_T3.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A3_T3.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/S15.4.4.10_A4_T1.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__S15.4.4.10_A4_T1.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/call-with-boolean.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__call-with-boolean.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/coerced-start-end-grow.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__coerced-start-end-grow.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/coerced-start-end-shrink.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__coerced-start-end-shrink.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-ctor-non-object.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-ctor-non-object.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-ctor-poisoned.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-ctor-poisoned.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-non-array-invalid-len.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-non-array-invalid-le"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-non-array.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-non-array.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-proto-from-ctor-realm-array.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-proto-from-ctor-real"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-proto-from-ctor-realm-non-array.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-proto-from-ctor-real"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-proxied-array-invalid-len.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-proxied-array-invali"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-proxy.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-proxy.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-revoked-proxy.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-revoked-proxy.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species-abrupt.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species-abrupt.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species-neg-zero.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species-neg-zero.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species-non-ctor.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species-non-ctor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species-null.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species-null.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species-poisoned.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species-poisoned.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species-undef.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species-undef.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/create-species.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__create-species.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/length-exceeding-integer-limit-proxied-array.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__length-exceeding-integer-li"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/length-exceeding-integer-limit.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__length-exceeding-integer-li"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/length.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__length.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/name.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__name.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/not-a-constructor.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__not-a-constructor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/prop-desc.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__prop-desc.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/resizable-buffer.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__resizable-buffer.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/target-array-non-extensible.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__target-array-non-extensible"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/target-array-with-non-configurable-property.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__target-array-with-non-confi"
+    },
+    {
+      "path": "built-ins/Array/prototype/slice/target-array-with-non-writable-property.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__slice__target-array-with-non-writa"
+    }
+  ]
+}

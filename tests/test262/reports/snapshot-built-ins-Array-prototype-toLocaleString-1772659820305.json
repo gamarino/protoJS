@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-03-04T21:30:20.304Z",
+  "patterns": [
+    "built-ins/Array/prototype/toLocaleString"
+  ],
+  "total": 12,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 12
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/S15.4.4.3_A1_T1.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__S15.4.4.3_A1_T1.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/S15.4.4.3_A3_T1.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__S15.4.4.3_A3_T1.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/invoke-element-tolocalestring.js",
+      "result": "timeout",
+      "durationMs": 5013,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__invoke-element-tol"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/length.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__length.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/name.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__name.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/not-a-constructor.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__not-a-constructor."
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__primitive_this_val"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__primitive_this_val"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/prop-desc.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__prop-desc.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/resizable-buffer.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__resizable-buffer.j"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/user-provided-tolocalestring-grow.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__user-provided-tolo"
+    },
+    {
+      "path": "built-ins/Array/prototype/toLocaleString/user-provided-tolocalestring-shrink.js",
+      "result": "timeout",
+      "durationMs": 5006,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__toLocaleString__user-provided-tolo"
+    }
+  ]
+}

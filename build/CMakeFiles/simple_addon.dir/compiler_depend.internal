@@ -125,6 +125,7 @@ CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o
  /usr/include/c++/13/iosfwd
  /usr/include/c++/13/limits
  /usr/include/c++/13/memory
+ /usr/include/c++/13/mutex
  /usr/include/c++/13/new
  /usr/include/c++/13/numbers
  /usr/include/c++/13/ostream
@@ -139,6 +140,7 @@ CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o
  /usr/include/c++/13/string
  /usr/include/c++/13/string_view
  /usr/include/c++/13/system_error
+ /usr/include/c++/13/thread
  /usr/include/c++/13/tuple
  /usr/include/c++/13/type_traits
  /usr/include/c++/13/typeinfo

@@ -1,0 +1,1389 @@
+{
+  "generatedAt": "2026-03-08T02:44:24.559Z",
+  "patterns": [
+    "language/expressions/addition",
+    "language/statements/const"
+  ],
+  "total": 184,
+  "summary": {
+    "passed": 171,
+    "failed_syntax": 0,
+    "failed_semantics": 13,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/expressions/addition/S11.6.1_A1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.1_T1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.1_T2.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.1_T3.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.2_T1.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.2_T2.js",
+      "result": "failed_semantics",
+      "durationMs": 1171,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A2.2_T2.js\n[protojs] C"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.2_T3.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.3_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T1.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T2.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T3.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A2.4_T4.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T1.1.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T1.2.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T1.3.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.1_T1.3.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.1.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.2.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.3.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.1_T2.3.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.4.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.1_T2.4.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.1_T2.5.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T1.1.js",
+      "result": "failed_semantics",
+      "durationMs": 1236,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.2_T1.1.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T1.2.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.1.js",
+      "result": "failed_semantics",
+      "durationMs": 1160,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.2_T2.1.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.2.js",
+      "result": "failed_semantics",
+      "durationMs": 1174,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.2_T2.2.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.3.js",
+      "result": "failed_semantics",
+      "durationMs": 1278,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.2_T2.3.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A3.2_T2.4.js",
+      "result": "failed_semantics",
+      "durationMs": 1532,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A3.2_T2.4.js\n[protojs]"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T1.js",
+      "result": "failed_semantics",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A4_T1.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T2.js",
+      "result": "passed",
+      "durationMs": 55,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T3.js",
+      "result": "failed_semantics",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A4_T3.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T4.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A4_T4.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T5.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T6.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T7.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T8.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__addition__S11.6.1_A4_T8.js\n[protojs] CLI"
+    },
+    {
+      "path": "language/expressions/addition/S11.6.1_A4_T9.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-and-number.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-arithmetic.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-errors.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-toprimitive.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/bigint-wrapped-values.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-bigint-to-string.js",
+      "result": "passed",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-err.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-invocation.js",
+      "result": "passed",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-return-obj.js",
+      "result": "passed",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/coerce-symbol-to-prim-return-prim.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/get-symbol-to-prim-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/order-of-evaluation.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/expressions/addition/symbol-to-string.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/block-local-closure-get-before-initialization.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/block-local-use-before-initialization-in-declaration-statement.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/block-local-use-before-initialization-in-prior-statement.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/cptn-value.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-init-iter-close.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-init-iter-get-err-array-prototype.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-init-iter-get-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-init-iter-no-close.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-name-iter-val.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-elem-init.js",
+      "result": "passed",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-elem-iter.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-elision-init.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-elision-iter.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-empty-init.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-empty-iter.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-rest-init.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-rest-iter.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-ary-val-null.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-exhausted.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-fn-name-class.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-hole.js",
+      "result": "passed",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-undef.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-iter-complete.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-iter-done.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-iter-step-err.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-iter-val-array-prototype.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-iter-val-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-id-iter-val.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-obj-id-init.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-obj-id.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-obj-prop-id-init.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-obj-prop-id.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-obj-val-null.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elem-obj-val-undef.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elision-exhausted.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elision-step-err.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-elision.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-empty.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-ary-elem.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-ary-elision.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-ary-empty.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-ary-rest.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id-direct.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id-elision-next-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id-elision.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id-exhausted.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id-iter-step-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id-iter-val-err.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-id.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-init-ary.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__dstr__ary-ptrn-rest-init-ary.js\n[p"
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-init-id.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__dstr__ary-ptrn-rest-init-id.js\n[pr"
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-init-obj.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__dstr__ary-ptrn-rest-init-obj.js\n[p"
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-not-final-ary.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__dstr__ary-ptrn-rest-not-final-ary."
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-not-final-id.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__dstr__ary-ptrn-rest-not-final-id.j"
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-not-final-obj.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__dstr__ary-ptrn-rest-not-final-obj."
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-obj-id.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/ary-ptrn-rest-obj-prop-id.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-init-null.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-init-undefined.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-empty.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-get-value-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-fn-name-class.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-id-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-list-err.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-ary-init.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-ary-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-ary-value-null.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-ary.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-eval-err.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id-get-value-err.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id-init-throws.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id-init-unresolvable.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id-init.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id-trailing-comma.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-id.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-obj-init.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-obj-value-null.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-obj-value-undef.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-prop-obj.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-rest-getter.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-rest-skip-non-enumerable.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/dstr/obj-ptrn-rest-val-obj.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/fn-name-arrow.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/fn-name-class.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/fn-name-cover.js",
+      "result": "passed",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/fn-name-fn.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/fn-name-gen.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/function-local-closure-get-before-initialization.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/function-local-use-before-initialization-in-declaration-statement.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/function-local-use-before-initialization-in-prior-statement.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/global-closure-get-before-initialization.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/global-use-before-initialization-in-declaration-statement.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "runtime",
+        "type": "ReferenceError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__global-use-before-initialization-i"
+    },
+    {
+      "path": "language/statements/const/global-use-before-initialization-in-prior-statement.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "runtime",
+        "type": "ReferenceError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__global-use-before-initialization-i"
+    },
+    {
+      "path": "language/statements/const/redeclaration-error-from-within-strict-mode-function-const.js",
+      "result": "passed",
+      "durationMs": 21,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__redeclaration-error-from-within-st"
+    },
+    {
+      "path": "language/statements/const/static-init-await-binding-invalid.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__static-init-await-binding-invalid."
+    },
+    {
+      "path": "language/statements/const/static-init-await-binding-valid.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/block-scope-syntax-const-declarations-mixed-with-without-initialiser.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__block-scope-syntax-const-d"
+    },
+    {
+      "path": "language/statements/const/syntax/block-scope-syntax-const-declarations-mixed-without-with-initialiser.js",
+      "result": "passed",
+      "durationMs": 19,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__block-scope-syntax-const-d"
+    },
+    {
+      "path": "language/statements/const/syntax/block-scope-syntax-const-declarations-without-initialiser.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__block-scope-syntax-const-d"
+    },
+    {
+      "path": "language/statements/const/syntax/const-declaring-let-split-across-two-lines.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__const-declaring-let-split-"
+    },
+    {
+      "path": "language/statements/const/syntax/const-invalid-assignment-next-expression-for.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/const-invalid-assignment-statement-body-for-in.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/const-invalid-assignment-statement-body-for-of.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/const-outer-inner-let-bindings.js",
+      "result": "passed",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/const.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-case-expression-statement-list.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-default-statement-list.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-do-statement-while-expression.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__with-initializer-do-statem"
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-for-statement.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__with-initializer-for-state"
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-if-expression-statement-else-statement.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__with-initializer-if-expres"
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-if-expression-statement.js",
+      "result": "passed",
+      "durationMs": 29,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__with-initializer-if-expres"
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-label-statement.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__with-initializer-label-sta"
+    },
+    {
+      "path": "language/statements/const/syntax/with-initializer-while-expression-statement.js",
+      "result": "passed",
+      "durationMs": 24,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__with-initializer-while-exp"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-case-expression-statement-list.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-case-e"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-default-statement-list.js",
+      "result": "passed",
+      "durationMs": 25,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-defaul"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-do-statement-while-expression.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-do-sta"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-for-statement.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-for-st"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-if-expression-statement-else-statement.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-if-exp"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-if-expression-statement.js",
+      "result": "passed",
+      "durationMs": 23,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-if-exp"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-label-statement.js",
+      "result": "passed",
+      "durationMs": 20,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-label-"
+    },
+    {
+      "path": "language/statements/const/syntax/without-initializer-while-expression-statement.js",
+      "result": "passed",
+      "durationMs": 22,
+      "negative": {
+        "phase": "parse",
+        "type": "SyntaxError"
+      },
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__statements__const__syntax__without-initializer-while-"
+    }
+  ]
+}

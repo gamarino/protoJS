@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs -I/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/src/catch2/.. -I/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build/generated-includes
 
-CXX_FLAGS = -std=gnu++20 -ffile-prefix-map=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/=
+CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20 -ffile-prefix-map=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/=
 

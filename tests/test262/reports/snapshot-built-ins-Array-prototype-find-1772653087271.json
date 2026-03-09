@@ -1,0 +1,176 @@
+{
+  "generatedAt": "2026-03-04T19:38:07.271Z",
+  "patterns": [
+    "built-ins/Array/prototype/find"
+  ],
+  "total": 23,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 23
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/prototype/find/array-altered-during-loop.js",
+      "result": "timeout",
+      "durationMs": 5014,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__array-altered-during-loop.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/call-with-boolean.js",
+      "result": "timeout",
+      "durationMs": 5007,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__call-with-boolean.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/callbackfn-resize-arraybuffer.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__callbackfn-resize-arraybuffe"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/length.js",
+      "result": "timeout",
+      "durationMs": 5009,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__length.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/name.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__name.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/not-a-constructor.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__not-a-constructor.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-call-parameters.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-call-parameters.js"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-call-this-non-strict.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-call-this-non-stri"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-call-this-strict.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-call-this-strict.j"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-called-for-each-array-property.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-called-for-each-ar"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-is-not-callable-throws.js",
+      "result": "timeout",
+      "durationMs": 5008,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-is-not-callable-th"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/predicate-not-called-on-empty-array.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__predicate-not-called-on-empt"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/prop-desc.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__prop-desc.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/resizable-buffer-grow-mid-iteration.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__resizable-buffer-grow-mid-it"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/resizable-buffer-shrink-mid-iteration.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__resizable-buffer-shrink-mid-"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/resizable-buffer.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__resizable-buffer.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-predicate-call.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-abrupt-from-predicate"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-property.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-abrupt-from-property."
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-this-length-as-symbol.js",
+      "result": "timeout",
+      "durationMs": 5010,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-abrupt-from-this-leng"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-this-length.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-abrupt-from-this-leng"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-abrupt-from-this.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-abrupt-from-this.js\n"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-found-value-predicate-result-is-true.js",
+      "result": "timeout",
+      "durationMs": 5012,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-found-value-predicate"
+    },
+    {
+      "path": "built-ins/Array/prototype/find/return-undefined-if-predicate-returns-false-value.js",
+      "result": "timeout",
+      "durationMs": 5011,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__prototype__find__return-undefined-if-predicat"
+    }
+  ]
+}

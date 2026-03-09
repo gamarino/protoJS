@@ -250,6 +250,7 @@ CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o: \
  /usr/include/c++/13/pstl/execution_defs.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../JSContext.h \
  /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../JSPrototypes.h \
  /usr/include/c++/13/fstream /usr/include/c++/13/istream \
  /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/bits/codecvt.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \

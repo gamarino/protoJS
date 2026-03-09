@@ -1,0 +1,323 @@
+{
+  "generatedAt": "2026-03-05T12:33:59.150Z",
+  "patterns": [
+    "built-ins/Temporal/PlainDateTime/prototype/round"
+  ],
+  "total": 44,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 44,
+    "timeout": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/balance.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__balance.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/branding.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__branding.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/builtin.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__builtin.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/length.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__length.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/limits.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__limits.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/name.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__name.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/negative-time.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__negative-time.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__not-a-constructor.js: Test262Error: Calling as constructor Expected a "
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/options-read-before-algorithmic-validation.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__options-read-before-algorithmic-validation.js: ReferenceError: 'Tempor"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/options-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__options-wrong-type.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/prop-desc.js",
+      "result": "failed_semantics",
+      "durationMs": 21,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__prop-desc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/rounding-direction.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__rounding-direction.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-divides.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-divides.js: ReferenceError: 'Temporal' is not define"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-does-not-divide.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-does-not-divide.js: ReferenceError: 'Temporal' is no"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-nan.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-nan.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-non-integer.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-non-integer.js: ReferenceError: 'Temporal' is not de"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-one-day.js",
+      "result": "failed_semantics",
+      "durationMs": 25,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-one-day.js: ReferenceError: 'Temporal' is not define"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-out-of-range.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-out-of-range.js: ReferenceError: 'Temporal' is not d"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 24,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-undefined.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingincrement-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingincrement-wrong-type.js: ReferenceError: 'Temporal' is not def"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-basic.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-basic.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-ceil.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-ceil.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-expand.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-expand.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-floor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-floor.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-halfCeil.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-halfCeil.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-halfEven.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-halfEven.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-halfExpand.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-halfExpand.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-halfFloor.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-halfFloor.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-halfTrunc.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-halfTrunc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-halfexpand-is-default.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-halfexpand-is-default.js: ReferenceError: 'Temporal' is n"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-invalid-string.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-invalid-string.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-trunc.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-trunc.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-undefined.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundingmode-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 23,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundingmode-wrong-type.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/roundto-invalid-string.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__roundto-invalid-string.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/smallestunit-invalid-string.js",
+      "result": "failed_semantics",
+      "durationMs": 19,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__smallestunit-invalid-string.js: ReferenceError: 'Temporal' is not defi"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/smallestunit-plurals-accepted.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__smallestunit-plurals-accepted.js: ReferenceError: 'Temporal' is not de"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/smallestunit-string-shorthand.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__smallestunit-string-shorthand.js: ReferenceError: 'Temporal' is not de"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/smallestunit-wrong-type.js",
+      "result": "failed_semantics",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__smallestunit-wrong-type.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/subclassing-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 26,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__subclassing-ignored.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/throws-argument-object-insufficient-data.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__throws-argument-object-insufficient-data.js: ReferenceError: 'Temporal"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/throws-argument-object.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__throws-argument-object.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/throws-no-argument.js",
+      "result": "failed_semantics",
+      "durationMs": 22,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__throws-no-argument.js: ReferenceError: 'Temporal' is not defined"
+    },
+    {
+      "path": "built-ins/Temporal/PlainDateTime/prototype/round/throws-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 20,
+      "negative": null,
+      "errorSummary": "Exception in /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Temporal__PlainDateTime__prototype__round__throws-undefined.js: ReferenceError: 'Temporal' is not defined"
+    }
+  ]
+}

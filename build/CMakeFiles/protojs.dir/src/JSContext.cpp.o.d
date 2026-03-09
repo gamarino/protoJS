@@ -223,16 +223,17 @@ CMakeFiles/protojs.dir/src/JSContext.cpp.o: \
  /usr/include/c++/13/bits/ranges_uninitialized.h \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/vector \
+ /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/mutex \
+ /usr/include/c++/13/thread /usr/include/c++/13/vector \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
+ /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
- /usr/include/c++/13/thread /usr/include/c++/13/queue \
- /usr/include/c++/13/deque /usr/include/c++/13/bits/stl_deque.h \
- /usr/include/c++/13/bits/deque.tcc /usr/include/c++/13/bits/stl_heap.h \
- /usr/include/c++/13/bits/stl_queue.h /usr/include/c++/13/mutex \
+ /usr/include/c++/13/queue /usr/include/c++/13/deque \
+ /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
+ /usr/include/c++/13/bits/stl_heap.h /usr/include/c++/13/bits/stl_queue.h \
  /usr/include/c++/13/future /usr/include/c++/13/bits/atomic_futex.h \
  /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/functional \
  /usr/include/c++/13/unordered_map \
@@ -250,5 +251,14 @@ CMakeFiles/protojs.dir/src/JSContext.cpp.o: \
  /home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/ExecutionEngine.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/TypeBridge.h \
- /usr/include/c++/13/iostream /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc
+ /home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h \
+ /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
+ /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/ProtoJSStringCache.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoCompileOnly.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoBytecodeModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoInterpreter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/runtime/ProtoBytecodeModule.h \
+ /usr/include/c++/13/cstring /usr/include/c++/13/iostream \
+ /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc

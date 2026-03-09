@@ -95,6 +95,51 @@ rebuild_cache:
 rebuild_cache/fast: rebuild_cache
 .PHONY : rebuild_cache/fast
 
+# Special rule for the target list_install_components
+list_install_components:
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Available install components are: \"protoJS\""
+.PHONY : list_install_components
+
+# Special rule for the target list_install_components
+list_install_components/fast: list_install_components
+.PHONY : list_install_components/fast
+
+# Special rule for the target install
+install: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
+	/usr/bin/cmake -P cmake_install.cmake
+.PHONY : install
+
+# Special rule for the target install
+install/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
+	/usr/bin/cmake -P cmake_install.cmake
+.PHONY : install/fast
+
+# Special rule for the target install/local
+install/local: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
+	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local
+
+# Special rule for the target install/local
+install/local/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
+	/usr/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local/fast
+
+# Special rule for the target install/strip
+install/strip: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip
+
+# Special rule for the target install/strip
+install/strip/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
+	/usr/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
+.PHONY : install/strip/fast
+
 # The main all target
 all: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles /home/gamarino/Documentos/proyectos/protoJS/build//CMakeFiles/progress.marks
@@ -879,6 +924,174 @@ src/JSContext.s: src/JSContext.cpp.s
 src/JSContext.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSContext.cpp.s
 .PHONY : src/JSContext.cpp.s
+
+src/JSPrototypes.o: src/JSPrototypes.cpp.o
+.PHONY : src/JSPrototypes.o
+
+# target to build an object file
+src/JSPrototypes.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.o
+.PHONY : src/JSPrototypes.cpp.o
+
+src/JSPrototypes.i: src/JSPrototypes.cpp.i
+.PHONY : src/JSPrototypes.i
+
+# target to preprocess a source file
+src/JSPrototypes.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.i
+.PHONY : src/JSPrototypes.cpp.i
+
+src/JSPrototypes.s: src/JSPrototypes.cpp.s
+.PHONY : src/JSPrototypes.s
+
+# target to generate assembly for a file
+src/JSPrototypes.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.s
+.PHONY : src/JSPrototypes.cpp.s
+
+src/NumberPrototype.o: src/NumberPrototype.cpp.o
+.PHONY : src/NumberPrototype.o
+
+# target to build an object file
+src/NumberPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.o
+.PHONY : src/NumberPrototype.cpp.o
+
+src/NumberPrototype.i: src/NumberPrototype.cpp.i
+.PHONY : src/NumberPrototype.i
+
+# target to preprocess a source file
+src/NumberPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.i
+.PHONY : src/NumberPrototype.cpp.i
+
+src/NumberPrototype.s: src/NumberPrototype.cpp.s
+.PHONY : src/NumberPrototype.s
+
+# target to generate assembly for a file
+src/NumberPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.s
+.PHONY : src/NumberPrototype.cpp.s
+
+src/ProtoArgumentsAdapter.o: src/ProtoArgumentsAdapter.cpp.o
+.PHONY : src/ProtoArgumentsAdapter.o
+
+# target to build an object file
+src/ProtoArgumentsAdapter.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.o
+.PHONY : src/ProtoArgumentsAdapter.cpp.o
+
+src/ProtoArgumentsAdapter.i: src/ProtoArgumentsAdapter.cpp.i
+.PHONY : src/ProtoArgumentsAdapter.i
+
+# target to preprocess a source file
+src/ProtoArgumentsAdapter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.i
+.PHONY : src/ProtoArgumentsAdapter.cpp.i
+
+src/ProtoArgumentsAdapter.s: src/ProtoArgumentsAdapter.cpp.s
+.PHONY : src/ProtoArgumentsAdapter.s
+
+# target to generate assembly for a file
+src/ProtoArgumentsAdapter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.s
+.PHONY : src/ProtoArgumentsAdapter.cpp.s
+
+src/ProtoArrayAdapter.o: src/ProtoArrayAdapter.cpp.o
+.PHONY : src/ProtoArrayAdapter.o
+
+# target to build an object file
+src/ProtoArrayAdapter.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.o
+.PHONY : src/ProtoArrayAdapter.cpp.o
+
+src/ProtoArrayAdapter.i: src/ProtoArrayAdapter.cpp.i
+.PHONY : src/ProtoArrayAdapter.i
+
+# target to preprocess a source file
+src/ProtoArrayAdapter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.i
+.PHONY : src/ProtoArrayAdapter.cpp.i
+
+src/ProtoArrayAdapter.s: src/ProtoArrayAdapter.cpp.s
+.PHONY : src/ProtoArrayAdapter.s
+
+# target to generate assembly for a file
+src/ProtoArrayAdapter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.s
+.PHONY : src/ProtoArrayAdapter.cpp.s
+
+src/ProtoJSStringCache.o: src/ProtoJSStringCache.cpp.o
+.PHONY : src/ProtoJSStringCache.o
+
+# target to build an object file
+src/ProtoJSStringCache.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.o
+.PHONY : src/ProtoJSStringCache.cpp.o
+
+src/ProtoJSStringCache.i: src/ProtoJSStringCache.cpp.i
+.PHONY : src/ProtoJSStringCache.i
+
+# target to preprocess a source file
+src/ProtoJSStringCache.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.i
+.PHONY : src/ProtoJSStringCache.cpp.i
+
+src/ProtoJSStringCache.s: src/ProtoJSStringCache.cpp.s
+.PHONY : src/ProtoJSStringCache.s
+
+# target to generate assembly for a file
+src/ProtoJSStringCache.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.s
+.PHONY : src/ProtoJSStringCache.cpp.s
+
+src/ProtoNativeModule.o: src/ProtoNativeModule.cpp.o
+.PHONY : src/ProtoNativeModule.o
+
+# target to build an object file
+src/ProtoNativeModule.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.o
+.PHONY : src/ProtoNativeModule.cpp.o
+
+src/ProtoNativeModule.i: src/ProtoNativeModule.cpp.i
+.PHONY : src/ProtoNativeModule.i
+
+# target to preprocess a source file
+src/ProtoNativeModule.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.i
+.PHONY : src/ProtoNativeModule.cpp.i
+
+src/ProtoNativeModule.s: src/ProtoNativeModule.cpp.s
+.PHONY : src/ProtoNativeModule.s
+
+# target to generate assembly for a file
+src/ProtoNativeModule.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.s
+.PHONY : src/ProtoNativeModule.cpp.s
+
+src/QuickJSArrayBridge.o: src/QuickJSArrayBridge.cpp.o
+.PHONY : src/QuickJSArrayBridge.o
+
+# target to build an object file
+src/QuickJSArrayBridge.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.o
+.PHONY : src/QuickJSArrayBridge.cpp.o
+
+src/QuickJSArrayBridge.i: src/QuickJSArrayBridge.cpp.i
+.PHONY : src/QuickJSArrayBridge.i
+
+# target to preprocess a source file
+src/QuickJSArrayBridge.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.i
+.PHONY : src/QuickJSArrayBridge.cpp.i
+
+src/QuickJSArrayBridge.s: src/QuickJSArrayBridge.cpp.s
+.PHONY : src/QuickJSArrayBridge.s
+
+# target to generate assembly for a file
+src/QuickJSArrayBridge.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.s
+.PHONY : src/QuickJSArrayBridge.cpp.s
 
 src/ThreadPoolExecutor.o: src/ThreadPoolExecutor.cpp.o
 .PHONY : src/ThreadPoolExecutor.o
@@ -1936,6 +2149,78 @@ src/repl/REPL.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.s
 .PHONY : src/repl/REPL.cpp.s
 
+src/runtime/ProtoBytecodeLoader.o: src/runtime/ProtoBytecodeLoader.cpp.o
+.PHONY : src/runtime/ProtoBytecodeLoader.o
+
+# target to build an object file
+src/runtime/ProtoBytecodeLoader.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.o
+.PHONY : src/runtime/ProtoBytecodeLoader.cpp.o
+
+src/runtime/ProtoBytecodeLoader.i: src/runtime/ProtoBytecodeLoader.cpp.i
+.PHONY : src/runtime/ProtoBytecodeLoader.i
+
+# target to preprocess a source file
+src/runtime/ProtoBytecodeLoader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.i
+.PHONY : src/runtime/ProtoBytecodeLoader.cpp.i
+
+src/runtime/ProtoBytecodeLoader.s: src/runtime/ProtoBytecodeLoader.cpp.s
+.PHONY : src/runtime/ProtoBytecodeLoader.s
+
+# target to generate assembly for a file
+src/runtime/ProtoBytecodeLoader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.s
+.PHONY : src/runtime/ProtoBytecodeLoader.cpp.s
+
+src/runtime/ProtoCompileOnly.o: src/runtime/ProtoCompileOnly.cpp.o
+.PHONY : src/runtime/ProtoCompileOnly.o
+
+# target to build an object file
+src/runtime/ProtoCompileOnly.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.o
+.PHONY : src/runtime/ProtoCompileOnly.cpp.o
+
+src/runtime/ProtoCompileOnly.i: src/runtime/ProtoCompileOnly.cpp.i
+.PHONY : src/runtime/ProtoCompileOnly.i
+
+# target to preprocess a source file
+src/runtime/ProtoCompileOnly.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.i
+.PHONY : src/runtime/ProtoCompileOnly.cpp.i
+
+src/runtime/ProtoCompileOnly.s: src/runtime/ProtoCompileOnly.cpp.s
+.PHONY : src/runtime/ProtoCompileOnly.s
+
+# target to generate assembly for a file
+src/runtime/ProtoCompileOnly.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.s
+.PHONY : src/runtime/ProtoCompileOnly.cpp.s
+
+src/runtime/ProtoInterpreter.o: src/runtime/ProtoInterpreter.cpp.o
+.PHONY : src/runtime/ProtoInterpreter.o
+
+# target to build an object file
+src/runtime/ProtoInterpreter.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.o
+.PHONY : src/runtime/ProtoInterpreter.cpp.o
+
+src/runtime/ProtoInterpreter.i: src/runtime/ProtoInterpreter.cpp.i
+.PHONY : src/runtime/ProtoInterpreter.i
+
+# target to preprocess a source file
+src/runtime/ProtoInterpreter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.i
+.PHONY : src/runtime/ProtoInterpreter.cpp.i
+
+src/runtime/ProtoInterpreter.s: src/runtime/ProtoInterpreter.cpp.s
+.PHONY : src/runtime/ProtoInterpreter.s
+
+# target to generate assembly for a file
+src/runtime/ProtoInterpreter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.s
+.PHONY : src/runtime/ProtoInterpreter.cpp.s
+
 src/testing/NodeJSTestRunner.o: src/testing/NodeJSTestRunner.cpp.o
 .PHONY : src/testing/NodeJSTestRunner.o
 
@@ -2015,6 +2300,10 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... edit_cache"
+	@echo "... install"
+	@echo "... install/local"
+	@echo "... install/strip"
+	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... Continuous"
@@ -2090,6 +2379,27 @@ help:
 	@echo "... src/JSContext.o"
 	@echo "... src/JSContext.i"
 	@echo "... src/JSContext.s"
+	@echo "... src/JSPrototypes.o"
+	@echo "... src/JSPrototypes.i"
+	@echo "... src/JSPrototypes.s"
+	@echo "... src/NumberPrototype.o"
+	@echo "... src/NumberPrototype.i"
+	@echo "... src/NumberPrototype.s"
+	@echo "... src/ProtoArgumentsAdapter.o"
+	@echo "... src/ProtoArgumentsAdapter.i"
+	@echo "... src/ProtoArgumentsAdapter.s"
+	@echo "... src/ProtoArrayAdapter.o"
+	@echo "... src/ProtoArrayAdapter.i"
+	@echo "... src/ProtoArrayAdapter.s"
+	@echo "... src/ProtoJSStringCache.o"
+	@echo "... src/ProtoJSStringCache.i"
+	@echo "... src/ProtoJSStringCache.s"
+	@echo "... src/ProtoNativeModule.o"
+	@echo "... src/ProtoNativeModule.i"
+	@echo "... src/ProtoNativeModule.s"
+	@echo "... src/QuickJSArrayBridge.o"
+	@echo "... src/QuickJSArrayBridge.i"
+	@echo "... src/QuickJSArrayBridge.s"
 	@echo "... src/ThreadPoolExecutor.o"
 	@echo "... src/ThreadPoolExecutor.i"
 	@echo "... src/ThreadPoolExecutor.s"
@@ -2222,6 +2532,15 @@ help:
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"
+	@echo "... src/runtime/ProtoBytecodeLoader.o"
+	@echo "... src/runtime/ProtoBytecodeLoader.i"
+	@echo "... src/runtime/ProtoBytecodeLoader.s"
+	@echo "... src/runtime/ProtoCompileOnly.o"
+	@echo "... src/runtime/ProtoCompileOnly.i"
+	@echo "... src/runtime/ProtoCompileOnly.s"
+	@echo "... src/runtime/ProtoInterpreter.o"
+	@echo "... src/runtime/ProtoInterpreter.i"
+	@echo "... src/runtime/ProtoInterpreter.s"
 	@echo "... src/testing/NodeJSTestRunner.o"
 	@echo "... src/testing/NodeJSTestRunner.i"
 	@echo "... src/testing/NodeJSTestRunner.s"
