@@ -934,19 +934,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 /* Read from *pGlobalRoot (the live global, updated by OP_put_var_init via setAttribute)
                  * rather than from the stale globalObj snapshot passed at call time. */
                 const proto::ProtoObject* liveGlobal = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
-                bool foundInGlobal = false;
+                /* rawVal is the direct getAttribute result: nullptr=absent, PROTO_NONE=undefined, other=value. */
+                const proto::ProtoObject* rawVal = nullptr;
                 if (liveGlobal && liveGlobal != PROTO_NONE && static_cast<size_t>(idx) < module->closureVarNames.size()) {
                     const std::string& name = module->closureVarNames[idx];
                     if (!name.empty()) {
                         const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, name.c_str());
                         if (key) {
-                            /* Read the attribute (own-properties only, no prototype search). */
-                            val = liveGlobal->getAttribute(pContext, key, false);
-                            /* TDZ: getAttribute returns nullptr (not PROTO_NONE) when the key is
-                             * completely absent. PROTO_NONE means the key IS present but its value
-                             * is undefined — i.e. the variable was initialized to undefined.
-                             * So `!val` (nullptr) ↔ uninitialized (TDZ), `val==PROTO_NONE` ↔ undefined. */
-                            if (isLexical && !val) {
+                            /* getAttribute(key, false) returns:
+                             *   nullptr    → key is completely absent (TDZ or not-yet-stored)
+                             *   PROTO_NONE → key present, value is undefined (initialized)
+                             *   other      → key present, initialized to a real value */
+                            rawVal = liveGlobal->getAttribute(pContext, key, false);
+                            /* TDZ check: absent key for a lexical variable means uninitialized. */
+                            if (isLexical && !rawVal) {
                                 const std::string& vname = module->closureVarNames[idx];
                                 std::string msg = "Cannot access '";
                                 msg += vname.empty() ? "?" : vname;
@@ -955,14 +956,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 has_pending_exception = true;
                                 break;
                             }
-                            foundInGlobal = true;
+                            val = rawVal;
                         }
                     }
                 }
-                /* Only fall back to local slots if the var was not found in the global root.
-                 * If it was found (even as PROTO_NONE = undefined), skip the slot fallback to
-                 * avoid picking up stale slot data for vars initialized to undefined. */
-                if (!foundInGlobal && (!val || val == PROTO_NONE)) {
+                /* Slot fallback: only when the global key is absent (rawVal==nullptr).
+                 * Skip when rawVal==PROTO_NONE: the variable was initialized to undefined.
+                 * Skipping prevents stale slot data from shadowing the legitimate undefined value. */
+                if (!rawVal && (!val || val == PROTO_NONE)) {
                     if (idx < varCount && (argCount + idx) < (argCount + varCount))
                         val = getSlot(pContext, argCount + idx);
                 }
