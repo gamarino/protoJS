@@ -934,26 +934,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 /* Read from *pGlobalRoot (the live global, updated by OP_put_var_init via setAttribute)
                  * rather than from the stale globalObj snapshot passed at call time. */
                 const proto::ProtoObject* liveGlobal = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
+                bool foundInGlobal = false;
                 if (liveGlobal && liveGlobal != PROTO_NONE && static_cast<size_t>(idx) < module->closureVarNames.size()) {
                     const std::string& name = module->closureVarNames[idx];
                     if (!name.empty()) {
                         const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, name.c_str());
                         if (key) {
+                            /* TDZ: use hasAttribute to distinguish "not yet initialized" (absent
+                             * key) from "initialized to undefined" (key present, value PROTO_NONE).
+                             * A lexical var set via OP_put_var_init always has its key present. */
+                            if (isLexical && !liveGlobal->hasAttribute(pContext, key)) {
+                                const std::string& vname = module->closureVarNames[idx];
+                                std::string msg = "Cannot access '";
+                                msg += vname.empty() ? "?" : vname;
+                                msg += "' before initialization";
+                                pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
+                                has_pending_exception = true;
+                                break;
+                            }
                             val = liveGlobal->getAttribute(pContext, key, false);
+                            foundInGlobal = true;
                         }
                     }
                 }
-                /* TDZ: lexical var not yet initialized → ReferenceError */
-                if (isLexical && (!val || val == PROTO_NONE)) {
-                    const std::string& vname = (static_cast<size_t>(idx) < module->closureVarNames.size())
-                                              ? module->closureVarNames[idx] : std::string();
-                    std::string msg = "Cannot access '";
-                    msg += vname.empty() ? "?" : vname;
-                    msg += "' before initialization";
-                    pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot); has_pending_exception = true;
-                    break;
-                }
-                if (!val || val == PROTO_NONE) {
+                /* Only fall back to local slots if the var was not found in the global root.
+                 * If it was found (even as PROTO_NONE = undefined), skip the slot fallback to
+                 * avoid picking up stale slot data for vars initialized to undefined. */
+                if (!foundInGlobal && (!val || val == PROTO_NONE)) {
                     if (idx < varCount && (argCount + idx) < (argCount + varCount))
                         val = getSlot(pContext, argCount + idx);
                 }
