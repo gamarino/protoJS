@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
             JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
             JS_FreeValue(ctx, global);
         }
-        JSValue result = wrapper.eval(code, filename);
+        JSValue result = wrapper.eval(code, filename, inputTypeModule);
         JS_FreeValue(wrapper.getJSContext(), result);
         return 0;
     }
@@ -297,7 +297,7 @@ int main(int argc, char** argv) {
     if (syntaxCheck) {
         // For syntax check, we'd parse without executing
         // QuickJS doesn't have a separate parse API, so we'll just try to compile
-        JSValue result = wrapper.eval(code, filename);
+        JSValue result = wrapper.eval(code, filename, inputTypeModule);
         if (JS_IsException(result)) {
             JSValue exception = JS_GetException(wrapper.getJSContext());
             const char* error = JS_ToCString(wrapper.getJSContext(), exception);
@@ -314,7 +314,7 @@ int main(int argc, char** argv) {
     }
     
     // Evaluate code
-    JSValue result = wrapper.eval(code, filename);
+    JSValue result = wrapper.eval(code, filename, inputTypeModule);
     
     // Print result if -p flag is set
     if (printResult && !JS_IsException(result) && !JS_IsUndefined(result)) {

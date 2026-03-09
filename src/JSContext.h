@@ -22,8 +22,9 @@ public:
     /**
      * @brief Evaluates JavaScript code.
      * Uses compile-only + ProtoBytecodeLoader + ProtoInterpreter (single path; no QuickJS runtime execution).
+     * @param isModule When true, compiles with JS_EVAL_TYPE_MODULE (ES module semantics).
      */
-    JSValue eval(const std::string& code, const std::string& filename = "eval");
+    JSValue eval(const std::string& code, const std::string& filename = "eval", bool isModule = false);
 
     /**
      * @brief Use protoCore interpreter path for eval (compile -> load -> run).

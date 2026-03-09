@@ -15,8 +15,53 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 namespace protojs {
+
+/**
+ * Filesystem module normalizer: resolves a module specifier relative to the
+ * importing module's path. Returns a js_malloc'd absolute path string.
+ */
+static char* protojs_normalize_module(JSContext* ctx, const char* base_name,
+                                      const char* name, void* /*opaque*/) {
+    if (name[0] == '/') {
+        return js_strdup(ctx, name);
+    }
+    std::string base(base_name ? base_name : "");
+    std::string resolved;
+    size_t slash = base.rfind('/');
+    if (slash != std::string::npos) {
+        resolved = base.substr(0, slash + 1) + name;
+    } else {
+        resolved = name;
+    }
+    return js_strdup(ctx, resolved.c_str());
+}
+
+/**
+ * Filesystem module loader: reads a module file from disk and compiles it.
+ * Returns the JSModuleDef* on success, nullptr on failure (exception set).
+ */
+static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
+                                        void* /*opaque*/) {
+    std::ifstream file(module_name);
+    if (!file.is_open()) {
+        JS_ThrowReferenceError(ctx, "could not load module '%s'", module_name);
+        return nullptr;
+    }
+    std::stringstream ss;
+    ss << file.rdbuf();
+    std::string src = ss.str();
+
+    JSValue val = JS_Eval(ctx, src.c_str(), src.size(), module_name,
+                          JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    if (JS_IsException(val)) {
+        return nullptr;
+    }
+    return static_cast<JSModuleDef*>(JS_VALUE_GET_PTR(val));
+}
 
 // See JSContext.h for semantics.
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
@@ -87,7 +132,7 @@ JSContextWrapper::~JSContextWrapper() {
     JS_FreeRuntime(rt);
 }
 
-JSValue JSContextWrapper::eval(const std::string& code, const std::string& filename) {
+JSValue JSContextWrapper::eval(const std::string& code, const std::string& filename, bool isModule) {
     currentScript_ = filename;
     pContext->currentFileName = currentScript_.empty() ? nullptr : &currentScript_[0];
     pContext->currentLineNumber = 1;
@@ -98,11 +143,93 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     }
 
     std::cerr << "[protojs] eval start: " << filename << std::endl;
-    // Clear any pending exception from earlier (e.g. module init) so compile sees a clean context.
+    // Clear any pending exception from earlier so compile sees a clean context.
     if (JS_HasException(ctx)) {
         JSValue stale = JS_GetException(ctx);
         JS_FreeValue(ctx, stale);
     }
+
+    // Module mode: QuickJS handles modules natively (protoCore does not implement
+    // module semantics — import/export linking, namespace objects, TLA, etc.).
+    // Follow the qjs.c pattern: compile-only first, then JS_EvalFunction, then
+    // drain pending microjobs and inspect the Promise result.
+    if (isModule) {
+        JS_SetModuleLoaderFunc(rt, protojs_normalize_module, protojs_load_module, nullptr);
+
+        // Step 1: compile
+        JSValue compiled = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(),
+                                   JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+        if (JS_IsException(compiled)) {
+            // Compile/parse error (SyntaxError etc.)
+            goto module_error;
+        }
+
+        {
+            // Step 2: evaluate (returns a Promise)
+            JSValue promise = JS_EvalFunction(ctx, compiled);
+
+            if (JS_IsException(promise)) {
+                goto module_error;
+            }
+
+            // Step 3: drain pending microjobs so synchronous promise settlement completes
+            {
+                JSContext* jobCtx = nullptr;
+                while (JS_ExecutePendingJob(rt, &jobCtx) > 0) {}
+            }
+
+            // Step 4: inspect Promise state
+            const int state = JS_PromiseState(ctx, promise);
+            if (state == JS_PROMISE_REJECTED) {
+                JSValue reason = JS_PromiseResult(ctx, promise);
+                JS_FreeValue(ctx, promise);
+                JS_Throw(ctx, reason); // set as pending exception
+                goto module_error;
+            }
+
+            JS_FreeValue(ctx, promise);
+        }
+
+        IntegratedDebugger::popFrame();
+        pContext->currentFileName = nullptr;
+        pContext->currentLineNumber = 0;
+        currentScript_.clear();
+        return JS_UNDEFINED;
+
+    module_error:
+        {
+            JSValue exc = JS_GetException(ctx);
+            std::string errStr;
+            JSValue nameVal = JS_GetPropertyStr(ctx, exc, "name");
+            JSValue msgVal  = JS_GetPropertyStr(ctx, exc, "message");
+            const char* name = (!JS_IsUndefined(nameVal) && !JS_IsException(nameVal))
+                               ? JS_ToCString(ctx, nameVal) : nullptr;
+            const char* msg  = (!JS_IsUndefined(msgVal)  && !JS_IsException(msgVal))
+                               ? JS_ToCString(ctx, msgVal) : nullptr;
+            if (name || msg) {
+                errStr = name ? name : "";
+                if (msg) errStr += (errStr.empty() ? "" : ": ") + std::string(msg);
+            }
+            if (name) JS_FreeCString(ctx, name);
+            if (msg)  JS_FreeCString(ctx, msg);
+            JS_FreeValue(ctx, nameVal);
+            JS_FreeValue(ctx, msgVal);
+            if (errStr.empty()) {
+                const char* str = JS_ToCString(ctx, exc);
+                if (str) { errStr = str; JS_FreeCString(ctx, str); }
+            }
+            if (!errStr.empty()) {
+                std::cerr << "Exception in " << filename << ": " << errStr << std::endl;
+            }
+            JS_FreeValue(ctx, exc);
+        }
+        IntegratedDebugger::popFrame();
+        pContext->currentFileName = nullptr;
+        pContext->currentLineNumber = 0;
+        currentScript_.clear();
+        return JS_EXCEPTION;
+    }
+
     JSValue val;
     // Single path: compile → load → run (protoCore interpreter). No legacy JS_Eval.
     proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
@@ -110,7 +237,8 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     frameCtx.currentLineNumber = pContext->currentLineNumber;
 
     bool hadError = false;
-    void* bytecode = protojs::compileToBytecode(ctx, code.c_str(), code.size(), filename.c_str(), nullptr);
+    const int compileFlags = JS_EVAL_TYPE_GLOBAL;
+    void* bytecode = protojs::compileToBytecodeWithFlags(ctx, code.c_str(), code.size(), filename.c_str(), compileFlags, nullptr);
     if (!bytecode) {
         val = JS_GetException(ctx);
         const char* noFallback = std::getenv("PROTOJS_NO_FALLBACK");
@@ -120,7 +248,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         } else {
             std::cerr << "[protojs] compile failed, fallback to QuickJS eval" << std::endl;
             JS_FreeValue(ctx, val);
-            JSValue runVal = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(), JS_EVAL_TYPE_GLOBAL);
+            JSValue runVal = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(), compileFlags);
             if (JS_IsException(runVal)) {
                 val = JS_GetException(ctx);
             } else {
@@ -150,28 +278,56 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 frameCtx.returnValue = result;
 
                 if (exception && exception != PROTO_NONE) {
-                    /* Format exception from ProtoObject for error reporting. */
+                    /* Format exception from ProtoObject for error reporting.
+                     * Search order:
+                     *   1. exception.name (instance or prototype chain)
+                     *   2. exception.constructor.name (for custom Error subclasses
+                     *      like Test262Error that don't set prototype.name)
+                     *   3. exception.message
+                     *   4. exception as a string (plain throw "msg")
+                     */
                     std::string errStr;
                     const proto::ProtoString* nameKey =
                         ProtoJSStringCache::getKey(&frameCtx, "name");
                     const proto::ProtoString* msgKey =
                         ProtoJSStringCache::getKey(&frameCtx, "message");
                     if (nameKey) {
+                        /* Search prototype chain so Error subclasses inherit "name". */
                         const proto::ProtoObject* nv =
-                            exception->getAttribute(&frameCtx, nameKey, false);
+                            exception->getAttribute(&frameCtx, nameKey, true);
                         if (nv && nv != PROTO_NONE && nv->isString(&frameCtx)) {
                             std::string tmp;
                             nv->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
-                            errStr = tmp;
+                            if (!tmp.empty()) errStr = tmp;
+                        }
+                    }
+                    /* Fall back to constructor.name for plain-function constructors
+                     * like Test262Error (no prototype.name property). */
+                    if (errStr.empty()) {
+                        const proto::ProtoString* ctorKey =
+                            ProtoJSStringCache::getKey(&frameCtx, "constructor");
+                        if (ctorKey) {
+                            const proto::ProtoObject* ctor =
+                                exception->getAttribute(&frameCtx, ctorKey, true);
+                            if (ctor && ctor != PROTO_NONE && nameKey) {
+                                const proto::ProtoObject* ctorName =
+                                    ctor->getAttribute(&frameCtx, nameKey, false);
+                                if (ctorName && ctorName != PROTO_NONE &&
+                                    ctorName->isString(&frameCtx)) {
+                                    std::string tmp;
+                                    ctorName->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
+                                    if (!tmp.empty()) errStr = tmp;
+                                }
+                            }
                         }
                     }
                     if (msgKey) {
                         const proto::ProtoObject* mv =
-                            exception->getAttribute(&frameCtx, msgKey, false);
+                            exception->getAttribute(&frameCtx, msgKey, true);
                         if (mv && mv != PROTO_NONE && mv->isString(&frameCtx)) {
                             std::string tmp;
                             mv->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
-                            if (!errStr.empty()) errStr += ": ";
+                            if (!errStr.empty() && !tmp.empty()) errStr += ": ";
                             errStr += tmp;
                         }
                     }

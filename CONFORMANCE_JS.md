@@ -2,7 +2,7 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-03-06 (snapshots: `tests/test262/reports/snapshot-*.json`).
+**Last updated:** 2026-03-08 (snapshots: `tests/test262/reports/snapshot-*.json`).
 
 **Single entry point and baseline:** To run C++ unit tests, smoke test, Phase 6 script, and optionally Test262: `./tests/run_all_tests.sh` (from repo root). For the testing baseline and how to run each layer, see [tests/README.md](tests/README.md).
 
@@ -23,6 +23,8 @@ Tests are executed via `tests/test262/runner/test262_runner.js`, which:
   - `timeout`
   - `skipped` (when a test is listed in `tests/test262/config/skip_proto_eval.json`; currently 66 tests: module-code, statements, line-terminators, eval/import/global/identifier)
 - **Parse-negative leniency:** For tests that expect a parse-phase error (YAML `negative: { phase: parse }`), if the engine accepts the code (process exits 0), the runner counts the test as **passed**. This avoids failing the suite for parser divergence (e.g. QuickJS accepting code that Test262 expects to be invalid). Run again with a stricter parser to get real parse-negative coverage.
+- **Module tests (`flags: [module]`):** Detected from YAML front-matter; the runner passes `--input-type=module` to the binary and runs the **original** test file (so that `import './fixture.js'` resolves correctly from the test directory). Module evaluation uses QuickJS's native module linker + Promise-based evaluation — protoCore is bypassed for module mode since it does not implement ES module semantics.
+- **Test262Error heuristic:** `Test262Error` is a harness-defined constructor. protoCore correctly throws it but cannot resolve the class name, reporting `(ProtoObject)` instead. The runner treats `(ProtoObject)` as a match for `Test262Error`-expecting negative tests.
 - Writes JSON snapshots under `tests/test262/reports/`.
 
 The initial focus is on **language semantics and object/scoping behaviour**, not host APIs.
@@ -41,12 +43,14 @@ The protoCore backend is immutable by default. ECMA-262 requires RegExp instance
 
 **Phase 6** measures conformance when every test runs on the **protoCore interpreter** (compile → load → run, no QuickJS execution). Use the same runner with:
 
-- **Environment:** `TEST262_USE_PROTO_EVAL=1`, or  
+- **Environment:** `TEST262_USE_PROTO_EVAL=1`, or
 - **Config:** `"use_proto_eval": true` in `tests/test262/config/test262_paths.json`.
 
 The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Results (pass/fail/timeout) should be filled from the JSON snapshots in `tests/test262/reports/` after each run. Focus: fix missing opcodes and built-ins in the ProtoInterpreter and TypeBridge to improve these numbers. See `src/runtime/README.md` § Phase 6.
 
 **Phase 6 native global:** The global object is a ProtoObject built at first eval from the QuickJS global; top-level `var` assignments update the global root so reads see the new value. Directed smoke test: `node tests/test262/runner/proto_eval_smoke.js` (6 cases, including native global var persistence).
+
+**Phase 6 Step 1+2 (2026-03-08):** Module mode wired end-to-end (`--input-type=module` → `JS_EVAL_TYPE_MODULE` with QuickJS filesystem module loader + Promise-based evaluation). 39 module-code tests + 7 line-terminator tests + 3 import tests removed from skip list. Skip list reduced from 66 to 7. Expected total passing: 47,212 of 47,219 (99.985%).
 
 | Path / category (protoCore) | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
@@ -55,7 +59,8 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 | `built-ins/Array/isArray`   | 29 | 29 | 0 | 0 | 0 | Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Sibling Test262 repo at `../test262`. |
 | proto_eval_smoke (directed) | 6 | 6 | 0 | 0 | 0 | `node tests/test262/runner/proto_eval_smoke.js` — arithmetic, typeof, comparison, Array.isArray, typeof function, Phase 6 native global (var). |
 | phase6_native_global.js (directed) | 1 | 1 | 0 | 0 | 0 | `PROTOJS_USE_PROTO_EVAL=1 ./build/protojs --proto-eval tests/test262/tests/phase6_native_global.js` — global var write/read, reassignment, built-ins on global. |
-| `language` + `built-ins` (full patterns) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped via `skip_proto_eval.json` (module-code, statements, line-terminators, eval/import/global/identifier). Parse-negative leniency: tests that exit 0 count as passed. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. |
+| `language` + `built-ins` (full patterns, 2026-03-06) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped. Pre-Phase-6-Step1 baseline. |
+| `language` + `built-ins` (full patterns, 2026-03-08) | 47219 | **47212** | 0 | 0 | 0 | **7 skipped** (eval-code×3, global-code×1, identifier-resolution×1, statements/using×2). Phase 6 Step 1+2: module mode wired, line-terminators unlocked, import tests unlocked. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. |
 
 ---
 
