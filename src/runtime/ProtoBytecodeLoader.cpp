@@ -100,6 +100,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->argCount_ = protojs_bytecode_arg_count(quickjsBytecode);
     out->varCount_ = protojs_bytecode_var_count(quickjsBytecode);
     out->stackSize_ = protojs_bytecode_stack_size(quickjsBytecode);
+    out->isStrict = protojs_bytecode_is_strict(quickjsBytecode) != 0;
 
     const int closureVarCount = protojs_bytecode_closure_var_count(quickjsBytecode);
     out->closureVarNames.clear();

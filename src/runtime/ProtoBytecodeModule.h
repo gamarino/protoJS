@@ -38,6 +38,8 @@ struct ProtoBytecodeModule {
     std::vector<std::string> closureVarNames;
     /** Whether each closure var is lexical (const/let = true, var = false). */
     std::vector<bool> closureVarIsLexical;
+    /** True when the function was compiled with "use strict" (JS_MODE_STRICT). */
+    bool isStrict{false};
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }

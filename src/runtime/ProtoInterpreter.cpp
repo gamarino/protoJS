@@ -576,8 +576,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext,pContext->fromUTF8String(""));
                 break;
             case OP_push_this:
-                // Use the current frame's `this` binding; fall back to global object.
-                stackPush(pContext,thisObj ? thisObj : (globalObj ? globalObj : PROTO_NONE));
+                // Strict mode: pass thisObj as-is (undefined stays undefined).
+                // Non-strict mode: coerce null/undefined to the global object per spec.
+                if (module->isStrict) {
+                    stackPush(pContext, thisObj ? thisObj : PROTO_NONE);
+                } else {
+                    stackPush(pContext, (thisObj && thisObj != PROTO_NONE) ? thisObj
+                                                                           : (globalObj ? globalObj : PROTO_NONE));
+                }
                 break;
             case OP_special_object: {
                 // TODO: Implement arguments/new.target/etc. wiring.
@@ -2096,8 +2102,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                    const proto::ProtoObject* thisVal =
-                        argc > 0 ? stackAt(pContext, argc) : globalObj;
+                    // OP_call has no `this` slot on the stack; spec mandates undefined.
+                    const proto::ProtoObject* thisVal = PROTO_NONE;
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
 
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
@@ -2116,7 +2122,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (func && func->isMethod(pContext)) {
-                    const proto::ProtoObject* thisVal = stackAt(pContext, argc);
+                    // OP_call: no `this` on the stack; pass undefined as receiver.
+                    const proto::ProtoObject* thisVal = PROTO_NONE;
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));

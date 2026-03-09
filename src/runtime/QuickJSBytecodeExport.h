@@ -44,6 +44,9 @@ const char* protojs_bytecode_closure_var_name(struct JSContext* ctx, void* bytec
 /** Return 1 if closure var at idx is lexical (const/let), 0 otherwise. */
 int protojs_bytecode_closure_var_is_lexical(void* bytecode, uint16_t idx);
 
+/** Return 1 if the function was compiled in strict mode, 0 otherwise. */
+int protojs_bytecode_is_strict(void* bytecode);
+
 #ifdef __cplusplus
 }
 #endif
