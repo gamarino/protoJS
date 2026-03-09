@@ -940,10 +940,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!name.empty()) {
                         const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, name.c_str());
                         if (key) {
-                            /* TDZ: use hasAttribute to distinguish "not yet initialized" (absent
-                             * key) from "initialized to undefined" (key present, value PROTO_NONE).
-                             * A lexical var set via OP_put_var_init always has its key present. */
-                            if (isLexical && !liveGlobal->hasAttribute(pContext, key)) {
+                            /* Read the attribute (own-properties only, no prototype search). */
+                            val = liveGlobal->getAttribute(pContext, key, false);
+                            /* TDZ: getAttribute returns nullptr (not PROTO_NONE) when the key is
+                             * completely absent. PROTO_NONE means the key IS present but its value
+                             * is undefined — i.e. the variable was initialized to undefined.
+                             * So `!val` (nullptr) ↔ uninitialized (TDZ), `val==PROTO_NONE` ↔ undefined. */
+                            if (isLexical && !val) {
                                 const std::string& vname = module->closureVarNames[idx];
                                 std::string msg = "Cannot access '";
                                 msg += vname.empty() ? "?" : vname;
@@ -952,7 +955,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 has_pending_exception = true;
                                 break;
                             }
-                            val = liveGlobal->getAttribute(pContext, key, false);
                             foundInGlobal = true;
                         }
                     }
