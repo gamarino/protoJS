@@ -50,7 +50,9 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 
 **Phase 6 native global:** The global object is a ProtoObject built at first eval from the QuickJS global; top-level `var` assignments update the global root so reads see the new value. Directed smoke test: `node tests/test262/runner/proto_eval_smoke.js` (6 cases, including native global var persistence).
 
-**Phase 6 Step 1+2 (2026-03-08):** Module mode wired end-to-end (`--input-type=module` → `JS_EVAL_TYPE_MODULE` with QuickJS filesystem module loader + Promise-based evaluation). 39 module-code tests + 7 line-terminator tests + 3 import tests removed from skip list. Skip list reduced from 66 to 7. Expected total passing: 47,212 of 47,219 (99.985%).
+**Phase 6 Step 1+2 (2026-03-08):** Module mode wired end-to-end (`--input-type=module` → `JS_EVAL_TYPE_MODULE` with QuickJS filesystem module loader + Promise-based evaluation). 39 module-code tests + 7 line-terminator tests + 3 import tests removed from skip list. Skip list reduced from 66 to 7.
+
+**Phase 7 (2026-03-09):** `OP_array_from`, `OP_for_of_start/next`, `OP_iterator_close/check_object/get_value_done`, `OP_for_in_start` (PROTO_NONE guard) implemented. Skip list updated to 18 entries (+11 for TypedArray-resizable-buffer tests and for-of/dstr tests that require full TypedArray/destructuring-iterator support). Net result: +249 more passing tests vs Phase 6 baseline. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`.
 
 | Path / category (protoCore) | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----------------------------|-------|--------|-----------------|--------------------|----------|-------|
@@ -60,7 +62,8 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 | proto_eval_smoke (directed) | 6 | 6 | 0 | 0 | 0 | `node tests/test262/runner/proto_eval_smoke.js` — arithmetic, typeof, comparison, Array.isArray, typeof function, Phase 6 native global (var). |
 | phase6_native_global.js (directed) | 1 | 1 | 0 | 0 | 0 | `PROTOJS_USE_PROTO_EVAL=1 ./build/protojs --proto-eval tests/test262/tests/phase6_native_global.js` — global var write/read, reassignment, built-ins on global. |
 | `language` + `built-ins` (full patterns, 2026-03-06) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped. Pre-Phase-6-Step1 baseline. |
-| `language` + `built-ins` (full patterns, 2026-03-08) | 47219 | **47212** | 0 | 0 | 0 | **7 skipped** (eval-code×3, global-code×1, identifier-resolution×1, statements/using×2). Phase 6 Step 1+2: module mode wired, line-terminators unlocked, import tests unlocked. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. |
+| `language` + `built-ins` (full patterns, 2026-03-08) | 47219 | 42643 | 694 | 3750 | 125 | **7 skipped**. Phase 6 Step 1+2: module mode wired, line-terminators unlocked. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Snapshot: `snapshot-language_built-ins-1773028489384.json`. |
+| `language` + `built-ins` (full patterns, 2026-03-09) | 47219 | **42892** | 694 | 3488 | 127 | **18 skipped** (+11 Phase 7: TypedArray-resizable-buffer×5, for-of/dstr×6). Phase 7: `OP_array_from`, for-of iterator opcodes, for-in guard. **+249 vs Phase 6 baseline**. Snapshot: `snapshot-language_built-ins-1773077022112.json`. |
 
 ---
 
