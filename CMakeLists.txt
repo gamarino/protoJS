@@ -110,6 +110,7 @@ add_executable(protojs
     # protoCore-backed array adapter and QuickJS integration
     src/ProtoJSStringCache.cpp
     src/NumberPrototype.cpp
+    src/ArrayPrototype.cpp
     src/JSPrototypes.cpp
     src/ProtoArrayAdapter.cpp
     src/ProtoArgumentsAdapter.cpp

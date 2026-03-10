@@ -2,6 +2,7 @@
 #include "QuickJSOpcodeEnum.h"
 #include "QuickJSBytecodeExport.h"
 #include "../ProtoJSStringCache.h"
+#include "../ArrayPrototype.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstring>
@@ -9,6 +10,7 @@
 #include <limits>
 #include <string>
 #include <cstdio>
+#include <vector>
 
 namespace protojs {
 
@@ -257,8 +259,10 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         const double v = value->asDouble(context);
         if (std::isnan(v)) return context->fromUTF8String("NaN");
         if (std::isinf(v)) return context->fromUTF8String(v > 0 ? "Infinity" : "-Infinity");
-        const std::string tmp = std::to_string(v);
-        return context->fromUTF8String(tmp.c_str());
+        char buf[64];
+        // Use %.15g for shortest representation that preserves value (JS semantics).
+        snprintf(buf, sizeof(buf), "%.15g", v);
+        return context->fromUTF8String(buf);
     }
 
     // Generic object fallback matches typical "[object Object]" shape.
@@ -500,6 +504,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
+
+    // Register Array constructor and Array.prototype (idempotent).
+    ensureArrayPrototype(pContext, pGlobalRoot);
+
+    // Register well-known global numeric constants (Infinity, NaN, undefined).
+    // These are standard globals that must be visible as top-level variable lookups.
+    if (pGlobalRoot && *pGlobalRoot) {
+        auto ensureGlobalConst = [&](const char* name, const proto::ProtoObject* val) {
+            const proto::ProtoString* k = ProtoJSStringCache::getKey(pContext, name);
+            if (!k) return;
+            const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
+            if (!existing) // absent means not yet set
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, k, val);
+        };
+        ensureGlobalConst("Infinity",
+            pContext->fromDouble(std::numeric_limits<double>::infinity()));
+        ensureGlobalConst("NaN",
+            pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()));
+        ensureGlobalConst("undefined", PROTO_NONE);
+    }
 
     // Pending exception (set inside switch, dispatched after switch body).
     // Use a separate flag so that `throw undefined` (PROTO_NONE) is also catchable.
@@ -1377,8 +1401,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
                 if (obj && key) {
-                    const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
-                    (void)newObj; // result ignored per QuickJS semantics
+                    obj->setAttribute(pContext, key, value);
+                    // Update .length if index is a valid array index (non-negative integer).
+                    // JS array semantics: assigning x[n] = v updates length to max(length, n+1).
+                    if (index && index->isInteger(pContext)) {
+                        long long idx = index->asLong(pContext);
+                        if (idx >= 0 && idx < (long long)0xFFFFFFFELL) {
+                            const proto::ProtoString* lenKey =
+                                ProtoJSStringCache::getKey(pContext, "length");
+                            if (lenKey) {
+                                const proto::ProtoObject* curLenVal =
+                                    obj->getAttribute(pContext, lenKey, false);
+                                long long curLen = (curLenVal && curLenVal != PROTO_NONE &&
+                                                    curLenVal->isInteger(pContext))
+                                    ? curLenVal->asLong(pContext) : 0LL;
+                                if (idx + 1 > curLen)
+                                    obj->setAttribute(pContext, lenKey,
+                                        pContext->fromInteger(idx + 1));
+                            }
+                        }
+                    }
                 }
                 break;
             }
@@ -1506,8 +1548,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* a = toNumber(pContext, stackTop(pContext));
                 stackPop(pContext);
-                const proto::ProtoObject* res = a->divide(pContext, b);
-                stackPush(pContext,res ? res : PROTO_NONE);
+                // JS division always yields double (handles /0 → ±Infinity, 0/0 → NaN, -0 correctly).
+                auto toDoubleVal = [&](const proto::ProtoObject* v) -> double {
+                    if (!v || v == PROTO_NONE) return 0.0;
+                    if (v->isInteger(pContext)) return static_cast<double>(v->asLong(pContext));
+                    if (v->isDouble(pContext) || v->isFloat(pContext)) return v->asDouble(pContext);
+                    return 0.0;
+                };
+                double da = toDoubleVal(a);
+                double db = toDoubleVal(b);
+                stackPush(pContext, pContext->fromDouble(da / db));
                 break;
             }
             case OP_sub: {
@@ -1526,8 +1576,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* a = toNumber(pContext, stackTop(pContext));
                 stackPop(pContext);
-                const proto::ProtoObject* res = a->modulo(pContext, b);
-                stackPush(pContext,res ? res : PROTO_NONE);
+                // JS modulo yields double when either operand is double (matches IEEE 754 fmod).
+                // Always use fmod to avoid mixed-type exceptions in protoCore.
+                {
+                    auto toDoubleVal2 = [&](const proto::ProtoObject* v) -> double {
+                        if (!v || v == PROTO_NONE) return 0.0;
+                        if (v->isInteger(pContext)) return static_cast<double>(v->asLong(pContext));
+                        if (v->isDouble(pContext) || v->isFloat(pContext)) return v->asDouble(pContext);
+                        return 0.0;
+                    };
+                    double da = toDoubleVal2(a);
+                    double db = toDoubleVal2(b);
+                    // If both are exact integers and divisor is non-zero, return integer result.
+                    if (db != 0.0 && a && a != PROTO_NONE && a->isInteger(pContext) &&
+                        b && b != PROTO_NONE && b->isInteger(pContext)) {
+                        long long ia = a->asLong(pContext);
+                        long long ib = b->asLong(pContext);
+                        stackPush(pContext, pContext->fromInteger(ia % ib));
+                    } else {
+                        stackPush(pContext, pContext->fromDouble(std::fmod(da, db)));
+                    }
+                }
                 break;
             }
             case OP_eq:
@@ -2019,8 +2088,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    const proto::ProtoObject* result = func->call(pContext, nullptr,
-                        ProtoJSStringCache::getKey(pContext, "call"), thisVal, argsList, nullptr);
+                    // Invoke the native function directly via asMethod() to bypass the
+                    // ProtoObject::call() attribute-lookup indirection.
+                    const proto::ProtoMethod nativeFn = func->asMethod(pContext);
+                    const proto::ProtoObject* result = nativeFn
+                        ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
+                        : PROTO_NONE;
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
@@ -2065,24 +2138,79 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         break;
                     }
                 } else if (func && func->isMethod(pContext)) {
-                    result = func->call(pContext, nullptr,
-                        ProtoJSStringCache::getKey(pContext, "call"), newObj, argsList, nullptr);
+                    // Invoke the native constructor directly via asMethod().
+                    const proto::ProtoMethod ctorFn = func->asMethod(pContext);
+                    result = ctorFn ? ctorFn(pContext, newObj, nullptr, argsList, nullptr) : PROTO_NONE;
                 } else {
-                    // Check for built-in error constructor stub.
-                    const proto::ProtoString* errCtorAttr = ProtoJSStringCache::getKey(pContext, "__error_ctor__");
-                    const proto::ProtoObject* errTypeName = (func && func != PROTO_NONE && errCtorAttr)
-                        ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
-                    if (errTypeName && errTypeName != PROTO_NONE && errTypeName->isString(pContext)) {
-                        const proto::ProtoObject* msgArg = (argc > 0) ? argsList->getAt(pContext, 0) : PROTO_NONE;
-                        const proto::ProtoObject* msgStr = toString(pContext, msgArg);
-                        std::string msgStr2;
-                        if (msgStr && msgStr != PROTO_NONE && msgStr->isString(pContext))
-                            msgStr->asString(pContext)->toUTF8String(pContext, msgStr2);
-                        std::string errType;
-                        errTypeName->asString(pContext)->toUTF8String(pContext, errType);
-                        result = makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot);
+                    // Check for the Array constructor (marked with __array_ctor__).
+                    const proto::ProtoString* arrayCtorAttr =
+                        ProtoJSStringCache::getKey(pContext, "__array_ctor__");
+                    const proto::ProtoObject* isArrayCtor =
+                        (func && func != PROTO_NONE && arrayCtorAttr)
+                            ? func->getAttribute(pContext, arrayCtorAttr, false) : nullptr;
+                    if (isArrayCtor && isArrayCtor == PROTO_TRUE) {
+                        // Obtain Array.prototype from the constructor's "prototype" attribute.
+                        const proto::ProtoString* protoAttr =
+                            ProtoJSStringCache::getKey(pContext, "prototype");
+                        const proto::ProtoObject* arrProto = (protoAttr && func)
+                            ? func->getAttribute(pContext, protoAttr, false) : nullptr;
+                        const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
+                            ? arrProto->newChild(pContext, true)
+                            : pContext->newObject(true);
+                        if (argc == 0) {
+                            // new Array() → empty array.
+                            const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                            if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(0LL));
+                        } else if (argc == 1) {
+                            const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
+                            bool isNumeric = a0 && (a0->isInteger(pContext) ||
+                                                    a0->isDouble(pContext) || a0->isFloat(pContext));
+                            if (isNumeric) {
+                                // new Array(n) → pre-allocated array of length n.
+                                long long n = a0->isInteger(pContext)
+                                    ? a0->asLong(pContext)
+                                    : static_cast<long long>(a0->asDouble(pContext));
+                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(n));
+                            } else {
+                                // new Array(elem) → [elem].
+                                const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(pContext, 0);
+                                if (k0) arr = arr->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
+                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(1LL));
+                            }
+                        } else {
+                            // new Array(a, b, c, …) → [a, b, c, …].
+                            for (uint32_t ai = 0; ai < argc; ai++) {
+                                const proto::ProtoString* ki =
+                                    ProtoJSStringCache::getIndexKey(pContext, static_cast<uint32_t>(ai));
+                                if (ki)
+                                    arr = arr->setAttribute(pContext, ki,
+                                                            argsList->getAt(pContext, static_cast<int>(ai)));
+                            }
+                            const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                            if (lk)
+                                arr = arr->setAttribute(pContext, lk,
+                                                        pContext->fromInteger(static_cast<long long>(argc)));
+                        }
+                        result = arr;
                     } else {
-                        result = PROTO_NONE;
+                        // Check for built-in error constructor stub.
+                        const proto::ProtoString* errCtorAttr = ProtoJSStringCache::getKey(pContext, "__error_ctor__");
+                        const proto::ProtoObject* errTypeName = (func && func != PROTO_NONE && errCtorAttr)
+                            ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
+                        if (errTypeName && errTypeName != PROTO_NONE && errTypeName->isString(pContext)) {
+                            const proto::ProtoObject* msgArg = (argc > 0) ? argsList->getAt(pContext, 0) : PROTO_NONE;
+                            const proto::ProtoObject* msgStr = toString(pContext, msgArg);
+                            std::string msgStr2;
+                            if (msgStr && msgStr != PROTO_NONE && msgStr->isString(pContext))
+                                msgStr->asString(pContext)->toUTF8String(pContext, msgStr2);
+                            std::string errType;
+                            errTypeName->asString(pContext)->toUTF8String(pContext, errType);
+                            result = makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot);
+                        } else {
+                            result = PROTO_NONE;
+                        }
                     }
                 }
                 bool resultIsObject = result && result != PROTO_NONE
@@ -2138,8 +2266,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                    const proto::ProtoObject* result = func->call(pContext, nullptr,
-                        ProtoJSStringCache::getKey(pContext, "call"), thisVal, argsList, nullptr);
+                    // Invoke the native function directly via asMethod().
+                    const proto::ProtoMethod nativeFn = func->asMethod(pContext);
+                    const proto::ProtoObject* result = nativeFn
+                        ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
+                        : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
                     // Check if this is a built-in error constructor stub (registered by
@@ -2158,12 +2289,64 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                         stackPush(pContext, makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot));
                     } else {
-                        const proto::ProtoList* argsList = pContext->newList();
-                        for (uint32_t i = 0; i < argc; i++)
-                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                        for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                        /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                        stackPush(pContext, PROTO_NONE);
+                        // Check if this is the Array constructor called without `new`.
+                        // Per spec, Array(...) is equivalent to new Array(...).
+                        const proto::ProtoString* arrayCtorAttr2 =
+                            ProtoJSStringCache::getKey(pContext, "__array_ctor__");
+                        const proto::ProtoObject* isArrayCtor2 =
+                            (func && func != PROTO_NONE && arrayCtorAttr2)
+                                ? func->getAttribute(pContext, arrayCtorAttr2, false) : nullptr;
+                        if (isArrayCtor2 && isArrayCtor2 == PROTO_TRUE) {
+                            const proto::ProtoList* argsList = pContext->newList();
+                            for (uint32_t i = 0; i < argc; i++)
+                                argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            // Reuse the Array constructor logic from OP_call_constructor.
+                            const proto::ProtoString* protoAttr3 =
+                                ProtoJSStringCache::getKey(pContext, "prototype");
+                            const proto::ProtoObject* arrProto3 = (protoAttr3 && func)
+                                ? func->getAttribute(pContext, protoAttr3, false) : nullptr;
+                            const proto::ProtoObject* arr3 = (arrProto3 && arrProto3 != PROTO_NONE)
+                                ? arrProto3->newChild(pContext, true)
+                                : pContext->newObject(true);
+                            if (argc == 0) {
+                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(0LL));
+                            } else if (argc == 1) {
+                                const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
+                                bool isNum = a0 && (a0->isInteger(pContext) || a0->isDouble(pContext));
+                                if (isNum) {
+                                    long long n = a0->isInteger(pContext)
+                                        ? a0->asLong(pContext)
+                                        : static_cast<long long>(a0->asDouble(pContext));
+                                    const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                    if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(n));
+                                } else {
+                                    const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(pContext, 0);
+                                    if (k0) arr3 = arr3->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
+                                    const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                    if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(1LL));
+                                }
+                            } else {
+                                for (uint32_t ai = 0; ai < argc; ai++) {
+                                    const proto::ProtoString* ki =
+                                        ProtoJSStringCache::getIndexKey(pContext, ai);
+                                    if (ki) arr3 = arr3->setAttribute(pContext, ki,
+                                        argsList->getAt(pContext, static_cast<int>(ai)));
+                                }
+                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                if (lk) arr3 = arr3->setAttribute(pContext, lk,
+                                    pContext->fromInteger(static_cast<long long>(argc)));
+                            }
+                            stackPush(pContext, arr3 ? arr3 : PROTO_NONE);
+                        } else {
+                            const proto::ProtoList* argsList = pContext->newList();
+                            for (uint32_t i = 0; i < argc; i++)
+                                argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                            stackPush(pContext, PROTO_NONE);
+                        }
                     }
                 }
                 break;
@@ -2231,15 +2414,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t count = get_u16(buf + pc);
                 pc += 2;
-                // Collect `count` elements from the stack (TOS = last element, i.e. index count-1).
-                const proto::ProtoObject* arr = pContext->newObject(false);
+                // Create a mutable array that inherits from Array.prototype so that
+                // push/pop/join/slice etc. are found via prototype-chain lookup.
+                const proto::ProtoString* arrProtoLookupKey =
+                    ProtoJSStringCache::getKey(pContext, "__array_proto__");
+                const proto::ProtoObject* arrProto =
+                    (arrProtoLookupKey && globalObj && globalObj != PROTO_NONE)
+                        ? globalObj->getAttribute(pContext, arrProtoLookupKey, false)
+                        : nullptr;
+                const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
+                    ? arrProto->newChild(pContext, true)   // mutable, inherits Array.prototype
+                    : pContext->newObject(true);            // fallback: mutable plain object
                 if (!arr) { stackPush(pContext, PROTO_NONE); break; }
                 // Read elements bottom-first (stack order: elem[0] deepest, elem[count-1] at TOS).
                 for (uint16_t i = 0; i < count; i++) {
                     const proto::ProtoObject* elem = stackAt(pContext, static_cast<unsigned long>(count - 1 - i));
-                    std::string idxStr = std::to_string(i);
-                    const proto::ProtoObject* idxObj = pContext->fromUTF8String(idxStr.c_str());
-                    const proto::ProtoString* idxKey = idxObj ? idxObj->asString(pContext) : nullptr;
+                    const proto::ProtoString* idxKey =
+                        ProtoJSStringCache::getIndexKey(pContext, static_cast<uint32_t>(i));
                     if (idxKey) arr = arr->setAttribute(pContext, idxKey, elem ? elem : PROTO_NONE);
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
