@@ -33,6 +33,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const proto::ProtoObject** pGlobalRoot,
                                       const proto::ProtoObject** outException = nullptr);
 
+/**
+ * Call a JS function (bytecode closure or native ProtoMethod) from native C++ code.
+ *
+ * Must be called only while a runBytecode frame is active on the same thread
+ * (the required thread-locals t_currentModule / t_currentGlobalRoot must be set).
+ *
+ * - fn:      a ProtoObject with __bytecode_id__ (closure) or isMethod() (native method).
+ * - thisVal: the `this` binding for the call (use PROTO_NONE for non-method calls).
+ * - args:    positional arguments.
+ *
+ * Returns PROTO_NONE on error or when the function cannot be resolved.
+ * Exceptions thrown by callees are silently suppressed (not propagated to the caller).
+ */
+const proto::ProtoObject* callJSFunction(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoList* args);
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */

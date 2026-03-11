@@ -1,4 +1,5 @@
 #include "ArrayPrototype.h"
+#include "runtime/ProtoInterpreter.h"
 #include "ProtoJSStringCache.h"
 #include "headers/protoCore.h"
 #include <algorithm>
@@ -128,6 +129,24 @@ static std::string elemToString(proto::ProtoContext* ctx,
         char buf[64];
         snprintf(buf, sizeof(buf), "%.15g", d);
         return buf;
+    }
+    // Array-like objects: recursively join elements with "," (mirrors JS Array.prototype.toString).
+    {
+        const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+        if (lenKey) {
+            const proto::ProtoObject* lenObj = val->getAttribute(ctx, lenKey, false);
+            if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx)) {
+                unsigned long subLen = (unsigned long)lenObj->asLong(ctx);
+                if (subLen > 0 && subLen < 100000UL) { // guard against degenerate lengths
+                    std::string result;
+                    for (unsigned long i = 0; i < subLen; i++) {
+                        if (i > 0) result += ",";
+                        result += elemToString(ctx, arrGet(ctx, val, i));
+                    }
+                    return result;
+                }
+            }
+        }
     }
     return "[object Object]";
 }
@@ -644,6 +663,652 @@ static const proto::ProtoObject* arrayCopyWithin(
 }
 
 // ---------------------------------------------------------------------------
+// JS truthiness helper used by callback-taking methods.
+// ---------------------------------------------------------------------------
+static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!v || v == PROTO_NONE) return false;
+    if (v == PROTO_TRUE) return true;
+    if (v == PROTO_FALSE) return false;
+    if (v->isBoolean(ctx)) return v->asBoolean(ctx);
+    if (v->isInteger(ctx)) return v->asLong(ctx) != 0;
+    if (v->isDouble(ctx) || v->isFloat(ctx)) {
+        double d = v->asDouble(ctx);
+        return d != 0.0 && !std::isnan(d);
+    }
+    if (v->isString(ctx)) {
+        const proto::ProtoString* s = v->asString(ctx);
+        return s && s->getSize(ctx) != 0;
+    }
+    return true; // objects / lists are truthy
+}
+
+// Helper: build the three-argument list [element, index, array] for iteration callbacks.
+static const proto::ProtoList* makeIterArgs(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* elem,
+                                             long long idx,
+                                             const proto::ProtoObject* arr) {
+    const proto::ProtoList* a = ctx->newList();
+    a = a->appendLast(ctx, elem ? elem : PROTO_NONE);
+    a = a->appendLast(ctx, ctx->fromInteger(idx));
+    a = a->appendLast(ctx, arr ? arr : PROTO_NONE);
+    return a;
+}
+
+// Helper: extract callback and optional thisArg from args.
+static const proto::ProtoObject* getCallbackArg(proto::ProtoContext* ctx,
+                                                  const proto::ProtoList* args,
+                                                  int pos = 0) {
+    if (!args) return PROTO_NONE;
+    long long n = static_cast<long long>(args->getSize(ctx));
+    return (pos < n) ? args->getAt(ctx, pos) : PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// forEach(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayForEach(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    for (unsigned long i = 0; i < len; i++)
+        callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+    return PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// map(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayMap(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* mapped =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        result = arrSet(ctx, result, i, mapped ? mapped : PROTO_NONE);
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// filter(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayFilter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    unsigned long outIdx = 0;
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        const proto::ProtoObject* keep =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        if (isTruthy(ctx, keep))
+            result = arrSet(ctx, result, outIdx++, elem);
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// find(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayFind(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        const proto::ProtoObject* res  =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        if (isTruthy(ctx, res)) return elem;
+    }
+    return PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// findIndex(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayFindIndex(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return ctx->fromInteger(-1LL);
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return ctx->fromInteger(-1LL);
+    unsigned long len = arrLen(ctx, self);
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        const proto::ProtoObject* res  =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        if (isTruthy(ctx, res)) return ctx->fromInteger((long long)i);
+    }
+    return ctx->fromInteger(-1LL);
+}
+
+// ---------------------------------------------------------------------------
+// findLast(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayFindLast(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    for (long long i = (long long)len - 1; i >= 0; i--) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        const proto::ProtoObject* res  =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
+        if (isTruthy(ctx, res)) return elem;
+    }
+    return PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// findLastIndex(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayFindLastIndex(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return ctx->fromInteger(-1LL);
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return ctx->fromInteger(-1LL);
+    unsigned long len = arrLen(ctx, self);
+    for (long long i = (long long)len - 1; i >= 0; i--) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        const proto::ProtoObject* res  =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
+        if (isTruthy(ctx, res)) return ctx->fromInteger(i);
+    }
+    return ctx->fromInteger(-1LL);
+}
+
+// ---------------------------------------------------------------------------
+// some(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arraySome(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_FALSE;
+    unsigned long len = arrLen(ctx, self);
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* res =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        if (isTruthy(ctx, res)) return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
+}
+
+// ---------------------------------------------------------------------------
+// every(callback[, thisArg])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayEvery(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_TRUE;
+    const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
+    const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
+    if (!fn || fn == PROTO_NONE) return PROTO_TRUE;
+    unsigned long len = arrLen(ctx, self);
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* res =
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        if (!isTruthy(ctx, res)) return PROTO_FALSE;
+    }
+    return PROTO_TRUE;
+}
+
+// ---------------------------------------------------------------------------
+// reduce(callback[, initialValue])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayReduce(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    long long len = (long long)arrLen(ctx, self);
+    long long n   = args ? (long long)args->getSize(ctx) : 0LL;
+    bool hasInit  = n >= 2;
+    const proto::ProtoObject* acc;
+    long long start;
+    if (hasInit) {
+        acc   = args->getAt(ctx, 1);
+        start = 0;
+    } else {
+        if (len == 0) return PROTO_NONE; // TypeError in spec; return PROTO_NONE
+        acc   = arrGet(ctx, self, 0);
+        start = 1;
+    }
+    for (long long i = start; i < len; i++) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        const proto::ProtoList* cbArgs = ctx->newList();
+        cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
+        cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
+        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
+        cbArgs = cbArgs->appendLast(ctx, self);
+        acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+    }
+    return acc ? acc : PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// reduceRight(callback[, initialValue])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayReduceRight(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    long long len = (long long)arrLen(ctx, self);
+    long long n   = args ? (long long)args->getSize(ctx) : 0LL;
+    bool hasInit  = n >= 2;
+    const proto::ProtoObject* acc;
+    long long start;
+    if (hasInit) {
+        acc   = args->getAt(ctx, 1);
+        start = len - 1;
+    } else {
+        if (len == 0) return PROTO_NONE;
+        acc   = arrGet(ctx, self, (unsigned long)(len - 1));
+        start = len - 2;
+    }
+    for (long long i = start; i >= 0; i--) {
+        const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        const proto::ProtoList* cbArgs = ctx->newList();
+        cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
+        cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
+        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
+        cbArgs = cbArgs->appendLast(ctx, self);
+        acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+    }
+    return acc ? acc : PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// sort([compareFn])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arraySort(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return self;
+    const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
+    bool hasFn = fn && fn != PROTO_NONE;
+
+    unsigned long len = arrLen(ctx, self);
+    if (len < 2) return self;
+
+    // Collect all elements.
+    std::vector<const proto::ProtoObject*> elems;
+    elems.reserve(len);
+    for (unsigned long i = 0; i < len; i++)
+        elems.push_back(arrGet(ctx, self, i));
+
+    // Sort with comparator or default string comparison.
+    auto less = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
+        if (hasFn) {
+            const proto::ProtoList* cbArgs = ctx->newList();
+            cbArgs = cbArgs->appendLast(ctx, a ? a : PROTO_NONE);
+            cbArgs = cbArgs->appendLast(ctx, b ? b : PROTO_NONE);
+            const proto::ProtoObject* res = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+            if (!res || res == PROTO_NONE) return false;
+            if (res->isInteger(ctx)) return res->asLong(ctx) < 0;
+            if (res->isDouble(ctx) || res->isFloat(ctx)) return res->asDouble(ctx) < 0.0;
+            return false;
+        }
+        // Default: lexicographic sort by string representation.
+        return elemToString(ctx, a) < elemToString(ctx, b);
+    };
+
+    std::stable_sort(elems.begin(), elems.end(), less);
+
+    // Write sorted elements back into self (mutable in-place).
+    for (unsigned long i = 0; i < len; i++)
+        arrSet(ctx, self, i, elems[i]);
+
+    return self;
+}
+
+// ---------------------------------------------------------------------------
+// flat([depth=1])  — no callback, flatten nested arrays.
+// ---------------------------------------------------------------------------
+static void flatInto(proto::ProtoContext* ctx,
+                     const proto::ProtoObject* src,
+                     const proto::ProtoObject*& dest,
+                     unsigned long& outIdx,
+                     int depth) {
+    unsigned long len = arrLen(ctx, src);
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = arrGet(ctx, src, i);
+        bool isArr = elem && elem != PROTO_NONE &&
+                     !elem->isString(ctx) && !elem->isInteger(ctx) &&
+                     !elem->isDouble(ctx) && !elem->isBoolean(ctx) &&
+                     arrLen(ctx, elem) > 0;
+        if (isArr && depth > 0)
+            flatInto(ctx, elem, dest, outIdx, depth - 1);
+        else
+            dest = arrSet(ctx, dest, outIdx++, elem);
+    }
+}
+
+static const proto::ProtoObject* arrayFlat(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    int depth = 1;
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* d = args->getAt(ctx, 0);
+        if (d && d != PROTO_NONE && d->isInteger(ctx)) depth = (int)d->asLong(ctx);
+        else if (d && d != PROTO_NONE && (d->isDouble(ctx) || d->isFloat(ctx)))
+            depth = (int)d->asDouble(ctx);
+    }
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    unsigned long outIdx = 0;
+    flatInto(ctx, self, result, outIdx, depth);
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// flatMap(callback[, thisArg])  — map then flat(1).
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayFlatMap(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* pl,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kw)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    // map first
+    const proto::ProtoObject* mapped = arrayMap(ctx, self, pl, args, kw);
+    if (!mapped || mapped == PROTO_NONE) return PROTO_NONE;
+    // flat(1)
+    const proto::ProtoList* flatArgs = ctx->newList();
+    flatArgs = flatArgs->appendLast(ctx, ctx->fromInteger(1LL));
+    return arrayFlat(ctx, mapped, nullptr, flatArgs, nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// splice(start[, deleteCount[, ...items]])
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arraySplice(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return createNewArray(ctx, nullptr);
+    long long len = (long long)arrLen(ctx, self);
+    long long n   = args ? (long long)args->getSize(ctx) : 0LL;
+
+    // Parse start.
+    long long start = 0;
+    if (n >= 1) {
+        const proto::ProtoObject* sv = args->getAt(ctx, 0);
+        if (sv && sv != PROTO_NONE) {
+            if (sv->isInteger(ctx)) start = sv->asLong(ctx);
+            else if (sv->isDouble(ctx) || sv->isFloat(ctx)) start = (long long)sv->asDouble(ctx);
+        }
+    }
+    if (start < 0) { start += len; if (start < 0) start = 0; }
+    if (start > len) start = len;
+
+    // Parse deleteCount.
+    long long delCount = len - start;
+    if (n >= 2) {
+        const proto::ProtoObject* dv = args->getAt(ctx, 1);
+        if (dv && dv != PROTO_NONE) {
+            if (dv->isInteger(ctx)) delCount = dv->asLong(ctx);
+            else if (dv->isDouble(ctx) || dv->isFloat(ctx)) delCount = (long long)dv->asDouble(ctx);
+        }
+        if (delCount < 0) delCount = 0;
+        if (delCount > len - start) delCount = len - start;
+    }
+
+    // Collect removed elements.
+    const proto::ProtoObject* removed = createNewArray(ctx, nullptr);
+    for (long long i = 0; i < delCount; i++)
+        removed = arrSet(ctx, removed, (unsigned long)i, arrGet(ctx, self, (unsigned long)(start + i)));
+
+    // Collect items to insert.
+    long long insertCount = n >= 2 ? n - 2 : 0;
+
+    // Collect elements after the removed section.
+    std::vector<const proto::ProtoObject*> tail;
+    for (long long i = start + delCount; i < len; i++)
+        tail.push_back(arrGet(ctx, self, (unsigned long)i));
+
+    // Write insert items starting at `start`.
+    for (long long i = 0; i < insertCount; i++)
+        arrSet(ctx, self, (unsigned long)(start + i), args->getAt(ctx, (int)(2 + i)));
+
+    // Write tail after inserted items.
+    long long tailStart = start + insertCount;
+    for (size_t i = 0; i < tail.size(); i++)
+        arrSet(ctx, self, (unsigned long)(tailStart + (long long)i), tail[i]);
+
+    // Update length.
+    long long newLen = len - delCount + insertCount;
+    arrSetLen(ctx, self, (unsigned long)(newLen > 0 ? newLen : 0));
+
+    return removed;
+}
+
+// ---------------------------------------------------------------------------
+// at(index)  — supports negative indices.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* arrayAt(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    long long len = (long long)arrLen(ctx, self);
+    long long idx = 0;
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a = args->getAt(ctx, 0);
+        if (a && a != PROTO_NONE) {
+            if (a->isInteger(ctx)) idx = a->asLong(ctx);
+            else if (a->isDouble(ctx) || a->isFloat(ctx)) idx = (long long)a->asDouble(ctx);
+        }
+    }
+    if (idx < 0) idx += len;
+    if (idx < 0 || idx >= len) return PROTO_NONE;
+    return arrGet(ctx, self, (unsigned long)idx);
+}
+
+// ---------------------------------------------------------------------------
+// Array iterators: entries(), keys(), values()
+// ---------------------------------------------------------------------------
+
+/** Native next() for all three iterator kinds (controlled by __iter_kind__ attribute). */
+static const proto::ProtoObject* arrayIteratorNext(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) {
+        // Return {value: undefined, done: true}.
+        const proto::ProtoObject* r = ctx->newObject(true);
+        const proto::ProtoString* vk = ProtoJSStringCache::getKey(ctx, "value");
+        const proto::ProtoString* dk = ProtoJSStringCache::getKey(ctx, "done");
+        if (vk) r = r->setAttribute(ctx, vk, PROTO_NONE);
+        if (dk) r = r->setAttribute(ctx, dk, PROTO_TRUE);
+        return r;
+    }
+
+    const proto::ProtoString* idxKey  = ProtoJSStringCache::getKey(ctx, "__iter_idx__");
+    const proto::ProtoString* refKey  = ProtoJSStringCache::getKey(ctx, "__iter_arr__");
+    const proto::ProtoString* kindKey = ProtoJSStringCache::getKey(ctx, "__iter_kind__");
+    const proto::ProtoString* valueK  = ProtoJSStringCache::getKey(ctx, "value");
+    const proto::ProtoString* doneK   = ProtoJSStringCache::getKey(ctx, "done");
+
+    if (!idxKey || !refKey || !kindKey || !valueK || !doneK) return PROTO_NONE;
+
+    const proto::ProtoObject* arrRef  = self->getAttribute(ctx, refKey,  false);
+    const proto::ProtoObject* idxVal  = self->getAttribute(ctx, idxKey,  false);
+    const proto::ProtoObject* kindObj = self->getAttribute(ctx, kindKey, false);
+
+    long long idx = (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(ctx))
+                    ? idxVal->asLong(ctx) : 0LL;
+    unsigned long arrLen_ = arrLen(ctx, arrRef);
+
+    // Build result object.
+    const proto::ProtoObject* r = ctx->newObject(true);
+
+    if ((unsigned long)idx >= arrLen_) {
+        // Iteration done.
+        r = r->setAttribute(ctx, valueK, PROTO_NONE);
+        r = r->setAttribute(ctx, doneK,  PROTO_TRUE);
+        return r;
+    }
+
+    // Advance index in-place (self is mutable).
+    self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
+
+    // Determine value based on kind.
+    std::string kind = "values";
+    if (kindObj && kindObj != PROTO_NONE && kindObj->isString(ctx)) {
+        const proto::ProtoString* ks = kindObj->asString(ctx);
+        if (ks) ks->toUTF8String(ctx, kind);
+    }
+
+    const proto::ProtoObject* value;
+    if (kind == "keys") {
+        value = ctx->fromInteger(idx);
+    } else if (kind == "entries") {
+        // [index, element]
+        const proto::ProtoObject* elem = arrGet(ctx, arrRef, (unsigned long)idx);
+        const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
+        pair = arrSet(ctx, pair, 0, ctx->fromInteger(idx));
+        pair = arrSet(ctx, pair, 1, elem);
+        value = pair;
+    } else { // "values"
+        value = arrGet(ctx, arrRef, (unsigned long)idx);
+    }
+
+    r = r->setAttribute(ctx, valueK, value ? value : PROTO_NONE);
+    r = r->setAttribute(ctx, doneK,  PROTO_FALSE);
+    return r;
+}
+
+/** Create an iterator object for the given array and kind. */
+static const proto::ProtoObject* makeArrayIterator(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* arr,
+    const char* kind)
+{
+    const proto::ProtoObject* iter = ctx->newObject(true);
+    const proto::ProtoString* idxKey  = ProtoJSStringCache::getKey(ctx, "__iter_idx__");
+    const proto::ProtoString* refKey  = ProtoJSStringCache::getKey(ctx, "__iter_arr__");
+    const proto::ProtoString* kindKey = ProtoJSStringCache::getKey(ctx, "__iter_kind__");
+    const proto::ProtoString* nextKey = ProtoJSStringCache::getKey(ctx, "next");
+    if (idxKey)  iter = iter->setAttribute(ctx, idxKey,  ctx->fromInteger(0LL));
+    if (refKey)  iter = iter->setAttribute(ctx, refKey,  arr ? arr : PROTO_NONE);
+    if (kindKey) iter = iter->setAttribute(ctx, kindKey, ctx->fromUTF8String(kind));
+    if (nextKey) {
+        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, arrayIteratorNext);
+        if (nextFn) iter = iter->setAttribute(ctx, nextKey, nextFn);
+    }
+    return iter;
+}
+
+static const proto::ProtoObject* arrayEntries(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{ return makeArrayIterator(ctx, self, "entries"); }
+
+static const proto::ProtoObject* arrayKeys(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{ return makeArrayIterator(ctx, self, "keys"); }
+
+static const proto::ProtoObject* arrayValues(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{ return makeArrayIterator(ctx, self, "values"); }
+
+// ---------------------------------------------------------------------------
 // Array.isArray static method
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* arrayIsArray(
@@ -762,20 +1427,42 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
 
     // Convenience: add each method.
     struct { const char* name; proto::ProtoMethod fn; } methods[] = {
-        { "join",         arrayJoin         },
-        { "toString",     arrayToString     },
-        { "push",         arrayPush         },
-        { "pop",          arrayPop          },
-        { "shift",        arrayShift        },
-        { "unshift",      arrayUnshift      },
-        { "slice",        arraySlice        },
-        { "indexOf",      arrayIndexOf      },
-        { "lastIndexOf",  arrayLastIndexOf  },
-        { "includes",     arrayIncludes     },
-        { "reverse",      arrayReverse      },
-        { "concat",       arrayConcat       },
-        { "fill",         arrayFill         },
-        { "copyWithin",   arrayCopyWithin   },
+        // Non-callback methods (Phase 9)
+        { "join",           arrayJoin           },
+        { "toString",       arrayToString       },
+        { "push",           arrayPush           },
+        { "pop",            arrayPop            },
+        { "shift",          arrayShift          },
+        { "unshift",        arrayUnshift        },
+        { "slice",          arraySlice          },
+        { "indexOf",        arrayIndexOf        },
+        { "lastIndexOf",    arrayLastIndexOf    },
+        { "includes",       arrayIncludes       },
+        { "reverse",        arrayReverse        },
+        { "concat",         arrayConcat         },
+        { "fill",           arrayFill           },
+        { "copyWithin",     arrayCopyWithin     },
+        { "splice",         arraySplice         },
+        { "at",             arrayAt             },
+        // Callback methods (Phase 10)
+        { "forEach",        arrayForEach        },
+        { "map",            arrayMap            },
+        { "filter",         arrayFilter         },
+        { "find",           arrayFind           },
+        { "findIndex",      arrayFindIndex      },
+        { "findLast",       arrayFindLast       },
+        { "findLastIndex",  arrayFindLastIndex  },
+        { "some",           arraySome           },
+        { "every",          arrayEvery          },
+        { "reduce",         arrayReduce         },
+        { "reduceRight",    arrayReduceRight    },
+        { "sort",           arraySort           },
+        { "flat",           arrayFlat           },
+        { "flatMap",        arrayFlatMap        },
+        // Iterators (Phase 10)
+        { "entries",        arrayEntries        },
+        { "keys",           arrayKeys           },
+        { "values",         arrayValues         },
     };
     for (auto& m : methods) {
         const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, m.name);

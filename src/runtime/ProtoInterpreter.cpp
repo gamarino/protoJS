@@ -18,6 +18,14 @@ namespace {
 
 /** Slot and stack storage use ProtoContext::closureLocals only (no std::vector); GC sees all references. */
 
+/**
+ * Thread-local pointers to the currently-executing ProtoBytecodeModule and global root.
+ * Set on runBytecode entry, restored on exit via RAII. Consumed by callJSFunction so
+ * that native Array methods can invoke JS callbacks without carrying extra parameters.
+ */
+thread_local const ProtoBytecodeModule* t_currentModule = nullptr;
+thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
+
 static unsigned long slotKey(proto::ProtoContext* ctx, unsigned int index) {
     if (!ctx) return 0;
     std::string s = std::to_string(index);
@@ -479,6 +487,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const uint8_t* buf = module->buf();
     int len = module->bufLen();
     if (!buf || len <= 0) return PROTO_NONE;
+
+    // RAII: publish active module + global root so callJSFunction can resolve closures.
+    struct ModuleScope {
+        const ProtoBytecodeModule* prevMod;
+        const proto::ProtoObject** prevGR;
+        ModuleScope(const ProtoBytecodeModule* m, const proto::ProtoObject** gr)
+            : prevMod(t_currentModule), prevGR(t_currentGlobalRoot) {
+            t_currentModule = m; t_currentGlobalRoot = gr;
+        }
+        ~ModuleScope() { t_currentModule = prevMod; t_currentGlobalRoot = prevGR; }
+    } _mscope(module, pGlobalRoot);
+
     const std::vector<const proto::ProtoObject*>& cpool = module->protoCpool;
     const auto& nested = module->nestedFunctions;
     const std::vector<std::string>& closureVarNames = module->closureVarNames;
@@ -2617,6 +2637,45 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     }
+    return PROTO_NONE;
+}
+
+const proto::ProtoObject* callJSFunction(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoList* args)
+{
+    if (!fn || fn == PROTO_NONE || !ctx) return PROTO_NONE;
+
+    const proto::ProtoObject** globalRoot = t_currentGlobalRoot;
+
+    // Native ProtoMethod: call directly.
+    if (fn->isMethod(ctx)) {
+        proto::ProtoMethod nativeFn = fn->asMethod(ctx);
+        return nativeFn ? nativeFn(ctx, thisVal ? thisVal : PROTO_NONE, nullptr, args, nullptr)
+                        : PROTO_NONE;
+    }
+
+    // Bytecode closure: resolve __bytecode_id__ against the active module.
+    int bcId = getBytecodeId(ctx, fn);
+    if (bcId >= 0 && t_currentModule &&
+        static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size()) {
+        const ProtoBytecodeModule& nf = t_currentModule->nestedFunctions[bcId];
+        proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
+        childCtx.currentFileName = ctx->currentFileName;
+        childCtx.currentLineNumber = ctx->currentLineNumber;
+        unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
+        for (unsigned i = 0; i < argc; i++)
+            setSlot(&childCtx, i, args->getAt(&childCtx, static_cast<int>(i)));
+        const proto::ProtoObject* childEx = PROTO_NONE;
+        const proto::ProtoObject* result =
+            runBytecode(&childCtx, &nf, thisVal ? thisVal : PROTO_NONE, args, globalRoot, &childEx);
+        childCtx.returnValue = result;
+        // Exceptions from callbacks are silently suppressed at this level.
+        return result ? result : PROTO_NONE;
+    }
+
     return PROTO_NONE;
 }
 
