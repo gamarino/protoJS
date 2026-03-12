@@ -377,10 +377,10 @@ async function main() {
     summary,
     results
   };
-  const outPath = path.join(
-    REPORT_DIR,
-    `snapshot-${cfg.patterns.join("_").replace(/[\\/]/g, "-")}-${Date.now()}.json`
-  );
+  // Snapshot file name: use a bounded key to avoid ENAMETOOLONG on deep pattern lists.
+  const patternKeyRaw = cfg.patterns.join("_").replace(/[\\/]/g, "-");
+  const patternKey = patternKeyRaw.length > 80 ? patternKeyRaw.slice(0, 80) : patternKeyRaw;
+  const outPath = path.join(REPORT_DIR, `snapshot-${patternKey}-${Date.now()}.json`);
   fs.writeFileSync(outPath, JSON.stringify(snapshot, null, 2), "utf8");
   console.log(`Snapshot written to ${path.relative(REPO_ROOT, outPath)}`);
 
