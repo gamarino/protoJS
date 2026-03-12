@@ -1,5 +1,6 @@
 #include "JSPrototypes.h"
 #include "NumberPrototype.h"
+#include "StringPrototype.h"
 
 namespace protojs {
 
@@ -15,6 +16,7 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
     out->regexp = objectProto->newChild(ctx, false);
 
     BuildNumberPrototype(space, ctx, objectProto);
+    BuildStringPrototype(space, ctx, objectProto);
 }
 
 } // namespace protojs

@@ -3,6 +3,7 @@
 #include "QuickJSBytecodeExport.h"
 #include "../ProtoJSStringCache.h"
 #include "../ArrayPrototype.h"
+#include "../StringPrototype.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstring>
@@ -527,6 +528,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     // Register Array constructor and Array.prototype (idempotent).
     ensureArrayPrototype(pContext, pGlobalRoot);
+    // Register String constructor with static methods (fromCharCode, fromCodePoint).
+    ensureStringConstructor(pContext, pGlobalRoot);
 
     // Register well-known global numeric constants (Infinity, NaN, undefined).
     // These are standard globals that must be visible as top-level variable lookups.
@@ -1122,9 +1125,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_close_loc: {
-                // Notification for closing an environment slot; no-op in this interpreter.
                 if (pc + 2 > len) return PROTO_NONE;
+                uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                    setSlot(pContext, argCount + locIndex, tdzSentinel);
                 break;
             }
             case OP_get_loc0:
