@@ -278,67 +278,49 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 frameCtx.returnValue = result;
 
                 if (exception && exception != PROTO_NONE) {
-                    /* Format exception from ProtoObject for error reporting.
-                     * Search order:
-                     *   1. exception.name (instance or prototype chain)
-                     *   2. exception.constructor.name (for custom Error subclasses
-                     *      like Test262Error that don't set prototype.name)
-                     *   3. exception.message
-                     *   4. exception as a string (plain throw "msg")
-                     */
+                    // Format exception from ProtoObject for error reporting.
+                    // Always prefer "Name: message" so Test262 can match negative.type.
                     std::string errStr;
                     const proto::ProtoString* nameKey =
                         ProtoJSStringCache::getKey(&frameCtx, "name");
                     const proto::ProtoString* msgKey =
                         ProtoJSStringCache::getKey(&frameCtx, "message");
+
+                    // 1) Try exception.name (searching prototype chain).
                     if (nameKey) {
-                        /* Search prototype chain so Error subclasses inherit "name". */
                         const proto::ProtoObject* nv =
                             exception->getAttribute(&frameCtx, nameKey, true);
                         if (nv && nv != PROTO_NONE && nv->isString(&frameCtx)) {
                             std::string tmp;
                             nv->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
-                            if (!tmp.empty()) errStr = tmp;
+                            if (!tmp.empty()) errStr = tmp; // e.g. "SyntaxError"
                         }
                     }
-                    /* Fall back to constructor.name for plain-function constructors
-                     * like Test262Error (no prototype.name property). */
-                    if (errStr.empty()) {
-                        const proto::ProtoString* ctorKey =
-                            ProtoJSStringCache::getKey(&frameCtx, "constructor");
-                        if (ctorKey) {
-                            const proto::ProtoObject* ctor =
-                                exception->getAttribute(&frameCtx, ctorKey, true);
-                            if (ctor && ctor != PROTO_NONE && nameKey) {
-                                const proto::ProtoObject* ctorName =
-                                    ctor->getAttribute(&frameCtx, nameKey, false);
-                                if (ctorName && ctorName != PROTO_NONE &&
-                                    ctorName->isString(&frameCtx)) {
-                                    std::string tmp;
-                                    ctorName->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
-                                    if (!tmp.empty()) errStr = tmp;
-                                }
-                            }
-                        }
-                    }
+
+                    // 2) Append ": message" if message exists.
                     if (msgKey) {
                         const proto::ProtoObject* mv =
                             exception->getAttribute(&frameCtx, msgKey, true);
                         if (mv && mv != PROTO_NONE && mv->isString(&frameCtx)) {
                             std::string tmp;
                             mv->asString(&frameCtx)->toUTF8String(&frameCtx, tmp);
-                            if (!errStr.empty() && !tmp.empty()) errStr += ": ";
-                            errStr += tmp;
+                            if (!tmp.empty()) {
+                                if (!errStr.empty()) errStr += ": ";
+                                errStr += tmp;
+                            }
                         }
                     }
+
+                    // 3) Fallbacks: plain thrown string or generic.
                     if (errStr.empty() && exception->isString(&frameCtx)) {
                         const proto::ProtoString* s = exception->asString(&frameCtx);
                         if (s) s->toUTF8String(&frameCtx, errStr);
                     }
-                    if (!errStr.empty())
-                        std::cerr << "Exception in " << filename << ": " << errStr << std::endl;
-                    else
-                        std::cerr << "Exception in " << filename << " (ProtoObject)" << std::endl;
+                    if (errStr.empty()) {
+                        errStr = "Error";
+                    }
+
+                    std::cerr << "Exception in " << filename << ": " << errStr << std::endl;
                     hadError = true;
                     val = JS_EXCEPTION;
                 } else {
