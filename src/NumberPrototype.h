@@ -14,6 +14,13 @@ namespace protojs {
 void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                          const proto::ProtoObject* objectProto);
 
+/**
+ * Ensure the Number constructor with static methods and constants is registered
+ * in the global root. Idempotent — no-op when "Number" is already present.
+ */
+void ensureNumberConstructor(proto::ProtoContext* ctx,
+                             const proto::ProtoObject** globalRoot);
+
 } // namespace protojs
 
 #endif // PROTOJS_NUMBERPROTOTYPE_H

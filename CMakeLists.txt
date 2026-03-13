@@ -112,6 +112,8 @@ add_executable(protojs
     src/NumberPrototype.cpp
     src/StringPrototype.cpp
     src/ArrayPrototype.cpp
+    src/MathBuiltin.cpp
+    src/ObjectPrototype.cpp
     src/JSPrototypes.cpp
     src/ProtoArrayAdapter.cpp
     src/ProtoArgumentsAdapter.cpp

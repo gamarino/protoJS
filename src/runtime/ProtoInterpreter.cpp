@@ -4,6 +4,9 @@
 #include "../ProtoJSStringCache.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
+#include "../NumberPrototype.h"
+#include "../MathBuiltin.h"
+#include "../ObjectPrototype.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstring>
@@ -26,6 +29,210 @@ namespace {
  */
 thread_local const ProtoBytecodeModule* t_currentModule = nullptr;
 thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
+
+// ---------------------------------------------------------------------------
+// Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
+// These are registered as global properties during bootstrap.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* globalParseInt(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    const proto::ProtoObject* strObj = args->getAt(ctx, 0);
+    std::string s;
+    if (!strObj || strObj == PROTO_NONE) return ctx->fromDouble(nan);
+    if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
+    else if (strObj->isInteger(ctx)) { s = std::to_string(strObj->asLong(ctx)); }
+    else if (strObj->isDouble(ctx)) { char buf[64]; snprintf(buf, sizeof(buf), "%.15g", strObj->asDouble(ctx)); s = buf; }
+    else return ctx->fromDouble(nan);
+
+    // Trim leading whitespace
+    size_t i = 0;
+    while (i < s.size() && (s[i]==' '||s[i]=='\t'||s[i]=='\n'||s[i]=='\r'||s[i]=='\f'||s[i]=='\v')) i++;
+    s = s.substr(i);
+
+    int radix = 10;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* ro = args->getAt(ctx, 1);
+        if (ro && ro != PROTO_NONE) {
+            if (ro->isInteger(ctx)) radix = static_cast<int>(ro->asLong(ctx));
+            else if (ro->isDouble(ctx)) radix = static_cast<int>(ro->asDouble(ctx));
+        }
+    }
+    // Handle prefixes
+    bool negative = false;
+    if (!s.empty() && (s[0] == '+' || s[0] == '-')) { negative = (s[0] == '-'); s = s.substr(1); }
+    if (s.size() >= 2 && s[0] == '0' && (s[1]=='x'||s[1]=='X') && (radix==10||radix==16)) { radix = 16; s = s.substr(2); }
+    else if (s.size() >= 2 && s[0]=='0' && (s[1]=='b'||s[1]=='B') && radix==2) { s = s.substr(2); }
+    else if (s.size() >= 2 && s[0]=='0' && (s[1]=='o'||s[1]=='O') && radix==8) { s = s.substr(2); }
+    if (radix < 2 || radix > 36 || s.empty()) return ctx->fromDouble(nan);
+
+    char* end = nullptr;
+    unsigned long long uval = std::strtoull(s.c_str(), &end, radix);
+    if (end == s.c_str()) return ctx->fromDouble(nan);
+    long long result = negative ? -static_cast<long long>(uval) : static_cast<long long>(uval);
+    return ctx->fromInteger(result);
+}
+
+static const proto::ProtoObject* globalParseFloat(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    const proto::ProtoObject* strObj = args->getAt(ctx, 0);
+    if (!strObj || strObj == PROTO_NONE) return ctx->fromDouble(nan);
+    if (strObj->isInteger(ctx)) return strObj;
+    if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) return strObj;
+    std::string s;
+    if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
+    else return ctx->fromDouble(nan);
+    // Trim leading whitespace
+    size_t j = 0;
+    while (j < s.size() && (s[j]==' '||s[j]=='\t'||s[j]=='\n'||s[j]=='\r'||s[j]=='\f'||s[j]=='\v')) j++;
+    s = s.substr(j);
+    if (s == "Infinity" || s == "+Infinity") return ctx->fromDouble(std::numeric_limits<double>::infinity());
+    if (s == "-Infinity") return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    char* end = nullptr;
+    double result = std::strtod(s.c_str(), &end);
+    if (end == s.c_str()) return ctx->fromDouble(nan);
+    return ctx->fromDouble(result);
+}
+
+static const proto::ProtoObject* globalIsNaN(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE) return PROTO_TRUE; // ToNumber(undefined) = NaN
+    if (v->isInteger(ctx)) return PROTO_FALSE;
+    if (v->isDouble(ctx) || v->isFloat(ctx)) return std::isnan(v->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
+    if (v->isBoolean(ctx)) return PROTO_FALSE;
+    if (v->isString(ctx)) {
+        const proto::ProtoString* ps = v->asString(ctx);
+        std::string s; if (ps) ps->toUTF8String(ctx, s);
+        size_t lo = s.find_first_not_of(" \t\n\r\f\v");
+        if (lo == std::string::npos) return PROTO_FALSE; // "" → 0 → not NaN
+        size_t hi = s.find_last_not_of(" \t\n\r\f\v");
+        std::string t = s.substr(lo, hi - lo + 1);
+        if (t == "Infinity" || t == "+Infinity" || t == "-Infinity") return PROTO_FALSE;
+        char* end = nullptr; std::strtod(t.c_str(), &end);
+        return (end == t.c_str() || *end != '\0') ? PROTO_TRUE : PROTO_FALSE;
+    }
+    return PROTO_FALSE;
+}
+
+static const proto::ProtoObject* globalIsFinite(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    if (v->isInteger(ctx)) return PROTO_TRUE;
+    if (v->isDouble(ctx) || v->isFloat(ctx)) return std::isfinite(v->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
+    if (v->isBoolean(ctx)) return PROTO_TRUE;
+    if (v->isString(ctx)) {
+        const proto::ProtoString* ps = v->asString(ctx);
+        std::string s; if (ps) ps->toUTF8String(ctx, s);
+        size_t lo = s.find_first_not_of(" \t\n\r\f\v");
+        if (lo == std::string::npos) return PROTO_TRUE; // "" → 0 → finite
+        size_t hi = s.find_last_not_of(" \t\n\r\f\v");
+        std::string t = s.substr(lo, hi - lo + 1);
+        char* end = nullptr; double d = std::strtod(t.c_str(), &end);
+        if (end == t.c_str() || *end != '\0') return PROTO_FALSE;
+        return std::isfinite(d) ? PROTO_TRUE : PROTO_FALSE;
+    }
+    return PROTO_FALSE;
+}
+
+// Percent-encode a character as %XX
+static std::string pctEncode(unsigned char c) {
+    char buf[4]; snprintf(buf, sizeof(buf), "%%%02X", c); return buf;
+}
+
+static const proto::ProtoObject* globalEncodeURIComponent(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    std::string s;
+    if (v && v != PROTO_NONE && v->isString(ctx)) {
+        const proto::ProtoString* ps = v->asString(ctx); if (ps) ps->toUTF8String(ctx, s);
+    } else if (v && v != PROTO_NONE) {
+        if (v->isInteger(ctx)) s = std::to_string(v->asLong(ctx));
+        else if (v->isDouble(ctx)) { char buf[64]; snprintf(buf,sizeof(buf),"%.15g",v->asDouble(ctx)); s=buf; }
+    }
+    // Unreserved chars: A-Z a-z 0-9 - _ . ! ~ * ' ( )
+    static const char unreserved[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
+    std::string result;
+    for (size_t k = 0; k < s.size(); k++) {
+        unsigned char c = static_cast<unsigned char>(s[k]);
+        if (std::strchr(unreserved, static_cast<char>(c))) result += static_cast<char>(c);
+        else result += pctEncode(c);
+    }
+    return ctx->fromUTF8String(result.c_str());
+}
+
+static const proto::ProtoObject* globalEncodeURI(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    std::string s;
+    if (v && v != PROTO_NONE && v->isString(ctx)) {
+        const proto::ProtoString* ps = v->asString(ctx); if (ps) ps->toUTF8String(ctx, s);
+    } else if (v && v != PROTO_NONE) {
+        if (v->isInteger(ctx)) s = std::to_string(v->asLong(ctx));
+        else if (v->isDouble(ctx)) { char buf[64]; snprintf(buf,sizeof(buf),"%.15g",v->asDouble(ctx)); s=buf; }
+    }
+    // URI allowed unescaped: unreserved + reserved (; , / ? : @ & = + $ #)
+    static const char allowed[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'();,/?:@&=+$#";
+    std::string result;
+    for (size_t k = 0; k < s.size(); k++) {
+        unsigned char c = static_cast<unsigned char>(s[k]);
+        if (std::strchr(allowed, static_cast<char>(c))) result += static_cast<char>(c);
+        else result += pctEncode(c);
+    }
+    return ctx->fromUTF8String(result.c_str());
+}
+
+static const proto::ProtoObject* globalDecodeURIComponent(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return ctx->fromUTF8String("undefined");
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    std::string s;
+    if (v && v != PROTO_NONE && v->isString(ctx)) {
+        const proto::ProtoString* ps = v->asString(ctx); if (ps) ps->toUTF8String(ctx, s);
+    }
+    std::string result;
+    for (size_t k = 0; k < s.size(); ) {
+        if (s[k] == '%' && k + 2 < s.size()) {
+            char hex[3] = { s[k+1], s[k+2], 0 };
+            char* end = nullptr;
+            unsigned long val = std::strtoul(hex, &end, 16);
+            if (end == hex + 2) { result += static_cast<char>(val); k += 3; continue; }
+        }
+        result += s[k++];
+    }
+    return ctx->fromUTF8String(result.c_str());
+}
+
+static const proto::ProtoObject* globalDecodeURI(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    // Reserved chars in URI should not be decoded; for simplicity decode everything.
+    return globalDecodeURIComponent(ctx, nullptr, nullptr, args, nullptr);
+}
 
 static unsigned long slotKey(proto::ProtoContext* ctx, unsigned int index) {
     if (!ctx) return 0;
@@ -546,6 +753,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         ensureGlobalConst("NaN",
             pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()));
         ensureGlobalConst("undefined", PROTO_NONE);
+    }
+
+    // Register Number constructor, Math object, Object constructor, and global utility
+    // functions (parseInt, parseFloat, isNaN, isFinite, encodeURI, decodeURI, etc.).
+    ensureNumberConstructor(pContext, pGlobalRoot);
+    ensureMathObject(pContext, pGlobalRoot);
+    ensureObjectConstructor(pContext, pGlobalRoot);
+    if (pGlobalRoot && *pGlobalRoot) {
+        auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn) {
+            const proto::ProtoString* k = ProtoJSStringCache::getKey(pContext, name);
+            if (!k) return;
+            const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
+            if (existing && existing != PROTO_NONE) return;
+            const proto::ProtoObject* fnObj = pContext->fromMethod(nullptr, fn);
+            if (fnObj)
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, k, fnObj);
+        };
+        ensureGlobalFn("parseInt",            globalParseInt);
+        ensureGlobalFn("parseFloat",          globalParseFloat);
+        ensureGlobalFn("isNaN",               globalIsNaN);
+        ensureGlobalFn("isFinite",            globalIsFinite);
+        ensureGlobalFn("encodeURI",           globalEncodeURI);
+        ensureGlobalFn("encodeURIComponent",  globalEncodeURIComponent);
+        ensureGlobalFn("decodeURI",           globalDecodeURI);
+        ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent);
     }
 
     // Pending exception (set inside switch, dispatched after switch body).

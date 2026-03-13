@@ -1,9 +1,11 @@
 #include "NumberPrototype.h"
 #include "ProtoJSStringCache.h"
 #include "headers/protoCore.h"
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <string>
 
 namespace protojs {
@@ -163,6 +165,158 @@ const proto::ProtoObject* numberToPrecision(
     return context->fromUTF8String(buf);
 }
 
+// ---------------------------------------------------------------------------
+// Number static methods
+// ---------------------------------------------------------------------------
+
+const proto::ProtoObject* numberIsNaN(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    if (!v->isDouble(ctx) && !v->isFloat(ctx)) return PROTO_FALSE;
+    return std::isnan(v->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+const proto::ProtoObject* numberIsFinite(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    if (v->isInteger(ctx)) return PROTO_TRUE;
+    if (v->isDouble(ctx) || v->isFloat(ctx))
+        return std::isfinite(v->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
+    return PROTO_FALSE;
+}
+
+const proto::ProtoObject* numberIsInteger(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    if (v->isInteger(ctx)) return PROTO_TRUE;
+    if (v->isDouble(ctx) || v->isFloat(ctx)) {
+        double d = v->asDouble(ctx);
+        if (!std::isfinite(d)) return PROTO_FALSE;
+        return (d == std::trunc(d)) ? PROTO_TRUE : PROTO_FALSE;
+    }
+    return PROTO_FALSE;
+}
+
+const proto::ProtoObject* numberIsSafeInteger(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    double d = 0.0;
+    if (v->isInteger(ctx)) d = static_cast<double>(v->asLong(ctx));
+    else if (v->isDouble(ctx) || v->isFloat(ctx)) d = v->asDouble(ctx);
+    else return PROTO_FALSE;
+    if (!std::isfinite(d) || d != std::trunc(d)) return PROTO_FALSE;
+    return (std::abs(d) <= 9007199254740991.0) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+const proto::ProtoObject* numberParseInt(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    const proto::ProtoObject* strObj = args->getAt(ctx, 0);
+    std::string s;
+    if (strObj && strObj != PROTO_NONE) {
+        if (strObj->isString(ctx)) {
+            const proto::ProtoString* ps = strObj->asString(ctx);
+            if (ps) ps->toUTF8String(ctx, s);
+        } else if (strObj->isInteger(ctx)) {
+            s = std::to_string(strObj->asLong(ctx));
+        } else if (strObj->isDouble(ctx)) {
+            char buf[64]; snprintf(buf, sizeof(buf), "%.15g", strObj->asDouble(ctx)); s = buf;
+        }
+    }
+    // Trim leading whitespace
+    size_t i = 0;
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f' || s[i] == '\v')) i++;
+    s = s.substr(i);
+
+    int radix = 10;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* radixObj = args->getAt(ctx, 1);
+        if (radixObj && radixObj != PROTO_NONE) {
+            if (radixObj->isInteger(ctx)) radix = static_cast<int>(radixObj->asLong(ctx));
+            else if (radixObj->isDouble(ctx)) radix = static_cast<int>(radixObj->asDouble(ctx));
+        }
+    }
+
+    // Handle 0x prefix for hex
+    if (s.size() >= 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        if (radix == 10 || radix == 16) { radix = 16; s = s.substr(2); }
+    } else if (s.size() >= 2 && s[0] == '0' && (s[1] == 'b' || s[1] == 'B') && radix == 2) {
+        s = s.substr(2);
+    } else if (s.size() >= 2 && s[0] == '0' && (s[1] == 'o' || s[1] == 'O') && radix == 8) {
+        s = s.substr(2);
+    }
+
+    if (radix < 2 || radix > 36) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (s.empty()) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+
+    char* end = nullptr;
+    long long result = std::strtoll(s.c_str(), &end, radix);
+    if (end == s.c_str()) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    return ctx->fromInteger(result);
+}
+
+const proto::ProtoObject* numberParseFloat(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    const proto::ProtoObject* strObj = args->getAt(ctx, 0);
+    if (!strObj || strObj == PROTO_NONE) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (strObj->isInteger(ctx)) return strObj;
+    if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) return strObj;
+    std::string s;
+    if (strObj->isString(ctx)) {
+        const proto::ProtoString* ps = strObj->asString(ctx);
+        if (ps) ps->toUTF8String(ctx, s);
+    } else { return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN()); }
+    // Trim leading whitespace
+    size_t i = 0;
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f' || s[i] == '\v')) i++;
+    s = s.substr(i);
+    if (s == "Infinity" || s == "+Infinity") return ctx->fromDouble(std::numeric_limits<double>::infinity());
+    if (s == "-Infinity") return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    char* end = nullptr;
+    double result = std::strtod(s.c_str(), &end);
+    if (end == s.c_str()) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    return ctx->fromDouble(result);
+}
+
 } // namespace
 
 void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
@@ -172,11 +326,11 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* numberProto = objectProto->newChild(ctx, false);
     proto::ProtoObject* mutableProto = const_cast<proto::ProtoObject*>(numberProto);
 
-    const proto::ProtoString* keyValueOf = ProtoJSStringCache::getKey(ctx, "valueOf");
-    const proto::ProtoString* keyToString = ProtoJSStringCache::getKey(ctx, "toString");
-    const proto::ProtoString* keyToFixed = ProtoJSStringCache::getKey(ctx, "toFixed");
-    const proto::ProtoString* keyToExponential = ProtoJSStringCache::getKey(ctx, "toExponential");
-    const proto::ProtoString* keyToPrecision = ProtoJSStringCache::getKey(ctx, "toPrecision");
+    const proto::ProtoString* keyValueOf      = ProtoJSStringCache::getKey(ctx, "valueOf");
+    const proto::ProtoString* keyToString     = ProtoJSStringCache::getKey(ctx, "toString");
+    const proto::ProtoString* keyToFixed      = ProtoJSStringCache::getKey(ctx, "toFixed");
+    const proto::ProtoString* keyToExponential= ProtoJSStringCache::getKey(ctx, "toExponential");
+    const proto::ProtoString* keyToPrecision  = ProtoJSStringCache::getKey(ctx, "toPrecision");
 
     numberProto = numberProto->setAttribute(ctx, keyValueOf,
         ctx->fromMethod(mutableProto, numberValueOf));
@@ -191,7 +345,53 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 
     space->smallIntegerPrototype = const_cast<proto::ProtoObject*>(numberProto);
     space->largeIntegerPrototype = const_cast<proto::ProtoObject*>(numberProto);
-    space->doublePrototype = const_cast<proto::ProtoObject*>(numberProto);
+    space->doublePrototype       = const_cast<proto::ProtoObject*>(numberProto);
+}
+
+void ensureNumberConstructor(proto::ProtoContext* ctx,
+                             const proto::ProtoObject** globalRoot) {
+    if (!ctx || !globalRoot || !*globalRoot) return;
+    const proto::ProtoString* keyNumber = ProtoJSStringCache::getKey(ctx, "Number");
+    if (!keyNumber) return;
+
+    const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyNumber, false);
+    if (existing && existing != PROTO_NONE) return;
+
+    const proto::ProtoObject* ctor = ctx->newObject(true);
+    if (!ctor) return;
+    proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
+
+    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromMethod(mCtor, fn));
+    };
+
+    // Static methods
+    reg("isNaN",         numberIsNaN);
+    reg("isFinite",      numberIsFinite);
+    reg("isInteger",     numberIsInteger);
+    reg("isSafeInteger", numberIsSafeInteger);
+    reg("parseInt",      numberParseInt);
+    reg("parseFloat",    numberParseFloat);
+
+    // Constants
+    auto setConst = [&](const char* name, double val) {
+        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromDouble(val));
+    };
+    setConst("EPSILON",            std::numeric_limits<double>::epsilon());
+    setConst("MAX_SAFE_INTEGER",   9007199254740991.0);
+    setConst("MIN_SAFE_INTEGER",  -9007199254740991.0);
+    setConst("MAX_VALUE",          std::numeric_limits<double>::max());
+    setConst("MIN_VALUE",          std::numeric_limits<double>::min());
+    setConst("POSITIVE_INFINITY",  std::numeric_limits<double>::infinity());
+    setConst("NEGATIVE_INFINITY", -std::numeric_limits<double>::infinity());
+    setConst("NaN",                std::numeric_limits<double>::quiet_NaN());
+
+    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
+
+    *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
 }
 
 } // namespace protojs

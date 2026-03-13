@@ -1,4 +1,5 @@
 #include "StringPrototype.h"
+#include "ArrayPrototype.h"
 #include "ProtoJSStringCache.h"
 #include "headers/protoCore.h"
 #include <algorithm>
@@ -615,6 +616,107 @@ const proto::ProtoObject* stringReplaceAll(
     return ctx->fromUTF8String(result.c_str());
 }
 
+/** split(separator, limit) — string separator only; regex falls through to PROTO_NONE */
+const proto::ProtoObject* stringSplit(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    std::string s = objToStr(ctx, self);
+    // Result array — use createNewArray so that [] prototype methods (join, forEach, etc.) are inherited.
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+
+    // Determine limit
+    long long limit = std::numeric_limits<long long>::max();
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* lim = args->getAt(ctx, 1);
+        if (lim && lim != PROTO_NONE) {
+            if (lim->isInteger(ctx)) limit = lim->asLong(ctx);
+            else if (lim->isDouble(ctx)) limit = static_cast<long long>(lim->asDouble(ctx));
+            if (limit < 0) limit = std::numeric_limits<long long>::max(); // treat negative as no limit
+        }
+    }
+
+    if (limit == 0) {
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
+        return result;
+    }
+
+    // No separator argument (or undefined): return array with entire string
+    if (!args || args->getSize(ctx) == 0) {
+        const proto::ProtoObject* elem = ctx->fromUTF8String(s.c_str());
+        const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(ctx, 0);
+        if (k0) result = result->setAttribute(ctx, k0, elem);
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
+        return result;
+    }
+
+    const proto::ProtoObject* sepArg = args->getAt(ctx, 0);
+    // Undefined separator: return array with entire string
+    if (!sepArg || sepArg == PROTO_NONE) {
+        const proto::ProtoObject* elem = ctx->fromUTF8String(s.c_str());
+        const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(ctx, 0);
+        if (k0) result = result->setAttribute(ctx, k0, elem);
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
+        return result;
+    }
+    // Non-string separator (e.g., regex): return PROTO_NONE to preserve vacuous-pass
+    if (!sepArg->isString(ctx)) return PROTO_NONE;
+
+    std::string sep = objToStr(ctx, sepArg);
+    auto su16 = utf8ToUTF16(s);
+    auto se16 = utf8ToUTF16(sep);
+
+    long long count = 0;
+
+    // Empty separator: split into individual UTF-16 code units (JS char-by-char)
+    if (se16.empty()) {
+        for (size_t i = 0; i < su16.size() && count < limit; i++) {
+            std::string ch = utf16ToUTF8(su16, i, i + 1);
+            const proto::ProtoString* k = ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(count));
+            if (k) result = result->setAttribute(ctx, k, ctx->fromUTF8String(ch.c_str()));
+            count++;
+        }
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+        return result;
+    }
+
+    // General case: find sep occurrences
+    size_t pos = 0;
+    while (pos <= su16.size() && count < limit) {
+        // Search for sep starting at pos
+        size_t found = su16.size(); // default: no match → take rest of string
+        for (size_t i = pos; i + se16.size() <= su16.size(); i++) {
+            if (std::equal(se16.begin(), se16.end(), su16.begin() + i)) {
+                found = i;
+                break;
+            }
+        }
+        // Slice [pos, found) as a segment
+        std::string segment = utf16ToUTF8(su16, pos, found);
+        const proto::ProtoString* k = ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(count));
+        if (k) result = result->setAttribute(ctx, k, ctx->fromUTF8String(segment.c_str()));
+        count++;
+        if (found == su16.size()) break; // no more separators
+        pos = found + se16.size();
+    }
+
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+    return result;
+}
+
+/** normalize(form) — NFC/NFD/NFKC/NFKD. Without ICU we only support NFC (identity for ASCII). */
+const proto::ProtoObject* stringNormalize(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*)
+{
+    // Without ICU: return string as-is (identity for NFC on ASCII/Latin-1).
+    std::string s = objToStr(ctx, self);
+    return ctx->fromUTF8String(s.c_str());
+}
+
 // ---------------------------------------------------------------------------
 // String static methods (registered on the String constructor object)
 // ---------------------------------------------------------------------------
@@ -735,6 +837,8 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     reg("padEnd",            stringPadEnd);
     reg("replace",           stringReplace);
     reg("replaceAll",        stringReplaceAll);
+    reg("split",             stringSplit);
+    reg("normalize",         stringNormalize);
 
     // Mark as built.
     if (sentinelKey) sp = sp->setAttribute(ctx, sentinelKey, PROTO_TRUE);
