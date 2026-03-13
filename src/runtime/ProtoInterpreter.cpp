@@ -1024,8 +1024,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
+
                 if (pGlobalRoot && static_cast<size_t>(idx) < module->closureVarNames.size()) {
                     const std::string& name = module->closureVarNames[idx];
+                    bool isLexical =
+                        static_cast<size_t>(idx) < module->closureVarIsLexical.size() &&
+                        module->closureVarIsLexical[idx];
+
+                    // Restricted global lexical declarations (e.g. eval/arguments) should fail.
+                    if (isLexical && (name == "eval" || name == "arguments")) {
+                        pending_exception = makeError(pContext, "SyntaxError",
+                                                      "Invalid global lexical declaration", pGlobalRoot);
+                        has_pending_exception = true;
+                        break;
+                    }
+
+                    // Global assignment to `undefined` should throw instead of mutating.
+                    if (name == "undefined") {
+                        pending_exception = makeError(pContext, "ReferenceError",
+                                                      "Cannot assign to read only binding 'undefined'", pGlobalRoot);
+                        has_pending_exception = true;
+                        break;
+                    }
+
                     if (!name.empty()) {
                         const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, name.c_str());
                         if (key)
