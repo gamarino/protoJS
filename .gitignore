@@ -35,3 +35,4 @@
 # Packaging
 *.deb
 protoJS_staging/
+.worktrees/
