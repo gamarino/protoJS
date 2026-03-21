@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS
+CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/build
+CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -142,9 +142,9 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles /home/gamarino/Documentos/proyectos/protoJS/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -733,6 +733,30 @@ deps/quickjs/quickjs.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.s
 .PHONY : deps/quickjs/quickjs.c.s
 
+src/ArrayPrototype.o: src/ArrayPrototype.cpp.o
+.PHONY : src/ArrayPrototype.o
+
+# target to build an object file
+src/ArrayPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ArrayPrototype.cpp.o
+.PHONY : src/ArrayPrototype.cpp.o
+
+src/ArrayPrototype.i: src/ArrayPrototype.cpp.i
+.PHONY : src/ArrayPrototype.i
+
+# target to preprocess a source file
+src/ArrayPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ArrayPrototype.cpp.i
+.PHONY : src/ArrayPrototype.cpp.i
+
+src/ArrayPrototype.s: src/ArrayPrototype.cpp.s
+.PHONY : src/ArrayPrototype.s
+
+# target to generate assembly for a file
+src/ArrayPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ArrayPrototype.cpp.s
+.PHONY : src/ArrayPrototype.cpp.s
+
 src/CPUThreadPool.o: src/CPUThreadPool.cpp.o
 .PHONY : src/CPUThreadPool.o
 
@@ -949,6 +973,30 @@ src/JSPrototypes.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.s
 .PHONY : src/JSPrototypes.cpp.s
 
+src/MathBuiltin.o: src/MathBuiltin.cpp.o
+.PHONY : src/MathBuiltin.o
+
+# target to build an object file
+src/MathBuiltin.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/MathBuiltin.cpp.o
+.PHONY : src/MathBuiltin.cpp.o
+
+src/MathBuiltin.i: src/MathBuiltin.cpp.i
+.PHONY : src/MathBuiltin.i
+
+# target to preprocess a source file
+src/MathBuiltin.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/MathBuiltin.cpp.i
+.PHONY : src/MathBuiltin.cpp.i
+
+src/MathBuiltin.s: src/MathBuiltin.cpp.s
+.PHONY : src/MathBuiltin.s
+
+# target to generate assembly for a file
+src/MathBuiltin.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/MathBuiltin.cpp.s
+.PHONY : src/MathBuiltin.cpp.s
+
 src/NumberPrototype.o: src/NumberPrototype.cpp.o
 .PHONY : src/NumberPrototype.o
 
@@ -972,6 +1020,30 @@ src/NumberPrototype.s: src/NumberPrototype.cpp.s
 src/NumberPrototype.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.s
 .PHONY : src/NumberPrototype.cpp.s
+
+src/ObjectPrototype.o: src/ObjectPrototype.cpp.o
+.PHONY : src/ObjectPrototype.o
+
+# target to build an object file
+src/ObjectPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ObjectPrototype.cpp.o
+.PHONY : src/ObjectPrototype.cpp.o
+
+src/ObjectPrototype.i: src/ObjectPrototype.cpp.i
+.PHONY : src/ObjectPrototype.i
+
+# target to preprocess a source file
+src/ObjectPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ObjectPrototype.cpp.i
+.PHONY : src/ObjectPrototype.cpp.i
+
+src/ObjectPrototype.s: src/ObjectPrototype.cpp.s
+.PHONY : src/ObjectPrototype.s
+
+# target to generate assembly for a file
+src/ObjectPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ObjectPrototype.cpp.s
+.PHONY : src/ObjectPrototype.cpp.s
 
 src/ProtoArgumentsAdapter.o: src/ProtoArgumentsAdapter.cpp.o
 .PHONY : src/ProtoArgumentsAdapter.o
@@ -1092,6 +1164,30 @@ src/QuickJSArrayBridge.s: src/QuickJSArrayBridge.cpp.s
 src/QuickJSArrayBridge.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.s
 .PHONY : src/QuickJSArrayBridge.cpp.s
+
+src/StringPrototype.o: src/StringPrototype.cpp.o
+.PHONY : src/StringPrototype.o
+
+# target to build an object file
+src/StringPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/StringPrototype.cpp.o
+.PHONY : src/StringPrototype.cpp.o
+
+src/StringPrototype.i: src/StringPrototype.cpp.i
+.PHONY : src/StringPrototype.i
+
+# target to preprocess a source file
+src/StringPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/StringPrototype.cpp.i
+.PHONY : src/StringPrototype.cpp.i
+
+src/StringPrototype.s: src/StringPrototype.cpp.s
+.PHONY : src/StringPrototype.s
+
+# target to generate assembly for a file
+src/StringPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/StringPrototype.cpp.s
+.PHONY : src/StringPrototype.cpp.s
 
 src/ThreadPoolExecutor.o: src/ThreadPoolExecutor.cpp.o
 .PHONY : src/ThreadPoolExecutor.o
@@ -2355,6 +2451,9 @@ help:
 	@echo "... deps/quickjs/quickjs.o"
 	@echo "... deps/quickjs/quickjs.i"
 	@echo "... deps/quickjs/quickjs.s"
+	@echo "... src/ArrayPrototype.o"
+	@echo "... src/ArrayPrototype.i"
+	@echo "... src/ArrayPrototype.s"
 	@echo "... src/CPUThreadPool.o"
 	@echo "... src/CPUThreadPool.i"
 	@echo "... src/CPUThreadPool.s"
@@ -2382,9 +2481,15 @@ help:
 	@echo "... src/JSPrototypes.o"
 	@echo "... src/JSPrototypes.i"
 	@echo "... src/JSPrototypes.s"
+	@echo "... src/MathBuiltin.o"
+	@echo "... src/MathBuiltin.i"
+	@echo "... src/MathBuiltin.s"
 	@echo "... src/NumberPrototype.o"
 	@echo "... src/NumberPrototype.i"
 	@echo "... src/NumberPrototype.s"
+	@echo "... src/ObjectPrototype.o"
+	@echo "... src/ObjectPrototype.i"
+	@echo "... src/ObjectPrototype.s"
 	@echo "... src/ProtoArgumentsAdapter.o"
 	@echo "... src/ProtoArgumentsAdapter.i"
 	@echo "... src/ProtoArgumentsAdapter.s"
@@ -2400,6 +2505,9 @@ help:
 	@echo "... src/QuickJSArrayBridge.o"
 	@echo "... src/QuickJSArrayBridge.i"
 	@echo "... src/QuickJSArrayBridge.s"
+	@echo "... src/StringPrototype.o"
+	@echo "... src/StringPrototype.i"
+	@echo "... src/StringPrototype.s"
 	@echo "... src/ThreadPoolExecutor.o"
 	@echo "... src/ThreadPoolExecutor.i"
 	@echo "... src/ThreadPoolExecutor.s"

@@ -1,9 +1,9 @@
 CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/native/DynamicLibraryLoader.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/native/DynamicLibraryLoader.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/native/NativeModuleABI.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/native/DynamicLibraryLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/native/NativeModuleABI.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -41,7 +41,7 @@ CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o: \
  /usr/include/strings.h \
  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
- /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \

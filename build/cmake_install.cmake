@@ -1,4 +1,4 @@
-# Install script for directory: /home/gamarino/Documentos/proyectos/protoJS
+# Install script for directory: /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -49,12 +49,12 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "protoJS" OR NOT CMAKE_INSTALL_COMPONENT)
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/protojs"
          RPATH "\$ORIGIN/../lib")
   endif()
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" TYPE EXECUTABLE FILES "/home/gamarino/Documentos/proyectos/protoJS/build/protojs")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" TYPE EXECUTABLE FILES "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/protojs")
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/protojs" AND
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/protojs")
     file(RPATH_CHANGE
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/protojs"
-         OLD_RPATH "/home/gamarino/Documentos/proyectos/protoCore/build:"
+         OLD_RPATH "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/protoCore/build:"
          NEW_RPATH "\$ORIGIN/../lib")
     if(CMAKE_INSTALL_DO_STRIP)
       execute_process(COMMAND "/usr/bin/strip" "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/protojs")
@@ -64,12 +64,12 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build/cmake_install.cmake")
+  include("/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/gamarino/Documentos/proyectos/protoJS/build/tests/cmake_install.cmake")
+  include("/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/tests/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)
@@ -80,5 +80,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/gamarino/Documentos/proyectos/protoJS/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

@@ -510,6 +510,28 @@ const proto::ProtoObject* stringIncludes(
     return PROTO_FALSE;
 }
 
+const proto::ProtoObject* stringIsWellFormed(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    std::string s = objToStr(ctx, self);
+    auto u16 = utf8ToUTF16(s);
+    for (size_t i = 0; i < u16.size(); i++) {
+        uint16_t h = u16[i];
+        if (h >= 0xD800 && h <= 0xDBFF) {
+            if (i + 1 < u16.size() && u16[i+1] >= 0xDC00 && u16[i+1] <= 0xDFFF) {
+                i++; // Valid surrogate pair
+            } else {
+                return PROTO_FALSE; // Unpaired high surrogate
+            }
+        } else if (h >= 0xDC00 && h <= 0xDFFF) {
+            return PROTO_FALSE; // Unpaired low surrogate
+        }
+    }
+    return PROTO_TRUE;
+}
+
 const proto::ProtoObject* stringPadStart(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList* args,
@@ -559,6 +581,35 @@ const proto::ProtoObject* stringPadEnd(
     return ctx->fromUTF8String(utf16ToUTF8(result).c_str());
 }
 
+static std::string applyStringReplacement(const std::string& s, const std::string& pat, const std::string& rep, size_t pos) {
+    std::string result;
+    for (size_t i = 0; i < rep.size(); i++) {
+        if (rep[i] == '$' && i + 1 < rep.size()) {
+            char next = rep[i + 1];
+            if (next == '$') {
+                result += '$';
+                i++;
+            } else if (next == '&') {
+                result += pat;
+                i++;
+            } else if (next == '`') {
+                result += s.substr(0, pos);
+                i++;
+            } else if (next == '\'') {
+                result += s.substr(pos + pat.size());
+                i++;
+            } else if (std::isdigit(next)) {
+                result += '$';
+            } else {
+                result += '$';
+            }
+        } else {
+            result += rep[i];
+        }
+    }
+    return result;
+}
+
 /** replace(pattern, replacement) — handles string patterns only.
  *  Regex patterns return PROTO_NONE to preserve vacuous-pass behaviour. */
 const proto::ProtoObject* stringReplace(
@@ -574,13 +625,18 @@ const proto::ProtoObject* stringReplace(
 
     std::string s   = objToStr(ctx, self);
     std::string pat = objToStr(ctx, pattern);
-    std::string rep = objToStr(ctx, args->getAt(ctx, 1));
+    
+    const proto::ProtoObject* repObj = args->getAt(ctx, 1);
+    if (repObj && !repObj->isString(ctx) && !repObj->isInteger(ctx) && !repObj->isDouble(ctx)) {
+        return PROTO_NONE;
+    }
+    std::string rep = objToStr(ctx, repObj);
 
-    if (pat.empty()) return ctx->fromUTF8String((rep + s).c_str());
+    if (pat.empty()) return ctx->fromUTF8String((applyStringReplacement(s, pat, rep, 0) + s).c_str());
     size_t pos = s.find(pat);
     if (pos == std::string::npos) return ctx->fromUTF8String(s.c_str());
     return ctx->fromUTF8String(
-        (s.substr(0, pos) + rep + s.substr(pos + pat.size())).c_str());
+        (s.substr(0, pos) + applyStringReplacement(s, pat, rep, pos) + s.substr(pos + pat.size())).c_str());
 }
 
 /** replaceAll(pattern, replacement) — string patterns only. */
@@ -596,24 +652,42 @@ const proto::ProtoObject* stringReplaceAll(
 
     std::string s   = objToStr(ctx, self);
     std::string pat = objToStr(ctx, pattern);
-    std::string rep = objToStr(ctx, args->getAt(ctx, 1));
+    
+    const proto::ProtoObject* repObj = args->getAt(ctx, 1);
+    if (repObj && !repObj->isString(ctx) && !repObj->isInteger(ctx) && !repObj->isDouble(ctx)) {
+        return PROTO_NONE;
+    }
+    std::string rep = objToStr(ctx, repObj);
 
     if (pat.empty()) {
         std::string result;
-        result += rep;
-        for (char c : s) { result += c; result += rep; }
+        result += applyStringReplacement(s, pat, rep, 0);
+        for (size_t i = 0; i < s.size(); i++) {
+            result += s[i];
+            result += applyStringReplacement(s, pat, rep, i + 1);
+        }
         return ctx->fromUTF8String(result.c_str());
     }
+
     std::string result;
-    size_t pos = 0;
-    while (pos < s.size()) {
-        size_t found = s.find(pat, pos);
-        if (found == std::string::npos) { result += s.substr(pos); break; }
-        result += s.substr(pos, found - pos);
-        result += rep;
-        pos = found + pat.size();
+    size_t lastPos = 0;
+    size_t pos = s.find(pat, lastPos);
+    while (pos != std::string::npos) {
+        result += s.substr(lastPos, pos - lastPos);
+        result += applyStringReplacement(s, pat, rep, pos);
+        lastPos = pos + pat.size();
+        pos = s.find(pat, lastPos);
     }
+    result += s.substr(lastPos);
     return ctx->fromUTF8String(result.c_str());
+}
+
+const proto::ProtoObject* stringMatchAll(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    return PROTO_NONE;
 }
 
 /** split(separator, limit) — string separator only; regex falls through to PROTO_NONE */
@@ -801,44 +875,55 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* sp = baseProto->newChild(ctx, false);
     proto::ProtoObject* mp = const_cast<proto::ProtoObject*>(sp);
 
-    // Helper lambda to register one method.
-    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+    // Helper lambda to register one method with length and name.
+    auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
-        if (key) sp = sp->setAttribute(ctx, key, ctx->fromMethod(mp, fn));
+        if (key) {
+            const proto::ProtoObject* mObj = ctx->fromMethod(mp, fn);
+            if (mObj && mObj != PROTO_NONE) {
+                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                if (lenKey) mObj = mObj->setAttribute(ctx, lenKey, ctx->fromInteger(length));
+                if (nameKey) mObj = mObj->setAttribute(ctx, nameKey, ctx->fromUTF8String(name));
+            }
+            sp = sp->setAttribute(ctx, key, mObj);
+        }
     };
 
-    reg("valueOf",           stringValueOf);
-    reg("toString",          stringToString);
-    reg("charAt",            stringCharAt);
-    reg("charCodeAt",        stringCharCodeAt);
-    reg("codePointAt",       stringCodePointAt);
-    reg("at",                stringAt);
-    reg("concat",            stringConcat);
-    reg("indexOf",           stringIndexOf);
-    reg("lastIndexOf",       stringLastIndexOf);
-    reg("slice",             stringSlice);
-    reg("substring",         stringSubstring);
-    reg("substr",            stringSubstr);
-    reg("toLowerCase",       stringToLowerCase);
-    reg("toUpperCase",       stringToUpperCase);
-    reg("toLocaleLowerCase", stringToLowerCase);  // ASCII: same as toLowerCase
-    reg("toLocaleUpperCase", stringToUpperCase);  // ASCII: same as toUpperCase
-    reg("repeat",            stringRepeat);
-    reg("localeCompare",     stringLocaleCompare);
-    reg("trim",              stringTrim);
-    reg("trimStart",         stringTrimStart);
-    reg("trimLeft",          stringTrimStart);
-    reg("trimEnd",           stringTrimEnd);
-    reg("trimRight",         stringTrimEnd);
-    reg("startsWith",        stringStartsWith);
-    reg("endsWith",          stringEndsWith);
-    reg("includes",          stringIncludes);
-    reg("padStart",          stringPadStart);
-    reg("padEnd",            stringPadEnd);
-    reg("replace",           stringReplace);
-    reg("replaceAll",        stringReplaceAll);
-    reg("split",             stringSplit);
-    reg("normalize",         stringNormalize);
+    reg("valueOf",           stringValueOf,       0);
+    reg("toString",          stringToString,      0);
+    reg("charAt",            stringCharAt,        1);
+    reg("charCodeAt",        stringCharCodeAt,    1);
+    reg("codePointAt",       stringCodePointAt,   1);
+    reg("at",                stringAt,            1);
+    reg("concat",            stringConcat,        1);
+    reg("indexOf",           stringIndexOf,       1);
+    reg("lastIndexOf",       stringLastIndexOf,   1);
+    reg("slice",             stringSlice,         2);
+    reg("substring",         stringSubstring,     2);
+    reg("substr",            stringSubstr,        2);
+    reg("toLowerCase",       stringToLowerCase,   0);
+    reg("toUpperCase",       stringToUpperCase,   0);
+    reg("toLocaleLowerCase", stringToLowerCase,   0);
+    reg("toLocaleUpperCase", stringToUpperCase,   0);
+    reg("repeat",            stringRepeat,        1);
+    reg("localeCompare",     stringLocaleCompare, 1);
+    reg("trim",              stringTrim,          0);
+    reg("trimStart",         stringTrimStart,     0);
+    reg("trimLeft",          stringTrimStart,     0);
+    reg("trimEnd",           stringTrimEnd,       0);
+    reg("trimRight",         stringTrimEnd,       0);
+    reg("startsWith",        stringStartsWith,    1);
+    reg("endsWith",          stringEndsWith,      1);
+    reg("includes",          stringIncludes,      1);
+    reg("padStart",          stringPadStart,      1);
+    reg("padEnd",            stringPadEnd,        1);
+    reg("replace",           stringReplace,       2);
+    reg("replaceAll",        stringReplaceAll,    2);
+    reg("split",             stringSplit,         2);
+    reg("normalize",         stringNormalize,     0);
+    reg("isWellFormed",      stringIsWellFormed,  0);
+    reg("matchAll",          stringMatchAll,      1);
 
     // Mark as built.
     if (sentinelKey) sp = sp->setAttribute(ctx, sentinelKey, PROTO_TRUE);
@@ -861,17 +946,31 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
     proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
-    auto regStatic = [&](const char* name, proto::ProtoMethod fn) {
+    auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
-        if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromMethod(mCtor, fn));
+        if (key) {
+            const proto::ProtoObject* mObj = ctx->fromMethod(mCtor, fn);
+            if (mObj && mObj != PROTO_NONE) {
+                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                if (lenKey) mObj = mObj->setAttribute(ctx, lenKey, ctx->fromInteger(length));
+                if (nameKey) mObj = mObj->setAttribute(ctx, nameKey, ctx->fromUTF8String(name));
+            }
+            ctor = ctor->setAttribute(ctx, key, mObj);
+        }
     };
 
-    regStatic("fromCharCode",  stringFromCharCode);
-    regStatic("fromCodePoint", stringFromCodePoint);
+    regStatic("fromCharCode",  stringFromCharCode,  1);
+    regStatic("fromCodePoint", stringFromCodePoint, 1);
 
     // name property
     const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));
+
+    const proto::ProtoString* protoKey = ProtoJSStringCache::getKey(ctx, "prototype");
+    if (protoKey && ctx->space && ctx->space->stringPrototype) {
+        ctor = ctor->setAttribute(ctx, protoKey, reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype));
+    }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyString, ctor);
 }

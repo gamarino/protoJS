@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS
+CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/build
+CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/simple_addon.dir/depend.make
@@ -70,18 +70,18 @@ include CMakeFiles/simple_addon.dir/progress.make
 include CMakeFiles/simple_addon.dir/flags.make
 
 CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o: CMakeFiles/simple_addon.dir/flags.make
-CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/tests/native_addons/simple/simple_addon.cpp
+CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o: /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/native_addons/simple/simple_addon.cpp
 CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o: CMakeFiles/simple_addon.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o -MF CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o.d -o CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/tests/native_addons/simple/simple_addon.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o -MF CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o.d -o CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o -c /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/native_addons/simple/simple_addon.cpp
 
 CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/tests/native_addons/simple/simple_addon.cpp > CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/native_addons/simple/simple_addon.cpp > CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.i
 
 CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/tests/native_addons/simple/simple_addon.cpp -o CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/native_addons/simple/simple_addon.cpp -o CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.s
 
 # Object files for target simple_addon
 simple_addon_OBJECTS = \
@@ -93,7 +93,7 @@ simple_addon_EXTERNAL_OBJECTS =
 tests/native_addons/simple/simple.so: CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o
 tests/native_addons/simple/simple.so: CMakeFiles/simple_addon.dir/build.make
 tests/native_addons/simple/simple.so: CMakeFiles/simple_addon.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX shared library tests/native_addons/simple/simple.so"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX shared library tests/native_addons/simple/simple.so"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/simple_addon.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -105,6 +105,6 @@ CMakeFiles/simple_addon.dir/clean:
 .PHONY : CMakeFiles/simple_addon.dir/clean
 
 CMakeFiles/simple_addon.dir/depend:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/gamarino/Documentos/proyectos/protoJS /home/gamarino/Documentos/proyectos/protoJS /home/gamarino/Documentos/proyectos/protoJS/build /home/gamarino/Documentos/proyectos/protoJS/build /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/simple_addon.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles/simple_addon.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/simple_addon.dir/depend
 

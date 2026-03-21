@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/NetModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/NetModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -142,9 +142,9 @@ CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
  /usr/include/c++/13/bits/charconv.h \
  /usr/include/c++/13/bits/basic_string.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../events/EventsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../buffer/BufferModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../events/EventsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../buffer/BufferModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
  /usr/include/c++/13/bits/atomic_wait.h /usr/include/c++/13/cstdint \
@@ -230,8 +230,8 @@ CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o: \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/mutex \
  /usr/include/c++/13/thread \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../../ThreadPoolExecutor.h \
  /usr/include/c++/13/queue /usr/include/c++/13/deque \
  /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
  /usr/include/c++/13/bits/stl_heap.h /usr/include/c++/13/bits/stl_queue.h \
@@ -247,9 +247,9 @@ CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o: \
  /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/uniform_int_dist.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../../EventLoop.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../../JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/../../JSPrototypes.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/../../JSPrototypes.h \
  /usr/include/x86_64-linux-gnu/sys/socket.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
  /usr/include/x86_64-linux-gnu/bits/socket.h \

@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/TypeBridge.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/TypeBridge.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/TypeBridge.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/TypeBridge.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -40,7 +40,7 @@ CMakeFiles/protojs.dir/src/TypeBridge.cpp.o: \
  /usr/include/strings.h \
  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
- /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -228,9 +228,9 @@ CMakeFiles/protojs.dir/src/TypeBridge.cpp.o: \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/src/GCBridge.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/ProtoArrayAdapter.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/ProtoArgumentsAdapter.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/ProtoJSStringCache.h
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/GCBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/JSPrototypes.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/ProtoArrayAdapter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/ProtoArgumentsAdapter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/ProtoJSStringCache.h

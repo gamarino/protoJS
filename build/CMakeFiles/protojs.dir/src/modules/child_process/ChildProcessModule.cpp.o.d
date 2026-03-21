@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/ChildProcessModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/ChildProcessModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -142,9 +142,9 @@ CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.o: \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/../events/EventsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/../net/NetModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/../events/EventsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/../net/NetModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/../../EventLoop.h \
  /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
  /usr/include/c++/13/typeinfo /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \
@@ -239,8 +239,8 @@ CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.o: \
  /usr/include/c++/13/bits/this_thread_sleep.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/../../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/../../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/../../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/../../ThreadPoolExecutor.h \
  /usr/include/c++/13/thread /usr/include/c++/13/future \
  /usr/include/c++/13/bits/atomic_futex.h /usr/include/c++/13/memory \
  /usr/include/c++/13/bits/stl_raw_storage_iter.h \

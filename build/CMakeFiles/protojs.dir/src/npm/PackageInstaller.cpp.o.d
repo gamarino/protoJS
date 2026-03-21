@@ -1,7 +1,7 @@
 CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/PackageInstaller.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageInstaller.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/PackageInstaller.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -140,8 +140,8 @@ CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o: \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/src/npm/NPMRegistry.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/npm/JsonParser.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/NPMRegistry.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/JsonParser.h \
  /usr/include/c++/13/variant \
  /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/bits/parse_numbers.h /usr/include/c++/13/functional \
@@ -215,7 +215,7 @@ CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o: \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
  /usr/include/c++/13/charconv /usr/include/c++/13/optional \
  /usr/include/c++/13/span /usr/include/c++/13/bits/ranges_algobase.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/npm/Semver.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/Semver.h \
  /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \

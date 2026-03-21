@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/ClusterModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/cluster/ClusterModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/ClusterModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/cluster/ClusterModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -148,9 +148,9 @@ CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.o: \
  /usr/include/c++/13/bits/stl_map.h \
  /usr/include/c++/13/bits/stl_multimap.h \
  /usr/include/c++/13/bits/erase_if.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/../events/EventsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/../net/NetModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/cluster/../events/EventsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/cluster/../net/NetModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/cluster/../../EventLoop.h \
  /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
  /usr/include/c++/13/typeinfo /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \

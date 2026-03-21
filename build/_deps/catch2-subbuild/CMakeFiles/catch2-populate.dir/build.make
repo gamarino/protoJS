@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild
+CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild
+CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild
 
 # Utility rule file for catch2-populate.
 
@@ -77,60 +77,60 @@ CMakeFiles/catch2-populate-complete: catch2-populate-prefix/src/catch2-populate-
 CMakeFiles/catch2-populate-complete: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-build
 CMakeFiles/catch2-populate-complete: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-install
 CMakeFiles/catch2-populate-complete: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-test
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Completed 'catch2-populate'"
-	/usr/bin/cmake -E make_directory /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles
-	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles/catch2-populate-complete
-	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-done
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Completed 'catch2-populate'"
+	/usr/bin/cmake -E make_directory /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles
+	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles/catch2-populate-complete
+	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-done
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update:
 .PHONY : catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-build: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-configure
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "No build step for 'catch2-populate'"
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "No build step for 'catch2-populate'"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-build
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-configure: catch2-populate-prefix/tmp/catch2-populate-cfgcmd.txt
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-configure: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-patch
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "No configure step for 'catch2-populate'"
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-configure
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "No configure step for 'catch2-populate'"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-configure
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-download: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-gitinfo.txt
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-download: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-mkdir
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Performing download step (git clone) for 'catch2-populate'"
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps && /usr/bin/cmake -P /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-gitclone.cmake
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-download
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Performing download step (git clone) for 'catch2-populate'"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps && /usr/bin/cmake -P /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-gitclone.cmake
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-download
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-install: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "No install step for 'catch2-populate'"
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-install
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "No install step for 'catch2-populate'"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-install
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-mkdir:
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Creating directories for 'catch2-populate'"
-	/usr/bin/cmake -Dcfgdir= -P /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-mkdirs.cmake
-	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-mkdir
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Creating directories for 'catch2-populate'"
+	/usr/bin/cmake -Dcfgdir= -P /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-mkdirs.cmake
+	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-mkdir
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-patch: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-patch-info.txt
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-patch: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "No patch step for 'catch2-populate'"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "No patch step for 'catch2-populate'"
 	/usr/bin/cmake -E echo_append
-	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-patch
+	/usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-patch
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update:
 .PHONY : catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-test: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-install
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "No test step for 'catch2-populate'"
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-test
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "No test step for 'catch2-populate'"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E echo_append
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-build && /usr/bin/cmake -E touch /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-test
 
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update: catch2-populate-prefix/tmp/catch2-populate-gitupdate.cmake
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update-info.txt
 catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-update: catch2-populate-prefix/src/catch2-populate-stamp/catch2-populate-download
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Performing update step for 'catch2-populate'"
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src && /usr/bin/cmake -Dcan_fetch=YES -P /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-gitupdate.cmake
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --blue --bold --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Performing update step for 'catch2-populate'"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-src && /usr/bin/cmake -Dcan_fetch=YES -P /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-gitupdate.cmake
 
 catch2-populate: CMakeFiles/catch2-populate
 catch2-populate: CMakeFiles/catch2-populate-complete
@@ -154,6 +154,6 @@ CMakeFiles/catch2-populate.dir/clean:
 .PHONY : CMakeFiles/catch2-populate.dir/clean
 
 CMakeFiles/catch2-populate.dir/depend:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/CMakeFiles/catch2-populate.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/CMakeFiles/catch2-populate.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/catch2-populate.dir/depend
 

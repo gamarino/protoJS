@@ -7,7 +7,7 @@ set(CMAKE_DEPENDS_GENERATOR "Unix Makefiles")
 # The top level Makefile was generated from the following files:
 set(CMAKE_MAKEFILE_DEPENDS
   "CMakeCache.txt"
-  "/home/gamarino/Documentos/proyectos/protoJS/CMakeLists.txt"
+  "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/CMakeLists.txt"
   "CMakeFiles/3.28.3/CMakeCCompiler.cmake"
   "CMakeFiles/3.28.3/CMakeCXXCompiler.cmake"
   "CMakeFiles/3.28.3/CMakeSystem.cmake"
@@ -17,7 +17,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "_deps/catch2-src/extras/Catch.cmake"
   "_deps/catch2-src/src/CMakeLists.txt"
   "_deps/catch2-src/src/catch2/catch_user_config.hpp.in"
-  "/home/gamarino/Documentos/proyectos/protoJS/tests/CMakeLists.txt"
+  "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/CMakeLists.txt"
   "/usr/share/cmake-3.28/Modules/CMakeCInformation.cmake"
   "/usr/share/cmake-3.28/Modules/CMakeCXXInformation.cmake"
   "/usr/share/cmake-3.28/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake"

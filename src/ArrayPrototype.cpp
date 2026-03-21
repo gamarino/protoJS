@@ -1384,6 +1384,24 @@ static const proto::ProtoObject* arrayFrom(
     return result;
 }
 
+static const proto::ProtoObject* arrayFromAsync(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    // Throw a TypeError if not called properly.
+    if (!args || args->getSize(ctx) == 0) {
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* src = args->getAt(ctx, 0);
+    if (!src || src == PROTO_NONE) {
+        return PROTO_NONE;
+    }
+    return PROTO_NONE;
+}
+
 // ---------------------------------------------------------------------------
 // Array.of static method
 // ---------------------------------------------------------------------------
@@ -1426,48 +1444,54 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         : ctx->newObject(false);
 
     // Convenience: add each method.
-    struct { const char* name; proto::ProtoMethod fn; } methods[] = {
+    struct { const char* name; proto::ProtoMethod fn; long long length; } methods[] = {
         // Non-callback methods (Phase 9)
-        { "join",           arrayJoin           },
-        { "toString",       arrayToString       },
-        { "push",           arrayPush           },
-        { "pop",            arrayPop            },
-        { "shift",          arrayShift          },
-        { "unshift",        arrayUnshift        },
-        { "slice",          arraySlice          },
-        { "indexOf",        arrayIndexOf        },
-        { "lastIndexOf",    arrayLastIndexOf    },
-        { "includes",       arrayIncludes       },
-        { "reverse",        arrayReverse        },
-        { "concat",         arrayConcat         },
-        { "fill",           arrayFill           },
-        { "copyWithin",     arrayCopyWithin     },
-        { "splice",         arraySplice         },
-        { "at",             arrayAt             },
+        { "join",           arrayJoin,          1 },
+        { "toString",       arrayToString,      0 },
+        { "push",           arrayPush,          1 },
+        { "pop",            arrayPop,           0 },
+        { "shift",          arrayShift,         0 },
+        { "unshift",        arrayUnshift,       1 },
+        { "slice",          arraySlice,         2 },
+        { "indexOf",        arrayIndexOf,       1 },
+        { "lastIndexOf",    arrayLastIndexOf,   1 },
+        { "includes",       arrayIncludes,      1 },
+        { "reverse",        arrayReverse,       0 },
+        { "concat",         arrayConcat,        1 },
+        { "fill",           arrayFill,          1 },
+        { "copyWithin",     arrayCopyWithin,    2 },
+        { "splice",         arraySplice,        2 },
+        { "at",             arrayAt,            1 },
         // Callback methods (Phase 10)
-        { "forEach",        arrayForEach        },
-        { "map",            arrayMap            },
-        { "filter",         arrayFilter         },
-        { "find",           arrayFind           },
-        { "findIndex",      arrayFindIndex      },
-        { "findLast",       arrayFindLast       },
-        { "findLastIndex",  arrayFindLastIndex  },
-        { "some",           arraySome           },
-        { "every",          arrayEvery          },
-        { "reduce",         arrayReduce         },
-        { "reduceRight",    arrayReduceRight    },
-        { "sort",           arraySort           },
-        { "flat",           arrayFlat           },
-        { "flatMap",        arrayFlatMap        },
+        { "forEach",        arrayForEach,       1 },
+        { "map",            arrayMap,           1 },
+        { "filter",         arrayFilter,        1 },
+        { "find",           arrayFind,          1 },
+        { "findIndex",      arrayFindIndex,     1 },
+        { "findLast",       arrayFindLast,      1 },
+        { "findLastIndex",  arrayFindLastIndex, 1 },
+        { "some",           arraySome,          1 },
+        { "every",          arrayEvery,         1 },
+        { "reduce",         arrayReduce,        1 },
+        { "reduceRight",    arrayReduceRight,   1 },
+        { "sort",           arraySort,          1 },
+        { "flat",           arrayFlat,          0 },
+        { "flatMap",        arrayFlatMap,       1 },
         // Iterators (Phase 10)
-        { "entries",        arrayEntries        },
-        { "keys",           arrayKeys           },
-        { "values",         arrayValues         },
+        { "entries",        arrayEntries,       0 },
+        { "keys",           arrayKeys,          0 },
+        { "values",         arrayValues,        0 },
     };
     for (auto& m : methods) {
         const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, m.name);
         if (key) {
             const proto::ProtoObject* fn = ctx->fromMethod(nullptr, m.fn);
+            if (fn && fn != PROTO_NONE) {
+                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                if (lenKey) fn = fn->setAttribute(ctx, lenKey, ctx->fromInteger(m.length));
+                if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(m.name));
+            }
             if (fn) proto = proto->setAttribute(ctx, key, fn);
         }
     }
@@ -1493,15 +1517,22 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Array"));
 
     // Add static methods: isArray, from, of.
-    struct { const char* name; proto::ProtoMethod fn; } statics[] = {
-        { "isArray", arrayIsArray },
-        { "from",    arrayFrom    },
-        { "of",      arrayOf      },
+    struct { const char* name; proto::ProtoMethod fn; long long length; } statics[] = {
+        { "isArray",   arrayIsArray,   1 },
+        { "from",      arrayFrom,      1 },
+        { "fromAsync", arrayFromAsync, 1 },
+        { "of",        arrayOf,        0 },
     };
     for (auto& s : statics) {
         const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, s.name);
         if (key) {
             const proto::ProtoObject* fn = ctx->fromMethod(nullptr, s.fn);
+            if (fn && fn != PROTO_NONE) {
+                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                if (lenKey) fn = fn->setAttribute(ctx, lenKey, ctx->fromInteger(s.length));
+                if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(s.name));
+            }
             if (fn) ctor = ctor->setAttribute(ctx, key, fn);
         }
     }

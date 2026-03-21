@@ -1,8 +1,8 @@
 BenchmarkRunner::generateReport 0 0
-BenchmarkRunner::exportToJSON 8 0.000825726
+BenchmarkRunner::exportToJSON 3 0.00137226
 BenchmarkRunner::runSuite 0 1
-BenchmarkRunner::computeStats 8 0.000688133
-BenchmarkRunner::detectRegressions 8 0.000733887
+BenchmarkRunner::computeStats 3 0.00134698
+BenchmarkRunner::detectRegressions 3 0.00153012
 BenchmarkRunner::saveBaseline 0 0
 BenchmarkRunner::runSuiteFromFile 0 0
 BenchmarkRunner::runForCI 0 0
@@ -12,90 +12,21 @@ EventLoop: 0 0
 IOThreadPool: 0 0
 IOThreadPool: 0 0
 NodeJSTestRunner::generateReport 0 0
-NodeJSTestRunner::exportToJSON 8 0.000752395
-NodeJSTestRunner::identifyGaps 8 0.000724284
+NodeJSTestRunner::exportToJSON 3 0.00158232
+NodeJSTestRunner::identifyGaps 3 0.00146878
 NodeJSTestRunner::runTestSuite 0 1
 NodeJSTestRunner::test 0 1
-NodeJSTestRunner::getCoverageSummary 8 0.000664134
-NodeJSTestRunner::exportCoverageReport 8 0.000794185
+NodeJSTestRunner::getCoverageSummary 3 0.00141687
+NodeJSTestRunner::exportCoverageReport 3 0.00152924
 NodeJSTestRunner::runTestSuiteFromFile 0 1
 NodeJSTestRunner::runTestSuiteParallel 0 1
 NodeJSTestRunner::runTestsForCI 0 0
-NPMRegistry::DEFAULT_REGISTRY 8 0.00068025
-NPMRegistry 0 0
-Semver::parse 8 0.000730404
-Semver::compare 8 0.00103373
-Semver::satisfies 8 0.000788764
-Semver::findHighest 8 0.000755179
-Semver::normalize 8 0.000785568
-ThreadPoolExecutor: 0 0
-CPUThreadPool: 0 0
-IOThreadPool: 0 0
-protojs_tests_NOT_BUILT-b12d07c 0 0
-BenchmarkRunner::generateReport 0 0
-BenchmarkRunner::runSuite 0 1
-BenchmarkRunner::saveBaseline 0 0
-BenchmarkRunner::runSuiteFromFile 0 0
-BenchmarkRunner::runForCI 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-IOThreadPool: 0 0
-IOThreadPool: 0 0
-NodeJSTestRunner::generateReport 0 0
-NodeJSTestRunner::runTestSuite 0 1
-NodeJSTestRunner::test 0 1
-NodeJSTestRunner::runTestSuiteFromFile 0 1
-NodeJSTestRunner::runTestSuiteParallel 0 1
-NodeJSTestRunner::runTestsForCI 0 0
-NPMRegistry 0 0
-ThreadPoolExecutor: 0 0
-CPUThreadPool: 0 0
-IOThreadPool: 0 0
-BenchmarkRunner::generateReport 0 0
-BenchmarkRunner::runSuite 0 1
-BenchmarkRunner::saveBaseline 0 0
-BenchmarkRunner::runSuiteFromFile 0 0
-BenchmarkRunner::runForCI 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-IOThreadPool: 0 0
-IOThreadPool: 0 0
-NodeJSTestRunner::generateReport 0 0
-NodeJSTestRunner::runTestSuite 0 1
-NodeJSTestRunner::test 0 1
-NodeJSTestRunner::runTestSuiteFromFile 0 1
-NodeJSTestRunner::runTestSuiteParallel 0 1
-NodeJSTestRunner::runTestsForCI 0 0
-NPMRegistry 0 0
-ThreadPoolExecutor: 0 0
-CPUThreadPool: 0 0
-IOThreadPool: 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-CPUThreadPool: 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-CPUThreadPool: 0 0
-BenchmarkRunner::generateReport 0 0
-BenchmarkRunner::runSuite 0 1
-BenchmarkRunner::saveBaseline 0 0
-BenchmarkRunner::runSuiteFromFile 0 0
-BenchmarkRunner::runForCI 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-IOThreadPool: 0 0
-IOThreadPool: 0 0
-NodeJSTestRunner::generateReport 0 0
-NodeJSTestRunner::runTestSuite 0 1
-NodeJSTestRunner::test 0 1
-NodeJSTestRunner::runTestSuiteFromFile 0 1
-NodeJSTestRunner::runTestSuiteParallel 0 1
-NodeJSTestRunner::runTestsForCI 0 0
+NPMRegistry::DEFAULT_REGISTRY 3 0.00136542
+Semver::parse 3 0.00145162
+Semver::compare 3 0.0013264
+Semver::satisfies 3 0.00140732
+Semver::findHighest 3 0.00148624
+Semver::normalize 3 0.00178481
 ThreadPoolExecutor: 0 0
 CPUThreadPool: 0 0
 IOThreadPool: 0 0
@@ -118,62 +49,23 @@ NodeJSTestRunner::runTestsForCI 0 0
 ThreadPoolExecutor: 0 0
 CPUThreadPool: 0 0
 IOThreadPool: 0 0
-BenchmarkRunner::generateReport 0 0
-BenchmarkRunner::runSuite 0 1
-BenchmarkRunner::saveBaseline 0 0
-BenchmarkRunner::runSuiteFromFile 0 0
-BenchmarkRunner::runForCI 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-IOThreadPool: 0 0
-IOThreadPool: 0 0
-NodeJSTestRunner::generateReport 0 0
-NodeJSTestRunner::runTestSuite 0 1
-NodeJSTestRunner::test 0 1
-NodeJSTestRunner::runTestSuiteFromFile 0 1
-NodeJSTestRunner::runTestSuiteParallel 0 1
-NodeJSTestRunner::runTestsForCI 0 0
-ThreadPoolExecutor: 0 0
-CPUThreadPool: 0 0
-IOThreadPool: 0 0
-BenchmarkRunner::generateReport 0 0
-BenchmarkRunner::runSuite 0 1
-BenchmarkRunner::saveBaseline 0 0
-BenchmarkRunner::runSuiteFromFile 0 0
-BenchmarkRunner::runForCI 0 0
-EventLoop: 0 1
-EventLoop: 0 0
-EventLoop: 0 0
-IOThreadPool: 0 0
-IOThreadPool: 0 0
-NodeJSTestRunner::generateReport 0 0
-NodeJSTestRunner::runTestSuite 0 1
-NodeJSTestRunner::test 0 1
-NodeJSTestRunner::runTestSuiteFromFile 0 1
-NodeJSTestRunner::runTestSuiteParallel 0 1
-NodeJSTestRunner::runTestsForCI 0 0
-NPMRegistry 0 0
-ThreadPoolExecutor: 0 0
-CPUThreadPool: 0 0
-IOThreadPool: 0 0
-BenchmarkRunner::generateReport text format 1 0.00768638
-BenchmarkRunner::runSuite structure 1 0.00583219
-BenchmarkRunner::saveBaseline and loadBaseline 1 0.00804053
-BenchmarkRunner::runSuiteFromFile empty or no file 1 0.00651034
-BenchmarkRunner::runForCI no baseline 1 0.015355
-EventLoop: Singleton 1 0.00672587
-EventLoop: Enqueue and process 1 0.00659205
-EventLoop: Exception handling 1 0.00518799
-IOThreadPool: Singleton and initialization 1 0.00918025
-IOThreadPool: I/O simulation 1 0.0188751
-NodeJSTestRunner::generateReport text format 1 0.0053489
-NodeJSTestRunner::runTestSuite empty 1 0.00690696
-NodeJSTestRunner::test cache 1 0.00599611
-NodeJSTestRunner::runTestSuiteFromFile nonexistent 1 0.00602782
-NodeJSTestRunner::runTestSuiteParallel empty 1 0.0085431
-NodeJSTestRunner::runTestsForCI empty config 1 0.00596454
-ThreadPoolExecutor: Legacy tests 1 0.00991183
-CPUThreadPool: Legacy tests 1 0.0078007
-IOThreadPool: Legacy tests 1 0.0198564
+BenchmarkRunner::generateReport text format 1 0.0042631
+BenchmarkRunner::runSuite structure 1 0.00482873
+BenchmarkRunner::saveBaseline and loadBaseline 1 0.00551882
+BenchmarkRunner::runSuiteFromFile empty or no file 1 0.00384832
+BenchmarkRunner::runForCI no baseline 1 0.00528416
+EventLoop: Singleton 1 0.00430514
+EventLoop: Enqueue and process 1 0.00431883
+EventLoop: Exception handling 1 0.00407481
+IOThreadPool: Singleton and initialization 1 0.00852236
+IOThreadPool: I/O simulation 1 0.0183301
+NodeJSTestRunner::generateReport text format 1 0.00451369
+NodeJSTestRunner::runTestSuite empty 1 0.00452046
+NodeJSTestRunner::test cache 1 0.00482182
+NodeJSTestRunner::runTestSuiteFromFile nonexistent 1 0.0052998
+NodeJSTestRunner::runTestSuiteParallel empty 1 0.00442653
+NodeJSTestRunner::runTestsForCI empty config 1 0.00390091
+ThreadPoolExecutor: Legacy tests 1 0.00497323
+CPUThreadPool: Legacy tests 1 0.00514825
+IOThreadPool: Legacy tests 1 0.0183683
 ---

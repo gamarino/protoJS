@@ -3,9 +3,9 @@
 # No other meaning or use of this file is supported.
 
 method=git
-command=/usr/bin/cmake;-P;/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-gitclone.cmake
-source_dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src
-work_dir=/home/gamarino/Documentos/proyectos/protoJS/build/_deps
+command=/usr/bin/cmake;-P;/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-subbuild/catch2-populate-prefix/tmp/catch2-populate-gitclone.cmake
+source_dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-src
+work_dir=/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps
 repository=https://github.com/catchorg/Catch2.git
 remote=origin
 init_submodules=TRUE

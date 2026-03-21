@@ -1,5 +1,5 @@
 CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.c \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.c \
  /usr/include/stdc-predef.h /usr/include/stdlib.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -80,13 +80,13 @@ CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: \
  /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
  /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h \
  /usr/include/x86_64-linux-gnu/bits/iscanonical.h /usr/include/malloc.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs_array_bridge.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/list.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libunicode.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs_array_bridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/cutils.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/list.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/libregexp.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/libunicode.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/dtoa.h \
  /usr/include/pthread.h /usr/include/sched.h \
  /usr/include/x86_64-linux-gnu/bits/sched.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
@@ -99,5 +99,5 @@ CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o: \
  /usr/include/linux/errno.h /usr/include/x86_64-linux-gnu/asm/errno.h \
  /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
  /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs-atom.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs-opcode.h
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs-atom.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs-opcode.h

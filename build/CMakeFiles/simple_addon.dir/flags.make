@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -Dsimple_addon_EXPORTS
 
-CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs -I/home/gamarino/Documentos/proyectos/protoJS/src
+CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs -I/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src
 
 CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20 -fPIC
 

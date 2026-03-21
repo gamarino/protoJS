@@ -1,10 +1,10 @@
 CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/AsyncModuleLoader.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/AsyncModuleLoader.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/AsyncModuleLoader.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.h \
- /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/AsyncModuleLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ESModuleLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ModuleResolver.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -150,7 +150,7 @@ CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ModuleCache.h \
  /usr/include/c++/13/memory /usr/include/c++/13/bits/stl_tempbuf.h \
  /usr/include/c++/13/bits/stl_raw_storage_iter.h \
  /usr/include/c++/13/bits/align.h /usr/include/c++/13/bits/unique_ptr.h \
@@ -255,8 +255,8 @@ CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../Deferred.h \
- /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../Deferred.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/condition_variable \
  /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
@@ -265,11 +265,11 @@ CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o: \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
  /usr/include/c++/13/thread \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../CPUThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../CPUThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../ThreadPoolExecutor.h \
  /usr/include/c++/13/queue /usr/include/c++/13/deque \
  /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
  /usr/include/c++/13/bits/stl_queue.h /usr/include/c++/13/future \
  /usr/include/c++/13/bits/atomic_futex.h \
- /home/gamarino/Documentos/proyectos/protoJS/src/modules/../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../EventLoop.h \
  /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h
