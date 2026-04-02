@@ -1,5 +1,5 @@
 #include "ProtoNativeModule.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 
 namespace protojs {
 
@@ -12,7 +12,7 @@ const proto::ProtoObject* ProtoNativeModule::addMethod(
     if (!ctx || !obj || !name || !fn) return obj;
     const proto::ProtoObject* fnObj = ctx->fromMethod(nullptr, fn);
     if (!fnObj) return obj;
-    const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+    const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
     if (!key) return obj;
     return obj->setAttribute(ctx, key, fnObj);
 }
@@ -40,7 +40,7 @@ const proto::ProtoObject* ProtoNativeModule::registerOnGlobal(
     const proto::ProtoObject* moduleObj)
 {
     if (!ctx || !globalObj || !name || !moduleObj) return globalObj;
-    const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+    const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
     if (!key) return globalObj;
     return globalObj->setAttribute(ctx, key, moduleObj);
 }

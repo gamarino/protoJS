@@ -1,5 +1,5 @@
 #include "MathBuiltin.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstdlib>
@@ -203,7 +203,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
                       const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
 
-    const proto::ProtoString* keyMath = ProtoJSStringCache::getKey(ctx, "Math");
+    const proto::ProtoString* keyMath = JSSymbols::Math(ctx);
     if (!keyMath) return;
 
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyMath, false);
@@ -213,12 +213,12 @@ void ensureMathObject(proto::ProtoContext* ctx,
     if (!math) return;
 
     auto reg = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) math = math->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
     };
 
     auto setConst = [&](const char* name, double val) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) math = math->setAttribute(ctx, key, ctx->fromDouble(val));
     };
 

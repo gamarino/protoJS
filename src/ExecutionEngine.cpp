@@ -1,6 +1,6 @@
 #include "ExecutionEngine.h"
 #include "JSContext.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include <string>
 
 namespace protojs {
@@ -57,7 +57,7 @@ JSValue ExecutionEngine::opGetProperty(JSContext* ctx, JSValue obj, JSAtom prop)
             // Get property from protoCore object
             const char* propName = JS_AtomToCString(ctx, prop);
             if (propName) {
-                const proto::ProtoString* propStr = ProtoJSStringCache::getKey(pContext, propName);
+                const proto::ProtoString* propStr = pContext->fromUTF8String(propName)->asString(pContext);
                 const proto::ProtoObject* attr = protoObj->getAttribute(pContext, propStr);
                 JS_FreeCString(ctx, propName);
                 
@@ -88,7 +88,7 @@ int ExecutionEngine::opSetProperty(JSContext* ctx, JSValue obj, JSAtom prop, JSV
             // Set property in protoCore object
             const char* propName = JS_AtomToCString(ctx, prop);
             if (propName) {
-                const proto::ProtoString* propStr = ProtoJSStringCache::getKey(pContext, propName);
+                const proto::ProtoString* propStr = pContext->fromUTF8String(propName)->asString(pContext);
                 const proto::ProtoObject* valObj = TypeBridge::fromJS(ctx, val, pContext);
                 
                 // Note: protoCore objects are immutable by default
@@ -178,7 +178,7 @@ JSValue ExecutionEngine::opNewArray(JSContext* ctx) {
 
     // Create mutable array instance as child of JS Array prototype; direct attributes "0", "1", ..., "length"
     const proto::ProtoObject* backing = arrayProto->newChild(pContext, true);
-    const proto::ProtoString* lengthKey = ProtoJSStringCache::getKey(pContext, "length");
+    const proto::ProtoString* lengthKey = JSSymbols::length(pContext);
     backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
 
     JSValue jsArr = JS_NewArray(ctx);

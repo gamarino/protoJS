@@ -1,5 +1,5 @@
 #include "ProtoArgumentsAdapter.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 
 namespace protojs {
 
@@ -16,7 +16,7 @@ static const ProtoSparseList* getValuesSparse(
     }
 
     const ProtoString* valuesKey =
-        ProtoJSStringCache::getKey(ctx, "values");
+        JSSymbols::values(ctx);
     const ProtoObject* existing =
         argsObj->getAttribute(ctx, valuesKey);
 
@@ -40,7 +40,7 @@ static unsigned long getStoredLength(
         return 0;
     }
     const ProtoString* lengthKey =
-        ProtoJSStringCache::getKey(ctx, "length");
+        JSSymbols::length(ctx);
     const ProtoObject* lenObj =
         argsObj->getAttribute(ctx, lengthKey);
     if (!lenObj || lenObj == PROTO_NONE) {
@@ -55,7 +55,7 @@ static const ProtoObject* storeLength(
     unsigned long newLen)
 {
     const ProtoString* lengthKey =
-        ProtoJSStringCache::getKey(ctx, "length");
+        JSSymbols::length(ctx);
     const ProtoObject* lenObj =
         ctx->fromLong(static_cast<long long>(newLen));
     return argsObj->setAttribute(ctx, lengthKey, lenObj);
@@ -70,7 +70,7 @@ const ProtoObject* ProtoArgumentsAdapter::createArguments(ProtoContext* ctx)
     const ProtoSparseList* values = ctx->newSparseList();
     const ProtoObject* valuesObj = values->asObject(ctx);
     const ProtoString* valuesKey =
-        ProtoJSStringCache::getKey(ctx, "values");
+        JSSymbols::values(ctx);
     obj = obj->setAttribute(ctx, valuesKey, valuesObj);
 
     obj = storeLength(ctx, obj, 0);
@@ -118,7 +118,7 @@ const ProtoObject* ProtoArgumentsAdapter::set(
     const ProtoObject* valuesObj = updatedValues->asObject(ctx);
 
     const ProtoString* valuesKey =
-        ProtoJSStringCache::getKey(ctx, "values");
+        JSSymbols::values(ctx);
     const ProtoObject* updated =
         argsObj->setAttribute(ctx, valuesKey, valuesObj);
 
