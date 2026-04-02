@@ -27,6 +27,9 @@ DEFINE_SYMBOL(RegExp,      "RegExp")
 DEFINE_SYMBOL(String,      "String")
 
 // ---- Common JS property names -------------------------------------------
+DEFINE_SYMBOL(apply,            "apply")
+DEFINE_SYMBOL(bind,             "bind")
+DEFINE_SYMBOL(call,             "call")
 DEFINE_SYMBOL(constructor,      "constructor")
 DEFINE_SYMBOL(createdTimestamp, "createdTimestamp")
 DEFINE_SYMBOL(description,      "description")

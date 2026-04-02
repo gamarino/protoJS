@@ -29,6 +29,9 @@ const proto::ProtoString* RegExp(proto::ProtoContext* ctx);         // "RegExp"
 const proto::ProtoString* String(proto::ProtoContext* ctx);         // "String"
 
 // ---- Common JS property names -------------------------------------------
+const proto::ProtoString* apply(proto::ProtoContext* ctx);          // "apply"
+const proto::ProtoString* bind(proto::ProtoContext* ctx);           // "bind"
+const proto::ProtoString* call(proto::ProtoContext* ctx);           // "call"
 const proto::ProtoString* constructor(proto::ProtoContext* ctx);    // "constructor"
 const proto::ProtoString* createdTimestamp(proto::ProtoContext* ctx); // "createdTimestamp"
 const proto::ProtoString* description(proto::ProtoContext* ctx);    // "description"
