@@ -111,6 +111,7 @@ add_executable(protojs
     src/ProtoJSStringCache.cpp
     src/NumberPrototype.cpp
     src/StringPrototype.cpp
+    src/RegExpPrototype.cpp
     src/ArrayPrototype.cpp
     src/MathBuiltin.cpp
     src/ObjectPrototype.cpp
