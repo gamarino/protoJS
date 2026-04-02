@@ -1,6 +1,6 @@
 #include "ObjectPrototype.h"
 #include "ArrayPrototype.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <cstring>
 #include <string>
@@ -27,7 +27,7 @@ static const proto::ProtoObject* objectKeys(
 {
     // Return empty array — cannot enumerate string keys without protoCore API.
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
     return result;
 }
@@ -44,7 +44,7 @@ static const proto::ProtoObject* objectValues(
     const proto::ProtoSparseList*)
 {
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
     return result;
 }
@@ -61,7 +61,7 @@ static const proto::ProtoObject* objectEntries(
     const proto::ProtoSparseList*)
 {
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
     return result;
 }
@@ -178,7 +178,7 @@ static const proto::ProtoObject* objectFromEntries(
     const proto::ProtoObject* iterable = args->getAt(ctx, 0);
     if (!iterable || iterable == PROTO_NONE) return result;
 
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return result;
     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKey, false);
     long long len = 0;
@@ -187,12 +187,12 @@ static const proto::ProtoObject* objectFromEntries(
         else if (lenObj->isDouble(ctx)) len = static_cast<long long>(lenObj->asDouble(ctx));
     }
 
-    const proto::ProtoString* k0Key = ProtoJSStringCache::getIndexKey(ctx, 0);
-    const proto::ProtoString* k1Key = ProtoJSStringCache::getIndexKey(ctx, 1);
+    const proto::ProtoString* k0Key = JSSymbols::indexKey(ctx, 0);
+    const proto::ProtoString* k1Key = JSSymbols::indexKey(ctx, 1);
 
     for (long long i = 0; i < len; i++) {
         const proto::ProtoString* idxKey =
-            ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(i));
+            JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
         if (!idxKey) continue;
         const proto::ProtoObject* pair = iterable->getAttribute(ctx, idxKey, false);
         if (!pair || pair == PROTO_NONE) continue;
@@ -210,7 +210,7 @@ static const proto::ProtoObject* objectFromEntries(
             keyStr = std::to_string(keyObj->asLong(ctx));
         }
         if (keyStr.empty()) continue;
-        const proto::ProtoString* entryKey = ProtoJSStringCache::getKey(ctx, keyStr.c_str());
+        const proto::ProtoString* entryKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
         if (entryKey) result = result->setAttribute(ctx, entryKey, valObj);
     }
     return result;
@@ -240,7 +240,7 @@ static const proto::ProtoObject* objectHasOwn(
         keyStr = std::to_string(key->asLong(ctx));
     }
     if (keyStr.empty()) return PROTO_FALSE;
-    const proto::ProtoString* strKey = ProtoJSStringCache::getKey(ctx, keyStr.c_str());
+    const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
     if (!strKey) return PROTO_FALSE;
     // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
     const proto::ProtoObject* own = obj->hasOwnAttribute(ctx, strKey);
@@ -271,7 +271,7 @@ static const proto::ProtoObject* objectHasOwnProperty(
         keyStr = std::to_string(key->asLong(ctx));
     }
     if (keyStr.empty()) return PROTO_FALSE;
-    const proto::ProtoString* strKey = ProtoJSStringCache::getKey(ctx, keyStr.c_str());
+    const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
     if (!strKey) return PROTO_FALSE;
     const proto::ProtoObject* own = self->hasOwnAttribute(ctx, strKey);
     return (own == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE;
@@ -325,7 +325,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
 
-    const proto::ProtoString* keyObject = ProtoJSStringCache::getKey(ctx, "Object");
+    const proto::ProtoString* keyObject = JSSymbols::Object(ctx);
     if (!keyObject) return;
 
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyObject, false);
@@ -339,7 +339,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (!proto) proto = ctx->newObject(false);
 
     auto regProto = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) proto = proto->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
     };
 
@@ -353,7 +353,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
 
     auto reg = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
     };
 
@@ -370,9 +370,9 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("fromEntries",           objectFromEntries);
     reg("hasOwn",                objectHasOwn);
 
-    const proto::ProtoString* protoKey = ProtoJSStringCache::getKey(ctx, "prototype");
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
-    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyObject, ctor);
