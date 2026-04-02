@@ -1,7 +1,7 @@
 #include "ProtoInterpreter.h"
 #include "QuickJSOpcodeEnum.h"
 #include "QuickJSBytecodeExport.h"
-#include "../ProtoJSStringCache.h"
+#include "../JSSymbols.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../NumberPrototype.h"
@@ -529,7 +529,7 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
     bool xObj = !xBool && !xNum && !xStr;
     bool yObj = !yBool && !yNum && !yStr;
     if (xObj && !yObj) {
-        const proto::ProtoString* vk = ProtoJSStringCache::getKey(ctx, "valueOf");
+        const proto::ProtoString* vk = JSSymbols::valueOf(ctx);
         if (vk) {
             const proto::ProtoObject* vfn = x->getAttribute(ctx, vk, true);
             if (vfn && vfn != PROTO_NONE && vfn->isMethod(ctx)) {
@@ -543,7 +543,7 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
         return false;
     }
     if (yObj && !xObj) {
-        const proto::ProtoString* vk = ProtoJSStringCache::getKey(ctx, "valueOf");
+        const proto::ProtoString* vk = JSSymbols::valueOf(ctx);
         if (vk) {
             const proto::ProtoObject* vfn = y->getAttribute(ctx, vk, true);
             if (vfn && vfn != PROTO_NONE && vfn->isMethod(ctx)) {
@@ -574,7 +574,7 @@ const proto::ProtoString* resolveAtom(ProtoBytecodeModule* mod, proto::ProtoCont
 /** Check if obj is a bytecode function placeholder (has __bytecode_id__). Returns -1 if not. */
 int getBytecodeId(proto::ProtoContext* pContext, const proto::ProtoObject* obj) {
     if (!obj || !pContext) return -1;
-    const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, "__bytecode_id__");
+    const proto::ProtoString* key = JSSymbols::bytecodeId(pContext);
     const proto::ProtoObject* val = obj->getAttribute(pContext, key, false);
     if (!val || val == PROTO_NONE) return -1;
     if (!val->isInteger(pContext)) return -1;
@@ -590,8 +590,8 @@ static const proto::ProtoObject* errorPrototypeToString(
         const proto::ProtoList* /*params*/,
         const proto::ProtoSparseList* /*kw*/) {
     if (!context) return PROTO_NONE;
-    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(context, "name");
-    const proto::ProtoString* msgKey  = ProtoJSStringCache::getKey(context, "message");
+    const proto::ProtoString* nameKey = JSSymbols::name(context);
+    const proto::ProtoString* msgKey  = JSSymbols::message(context);
     std::string nameStr = "Error", msgStr;
     if (nameKey && self && self != PROTO_NONE) {
         const proto::ProtoObject* nv = self->getAttribute(context, nameKey, true);
@@ -617,11 +617,11 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         "Error", "TypeError", "ReferenceError", "RangeError",
         "SyntaxError", "URIError", "EvalError", "InternalError", nullptr
     };
-    const proto::ProtoString* protoKey = ProtoJSStringCache::getKey(ctx, "prototype");
-    const proto::ProtoString* nameKey  = ProtoJSStringCache::getKey(ctx, "name");
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    const proto::ProtoString* nameKey  = JSSymbols::name(ctx);
     if (!protoKey || !nameKey) return;
     for (int i = 0; kNames[i]; ++i) {
-        const proto::ProtoString* ctorKey = ProtoJSStringCache::getKey(ctx, kNames[i]);
+        const proto::ProtoString* ctorKey = (ctx->fromUTF8String(kNames[i]) ? ctx->fromUTF8String(kNames[i])->asString(ctx) : nullptr);
         if (!ctorKey) continue;
         // Only register if not already present.
         const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ctorKey, false);
@@ -632,7 +632,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         proto = proto->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!proto) continue;
         // Add toString method to the prototype.
-        const proto::ProtoString* toStringKey = ProtoJSStringCache::getKey(ctx, "toString");
+        const proto::ProtoString* toStringKey = JSSymbols::toString(ctx);
         if (toStringKey) {
             const proto::ProtoObject* toStringMethod = ctx->fromMethod(nullptr, errorPrototypeToString);
             if (toStringMethod) proto = proto->setAttribute(ctx, toStringKey, toStringMethod);
@@ -646,7 +646,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         if (!ctor) continue;
         // Mark as a built-in error constructor so OP_call can invoke it.
-        const proto::ProtoString* errCtorKey = ProtoJSStringCache::getKey(ctx, "__error_ctor__");
+        const proto::ProtoString* errCtorKey = JSSymbols::errorCtor(ctx);
         if (errCtorKey) ctor = ctor->setAttribute(ctx, errCtorKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
         *globalRoot = (*globalRoot)->setAttribute(ctx, ctorKey, ctor);
@@ -664,8 +664,8 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     // Try to get the prototype from the global so instanceof works.
     const proto::ProtoObject* base = nullptr;
     if (globalRoot && *globalRoot && name) {
-        const proto::ProtoString* ctorKey   = ProtoJSStringCache::getKey(ctx, name);
-        const proto::ProtoString* protoKey  = ProtoJSStringCache::getKey(ctx, "prototype");
+        const proto::ProtoString* ctorKey   = (ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr);
+        const proto::ProtoString* protoKey  = JSSymbols::prototype(ctx);
         if (ctorKey && protoKey) {
             const proto::ProtoObject* ctor = (*globalRoot)->getAttribute(ctx, ctorKey, false);
             if (ctor && ctor != PROTO_NONE) {
@@ -676,8 +676,8 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     }
     const proto::ProtoObject* err = base ? base->newChild(ctx, true) : ctx->newObject(true);
     if (!err) return PROTO_NONE;
-    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
-    const proto::ProtoString* msgKey  = ProtoJSStringCache::getKey(ctx, "message");
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
+    const proto::ProtoString* msgKey  = JSSymbols::message(ctx);
     if (nameKey)       err = err->setAttribute(ctx, nameKey, ctx->fromUTF8String(name    ? name    : "Error"));
     if (msgKey && err) err = err->setAttribute(ctx, msgKey,  ctx->fromUTF8String(message ? message : ""));
     return err ? err : PROTO_NONE;
@@ -717,7 +717,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
     for (size_t i = 0; i < closureVarNames.size() && (argCount + static_cast<unsigned>(i)) < (argCount + varCount); i++) {
         if (closureVarNames[i].empty() || !globalObjInit || globalObjInit == PROTO_NONE) continue;
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, closureVarNames[i].c_str());
+        const proto::ProtoString* key = (pContext->fromUTF8String(closureVarNames[i].c_str()) ? pContext->fromUTF8String(closureVarNames[i].c_str())->asString(pContext) : nullptr);
         if (key) {
             const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
             if (val && val != PROTO_NONE)
@@ -742,7 +742,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // These are standard globals that must be visible as top-level variable lookups.
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalConst = [&](const char* name, const proto::ProtoObject* val) {
-            const proto::ProtoString* k = ProtoJSStringCache::getKey(pContext, name);
+            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (!existing) // absent means not yet set
@@ -762,7 +762,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureObjectConstructor(pContext, pGlobalRoot);
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn) {
-            const proto::ProtoString* k = ProtoJSStringCache::getKey(pContext, name);
+            const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (existing && existing != PROTO_NONE) return;
@@ -1218,7 +1218,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (liveGlobal && liveGlobal != PROTO_NONE && static_cast<size_t>(idx) < module->closureVarNames.size()) {
                     const std::string& name = module->closureVarNames[idx];
                     if (!name.empty()) {
-                        const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, name.c_str());
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str()) ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
                         if (key) {
                             /* getAttribute(key, false) returns:
                              *   nullptr    → key is completely absent (TDZ or not-yet-stored)
@@ -1280,7 +1280,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
 
                     if (!name.empty()) {
-                        const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, name.c_str());
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str()) ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
                         if (key)
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
@@ -1609,7 +1609,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* func = stackTop(pContext);
                 stackPop(pContext);
                 if (func && func != PROTO_NONE) {
-                    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(pContext, "name");
+                    const proto::ProtoString* nameKey = JSSymbols::name(pContext);
                     const proto::ProtoString* nameStr = resolveAtom(mod, pContext, atomIndex);
                     if (nameKey && nameStr) {
                         std::string nameUtf8;
@@ -1686,7 +1686,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         long long idx = index->asLong(pContext);
                         if (idx >= 0 && idx < (long long)0xFFFFFFFELL) {
                             const proto::ProtoString* lenKey =
-                                ProtoJSStringCache::getKey(pContext, "length");
+                                JSSymbols::length(pContext);
                             if (lenKey) {
                                 const proto::ProtoObject* curLenVal =
                                     obj->getAttribute(pContext, lenKey, false);
@@ -1890,7 +1890,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (obj->isBoolean(pContext) || obj->isInteger(pContext) ||
                         obj->isDouble(pContext) || obj->isFloat(pContext) ||
                         obj->asString(pContext)) return obj;
-                    const proto::ProtoString* vk = ProtoJSStringCache::getKey(pContext, "valueOf");
+                    const proto::ProtoString* vk = JSSymbols::valueOf(pContext);
                     if (!vk) return obj;
                     const proto::ProtoObject* vfn = obj->getAttribute(pContext, vk, true);
                     if (!vfn || vfn == PROTO_NONE) return obj;
@@ -2195,7 +2195,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Push the .length property of TOS.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* obj = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                const proto::ProtoString* lk = JSSymbols::length(pContext);
                 const proto::ProtoObject* len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
                 stackPush(pContext, len_val ? len_val : PROTO_NONE);
                 break;
@@ -2296,7 +2296,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
-                const proto::ProtoString* protoKey = ProtoJSStringCache::getKey(pContext, "prototype");
+                const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                 const proto::ProtoObject* protoObj = func ? func->getAttribute(pContext, protoKey, false) : nullptr;
                 const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE) ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
                 stackPush(pContext, (res == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE);
@@ -2422,14 +2422,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     // Check for the Array constructor (marked with __array_ctor__).
                     const proto::ProtoString* arrayCtorAttr =
-                        ProtoJSStringCache::getKey(pContext, "__array_ctor__");
+                        JSSymbols::arrayCtor(pContext);
                     const proto::ProtoObject* isArrayCtor =
                         (func && func != PROTO_NONE && arrayCtorAttr)
                             ? func->getAttribute(pContext, arrayCtorAttr, false) : nullptr;
                     if (isArrayCtor && isArrayCtor == PROTO_TRUE) {
                         // Obtain Array.prototype from the constructor's "prototype" attribute.
                         const proto::ProtoString* protoAttr =
-                            ProtoJSStringCache::getKey(pContext, "prototype");
+                            JSSymbols::prototype(pContext);
                         const proto::ProtoObject* arrProto = (protoAttr && func)
                             ? func->getAttribute(pContext, protoAttr, false) : nullptr;
                         const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
@@ -2437,7 +2437,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             : pContext->newObject(true);
                         if (argc == 0) {
                             // new Array() → empty array.
-                            const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                            const proto::ProtoString* lk = JSSymbols::length(pContext);
                             if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(0LL));
                         } else if (argc == 1) {
                             const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
@@ -2448,25 +2448,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 long long n = a0->isInteger(pContext)
                                     ? a0->asLong(pContext)
                                     : static_cast<long long>(a0->asDouble(pContext));
-                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                const proto::ProtoString* lk = JSSymbols::length(pContext);
                                 if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(n));
                             } else {
                                 // new Array(elem) → [elem].
-                                const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(pContext, 0);
+                                const proto::ProtoString* k0 = JSSymbols::indexKey(pContext, 0);
                                 if (k0) arr = arr->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
-                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                const proto::ProtoString* lk = JSSymbols::length(pContext);
                                 if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(1LL));
                             }
                         } else {
                             // new Array(a, b, c, …) → [a, b, c, …].
                             for (uint32_t ai = 0; ai < argc; ai++) {
                                 const proto::ProtoString* ki =
-                                    ProtoJSStringCache::getIndexKey(pContext, static_cast<uint32_t>(ai));
+                                    JSSymbols::indexKey(pContext, static_cast<uint32_t>(ai));
                                 if (ki)
                                     arr = arr->setAttribute(pContext, ki,
                                                             argsList->getAt(pContext, static_cast<int>(ai)));
                             }
-                            const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                            const proto::ProtoString* lk = JSSymbols::length(pContext);
                             if (lk)
                                 arr = arr->setAttribute(pContext, lk,
                                                         pContext->fromInteger(static_cast<long long>(argc)));
@@ -2474,7 +2474,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         result = arr;
                     } else {
                         // Check for built-in error constructor stub.
-                        const proto::ProtoString* errCtorAttr = ProtoJSStringCache::getKey(pContext, "__error_ctor__");
+                        const proto::ProtoString* errCtorAttr = JSSymbols::errorCtor(pContext);
                         const proto::ProtoObject* errTypeName = (func && func != PROTO_NONE && errCtorAttr)
                             ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
                         if (errTypeName && errTypeName != PROTO_NONE && errTypeName->isString(pContext)) {
@@ -2553,7 +2553,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     // Check if this is a built-in error constructor stub (registered by
                     // ensureBuiltinErrorConstructors). If so, call makeError with the first arg.
-                    const proto::ProtoString* errCtorAttr = ProtoJSStringCache::getKey(pContext, "__error_ctor__");
+                    const proto::ProtoString* errCtorAttr = JSSymbols::errorCtor(pContext);
                     const proto::ProtoObject* errTypeName = (func && func != PROTO_NONE && errCtorAttr)
                         ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
                     if (errTypeName && errTypeName != PROTO_NONE && errTypeName->isString(pContext)) {
@@ -2570,7 +2570,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // Check if this is the Array constructor called without `new`.
                         // Per spec, Array(...) is equivalent to new Array(...).
                         const proto::ProtoString* arrayCtorAttr2 =
-                            ProtoJSStringCache::getKey(pContext, "__array_ctor__");
+                            JSSymbols::arrayCtor(pContext);
                         const proto::ProtoObject* isArrayCtor2 =
                             (func && func != PROTO_NONE && arrayCtorAttr2)
                                 ? func->getAttribute(pContext, arrayCtorAttr2, false) : nullptr;
@@ -2581,14 +2581,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             // Reuse the Array constructor logic from OP_call_constructor.
                             const proto::ProtoString* protoAttr3 =
-                                ProtoJSStringCache::getKey(pContext, "prototype");
+                                JSSymbols::prototype(pContext);
                             const proto::ProtoObject* arrProto3 = (protoAttr3 && func)
                                 ? func->getAttribute(pContext, protoAttr3, false) : nullptr;
                             const proto::ProtoObject* arr3 = (arrProto3 && arrProto3 != PROTO_NONE)
                                 ? arrProto3->newChild(pContext, true)
                                 : pContext->newObject(true);
                             if (argc == 0) {
-                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                const proto::ProtoString* lk = JSSymbols::length(pContext);
                                 if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(0LL));
                             } else if (argc == 1) {
                                 const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
@@ -2597,22 +2597,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     long long n = a0->isInteger(pContext)
                                         ? a0->asLong(pContext)
                                         : static_cast<long long>(a0->asDouble(pContext));
-                                    const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                    const proto::ProtoString* lk = JSSymbols::length(pContext);
                                     if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(n));
                                 } else {
-                                    const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(pContext, 0);
+                                    const proto::ProtoString* k0 = JSSymbols::indexKey(pContext, 0);
                                     if (k0) arr3 = arr3->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
-                                    const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                    const proto::ProtoString* lk = JSSymbols::length(pContext);
                                     if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(1LL));
                                 }
                             } else {
                                 for (uint32_t ai = 0; ai < argc; ai++) {
                                     const proto::ProtoString* ki =
-                                        ProtoJSStringCache::getIndexKey(pContext, ai);
+                                        JSSymbols::indexKey(pContext, ai);
                                     if (ki) arr3 = arr3->setAttribute(pContext, ki,
                                         argsList->getAt(pContext, static_cast<int>(ai)));
                                 }
-                                const proto::ProtoString* lk = ProtoJSStringCache::getKey(pContext, "length");
+                                const proto::ProtoString* lk = JSSymbols::length(pContext);
                                 if (lk) arr3 = arr3->setAttribute(pContext, lk,
                                     pContext->fromInteger(static_cast<long long>(argc)));
                             }
@@ -2695,7 +2695,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Create a mutable array that inherits from Array.prototype so that
                 // push/pop/join/slice etc. are found via prototype-chain lookup.
                 const proto::ProtoString* arrProtoLookupKey =
-                    ProtoJSStringCache::getKey(pContext, "__array_proto__");
+                    JSSymbols::arrayProto(pContext);
                 const proto::ProtoObject* arrProto =
                     (arrProtoLookupKey && globalObj && globalObj != PROTO_NONE)
                         ? globalObj->getAttribute(pContext, arrProtoLookupKey, false)
@@ -2708,12 +2708,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 for (uint16_t i = 0; i < count; i++) {
                     const proto::ProtoObject* elem = stackAt(pContext, static_cast<unsigned long>(count - 1 - i));
                     const proto::ProtoString* idxKey =
-                        ProtoJSStringCache::getIndexKey(pContext, static_cast<uint32_t>(i));
+                        JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
                     if (idxKey) arr = arr->setAttribute(pContext, idxKey, elem ? elem : PROTO_NONE);
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
                 // Set .length
-                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(pContext, "length");
+                const proto::ProtoString* lenKey = JSSymbols::length(pContext);
                 if (lenKey) arr = arr->setAttribute(pContext, lenKey, pContext->fromInteger(static_cast<long long>(count)));
                 stackPush(pContext, arr ? arr : PROTO_NONE);
                 break;
@@ -2733,7 +2733,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // (unsupported). Propagate vacuous-pass so generator-based for-of tests don't regress.
                 if (!iterable || iterable == PROTO_NONE) return PROTO_NONE;
                 // Require a numeric .length — arrays only.  Non-array iterables fall through to vacuous pass.
-                const proto::ProtoString* lenKey2 = ProtoJSStringCache::getKey(pContext, "length");
+                const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
                 const proto::ProtoObject* lenVal = lenKey2 ? iterable->getAttribute(pContext, lenKey2, false) : PROTO_NONE;
                 if (!lenVal || lenVal == PROTO_NONE || !lenVal->isInteger(pContext)) return PROTO_NONE;
                 // Use a PC-based slot pair unique to this for-of loop site.
@@ -2743,7 +2743,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Build a lightweight iterator object carrying the slot base.
                 const proto::ProtoObject* iterObj = pContext->newObject(false);
                 if (!iterObj) return PROTO_NONE;
-                const proto::ProtoString* slotKey2 = ProtoJSStringCache::getKey(pContext, "__iter_slot__");
+                const proto::ProtoString* slotKey2 = JSSymbols::iterSlot(pContext);
                 if (slotKey2)
                     iterObj = iterObj->setAttribute(pContext, slotKey2, pContext->fromInteger(static_cast<long long>(baseSlot)));
                 stackPush(pContext, iterObj);           // iterator
@@ -2764,7 +2764,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, PROTO_TRUE);
                     break;
                 }
-                const proto::ProtoString* slotKey3 = ProtoJSStringCache::getKey(pContext, "__iter_slot__");
+                const proto::ProtoString* slotKey3 = JSSymbols::iterSlot(pContext);
                 const proto::ProtoObject* slotVal = slotKey3 ? iterObj2->getAttribute(pContext, slotKey3, false) : PROTO_NONE;
                 if (!slotVal || slotVal == PROTO_NONE || !slotVal->isInteger(pContext)) {
                     stackPush(pContext, PROTO_NONE);
@@ -2780,7 +2780,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     break;
                 }
                 long long idx2 = idxObj2->asLong(pContext);
-                const proto::ProtoString* lenKey3 = ProtoJSStringCache::getKey(pContext, "length");
+                const proto::ProtoString* lenKey3 = JSSymbols::length(pContext);
                 const proto::ProtoObject* lenVal2 = lenKey3 ? arrObj->getAttribute(pContext, lenKey3, false) : PROTO_NONE;
                 long long arrLen = (lenVal2 && lenVal2 != PROTO_NONE && lenVal2->isInteger(pContext))
                                    ? lenVal2->asLong(pContext) : 0LL;
@@ -2806,8 +2806,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* result_obj = stackTop(pContext); stackPop(pContext);
                 stackPop(pContext); // discard catch_0
-                const proto::ProtoString* valueKey = ProtoJSStringCache::getKey(pContext, "value");
-                const proto::ProtoString* doneKey  = ProtoJSStringCache::getKey(pContext, "done");
+                const proto::ProtoString* valueKey = JSSymbols::value(pContext);
+                const proto::ProtoString* doneKey  = JSSymbols::done(pContext);
                 const proto::ProtoObject* value = (result_obj && result_obj != PROTO_NONE && valueKey)
                     ? result_obj->getAttribute(pContext, valueKey, false) : PROTO_NONE;
                 const proto::ProtoObject* doneRaw = (result_obj && result_obj != PROTO_NONE && doneKey)
