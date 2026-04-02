@@ -3,7 +3,7 @@
 #include "JSContext.h"
 #include "ProtoArrayAdapter.h"
 #include "ProtoArgumentsAdapter.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include <string>
 #include <vector>
 
@@ -58,8 +58,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         const proto::ProtoObject* backing;
         if (arrayProto) {
             backing = arrayProto->newChild(pContext, true);
-            const proto::ProtoString* lengthKey = ProtoJSStringCache::getKey(pContext, "length");
-            backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
+            backing = backing->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(0));
         } else {
             backing = ProtoArrayAdapter::createArray(pContext);
         }
@@ -75,11 +74,10 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             }
             JSValue item = JS_GetPropertyUint32(ctx, val, i);
             const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
-            const proto::ProtoString* indexKey = ProtoJSStringCache::getIndexKey(pContext, i);
-            backing = backing->setAttribute(pContext, indexKey, pItem);
+            backing = backing->setAttribute(pContext, JSSymbols::indexKey(pContext, i), pItem);
             JS_FreeValue(ctx, item);
         }
-        backing = backing->setAttribute(pContext, ProtoJSStringCache::getKey(pContext, "length"), pContext->fromInteger(static_cast<long long>(len)));
+        backing = backing->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(len)));
 
         // Register mapping so that future lookups can reuse the same backing.
         GCBridge::registerMapping(val, backing, ctx);
@@ -113,8 +111,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             const proto::ProtoObject* backing;
             if (argsProto) {
                 backing = argsProto->newChild(pContext, true);
-                const proto::ProtoString* lengthKey = ProtoJSStringCache::getKey(pContext, "length");
-                backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
+                backing = backing->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(0));
             } else {
                 backing = ProtoArgumentsAdapter::createArguments(pContext);
             }
@@ -131,15 +128,14 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                 JSValue item = JS_GetPropertyUint32(ctx, val, i);
                 const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
                 if (argsProto) {
-                    const proto::ProtoString* indexKey = ProtoJSStringCache::getIndexKey(pContext, i);
-                    backing = backing->setAttribute(pContext, indexKey, pItem);
+                    backing = backing->setAttribute(pContext, JSSymbols::indexKey(pContext, i), pItem);
                 } else {
                     backing = ProtoArgumentsAdapter::set(pContext, backing, i, pItem);
                 }
                 JS_FreeValue(ctx, item);
             }
             if (argsProto) {
-                backing = backing->setAttribute(pContext, ProtoJSStringCache::getKey(pContext, "length"), pContext->fromInteger(static_cast<long long>(len)));
+                backing = backing->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(len)));
             }
 
             GCBridge::registerMapping(val, backing, ctx);
@@ -158,20 +154,14 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             if (JS_IsString(sourceVal)) {
                 const char* source = JS_ToCString(ctx, sourceVal);
                 const proto::ProtoObject* pSource = pContext->fromUTF8String(source);
-                const proto::ProtoString* sourceKey = ProtoJSStringCache::getKey(pContext, "source");
-                if (sourceKey) {
-                    pObj = pObj->setAttribute(pContext, sourceKey, pSource);
-                }
+                pObj = pObj->setAttribute(pContext, JSSymbols::source(pContext), pSource);
                 JS_FreeCString(ctx, source);
             }
-            
+
             if (JS_IsString(flagsVal)) {
                 const char* flags = JS_ToCString(ctx, flagsVal);
                 const proto::ProtoObject* pFlags = pContext->fromUTF8String(flags);
-                const proto::ProtoString* flagsKey = ProtoJSStringCache::getKey(pContext, "flags");
-                if (flagsKey) {
-                    pObj = pObj->setAttribute(pContext, flagsKey, pFlags);
-                }
+                pObj = pObj->setAttribute(pContext, JSSymbols::flags(pContext), pFlags);
                 JS_FreeCString(ctx, flags);
             }
             
@@ -255,10 +245,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         if (JS_IsString(desc)) {
             const char* descStr = JS_ToCString(ctx, desc);
             const proto::ProtoObject* pDesc = pContext->fromUTF8String(descStr);
-            const proto::ProtoString* descKey = ProtoJSStringCache::getKey(pContext, "description");
-            if (descKey) {
-                pObj = pObj->setAttribute(pContext, descKey, pDesc);
-            }
+            pObj = pObj->setAttribute(pContext, JSSymbols::description(pContext), pDesc);
             JS_FreeCString(ctx, descStr);
         }
         JS_FreeValue(ctx, desc);
@@ -285,8 +272,8 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                 const char* prop_name = JS_AtomToCString(ctx, props[i].atom);
                 
                 const proto::ProtoObject* pVal = fromJS(ctx, prop_val, pContext);
-                const proto::ProtoString* pName = ProtoJSStringCache::getKey(pContext, prop_name);
-                
+                const proto::ProtoString* pName = pContext->fromUTF8String(prop_name)->asString(pContext);
+
                 if (pName) {
                     pObj = pObj->setAttribute(pContext, pName, pVal);
                 }
