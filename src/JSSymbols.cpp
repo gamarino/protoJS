@@ -11,6 +11,8 @@ namespace protojs::JSSymbols {
     const proto::ProtoString* getter(proto::ProtoContext* ctx) {            \
         static const proto::ProtoString* s_sym = nullptr;                   \
         static std::once_flag s_flag;                                        \
+        /* Any valid ctx suffices: createSymbol interns at ProtoSpace level, \
+         * so the result is globally unique regardless of which ctx wins.  */ \
         std::call_once(s_flag, [ctx]() {                                    \
             s_sym = proto::ProtoString::createSymbol(ctx, literal);         \
         });                                                                  \

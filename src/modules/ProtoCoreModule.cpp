@@ -4,6 +4,7 @@
 #include "../Deferred.h"
 #include "../EventLoop.h"
 #include "../CPUThreadPool.h"
+#include "../JSSymbols.h"
 #include "quickjs.h"
 #include <iostream>
 #include <unordered_map>
@@ -38,7 +39,7 @@ static const proto::ProtoObject* cpuChunkWorker(
         state = static_cast<uint32_t>(static_cast<uint64_t>(state) * 1103515245ULL + 12345ULL);
         sum += state;
     }
-    const proto::ProtoString* key = context->fromUTF8String("value")->asString(context);
+    const proto::ProtoString* key = JSSymbols::value(context);
     const proto::ProtoObject* newHolder =
         holder->setAttribute(context, key, context->fromLong(static_cast<long long>(sum)));
     (void)newHolder;
@@ -661,7 +662,7 @@ JSValue ProtoCoreModule::RunInThread(JSContext* ctx, JSValueConst this_val, int 
         EventLoop::getInstance().enqueueCallback([taskHandle, resultHolder, wrapper]() {
             JSContext* mainCtx = wrapper->getJSContext();
             proto::ProtoContext* pCtx = wrapper->getProtoContext();
-            const proto::ProtoString* valueKey = pCtx->fromUTF8String("value")->asString(pCtx);
+            const proto::ProtoString* valueKey = JSSymbols::value(pCtx);
             const proto::ProtoObject* result = resultHolder->getAttribute(pCtx, valueKey);
             JSValue resultJS = TypeBridge::toJS(mainCtx, result, pCtx);
             Deferred::resolveTaskFromNative(taskHandle, resultJS);

@@ -76,7 +76,7 @@ class JSContextWrapper {
 
 **Direct attribute handling:** Arrays and arguments are represented as a single `ProtoObject` with numeric-named attributes (`"0"`, `"1"`, …) and `"length"`. Index and length writes are reflected with `setAttribute`, and the new root is propagated with `GCBridge::registerMapping`. The main path does not use an "elements" or "values" sub-structure.
 
-**String interning:** All strings in protoCore are interned; `ProtoContext::fromUTF8String` returns a stable pointer per logical string. protoJS caches frequently used `ProtoString` keys (e.g. `"length"`, `"elements"`, `"values"`, `"prototype"`) in `ProtoJSStringCache` per context, so that once a `ProtoString` for a key is obtained, that value can be reused (strings are `ProtoString`).
+**String interning:** All strings in protoCore are interned; `ProtoContext::fromUTF8String` returns a stable pointer per logical string. protoJS exposes frequently used `ProtoString` keys (e.g. `"length"`, `"elements"`, `"values"`, `"prototype"`) through `JSSymbols` (see `src/JSSymbols.h`). Each getter lazily interns its literal at `ProtoSpace` level on first call, so the resulting pointer is globally unique and safe to reuse across contexts without per-context caching.
 
 ### 1.2 Numbers: ProtoInteger, ProtoDouble, and Number Prototype
 
