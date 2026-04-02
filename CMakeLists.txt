@@ -108,7 +108,7 @@ add_executable(protojs
     src/profiling/VisualProfiler.cpp
     src/debugging/IntegratedDebugger.cpp
     # protoCore-backed array adapter and QuickJS integration
-    src/ProtoJSStringCache.cpp
+    src/JSSymbols.cpp
     src/NumberPrototype.cpp
     src/StringPrototype.cpp
     src/RegExpPrototype.cpp

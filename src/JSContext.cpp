@@ -7,7 +7,7 @@
 #include "debugging/IntegratedDebugger.h"
 #include "JSPrototypes.h"
 #include "TypeBridge.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include "runtime/ProtoCompileOnly.h"
 #include "runtime/ProtoBytecodeModule.h"
 #include "runtime/ProtoInterpreter.h"
@@ -300,9 +300,9 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                     // Always prefer "Name: message" so Test262 can match negative.type.
                     std::string errStr;
                     const proto::ProtoString* nameKey =
-                        ProtoJSStringCache::getKey(&frameCtx, "name");
+                        JSSymbols::name(&frameCtx);
                     const proto::ProtoString* msgKey =
-                        ProtoJSStringCache::getKey(&frameCtx, "message");
+                        JSSymbols::message(&frameCtx);
 
                     // 1) Try exception.name (searching prototype chain).
                     if (nameKey) {

@@ -1,5 +1,5 @@
 #include "ProtoArrayAdapter.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 
 namespace protojs {
 
@@ -26,7 +26,7 @@ static const ProtoSparseList* getSparse(
     }
 
     const ProtoString* elementsKey =
-        ProtoJSStringCache::getKey(ctx, "elements");
+        JSSymbols::elements(ctx);
     const ProtoObject* existing =
         arrayObj->getAttribute(ctx, elementsKey);
 
@@ -53,7 +53,7 @@ static unsigned long getStoredLength(
         return 0;
     }
     const ProtoString* lengthKey =
-        ProtoJSStringCache::getKey(ctx, "length");
+        JSSymbols::length(ctx);
     const ProtoObject* lenObj =
         arrayObj->getAttribute(ctx, lengthKey);
     if (!lenObj || lenObj == PROTO_NONE) {
@@ -68,7 +68,7 @@ static const ProtoObject* storeLength(
     unsigned long newLen)
 {
     const ProtoString* lengthKey =
-        ProtoJSStringCache::getKey(ctx, "length");
+        JSSymbols::length(ctx);
     const ProtoObject* lenObj =
         ctx->fromLong(static_cast<long long>(newLen));
     return arrayObj->setAttribute(ctx, lengthKey, lenObj);
@@ -86,7 +86,7 @@ const ProtoObject* ProtoArrayAdapter::createArray(ProtoContext* ctx)
     const ProtoSparseList* sparse = ctx->newSparseList();
     const ProtoObject* sparseObj = sparse->asObject(ctx);
     const ProtoString* elementsKey =
-        ProtoJSStringCache::getKey(ctx, "elements");
+        JSSymbols::elements(ctx);
     obj = obj->setAttribute(ctx, elementsKey, sparseObj);
 
     obj = storeLength(ctx, obj, 0);
@@ -136,7 +136,7 @@ const ProtoObject* ProtoArrayAdapter::set(
     const ProtoObject* sparseObj = updatedSparse->asObject(ctx);
 
     const ProtoString* elementsKey =
-        ProtoJSStringCache::getKey(ctx, "elements");
+        JSSymbols::elements(ctx);
     const ProtoObject* updated =
         arrayObj->setAttribute(ctx, elementsKey, sparseObj);
 

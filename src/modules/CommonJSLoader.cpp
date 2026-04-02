@@ -4,7 +4,7 @@
 #include "../GCBridge.h"
 #include "../JSContext.h"
 #include "../TypeBridge.h"
-#include "../ProtoJSStringCache.h"
+#include "../JSSymbols.h"
 #include "../runtime/ProtoCompileOnly.h"
 #include "../runtime/ProtoBytecodeModule.h"
 #include "../runtime/ProtoInterpreter.h"
@@ -440,7 +440,7 @@ JSValue CommonJSLoader::executeModule(
         argsList = argsList->appendLast(&frameCtx, dirnameProto ? dirnameProto : PROTO_NONE);
     }
 
-    const proto::ProtoString* key = ProtoJSStringCache::getKey(&frameCtx, "__bytecode_id__");
+    const proto::ProtoString* key = JSSymbols::bytecodeId(&frameCtx);
     const proto::ProtoObject* idVal = wrapperFunc->getAttribute(&frameCtx, key, false);
     int bcId = (idVal && idVal != PROTO_NONE && idVal->isInteger(&frameCtx)) ? static_cast<int>(idVal->asLong(&frameCtx)) : -1;
 

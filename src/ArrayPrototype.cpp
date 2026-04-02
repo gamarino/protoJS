@@ -1,6 +1,6 @@
 #include "ArrayPrototype.h"
 #include "runtime/ProtoInterpreter.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <algorithm>
 #include <cmath>
@@ -32,7 +32,7 @@ static inline const proto::ProtoObject* getArrayProto() {
 static unsigned long arrLen(proto::ProtoContext* ctx,
                              const proto::ProtoObject* arr) {
     if (!arr || arr == PROTO_NONE) return 0;
-    const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return 0;
     const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, false);
     if (!lenObj || lenObj == PROTO_NONE) return 0;
@@ -64,7 +64,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* arr,
                                          unsigned long idx) {
     if (!arr || arr == PROTO_NONE) return PROTO_NONE;
-    const proto::ProtoString* key = ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(idx));
+    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return PROTO_NONE;
     const proto::ProtoObject* val = arr->getAttribute(ctx, key, false);
     return val ? val : PROTO_NONE;
@@ -78,12 +78,12 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
                                          unsigned long idx,
                                          const proto::ProtoObject* val) {
     if (!arr) return PROTO_NONE;
-    const proto::ProtoString* key = ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(idx));
+    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return arr;
     arr = arr->setAttribute(ctx, key, val ? val : PROTO_NONE);
     unsigned long curLen = arrLen(ctx, arr);
     if (idx + 1 > curLen) {
-        const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey)
             arr = arr->setAttribute(ctx, lenKey,
                                     ctx->fromInteger(static_cast<long long>(idx + 1)));
@@ -95,7 +95,7 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* arr,
                                             unsigned long newLen) {
     if (!arr) return PROTO_NONE;
-    const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return arr;
     return arr->setAttribute(ctx, key,
                              ctx->fromInteger(static_cast<long long>(newLen)));
@@ -132,7 +132,7 @@ static std::string elemToString(proto::ProtoContext* ctx,
     }
     // Array-like objects: recursively join elements with "," (mirrors JS Array.prototype.toString).
     {
-        const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             const proto::ProtoObject* lenObj = val->getAttribute(ctx, lenKey, false);
             if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx)) {
@@ -280,7 +280,7 @@ static const proto::ProtoObject* arrayPush(
         arrSet(ctx, self, len + i, item);
     }
     unsigned long newLen = len + argc;
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey)
         self->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(newLen)));
     return ctx->fromInteger(static_cast<long long>(newLen));
@@ -300,9 +300,9 @@ static const proto::ProtoObject* arrayPop(
     const proto::ProtoObject* removed = arrGet(ctx, self, lastIdx);
     // Clear the element and shrink length.
     const proto::ProtoString* idxKey =
-        ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(lastIdx));
+        JSSymbols::indexKey(ctx, static_cast<uint32_t>(lastIdx));
     if (idxKey) self->setAttribute(ctx, idxKey, PROTO_NONE);
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey)
         self->setAttribute(ctx, lenKey,
                            ctx->fromInteger(static_cast<long long>(lastIdx)));
@@ -326,9 +326,9 @@ static const proto::ProtoObject* arrayShift(
     }
     // Clear last slot and update length.
     const proto::ProtoString* lastKey =
-        ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(len - 1));
+        JSSymbols::indexKey(ctx, static_cast<uint32_t>(len - 1));
     if (lastKey) self->setAttribute(ctx, lastKey, PROTO_NONE);
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey)
         self->setAttribute(ctx, lenKey,
                            ctx->fromInteger(static_cast<long long>(len - 1)));
@@ -356,7 +356,7 @@ static const proto::ProtoObject* arrayUnshift(
         arrSet(ctx, self, i, args->getAt(ctx, static_cast<int>(i)));
     }
     unsigned long newLen = len + argc;
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey)
         self->setAttribute(ctx, lenKey,
                            ctx->fromInteger(static_cast<long long>(newLen)));
@@ -530,7 +530,7 @@ static const proto::ProtoObject* arrayConcat(
         if (!obj || obj == PROTO_NONE) return false;
         if (obj->isInteger(ctx) || obj->isDouble(ctx) || obj->isFloat(ctx) ||
             obj->isString(ctx) || obj->isBoolean(ctx)) return false;
-        const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (!lenKey) return false;
         const proto::ProtoObject* lv = obj->getAttribute(ctx, lenKey, false);
         return lv && lv != PROTO_NONE &&
@@ -1210,18 +1210,18 @@ static const proto::ProtoObject* arrayIteratorNext(
     if (!self || self == PROTO_NONE) {
         // Return {value: undefined, done: true}.
         const proto::ProtoObject* r = ctx->newObject(true);
-        const proto::ProtoString* vk = ProtoJSStringCache::getKey(ctx, "value");
-        const proto::ProtoString* dk = ProtoJSStringCache::getKey(ctx, "done");
+        const proto::ProtoString* vk = JSSymbols::value(ctx);
+        const proto::ProtoString* dk = JSSymbols::done(ctx);
         if (vk) r = r->setAttribute(ctx, vk, PROTO_NONE);
         if (dk) r = r->setAttribute(ctx, dk, PROTO_TRUE);
         return r;
     }
 
-    const proto::ProtoString* idxKey  = ProtoJSStringCache::getKey(ctx, "__iter_idx__");
-    const proto::ProtoString* refKey  = ProtoJSStringCache::getKey(ctx, "__iter_arr__");
-    const proto::ProtoString* kindKey = ProtoJSStringCache::getKey(ctx, "__iter_kind__");
-    const proto::ProtoString* valueK  = ProtoJSStringCache::getKey(ctx, "value");
-    const proto::ProtoString* doneK   = ProtoJSStringCache::getKey(ctx, "done");
+    const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
+    const proto::ProtoString* refKey  = JSSymbols::iterArr(ctx);
+    const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
+    const proto::ProtoString* valueK  = JSSymbols::value(ctx);
+    const proto::ProtoString* doneK   = JSSymbols::done(ctx);
 
     if (!idxKey || !refKey || !kindKey || !valueK || !doneK) return PROTO_NONE;
 
@@ -1279,10 +1279,10 @@ static const proto::ProtoObject* makeArrayIterator(
     const char* kind)
 {
     const proto::ProtoObject* iter = ctx->newObject(true);
-    const proto::ProtoString* idxKey  = ProtoJSStringCache::getKey(ctx, "__iter_idx__");
-    const proto::ProtoString* refKey  = ProtoJSStringCache::getKey(ctx, "__iter_arr__");
-    const proto::ProtoString* kindKey = ProtoJSStringCache::getKey(ctx, "__iter_kind__");
-    const proto::ProtoString* nextKey = ProtoJSStringCache::getKey(ctx, "next");
+    const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
+    const proto::ProtoString* refKey  = JSSymbols::iterArr(ctx);
+    const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
+    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
     if (idxKey)  iter = iter->setAttribute(ctx, idxKey,  ctx->fromInteger(0LL));
     if (refKey)  iter = iter->setAttribute(ctx, refKey,  arr ? arr : PROTO_NONE);
     if (kindKey) iter = iter->setAttribute(ctx, kindKey, ctx->fromUTF8String(kind));
@@ -1325,7 +1325,7 @@ static const proto::ProtoObject* arrayIsArray(
         val->isString(ctx) || val->isBoolean(ctx)) return PROTO_FALSE;
     // Heuristic: any object with a "length" attribute that is a non-negative integer
     // is treated as an array.  This matches the practical usage in test262.
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return PROTO_FALSE;
     const proto::ProtoObject* lv = val->getAttribute(ctx, lenKey, false);
     if (!lv || lv == PROTO_NONE) return PROTO_FALSE;
@@ -1351,7 +1351,7 @@ static const proto::ProtoObject* arrayFrom(
     if (!src || src == PROTO_NONE) return result;
 
     // If src has a "length", iterate by index (array-like).
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return result;
     const proto::ProtoObject* lv = src->getAttribute(ctx, lenKey, false);
     if (lv && lv != PROTO_NONE &&
@@ -1428,7 +1428,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     if (!ctx || !globalRoot || !*globalRoot) return;
 
     // Check if already initialised.
-    const proto::ProtoString* arrayKey = ProtoJSStringCache::getKey(ctx, "Array");
+    const proto::ProtoString* arrayKey = JSSymbols::Array(ctx);
     if (!arrayKey) return;
     const proto::ProtoObject* existing =
         (*globalRoot)->getAttribute(ctx, arrayKey, false);
@@ -1483,12 +1483,12 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         { "values",         arrayValues,        0 },
     };
     for (auto& m : methods) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, m.name);
+        const proto::ProtoString* key = ctx->fromUTF8String(m.name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* fn = ctx->fromMethod(nullptr, m.fn);
             if (fn && fn != PROTO_NONE) {
-                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
-                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
                 if (lenKey) fn = fn->setAttribute(ctx, lenKey, ctx->fromInteger(m.length));
                 if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(m.name));
             }
@@ -1505,14 +1505,14 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     const proto::ProtoObject* ctor = ctx->newObject(false);
 
     const proto::ProtoString* markerKey =
-        ProtoJSStringCache::getKey(ctx, "__array_ctor__");
+        JSSymbols::arrayCtor(ctx);
     if (markerKey) ctor = ctor->setAttribute(ctx, markerKey, PROTO_TRUE);
 
     const proto::ProtoString* protoKey =
-        ProtoJSStringCache::getKey(ctx, "prototype");
+        JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
 
-    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey)
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Array"));
 
@@ -1524,12 +1524,12 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         { "of",        arrayOf,        0 },
     };
     for (auto& s : statics) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, s.name);
+        const proto::ProtoString* key = ctx->fromUTF8String(s.name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* fn = ctx->fromMethod(nullptr, s.fn);
             if (fn && fn != PROTO_NONE) {
-                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
-                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
                 if (lenKey) fn = fn->setAttribute(ctx, lenKey, ctx->fromInteger(s.length));
                 if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(s.name));
             }
@@ -1544,7 +1544,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
 
     // Fast-path key "__array_proto__" for OP_array_from lookup.
     const proto::ProtoString* fastProtoKey =
-        ProtoJSStringCache::getKey(ctx, "__array_proto__");
+        JSSymbols::arrayProto(ctx);
     if (fastProtoKey)
         *globalRoot = (*globalRoot)->setAttribute(ctx, fastProtoKey, proto);
 }

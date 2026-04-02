@@ -1,5 +1,5 @@
 #include "NumberPrototype.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstdio>
@@ -326,11 +326,11 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* numberProto = objectProto->newChild(ctx, false);
     proto::ProtoObject* mutableProto = const_cast<proto::ProtoObject*>(numberProto);
 
-    const proto::ProtoString* keyValueOf      = ProtoJSStringCache::getKey(ctx, "valueOf");
-    const proto::ProtoString* keyToString     = ProtoJSStringCache::getKey(ctx, "toString");
-    const proto::ProtoString* keyToFixed      = ProtoJSStringCache::getKey(ctx, "toFixed");
-    const proto::ProtoString* keyToExponential= ProtoJSStringCache::getKey(ctx, "toExponential");
-    const proto::ProtoString* keyToPrecision  = ProtoJSStringCache::getKey(ctx, "toPrecision");
+    const proto::ProtoString* keyValueOf      = JSSymbols::valueOf(ctx);
+    const proto::ProtoString* keyToString     = JSSymbols::toString(ctx);
+    const proto::ProtoString* keyToFixed      = JSSymbols::toFixed(ctx);
+    const proto::ProtoString* keyToExponential= JSSymbols::toExponential(ctx);
+    const proto::ProtoString* keyToPrecision  = JSSymbols::toPrecision(ctx);
 
     numberProto = numberProto->setAttribute(ctx, keyValueOf,
         ctx->fromMethod(mutableProto, numberValueOf));
@@ -351,7 +351,7 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 void ensureNumberConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
-    const proto::ProtoString* keyNumber = ProtoJSStringCache::getKey(ctx, "Number");
+    const proto::ProtoString* keyNumber = JSSymbols::Number(ctx);
     if (!keyNumber) return;
 
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyNumber, false);
@@ -362,7 +362,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
     auto reg = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromMethod(mCtor, fn));
     };
 
@@ -376,7 +376,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     // Constants
     auto setConst = [&](const char* name, double val) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromDouble(val));
     };
     setConst("EPSILON",            std::numeric_limits<double>::epsilon());
@@ -388,7 +388,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     setConst("NEGATIVE_INFINITY", -std::numeric_limits<double>::infinity());
     setConst("NaN",                std::numeric_limits<double>::quiet_NaN());
 
-    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);

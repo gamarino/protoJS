@@ -1,7 +1,7 @@
 #include "ProtoBytecodeModule.h"
 #include "QuickJSBytecodeExport.h"
 #include "QuickJSOpcodeEnum.h"
-#include "../ProtoJSStringCache.h"
+#include "../JSSymbols.h"
 #include "../TypeBridge.h"
 #include "quickjs.h"
 #include "headers/protoCore.h"
@@ -143,7 +143,7 @@ static bool loadBytecodeRecursive(JSContext* ctx,
             out->nestedFunctions.push_back(std::move(nestedMod));
             size_t id = out->nestedFunctions.size() - 1;
 
-            const proto::ProtoString* key = ProtoJSStringCache::getKey(pContext, "__bytecode_id__");
+            const proto::ProtoString* key = JSSymbols::bytecodeId(pContext);
             const proto::ProtoObject* placeholder = pContext->newObject(true);
             placeholder = placeholder->setAttribute(
                 pContext, key, pContext->fromInteger(static_cast<long long>(id)));

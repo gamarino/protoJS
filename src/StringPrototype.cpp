@@ -1,6 +1,6 @@
 #include "StringPrototype.h"
 #include "ArrayPrototype.h"
-#include "ProtoJSStringCache.h"
+#include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <algorithm>
 #include <cctype>
@@ -767,7 +767,7 @@ const proto::ProtoObject* stringSplit(
     std::string s = objToStr(ctx, self);
     // Result array — use createNewArray so that [] prototype methods (join, forEach, etc.) are inherited.
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
-    const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
 
     // Determine limit
     long long limit = std::numeric_limits<long long>::max();
@@ -788,7 +788,7 @@ const proto::ProtoObject* stringSplit(
     // No separator argument (or undefined): return array with entire string
     if (!args || args->getSize(ctx) == 0) {
         const proto::ProtoObject* elem = ctx->fromUTF8String(s.c_str());
-        const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(ctx, 0);
+        const proto::ProtoString* k0 = JSSymbols::indexKey(ctx,0);
         if (k0) result = result->setAttribute(ctx, k0, elem);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
@@ -798,7 +798,7 @@ const proto::ProtoObject* stringSplit(
     // Undefined separator: return array with entire string
     if (!sepArg || sepArg == PROTO_NONE) {
         const proto::ProtoObject* elem = ctx->fromUTF8String(s.c_str());
-        const proto::ProtoString* k0 = ProtoJSStringCache::getIndexKey(ctx, 0);
+        const proto::ProtoString* k0 = JSSymbols::indexKey(ctx,0);
         if (k0) result = result->setAttribute(ctx, k0, elem);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
@@ -831,7 +831,7 @@ const proto::ProtoObject* stringSplit(
     if (se16.empty()) {
         for (size_t i = 0; i < su16.size() && count < limit; i++) {
             std::string ch = utf16ToUTF8(su16, i, i + 1);
-            const proto::ProtoString* k = ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(count));
+            const proto::ProtoString* k = JSSymbols::indexKey(ctx,static_cast<uint32_t>(count));
             if (k) result = result->setAttribute(ctx, k, ctx->fromUTF8String(ch.c_str()));
             count++;
         }
@@ -852,7 +852,7 @@ const proto::ProtoObject* stringSplit(
         }
         // Slice [pos, found) as a segment
         std::string segment = utf16ToUTF8(su16, pos, found);
-        const proto::ProtoString* k = ProtoJSStringCache::getIndexKey(ctx, static_cast<uint32_t>(count));
+        const proto::ProtoString* k = JSSymbols::indexKey(ctx,static_cast<uint32_t>(count));
         if (k) result = result->setAttribute(ctx, k, ctx->fromUTF8String(segment.c_str()));
         count++;
         if (found == su16.size()) break; // no more separators
@@ -949,7 +949,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 
     // Idempotency guard: don't rebuild if we already added our sentinel.
     const proto::ProtoString* sentinelKey =
-        ProtoJSStringCache::getKey(ctx, kBuiltSentinel);
+        JSSymbols::stringProtoBuild(ctx);
     if (sentinelKey) {
         const proto::ProtoObject* chk = baseProto->getAttribute(ctx, sentinelKey, false);
         if (chk && chk != PROTO_NONE) return; // already built
@@ -960,12 +960,12 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 
     // Helper lambda to register one method with length and name.
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* mObj = ctx->fromMethod(mp, fn);
             if (mObj && mObj != PROTO_NONE) {
-                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
-                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
                 if (lenKey) mObj = mObj->setAttribute(ctx, lenKey, ctx->fromInteger(length));
                 if (nameKey) mObj = mObj->setAttribute(ctx, nameKey, ctx->fromUTF8String(name));
             }
@@ -1019,7 +1019,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 void ensureStringConstructor(proto::ProtoContext* ctx,
                               const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
-    const proto::ProtoString* keyString = ProtoJSStringCache::getKey(ctx, "String");
+    const proto::ProtoString* keyString = JSSymbols::String(ctx);
     if (!keyString) return;
 
     // Only register once.
@@ -1032,12 +1032,12 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
     auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
-        const proto::ProtoString* key = ProtoJSStringCache::getKey(ctx, name);
+        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* mObj = ctx->fromMethod(mCtor, fn);
             if (mObj && mObj != PROTO_NONE) {
-                const proto::ProtoString* lenKey = ProtoJSStringCache::getKey(ctx, "length");
-                const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
                 if (lenKey) mObj = mObj->setAttribute(ctx, lenKey, ctx->fromInteger(length));
                 if (nameKey) mObj = mObj->setAttribute(ctx, nameKey, ctx->fromUTF8String(name));
             }
@@ -1049,10 +1049,10 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     regStatic("fromCodePoint", stringFromCodePoint, 1);
 
     // name property
-    const proto::ProtoString* nameKey = ProtoJSStringCache::getKey(ctx, "name");
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));
 
-    const proto::ProtoString* protoKey = ProtoJSStringCache::getKey(ctx, "prototype");
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey && ctx->space && ctx->space->stringPrototype) {
         ctor = ctor->setAttribute(ctx, protoKey, reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype));
     }
