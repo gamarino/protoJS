@@ -30,6 +30,12 @@ public:
      * Clear cache for a context (e.g. on context cleanup). Optional.
      */
     static void clearForContext(proto::ProtoContext* ctx);
+
+    /**
+     * Get the original string name from a hash (reverse lookup).
+     * Only works for strings that were previously registered via getKey or getIndexKey.
+     */
+    static std::string getNameFromHash(unsigned long hash);
 };
 
 } // namespace protojs

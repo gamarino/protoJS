@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <limits>
 #include <string>
 #include <vector>
@@ -610,6 +611,60 @@ static std::string applyStringReplacement(const std::string& s, const std::strin
     return result;
 }
 
+/** Helper to detect if an object is a RegExp by looking for the Symbol.match surrogate. */
+static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+    if (!obj || obj == PROTO_NONE || obj->isString(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx)) return false;
+    const proto::ProtoString* matchKey = ProtoJSStringCache::getKey(ctx, "Symbol.match");
+    if (!matchKey) return false;
+    const proto::ProtoObject* m = obj->getAttribute(ctx, matchKey, true);
+    bool result = m && m != PROTO_NONE;
+    if (result) std::cerr << "[String] isRegExp: YES" << std::endl;
+    return result;
+}
+
+const proto::ProtoObject* stringMatch(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink* parent, const proto::ProtoList* args,
+    const proto::ProtoSparseList* sparse)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* pattern = args->getAt(ctx, 0);
+    std::cerr << "[String] match called" << std::endl;
+    if (isRegExp(ctx, pattern)) {
+        const proto::ProtoString* matchKey = ProtoJSStringCache::getKey(ctx, "Symbol.match");
+        const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
+        if (matchFn && matchFn != PROTO_NONE) {
+            std::cerr << "[String] calling pattern[Symbol.match]" << std::endl;
+            // Call pattern[Symbol.match](self)
+            const proto::ProtoList* newArgs = ctx->newList();
+            newArgs = newArgs->appendLast(ctx, self);
+            return pattern->call(ctx, nullptr, matchKey, pattern, newArgs, nullptr);
+        }
+    }
+    // String match: implement simple version for now
+    return PROTO_NONE;
+}
+
+const proto::ProtoObject* stringSearch(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink* parent, const proto::ProtoList* args,
+    const proto::ProtoSparseList* sparse)
+{
+    if (!args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
+    const proto::ProtoObject* pattern = args->getAt(ctx, 0);
+    if (isRegExp(ctx, pattern)) {
+        const proto::ProtoString* searchKey = ProtoJSStringCache::getKey(ctx, "Symbol.search");
+        const proto::ProtoObject* searchFn = pattern->getAttribute(ctx, searchKey, true);
+        if (searchFn && searchFn != PROTO_NONE) {
+            // Call pattern[Symbol.search](self)
+            const proto::ProtoList* newArgs = ctx->newList();
+            newArgs = newArgs->appendLast(ctx, self);
+            return pattern->call(ctx, nullptr, searchKey, pattern, newArgs, nullptr);
+        }
+    }
+    return ctx->fromInteger(-1LL);
+}
+
 /** replace(pattern, replacement) — handles string patterns only.
  *  Regex patterns return PROTO_NONE to preserve vacuous-pass behaviour. */
 const proto::ProtoObject* stringReplace(
@@ -620,6 +675,19 @@ const proto::ProtoObject* stringReplace(
     if (!args || args->getSize(ctx) < 2) return self;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
+
+    if (isRegExp(ctx, pattern)) {
+        const proto::ProtoString* replaceKey = ProtoJSStringCache::getKey(ctx, "Symbol.replace");
+        const proto::ProtoObject* replaceFn = pattern->getAttribute(ctx, replaceKey, true);
+        if (replaceFn && replaceFn != PROTO_NONE) {
+            // Call pattern[Symbol.replace](self, replacement)
+            const proto::ProtoList* newArgs = ctx->newList();
+            newArgs = newArgs->appendLast(ctx, self);
+            newArgs = newArgs->appendLast(ctx, args->getAt(ctx, 1));
+            return pattern->call(ctx, nullptr, replaceKey, pattern, newArgs, nullptr);
+        }
+    }
+
     // Regex / non-string pattern: defer (vacuous-pass preserved)
     if (!pattern->isString(ctx)) return PROTO_NONE;
 
@@ -735,6 +803,21 @@ const proto::ProtoObject* stringSplit(
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
     }
+
+    if (isRegExp(ctx, sepArg)) {
+        const proto::ProtoString* splitKey = ProtoJSStringCache::getKey(ctx, "Symbol.split");
+        const proto::ProtoObject* splitFn = sepArg->getAttribute(ctx, splitKey, true);
+        if (splitFn && splitFn != PROTO_NONE) {
+            // Call pattern[Symbol.split](self, limit)
+            const proto::ProtoList* newArgs = ctx->newList();
+            newArgs = newArgs->appendLast(ctx, self);
+            if (args->getSize(ctx) > 1) {
+                newArgs = newArgs->appendLast(ctx, args->getAt(ctx, 1));
+            }
+            return sepArg->call(ctx, nullptr, splitKey, sepArg, newArgs, nullptr);
+        }
+    }
+
     // Non-string separator (e.g., regex): return PROTO_NONE to preserve vacuous-pass
     if (!sepArg->isString(ctx)) return PROTO_NONE;
 
@@ -918,6 +1001,8 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     reg("includes",          stringIncludes,      1);
     reg("padStart",          stringPadStart,      1);
     reg("padEnd",            stringPadEnd,        1);
+    reg("match",             stringMatch,         1);
+    reg("search",            stringSearch,        1);
     reg("replace",           stringReplace,       2);
     reg("replaceAll",        stringReplaceAll,    2);
     reg("split",             stringSplit,         2);

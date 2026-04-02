@@ -5,6 +5,8 @@
 #include "headers/protoCore.h"
 #include "JSPrototypes.h"
 #include <string>
+#include <map>
+#include <mutex>
 
 namespace protojs {
 
@@ -74,6 +76,11 @@ public:
     const proto::ProtoObject* getJSRegExpPrototype() const { return jsPrototypes_.regexp; }
 
     /**
+     * @brief Get the currently executing wrapper on this thread.
+     */
+    static JSContextWrapper* current();
+
+    /**
      * @brief Returns the ProtoCore-native global object.
      * Built on first use as a blank object; converted modules register their
      * exports on it via their new init() signatures.
@@ -85,7 +92,17 @@ public:
      */
     void updateNativeGlobal(const proto::ProtoObject* g) { nativeGlobalRoot_ = g; }
 
+    /**
+     * @brief Get the per-context CommonJS module cache.
+     */
+    std::map<std::string, JSValue>& getCJSCache() { return cjsCache_; }
+    std::mutex& getCJSCacheMutex() { return cjsCacheMutex_; }
+
 private:
+    /** Phase 2: Per-context CommonJS module cache. Ties JSValue lifetime to the wrapper's runtime. */
+    std::map<std::string, JSValue> cjsCache_;
+    std::mutex cjsCacheMutex_;
+
     /** Phase 6: ProtoCore-native global root; built lazily, updated when interpreter mutates global. */
     mutable const proto::ProtoObject* nativeGlobalRoot_{nullptr};
     JSRuntime* rt;

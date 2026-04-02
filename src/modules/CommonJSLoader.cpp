@@ -1,6 +1,7 @@
 #include "CommonJSLoader.h"
 #include "ModuleResolver.h"
 #include "ModuleCache.h"
+#include "../GCBridge.h"
 #include "../JSContext.h"
 #include "../TypeBridge.h"
 #include "../ProtoJSStringCache.h"
@@ -13,13 +14,13 @@
 #include <fstream>
 #include <sstream>
 #include <mutex>
+#include <iostream>
 
 namespace protojs {
 
-std::map<std::string, JSValue> CommonJSLoader::moduleCache;
-std::mutex CommonJSLoader::cacheMutex;
-
 void CommonJSLoader::init(JSContext* ctx) {
+    std::cerr << "[CommonJSLoader] init" << std::endl;
+    // For QuickJS path
     JSValue requireFunc = JS_NewCFunction(ctx, requireImpl, "require", 1);
     
     // Add require.resolve
@@ -33,6 +34,19 @@ void CommonJSLoader::init(JSContext* ctx) {
     JSValue global_obj = JS_GetGlobalObject(ctx);
     JS_SetPropertyStr(ctx, global_obj, "require", requireFunc);
     JS_FreeValue(ctx, global_obj);
+
+    // For protoCore interpreter path
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    if (wrapper) {
+        proto::ProtoContext* pCtx = wrapper->getProtoContext();
+        const proto::ProtoObject* nativeGlobal = wrapper->getNativeGlobal();
+        if (pCtx && nativeGlobal) {
+            const proto::ProtoString* requireKey = ProtoJSStringCache::getKey(pCtx, "require");
+            const proto::ProtoObject* requireMethod = pCtx->fromMethod(const_cast<proto::ProtoObject*>(nativeGlobal), requireProtoMethod);
+            const proto::ProtoObject* updatedGlobal = nativeGlobal->setAttribute(pCtx, requireKey, requireMethod);
+            wrapper->updateNativeGlobal(updatedGlobal);
+        }
+    }
 }
 
 static bool isBareSpecifier(const std::string& specifier) {
@@ -50,17 +64,23 @@ JSValue CommonJSLoader::require(
     const std::string& fromPath,
     JSContext* ctx
 ) {
+    std::cerr << "[CommonJSLoader] require: " << specifier << " from " << fromPath << std::endl << std::flush;
+    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    if (!wrapper) {
+        return JS_ThrowTypeError(ctx, "CommonJSLoader: JSContextWrapper not found");
+    }
+
     // Unified Module Discovery (protoCore): try ProtoSpace::getImportModule first for bare specifiers
     if (isBareSpecifier(specifier)) {
-        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-        proto::ProtoSpace* space = wrapper ? wrapper->getProtoSpace() : nullptr;
-        proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+        proto::ProtoSpace* space = wrapper->getProtoSpace();
+        proto::ProtoContext* pContext = wrapper->getProtoContext();
         if (space && pContext) {
             const std::string umdCacheKey = "umd:" + specifier;
             {
-                std::lock_guard<std::mutex> lock(cacheMutex);
-                auto it = moduleCache.find(umdCacheKey);
-                if (it != moduleCache.end()) {
+                std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+                auto& cache = wrapper->getCJSCache();
+                auto it = cache.find(umdCacheKey);
+                if (it != cache.end()) {
                     return JS_DupValue(ctx, it->second);
                 }
             }
@@ -72,8 +92,8 @@ JSValue CommonJSLoader::require(
                     if (exportsObj && exportsObj != PROTO_NONE) {
                         JSValue jsv = TypeBridge::toJS(ctx, exportsObj, pContext);
                         if (!JS_IsException(jsv)) {
-                            std::lock_guard<std::mutex> lock(cacheMutex);
-                            moduleCache[umdCacheKey] = JS_DupValue(ctx, jsv);
+                            std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+                            wrapper->getCJSCache()[umdCacheKey] = JS_DupValue(ctx, jsv);
                             return jsv;
                         }
                         JS_FreeValue(ctx, jsv);
@@ -102,13 +122,14 @@ JSValue CommonJSLoader::require(
         if (!JS_IsUndefined(builtin)) {
             std::string cacheKey = "builtin:" + specifier;
             {
-                std::lock_guard<std::mutex> lock(cacheMutex);
-                auto it = moduleCache.find(cacheKey);
-                if (it != moduleCache.end()) {
+                std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+                auto& cache = wrapper->getCJSCache();
+                auto it = cache.find(cacheKey);
+                if (it != cache.end()) {
                     JS_FreeValue(ctx, builtin);
                     return JS_DupValue(ctx, it->second);
                 }
-                moduleCache[cacheKey] = JS_DupValue(ctx, builtin);
+                cache[cacheKey] = JS_DupValue(ctx, builtin);
             }
             return builtin;
         }
@@ -124,9 +145,10 @@ JSValue CommonJSLoader::require(
     
     // Check cache
     {
-        std::lock_guard<std::mutex> lock(cacheMutex);
-        auto it = moduleCache.find(cacheKey);
-        if (it != moduleCache.end()) {
+        std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+        auto& cache = wrapper->getCJSCache();
+        auto it = cache.find(cacheKey);
+        if (it != cache.end()) {
             return JS_DupValue(ctx, it->second);
         }
     }
@@ -137,8 +159,7 @@ JSValue CommonJSLoader::require(
         if (!loaded) {
             return JS_ThrowTypeError(ctx, "%s", ("Cannot load native module: " + resolved.filePath).c_str());
         }
-        JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-        proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
+        proto::ProtoContext* pContext = wrapper->getProtoContext();
         if (!pContext) {
             DynamicLibraryLoader::unload(loaded);
             return JS_ThrowTypeError(ctx, "Native module load: ProtoContext not available");
@@ -152,8 +173,8 @@ JSValue CommonJSLoader::require(
         }
         // Keep library loaded (no unload); cache exports
         {
-            std::lock_guard<std::mutex> lock(cacheMutex);
-            moduleCache[cacheKey] = JS_DupValue(ctx, exports);
+            std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+            wrapper->getCJSCache()[cacheKey] = JS_DupValue(ctx, exports);
         }
         return exports;
     }
@@ -170,30 +191,53 @@ JSValue CommonJSLoader::require(
     
     // Create module object
     JSValue moduleObj = createModuleObject(resolved.filePath, ctx);
+    JSValue exportsObj = JS_GetPropertyStr(ctx, moduleObj, "exports");
+    JSValue requireFunc = JS_NewCFunction(ctx, requireImpl, "require", 1);
+    JSValue filenameVal = JS_NewString(ctx, resolved.filePath.c_str());
+    std::string dirname = ModuleResolver::getDirectory(resolved.filePath);
+    JSValue dirnameVal = JS_NewString(ctx, dirname.c_str());
+
+    // Execute module
+    JSValue executionResult = executeModule(source, resolved.filePath, moduleObj, exportsObj, requireFunc, filenameVal, dirnameVal, ctx);
     
-    // Wrap and execute module
-    JSValue wrapped = wrapModule(source, resolved.filePath, ctx);
-    if (JS_IsException(wrapped)) {
+    JS_FreeValue(ctx, exportsObj);
+    JS_FreeValue(ctx, requireFunc);
+    JS_FreeValue(ctx, filenameVal);
+    JS_FreeValue(ctx, dirnameVal);
+
+    if (JS_IsException(executionResult)) {
+        JS_FreeValue(ctx, moduleObj);
         // Remove from cache on error
-        std::lock_guard<std::mutex> lock(cacheMutex);
-        moduleCache.erase(cacheKey);
-        return wrapped;
+        std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+        wrapper->getCJSCache().erase(cacheKey);
+        return executionResult;
     }
+    JS_FreeValue(ctx, executionResult);
     
-    // Get module.exports
-    JSValue exports = JS_GetPropertyStr(ctx, moduleObj, "exports");
+    // Get module.exports from the ProtoObject (it might have been reassigned in the interpreter)
+    const proto::ProtoObject* moduleProto = GCBridge::getProtoObject(moduleObj, ctx);
+    JSValue exports = JS_UNDEFINED;
+    if (moduleProto) {
+        const proto::ProtoString* exportsKey = ProtoJSStringCache::getKey(wrapper->getProtoContext(), "exports");
+        const proto::ProtoObject* exportsProto = moduleProto->getAttribute(wrapper->getProtoContext(), exportsKey, true);
+        std::cerr << "[CommonJSLoader] exportsProto=" << exportsProto 
+                  << " (isCell=" << (exportsProto ? exportsProto->isCell(wrapper->getProtoContext()) : 0) << ")" << std::endl;
+        exports = TypeBridge::toJS(ctx, exportsProto, wrapper->getProtoContext());
+    } else {
+        exports = JS_GetPropertyStr(ctx, moduleObj, "exports");
+    }
     
     // Update cache with final exports
     {
-        std::lock_guard<std::mutex> lock(cacheMutex);
-        auto it = moduleCache.find(cacheKey);
-        if (it != moduleCache.end()) {
-            JS_FreeValueRT(JS_GetRuntime(ctx), it->second);
+        std::lock_guard<std::mutex> lock(wrapper->getCJSCacheMutex());
+        auto& cache = wrapper->getCJSCache();
+        auto it = cache.find(cacheKey);
+        if (it != cache.end()) {
+            JS_FreeValue(ctx, it->second);
         }
-        moduleCache[cacheKey] = JS_DupValue(ctx, exports);
+        cache[cacheKey] = JS_DupValue(ctx, exports);
     }
     
-    JS_FreeValue(ctx, wrapped);
     JS_FreeValue(ctx, moduleObj);
     
     return exports;
@@ -231,6 +275,7 @@ JSValue CommonJSLoader::requireResolve(
 }
 
 JSValue CommonJSLoader::requireImpl(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+    std::cerr << "[CommonJSLoader] requireImpl called" << std::endl;
     if (argc < 1) {
         return JS_ThrowTypeError(ctx, "require expects a module specifier");
     }
@@ -289,9 +334,59 @@ JSValue CommonJSLoader::requireResolveImpl(JSContext* ctx, JSValueConst this_val
     return result;
 }
 
-JSValue CommonJSLoader::wrapModule(
+const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
+    proto::ProtoContext* pCtx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* parent,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* locals
+) {
+    std::cerr << "[CommonJSLoader] requireProtoMethod called" << std::endl << std::flush;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return PROTO_NONE;
+    JSContext* ctx = wrapper->getJSContext();
+    if (!ctx) return PROTO_NONE;
+
+    if (!args || args->getSize(pCtx) == 0) {
+        JS_ThrowTypeError(ctx, "require expects a module specifier");
+        return PROTO_NONE; // Exception is set on JSContext
+    }
+
+    const proto::ProtoObject* specifierProto = args->getAt(pCtx, 0);
+    if (!specifierProto || !specifierProto->isString(pCtx)) {
+        JS_ThrowTypeError(ctx, "require specifier must be a string");
+        return PROTO_NONE;
+    }
+
+    std::string specifier;
+    specifierProto->asString(pCtx)->toUTF8String(pCtx, specifier);
+    
+    // Get fromPath from current file name in ProtoContext
+    std::string fromPath = ".";
+    if (pCtx->currentFileName) {
+        fromPath = pCtx->currentFileName;
+    }
+
+    JSValue result = require(specifier, fromPath, ctx);
+    if (JS_IsException(result)) {
+        // Exception already set, just return PROTO_NONE
+        JS_FreeValue(ctx, result);
+        return PROTO_NONE;
+    }
+
+    const proto::ProtoObject* resultProto = TypeBridge::fromJS(ctx, result, pCtx);
+    JS_FreeValue(ctx, result);
+    return resultProto;
+}
+
+JSValue CommonJSLoader::executeModule(
     const std::string& source,
     const std::string& filename,
+    JSValue moduleObj,
+    JSValue exportsObj,
+    JSValue requireFunc,
+    JSValue filenameVal,
+    JSValue dirnameVal,
     JSContext* ctx
 ) {
     // Create CommonJS wrapper: script that evaluates to the wrapper function
@@ -299,41 +394,21 @@ JSValue CommonJSLoader::wrapModule(
     wrapped += source;
     wrapped += "\n});";
 
-    std::string dirname = ModuleResolver::getDirectory(filename);
-
     JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
     proto::ProtoContext* pContext = wrapper ? wrapper->getProtoContext() : nullptr;
     if (!pContext) {
         return JS_ThrowInternalError(ctx, "CommonJSLoader: no ProtoContext");
     }
 
-    // Build arguments as JSValues for registration and conversion
-    JSValue moduleObj = createModuleObject(filename, ctx);
-    JSValue exportsObj = JS_GetPropertyStr(ctx, moduleObj, "exports");
-    JSValue requireFunc = JS_NewCFunction(ctx, requireImpl, "require", 1);
-    JSValue filenameVal = JS_NewString(ctx, filename.c_str());
-    JSValue dirnameVal = JS_NewString(ctx, dirname.c_str());
-
     // Compile and load via protoCore path
     void* bytecode = protojs::compileToBytecode(ctx, wrapped.c_str(), wrapped.size(), filename.c_str());
     if (!bytecode) {
-        JSValue ex = JS_GetException(ctx);
-        JS_FreeValue(ctx, exportsObj);
-        JS_FreeValue(ctx, moduleObj);
-        JS_FreeValue(ctx, requireFunc);
-        JS_FreeValue(ctx, filenameVal);
-        JS_FreeValue(ctx, dirnameVal);
-        return ex;
+        return JS_GetException(ctx);
     }
 
     protojs::ProtoBytecodeModule module;
     proto::ProtoContext frameCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
     if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
-        JS_FreeValue(ctx, exportsObj);
-        JS_FreeValue(ctx, moduleObj);
-        JS_FreeValue(ctx, requireFunc);
-        JS_FreeValue(ctx, filenameVal);
-        JS_FreeValue(ctx, dirnameVal);
         return JS_EXCEPTION;
     }
 
@@ -346,11 +421,6 @@ JSValue CommonJSLoader::wrapModule(
     frameCtx.returnValue = wrapperFunc;
 
     if (!wrapperFunc || wrapperFunc == PROTO_NONE) {
-        JS_FreeValue(ctx, exportsObj);
-        JS_FreeValue(ctx, moduleObj);
-        JS_FreeValue(ctx, requireFunc);
-        JS_FreeValue(ctx, filenameVal);
-        JS_FreeValue(ctx, dirnameVal);
         return JS_EXCEPTION;
     }
 
@@ -392,11 +462,6 @@ JSValue CommonJSLoader::wrapModule(
     }
 
     JS_SetPropertyStr(ctx, moduleObj, "loaded", JS_NewBool(ctx, true));
-    JS_FreeValue(ctx, exportsObj);
-    JS_FreeValue(ctx, moduleObj);
-    JS_FreeValue(ctx, requireFunc);
-    JS_FreeValue(ctx, filenameVal);
-    JS_FreeValue(ctx, dirnameVal);
 
     if (JS_IsException(resultVal)) {
         return resultVal;

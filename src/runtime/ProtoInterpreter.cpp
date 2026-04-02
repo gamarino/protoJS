@@ -4,9 +4,13 @@
 #include "../ProtoJSStringCache.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
+#include "../RegExpPrototype.h"
 #include "../NumberPrototype.h"
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
+#include "../JSContext.h"
+#include "../GCBridge.h"
+#include "../TypeBridge.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstring>
@@ -14,6 +18,7 @@
 #include <limits>
 #include <string>
 #include <cstdio>
+#include <iostream>
 #include <vector>
 
 namespace protojs {
@@ -685,6 +690,27 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
 
 } // namespace
 
+/**
+ * @brief Syncs an immutable ProtoObject update back to its associated JSValue in GCBridge.
+ * 
+ * When a ProtoObject is updated via setAttribute, it returns a new snapshot. To maintain
+ * identity for JS objects across the bridge, we must update the mapping for the 
+ * underlying JSValue to point to the new snapshot.
+ */
+static void updateMapping(proto::ProtoContext* pContext, const proto::ProtoObject* oldObj, const proto::ProtoObject* newObj) {
+    if (!oldObj || !newObj || oldObj == newObj) return;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return;
+    JSContext* ctx = wrapper->getJSContext();
+    if (!ctx) return;
+    
+    JSValue jsVal = GCBridge::getJSValue(oldObj, ctx);
+    if (!JS_IsException(jsVal) && !JS_IsNull(jsVal) && !JS_IsUndefined(jsVal)) {
+        GCBridge::registerMapping(jsVal, newObj, ctx);
+    }
+    JS_FreeValue(ctx, jsVal);
+}
+
 const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
                                       const proto::ProtoObject* thisObj,
@@ -737,6 +763,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureArrayPrototype(pContext, pGlobalRoot);
     // Register String constructor with static methods (fromCharCode, fromCodePoint).
     ensureStringConstructor(pContext, pGlobalRoot);
+    // Register RegExp constructor and its prototype.
+    ensureRegExpConstructor(pContext, pGlobalRoot);
 
     // Register well-known global numeric constants (Infinity, NaN, undefined).
     // These are standard globals that must be visible as top-level variable lookups.
@@ -1575,6 +1603,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
+                    std::cerr << "[Interpreter] OP_put_field: obj=" << obj 
+                              << " (isCell=" << obj->isCell(pContext) << ")"
+                              << " key=" << atomIndex << " newObj=" << newObj << std::endl;
+                    if (newObj != obj) {
+                        updateMapping(pContext, obj, newObj);
+                    }
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
                     stackPush(pContext,newObj ? newObj : obj);
@@ -1592,6 +1626,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
+                    updateMapping(pContext, obj, newObj);
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
                     stackPush(pContext,newObj ? newObj : obj);
@@ -1615,8 +1650,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string nameUtf8;
                         nameStr->toUTF8String(pContext, nameUtf8);
                         const proto::ProtoObject* nameVal = pContext->fromUTF8String(nameUtf8.c_str());
-                        if (nameVal)
-                            func = func->setAttribute(pContext, nameKey, nameVal);
+                        if (nameVal) {
+                            const proto::ProtoObject* newFunc = func->setAttribute(pContext, nameKey, nameVal);
+                            updateMapping(pContext, func, newFunc);
+                            func = newFunc;
+                        }
                     }
                 }
                 stackPush(pContext, func ? func : PROTO_NONE);
@@ -1679,7 +1717,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
                 if (obj && key) {
-                    obj->setAttribute(pContext, key, value);
+                    const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
+                    updateMapping(pContext, obj, newObj);
                     // Update .length if index is a valid array index (non-negative integer).
                     // JS array semantics: assigning x[n] = v updates length to max(length, n+1).
                     if (index && index->isInteger(pContext)) {
@@ -1689,13 +1728,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 ProtoJSStringCache::getKey(pContext, "length");
                             if (lenKey) {
                                 const proto::ProtoObject* curLenVal =
-                                    obj->getAttribute(pContext, lenKey, false);
+                                    newObj->getAttribute(pContext, lenKey, false);
                                 long long curLen = (curLenVal && curLenVal != PROTO_NONE &&
                                                     curLenVal->isInteger(pContext))
                                     ? curLenVal->asLong(pContext) : 0LL;
-                                if (idx + 1 > curLen)
-                                    obj->setAttribute(pContext, lenKey,
+                                if (idx + 1 > curLen) {
+                                    const proto::ProtoObject* updatedObj = newObj->setAttribute(pContext, lenKey,
                                         pContext->fromInteger(idx + 1));
+                                    updateMapping(pContext, newObj, updatedObj);
+                                }
                             }
                         }
                     }
@@ -2486,10 +2527,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             std::string errType;
                             errTypeName->asString(pContext)->toUTF8String(pContext, errType);
                             result = makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot);
-                        } else {
-                            result = PROTO_NONE;
-                        }
-                    }
+                            } else {
+                            // Check for RegExp constructor (marked with __regexp_ctor__).
+                            const proto::ProtoString* regexpCtorAttr =
+                                ProtoJSStringCache::getKey(pContext, "__regexp_ctor__");
+                            const proto::ProtoObject* isRegExpCtor =
+                                (func && func != PROTO_NONE && regexpCtorAttr)
+                                    ? func->getAttribute(pContext, regexpCtorAttr, false) : nullptr;
+                            if (isRegExpCtor && isRegExpCtor == PROTO_TRUE) {
+                                // Obtain RegExp.prototype from the constructor's "prototype" attribute.
+                                const proto::ProtoString* protoAttr =
+                                    ProtoJSStringCache::getKey(pContext, "prototype");
+                                const proto::ProtoObject* reProto = (protoAttr && func)
+                                    ? func->getAttribute(pContext, protoAttr, false) : nullptr;
+                                const proto::ProtoObject* re = (reProto && reProto != PROTO_NONE)
+                                    ? reProto->newChild(pContext, true)
+                                    : pContext->newObject(true);
+
+                                // Call the native regexpConstructor logic.
+                                result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
+                            } else {
+                                result = PROTO_NONE;
+                            }
+                            }
+                            }
+
                 }
                 bool resultIsObject = result && result != PROTO_NONE
                     && !result->isInteger(pContext) && !result->isDouble(pContext)

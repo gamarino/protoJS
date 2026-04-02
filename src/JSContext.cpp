@@ -63,6 +63,12 @@ static JSModuleDef* protojs_load_module(JSContext* ctx, const char* module_name,
     return static_cast<JSModuleDef*>(JS_VALUE_GET_PTR(val));
 }
 
+static thread_local JSContextWrapper* t_currentWrapper = nullptr;
+
+JSContextWrapper* JSContextWrapper::current() {
+    return t_currentWrapper;
+}
+
 // See JSContext.h for semantics.
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
     std::cerr << "[protojs] JSContextWrapper: creating QuickJS runtime/context" << std::endl;
@@ -118,6 +124,12 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
 }
 
 JSContextWrapper::~JSContextWrapper() {
+    // Cleanup CommonJS module cache
+    for (auto& pair : cjsCache_) {
+        JS_FreeValue(ctx, pair.second);
+    }
+    cjsCache_.clear();
+
     // Cleanup ExecutionEngine
     ExecutionEngine::cleanup(ctx);
     
@@ -231,6 +243,12 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     }
 
     JSValue val;
+    struct WrapperScope {
+        JSContextWrapper* prev;
+        WrapperScope(JSContextWrapper* w) : prev(t_currentWrapper) { t_currentWrapper = w; }
+        ~WrapperScope() { t_currentWrapper = prev; }
+    } _wscope(this);
+
     // Single path: compile → load → run (protoCore interpreter). No legacy JS_Eval.
     proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
     frameCtx.currentFileName = pContext->currentFileName;

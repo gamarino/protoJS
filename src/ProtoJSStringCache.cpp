@@ -18,11 +18,17 @@ constexpr unsigned kMaxCachedIndex = 256;
 using IndexCache = std::array<const proto::ProtoString*, kMaxCachedIndex>;
 std::unordered_map<proto::ProtoContext*, IndexCache> s_indexKeys;
 
+std::unordered_map<unsigned long, std::string> s_hashToName;
+
 const proto::ProtoString* getKeyImpl(proto::ProtoContext* ctx, const char* utf8) {
     if (!ctx || !utf8) return nullptr;
     const proto::ProtoObject* obj = ctx->fromUTF8String(utf8);
     if (!obj) return nullptr;
-    return obj->asString(ctx);
+    const proto::ProtoString* str = obj->asString(ctx);
+    if (str) {
+        s_hashToName[str->getHash(ctx)] = std::string(utf8);
+    }
+    return str;
 }
 
 } // namespace
@@ -66,6 +72,15 @@ void ProtoJSStringCache::clearForContext(proto::ProtoContext* ctx) {
     std::lock_guard<std::mutex> lock(s_cacheMutex);
     s_contextKeys.erase(ctx);
     s_indexKeys.erase(ctx);
+}
+
+std::string ProtoJSStringCache::getNameFromHash(unsigned long hash) {
+    std::lock_guard<std::mutex> lock(s_cacheMutex);
+    auto it = s_hashToName.find(hash);
+    if (it != s_hashToName.end()) {
+        return it->second;
+    }
+    return "";
 }
 
 } // namespace protojs

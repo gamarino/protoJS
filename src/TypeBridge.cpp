@@ -87,6 +87,9 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     }
 
     if (JS_IsFunction(ctx, val)) {
+        if (const proto::ProtoObject* mapped = GCBridge::getProtoObject(val, ctx)) {
+            return mapped;
+        }
         // Map JS Function to protoCore ProtoMethod
         // Store function as a special object with function reference
         const proto::ProtoObject* pObj = pContext->newObject(true);
@@ -96,8 +99,12 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         return pObj;
     }
 
-    // Check for RegExp / Arguments / other special classes
     if (JS_IsObject(val)) {
+        if (const proto::ProtoObject* mapped = GCBridge::getProtoObject(val, ctx)) {
+            return mapped;
+        }
+
+        // Check for RegExp / Arguments / other special classes
         JSClassID classId = JS_GetClassID(val);
 
         // JS_CLASS_ARGUMENTS (8) and JS_CLASS_MAPPED_ARGUMENTS (9) are
@@ -269,6 +276,10 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     // TODO: Handle Date objects if needed
 
     if (JS_IsObject(val)) {
+        if (const proto::ProtoObject* mapped = GCBridge::getProtoObject(val, ctx)) {
+            return mapped;
+        }
+
         // Map JS Object to protoCore ProtoObject (mutable child of JS Object prototype)
         JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
         const proto::ProtoObject* objectProto = wrapper ? wrapper->getJSObjectPrototype() : nullptr;
@@ -309,6 +320,12 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
 JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::ProtoContext* pContext) {
     if (obj == PROTO_NONE || obj == nullptr) {
         return JS_NULL;
+    }
+
+    // Check if we already have a JSValue for this ProtoObject
+    JSValue mapped = GCBridge::getJSValue(obj, ctx);
+    if (!JS_IsException(mapped) && !JS_IsNull(mapped) && !JS_IsUndefined(mapped)) {
+        return mapped;
     }
 
     if (obj->isBoolean(pContext)) {
@@ -429,7 +446,26 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         // Try to detect if it's a RegExp by checking attributes
         // For now, map back to JS Object
         JSValue jsObj = JS_NewObject(ctx);
-        // TODO: Implement proper attribute iteration when getAttributes is available
+        // Register mapping so round-trip works
+        GCBridge::registerMapping(jsObj, obj, ctx);
+        
+        // Copy attributes to JS object
+        const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
+        if (attrs) {
+            proto::ProtoSparseListIterator* iter = const_cast<proto::ProtoSparseListIterator*>(attrs->getIterator(pContext));
+            while (iter && iter->hasNext(pContext)) {
+                unsigned long hash = iter->nextKey(pContext);
+                const proto::ProtoObject* val = iter->nextValue(pContext);
+                
+                std::string name = ProtoJSStringCache::getNameFromHash(hash);
+                if (!name.empty()) {
+                    JS_SetPropertyStr(ctx, jsObj, name.c_str(), toJS(ctx, val, pContext));
+                }
+                
+                iter = const_cast<proto::ProtoSparseListIterator*>(iter->advance(pContext));
+            }
+        }
+        
         return jsObj;
     }
 
@@ -445,6 +481,9 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
     // Set a type indicator
     JS_SetPropertyStr(ctx, jsObj, "_type", JS_NewString(ctx, "ProtoObject"));
     
+    // Register mapping
+    GCBridge::registerMapping(jsObj, obj, ctx);
+
     return jsObj;
 }
 
