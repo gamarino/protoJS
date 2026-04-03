@@ -407,4 +407,21 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     return val;
 }
 
+JSValue JSContextWrapper::evalPreload(const std::string& code, const std::string& filename) {
+    // Evaluate as script (not module) so top-level declarations become globals.
+    JSValue result = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(),
+                             JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(result)) {
+        JSValue exc = JS_GetException(ctx);
+        const char* str = JS_ToCString(ctx, exc);
+        if (str) {
+            std::cerr << "[protojs] preload error in " << filename << ": " << str << std::endl;
+            JS_FreeCString(ctx, str);
+        }
+        JS_FreeValue(ctx, exc);
+        return JS_EXCEPTION;
+    }
+    return result;
+}
+
 } // namespace protojs

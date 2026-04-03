@@ -29,6 +29,14 @@ public:
     JSValue eval(const std::string& code, const std::string& filename = "eval", bool isModule = false);
 
     /**
+     * Evaluate a script file in script mode (not module mode).
+     * Used to inject harness globals (assert, Test262Error, etc.) before
+     * running a module test. Returns JS_UNDEFINED on success, JS_EXCEPTION
+     * on failure (and prints the error to stderr).
+     */
+    JSValue evalPreload(const std::string& code, const std::string& filename);
+
+    /**
      * @brief Use protoCore interpreter path for eval (compile -> load -> run).
      * Always true; single execution path.
      */

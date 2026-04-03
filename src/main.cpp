@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <thread>
 #include <chrono>
+#include <vector>
 
 static JSValue js_setImmediate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
     (void)this_val;
@@ -60,6 +61,7 @@ void printUsage(const char* programName) {
     std::cerr << "  --input-type=module  Treat input as ES module" << std::endl;
     std::cerr << "  --proto-eval         Use protoCore interpreter for eval (compile-only + ProtoInterpreter)" << std::endl;
     std::cerr << "  --minimal            Minimal init (Console only); use to isolate compile/run issues" << std::endl;
+    std::cerr << "  --preload file.js    Evaluate file as script before main module (sets globals)" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -80,6 +82,7 @@ int main(int argc, char** argv) {
     bool inputTypeModule = false;
     bool useProtoEvalCli = false;
     bool minimalInit = false;
+    std::vector<std::string> preloadFiles;
 
     // Parse arguments
     int i = 1;
@@ -107,6 +110,8 @@ int main(int argc, char** argv) {
             useProtoEvalCli = true;
         } else if (arg == "--minimal") {
             minimalInit = true;
+        } else if (arg == "--preload" && i + 1 < argc) {
+            preloadFiles.push_back(argv[++i]);
         } else if (arg[0] != '-') {
             filename = arg;
             std::ifstream file(filename);
@@ -313,6 +318,23 @@ int main(int argc, char** argv) {
         return 0;
     }
     
+    // Evaluate preload files as scripts to set up globals (e.g., harness for test262).
+    for (const auto& preload : preloadFiles) {
+        std::ifstream pf(preload);
+        if (!pf.is_open()) {
+            std::cerr << "Could not open preload file: " << preload << std::endl;
+            return 1;
+        }
+        std::stringstream pss;
+        pss << pf.rdbuf();
+        JSValue pResult = wrapper.evalPreload(pss.str(), preload);
+        if (JS_IsException(pResult)) {
+            JS_FreeValue(wrapper.getJSContext(), pResult);
+            return 1;
+        }
+        JS_FreeValue(wrapper.getJSContext(), pResult);
+    }
+
     // Evaluate code
     JSValue result = wrapper.eval(code, filename, inputTypeModule);
     
