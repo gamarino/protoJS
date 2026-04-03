@@ -614,7 +614,7 @@ static std::string applyStringReplacement(const std::string& s, const std::strin
 /** Helper to detect if an object is a RegExp by looking for the Symbol.match surrogate. */
 static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE || obj->isString(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx)) return false;
-    const proto::ProtoString* matchKey = ProtoJSStringCache::getKey(ctx, "Symbol.match");
+    const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
     if (!matchKey) return false;
     const proto::ProtoObject* m = obj->getAttribute(ctx, matchKey, true);
     bool result = m && m != PROTO_NONE;
@@ -631,7 +631,7 @@ const proto::ProtoObject* stringMatch(
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     std::cerr << "[String] match called" << std::endl;
     if (isRegExp(ctx, pattern)) {
-        const proto::ProtoString* matchKey = ProtoJSStringCache::getKey(ctx, "Symbol.match");
+        const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
         const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
         if (matchFn && matchFn != PROTO_NONE) {
             std::cerr << "[String] calling pattern[Symbol.match]" << std::endl;
@@ -653,7 +653,7 @@ const proto::ProtoObject* stringSearch(
     if (!args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (isRegExp(ctx, pattern)) {
-        const proto::ProtoString* searchKey = ProtoJSStringCache::getKey(ctx, "Symbol.search");
+        const proto::ProtoString* searchKey = JSSymbols::symbolSearch(ctx);
         const proto::ProtoObject* searchFn = pattern->getAttribute(ctx, searchKey, true);
         if (searchFn && searchFn != PROTO_NONE) {
             // Call pattern[Symbol.search](self)
@@ -677,7 +677,7 @@ const proto::ProtoObject* stringReplace(
     if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
 
     if (isRegExp(ctx, pattern)) {
-        const proto::ProtoString* replaceKey = ProtoJSStringCache::getKey(ctx, "Symbol.replace");
+        const proto::ProtoString* replaceKey = JSSymbols::symbolReplace(ctx);
         const proto::ProtoObject* replaceFn = pattern->getAttribute(ctx, replaceKey, true);
         if (replaceFn && replaceFn != PROTO_NONE) {
             // Call pattern[Symbol.replace](self, replacement)
@@ -805,7 +805,7 @@ const proto::ProtoObject* stringSplit(
     }
 
     if (isRegExp(ctx, sepArg)) {
-        const proto::ProtoString* splitKey = ProtoJSStringCache::getKey(ctx, "Symbol.split");
+        const proto::ProtoString* splitKey = JSSymbols::symbolSplit(ctx);
         const proto::ProtoObject* splitFn = sepArg->getAttribute(ctx, splitKey, true);
         if (splitFn && splitFn != PROTO_NONE) {
             // Call pattern[Symbol.split](self, limit)

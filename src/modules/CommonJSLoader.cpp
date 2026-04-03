@@ -41,7 +41,7 @@ void CommonJSLoader::init(JSContext* ctx) {
         proto::ProtoContext* pCtx = wrapper->getProtoContext();
         const proto::ProtoObject* nativeGlobal = wrapper->getNativeGlobal();
         if (pCtx && nativeGlobal) {
-            const proto::ProtoString* requireKey = ProtoJSStringCache::getKey(pCtx, "require");
+            const proto::ProtoString* requireKey = JSSymbols::require(pCtx);
             const proto::ProtoObject* requireMethod = pCtx->fromMethod(const_cast<proto::ProtoObject*>(nativeGlobal), requireProtoMethod);
             const proto::ProtoObject* updatedGlobal = nativeGlobal->setAttribute(pCtx, requireKey, requireMethod);
             wrapper->updateNativeGlobal(updatedGlobal);
@@ -218,7 +218,7 @@ JSValue CommonJSLoader::require(
     const proto::ProtoObject* moduleProto = GCBridge::getProtoObject(moduleObj, ctx);
     JSValue exports = JS_UNDEFINED;
     if (moduleProto) {
-        const proto::ProtoString* exportsKey = ProtoJSStringCache::getKey(wrapper->getProtoContext(), "exports");
+        const proto::ProtoString* exportsKey = JSSymbols::exports(wrapper->getProtoContext());
         const proto::ProtoObject* exportsProto = moduleProto->getAttribute(wrapper->getProtoContext(), exportsKey, true);
         std::cerr << "[CommonJSLoader] exportsProto=" << exportsProto 
                   << " (isCell=" << (exportsProto ? exportsProto->isCell(wrapper->getProtoContext()) : 0) << ")" << std::endl;

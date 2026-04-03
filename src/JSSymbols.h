@@ -3,6 +3,7 @@
 
 #include "headers/protoCore.h"
 #include <cstdint>
+#include <string>
 
 namespace protojs {
 
@@ -100,6 +101,15 @@ const proto::ProtoString* symbolSplit(proto::ProtoContext* ctx);    // "Symbol.s
  * (they are still globally unique due to createSymbol's interning).
  */
 const proto::ProtoString* indexKey(proto::ProtoContext* ctx, uint32_t i);
+
+// ---- Reverse hash lookup (debug / attribute iteration) ------------------
+/**
+ * Returns the string name for a known static symbol hash, or empty string
+ * if the hash does not correspond to any registered JSSymbols key.
+ * Useful for iterating ProtoSparseList attribute dictionaries.
+ * Must be called after at least one symbol has been initialized.
+ */
+std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash);
 
 } // namespace JSSymbols
 } // namespace protojs

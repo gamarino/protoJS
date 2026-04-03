@@ -2,6 +2,7 @@
 #include <mutex>
 #include <string>
 #include <array>
+#include <unordered_map>
 
 namespace protojs::JSSymbols {
 
@@ -110,6 +111,85 @@ const proto::ProtoString* indexKey(proto::ProtoContext* ctx, uint32_t i) {
         return s_indexCache[i];
     }
     return proto::ProtoString::createSymbol(ctx, std::to_string(i).c_str());
+}
+
+std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
+    // Build a static hash→name map once, covering all known JSSymbols keys.
+    // Any ctx suffices — createSymbol interns at ProtoSpace level.
+    static std::unordered_map<unsigned long, std::string> s_map;
+    static std::once_flag s_mapFlag;
+    std::call_once(s_mapFlag, [ctx]() {
+#define REGISTER(getter, literal) \
+        s_map[getter(ctx)->getHash(ctx)] = literal;
+        REGISTER(Array,           "Array")
+        REGISTER(Function,        "Function")
+        REGISTER(Math,            "Math")
+        REGISTER(Number,          "Number")
+        REGISTER(Object,          "Object")
+        REGISTER(RegExp,          "RegExp")
+        REGISTER(String,          "String")
+        REGISTER(constructor,     "constructor")
+        REGISTER(createdTimestamp,"createdTimestamp")
+        REGISTER(description,     "description")
+        REGISTER(done,            "done")
+        REGISTER(dotAll,          "dotAll")
+        REGISTER(elements,        "elements")
+        REGISTER(exports,         "exports")
+        REGISTER(flags,           "flags")
+        REGISTER(global,          "global")
+        REGISTER(ignoreCase,      "ignoreCase")
+        REGISTER(index,           "index")
+        REGISTER(input,           "input")
+        REGISTER(isRoot,          "isRoot")
+        REGISTER(isWeakRef,       "isWeakRef")
+        REGISTER(jsValueTag,      "jsValueTag")
+        REGISTER(lastIndex,       "lastIndex")
+        REGISTER(length,          "length")
+        REGISTER(message,         "message")
+        REGISTER(multiline,       "multiline")
+        REGISTER(name,            "name")
+        REGISTER(next,            "next")
+        REGISTER(prototype,       "prototype")
+        REGISTER(protoObj,        "protoObj")
+        REGISTER(require,         "require")
+        REGISTER(source,          "source")
+        REGISTER(sticky,          "sticky")
+        REGISTER(toExponential,   "toExponential")
+        REGISTER(toFixed,         "toFixed")
+        REGISTER(toPrecision,     "toPrecision")
+        REGISTER(toString,        "toString")
+        REGISTER(unicode,         "unicode")
+        REGISTER(value,           "value")
+        REGISTER(valueOf,         "valueOf")
+        REGISTER(values,          "values")
+        REGISTER(apply,           "apply")
+        REGISTER(bind,            "bind")
+        REGISTER(call,            "call")
+        REGISTER(arrayCtor,       "__array_ctor__")
+        REGISTER(arrayProto,      "__array_proto__")
+        REGISTER(boundArgs,       "__bound_args__")
+        REGISTER(boundFn,         "__bound_fn__")
+        REGISTER(boundThis,       "__bound_this__")
+        REGISTER(bytecodeId,      "__bytecode_id__")
+        REGISTER(errorCtor,       "__error_ctor__")
+        REGISTER(externalPtrField,"_externalPtr")
+        REGISTER(functionProto,   "__function_proto__")
+        REGISTER(iterArr,         "__iter_arr__")
+        REGISTER(iterIdx,         "__iter_idx__")
+        REGISTER(iterKind,        "__iter_kind__")
+        REGISTER(iterSlot,        "__iter_slot__")
+        REGISTER(jsValuePtrField, "_jsValuePtr")
+        REGISTER(jsValueTagField, "_jsValueTag")
+        REGISTER(reBytecode,      "__re_bytecode__")
+        REGISTER(regexpCtor,      "__regexp_ctor__")
+        REGISTER(symbolMatch,     "Symbol.match")
+        REGISTER(symbolReplace,   "Symbol.replace")
+        REGISTER(symbolSearch,    "Symbol.search")
+        REGISTER(symbolSplit,     "Symbol.split")
+#undef REGISTER
+    });
+    auto it = s_map.find(hash);
+    return it != s_map.end() ? it->second : std::string{};
 }
 
 } // namespace protojs::JSSymbols

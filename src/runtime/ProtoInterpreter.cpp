@@ -2530,14 +2530,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             } else {
                             // Check for RegExp constructor (marked with __regexp_ctor__).
                             const proto::ProtoString* regexpCtorAttr =
-                                ProtoJSStringCache::getKey(pContext, "__regexp_ctor__");
+                                JSSymbols::regexpCtor(pContext);
                             const proto::ProtoObject* isRegExpCtor =
                                 (func && func != PROTO_NONE && regexpCtorAttr)
                                     ? func->getAttribute(pContext, regexpCtorAttr, false) : nullptr;
                             if (isRegExpCtor && isRegExpCtor == PROTO_TRUE) {
                                 // Obtain RegExp.prototype from the constructor's "prototype" attribute.
                                 const proto::ProtoString* protoAttr =
-                                    ProtoJSStringCache::getKey(pContext, "prototype");
+                                    JSSymbols::prototype(pContext);
                                 const proto::ProtoObject* reProto = (protoAttr && func)
                                     ? func->getAttribute(pContext, protoAttr, false) : nullptr;
                                 const proto::ProtoObject* re = (reProto && reProto != PROTO_NONE)

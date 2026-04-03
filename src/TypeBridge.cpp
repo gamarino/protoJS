@@ -444,7 +444,7 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
                 unsigned long hash = iter->nextKey(pContext);
                 const proto::ProtoObject* val = iter->nextValue(pContext);
                 
-                std::string name = ProtoJSStringCache::getNameFromHash(hash);
+                std::string name = JSSymbols::getNameFromHash(pContext, hash);
                 if (!name.empty()) {
                     JS_SetPropertyStr(ctx, jsObj, name.c_str(), toJS(ctx, val, pContext));
                 }
