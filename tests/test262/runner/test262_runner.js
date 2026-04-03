@@ -95,7 +95,7 @@ function walkTests(root, patterns) {
       const full = path.join(dir, e.name);
       if (e.isDirectory()) {
         walk(full);
-      } else if (e.isFile() && e.name.endsWith(".js")) {
+      } else if (e.isFile() && e.name.endsWith(".js") && !e.name.includes("_FIXTURE")) {
         const rel = path.relative(base, full).replace(/\\/g, "/");
         if (patterns.some((p) => rel.startsWith(p + "/") || rel === p)) {
           tests.push({ rel, full });
