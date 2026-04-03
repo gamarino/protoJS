@@ -12,6 +12,7 @@
 #include "runtime/ProtoBytecodeModule.h"
 #include "runtime/ProtoInterpreter.h"
 #include "quickjs.h"
+#include <climits>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -27,17 +28,26 @@ namespace protojs {
 static char* protojs_normalize_module(JSContext* ctx, const char* base_name,
                                       const char* name, void* /*opaque*/) {
     if (name[0] == '/') {
+        // Already absolute — canonicalize in place.
+        char buf[PATH_MAX];
+        if (realpath(name, buf)) return js_strdup(ctx, buf);
         return js_strdup(ctx, name);
     }
     std::string base(base_name ? base_name : "");
-    std::string resolved;
+    std::string joined;
     size_t slash = base.rfind('/');
     if (slash != std::string::npos) {
-        resolved = base.substr(0, slash + 1) + name;
+        joined = base.substr(0, slash + 1) + name;
     } else {
-        resolved = name;
+        joined = name;
     }
-    return js_strdup(ctx, resolved.c_str());
+    // Canonicalize: resolve any "." or ".." components so that
+    // "./foo.js" imported from "/path/to/foo.js" maps to the same
+    // identity key "/path/to/foo.js" that QuickJS already has cached.
+    char buf[PATH_MAX];
+    if (realpath(joined.c_str(), buf)) return js_strdup(ctx, buf);
+    // File may not exist yet (e.g., synthetic modules); return the joined path.
+    return js_strdup(ctx, joined.c_str());
 }
 
 /**
