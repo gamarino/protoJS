@@ -279,7 +279,21 @@ function runOne(proto, cfg, test) {
     cfg.useProtoEval && !isModuleTest
       ? { ...process.env, PROTOJS_USE_PROTO_EVAL: "1", PROTOJS_NO_FALLBACK: "1" }
       : process.env;
-  const binaryArgs = isModuleTest ? ["--input-type=module", test.full] : [tmpPath];
+  let binaryArgs;
+  if (isModuleTest) {
+    const harnessAssert = path.join(cfg.harnessDir, "assert.js");
+    const harnessSta = path.join(cfg.harnessDir, "sta.js");
+    const preloads = [];
+    if (fs.existsSync(harnessAssert)) preloads.push("--preload", harnessAssert);
+    if (fs.existsSync(harnessSta)) preloads.push("--preload", harnessSta);
+    for (const inc of meta.includes) {
+      const incPath = path.join(cfg.harnessDir, inc);
+      if (fs.existsSync(incPath)) preloads.push("--preload", incPath);
+    }
+    binaryArgs = [...preloads, "--input-type=module", test.full];
+  } else {
+    binaryArgs = [tmpPath];
+  }
   return new Promise((resolve) => {
     const child = execFile(
       proto,
