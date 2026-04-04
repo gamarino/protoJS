@@ -321,6 +321,22 @@ static const proto::ProtoObject* objectValueOf(
 
 } // anonymous namespace
 
+const proto::ProtoObject* installObjectInstanceMethods(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* base)
+{
+    if (!ctx || !base) return base;
+    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+        const proto::ProtoString* key = ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr;
+        if (key) base = base->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
+    };
+    reg("hasOwnProperty",       objectHasOwnProperty);
+    reg("propertyIsEnumerable", objectPropertyIsEnumerable);
+    reg("toString",             objectToString);
+    reg("valueOf",              objectValueOf);
+    return base;
+}
+
 void ensureObjectConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
@@ -331,22 +347,17 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyObject, false);
     if (existing && existing != PROTO_NONE) return;
 
-    // Build Object.prototype with instance methods.
+    // Build Object.prototype: use space->objectPrototype as the base (methods already
+    // installed there by BootstrapJSPrototypes via installObjectInstanceMethods), then
+    // create a child to represent the JS-level Object.prototype object.
     const proto::ProtoObject* objProto = ctx->space ? ctx->space->objectPrototype : nullptr;
     const proto::ProtoObject* proto = objProto
         ? objProto->newChild(ctx, false)
         : ctx->newObject(false);
     if (!proto) proto = ctx->newObject(false);
 
-    auto regProto = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) proto = proto->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
-    };
-
-    regProto("hasOwnProperty",       objectHasOwnProperty);
-    regProto("propertyIsEnumerable", objectPropertyIsEnumerable);
-    regProto("toString",             objectToString);
-    regProto("valueOf",              objectValueOf);
+    // Methods are already inherited from space->objectPrototype via getAttribute(key, true).
+    // No need to re-register them here — just keep the constructor object clean.
 
     // Build Object constructor object.
     const proto::ProtoObject* ctor = ctx->newObject(false);

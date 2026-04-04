@@ -995,6 +995,44 @@ static const proto::ProtoObject* arrayReduceRight(
 // ---------------------------------------------------------------------------
 // sort([compareFn])
 // ---------------------------------------------------------------------------
+
+// Check whether the array has an own property at the given numeric index.
+static bool arrHas(proto::ProtoContext* ctx,
+                   const proto::ProtoObject* arr,
+                   unsigned long idx) {
+    if (!arr || arr == PROTO_NONE) return false;
+    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    if (!key) return false;
+    const proto::ProtoObject* result = arr->hasOwnAttribute(ctx, key);
+    return result == PROTO_TRUE;
+}
+
+// Produce the sort key for an element, calling its toString() method when available.
+// This implements the ES spec SortCompare step: "Let xString be ? ToString(x)".
+// Both native (ProtoMethod) and bytecode JS closures are handled by callJSFunction.
+static std::string sortKey(proto::ProtoContext* ctx,
+                           const proto::ProtoObject* val) {
+    if (!val || val == PROTO_NONE) return "";
+    // Look up and invoke toString() — works for both native methods and JS closures.
+    const proto::ProtoString* tsKey = ctx->fromUTF8String("toString")
+        ? ctx->fromUTF8String("toString")->asString(ctx) : nullptr;
+    if (tsKey) {
+        const proto::ProtoObject* tsFn = val->getAttribute(ctx, tsKey, true);
+        if (tsFn && tsFn != PROTO_NONE) {
+            const proto::ProtoList* emptyArgs = ctx->newList();
+            const proto::ProtoObject* result = callJSFunction(ctx, tsFn, val, emptyArgs);
+            if (result && result != PROTO_NONE && result->isString(ctx)) {
+                std::string r;
+                if (const proto::ProtoString* s = result->asString(ctx)) {
+                    s->toUTF8String(ctx, r);
+                    return r;
+                }
+            }
+        }
+    }
+    return elemToString(ctx, val);
+}
+
 static const proto::ProtoObject* arraySort(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -1009,13 +1047,30 @@ static const proto::ProtoObject* arraySort(
     unsigned long len = arrLen(ctx, self);
     if (len < 2) return self;
 
-    // Collect all elements.
-    std::vector<const proto::ProtoObject*> elems;
-    elems.reserve(len);
-    for (unsigned long i = 0; i < len; i++)
-        elems.push_back(arrGet(ctx, self, i));
+    // Separate elements into three categories per ECMAScript spec:
+    //   1. Defined values  — present AND not undefined
+    //   2. Undefined slots — present BUT value is undefined
+    //   3. Holes           — absent (no own property at that index)
+    // Sort order: defined (sorted) < undefined < holes.
+    std::vector<const proto::ProtoObject*> defined;
+    unsigned long undefinedCount = 0;
+    unsigned long holeCount = 0;
 
-    // Sort with comparator or default string comparison.
+    defined.reserve(len);
+    for (unsigned long i = 0; i < len; i++) {
+        if (!arrHas(ctx, self, i)) {
+            holeCount++;
+            continue;
+        }
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (!elem || elem == PROTO_NONE) {
+            undefinedCount++;
+        } else {
+            defined.push_back(elem);
+        }
+    }
+
+    // Sort only the defined elements.
     auto less = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
         if (hasFn) {
             const proto::ProtoList* cbArgs = ctx->newList();
@@ -1027,15 +1082,22 @@ static const proto::ProtoObject* arraySort(
             if (res->isDouble(ctx) || res->isFloat(ctx)) return res->asDouble(ctx) < 0.0;
             return false;
         }
-        // Default: lexicographic sort by string representation.
-        return elemToString(ctx, a) < elemToString(ctx, b);
+        // Default: lexicographic by ToString(x) — invokes obj.toString() if available.
+        return sortKey(ctx, a) < sortKey(ctx, b);
     };
 
-    std::stable_sort(elems.begin(), elems.end(), less);
+    std::stable_sort(defined.begin(), defined.end(), less);
 
-    // Write sorted elements back into self (mutable in-place).
-    for (unsigned long i = 0; i < len; i++)
-        arrSet(ctx, self, i, elems[i]);
+    // Write back: sorted defined values, then undefined, then holes (as undefined,
+    // since protoCore has no attribute-delete; absent vs explicit-undefined is
+    // indistinguishable via x[i] access anyway).
+    unsigned long writeIdx = 0;
+    for (const auto* v : defined)
+        arrSet(ctx, self, writeIdx++, v);
+    for (unsigned long i = 0; i < undefinedCount; i++)
+        arrSet(ctx, self, writeIdx++, PROTO_NONE);
+    for (unsigned long i = 0; i < holeCount; i++)
+        arrSet(ctx, self, writeIdx++, PROTO_NONE);
 
     return self;
 }

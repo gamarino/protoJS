@@ -6,6 +6,18 @@
 namespace protojs {
 
 /**
+ * Install Object.prototype instance methods (hasOwnProperty, toString, valueOf,
+ * propertyIsEnumerable, isPrototypeOf) on the given base object.
+ *
+ * Returns the updated object (protoCore objects are immutable; setAttribute returns a
+ * new root). Callers that pass space->objectPrototype must update that pointer with
+ * the return value so that all objects created from it inherit the methods.
+ */
+const proto::ProtoObject* installObjectInstanceMethods(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* base);
+
+/**
  * Ensure the Object constructor with static methods is registered in the global root.
  * Idempotent — no-op when "Object" is already present.
  */

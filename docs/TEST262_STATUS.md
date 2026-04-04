@@ -79,6 +79,46 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
+## Snapshot — 2026-04-04 (post-fix)
+
+> Source: fresh re-run of affected areas after `hasOwnProperty` / `OP_object` / `Array.prototype.sort` fixes.
+> Previous "2,137 Array timeouts" and "337 Object.defineProperty timeouts" were stale snapshots from 2026-03-04 — confirmed resolved by re-run.
+
+| Area | Total | Passed | Pass % | Notes |
+|------|------:|-------:|-------:|-------|
+| `built-ins/Array` | 3,081 | 2,961 | **96.1%** | 117 semantics, 3 timeouts |
+| `built-ins/Object/defineProperty` | 1,131 | 1,037 | **91.7%** | 94 semantics, 0 timeouts |
+
+### Root causes identified and fixed (2026-04-04)
+
+#### 1. `Object.prototype` methods not reachable from JS objects (`hasOwnProperty` always `undefined`)
+
+**Root cause:** `ensureObjectConstructor` registered `hasOwnProperty`, `toString`, `valueOf` etc. on a child of `space->objectPrototype` (the JS `Object.prototype` object). But `TypeBridge` creates JS objects as direct children of `space->objectPrototype`, so the methods were never in the prototype chain.
+
+**Fix:** `BootstrapJSPrototypes` now calls `installObjectInstanceMethods(ctx, objectProto)` to install the methods directly on `space->objectPrototype` before `TypeBridge` creates any objects. This guarantees all JS objects inherit them.
+
+**Files changed:** `src/ObjectPrototype.h`, `src/ObjectPrototype.cpp`, `src/JSPrototypes.cpp`
+
+#### 2. Object literals `{}` not inheriting `Object.prototype` methods (`OP_object`)
+
+**Root cause:** The `OP_object` opcode in `ProtoInterpreter` created new objects with `pContext->newObject(true)` (parent = null), bypassing `space->objectPrototype` entirely.
+
+**Fix:** `OP_object` now creates objects as `space->objectPrototype->newChild(pContext, true)`, giving them the correct prototype chain.
+
+**File changed:** `src/runtime/ProtoInterpreter.cpp`
+
+#### 3. `Array.prototype.sort` incorrect for sparse arrays and objects with custom `toString()`
+
+**Root cause (a):** `arraySort` did not distinguish absent elements (holes) from present-but-undefined elements. All were treated as `PROTO_NONE`, so holes were compared and sorted among defined values instead of floating to the end.
+
+**Root cause (b):** The default sort key (`elemToString`) returned `"[object Object]"` for all objects, never calling their `toString()` method.
+
+**Fix:** Introduced `arrHas(ctx, arr, idx)` (uses `hasOwnAttribute`) to classify each index as defined / undefined / hole. Sort now correctly orders: defined (sorted lexicographically, calling `obj.toString()` via `callJSFunction`) < undefined < holes. Both native `ProtoMethod` and JS bytecode closures are handled.
+
+**File changed:** `src/ArrayPrototype.cpp`
+
+---
+
 ## Recommended Next Steps
 
 Priority is ordered by **ROI** (tests recovered / implementation effort).
@@ -135,3 +175,4 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 | Date | Passed | Pass % | Notes |
 |------|-------:|-------:|-------|
 | 2026-04-04 | 154,918 | 75.5% | Initial consolidated snapshot (1,097 patterns, 205,288 tests) |
+| 2026-04-04 | — | — | `built-ins/Array` 96.1% (3,081 tests), `Object/defineProperty` 91.7% (1,131 tests) — re-run after stale snapshot cleanup + 3 fixes |

@@ -1661,7 +1661,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_object: {
-                const proto::ProtoObject* newObj = pContext->newObject(true);
+                // Create a mutable object that inherits from Object.prototype so that
+                // hasOwnProperty, toString, valueOf, etc. are found via prototype lookup.
+                const proto::ProtoObject* objProto =
+                    (pContext->space) ? pContext->space->objectPrototype : nullptr;
+                const proto::ProtoObject* newObj = (objProto && objProto != PROTO_NONE)
+                    ? objProto->newChild(pContext, true)
+                    : pContext->newObject(true);
                 stackPush(pContext,newObj);
                 break;
             }
