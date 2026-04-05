@@ -2721,7 +2721,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoObject* isStringCtor =
                                 (func && func != PROTO_NONE && strCtorAttr)
                                     ? func->getAttribute(pContext, strCtorAttr, false) : nullptr;
-                            if (isStringCtor == PROTO_TRUE) {
+                            if (isStringCtor && isStringCtor == PROTO_TRUE) {
                                 const proto::ProtoObject* arg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
                                 for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                                 stackPush(pContext, toString(pContext, arg));

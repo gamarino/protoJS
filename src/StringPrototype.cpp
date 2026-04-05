@@ -1058,8 +1058,8 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     }
 
     // Mark as the String constructor so OP_call can invoke it as a conversion function.
-    const proto::ProtoString* sCtorKey = JSSymbols::stringCtor(ctx);
-    if (sCtorKey) ctor = ctor->setAttribute(ctx, sCtorKey, PROTO_TRUE);
+    const proto::ProtoString* markerKey = JSSymbols::stringCtor(ctx);
+    if (markerKey) ctor = ctor->setAttribute(ctx, markerKey, PROTO_TRUE);
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyString, ctor);
 }
