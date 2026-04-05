@@ -61,7 +61,7 @@ It is updated each time a significant batch of tests is run or a coverage area i
 | `built-ins/DataView` | 1,558 | 1,032 | 66.2% | |
 | `built-ins/ArrayBuffer` | 509 | 353 | 69.4% | |
 | `built-ins/Date` | 1,551 | 966 | 62.3% | |
-| `built-ins/RegExp` | 4,374 | 2,592 | 59.3% | RegExpStringIterator missing |
+| `built-ins/RegExp` | 1,879 | 1,855 | 98.7% | ✅ Phase 7 — Symbol.replace/split/matchAll + hasIndices implemented |
 | `built-ins/Promise` | 1,364 | 653 | 47.9% | Symbol.species, Promise.all |
 | `built-ins/BigInt` | 154 | 98 | 63.6% | |
 | `built-ins/Atomics` | 866 | 117 | 13.5% | Needs full SharedArrayBuffer |
