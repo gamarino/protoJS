@@ -1558,6 +1558,10 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         }
     }
 
+    // Mark the array prototype so Object.prototype.toString can detect arrays.
+    const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
+    if (isArrayKey) proto = proto->setAttribute(ctx, isArrayKey, PROTO_TRUE);
+
     // Store in module-level static for createNewArray.
     s_arrayProto = proto;
 

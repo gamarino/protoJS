@@ -297,11 +297,39 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
 
 static const proto::ProtoObject* objectToString(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
+    if (!self || self == PROTO_NONE || self->isNone(ctx))
+        return ctx->fromUTF8String("[object Undefined]");
+    if (self->isBoolean(ctx))
+        return ctx->fromUTF8String("[object Boolean]");
+    if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
+        return ctx->fromUTF8String("[object Number]");
+    if (self->isString(ctx))
+        return ctx->fromUTF8String("[object String]");
+    // Function: has __bytecode_id__ (JS closure) or is a native ProtoMethod.
+    {
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey) {
+            const proto::ProtoObject* bcVal = self->getAttribute(ctx, bcKey, false);
+            if (bcVal && bcVal != PROTO_NONE && bcVal->isInteger(ctx))
+                return ctx->fromUTF8String("[object Function]");
+        }
+        if (self->isMethod(ctx))
+            return ctx->fromUTF8String("[object Function]");
+    }
+    // Array: has __is_array__ in prototype chain (set on Array.prototype).
+    {
+        const proto::ProtoString* iaKey = JSSymbols::isArray(ctx);
+        if (iaKey) {
+            const proto::ProtoObject* iaVal = self->getAttribute(ctx, iaKey, true);
+            if (iaVal == PROTO_TRUE)
+                return ctx->fromUTF8String("[object Array]");
+        }
+    }
     return ctx->fromUTF8String("[object Object]");
 }
 
