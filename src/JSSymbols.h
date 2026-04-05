@@ -68,6 +68,9 @@ const proto::ProtoString* unicode(proto::ProtoContext* ctx);        // "unicode"
 const proto::ProtoString* value(proto::ProtoContext* ctx);          // "value"
 const proto::ProtoString* valueOf(proto::ProtoContext* ctx);        // "valueOf"
 const proto::ProtoString* values(proto::ProtoContext* ctx);         // "values"
+const proto::ProtoString* groups(proto::ProtoContext* ctx);         // "groups"
+const proto::ProtoString* hasIndices(proto::ProtoContext* ctx);     // "hasIndices"
+const proto::ProtoString* indices(proto::ProtoContext* ctx);        // "indices"
 
 // ---- Internal implementation keys (__ prefix stripped) ------------------
 const proto::ProtoString* arrayCtor(proto::ProtoContext* ctx);      // "__array_ctor__"
@@ -87,12 +90,16 @@ const proto::ProtoString* jsValuePtrField(proto::ProtoContext* ctx);  // "_jsVal
 const proto::ProtoString* jsValueTagField(proto::ProtoContext* ctx);  // "_jsValueTag"
 const proto::ProtoString* reBytecode(proto::ProtoContext* ctx);     // "__re_bytecode__"
 const proto::ProtoString* regexpCtor(proto::ProtoContext* ctx);     // "__regexp_ctor__"
+const proto::ProtoString* iterDone(proto::ProtoContext* ctx);       // "__iter_done__"
+const proto::ProtoString* iterRe(proto::ProtoContext* ctx);         // "__iter_re__"
+const proto::ProtoString* iterStr(proto::ProtoContext* ctx);        // "__iter_str__"
 
 // ---- Well-known JS protocol symbols -------------------------------------
 const proto::ProtoString* symbolMatch(proto::ProtoContext* ctx);    // "Symbol.match"
 const proto::ProtoString* symbolReplace(proto::ProtoContext* ctx);  // "Symbol.replace"
 const proto::ProtoString* symbolSearch(proto::ProtoContext* ctx);   // "Symbol.search"
 const proto::ProtoString* symbolSplit(proto::ProtoContext* ctx);    // "Symbol.split"
+const proto::ProtoString* symbolMatchAll(proto::ProtoContext* ctx); // "Symbol.matchAll"
 
 // ---- Numeric index symbols (0..N) ---------------------------------------
 /**

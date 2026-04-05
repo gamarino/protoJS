@@ -68,6 +68,9 @@ DEFINE_SYMBOL(unicode,          "unicode")
 DEFINE_SYMBOL(value,            "value")
 DEFINE_SYMBOL(valueOf,          "valueOf")
 DEFINE_SYMBOL(values,           "values")
+DEFINE_SYMBOL(groups,           "groups")
+DEFINE_SYMBOL(hasIndices,       "hasIndices")
+DEFINE_SYMBOL(indices,          "indices")
 
 // ---- Internal implementation keys ---------------------------------------
 DEFINE_SYMBOL(arrayCtor,        "__array_ctor__")
@@ -87,12 +90,16 @@ DEFINE_SYMBOL(jsValuePtrField,  "_jsValuePtr")
 DEFINE_SYMBOL(jsValueTagField,  "_jsValueTag")
 DEFINE_SYMBOL(reBytecode,       "__re_bytecode__")
 DEFINE_SYMBOL(regexpCtor,       "__regexp_ctor__")
+DEFINE_SYMBOL(iterDone,         "__iter_done__")
+DEFINE_SYMBOL(iterRe,           "__iter_re__")
+DEFINE_SYMBOL(iterStr,          "__iter_str__")
 
 // ---- Well-known JS protocol symbols -------------------------------------
 DEFINE_SYMBOL(symbolMatch,   "Symbol.match")
 DEFINE_SYMBOL(symbolReplace, "Symbol.replace")
 DEFINE_SYMBOL(symbolSearch,  "Symbol.search")
 DEFINE_SYMBOL(symbolSplit,   "Symbol.split")
+DEFINE_SYMBOL(symbolMatchAll,   "Symbol.matchAll")
 
 #undef DEFINE_SYMBOL
 
@@ -186,6 +193,13 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(symbolReplace,   "Symbol.replace")
         REGISTER(symbolSearch,    "Symbol.search")
         REGISTER(symbolSplit,     "Symbol.split")
+        REGISTER(groups,        "groups")
+        REGISTER(hasIndices,    "hasIndices")
+        REGISTER(indices,       "indices")
+        REGISTER(symbolMatchAll,"Symbol.matchAll")
+        REGISTER(iterDone,      "__iter_done__")
+        REGISTER(iterRe,        "__iter_re__")
+        REGISTER(iterStr,       "__iter_str__")
 #undef REGISTER
     });
     auto it = s_map.find(hash);
