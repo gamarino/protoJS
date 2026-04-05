@@ -181,12 +181,35 @@ const proto::ProtoObject* regexpExec(
             }
         }
         
+        const size_t matchStart = (captures[0] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
         result = result->setAttribute(ctx, JSSymbols::index(ctx),
-                                      ctx->fromInteger((captures[0] - reinterpret_cast<uint8_t*>(u16.data())) / 2));
+                                      ctx->fromInteger(static_cast<long long>(matchStart)));
         result = result->setAttribute(ctx, JSSymbols::input(ctx),
                                       ctx->fromUTF8String(input.c_str()));
         result = result->setAttribute(ctx, JSSymbols::length(ctx),
                                       ctx->fromInteger(capture_count));
+
+        if (lre_get_flags(bc) & LRE_FLAG_INDICES) {
+            const proto::ProtoObject* indicesArr = createNewArray(ctx, nullptr);
+            for (int i = 0; i < capture_count; i++) {
+                uint8_t* sp = captures[2 * i];
+                uint8_t* ep = captures[2 * i + 1];
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                if (sp && ep) {
+                    size_t s = (sp - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                    size_t e = (ep - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                    const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
+                    pair = pair->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromInteger(static_cast<long long>(s)));
+                    pair = pair->setAttribute(ctx, JSSymbols::indexKey(ctx, 1), ctx->fromInteger(static_cast<long long>(e)));
+                    pair = pair->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(2));
+                    indicesArr = indicesArr->setAttribute(ctx, ik, pair);
+                } else {
+                    indicesArr = indicesArr->setAttribute(ctx, ik, PROTO_NONE);
+                }
+            }
+            indicesArr = indicesArr->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(capture_count));
+            result = result->setAttribute(ctx, JSSymbols::indices(ctx), indicesArr);
+        }
 
         if (lre_get_flags(bc) & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
             uint8_t* end = captures[1];
@@ -290,6 +313,7 @@ const proto::ProtoObject* regexpConstructor(
     obj = obj->setAttribute(ctx, JSSymbols::dotAll(ctx),     (re_flags & LRE_FLAG_DOTALL)      ? PROTO_TRUE : PROTO_FALSE);
     obj = obj->setAttribute(ctx, JSSymbols::unicode(ctx),    (re_flags & LRE_FLAG_UNICODE)     ? PROTO_TRUE : PROTO_FALSE);
     obj = obj->setAttribute(ctx, JSSymbols::sticky(ctx),     (re_flags & LRE_FLAG_STICKY)      ? PROTO_TRUE : PROTO_FALSE);
+    obj = obj->setAttribute(ctx, JSSymbols::hasIndices(ctx), (re_flags & LRE_FLAG_INDICES)     ? PROTO_TRUE : PROTO_FALSE);
 
     free(bc);
     return obj;
