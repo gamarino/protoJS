@@ -93,6 +93,8 @@ DEFINE_SYMBOL(regexpCtor,       "__regexp_ctor__")
 DEFINE_SYMBOL(iterDone,         "__iter_done__")
 DEFINE_SYMBOL(iterRe,           "__iter_re__")
 DEFINE_SYMBOL(iterStr,          "__iter_str__")
+DEFINE_SYMBOL(isArray,          "__is_array__")
+DEFINE_SYMBOL(stringCtor,       "__string_ctor__")
 
 // ---- Well-known JS protocol symbols -------------------------------------
 DEFINE_SYMBOL(symbolMatch,   "Symbol.match")
@@ -200,6 +202,8 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(iterDone,      "__iter_done__")
         REGISTER(iterRe,        "__iter_re__")
         REGISTER(iterStr,       "__iter_str__")
+        REGISTER(isArray,       "__is_array__")
+        REGISTER(stringCtor,    "__string_ctor__")
 #undef REGISTER
     });
     auto it = s_map.find(hash);

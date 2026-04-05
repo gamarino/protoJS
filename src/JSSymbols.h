@@ -93,6 +93,8 @@ const proto::ProtoString* regexpCtor(proto::ProtoContext* ctx);     // "__regexp
 const proto::ProtoString* iterDone(proto::ProtoContext* ctx);       // "__iter_done__"
 const proto::ProtoString* iterRe(proto::ProtoContext* ctx);         // "__iter_re__"
 const proto::ProtoString* iterStr(proto::ProtoContext* ctx);        // "__iter_str__"
+const proto::ProtoString* isArray(proto::ProtoContext* ctx);        // "__is_array__"
+const proto::ProtoString* stringCtor(proto::ProtoContext* ctx);     // "__string_ctor__"
 
 // ---- Well-known JS protocol symbols -------------------------------------
 const proto::ProtoString* symbolMatch(proto::ProtoContext* ctx);    // "Symbol.match"
