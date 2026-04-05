@@ -1057,6 +1057,10 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, protoKey, reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype));
     }
 
+    // Mark as the String constructor so OP_call can invoke it as a conversion function.
+    const proto::ProtoString* sCtorKey = JSSymbols::stringCtor(ctx);
+    if (sCtorKey) ctor = ctor->setAttribute(ctx, sCtorKey, PROTO_TRUE);
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyString, ctor);
 }
 

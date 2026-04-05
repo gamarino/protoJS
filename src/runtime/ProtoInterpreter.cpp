@@ -2716,12 +2716,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                             stackPush(pContext, arr3 ? arr3 : PROTO_NONE);
                         } else {
-                            const proto::ProtoList* argsList = pContext->newList();
-                            for (uint32_t i = 0; i < argc; i++)
-                                argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                            /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                            stackPush(pContext, PROTO_NONE);
+                            // Check for String() conversion (marked with __string_ctor__).
+                            const proto::ProtoString* strCtorAttr = JSSymbols::stringCtor(pContext);
+                            const proto::ProtoObject* isStringCtor =
+                                (func && func != PROTO_NONE && strCtorAttr)
+                                    ? func->getAttribute(pContext, strCtorAttr, false) : nullptr;
+                            if (isStringCtor == PROTO_TRUE) {
+                                const proto::ProtoObject* arg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
+                                for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                                stackPush(pContext, toString(pContext, arg));
+                            } else {
+                                const proto::ProtoList* argsList = pContext->newList();
+                                for (uint32_t i = 0; i < argc; i++)
+                                    argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                                for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                                /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                                stackPush(pContext, PROTO_NONE);
+                            }
                         }
                     }
                 }
