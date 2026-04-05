@@ -1626,12 +1626,37 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
+                    // If the key is a pure numeric index (e.g. "32", "33") and the object
+                    // has a .length property, update .length when idx+1 > currentLength.
+                    // This fixes array literals with >32 elements: QuickJS emits
+                    // OP_array_from for the first 32 elements, then OP_define_field for rest.
+                    {
+                        std::string keyStr;
+                        key->toUTF8String(pContext, keyStr);
+                        bool allDigits = !keyStr.empty();
+                        for (char c : keyStr) if (c < '0' || c > '9') { allDigits = false; break; }
+                        if (allDigits) {
+                            uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
+                            const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
+                            if (lenKey2) {
+                                const proto::ProtoObject* curLenObj =
+                                    newObj->getAttribute(pContext, lenKey2, false);
+                                long long curLen = (curLenObj && curLenObj != PROTO_NONE
+                                                    && curLenObj->isInteger(pContext))
+                                                   ? curLenObj->asLong(pContext) : 0LL;
+                                if (static_cast<long long>(idx) + 1LL > curLen)
+                                    newObj = newObj->setAttribute(
+                                        pContext, lenKey2,
+                                        pContext->fromInteger(static_cast<long long>(idx) + 1LL));
+                            }
+                        }
+                    }
                     updateMapping(pContext, obj, newObj);
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
-                    stackPush(pContext,newObj ? newObj : obj);
+                    stackPush(pContext, newObj ? newObj : obj);
                 } else {
-                    stackPush(pContext,PROTO_NONE);
+                    stackPush(pContext, PROTO_NONE);
                 }
                 break;
             }
