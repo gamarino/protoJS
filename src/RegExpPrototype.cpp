@@ -485,7 +485,118 @@ const proto::ProtoObject* regexpSymbolSplit(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    return PROTO_NONE; 
+    if (!ctx || !self || !args || args->getSize(ctx) < 1) {
+        const proto::ProtoObject* r = createNewArray(ctx, nullptr);
+        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromUTF8String(""));
+        r = r->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(1));
+        return r;
+    }
+
+    std::string str = objToStr(ctx, args->getAt(ctx, 0));
+    long long limit = -1;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* limitObj = args->getAt(ctx, 1);
+        if (limitObj && limitObj != PROTO_NONE && limitObj->isInteger(ctx)) {
+            limit = limitObj->asLong(ctx);
+            if (limit < 0) limit = 0;
+        }
+    }
+    if (limit == 0) {
+        return createNewArray(ctx, nullptr);
+    }
+
+    const proto::ProtoObject* bcObj = self->getAttribute(ctx, JSSymbols::reBytecode(ctx), false);
+    if (!bcObj || bcObj == PROTO_NONE) {
+        const proto::ProtoObject* r = createNewArray(ctx, nullptr);
+        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromUTF8String(str.c_str()));
+        r = r->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(1));
+        return r;
+    }
+
+    const proto::ProtoByteBuffer* bcBuf = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
+    const uint8_t* bc = reinterpret_cast<const uint8_t*>(bcBuf->getBuffer(ctx));
+
+    std::string flagsStr = objToStr(ctx, self->getAttribute(ctx, JSSymbols::flags(ctx), false));
+    if (flagsStr.find('y') == std::string::npos) flagsStr += 'y';
+
+    std::string patternStr = objToStr(ctx, self->getAttribute(ctx, JSSymbols::source(ctx), false));
+    void* opaque = nullptr;
+    if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
+    int stickyFlags = parseFlags(flagsStr);
+    int bc_len;
+    char errmsg[128];
+    uint8_t* stickyBc = lre_compile(&bc_len, errmsg, sizeof(errmsg),
+                                     patternStr.c_str(), patternStr.size(), stickyFlags, opaque);
+    if (!stickyBc) {
+        const proto::ProtoObject* r = createNewArray(ctx, nullptr);
+        r = r->setAttribute(ctx, JSSymbols::indexKey(ctx, 0), ctx->fromUTF8String(str.c_str()));
+        r = r->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(1));
+        return r;
+    }
+
+    auto u16 = utf8ToUTF16(str);
+    const size_t strLen = u16.size();
+    int captureCount = lre_get_capture_count(stickyBc);
+    uint8_t** captures = new uint8_t*[captureCount * 2];
+
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    long long resultLen = 0;
+    size_t lastEnd = 0;
+
+    for (size_t pos = 0; pos <= strLen; ) {
+        int ret = lre_exec(captures, stickyBc,
+                           reinterpret_cast<const uint8_t*>(u16.data()),
+                           static_cast<int>(pos), static_cast<int>(strLen), 1, opaque);
+
+        if (ret != 1) {
+            pos++;
+            continue;
+        }
+
+        size_t matchStart = (captures[0] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+        size_t matchEnd   = (captures[1] - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+
+        if (matchEnd == lastEnd && matchStart == lastEnd) {
+            pos++;
+            continue;
+        }
+
+        std::string piece = utf16ToUTF8(u16, lastEnd, matchStart);
+        result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(resultLen++)),
+                                      ctx->fromUTF8String(piece.c_str()));
+        if (limit != -1 && resultLen >= limit) goto done;
+
+        for (int i = 1; i < captureCount; i++) {
+            uint8_t* cs = captures[2 * i];
+            uint8_t* ce = captures[2 * i + 1];
+            const proto::ProtoObject* capVal = PROTO_NONE;
+            if (cs && ce) {
+                size_t cs16 = (cs - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                size_t ce16 = (ce - reinterpret_cast<uint8_t*>(u16.data())) / 2;
+                std::string capStr = utf16ToUTF8(u16, cs16, ce16);
+                capVal = ctx->fromUTF8String(capStr.c_str());
+            }
+            result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(resultLen++)),
+                                          capVal);
+            if (limit != -1 && resultLen >= limit) goto done;
+        }
+
+        lastEnd = matchEnd;
+        pos = matchEnd;
+        if (matchEnd == matchStart) pos++;
+    }
+
+done:
+    if (limit == -1 || resultLen < limit) {
+        std::string tail = utf16ToUTF8(u16, lastEnd);
+        result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(resultLen++)),
+                                      ctx->fromUTF8String(tail.c_str()));
+    }
+
+    result = result->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(resultLen));
+    free(stickyBc);
+    delete[] captures;
+    return result;
 }
 
 // ---------------------------------------------------------------------------
