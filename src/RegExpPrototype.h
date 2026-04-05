@@ -27,6 +27,14 @@ const proto::ProtoObject* regexpConstructor(
     const proto::ParentLink* parent, const proto::ProtoList* args,
     const proto::ProtoSparseList* kwargs);
 
+/**
+ * Core exec logic — shared with RegExpStringIterator.
+ */
+const proto::ProtoObject* regexpExec(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink* parent, const proto::ProtoList* args,
+    const proto::ProtoSparseList* kwargs);
+
 } // namespace protojs
 
 #endif // PROTOJS_REGEXPPROTOTYPE_H

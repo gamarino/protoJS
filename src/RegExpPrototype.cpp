@@ -1,4 +1,5 @@
 #include "RegExpPrototype.h"
+#include "RegExpStringIterator.h"
 #include "ArrayPrototype.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
@@ -627,8 +628,9 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
     reg("Symbol.match",   regexpSymbolMatch,   1);
     reg("Symbol.replace", regexpSymbolReplace, 2);
     reg("Symbol.search",  regexpSymbolSearch,  1);
-    reg("Symbol.split",   regexpSymbolSplit,   2);
-    
+    reg("Symbol.split",    regexpSymbolSplit,    2);
+    reg("Symbol.matchAll", regexpSymbolMatchAll, 1);
+
     return sp;
 }
 
