@@ -368,7 +368,105 @@ const proto::ProtoObject* regexpSymbolReplace(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    return PROTO_NONE; 
+    if (!ctx || !self || !args || args->getSize(ctx) < 2) return PROTO_NONE;
+
+    std::string str = objToStr(ctx, args->getAt(ctx, 0));
+    const proto::ProtoObject* replaceValue = args->getAt(ctx, 1);
+
+    const proto::ProtoObject* bcObj = self->getAttribute(ctx, JSSymbols::reBytecode(ctx), false);
+    if (!bcObj || bcObj == PROTO_NONE) return ctx->fromUTF8String(str.c_str());
+
+    const proto::ProtoByteBuffer* bcBuf = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
+    const uint8_t* bc = reinterpret_cast<const uint8_t*>(bcBuf->getBuffer(ctx));
+    int flags = lre_get_flags(bc);
+    bool isGlobal = (flags & LRE_FLAG_GLOBAL) != 0;
+
+    if (isGlobal) {
+        self->setAttribute(ctx, JSSymbols::lastIndex(ctx), ctx->fromInteger(0));
+    }
+
+    auto u16 = utf8ToUTF16(str);
+
+    bool isFnReplace = false;
+    if (replaceValue && replaceValue != PROTO_NONE) {
+        isFnReplace = (replaceValue->getAttribute(ctx, JSSymbols::bytecodeId(ctx), false) != PROTO_NONE);
+    }
+    std::string replStr = isFnReplace ? "" : objToStr(ctx, replaceValue);
+
+    std::string result;
+    size_t lastMatchEnd = 0;
+
+    const proto::ProtoObject* strArg = ctx->fromUTF8String(str.c_str());
+    const proto::ProtoList* execArgs = ctx->newList();
+    execArgs = execArgs->appendLast(ctx, strArg);
+
+    while (true) {
+        const proto::ProtoObject* match = regexpExec(ctx, self, nullptr, execArgs, nullptr);
+        if (!match || match == PROTO_NONE) break;
+
+        const proto::ProtoObject* fullMatchObj = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), false);
+        const proto::ProtoObject* matchIdxObj  = match->getAttribute(ctx, JSSymbols::index(ctx), false);
+        long long matchStart = (matchIdxObj && matchIdxObj->isInteger(ctx)) ? matchIdxObj->asLong(ctx) : 0;
+        std::string fullMatch = (fullMatchObj && fullMatchObj != PROTO_NONE) ? objToStr(ctx, fullMatchObj) : "";
+        auto u16Match = utf8ToUTF16(fullMatch);
+        size_t matchEnd = static_cast<size_t>(matchStart) + u16Match.size();
+
+        result += utf16ToUTF8(u16, lastMatchEnd, static_cast<size_t>(matchStart));
+
+        std::string replacement;
+        if (!isFnReplace) {
+            replacement = replStr;
+            size_t pos = 0;
+            while (pos < replacement.size()) {
+                if (replacement[pos] == '$' && pos + 1 < replacement.size()) {
+                    char next = replacement[pos + 1];
+                    if (next == '&') {
+                        replacement.replace(pos, 2, fullMatch);
+                        pos += fullMatch.size();
+                    } else if (next == '`') {
+                        std::string pre = utf16ToUTF8(u16, 0, static_cast<size_t>(matchStart));
+                        replacement.replace(pos, 2, pre);
+                        pos += pre.size();
+                    } else if (next == '\'') {
+                        std::string suf = utf16ToUTF8(u16, matchEnd);
+                        replacement.replace(pos, 2, suf);
+                        pos += suf.size();
+                    } else if (next == '$') {
+                        replacement.replace(pos, 2, "$");
+                        pos += 1;
+                    } else if (next >= '1' && next <= '9') {
+                        int capIdx = next - '0';
+                        const proto::ProtoObject* cap =
+                            match->getAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(capIdx)), false);
+                        std::string capStr = (cap && cap != PROTO_NONE) ? objToStr(ctx, cap) : "";
+                        replacement.replace(pos, 2, capStr);
+                        pos += capStr.size();
+                    } else {
+                        pos++;
+                    }
+                } else {
+                    pos++;
+                }
+            }
+        } else {
+            replacement = fullMatch;
+        }
+
+        result += replacement;
+        lastMatchEnd = matchEnd;
+
+        if (!isGlobal) break;
+
+        const proto::ProtoObject* liObj = self->getAttribute(ctx, JSSymbols::lastIndex(ctx), false);
+        if (liObj && liObj->isInteger(ctx) &&
+            static_cast<size_t>(liObj->asLong(ctx)) == lastMatchEnd) {
+            self->setAttribute(ctx, JSSymbols::lastIndex(ctx),
+                               ctx->fromInteger(static_cast<long long>(lastMatchEnd + 1)));
+        }
+    }
+
+    result += utf16ToUTF8(u16, lastMatchEnd);
+    return ctx->fromUTF8String(result.c_str());
 }
 
 const proto::ProtoObject* regexpSymbolSearch(
