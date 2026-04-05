@@ -60,9 +60,9 @@ It is updated each time a significant batch of tests is run or a coverage area i
 | `built-ins/Function` | 1,139 | 773 | 67.9% | |
 | `built-ins/DataView` | 1,558 | 1,032 | 66.2% | |
 | `built-ins/ArrayBuffer` | 509 | 353 | 69.4% | |
-| `built-ins/Date` | 1,551 | 966 | 62.3% | |
+| `built-ins/Date` | 594 | 590 | 99.3% | ✅ 4 harness-helper failures (verifyProperty/isConstructor) |
 | `built-ins/RegExp` | 1,879 | 1,855 | 98.7% | ✅ Phase 7 — Symbol.replace/split/matchAll + hasIndices implemented |
-| `built-ins/Promise` | 1,364 | 653 | 47.9% | Symbol.species, Promise.all |
+| `built-ins/Promise` | 4,032 | 3,319 | 82.3% | Remaining failures are test harness injection issues ($DONE, checkSettledPromises) |
 | `built-ins/BigInt` | 154 | 98 | 63.6% | |
 | `built-ins/Atomics` | 866 | 117 | 13.5% | Needs full SharedArrayBuffer |
 | `built-ins/Symbol` | 216 | 84 | 38.9% | |
