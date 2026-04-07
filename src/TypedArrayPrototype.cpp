@@ -935,7 +935,7 @@ static const proto::ProtoObject* ta_get_buffer(
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (!self || self == PROTO_NONE) return PROTO_NONE;
-    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::buffer(ctx), false);
     return (ab && ab != PROTO_NONE) ? ab : PROTO_NONE;
 }
 
@@ -1069,6 +1069,10 @@ static const proto::ProtoObject* ta_from_##idx( \
     return TAStaticMethods::makeFrom(ctx, idx, s_taProtos[idx], args); \
 }
 
+// Index-to-type mapping matches TA_CONFIGS: 0=Int8, 1=Uint8, 2=Uint8Clamped, 3=Int16,
+// 4=Uint16, 5=Int32, 6=Uint32, 7=Float32, 8=Float64, 9=BigInt64, 10=BigUint64.
+// s_taProtos[idx] is guaranteed non-null at call time because these functions are only
+// exposed as constructor attributes after ensureTypedArrayConstructors completes.
 DEFINE_TA_STATIC(0)  DEFINE_TA_STATIC(1)  DEFINE_TA_STATIC(2)
 DEFINE_TA_STATIC(3)  DEFINE_TA_STATIC(4)  DEFINE_TA_STATIC(5)
 DEFINE_TA_STATIC(6)  DEFINE_TA_STATIC(7)  DEFINE_TA_STATIC(8)
