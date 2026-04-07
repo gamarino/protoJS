@@ -114,6 +114,9 @@ add_executable(protojs
     src/RegExpPrototype.cpp
     src/RegExpStringIterator.cpp
     src/ArrayPrototype.cpp
+    src/ArrayBufferPrototype.cpp
+    src/TypedArrayPrototype.cpp
+    src/DataViewPrototype.cpp
     src/MathBuiltin.cpp
     src/ObjectPrototype.cpp
     src/JSPrototypes.cpp
