@@ -9,6 +9,7 @@
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
 #include "../ArrayBufferPrototype.h"
+#include "../TypedArrayPrototype.h"
 #include "../JSContext.h"
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
@@ -765,6 +766,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureArrayPrototype(pContext, pGlobalRoot);
     // Register ArrayBuffer constructor and ArrayBuffer.prototype (idempotent).
     ensureArrayBufferConstructor(pContext, pGlobalRoot);
+    // Register TypedArray constructors (Int8Array … BigUint64Array) (idempotent).
+    ensureTypedArrayConstructors(pContext, pGlobalRoot);
     // Register String constructor with static methods (fromCharCode, fromCodePoint).
     ensureStringConstructor(pContext, pGlobalRoot);
     // Register RegExp constructor and its prototype.
@@ -1580,9 +1583,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                if (!key) { stackPush(pContext,PROTO_NONE); break; }
-                const proto::ProtoObject* val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
+                if (!key) { stackPush(pContext, PROTO_NONE); break; }
+                const proto::ProtoObject* val;
+                uint8_t taTypeF = getTypedArrayElementType(pContext, obj);
+                if (taTypeF != 0xFF) {
+                    std::string keyStr;
+                    key->toUTF8String(pContext, keyStr);
+                    const bool isNumeric = !keyStr.empty() &&
+                        std::all_of(keyStr.begin(), keyStr.end(),
+                                    [](unsigned char c){ return c >= '0' && c <= '9'; });
+                    if (isNumeric) {
+                        uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
+                        val = typedArrayGetElement(pContext, obj, idx, taTypeF);
+                    } else {
+                        val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    }
+                } else {
+                    val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                }
+                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_get_field2: {
@@ -1591,9 +1610,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 4;
                 const proto::ProtoObject* obj = stackTop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                const proto::ProtoObject* val =
-                    (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
+                const proto::ProtoObject* val;
+                uint8_t taTypeF2 = getTypedArrayElementType(pContext, obj);
+                if (taTypeF2 != 0xFF && key) {
+                    std::string keyStr;
+                    key->toUTF8String(pContext, keyStr);
+                    const bool isNumeric = !keyStr.empty() &&
+                        std::all_of(keyStr.begin(), keyStr.end(),
+                                    [](unsigned char c){ return c >= '0' && c <= '9'; });
+                    if (isNumeric) {
+                        uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
+                        val = typedArrayGetElement(pContext, obj, idx, taTypeF2);
+                    } else {
+                        val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    }
+                } else {
+                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                }
+                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_put_field: {
@@ -1605,6 +1639,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
+                uint8_t taTypePF = getTypedArrayElementType(pContext, obj);
+                if (taTypePF != 0xFF && key) {
+                    std::string keyStr;
+                    key->toUTF8String(pContext, keyStr);
+                    const bool isNumeric = !keyStr.empty() &&
+                        std::all_of(keyStr.begin(), keyStr.end(),
+                                    [](unsigned char c){ return c >= '0' && c <= '9'; });
+                    if (isNumeric) {
+                        uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
+                        typedArraySetElement(pContext, obj, idx, val, taTypePF);
+                        stackPush(pContext, obj);
+                        break;
+                    }
+                }
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
                     std::cerr << "[Interpreter] OP_put_field: obj=" << obj 
@@ -1711,37 +1759,49 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
-                const proto::ProtoObject* keyObj = toString(pContext, index);
-                const proto::ProtoString* key =
-                    keyObj ? keyObj->asString(pContext) : nullptr;
-                const proto::ProtoObject* val =
-                    (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
+                const proto::ProtoObject* val;
+                uint8_t taType = getTypedArrayElementType(pContext, obj);
+                if (taType != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
+                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), taType);
+                } else {
+                    const proto::ProtoObject* keyObj = toString(pContext, index);
+                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                }
+                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_get_array_el2: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 const proto::ProtoObject* obj = stackAt(pContext, 1);
-                const proto::ProtoObject* keyObj = toString(pContext, index);
-                const proto::ProtoString* key =
-                    keyObj ? keyObj->asString(pContext) : nullptr;
-                const proto::ProtoObject* val =
-                    (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
+                const proto::ProtoObject* val;
+                uint8_t taType2 = getTypedArrayElementType(pContext, obj);
+                if (taType2 != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
+                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), taType2);
+                } else {
+                    const proto::ProtoObject* keyObj = toString(pContext, index);
+                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                }
+                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_get_array_el3: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 const proto::ProtoObject* obj = stackAt(pContext, 1);
-                const proto::ProtoObject* keyObj = toString(pContext, index);
-                const proto::ProtoString* key =
-                    keyObj ? keyObj->asString(pContext) : nullptr;
-                const proto::ProtoObject* val =
-                    (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                stackPush(pContext,index);
-                stackPush(pContext,val && val != PROTO_NONE ? val : PROTO_NONE);
+                const proto::ProtoObject* val;
+                uint8_t taType3 = getTypedArrayElementType(pContext, obj);
+                if (taType3 != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
+                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), taType3);
+                } else {
+                    const proto::ProtoObject* keyObj = toString(pContext, index);
+                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                }
+                stackPush(pContext, index);
+                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
             case OP_put_array_el: {
@@ -1752,6 +1812,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
+                uint8_t taTypeW = getTypedArrayElementType(pContext, obj);
+                if (taTypeW != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
+                    typedArraySetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), value, taTypeW);
+                    stackPush(pContext, obj);
+                    break;
+                }
                 const proto::ProtoObject* keyObj = toString(pContext, index);
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
@@ -2607,7 +2673,65 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             }
                                             result = createArrayBuffer(pContext, byteLen);
                                         }
-                                        // TypedArray and DataView constructors will be added in Tasks 3 and 8.
+                                        // DataView constructor will be added in Task 8.
+                                    } else if (taCtorTag->isInteger(pContext)) {
+                                        // TypedArray constructor: elemType is the integer tag.
+                                        uint8_t elemType = static_cast<uint8_t>(taCtorTag->asLong(pContext));
+                                        const proto::ProtoObject* taProto =
+                                            func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
+
+                                        if (argc == 0) {
+                                            result = createTypedArrayFromLength(pContext, taProto, elemType, 0);
+                                        } else {
+                                            const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
+                                            if (a0 && a0 != PROTO_NONE && isArrayBuffer(pContext, a0)) {
+                                                // new TypedArray(buffer [, byteOffset [, length]])
+                                                long long bo = 0, len = -1;
+                                                if (argc > 1) {
+                                                    const proto::ProtoObject* a1 = argsList->getAt(pContext, 1);
+                                                    if (a1 && a1->isInteger(pContext)) bo = a1->asLong(pContext);
+                                                    else if (a1 && (a1->isDouble(pContext) || a1->isFloat(pContext))) bo = static_cast<long long>(a1->asDouble(pContext));
+                                                }
+                                                if (argc > 2) {
+                                                    const proto::ProtoObject* a2 = argsList->getAt(pContext, 2);
+                                                    if (a2 && a2->isInteger(pContext)) len = a2->asLong(pContext);
+                                                    else if (a2 && (a2->isDouble(pContext) || a2->isFloat(pContext))) len = static_cast<long long>(a2->asDouble(pContext));
+                                                }
+                                                result = createTypedArrayFromBuffer(pContext, taProto, elemType, a0, bo, len);
+                                            } else if (a0 && a0 != PROTO_NONE && isTypedArray(pContext, a0)) {
+                                                // Copy from another TypedArray
+                                                uint32_t srcLen = getTypedArrayLength(pContext, a0);
+                                                uint8_t srcEt = getTypedArrayElementType(pContext, a0);
+                                                result = createTypedArrayFromLength(pContext, taProto, elemType, srcLen);
+                                                if (result && result != PROTO_NONE) {
+                                                    for (uint32_t idx = 0; idx < srcLen; idx++) {
+                                                        const proto::ProtoObject* elem = typedArrayGetElement(pContext, a0, idx, srcEt);
+                                                        typedArraySetElement(pContext, result, idx, elem, elemType);
+                                                    }
+                                                }
+                                            } else if (a0 && a0 != PROTO_NONE &&
+                                                       (a0->isInteger(pContext) || a0->isDouble(pContext) || a0->isFloat(pContext))) {
+                                                // new TypedArray(length)
+                                                long long lenVal = a0->isInteger(pContext) ? a0->asLong(pContext) : static_cast<long long>(a0->asDouble(pContext));
+                                                uint32_t length = lenVal > 0 ? static_cast<uint32_t>(lenVal) : 0;
+                                                result = createTypedArrayFromLength(pContext, taProto, elemType, length);
+                                            } else if (a0 && a0 != PROTO_NONE) {
+                                                // Array-like or iterable: get .length and numeric indices
+                                                const proto::ProtoObject* lenObj2 = a0->getAttribute(pContext, JSSymbols::length(pContext), true);
+                                                uint32_t srcLen = 0;
+                                                if (lenObj2 && lenObj2 != PROTO_NONE && lenObj2->isInteger(pContext))
+                                                    srcLen = static_cast<uint32_t>(std::max(0LL, lenObj2->asLong(pContext)));
+                                                result = createTypedArrayFromLength(pContext, taProto, elemType, srcLen);
+                                                if (result && result != PROTO_NONE) {
+                                                    for (uint32_t idx = 0; idx < srcLen; idx++) {
+                                                        const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, idx);
+                                                        const proto::ProtoObject* elem = a0->getAttribute(pContext, idxKey, false);
+                                                        if (elem && elem != PROTO_NONE)
+                                                            typedArraySetElement(pContext, result, idx, elem, elemType);
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

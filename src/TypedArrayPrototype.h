@@ -54,6 +54,9 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
                                                      long long byteOffset,
                                                      long long length);
 
+const proto::ProtoObject* getTypedArrayBaseProto();
+const proto::ProtoObject* getTypedArrayConcreteProto(uint8_t elemType);
+
 } // namespace protojs
 
 #endif // PROTOJS_TYPEDARRAYPROTOTYPE_H
