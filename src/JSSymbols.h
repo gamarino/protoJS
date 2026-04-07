@@ -127,7 +127,6 @@ const proto::ProtoString* buffer(proto::ProtoContext* ctx);         // "buffer"
 const proto::ProtoString* BYTES_PER_ELEMENT(proto::ProtoContext* ctx); // "BYTES_PER_ELEMENT"
 const proto::ProtoString* slice(proto::ProtoContext* ctx);          // "slice"
 const proto::ProtoString* isView(proto::ProtoContext* ctx);         // "isView"
-const proto::ProtoString* symbolIterator(proto::ProtoContext* ctx); // "Symbol.iterator"
 const proto::ProtoString* fill(proto::ProtoContext* ctx);           // "fill"
 const proto::ProtoString* forEach(proto::ProtoContext* ctx);        // "forEach"
 const proto::ProtoString* map(proto::ProtoContext* ctx);            // "map"
@@ -179,6 +178,7 @@ const proto::ProtoString* symbolReplace(proto::ProtoContext* ctx);  // "Symbol.r
 const proto::ProtoString* symbolSearch(proto::ProtoContext* ctx);   // "Symbol.search"
 const proto::ProtoString* symbolSplit(proto::ProtoContext* ctx);    // "Symbol.split"
 const proto::ProtoString* symbolMatchAll(proto::ProtoContext* ctx); // "Symbol.matchAll"
+const proto::ProtoString* symbolIterator(proto::ProtoContext* ctx); // "Symbol.iterator"
 
 // ---- Numeric index symbols (0..N) ---------------------------------------
 /**
