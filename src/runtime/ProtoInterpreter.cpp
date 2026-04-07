@@ -38,6 +38,10 @@ namespace {
  */
 thread_local const ProtoBytecodeModule* t_currentModule = nullptr;
 thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
+// The ROOT module is the outermost runBytecode invocation on this thread (the global eval module).
+// All function objects carry bytecode IDs that are indices into the root module's nestedFunctions.
+// Nested invocations (inner functions) must look up bytecode IDs in the root module, not their own.
+thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
 
 // ---------------------------------------------------------------------------
 // Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
@@ -730,11 +734,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     struct ModuleScope {
         const ProtoBytecodeModule* prevMod;
         const proto::ProtoObject** prevGR;
+        const ProtoBytecodeModule* prevRoot;
         ModuleScope(const ProtoBytecodeModule* m, const proto::ProtoObject** gr)
-            : prevMod(t_currentModule), prevGR(t_currentGlobalRoot) {
+            : prevMod(t_currentModule), prevGR(t_currentGlobalRoot), prevRoot(t_rootModule) {
             t_currentModule = m; t_currentGlobalRoot = gr;
+            // The root module is the outermost module — set it only when first entering.
+            if (!t_rootModule) t_rootModule = m;
         }
-        ~ModuleScope() { t_currentModule = prevMod; t_currentGlobalRoot = prevGR; }
+        ~ModuleScope() { t_currentModule = prevMod; t_currentGlobalRoot = prevGR; t_rootModule = prevRoot; }
     } _mscope(module, pGlobalRoot);
 
     const std::vector<const proto::ProtoObject*>& cpool = module->protoCpool;
@@ -829,8 +836,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const proto::ProtoObject* pending_exception = nullptr;
     bool has_pending_exception = false;
 
-    // Catch-handler stack: each entry is {handler_pc, stack_depth_at_catch}.
-    struct CatchFrame { int handler_pc; unsigned long stack_depth; };
+    // Catch-handler stack.
+    // In QuickJS, OP_catch pushes a tagged catch-offset integer onto the VALUE stack; the
+    // exception handler scans the value stack backwards for it.  Our value stack holds
+    // opaque ProtoObject pointers, so we cannot embed a tag there.  Instead we use this
+    // parallel vector, but we must mirror QuickJS's stack-based semantics exactly:
+    //   - placeholder_stack_pos  = value-stack index of the sentinel pushed by OP_catch.
+    //   - The sentinel IS the catch frame from the stack's perspective.  OP_drop that lands
+    //     on placeholder_stack_pos must also pop the catch frame (just as QuickJS's OP_drop
+    //     removes the tagged integer from the value stack, removing the catch frame).
+    struct CatchFrame { int handler_pc; unsigned long placeholder_stack_pos; };
     std::vector<CatchFrame> catch_stack;
 
     while (pc >= 0 && pc < len) {
@@ -937,9 +952,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 has_pending_exception = true;
                 break;
             }
-            case OP_drop:
-                if (!stackEmpty(pContext)) stackPop(pContext);
+            case OP_drop: {
+                if (!stackEmpty(pContext)) {
+                    // Mirror QuickJS value-stack semantics: the OP_catch sentinel occupies a
+                    // specific slot in the value stack.  When OP_drop removes that slot, the
+                    // catch frame it represents is gone — pop it from catch_stack as well.
+                    unsigned long drop_pos = stackSize(pContext) - 1;
+                    if (!catch_stack.empty() && catch_stack.back().placeholder_stack_pos == drop_pos) {
+                        catch_stack.pop_back();
+                    }
+                    stackPop(pContext);
+                }
                 break;
+            }
             case OP_nip:
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 { const proto::ProtoObject* top = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, top); }
@@ -2428,25 +2453,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_catch: {
-                // catch label(4): push catch frame onto the handler stack.
-                // The label is a relative offset from the label's own byte position (same as goto).
-                // Also push an undefined placeholder on the value stack (n_push=1).
+                // catch label(4): record a catch handler and push a sentinel onto the value stack.
+                // The sentinel's stack position IS the "catch frame" marker, mirroring how QuickJS
+                // stores a JS_TAG_CATCH_OFFSET integer on the value stack.
+                // placeholder_stack_pos is the index the sentinel will occupy (stackSize before push).
                 if (pc + 4 > len) return PROTO_NONE;
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
-                int handler_pc = pc + diff; // same formula as OP_goto
+                int handler_pc = pc + diff;
                 pc += 4;
-                catch_stack.push_back({handler_pc, stackSize(pContext)});
-                stackPush(pContext, PROTO_NONE); // placeholder (undefined) for the catch value
+                unsigned long placeholder_pos = stackSize(pContext);
+                catch_stack.push_back({handler_pc, placeholder_pos});
+                stackPush(pContext, PROTO_NONE); // sentinel placeholder (undefined-equivalent)
                 break;
             }
             case OP_nip_catch: {
-                // nip_catch: pop the active catch frame and clean the value stack.
-                // Stack shape: ... [catch_placeholder] [top_value]  →  ... [top_value]
-                if (!catch_stack.empty()) catch_stack.pop_back();
-                if (stackSize(pContext) >= 2) {
-                    const proto::ProtoObject* top = stackTop(pContext); stackPop(pContext);
-                    stackPop(pContext); // remove the catch placeholder
-                    stackPush(pContext, top);
+                // nip_catch: pop the catch frame and replace the sentinel (and anything above it
+                // pushed by iterator opcodes) with the current top value.  Mirrors QuickJS:
+                //   ret_val = *--sp;
+                //   while (sp[-1] != JS_TAG_CATCH_OFFSET) { free(*--sp); }
+                //   sp[-1] = ret_val;
+                // We know the sentinel's position from placeholder_stack_pos.
+                if (!catch_stack.empty()) {
+                    unsigned long placeholder_pos = catch_stack.back().placeholder_stack_pos;
+                    catch_stack.pop_back();
+                    if (!stackEmpty(pContext)) {
+                        const proto::ProtoObject* ret_val = stackTop(pContext);
+                        stackPop(pContext);
+                        // Truncate the stack down to (and including) the placeholder slot, then push ret_val.
+                        while (stackSize(pContext) > placeholder_pos) stackPop(pContext);
+                        stackPush(pContext, ret_val);
+                    }
                 }
                 break;
             }
@@ -2543,8 +2579,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 const proto::ProtoObject* thisVal = stackAt(pContext, argc + 1);
                 int bcId = getBytecodeId(pContext, func);
-                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size()) {
-                    const auto& nf = nested[bcId];
+                // Resolve bytecode ID: current module first, then root module (see OP_call comment).
+                const ProtoBytecodeModule* resolvedMod2 = nullptr;
+                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
+                    resolvedMod2 = &nested[bcId];
+                else if (bcId >= 0 && t_rootModule &&
+                         static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
+                    resolvedMod2 = &t_rootModule->nestedFunctions[bcId];
+                if (resolvedMod2) {
+                    const auto& nf = *resolvedMod2;
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
@@ -2604,8 +2647,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                 const proto::ProtoObject* result = PROTO_NONE;
                 int bcId = getBytecodeId(pContext, func);
-                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size()) {
-                    const auto& nf = nested[bcId];
+                // Resolve bytecode ID: current module first, then root module (see OP_call comment).
+                const ProtoBytecodeModule* resolvedMod3 = nullptr;
+                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
+                    resolvedMod3 = &nested[bcId];
+                else if (bcId >= 0 && t_rootModule &&
+                         static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
+                    resolvedMod3 = &t_rootModule->nestedFunctions[bcId];
+                if (resolvedMod3) {
+                    const auto& nf = *resolvedMod3;
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
@@ -2850,11 +2900,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, resultIsObject ? result : newObj);
                 break;
             }
+            case OP_tail_call: // tail-call: same encoding as OP_call but the result is
+                               // returned from the current function rather than pushed to stack.
             case OP_call0:
             case OP_call1:
             case OP_call2:
             case OP_call3:
             case OP_call: {
+                // is_tail_call: when true, the result should be returned immediately instead of
+                // pushed to the value stack (mirrors QuickJS's tail-call frame reuse).
+                bool is_tail_call = (opcode == OP_tail_call);
                 uint32_t argc;
                 if (opcode >= OP_call0 && opcode <= OP_call3) {
                     argc = static_cast<uint32_t>(opcode - OP_call0);
@@ -2866,8 +2921,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 int bcId = getBytecodeId(pContext, func);
-                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size()) {
-                    const auto& nf = nested[bcId];
+                // Resolve the bytecode ID: first try the current module, then the root module.
+                // Function objects carry IDs that are indices into the root (global eval) module
+                // for all non-locally-nested functions.  When called from inside another function
+                // the current module's nestedFunctions list won't contain the callee, so we fall
+                // back to the root module.
+                const ProtoBytecodeModule* resolvedModule = nullptr;
+                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
+                    resolvedModule = &nested[bcId];
+                else if (bcId >= 0 && t_rootModule &&
+                         static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
+                    resolvedModule = &t_rootModule->nestedFunctions[bcId];
+                if (resolvedModule) {
+                    const auto& nf = *resolvedModule;
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
@@ -2889,6 +2955,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = childEx; has_pending_exception = true;
                         break;
                     }
+                    if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (func && func->isMethod(pContext)) {
                     // OP_call: no `this` on the stack; pass undefined as receiver.
@@ -2902,6 +2969,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* result = nativeFn
                         ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
                         : PROTO_NONE;
+                    if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
                     // Check if this is a built-in error constructor stub (registered by
@@ -2918,7 +2986,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string errType;
                         errTypeName->asString(pContext)->toUTF8String(pContext, errType);
                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                        stackPush(pContext, makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot));
+                        { const proto::ProtoObject* _r = makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot);
+                          if (is_tail_call) return _r ? _r : PROTO_NONE;
+                          stackPush(pContext, _r); }
                     } else {
                         // Check if this is the Array constructor called without `new`.
                         // Per spec, Array(...) is equivalent to new Array(...).
@@ -2969,6 +3039,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (lk) arr3 = arr3->setAttribute(pContext, lk,
                                     pContext->fromInteger(static_cast<long long>(argc)));
                             }
+                            if (is_tail_call) return arr3 ? arr3 : PROTO_NONE;
                             stackPush(pContext, arr3 ? arr3 : PROTO_NONE);
                         } else {
                             // Check for String() conversion (marked with __string_ctor__).
@@ -2979,13 +3050,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (isStringCtor && isStringCtor == PROTO_TRUE) {
                                 const proto::ProtoObject* arg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
                                 for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                                stackPush(pContext, toString(pContext, arg));
+                                { const proto::ProtoObject* _r = toString(pContext, arg);
+                                  if (is_tail_call) return _r ? _r : PROTO_NONE;
+                                  stackPush(pContext, _r); }
                             } else {
                                 const proto::ProtoList* argsList = pContext->newList();
                                 for (uint32_t i = 0; i < argc; i++)
                                     argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                                 for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                                 /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                                if (is_tail_call) return PROTO_NONE;
                                 stackPush(pContext, PROTO_NONE);
                             }
                         }
@@ -3314,8 +3388,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             if (!catch_stack.empty()) {
                 CatchFrame frame = catch_stack.back();
                 catch_stack.pop_back();
-                // Restore value stack to the depth recorded at the catch site.
-                while (stackSize(pContext) > frame.stack_depth) stackPop(pContext);
+                // Restore value stack: truncate to placeholder_stack_pos (the sentinel slot),
+                // then push the exception.  This replaces the catch sentinel with the caught value,
+                // matching QuickJS's behaviour where the tagged catch-offset integer is replaced
+                // with the exception object at that same stack position.
+                while (stackSize(pContext) > frame.placeholder_stack_pos) stackPop(pContext);
                 stackPush(pContext, pending_exception);
                 pc = frame.handler_pc;
                 pending_exception = nullptr;
@@ -3346,11 +3423,21 @@ const proto::ProtoObject* callJSFunction(
                         : PROTO_NONE;
     }
 
-    // Bytecode closure: resolve __bytecode_id__ against the active module.
+    // Bytecode closure: resolve __bytecode_id__ against the current or root module.
+    // Function objects carry IDs that are indices into the root (global eval) module's
+    // nestedFunctions.  t_currentModule may be an inner function's module, so we try
+    // both before giving up.
     int bcId = getBytecodeId(ctx, fn);
-    if (bcId >= 0 && t_currentModule &&
-        static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size()) {
-        const ProtoBytecodeModule& nf = t_currentModule->nestedFunctions[bcId];
+    const ProtoBytecodeModule* resolveMod =
+        (bcId >= 0 && t_currentModule &&
+         static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size())
+            ? t_currentModule
+        : (bcId >= 0 && t_rootModule &&
+           static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
+            ? t_rootModule
+        : nullptr;
+    if (resolveMod) {
+        const ProtoBytecodeModule& nf = resolveMod->nestedFunctions[bcId];
         proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
         childCtx.currentFileName = ctx->currentFileName;
         childCtx.currentLineNumber = ctx->currentLineNumber;
