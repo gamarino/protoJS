@@ -745,13 +745,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Locals and stack live only in ProtoContext::closureLocals (GC-visible). No std::vector.
     initStack(pContext);
     const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
-    for (size_t i = 0; i < closureVarNames.size() && (argCount + static_cast<unsigned>(i)) < (argCount + varCount); i++) {
+    /* Pre-load closure vars from the global object into their dedicated slots.
+     * Closure vars occupy a SEPARATE slot region from local vars:
+     *   local vars:    slot[argCount + 0 .. argCount + varCount - 1]
+     *   closure vars:  slot[argCount + varCount + 0 .. argCount + varCount + N - 1]
+     * This separation prevents the _ret_ hidden eval variable (local slot 0) from
+     * colliding with closure-var slot 0 (used for hoisted function declarations). */
+    for (size_t i = 0; i < closureVarNames.size(); i++) {
         if (closureVarNames[i].empty() || !globalObjInit || globalObjInit == PROTO_NONE) continue;
         const proto::ProtoString* key = (pContext->fromUTF8String(closureVarNames[i].c_str()) ? pContext->fromUTF8String(closureVarNames[i].c_str())->asString(pContext) : nullptr);
         if (key) {
             const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
             if (val && val != PROTO_NONE)
-                setSlot(pContext, argCount + static_cast<unsigned>(i), val);
+                setSlot(pContext, argCount + varCount + static_cast<unsigned>(i), val);
         }
     }
     int pc = 0;
@@ -1279,10 +1285,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 /* Slot fallback: only when the global key is absent (rawVal==nullptr).
                  * Skip when rawVal==PROTO_NONE: the variable was initialized to undefined.
-                 * Skipping prevents stale slot data from shadowing the legitimate undefined value. */
+                 * Skipping prevents stale slot data from shadowing the legitimate undefined value.
+                 * Use the dedicated closure-var slot region (argCount + varCount + idx), not the
+                 * local-var region, so that the _ret_ eval variable never collides. */
                 if (!rawVal && (!val || val == PROTO_NONE)) {
-                    if (idx < varCount && (argCount + idx) < (argCount + varCount))
-                        val = getSlot(pContext, argCount + idx);
+                    val = getSlot(pContext, argCount + varCount + idx);
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
@@ -1329,11 +1336,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             case OP_get_var_ref1:
             case OP_get_var_ref2:
             case OP_get_var_ref3: {
+                /* Closure vars occupy slots AFTER local vars: slot[argCount + varCount + refIndex].
+                 * This separates them from local vars (slot[argCount + localIdx]) so that the
+                 * hidden _ret_ eval variable at local slot 0 never collides with closure var 0. */
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_get_var_ref0);
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argCount + refIndex));
-                else
-                    stackPush(pContext, PROTO_NONE);
+                stackPush(pContext, getSlot(pContext, argCount + varCount + refIndex));
                 break;
             }
             case OP_put_var_ref0:
@@ -1344,8 +1351,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_put_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + refIndex, val);
+                /* Write to the dedicated closure-var slot (see OP_get_var_ref0..3 comment). */
+                setSlot(pContext, argCount + varCount + refIndex, val);
+                /* Also write to the global object so that hoisted function declarations in global
+                 * eval are visible to nested functions (which initialise their closure-var slots
+                 * from the global object at startup). */
+                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                    const std::string& name = module->closureVarNames[refIndex];
+                    if (!name.empty()) {
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
+                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                    }
+                }
                 break;
             }
             case OP_set_var_ref0:
@@ -1355,18 +1374,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_set_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + refIndex, val);
+                /* Write to slot and global (same rationale as OP_put_var_ref). */
+                setSlot(pContext, argCount + varCount + refIndex, val);
+                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                    const std::string& name = module->closureVarNames[refIndex];
+                    if (!name.empty()) {
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
+                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                    }
+                }
                 break;
             }
             case OP_get_var_ref: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argCount + refIndex));
-                else
-                    stackPush(pContext,PROTO_NONE);
+                stackPush(pContext, getSlot(pContext, argCount + varCount + refIndex));
                 break;
             }
             case OP_put_var_ref: {
@@ -1375,8 +1400,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + refIndex, val);
+                setSlot(pContext, argCount + varCount + refIndex, val);
+                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                    const std::string& name = module->closureVarNames[refIndex];
+                    if (!name.empty()) {
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
+                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                    }
+                }
                 break;
             }
             case OP_set_var_ref: {
@@ -1384,23 +1417,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + refIndex, val);
+                setSlot(pContext, argCount + varCount + refIndex, val);
+                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                    const std::string& name = module->closureVarNames[refIndex];
+                    if (!name.empty()) {
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
+                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                    }
+                }
                 break;
             }
             case OP_get_var_ref_check: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount)) {
-                    const proto::ProtoObject* val = getSlot(pContext, argCount + refIndex);
+                {
+                    const proto::ProtoObject* val = getSlot(pContext, argCount + varCount + refIndex);
                     if (val == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
                         break;
                     }
                     stackPush(pContext, val ? val : PROTO_NONE);
-                } else {
-                    stackPush(pContext, PROTO_NONE);
                 }
                 break;
             }
@@ -1411,8 +1450,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (refIndex < varCount && (argCount + refIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + refIndex, val);
+                setSlot(pContext, argCount + varCount + refIndex, val);
+                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                    const std::string& name = module->closureVarNames[refIndex];
+                    if (!name.empty()) {
+                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
+                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
+                        if (key)
+                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                    }
+                }
                 break;
             }
             case OP_close_loc: {

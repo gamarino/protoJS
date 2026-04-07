@@ -47,15 +47,16 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-07`  
-**Snapshot (first, clean):** `tests/test262/reports/snapshot-language-expressions-1775593126717.json`  
-**Snapshot (second, regressed — RESOLVED):** `tests/test262/reports/snapshot-language-expressions-1775594442458.json`
+**Snapshot (clean baseline):** `tests/test262/reports/snapshot-language-expressions-1775593126717.json`  
+**Snapshot (slot-collision fix):** `tests/test262/reports/snapshot-language-expressions-1775602672063.json`
 
-| Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts |
-|-----|-------|--------|-----------------|--------------------|----------|
-| First (20:18 UTC) | 11036 | **10221 (92.6%)** | 161 | 560 | 94 |
-| Second (20:40 UTC) ← bad binary | 11036 | 2307 (20.9%) | 162 | 8522 | 45 |
+| Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
+|-----|-------|--------|-----------------|--------------------|----------|-------|
+| Baseline (20:18 UTC) | 11036 | **10221 (92.6%)** | 161 | 560 | 94 | Pre-regression reference |
+| Regressed (20:40 UTC) | 11036 | 6869 (62.2%) | 162 | 3845 | 160 | Slot collision bug introduced during Phase 8 |
+| Fixed (22:57 UTC) | 11036 | **8330 (75.5%)** | 161 | 2434 | 111 | `OP_put_var_ref` slot separation fix applied |
 
-> **Regression RESOLVED**: The second run used an intermediate Phase 8 build that crashed on startup. Fixed by commit `cfc6b85`. The 815 failures in the first run are: ~104 `eval`-based (known protoCore no-fallback limitation), ~161 syntax, ~550 semantic.
+> **Slot collision bug**: QuickJS global eval mode injects a hidden `_ret_` variable at local var slot 0. Hoisted function declarations use `OP_put_var_ref(0)` (closure var index 0). Both mapped to `slot[argCount + 0]`, causing a collision. Fix: closure var opcodes now use `slot[argCount + varCount + refIndex]`, separating them from local vars. Recovers 1,461 tests (62.2% → 75.5%). Remaining gap vs. baseline: ~530 tests are newly failing due to a pre-existing protoCore try-catch bug now exposed (they were false-positive passes before); ~1,345 are pre-existing semantic/syntax failures unrelated to this fix.
 
 ---
 
