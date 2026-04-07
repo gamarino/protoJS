@@ -686,7 +686,7 @@ static const proto::ProtoObject* ta_every(
     if (et == 0xFF) return PROTO_TRUE;
     if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
     const proto::ProtoObject* fn = args->getAt(ctx, 0);
-    if (!fn || fn == PROTO_NONE) return PROTO_TRUE;  // No callable: vacuously true
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;  // No callable: TypeError per ES spec
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* r = invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
