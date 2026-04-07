@@ -32,9 +32,15 @@ static const proto::ProtoObject* ab_slice(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
+    // Check if self is a valid ArrayBuffer by verifying it has the backing store object.
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoString* dataKey = JSSymbols::abData(ctx);
+    if (!dataKey) return PROTO_NONE;
+    const proto::ProtoObject* bufObj = self->getAttribute(ctx, dataKey, false);
+    if (!bufObj || bufObj == PROTO_NONE) return PROTO_NONE;
+
     unsigned long srcLen = getArrayBufferByteLength(ctx, self);
     void* srcRaw = getArrayBufferRawPtr(ctx, self);
-    if (!srcRaw) return PROTO_NONE;
 
     // Parse begin argument.
     long long iBegin = 0;
@@ -42,7 +48,7 @@ static const proto::ProtoObject* ab_slice(
         const proto::ProtoObject* a0 = args->getAt(ctx, 0);
         if (a0 && a0 != PROTO_NONE) {
             if (a0->isInteger(ctx))       iBegin = a0->asLong(ctx);
-            else if (a0->isDouble(ctx))   iBegin = static_cast<long long>(a0->asDouble(ctx));
+            else if (a0->isDouble(ctx) || a0->isFloat(ctx))   iBegin = static_cast<long long>(a0->asDouble(ctx));
         }
     }
 
@@ -52,7 +58,7 @@ static const proto::ProtoObject* ab_slice(
         const proto::ProtoObject* a1 = args->getAt(ctx, 1);
         if (a1 && a1 != PROTO_NONE) {
             if (a1->isInteger(ctx))       iEnd = a1->asLong(ctx);
-            else if (a1->isDouble(ctx))   iEnd = static_cast<long long>(a1->asDouble(ctx));
+            else if (a1->isDouble(ctx) || a1->isFloat(ctx))   iEnd = static_cast<long long>(a1->asDouble(ctx));
         }
     }
 
@@ -134,12 +140,6 @@ const proto::ProtoObject* createArrayBuffer(proto::ProtoContext* ctx,
     const proto::ProtoString* dataKey = JSSymbols::abData(ctx);
     if (dataKey)
         ab = ab->setAttribute(ctx, dataKey, bufObj);
-
-    // Store byteLength as a plain integer attribute for direct property access.
-    const proto::ProtoString* byteLengthKey = JSSymbols::byteLength(ctx);
-    if (byteLengthKey)
-        ab = ab->setAttribute(ctx, byteLengthKey,
-                              ctx->fromInteger(static_cast<long long>(byteLength)));
 
     return ab;
 }
