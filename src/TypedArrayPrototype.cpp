@@ -6,6 +6,8 @@
 #include <cstring>
 #include <cmath>
 #include <limits>
+#include <vector>
+#include <algorithm>
 
 namespace protojs {
 
@@ -635,6 +637,287 @@ static const proto::ProtoObject* ta_copyWithin(
 }
 
 // ---------------------------------------------------------------------------
+// Task 5: Callback-based TypedArray prototype methods
+// ---------------------------------------------------------------------------
+
+// Helper: invoke a native (ProtoMethod) callback with (elem, index, array) arguments.
+// JS bytecode callbacks are not supported here; they return PROTO_NONE.
+static const proto::ProtoObject* invokeCallback(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* elem,
+    uint32_t idx,
+    const proto::ProtoObject* arr)
+{
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (!fn->isMethod(ctx)) return PROTO_NONE;
+    const proto::ProtoList* cargs = ctx->newList();
+    cargs = cargs->appendLast(ctx, elem);
+    cargs = cargs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(idx)));
+    cargs = cargs->appendLast(ctx, arr);
+    proto::ProtoMethod m = fn->asMethod(ctx);
+    return m ? m(ctx, const_cast<proto::ProtoObject*>(fn), nullptr, cargs, nullptr) : PROTO_NONE;
+}
+
+static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* r) {
+    if (!r || r == PROTO_NONE || r == PROTO_FALSE) return false;
+    if (r->isInteger(ctx) && r->asLong(ctx) == 0) return false;
+    return true;
+}
+
+static const proto::ProtoObject* ta_forEach(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    for (uint32_t i = 0; i < len; i++)
+        invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
+    return PROTO_NONE;
+}
+
+static const proto::ProtoObject* ta_every(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_TRUE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* r = invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
+        if (!isTruthy(ctx, r)) return PROTO_FALSE;
+    }
+    return PROTO_TRUE;
+}
+
+static const proto::ProtoObject* ta_some(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* r = invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
+        if (isTruthy(ctx, r)) return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
+}
+
+static const proto::ProtoObject* ta_find(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        if (isTruthy(ctx, invokeCallback(ctx, fn, elem, i, self))) return elem;
+    }
+    return PROTO_NONE;
+}
+
+static const proto::ProtoObject* ta_findIndex(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1LL);
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        if (isTruthy(ctx, invokeCallback(ctx, fn, elem, i, self)))
+            return ctx->fromInteger(static_cast<long long>(i));
+    }
+    return ctx->fromInteger(-1LL);
+}
+
+static const proto::ProtoObject* ta_map(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
+    const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
+    if (!result || result == PROTO_NONE) return PROTO_NONE;
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        const proto::ProtoObject* mapped = invokeCallback(ctx, fn, elem, i, self);
+        if (mapped && mapped != PROTO_NONE)
+            typedArraySetElement(ctx, result, i, mapped, et);
+    }
+    return result;
+}
+
+static const proto::ProtoObject* ta_reduce(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (len == 0) {
+        return (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    }
+    const proto::ProtoObject* acc;
+    uint32_t start = 0;
+    if (args->getSize(ctx) > 1) {
+        acc = args->getAt(ctx, 1);
+    } else {
+        acc = typedArrayGetElement(ctx, self, 0, et);
+        start = 1;
+    }
+    for (uint32_t i = start; i < len; i++) {
+        if (!fn->isMethod(ctx)) continue;
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        const proto::ProtoList* cargs = ctx->newList();
+        cargs = cargs->appendLast(ctx, acc);
+        cargs = cargs->appendLast(ctx, elem);
+        cargs = cargs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(i)));
+        cargs = cargs->appendLast(ctx, self);
+        proto::ProtoMethod m = fn->asMethod(ctx);
+        const proto::ProtoObject* r = m ? m(ctx, PROTO_NONE, nullptr, cargs, nullptr) : PROTO_NONE;
+        if (r && r != PROTO_NONE) acc = r;
+    }
+    return acc;
+}
+
+static const proto::ProtoObject* ta_reduceRight(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (len == 0) {
+        return (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    }
+    const proto::ProtoObject* acc;
+    long long start;
+    if (args->getSize(ctx) > 1) {
+        acc = args->getAt(ctx, 1);
+        start = static_cast<long long>(len) - 1;
+    } else {
+        acc = typedArrayGetElement(ctx, self, len - 1, et);
+        start = static_cast<long long>(len) - 2;
+    }
+    for (long long i = start; i >= 0; i--) {
+        if (!fn->isMethod(ctx)) continue;
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, static_cast<uint32_t>(i), et);
+        const proto::ProtoList* cargs = ctx->newList();
+        cargs = cargs->appendLast(ctx, acc);
+        cargs = cargs->appendLast(ctx, elem);
+        cargs = cargs->appendLast(ctx, ctx->fromInteger(i));
+        cargs = cargs->appendLast(ctx, self);
+        proto::ProtoMethod m = fn->asMethod(ctx);
+        const proto::ProtoObject* r = m ? m(ctx, PROTO_NONE, nullptr, cargs, nullptr) : PROTO_NONE;
+        if (r && r != PROTO_NONE) acc = r;
+    }
+    return acc;
+}
+
+static const proto::ProtoObject* ta_sort(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (len <= 1) return const_cast<proto::ProtoObject*>(self);
+
+    // Extract all elements as doubles for sorting.
+    std::vector<double> vals(len);
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        if (elem && elem != PROTO_NONE) {
+            if (elem->isInteger(ctx)) vals[i] = static_cast<double>(elem->asLong(ctx));
+            else if (elem->isDouble(ctx) || elem->isFloat(ctx)) vals[i] = elem->asDouble(ctx);
+        }
+    }
+
+    // Default numeric sort (NaN goes to end per spec).
+    std::sort(vals.begin(), vals.end(), [](double a, double b) {
+        if (std::isnan(a)) return false;
+        if (std::isnan(b)) return true;
+        return a < b;
+    });
+
+    // Write back.
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* v;
+        if (std::isnan(vals[i])) {
+            v = ctx->fromDouble(vals[i]);
+        } else if (et <= 8 && vals[i] == std::floor(vals[i]) &&
+                   vals[i] >= static_cast<double>(LLONG_MIN) &&
+                   vals[i] <= static_cast<double>(LLONG_MAX)) {
+            v = ctx->fromInteger(static_cast<long long>(vals[i]));
+        } else {
+            v = ctx->fromDouble(vals[i]);
+        }
+        typedArraySetElement(ctx, self, i, v, et);
+    }
+    return const_cast<proto::ProtoObject*>(self);
+}
+
+static const proto::ProtoObject* ta_set(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* src = args->getAt(ctx, 0);
+    if (!src || src == PROTO_NONE) return PROTO_NONE;
+
+    long long offset = 0;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+        if (a1 && a1 != PROTO_NONE && a1->isInteger(ctx)) offset = a1->asLong(ctx);
+        else if (a1 && a1 != PROTO_NONE && (a1->isDouble(ctx) || a1->isFloat(ctx)))
+            offset = static_cast<long long>(a1->asDouble(ctx));
+    }
+    if (offset < 0) offset = 0;
+
+    uint32_t selfLen = getTypedArrayLength(ctx, self);
+    if (isTypedArray(ctx, src)) {
+        uint8_t srcEt = getTypedArrayElementType(ctx, src);
+        uint32_t srcLen = getTypedArrayLength(ctx, src);
+        for (uint32_t i = 0; i < srcLen; i++) {
+            long long dstIdx = static_cast<long long>(i) + offset;
+            if (dstIdx >= static_cast<long long>(selfLen)) break;
+            const proto::ProtoObject* elem = typedArrayGetElement(ctx, src, i, srcEt);
+            typedArraySetElement(ctx, self, static_cast<uint32_t>(dstIdx), elem, et);
+        }
+    } else {
+        // Array-like source using internal index keys.
+        const proto::ProtoObject* lenObj = src->getAttribute(ctx, JSSymbols::length(ctx), true);
+        uint32_t srcLen = 0;
+        if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+            srcLen = static_cast<uint32_t>(std::max(0LL, lenObj->asLong(ctx)));
+        for (uint32_t i = 0; i < srcLen; i++) {
+            long long dstIdx = static_cast<long long>(i) + offset;
+            if (dstIdx >= static_cast<long long>(selfLen)) break;
+            const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, i);
+            const proto::ProtoObject* elem = src->getAttribute(ctx, idxKey, false);
+            if (elem && elem != PROTO_NONE)
+                typedArraySetElement(ctx, self, static_cast<uint32_t>(dstIdx), elem, et);
+        }
+    }
+    return PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
 // ensureTypedArrayConstructors
 // ---------------------------------------------------------------------------
 
@@ -696,6 +979,27 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_subarray));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::copyWithin(ctx),
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_copyWithin));
+    // Register %TypedArray%.prototype methods (batch 2 — callback-based)
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::forEach(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_forEach));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::every(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_every));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::some(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_some));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::find(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_find));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::findIndex(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_findIndex));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::map(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_map));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::reduce(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_reduce));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::reduceRight(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_reduceRight));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::sort(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_sort));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::set(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_set));
     s_taBaseProto = baseProto;
 
     // Register each concrete typed array constructor
