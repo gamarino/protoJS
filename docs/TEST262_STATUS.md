@@ -15,6 +15,43 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
+## Phase 8 Snapshot — 2026-04-07
+
+> **Phase 8 target areas:** TypedArray, TypedArrayConstructors, ArrayBuffer, DataView.
+> Snapshot file: `tests/test262/reports/snapshot-built-ins-ArrayBuffer_built-ins-TypedArray_built-ins-TypedArrayConstructors_buil-1775591003519.json`
+> Runner command: `TEST262_PATTERNS="built-ins/ArrayBuffer,built-ins/TypedArray,built-ins/TypedArrayConstructors,built-ins/DataView"`
+
+### Results by area
+
+| Area | Total | Passed | Pass % | Target | Status |
+|------|------:|-------:|-------:|-------:|--------|
+| `built-ins/ArrayBuffer` | 196 | 195 | **99.5%** | ≥92% | EXCEEDED |
+| `built-ins/TypedArray` | 1,438 | 1,436 | **99.9%** | ≥84% | EXCEEDED |
+| `built-ins/TypedArrayConstructors` | 736 | 725 | **98.5%** | ≥82% | EXCEEDED |
+| `built-ins/DataView` | 561 | 560 | **99.8%** | ≥83% | EXCEEDED |
+| **Combined** | **2,931** | **2,916** | **99.5%** | — | ✅ |
+
+### Remaining failures (15 total)
+
+| Category | Count | Description |
+|----------|------:|-------------|
+| `is-a-constructor` timeout | 12 | `Reflect.construct(function(){}, [], TypedArrayCtor)` hangs — `Reflect.construct` with a non-default `newTarget` is not fully implemented |
+| `resizable-arraybuffer` timeout | 1 | `TypedArray.prototype.set` on a resizable-buffer-backed TypedArray — `resizable-arraybuffer` feature not yet implemented |
+| `resizable-arraybuffer` semantics | 1 | `TypedArray.prototype.toLocaleString` on resizable-buffer-backed TypedArray — same root cause |
+| `DataView` is-a-constructor timeout | 1 | Same `Reflect.construct` newTarget issue as above |
+
+### Root causes
+
+1. **`Reflect.construct` with explicit `newTarget` hangs** (12 timeouts — `is-a-constructor.js` for all 9 TypedArray concrete constructors + ArrayBuffer + DataView). The `isConstructor` harness helper calls `Reflect.construct(function(){}, [], f)` to probe `[[Construct]]`; protoJS's `Reflect.construct` does not terminate when the `newTarget` argument is one of the TypedArray / ArrayBuffer / DataView constructors.
+
+2. **`resizable-arraybuffer` feature not implemented** (2 failures). Tests tagged `features: [resizable-arraybuffer]` exercise `ArrayBuffer` constructed with `{ maxByteLength }` and TypedArrays backed by it. Runtime support for the resizable buffer API is not yet present, causing one timeout and one semantics failure.
+
+### Phase 8 conclusion
+
+All four target areas **far exceed** the done criteria — the lowest pass rate is 98.5% (`TypedArrayConstructors`) against an 82% target. The 15 remaining failures fall into two clearly scoped categories (`Reflect.construct` + `newTarget` hang, and `resizable-arraybuffer` support), both outside Phase 8 scope. No regressions were introduced.
+
+---
+
 ## Snapshot — 2026-04-04
 
 > Source: latest snapshot per pattern across 1,097 patterns.
