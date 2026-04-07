@@ -489,7 +489,7 @@ static const proto::ProtoObject* ta_join(
     std::string sep = ",";
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a0 = args->getAt(ctx, 0);
-        if (a0 && a0 != PROTO_NONE && a0 != ctx->fromUTF8String("undefined") && a0->isString(ctx)) {
+        if (a0 && a0 != PROTO_NONE && a0->isString(ctx)) {
             sep.clear();
             a0->asString(ctx)->toUTF8String(ctx, sep);
         }
@@ -605,7 +605,10 @@ static const proto::ProtoObject* ta_copyWithin(
     };
     target = getArgLL(0);
     start  = getArgLL(1);
-    if (args && args->getSize(ctx) > 2) end = getArgLL(2);
+    if (args && args->getSize(ctx) > 2) {
+        const proto::ProtoObject* endArg = args->getAt(ctx, 2);
+        if (endArg && endArg != PROTO_NONE) end = getArgLL(2);
+    }
 
     long long sLen = static_cast<long long>(len);
     auto clamp = [&](long long v) { return v < 0 ? std::max(sLen + v, 0LL) : std::min(v, sLen); };
@@ -616,6 +619,7 @@ static const proto::ProtoObject* ta_copyWithin(
 
     uint8_t elemSize = TA_ELEMENT_SIZE[et < 11 ? et : 0];
     const proto::ProtoObject* abObj = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    if (!abObj || abObj == PROTO_NONE) return const_cast<proto::ProtoObject*>(self);
     long long selfBO = 0;
     const proto::ProtoObject* boObj = self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
     if (boObj && boObj != PROTO_NONE && boObj->isInteger(ctx)) selfBO = boObj->asLong(ctx);
@@ -624,9 +628,9 @@ static const proto::ProtoObject* ta_copyWithin(
     if (!raw) return const_cast<proto::ProtoObject*>(self);
 
     uint8_t* base = static_cast<uint8_t*>(raw) + selfBO;
-    memmove(base + static_cast<size_t>(target) * elemSize,
-            base + static_cast<size_t>(start)  * elemSize,
-            static_cast<size_t>(count) * elemSize);
+    memmove(base + static_cast<size_t>(target) * static_cast<size_t>(elemSize),
+            base + static_cast<size_t>(start)  * static_cast<size_t>(elemSize),
+            static_cast<size_t>(count) * static_cast<size_t>(elemSize));
     return const_cast<proto::ProtoObject*>(self);
 }
 
