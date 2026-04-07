@@ -1587,6 +1587,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* val;
                 uint8_t taTypeF = getTypedArrayElementType(pContext, obj);
                 if (taTypeF != 0xFF) {
+                    // TODO: optimize: avoid std::string allocation in TypedArray element access
+                    // hot path — use a ProtoString::tryParseUint32() method once available.
                     std::string keyStr;
                     key->toUTF8String(pContext, keyStr);
                     const bool isNumeric = !keyStr.empty() &&
@@ -1648,8 +1650,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     [](unsigned char c){ return c >= '0' && c <= '9'; });
                     if (isNumeric) {
                         uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-                        typedArraySetElement(pContext, obj, idx, val, taTypePF);
-                        stackPush(pContext, obj);
+                        const proto::ProtoObject* updatedTA =
+                            typedArraySetElement(pContext, obj, idx, val, taTypePF);
+                        if (updatedTA && updatedTA != obj) {
+                            updateMapping(pContext, obj, updatedTA);
+                        }
+                        stackPush(pContext, updatedTA ? updatedTA : obj);
                         break;
                     }
                 }
@@ -1811,8 +1817,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 uint8_t taTypeW = getTypedArrayElementType(pContext, obj);
                 if (taTypeW != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
-                    typedArraySetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), value, taTypeW);
-                    stackPush(pContext, obj);
+                    const proto::ProtoObject* updatedTA = typedArraySetElement(
+                        pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), value, taTypeW);
+                    if (updatedTA && updatedTA != obj) {
+                        updateMapping(pContext, obj, updatedTA);
+                    }
+                    stackPush(pContext, updatedTA ? updatedTA : obj);
                     break;
                 }
                 const proto::ProtoObject* keyObj = toString(pContext, index);

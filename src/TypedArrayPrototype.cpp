@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <cmath>
+#include <limits>
 
 namespace protojs {
 
@@ -45,9 +46,11 @@ const proto::ProtoObject* typedArrayGetElement(proto::ProtoContext* ctx,
     if (boObj && boObj != PROTO_NONE && boObj->isInteger(ctx))
         byteOffset = boObj->asLong(ctx);
 
-    // Compute byte index
+    // Compute byte index — use explicit unsigned long widening to avoid 32-bit overflow
+    // for large indices (e.g., index = 0x1FFFFFFF, elemSize = 8).
     uint8_t elemSize = TA_ELEMENT_SIZE[elementType < 11 ? elementType : 0];
-    unsigned long byteIndex = static_cast<unsigned long>(byteOffset) + index * elemSize;
+    unsigned long byteIndex = static_cast<unsigned long>(byteOffset) +
+                              static_cast<unsigned long>(index) * static_cast<unsigned long>(elemSize);
 
     // Get raw buffer pointer
     const proto::ProtoObject* abObj = ta->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
@@ -97,7 +100,12 @@ const proto::ProtoObject* typedArrayGetElement(proto::ProtoContext* ctx,
         }
         case 10: { // BigUint64
             uint64_t v; std::memcpy(&v, bytes, 8);
-            return ctx->fromInteger(static_cast<long long>(v));
+            // NOTE: BigUint64 values > INT64_MAX cannot be represented as long long.
+            // Clamping to INT64_MAX until BigInt support is added.
+            long long safe = v > static_cast<uint64_t>(std::numeric_limits<long long>::max())
+                           ? std::numeric_limits<long long>::max()
+                           : static_cast<long long>(v);
+            return ctx->fromInteger(safe);
         }
         default:
             return PROTO_NONE;
@@ -130,9 +138,11 @@ const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
     if (boObj && boObj != PROTO_NONE && boObj->isInteger(ctx))
         byteOffset = boObj->asLong(ctx);
 
-    // Compute byte index
+    // Compute byte index — use explicit unsigned long widening to avoid 32-bit overflow
+    // for large indices (e.g., index = 0x1FFFFFFF, elemSize = 8).
     uint8_t elemSize = TA_ELEMENT_SIZE[elementType < 11 ? elementType : 0];
-    unsigned long byteIndex = static_cast<unsigned long>(byteOffset) + index * elemSize;
+    unsigned long byteIndex = static_cast<unsigned long>(byteOffset) +
+                              static_cast<unsigned long>(index) * static_cast<unsigned long>(elemSize);
 
     // Get raw buffer pointer
     const proto::ProtoObject* abObj = ta->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
@@ -275,7 +285,7 @@ const proto::ProtoObject* createTypedArrayFromLength(proto::ProtoContext* ctx,
                                                      uint8_t elemType,
                                                      uint32_t length) {
     uint8_t elemSize = TA_ELEMENT_SIZE[elemType < 11 ? elemType : 0];
-    unsigned long byteLen = static_cast<unsigned long>(length) * elemSize;
+    unsigned long byteLen = static_cast<unsigned long>(length) * static_cast<unsigned long>(elemSize);
 
     const proto::ProtoObject* ab = createArrayBuffer(ctx, byteLen);
     if (!ab || ab == PROTO_NONE) return PROTO_NONE;
@@ -321,7 +331,7 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
     } else {
         len = static_cast<uint32_t>(length);
     }
-    unsigned long viewByteLen = static_cast<unsigned long>(len) * elemSize;
+    unsigned long viewByteLen = static_cast<unsigned long>(len) * static_cast<unsigned long>(elemSize);
 
     const proto::ProtoObject* ta = (proto && proto != PROTO_NONE)
         ? proto->newChild(ctx, true)
@@ -392,8 +402,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         const proto::ProtoObject* concreteProto = s_taBaseProto->newChild(ctx, false);
         concreteProto = concreteProto->setAttribute(
             ctx,
-            ctx->fromUTF8String("BYTES_PER_ELEMENT") ?
-                ctx->fromUTF8String("BYTES_PER_ELEMENT")->asString(ctx) : nullptr,
+            JSSymbols::BYTES_PER_ELEMENT(ctx),
             ctx->fromInteger(static_cast<long long>(cfg.elemSize)));
         s_taProtos[i] = concreteProto;
 
@@ -401,8 +410,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         const proto::ProtoObject* ctor = ctx->newObject(false);
         ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), concreteProto);
         {
-            const proto::ProtoObject* bpeStrObj = ctx->fromUTF8String("BYTES_PER_ELEMENT");
-            const proto::ProtoString* bpeKey = bpeStrObj ? bpeStrObj->asString(ctx) : nullptr;
+            const proto::ProtoString* bpeKey = JSSymbols::BYTES_PER_ELEMENT(ctx);
             if (bpeKey)
                 ctor = ctor->setAttribute(ctx, bpeKey,
                     ctx->fromInteger(static_cast<long long>(cfg.elemSize)));
