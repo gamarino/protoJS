@@ -299,7 +299,9 @@ const proto::ProtoObject* createTypedArrayFromLength(proto::ProtoContext* ctx,
     ta = ta->setAttribute(ctx, JSSymbols::taElementType(ctx),
                           ctx->fromInteger(static_cast<long long>(elemType)));
     ta = ta->setAttribute(ctx, JSSymbols::taBuffer(ctx), ab);
+    ta = ta->setAttribute(ctx, JSSymbols::buffer(ctx), ab);
     ta = ta->setAttribute(ctx, JSSymbols::taByteOffset(ctx), ctx->fromInteger(0LL));
+    ta = ta->setAttribute(ctx, JSSymbols::byteOffset(ctx), ctx->fromInteger(0LL));
     ta = ta->setAttribute(ctx, JSSymbols::byteLength(ctx),
                           ctx->fromInteger(static_cast<long long>(byteLen)));
     ta = ta->setAttribute(ctx, JSSymbols::length(ctx),
@@ -342,7 +344,10 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
     ta = ta->setAttribute(ctx, JSSymbols::taElementType(ctx),
                           ctx->fromInteger(static_cast<long long>(elemType)));
     ta = ta->setAttribute(ctx, JSSymbols::taBuffer(ctx), ab);
+    ta = ta->setAttribute(ctx, JSSymbols::buffer(ctx), ab);
     ta = ta->setAttribute(ctx, JSSymbols::taByteOffset(ctx),
+                          ctx->fromInteger(byteOffset));
+    ta = ta->setAttribute(ctx, JSSymbols::byteOffset(ctx),
                           ctx->fromInteger(byteOffset));
     ta = ta->setAttribute(ctx, JSSymbols::byteLength(ctx),
                           ctx->fromInteger(static_cast<long long>(viewByteLen)));
@@ -922,6 +927,168 @@ static const proto::ProtoObject* ta_set(
 }
 
 // ---------------------------------------------------------------------------
+// Task 6: property getters (buffer, byteOffset, byteLength) + slice
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* ta_get_buffer(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* ab = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    return (ab && ab != PROTO_NONE) ? ab : PROTO_NONE;
+}
+
+static const proto::ProtoObject* ta_get_byteOffset(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    // Try the internal key first, fall back to the public key.
+    const proto::ProtoObject* bo = self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
+    if (bo && bo != PROTO_NONE && bo->isInteger(ctx)) return bo;
+    bo = self->getAttribute(ctx, JSSymbols::byteOffset(ctx), false);
+    if (bo && bo != PROTO_NONE && bo->isInteger(ctx)) return bo;
+    return ctx->fromInteger(0LL);
+}
+
+static const proto::ProtoObject* ta_get_byteLength(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    const proto::ProtoObject* bl = self->getAttribute(ctx, JSSymbols::byteLength(ctx), false);
+    return (bl && bl != PROTO_NONE) ? bl : ctx->fromInteger(0LL);
+}
+
+static const proto::ProtoObject* ta_slice(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return PROTO_NONE;
+    uint32_t len = getTypedArrayLength(ctx, self);
+    long long start = 0, end = static_cast<long long>(len);
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+        if (a0 && a0 != PROTO_NONE && a0->isInteger(ctx)) start = a0->asLong(ctx);
+        else if (a0 && a0 != PROTO_NONE && (a0->isDouble(ctx) || a0->isFloat(ctx)))
+            start = static_cast<long long>(a0->asDouble(ctx));
+    }
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+        if (a1 && a1 != PROTO_NONE && a1->isInteger(ctx)) end = a1->asLong(ctx);
+        else if (a1 && a1 != PROTO_NONE && (a1->isDouble(ctx) || a1->isFloat(ctx)))
+            end = static_cast<long long>(a1->asDouble(ctx));
+    }
+    long long sLen = static_cast<long long>(len);
+    if (start < 0) start = std::max(sLen + start, 0LL);
+    else start = std::min(start, sLen);
+    if (end < 0) end = std::max(sLen + end, 0LL);
+    else end = std::min(end, sLen);
+    long long newLen = std::max(end - start, 0LL);
+
+    const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
+    const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, static_cast<uint32_t>(newLen));
+    if (!result || result == PROTO_NONE) return PROTO_NONE;
+    for (long long i = start; i < end; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, static_cast<uint32_t>(i), et);
+        typedArraySetElement(ctx, result, static_cast<uint32_t>(i - start), elem, et);
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// Task 6: static methods — TypedArray.of() and TypedArray.from()
+// ---------------------------------------------------------------------------
+
+struct TAStaticMethods {
+    static const proto::ProtoObject* makeOf(
+        proto::ProtoContext* ctx, uint8_t et,
+        const proto::ProtoObject* proto, const proto::ProtoList* args)
+    {
+        uint32_t len = args ? static_cast<uint32_t>(args->getSize(ctx)) : 0;
+        const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, len);
+        if (!result || result == PROTO_NONE) return PROTO_NONE;
+        for (uint32_t i = 0; i < len; i++) {
+            const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
+            typedArraySetElement(ctx, result, i, v, et);
+        }
+        return result;
+    }
+
+    static const proto::ProtoObject* makeFrom(
+        proto::ProtoContext* ctx, uint8_t et,
+        const proto::ProtoObject* proto, const proto::ProtoList* args)
+    {
+        if (!args || args->getSize(ctx) == 0) return createTypedArrayFromLength(ctx, proto, et, 0);
+        const proto::ProtoObject* src = args->getAt(ctx, 0);
+        if (!src || src == PROTO_NONE) return createTypedArrayFromLength(ctx, proto, et, 0);
+
+        if (isTypedArray(ctx, src)) {
+            uint8_t srcEt = getTypedArrayElementType(ctx, src);
+            uint32_t srcLen = getTypedArrayLength(ctx, src);
+            const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, srcLen);
+            if (!result || result == PROTO_NONE) return PROTO_NONE;
+            for (uint32_t i = 0; i < srcLen; i++) {
+                const proto::ProtoObject* elem = typedArrayGetElement(ctx, src, i, srcEt);
+                typedArraySetElement(ctx, result, i, elem, et);
+            }
+            return result;
+        }
+
+        // Array-like: get .length and indexed elements.
+        const proto::ProtoObject* lenObj = src->getAttribute(ctx, JSSymbols::length(ctx), true);
+        uint32_t srcLen = 0;
+        if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+            srcLen = static_cast<uint32_t>(std::max(0LL, lenObj->asLong(ctx)));
+
+        const proto::ProtoObject* result = createTypedArrayFromLength(ctx, proto, et, srcLen);
+        if (!result || result == PROTO_NONE) return PROTO_NONE;
+        for (uint32_t i = 0; i < srcLen; i++) {
+            const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, i);
+            const proto::ProtoObject* elem = src->getAttribute(ctx, idxKey, false);
+            if (elem && elem != PROTO_NONE)
+                typedArraySetElement(ctx, result, i, elem, et);
+        }
+        return result;
+    }
+};
+
+// Define 11 separate native functions for `of` and `from`, one per element type.
+// C++ native callbacks cannot capture state so we generate them via macro.
+#define DEFINE_TA_STATIC(idx) \
+static const proto::ProtoObject* ta_of_##idx( \
+    proto::ProtoContext* ctx, const proto::ProtoObject*, \
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*) { \
+    return TAStaticMethods::makeOf(ctx, idx, s_taProtos[idx], args); \
+} \
+static const proto::ProtoObject* ta_from_##idx( \
+    proto::ProtoContext* ctx, const proto::ProtoObject*, \
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*) { \
+    return TAStaticMethods::makeFrom(ctx, idx, s_taProtos[idx], args); \
+}
+
+DEFINE_TA_STATIC(0)  DEFINE_TA_STATIC(1)  DEFINE_TA_STATIC(2)
+DEFINE_TA_STATIC(3)  DEFINE_TA_STATIC(4)  DEFINE_TA_STATIC(5)
+DEFINE_TA_STATIC(6)  DEFINE_TA_STATIC(7)  DEFINE_TA_STATIC(8)
+DEFINE_TA_STATIC(9)  DEFINE_TA_STATIC(10)
+#undef DEFINE_TA_STATIC
+
+using TAStaticMethod = const proto::ProtoObject*(*)(proto::ProtoContext*,
+    const proto::ProtoObject*, const proto::ParentLink*,
+    const proto::ProtoList*, const proto::ProtoSparseList*);
+
+static const TAStaticMethod TA_OF_METHODS[11] = {
+    ta_of_0, ta_of_1, ta_of_2, ta_of_3, ta_of_4,
+    ta_of_5, ta_of_6, ta_of_7, ta_of_8, ta_of_9, ta_of_10
+};
+static const TAStaticMethod TA_FROM_METHODS[11] = {
+    ta_from_0, ta_from_1, ta_from_2, ta_from_3, ta_from_4,
+    ta_from_5, ta_from_6, ta_from_7, ta_from_8, ta_from_9, ta_from_10
+};
+
+// ---------------------------------------------------------------------------
 // ensureTypedArrayConstructors
 // ---------------------------------------------------------------------------
 
@@ -1004,6 +1171,15 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_sort));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::set(ctx),
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_set));
+    // Register Task 6 prototype additions: property getters + slice
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::buffer(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_buffer));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::byteOffset(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_byteOffset));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::byteLength(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_byteLength));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::slice(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_slice));
     s_taBaseProto = baseProto;
 
     // Register each concrete typed array constructor
@@ -1036,6 +1212,12 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         // Tag integer elemType so OP_call_constructor can dispatch
         ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
             ctx->fromInteger(static_cast<long long>(cfg.elemType)));
+
+        // Register Task 6 static methods: TypedArray.of() and TypedArray.from()
+        ctor = ctor->setAttribute(ctx, JSSymbols::of(ctx),
+            ctx->fromMethod(const_cast<proto::ProtoObject*>(ctor), TA_OF_METHODS[i]));
+        ctor = ctor->setAttribute(ctx, JSSymbols::from(ctx),
+            ctx->fromMethod(const_cast<proto::ProtoObject*>(ctor), TA_FROM_METHODS[i]));
 
         // Register constructor on global root using the appropriate JSSymbols key
         const proto::ProtoString* globalKey = nullptr;
