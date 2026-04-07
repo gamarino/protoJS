@@ -8,6 +8,7 @@
 #include "../NumberPrototype.h"
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
+#include "../ArrayBufferPrototype.h"
 #include "../JSContext.h"
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
@@ -762,6 +763,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     // Register Array constructor and Array.prototype (idempotent).
     ensureArrayPrototype(pContext, pGlobalRoot);
+    // Register ArrayBuffer constructor and ArrayBuffer.prototype (idempotent).
+    ensureArrayBufferConstructor(pContext, pGlobalRoot);
     // Register String constructor with static methods (fromCharCode, fromCodePoint).
     ensureStringConstructor(pContext, pGlobalRoot);
     // Register RegExp constructor and its prototype.
@@ -2583,7 +2586,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // Call the native regexpConstructor logic.
                                 result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
                             } else {
-                                result = PROTO_NONE;
+                                // Check for __typed_array_ctor__ marker (ArrayBuffer, DataView, TypedArray).
+                                const proto::ProtoString* taCtorAttr = JSSymbols::taCtor(pContext);
+                                const proto::ProtoObject* taCtorTag = (func && func != PROTO_NONE && taCtorAttr)
+                                    ? func->getAttribute(pContext, taCtorAttr, false) : nullptr;
+                                if (taCtorTag && taCtorTag != PROTO_NONE) {
+                                    if (taCtorTag->isString(pContext)) {
+                                        std::string ctorNameStr;
+                                        taCtorTag->asString(pContext)->toUTF8String(pContext, ctorNameStr);
+                                        if (ctorNameStr == "ArrayBuffer") {
+                                            unsigned long byteLen = 0;
+                                            if (argc > 0) {
+                                                const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
+                                                if (a0 && a0 != PROTO_NONE) {
+                                                    if (a0->isInteger(pContext))
+                                                        byteLen = static_cast<unsigned long>(std::max(0LL, a0->asLong(pContext)));
+                                                    else if (a0->isDouble(pContext) || a0->isFloat(pContext))
+                                                        byteLen = static_cast<unsigned long>(std::max(0.0, a0->asDouble(pContext)));
+                                                }
+                                            }
+                                            result = createArrayBuffer(pContext, byteLen);
+                                        }
+                                        // TypedArray and DataView constructors will be added in Tasks 3 and 8.
+                                    }
+                                }
                             }
                             }
                             }
