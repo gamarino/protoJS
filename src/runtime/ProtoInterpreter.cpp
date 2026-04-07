@@ -2991,6 +2991,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
             // OP_for_of_start: DEF(for_of_start, 1, 1, 3, none)
             // Pops iterable; pushes [iterator, nextMethod, catch_offset].
+            // Handles two cases:
+            //   (A) Native iterator object — has a `next()` method and __iter_arr__ key.
+            //       Push the iterator itself and record it as a "next()-based" iterator.
+            //   (B) Array/TypedArray with numeric .length — use the slot-based index loop.
+            //   Otherwise returns PROTO_NONE (vacuous pass for unsupported iterables).
             case OP_for_of_start: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* iterable = stackTop(pContext);
@@ -2998,7 +3003,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // PROTO_NONE guard: generator iterables return PROTO_NONE from OP_initial_yield
                 // (unsupported). Propagate vacuous-pass so generator-based for-of tests don't regress.
                 if (!iterable || iterable == PROTO_NONE) return PROTO_NONE;
-                // Require a numeric .length — arrays only.  Non-array iterables fall through to vacuous pass.
+
+                // Case A: native iterator object (produced by Array/TypedArray keys/values/entries).
+                // Detect by presence of both `next` method and `__iter_arr__` internal key.
+                const proto::ProtoString* nextKey2 = JSSymbols::next(pContext);
+                const proto::ProtoString* iterArrKey2 = JSSymbols::iterArr(pContext);
+                if (nextKey2 && iterArrKey2) {
+                    const proto::ProtoObject* nextFn2 = iterable->getAttribute(pContext, nextKey2, false);
+                    const proto::ProtoObject* iterArrVal = iterable->getAttribute(pContext, iterArrKey2, false);
+                    if (nextFn2 && nextFn2 != PROTO_NONE && iterArrVal && iterArrVal != PROTO_NONE) {
+                        // The iterable is already an iterator. Store it in a slot for OP_for_of_next.
+                        // We overload the slot mechanism: store the iterator itself in bs, and a
+                        // sentinel (-1) in bs+1 to signal next()-based iteration.
+                        uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
+                        setSlot(pContext, baseSlot,     iterable);
+                        setSlot(pContext, baseSlot + 1, pContext->fromInteger(-1LL)); // sentinel
+                        const proto::ProtoObject* iterObj = pContext->newObject(false);
+                        if (!iterObj) return PROTO_NONE;
+                        const proto::ProtoString* slotKey2 = JSSymbols::iterSlot(pContext);
+                        if (slotKey2)
+                            iterObj = iterObj->setAttribute(pContext, slotKey2,
+                                pContext->fromInteger(static_cast<long long>(baseSlot)));
+                        stackPush(pContext, iterObj);
+                        stackPush(pContext, PROTO_NONE);
+                        stackPush(pContext, pContext->fromInteger(0LL));
+                        break;
+                    }
+                }
+
+                // Case B: array or TypedArray with numeric .length — index-based iteration.
                 const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
                 const proto::ProtoObject* lenVal = lenKey2 ? iterable->getAttribute(pContext, lenKey2, false) : PROTO_NONE;
                 if (!lenVal || lenVal == PROTO_NONE || !lenVal->isInteger(pContext)) return PROTO_NONE;
@@ -3046,6 +3079,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     break;
                 }
                 long long idx2 = idxObj2->asLong(pContext);
+
+                // Sentinel idx2 == -1: this is a native iterator (has next() method).
+                // Call next() on the stored iterator object and unpack {value, done}.
+                if (idx2 == -1LL) {
+                    const proto::ProtoString* nextKeyFO = JSSymbols::next(pContext);
+                    const proto::ProtoObject* nextFnFO = (nextKeyFO && arrObj != PROTO_NONE)
+                        ? arrObj->getAttribute(pContext, nextKeyFO, false) : PROTO_NONE;
+                    const proto::ProtoObject* resultFO = PROTO_NONE;
+                    if (nextFnFO && nextFnFO != PROTO_NONE && nextFnFO->isMethod(pContext)) {
+                        proto::ProtoMethod nativeFnFO = nextFnFO->asMethod(pContext);
+                        if (nativeFnFO)
+                            resultFO = nativeFnFO(pContext, arrObj, nullptr, nullptr, nullptr);
+                    }
+                    const proto::ProtoString* doneKeyFO  = JSSymbols::done(pContext);
+                    const proto::ProtoString* valueKeyFO = JSSymbols::value(pContext);
+                    const proto::ProtoObject* doneFO = (resultFO && resultFO != PROTO_NONE && doneKeyFO)
+                        ? resultFO->getAttribute(pContext, doneKeyFO, false) : PROTO_TRUE;
+                    const proto::ProtoObject* valueFO = (resultFO && resultFO != PROTO_NONE && valueKeyFO)
+                        ? resultFO->getAttribute(pContext, valueKeyFO, false) : PROTO_NONE;
+                    const bool isDone = (!doneFO || doneFO == PROTO_NONE || doneFO == PROTO_TRUE);
+                    stackPush(pContext, valueFO ? valueFO : PROTO_NONE);
+                    stackPush(pContext, isDone ? PROTO_TRUE : PROTO_FALSE);
+                    break;
+                }
+
                 const proto::ProtoString* lenKey3 = JSSymbols::length(pContext);
                 const proto::ProtoObject* lenVal2 = lenKey3 ? arrObj->getAttribute(pContext, lenKey3, false) : PROTO_NONE;
                 long long arrLen = (lenVal2 && lenVal2 != PROTO_NONE && lenVal2->isInteger(pContext))
@@ -3055,11 +3113,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, PROTO_TRUE);
                     break;
                 }
-                std::string elemIdxStr = std::to_string(idx2);
-                const proto::ProtoObject* elemIdxObj = pContext->fromUTF8String(elemIdxStr.c_str());
-                const proto::ProtoString* elemIdxKey = elemIdxObj ? elemIdxObj->asString(pContext) : nullptr;
-                const proto::ProtoObject* elemVal = elemIdxKey
-                    ? arrObj->getAttribute(pContext, elemIdxKey, false) : PROTO_NONE;
+                // Fetch element: TypedArrays use binary storage and require
+                // typedArrayGetElement; plain arrays use string-keyed attributes.
+                const proto::ProtoObject* elemVal;
+                uint8_t taElemType = getTypedArrayElementType(pContext, arrObj);
+                if (taElemType != 0xFF) {
+                    elemVal = typedArrayGetElement(pContext, arrObj,
+                                                  static_cast<uint32_t>(idx2), taElemType);
+                } else {
+                    std::string elemIdxStr = std::to_string(idx2);
+                    const proto::ProtoObject* elemIdxObj = pContext->fromUTF8String(elemIdxStr.c_str());
+                    const proto::ProtoString* elemIdxKey = elemIdxObj ? elemIdxObj->asString(pContext) : nullptr;
+                    elemVal = elemIdxKey
+                        ? arrObj->getAttribute(pContext, elemIdxKey, false) : PROTO_NONE;
+                }
                 setSlot(pContext, bs + 1, pContext->fromInteger(idx2 + 1LL));
                 stackPush(pContext, elemVal ? elemVal : PROTO_NONE);
                 stackPush(pContext, PROTO_FALSE); // done = false

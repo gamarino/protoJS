@@ -1093,6 +1093,142 @@ static const TAStaticMethod TA_FROM_METHODS[11] = {
 };
 
 // ---------------------------------------------------------------------------
+// TypedArray iterator support (Task 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Iterator next() method for TypedArray iterators.
+ *
+ * The iterator object stores three internal keys:
+ *   __iter_arr__  — reference to the TypedArray being iterated
+ *   __iter_idx__  — current index (integer, advances on each call)
+ *   __iter_kind__ — 0 = values, 1 = keys, 2 = entries
+ *
+ * Returns {value, done} objects per the iterator protocol.
+ */
+static const proto::ProtoObject* taIterNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    // Helper to build a {value, done} result object.
+    auto makeResult = [&](const proto::ProtoObject* val,
+                          const proto::ProtoObject* doneFlag) -> const proto::ProtoObject* {
+        const proto::ProtoObject* r = ctx->newObject(true);
+        const proto::ProtoString* vk = JSSymbols::value(ctx);
+        const proto::ProtoString* dk = JSSymbols::done(ctx);
+        if (vk) r = r->setAttribute(ctx, vk, val ? val : PROTO_NONE);
+        if (dk) r = r->setAttribute(ctx, dk, doneFlag);
+        return r;
+    };
+
+    if (!self || self == PROTO_NONE)
+        return makeResult(PROTO_NONE, PROTO_TRUE);
+
+    const proto::ProtoObject* taObj =
+        self->getAttribute(ctx, JSSymbols::iterArr(ctx), false);
+    const proto::ProtoObject* idxObj =
+        self->getAttribute(ctx, JSSymbols::iterIdx(ctx), false);
+    const proto::ProtoObject* kindObj =
+        self->getAttribute(ctx, JSSymbols::iterKind(ctx), false);
+
+    if (!taObj || taObj == PROTO_NONE)
+        return makeResult(PROTO_NONE, PROTO_TRUE);
+
+    uint32_t idx = (idxObj && idxObj != PROTO_NONE && idxObj->isInteger(ctx))
+        ? static_cast<uint32_t>(idxObj->asLong(ctx)) : 0u;
+    uint32_t len = getTypedArrayLength(ctx, taObj);
+    uint8_t  et  = getTypedArrayElementType(ctx, taObj);
+
+    if (idx >= len)
+        return makeResult(PROTO_NONE, PROTO_TRUE);
+
+    // Advance the index stored on the (mutable) iterator object.
+    const_cast<proto::ProtoObject*>(self)->setAttribute(
+        ctx, JSSymbols::iterIdx(ctx),
+        ctx->fromInteger(static_cast<long long>(idx + 1)));
+
+    long long kind = (kindObj && kindObj != PROTO_NONE && kindObj->isInteger(ctx))
+        ? kindObj->asLong(ctx) : 0LL;
+
+    const proto::ProtoObject* iterValue;
+    if (kind == 1) {
+        // keys(): yield the numeric index.
+        iterValue = ctx->fromInteger(static_cast<long long>(idx));
+    } else if (kind == 2) {
+        // entries(): yield an array-like pair [index, element].
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, taObj, idx, et);
+        const proto::ProtoObject* pair = ctx->newObject(true);
+        const proto::ProtoString* k0 = JSSymbols::indexKey(ctx, 0);
+        const proto::ProtoString* k1 = JSSymbols::indexKey(ctx, 1);
+        const proto::ProtoString* lk = JSSymbols::length(ctx);
+        if (k0) pair = pair->setAttribute(ctx, k0, ctx->fromInteger(static_cast<long long>(idx)));
+        if (k1) pair = pair->setAttribute(ctx, k1, elem ? elem : PROTO_NONE);
+        if (lk) pair = pair->setAttribute(ctx, lk,  ctx->fromInteger(2LL));
+        iterValue = pair;
+    } else {
+        // values() (kind == 0): yield the element value.
+        iterValue = typedArrayGetElement(ctx, taObj, idx, et);
+    }
+
+    return makeResult(iterValue ? iterValue : PROTO_NONE, PROTO_FALSE);
+}
+
+/**
+ * Named static used as Symbol.iterator on the iterator itself so that
+ * iterator objects are also iterable (for...of protocol requirement).
+ */
+static const proto::ProtoObject* taIterSelf(
+    proto::ProtoContext*, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    return self;
+}
+
+/** Create a TypedArray iterator object for the given array and kind. */
+static const proto::ProtoObject* makeTAIterator(
+    proto::ProtoContext* ctx, const proto::ProtoObject* ta, long long kind)
+{
+    const proto::ProtoObject* iter = ctx->newObject(true);
+    const proto::ProtoString* arrKey  = JSSymbols::iterArr(ctx);
+    const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
+    const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
+    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+    const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+
+    if (arrKey)     iter = iter->setAttribute(ctx, arrKey,  ta ? ta : PROTO_NONE);
+    if (idxKey)     iter = iter->setAttribute(ctx, idxKey,  ctx->fromInteger(0LL));
+    if (kindKey)    iter = iter->setAttribute(ctx, kindKey, ctx->fromInteger(kind));
+    if (nextKey) {
+        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, taIterNext);
+        if (nextFn) iter = iter->setAttribute(ctx, nextKey, nextFn);
+    }
+    // Make the iterator itself iterable (Symbol.iterator returns self).
+    if (symIterKey) {
+        const proto::ProtoObject* selfFn = ctx->fromMethod(nullptr, taIterSelf);
+        if (selfFn) iter = iter->setAttribute(ctx, symIterKey, selfFn);
+    }
+    return iter;
+}
+
+/** %TypedArray%.prototype.values() — iterator over element values. */
+static const proto::ProtoObject* ta_values(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{ return makeTAIterator(ctx, self, 0); }
+
+/** %TypedArray%.prototype.keys() — iterator over element indices. */
+static const proto::ProtoObject* ta_keys(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{ return makeTAIterator(ctx, self, 1); }
+
+/** %TypedArray%.prototype.entries() — iterator over [index, value] pairs. */
+static const proto::ProtoObject* ta_entries(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{ return makeTAIterator(ctx, self, 2); }
+
+// ---------------------------------------------------------------------------
 // ensureTypedArrayConstructors
 // ---------------------------------------------------------------------------
 
@@ -1184,6 +1320,15 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_get_byteLength));
     baseProto = baseProto->setAttribute(ctx, JSSymbols::slice(ctx),
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_slice));
+    // Register Task 7 iterator protocol methods.
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::keys(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_keys));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::values(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_values));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::entries(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_entries));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::symbolIterator(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_values));
     s_taBaseProto = baseProto;
 
     // Register each concrete typed array constructor
