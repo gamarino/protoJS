@@ -350,6 +350,287 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// %TypedArray%.prototype method implementations (batch 1)
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* ta_fill(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE) return const_cast<proto::ProtoObject*>(self);
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
+    uint32_t len = getTypedArrayLength(ctx, self);
+
+    const proto::ProtoObject* fillVal = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    long long start = 0, end = static_cast<long long>(len);
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+        if (a1 && a1 != PROTO_NONE && a1->isInteger(ctx)) start = a1->asLong(ctx);
+        else if (a1 && a1 != PROTO_NONE && (a1->isDouble(ctx) || a1->isFloat(ctx)))
+            start = static_cast<long long>(a1->asDouble(ctx));
+    }
+    if (args && args->getSize(ctx) > 2) {
+        const proto::ProtoObject* a2 = args->getAt(ctx, 2);
+        if (a2 && a2 != PROTO_NONE && a2->isInteger(ctx)) end = a2->asLong(ctx);
+        else if (a2 && a2 != PROTO_NONE && (a2->isDouble(ctx) || a2->isFloat(ctx)))
+            end = static_cast<long long>(a2->asDouble(ctx));
+    }
+
+    long long sLen = static_cast<long long>(len);
+    if (start < 0) start = std::max(sLen + start, 0LL);
+    else start = std::min(start, sLen);
+    if (end < 0) end = std::max(sLen + end, 0LL);
+    else end = std::min(end, sLen);
+
+    for (long long i = start; i < end; i++)
+        typedArraySetElement(ctx, self, static_cast<uint32_t>(i), fillVal, et);
+
+    return const_cast<proto::ProtoObject*>(self);
+}
+
+static bool numericEqual(proto::ProtoContext* ctx,
+                         const proto::ProtoObject* a, const proto::ProtoObject* b) {
+    double da = 0, db = 0;
+    bool aOk = false, bOk = false;
+    if (a && a->isInteger(ctx)) { da = static_cast<double>(a->asLong(ctx)); aOk = true; }
+    else if (a && (a->isDouble(ctx) || a->isFloat(ctx))) { da = a->asDouble(ctx); aOk = true; }
+    if (b && b->isInteger(ctx)) { db = static_cast<double>(b->asLong(ctx)); bOk = true; }
+    else if (b && (b->isDouble(ctx) || b->isFloat(ctx))) { db = b->asDouble(ctx); bOk = true; }
+    return aOk && bOk && da == db;
+}
+
+static const proto::ProtoObject* ta_indexOf(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return ctx->fromInteger(-1LL);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (!args || args->getSize(ctx) == 0) return ctx->fromInteger(-1LL);
+    const proto::ProtoObject* search = args->getAt(ctx, 0);
+    long long fromIdx = 0;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+        if (a1 && a1 != PROTO_NONE && a1->isInteger(ctx)) fromIdx = a1->asLong(ctx);
+        else if (a1 && a1 != PROTO_NONE && (a1->isDouble(ctx) || a1->isFloat(ctx)))
+            fromIdx = static_cast<long long>(a1->asDouble(ctx));
+    }
+    if (fromIdx < 0) fromIdx = std::max(static_cast<long long>(len) + fromIdx, 0LL);
+    for (uint32_t i = static_cast<uint32_t>(fromIdx); i < len; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        if (numericEqual(ctx, elem, search)) return ctx->fromInteger(static_cast<long long>(i));
+    }
+    return ctx->fromInteger(-1LL);
+}
+
+static const proto::ProtoObject* ta_lastIndexOf(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return ctx->fromInteger(-1LL);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (!len || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1LL);
+    const proto::ProtoObject* search = args->getAt(ctx, 0);
+    long long fromIdx = static_cast<long long>(len) - 1;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+        if (a1 && a1 != PROTO_NONE && a1->isInteger(ctx)) fromIdx = a1->asLong(ctx);
+        else if (a1 && a1 != PROTO_NONE && (a1->isDouble(ctx) || a1->isFloat(ctx)))
+            fromIdx = static_cast<long long>(a1->asDouble(ctx));
+    }
+    if (fromIdx < 0) fromIdx = static_cast<long long>(len) + fromIdx;
+    if (fromIdx >= static_cast<long long>(len)) fromIdx = static_cast<long long>(len) - 1;
+    if (fromIdx < 0) return ctx->fromInteger(-1LL);
+    for (long long i = fromIdx; i >= 0; i--) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, static_cast<uint32_t>(i), et);
+        if (numericEqual(ctx, elem, search)) return ctx->fromInteger(i);
+    }
+    return ctx->fromInteger(-1LL);
+}
+
+static const proto::ProtoObject* ta_includes(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return PROTO_FALSE;
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* search = args->getAt(ctx, 0);
+    double searchVal = 0;
+    bool searchNaN = false;
+    if (search && search->isInteger(ctx)) searchVal = static_cast<double>(search->asLong(ctx));
+    else if (search && (search->isDouble(ctx) || search->isFloat(ctx))) {
+        searchVal = search->asDouble(ctx);
+        searchNaN = std::isnan(searchVal);
+    }
+    for (uint32_t i = 0; i < len; i++) {
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        if (!elem || elem == PROTO_NONE) continue;
+        double ev = 0; bool evNaN = false;
+        if (elem->isInteger(ctx)) ev = static_cast<double>(elem->asLong(ctx));
+        else if (elem->isDouble(ctx) || elem->isFloat(ctx)) { ev = elem->asDouble(ctx); evNaN = std::isnan(ev); }
+        if (searchNaN && evNaN) return PROTO_TRUE;
+        if (!searchNaN && !evNaN && ev == searchVal) return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
+}
+
+static const proto::ProtoObject* ta_join(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return ctx->fromUTF8String("");
+    uint32_t len = getTypedArrayLength(ctx, self);
+    std::string sep = ",";
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+        if (a0 && a0 != PROTO_NONE && a0 != ctx->fromUTF8String("undefined") && a0->isString(ctx)) {
+            sep.clear();
+            a0->asString(ctx)->toUTF8String(ctx, sep);
+        }
+    }
+    std::string result;
+    for (uint32_t i = 0; i < len; i++) {
+        if (i > 0) result += sep;
+        const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
+        if (elem && elem != PROTO_NONE) {
+            if (elem->isInteger(ctx)) result += std::to_string(elem->asLong(ctx));
+            else if (elem->isDouble(ctx) || elem->isFloat(ctx)) {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%g", elem->asDouble(ctx));
+                result += buf;
+            }
+        }
+    }
+    return ctx->fromUTF8String(result.c_str());
+}
+
+static const proto::ProtoObject* ta_reverse(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
+    uint32_t len = getTypedArrayLength(ctx, self);
+    if (len < 2) return const_cast<proto::ProtoObject*>(self);
+    for (uint32_t i = 0, j = len - 1; i < j; i++, j--) {
+        const proto::ProtoObject* a = typedArrayGetElement(ctx, self, i, et);
+        const proto::ProtoObject* b = typedArrayGetElement(ctx, self, j, et);
+        typedArraySetElement(ctx, self, i, b, et);
+        typedArraySetElement(ctx, self, j, a, et);
+    }
+    return const_cast<proto::ProtoObject*>(self);
+}
+
+static const proto::ProtoObject* ta_at(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return PROTO_NONE;
+    uint32_t len = getTypedArrayLength(ctx, self);
+    long long idx = 0;
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+        if (a0 && a0->isInteger(ctx)) idx = a0->asLong(ctx);
+        else if (a0 && (a0->isDouble(ctx) || a0->isFloat(ctx)))
+            idx = static_cast<long long>(a0->asDouble(ctx));
+    }
+    if (idx < 0) idx = static_cast<long long>(len) + idx;
+    if (idx < 0 || idx >= static_cast<long long>(len)) return PROTO_NONE;
+    return typedArrayGetElement(ctx, self, static_cast<uint32_t>(idx), et);
+}
+
+static const proto::ProtoObject* ta_subarray(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return PROTO_NONE;
+    uint32_t len = getTypedArrayLength(ctx, self);
+    const proto::ProtoObject* abObj =
+        self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    long long selfBO = 0;
+    const proto::ProtoObject* boObj =
+        self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
+    if (boObj && boObj != PROTO_NONE && boObj->isInteger(ctx)) selfBO = boObj->asLong(ctx);
+
+    long long begin = 0, end = static_cast<long long>(len);
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+        if (a0 && a0->isInteger(ctx)) begin = a0->asLong(ctx);
+        else if (a0 && (a0->isDouble(ctx) || a0->isFloat(ctx)))
+            begin = static_cast<long long>(a0->asDouble(ctx));
+    }
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+        if (a1 && a1->isInteger(ctx)) end = a1->asLong(ctx);
+        else if (a1 && (a1->isDouble(ctx) || a1->isFloat(ctx)))
+            end = static_cast<long long>(a1->asDouble(ctx));
+    }
+    long long sLen = static_cast<long long>(len);
+    if (begin < 0) begin = std::max(sLen + begin, 0LL);
+    else begin = std::min(begin, sLen);
+    if (end < 0) end = std::max(sLen + end, 0LL);
+    else end = std::min(end, sLen);
+    long long newLen = std::max(end - begin, 0LL);
+
+    uint8_t elemSize = TA_ELEMENT_SIZE[et < 11 ? et : 0];
+    long long newByteOffset = selfBO + begin * static_cast<long long>(elemSize);
+    const proto::ProtoObject* proto = (et < 11) ? s_taProtos[et] : nullptr;
+    return createTypedArrayFromBuffer(ctx, proto, et, abObj, newByteOffset, newLen);
+}
+
+static const proto::ProtoObject* ta_copyWithin(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    uint8_t et = getTypedArrayElementType(ctx, self);
+    if (et == 0xFF) return const_cast<proto::ProtoObject*>(self);
+    uint32_t len = getTypedArrayLength(ctx, self);
+
+    long long target = 0, start = 0, end = static_cast<long long>(len);
+    auto getArgLL = [&](int pos) -> long long {
+        if (!args || args->getSize(ctx) <= static_cast<size_t>(pos)) return 0;
+        const proto::ProtoObject* a = args->getAt(ctx, pos);
+        if (!a || a == PROTO_NONE) return 0;
+        if (a->isInteger(ctx)) return a->asLong(ctx);
+        if (a->isDouble(ctx) || a->isFloat(ctx)) return static_cast<long long>(a->asDouble(ctx));
+        return 0;
+    };
+    target = getArgLL(0);
+    start  = getArgLL(1);
+    if (args && args->getSize(ctx) > 2) end = getArgLL(2);
+
+    long long sLen = static_cast<long long>(len);
+    auto clamp = [&](long long v) { return v < 0 ? std::max(sLen + v, 0LL) : std::min(v, sLen); };
+    target = clamp(target); start = clamp(start); end = clamp(end);
+
+    long long count = std::min(end - start, sLen - target);
+    if (count <= 0) return const_cast<proto::ProtoObject*>(self);
+
+    uint8_t elemSize = TA_ELEMENT_SIZE[et < 11 ? et : 0];
+    const proto::ProtoObject* abObj = self->getAttribute(ctx, JSSymbols::taBuffer(ctx), false);
+    long long selfBO = 0;
+    const proto::ProtoObject* boObj = self->getAttribute(ctx, JSSymbols::taByteOffset(ctx), false);
+    if (boObj && boObj != PROTO_NONE && boObj->isInteger(ctx)) selfBO = boObj->asLong(ctx);
+
+    void* raw = getArrayBufferRawPtr(ctx, abObj);
+    if (!raw) return const_cast<proto::ProtoObject*>(self);
+
+    uint8_t* base = static_cast<uint8_t*>(raw) + selfBO;
+    memmove(base + static_cast<size_t>(target) * elemSize,
+            base + static_cast<size_t>(start)  * elemSize,
+            static_cast<size_t>(count) * elemSize);
+    return const_cast<proto::ProtoObject*>(self);
+}
+
+// ---------------------------------------------------------------------------
 // ensureTypedArrayConstructors
 // ---------------------------------------------------------------------------
 
@@ -392,6 +673,25 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
     const proto::ProtoObject* baseProto = (objProto && objProto != PROTO_NONE)
         ? objProto->newChild(ctx, false)
         : ctx->newObject(false);
+    // Register %TypedArray%.prototype methods (batch 1)
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::fill(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_fill));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::indexOf(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_indexOf));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::lastIndexOf(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_lastIndexOf));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::includes(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_includes));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::join(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_join));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::reverse(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_reverse));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::at(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_at));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::subarray(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_subarray));
+    baseProto = baseProto->setAttribute(ctx, JSSymbols::copyWithin(ctx),
+        ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_copyWithin));
     s_taBaseProto = baseProto;
 
     // Register each concrete typed array constructor
