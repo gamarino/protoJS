@@ -683,8 +683,10 @@ static const proto::ProtoObject* ta_every(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     uint8_t et = getTypedArrayElementType(ctx, self);
-    if (et == 0xFF || !args || args->getSize(ctx) == 0) return PROTO_TRUE;
+    if (et == 0xFF) return PROTO_TRUE;
+    if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
     const proto::ProtoObject* fn = args->getAt(ctx, 0);
+    if (!fn || fn == PROTO_NONE) return PROTO_TRUE;  // No callable: vacuously true
     uint32_t len = getTypedArrayLength(ctx, self);
     for (uint32_t i = 0; i < len; i++) {
         const proto::ProtoObject* r = invokeCallback(ctx, fn, typedArrayGetElement(ctx, self, i, et), i, self);
@@ -788,7 +790,7 @@ static const proto::ProtoObject* ta_reduce(
         cargs = cargs->appendLast(ctx, self);
         proto::ProtoMethod m = fn->asMethod(ctx);
         const proto::ProtoObject* r = m ? m(ctx, PROTO_NONE, nullptr, cargs, nullptr) : PROTO_NONE;
-        if (r && r != PROTO_NONE) acc = r;
+        acc = r ? r : PROTO_NONE;
     }
     return acc;
 }
@@ -823,7 +825,7 @@ static const proto::ProtoObject* ta_reduceRight(
         cargs = cargs->appendLast(ctx, self);
         proto::ProtoMethod m = fn->asMethod(ctx);
         const proto::ProtoObject* r = m ? m(ctx, PROTO_NONE, nullptr, cargs, nullptr) : PROTO_NONE;
-        if (r && r != PROTO_NONE) acc = r;
+        acc = r ? r : PROTO_NONE;
     }
     return acc;
 }
@@ -887,7 +889,7 @@ static const proto::ProtoObject* ta_set(
         else if (a1 && a1 != PROTO_NONE && (a1->isDouble(ctx) || a1->isFloat(ctx)))
             offset = static_cast<long long>(a1->asDouble(ctx));
     }
-    if (offset < 0) offset = 0;
+    if (offset < 0) return PROTO_NONE;  // negative offset: RangeError per ES spec
 
     uint32_t selfLen = getTypedArrayLength(ctx, self);
     if (isTypedArray(ctx, src)) {
