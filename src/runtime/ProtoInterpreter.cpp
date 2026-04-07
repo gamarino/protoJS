@@ -10,6 +10,7 @@
 #include "../ObjectPrototype.h"
 #include "../ArrayBufferPrototype.h"
 #include "../TypedArrayPrototype.h"
+#include "../DataViewPrototype.h"
 #include "../JSContext.h"
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
@@ -768,6 +769,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureArrayBufferConstructor(pContext, pGlobalRoot);
     // Register TypedArray constructors (Int8Array … BigUint64Array) (idempotent).
     ensureTypedArrayConstructors(pContext, pGlobalRoot);
+    // Register DataView constructor and DataView.prototype (idempotent).
+    ensureDataViewConstructor(pContext, pGlobalRoot);
     // Register String constructor with static methods (fromCharCode, fromCodePoint).
     ensureStringConstructor(pContext, pGlobalRoot);
     // Register RegExp constructor and its prototype.
@@ -2679,8 +2682,56 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                 }
                                             }
                                             result = createArrayBuffer(pContext, byteLen);
-                                        }
-                                        // DataView constructor will be added in Task 8.
+                                        } else if (ctorNameStr == "DataView") {
+                                            // new DataView(buffer [, byteOffset [, byteLength]])
+                                            if (argc < 1) { result = PROTO_NONE; break; }
+                                            const proto::ProtoObject* abArg = argsList->getAt(pContext, 0);
+                                            if (!isArrayBuffer(pContext, abArg)) { result = PROTO_NONE; break; }
+
+                                            unsigned long abLen = getArrayBufferByteLength(pContext, abArg);
+                                            long long bo = 0;
+                                            long long bl = static_cast<long long>(abLen);
+                                            if (argc > 1) {
+                                                const proto::ProtoObject* a1 = argsList->getAt(pContext, 1);
+                                                if (a1 && a1 != PROTO_NONE) {
+                                                    if (a1->isInteger(pContext)) bo = a1->asLong(pContext);
+                                                    else if (a1->isDouble(pContext) || a1->isFloat(pContext))
+                                                        bo = static_cast<long long>(a1->asDouble(pContext));
+                                                }
+                                            }
+                                            if (argc > 2) {
+                                                const proto::ProtoObject* a2 = argsList->getAt(pContext, 2);
+                                                if (a2 && a2 != PROTO_NONE) {
+                                                    if (a2->isInteger(pContext)) bl = a2->asLong(pContext);
+                                                    else if (a2->isDouble(pContext) || a2->isFloat(pContext))
+                                                        bl = static_cast<long long>(a2->asDouble(pContext));
+                                                } else {
+                                                    bl = static_cast<long long>(abLen) - bo;
+                                                }
+                                            } else {
+                                                bl = static_cast<long long>(abLen) - bo;
+                                            }
+
+                                            // Validate range.
+                                            if (bo < 0 || bo > static_cast<long long>(abLen) ||
+                                                bl < 0 || bo + bl > static_cast<long long>(abLen)) {
+                                                result = PROTO_NONE; break;
+                                            }
+
+                                            // Build DataView instance from prototype chain.
+                                            const proto::ProtoObject* dvCtorObj =
+                                                (*pGlobalRoot)->getAttribute(pContext, JSSymbols::DataView(pContext), true);
+                                            const proto::ProtoObject* dvProtoObj = dvCtorObj && dvCtorObj != PROTO_NONE
+                                                ? dvCtorObj->getAttribute(pContext, JSSymbols::prototype(pContext), false)
+                                                : nullptr;
+                                            const proto::ProtoObject* dv = (dvProtoObj && dvProtoObj != PROTO_NONE)
+                                                ? dvProtoObj->newChild(pContext, true)
+                                                : pContext->newObject(true);
+                                            dv = dv->setAttribute(pContext, JSSymbols::dvBuffer(pContext), abArg);
+                                            dv = dv->setAttribute(pContext, JSSymbols::dvByteOffset(pContext), pContext->fromInteger(bo));
+                                            dv = dv->setAttribute(pContext, JSSymbols::dvByteLength(pContext), pContext->fromInteger(bl));
+                                            result = dv;
+                                        } // end DataView branch
                                     } else if (taCtorTag->isInteger(pContext)) {
                                         // TypedArray constructor: elemType is the integer tag.
                                         uint8_t elemType = static_cast<uint8_t>(taCtorTag->asLong(pContext));
