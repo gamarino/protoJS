@@ -169,8 +169,24 @@ const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
             std::memcpy(bytes, &v, 1);
             break;
         }
-        case 2: { // Uint8Clamped
-            uint8_t v = (iv < 0) ? 0 : (iv > 255 ? 255 : static_cast<uint8_t>(iv));
+        case 2: { // Uint8Clamped — ECMAScript §23.2.1.1.1: clamp then round-half-to-even
+            uint8_t v;
+            if (std::isnan(dv) || dv <= 0.0) {
+                v = 0;
+            } else if (dv >= 255.0) {
+                v = 255;
+            } else {
+                // Round half to even (banker's rounding) per ES spec
+                double f = std::floor(dv);
+                double rounded;
+                if (dv - f == 0.5) {
+                    // Exactly half-way: choose the even neighbor
+                    rounded = (std::fmod(f, 2.0) == 0.0) ? f : f + 1.0;
+                } else {
+                    rounded = std::round(dv);
+                }
+                v = static_cast<uint8_t>(rounded);
+            }
             std::memcpy(bytes, &v, 1);
             break;
         }

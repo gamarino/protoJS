@@ -1655,9 +1655,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (key && obj) {
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
-                    std::cerr << "[Interpreter] OP_put_field: obj=" << obj 
-                              << " (isCell=" << obj->isCell(pContext) << ")"
-                              << " key=" << atomIndex << " newObj=" << newObj << std::endl;
                     if (newObj != obj) {
                         updateMapping(pContext, obj, newObj);
                     }
