@@ -662,6 +662,7 @@ static const proto::ProtoObject* invokeCallback(
 static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* r) {
     if (!r || r == PROTO_NONE || r == PROTO_FALSE) return false;
     if (r->isInteger(ctx) && r->asLong(ctx) == 0) return false;
+    if ((r->isDouble(ctx) || r->isFloat(ctx)) && r->asDouble(ctx) == 0.0) return false;
     return true;
 }
 
@@ -780,8 +781,8 @@ static const proto::ProtoObject* ta_reduce(
         acc = typedArrayGetElement(ctx, self, 0, et);
         start = 1;
     }
+    if (!fn || !fn->isMethod(ctx)) return acc;
     for (uint32_t i = start; i < len; i++) {
-        if (!fn->isMethod(ctx)) continue;
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, i, et);
         const proto::ProtoList* cargs = ctx->newList();
         cargs = cargs->appendLast(ctx, acc);
@@ -815,8 +816,8 @@ static const proto::ProtoObject* ta_reduceRight(
         acc = typedArrayGetElement(ctx, self, len - 1, et);
         start = static_cast<long long>(len) - 2;
     }
+    if (!fn || !fn->isMethod(ctx)) return acc;
     for (long long i = start; i >= 0; i--) {
-        if (!fn->isMethod(ctx)) continue;
         const proto::ProtoObject* elem = typedArrayGetElement(ctx, self, static_cast<uint32_t>(i), et);
         const proto::ProtoList* cargs = ctx->newList();
         cargs = cargs->appendLast(ctx, acc);
@@ -861,7 +862,8 @@ static const proto::ProtoObject* ta_sort(
         const proto::ProtoObject* v;
         if (std::isnan(vals[i])) {
             v = ctx->fromDouble(vals[i]);
-        } else if (et <= 8 && vals[i] == std::floor(vals[i]) &&
+        } else if (et != 7 && et != 8 &&
+                   vals[i] == std::floor(vals[i]) &&
                    vals[i] >= static_cast<double>(LLONG_MIN) &&
                    vals[i] <= static_cast<double>(LLONG_MAX)) {
             v = ctx->fromInteger(static_cast<long long>(vals[i]));
