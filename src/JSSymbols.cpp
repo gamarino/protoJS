@@ -95,6 +95,7 @@ DEFINE_SYMBOL(iterRe,           "__iter_re__")
 DEFINE_SYMBOL(iterStr,          "__iter_str__")
 DEFINE_SYMBOL(isArray,          "__is_array__")
 DEFINE_SYMBOL(stringCtor,       "__string_ctor__")
+DEFINE_SYMBOL(primitiveValue,   "__primitive_value__")
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 DEFINE_SYMBOL(abData,        "__ab_data__")
@@ -282,6 +283,7 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(iterStr,       "__iter_str__")
         REGISTER(isArray,       "__is_array__")
         REGISTER(stringCtor,    "__string_ctor__")
+        REGISTER(primitiveValue,"__primitive_value__")
         REGISTER(abData,        "__ab_data__")
         REGISTER(abDetached,    "__ab_detached__")
         REGISTER(taBuffer,      "__ta_buffer__")

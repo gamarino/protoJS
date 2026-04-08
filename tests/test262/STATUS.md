@@ -55,7 +55,9 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | Slot-collision regression (20:40 UTC 04-07) | 11036 | 6869 (62.2%) | 162 | 3845 | 160 | Phase 8 intermediate build; slot bug exposed |
 | Slot fix only (22:57 UTC 04-07) | 11036 | 8330 (75.5%) | 161 | 2434 | 111 | Slot separation fixed |
 | Honest baseline (00:06 UTC 04-08) | 11036 | 8811 (79.8%) | 176 | 1938 | 111 | Three interpreter bugs fixed (see commits) |
-| **ReferenceError conformance (02:47 UTC 04-08)** | 11036 | **8928 (80.9%)** | — | — | — | +117 genuine improvements, 0 regressions |
+| ReferenceError conformance (02:47 UTC 04-08) | 11036 | 8928 (80.9%) | — | — | — | +117 genuine improvements, 0 regressions |
+| ToPrimitive / String wrapper (09:33 UTC 04-08) | 11036 | 9001 (81.6%) | 176 | 1747 | 112 | toPrimIfObject + callMethod via asMethod |
+| **ToPrimitive fix + callMethod correction (10:00 UTC 04-08)** | 11036 | **9071 (82.2%)** | 176 | 1677 | 112 | +70 vs prior run, 0 regressions; asMethod() call fix |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -64,6 +66,11 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *Phantom try-catch handler* — `OP_drop` after a try block didn't pop the catch frame, causing later throws to dispatch to the stale handler; fixed by tracking `placeholder_stack_pos` in `CatchFrame`.  
 > 3. *Cross-scope function calls* (`OP_call`, `OP_call_method`, `OP_call_constructor`) — bytecode IDs index the root (global eval) module's `nestedFunctions`, but calls from within nested functions used the current module's empty list; fixed with `t_rootModule` thread-local.  
 > Also: `OP_tail_call` (0x23) was entirely unhandled; added with proper return-instead-of-push semantics.
+>
+> **ToPrimitive / String wrapper fixes:**
+> 1. *callMethod via asMethod()* — `fn->call(ctx, nullptr, keyHint, self, args)` is a message-send (looks up `keyHint` on `fn`), not a direct native invocation. For ToPrimitive, native valueOf/toString must be called via `fn->asMethod(pContext)(ctx, self, nullptr, args, nullptr)` which invokes the function pointer directly.
+> 2. *new String() wrapper* — `new String('x')` now stores the primitive string as `__primitive_value__` on the wrapper object, so `toPrimIfObject(new String('x'))` returns `'x'` without invoking (broken) prototype chain methods.
+> 3. *toPrimIfObject for plain objects* — `{} + {}` now correctly returns `"[object Object][object Object]"` via Object.prototype.toString invoked via asMethod.
 >
 > **ReferenceError conformance fixes (commit 9d33fe8):**  
 > 1. *`Object instanceof Object` fix* — `Object.prototype` was a child of `objectPrototype` instead of `objectPrototype` itself; `instanceof` now finds it in the prototype chain of object literals.  
