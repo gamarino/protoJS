@@ -47,16 +47,22 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-07`  
-**Snapshot (clean baseline):** `tests/test262/reports/snapshot-language-expressions-1775593126717.json`  
-**Snapshot (slot-collision fix):** `tests/test262/reports/snapshot-language-expressions-1775602672063.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775606787183.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
-| Baseline (20:18 UTC) | 11036 | **10221 (92.6%)** | 161 | 560 | 94 | Pre-regression reference |
-| Regressed (20:40 UTC) | 11036 | 6869 (62.2%) | 162 | 3845 | 160 | Slot collision bug introduced during Phase 8 |
-| Fixed (22:57 UTC) | 11036 | **8330 (75.5%)** | 161 | 2434 | 111 | `OP_put_var_ref` slot separation fix applied |
+| Pre-regression baseline (20:18 UTC) | 11036 | 10221 (92.6%) | 161 | 560 | 94 | Largely false positives (see note below) |
+| Slot-collision regression (20:40 UTC) | 11036 | 6869 (62.2%) | 162 | 3845 | 160 | Phase 8 intermediate build; slot bug exposed |
+| Slot fix only (22:57 UTC) | 11036 | 8330 (75.5%) | 161 | 2434 | 111 | Slot separation fixed |
+| **Full fix (21:06 UTC next day)** | 11036 | **8811 (79.8%)** | 176 | 1938 | 111 | Three interpreter bugs fixed (see commits) |
 
-> **Slot collision bug**: QuickJS global eval mode injects a hidden `_ret_` variable at local var slot 0. Hoisted function declarations use `OP_put_var_ref(0)` (closure var index 0). Both mapped to `slot[argCount + 0]`, causing a collision. Fix: closure var opcodes now use `slot[argCount + varCount + refIndex]`, separating them from local vars. Recovers 1,461 tests (62.2% → 75.5%). Remaining gap vs. baseline: ~530 tests are newly failing due to a pre-existing protoCore try-catch bug now exposed (they were false-positive passes before); ~1,345 are pre-existing semantic/syntax failures unrelated to this fix.
+> **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
+>
+> **Three bugs fixed in commits 362d71c / 27ef4e7:**  
+> 1. *Slot collision* (`OP_put_var_ref`) — `_ret_` and hoisted function declarations shared `slot[argCount+0]`; fixed with `slot[argCount+varCount+refIndex]`.  
+> 2. *Phantom try-catch handler* — `OP_drop` after a try block didn't pop the catch frame, causing later throws to dispatch to the stale handler; fixed by tracking `placeholder_stack_pos` in `CatchFrame`.  
+> 3. *Cross-scope function calls* (`OP_call`, `OP_call_method`, `OP_call_constructor`) — bytecode IDs index the root (global eval) module's `nestedFunctions`, but calls from within nested functions used the current module's empty list; fixed with `t_rootModule` thread-local.  
+> Also: `OP_tail_call` (0x23) was entirely unhandled; added with proper return-instead-of-push semantics.
 
 ---
 
