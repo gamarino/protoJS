@@ -46,15 +46,16 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### language/expressions
 
-**Date:** `2026-04-07`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775606787183.json`
+**Date:** `2026-04-08`  
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775616853363.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
-| Pre-regression baseline (20:18 UTC) | 11036 | 10221 (92.6%) | 161 | 560 | 94 | Largely false positives (see note below) |
-| Slot-collision regression (20:40 UTC) | 11036 | 6869 (62.2%) | 162 | 3845 | 160 | Phase 8 intermediate build; slot bug exposed |
-| Slot fix only (22:57 UTC) | 11036 | 8330 (75.5%) | 161 | 2434 | 111 | Slot separation fixed |
-| **Full fix (21:06 UTC next day)** | 11036 | **8811 (79.8%)** | 176 | 1938 | 111 | Three interpreter bugs fixed (see commits) |
+| Pre-regression baseline (20:18 UTC 04-07) | 11036 | 10221 (92.6%) | 161 | 560 | 94 | Largely false positives (see note below) |
+| Slot-collision regression (20:40 UTC 04-07) | 11036 | 6869 (62.2%) | 162 | 3845 | 160 | Phase 8 intermediate build; slot bug exposed |
+| Slot fix only (22:57 UTC 04-07) | 11036 | 8330 (75.5%) | 161 | 2434 | 111 | Slot separation fixed |
+| Honest baseline (00:06 UTC 04-08) | 11036 | 8811 (79.8%) | 176 | 1938 | 111 | Three interpreter bugs fixed (see commits) |
+| **ReferenceError conformance (02:47 UTC 04-08)** | 11036 | **8928 (80.9%)** | — | — | — | +117 genuine improvements, 0 regressions |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -63,6 +64,12 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *Phantom try-catch handler* — `OP_drop` after a try block didn't pop the catch frame, causing later throws to dispatch to the stale handler; fixed by tracking `placeholder_stack_pos` in `CatchFrame`.  
 > 3. *Cross-scope function calls* (`OP_call`, `OP_call_method`, `OP_call_constructor`) — bytecode IDs index the root (global eval) module's `nestedFunctions`, but calls from within nested functions used the current module's empty list; fixed with `t_rootModule` thread-local.  
 > Also: `OP_tail_call` (0x23) was entirely unhandled; added with proper return-instead-of-push semantics.
+>
+> **ReferenceError conformance fixes (commit 9d33fe8):**  
+> 1. *`Object instanceof Object` fix* — `Object.prototype` was a child of `objectPrototype` instead of `objectPrototype` itself; `instanceof` now finds it in the prototype chain of object literals.  
+> 2. *OP_get_var ReferenceError* — accessing a truly undeclared global variable now throws `ReferenceError: x is not defined` per spec; uses `JS_CLOSURE_GLOBAL_DECL` (closure_type=4) to distinguish declared vars (hoisted to undefined) from undeclared references (throw on missing).  
+> 3. *Missing globals stubs* — `Function`, `Boolean`, `Promise`, `Date`, `Map`, `Set`, `BigInt`, `AggregateError`, `JSON`, and test262 harness globals (`$DONE`, `$262`, `print`) registered as PROTO_NONE to prevent false ReferenceErrors for unimplemented built-ins.  
+> 4. *Async test runner* — `doneprintHandle.js` now included for `flags: [async]` tests, preventing ReferenceError for `$DONE` in async test harness.
 
 ---
 
