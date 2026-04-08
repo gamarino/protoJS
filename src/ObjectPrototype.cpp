@@ -375,13 +375,12 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyObject, false);
     if (existing && existing != PROTO_NONE) return;
 
-    // Build Object.prototype: use space->objectPrototype as the base (methods already
-    // installed there by BootstrapJSPrototypes via installObjectInstanceMethods), then
-    // create a child to represent the JS-level Object.prototype object.
+    // Use objectPrototype directly as Object.prototype. Object literals (OP_object
+    // in ProtoInterpreter.cpp) are created as children of objectPrototype, so
+    // isInstanceOf correctly finds Object.prototype in their prototype chain.
+    // Previously a new child was created here, which broke '{} instanceof Object'.
     const proto::ProtoObject* objProto = ctx->space ? ctx->space->objectPrototype : nullptr;
-    const proto::ProtoObject* proto = objProto
-        ? objProto->newChild(ctx, false)
-        : ctx->newObject(false);
+    const proto::ProtoObject* proto = objProto ? objProto : ctx->newObject(false);
     if (!proto) proto = ctx->newObject(false);
 
     // Methods are already inherited from space->objectPrototype via getAttribute(key, true).

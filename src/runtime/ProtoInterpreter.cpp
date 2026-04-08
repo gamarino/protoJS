@@ -804,6 +804,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         ensureGlobalConst("NaN",
             pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()));
         ensureGlobalConst("undefined", PROTO_NONE);
+        // Register standard globals that are not yet fully implemented as PROTO_NONE
+        // so that OP_get_var does not throw ReferenceError for valid but unimplemented names.
+        // (eval is accessed via OP_get_var before OP_eval in QuickJS bytecode.)
+        static const char* kUnimplementedGlobals[] = {
+            "eval", "Symbol", "Proxy", "Reflect", "Atomics",
+            "SharedArrayBuffer", "WeakRef", "WeakMap", "WeakSet",
+            "FinalizationRegistry", "Iterator", "Generator", "GeneratorFunction",
+            "AsyncFunction", "AsyncGenerator", "AsyncGeneratorFunction",
+            "globalThis", "arguments",
+            nullptr
+        };
+        for (int gi = 0; kUnimplementedGlobals[gi]; ++gi)
+            ensureGlobalConst(kUnimplementedGlobals[gi], PROTO_NONE);
     }
 
     // Register Number constructor, Math object, Object constructor, and global utility
@@ -1315,6 +1328,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                  * local-var region, so that the _ret_ eval variable never collides. */
                 if (!rawVal && (!val || val == PROTO_NONE)) {
                     val = getSlot(pContext, argCount + varCount + idx);
+                }
+                // For OP_get_var (not OP_get_var_undef): if the variable is completely absent
+                // (rawVal==nullptr means not in global, slot also empty), throw ReferenceError.
+                // OP_get_var_undef is the safe variant used by typeof and optional chaining.
+                if (opcode == OP_get_var && !rawVal && (!val || val == PROTO_NONE)) {
+                    std::string msg;
+                    if (static_cast<size_t>(idx) < module->closureVarNames.size() &&
+                        !module->closureVarNames[idx].empty()) {
+                        msg = module->closureVarNames[idx] + " is not defined";
+                    } else {
+                        msg = "is not defined";
+                    }
+                    pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
@@ -2621,13 +2649,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
-                    const proto::ProtoList* argsList = pContext->newList();
-                    for (uint32_t i = 0; i < argc; i++)
-                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    // func is not a recognized callable.
+                    // If func is undefined/null (PROTO_NONE), throw TypeError per spec 11.2.3.
+                    // For unrecognized non-null objects (e.g. Number, Boolean — not yet bridged),
+                    // silently return PROTO_NONE to avoid regressions until those are implemented.
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                    if (opcode != OP_tail_call_method)
+                    if (!func || func == PROTO_NONE) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "undefined is not a function", pGlobalRoot);
+                        has_pending_exception = true;
+                    } else if (opcode != OP_tail_call_method) {
                         stackPush(pContext, PROTO_NONE);
+                    }
                 }
                 break;
             }
@@ -3054,13 +3087,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                   if (is_tail_call) return _r ? _r : PROTO_NONE;
                                   stackPush(pContext, _r); }
                             } else {
-                                const proto::ProtoList* argsList = pContext->newList();
-                                for (uint32_t i = 0; i < argc; i++)
-                                    argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                                // func is not a recognized callable.
+                                // Throw TypeError only if func is undefined/null (PROTO_NONE).
+                                // Unrecognized non-null objects (e.g. Number, Boolean) silently
+                                // return PROTO_NONE until those constructors are fully bridged.
                                 for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                                /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                                if (is_tail_call) return PROTO_NONE;
-                                stackPush(pContext, PROTO_NONE);
+                                if (!func || func == PROTO_NONE) {
+                                    pending_exception = makeError(pContext, "TypeError",
+                                        "undefined is not a function", pGlobalRoot);
+                                    has_pending_exception = true;
+                                } else {
+                                    if (is_tail_call) return PROTO_NONE;
+                                    stackPush(pContext, PROTO_NONE);
+                                }
                             }
                         }
                     }
