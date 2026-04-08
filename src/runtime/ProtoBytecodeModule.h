@@ -38,6 +38,9 @@ struct ProtoBytecodeModule {
     std::vector<std::string> closureVarNames;
     /** Whether each closure var is lexical (const/let = true, var = false). */
     std::vector<bool> closureVarIsLexical;
+    /** Whether each closure var is a declared global (var x; hoistable to undefined).
+     *  True when closure_type == JS_CLOSURE_GLOBAL_DECL (4). */
+    std::vector<bool> closureVarIsDeclared;
     /** True when the function was compiled with "use strict" (JS_MODE_STRICT). */
     bool isStrict{false};
 

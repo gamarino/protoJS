@@ -44,6 +44,12 @@ const char* protojs_bytecode_closure_var_name(struct JSContext* ctx, void* bytec
 /** Return 1 if closure var at idx is lexical (const/let), 0 otherwise. */
 int protojs_bytecode_closure_var_is_lexical(void* bytecode, uint16_t idx);
 
+/** Return the JSClosureTypeEnum value for closure var at idx.
+ *  JS_CLOSURE_GLOBAL_DECL (4) = var-declared global (hoist to undefined).
+ *  JS_CLOSURE_GLOBAL (5)      = undeclared global reference (throw on missing).
+ *  Returns -1 on out-of-bounds. */
+int protojs_bytecode_closure_var_type(void* bytecode, uint16_t idx);
+
 /** Return 1 if the function was compiled in strict mode, 0 otherwise. */
 int protojs_bytecode_is_strict(void* bytecode);
 

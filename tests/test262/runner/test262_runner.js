@@ -217,6 +217,12 @@ function buildTestFile(cfg, test) {
         parts.push(fs.readFileSync(p, "utf8"));
       }
     }
+    // Async tests require $DONE to be defined (doneprintHandle.js).
+    // Include it automatically when the test has the 'async' flag.
+    if (meta.flags && (meta.flags.async || meta.flags["async"])) {
+      const doneHandle = path.join(cfg.harnessDir, "doneprintHandle.js");
+      if (fs.existsSync(doneHandle)) parts.push(fs.readFileSync(doneHandle, "utf8"));
+    }
     // Honor Test262 flags (partial support: onlyStrict).
     if (meta.flags && (meta.flags.onlyStrict || meta.flags["onlyStrict"])) {
       parts.push('"use strict";');

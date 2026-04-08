@@ -107,11 +107,16 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->closureVarNames.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIsLexical.clear();
     out->closureVarIsLexical.reserve(static_cast<size_t>(closureVarCount));
+    out->closureVarIsDeclared.clear();
+    out->closureVarIsDeclared.reserve(static_cast<size_t>(closureVarCount));
     for (int i = 0; i < closureVarCount; i++) {
         const char* name = protojs_bytecode_closure_var_name(ctx, quickjsBytecode, static_cast<uint16_t>(i));
         out->closureVarNames.push_back(name ? name : "");
         out->closureVarIsLexical.push_back(
             protojs_bytecode_closure_var_is_lexical(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
+        // JS_CLOSURE_GLOBAL_DECL = 4: var-declared global; must be hoisted to undefined.
+        int ctype = protojs_bytecode_closure_var_type(quickjsBytecode, static_cast<uint16_t>(i));
+        out->closureVarIsDeclared.push_back(ctype == 4 /* JS_CLOSURE_GLOBAL_DECL */);
         if (name) JS_FreeCString(ctx, name);
     }
 

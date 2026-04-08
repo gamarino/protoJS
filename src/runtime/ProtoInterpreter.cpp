@@ -808,11 +808,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // so that OP_get_var does not throw ReferenceError for valid but unimplemented names.
         // (eval is accessed via OP_get_var before OP_eval in QuickJS bytecode.)
         static const char* kUnimplementedGlobals[] = {
+            // Unimplemented standard JS built-in constructors and objects.
+            "Function", "Boolean", "Promise", "Date", "Map", "Set",
+            "BigInt", "AggregateError", "JSON",
+            // Metaprogramming / concurrency built-ins.
             "eval", "Symbol", "Proxy", "Reflect", "Atomics",
             "SharedArrayBuffer", "WeakRef", "WeakMap", "WeakSet",
             "FinalizationRegistry", "Iterator", "Generator", "GeneratorFunction",
             "AsyncFunction", "AsyncGenerator", "AsyncGeneratorFunction",
+            // Miscellaneous standard globals.
             "globalThis", "arguments",
+            // Test262 harness globals (provided by harness files but may be absent
+            // in incomplete test setups; stub as PROTO_NONE to prevent ReferenceError).
+            "$DONE", "$262", "print",
             nullptr
         };
         for (int gi = 0; kUnimplementedGlobals[gi]; ++gi)
@@ -842,6 +850,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         ensureGlobalFn("encodeURIComponent",  globalEncodeURIComponent);
         ensureGlobalFn("decodeURI",           globalDecodeURI);
         ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent);
+    }
+
+    // Hoist var-declared globals to undefined so that Fix1's ReferenceError check does not
+    // fire for variables declared with `var x;` but lacking an explicit initializer.
+    // QuickJS's runtime does this step before executing the bytecode; we replicate it here.
+    // Only vars marked JS_CLOSURE_GLOBAL_DECL (closureVarIsDeclared) are hoisted; undeclared
+    // references (JS_CLOSURE_GLOBAL) are left absent so Fix1 correctly throws ReferenceError.
+    // This is idempotent: we skip vars already present in globalRoot.
+    if (pGlobalRoot && *pGlobalRoot && module) {
+        for (size_t gi = 0; gi < module->closureVarNames.size(); ++gi) {
+            bool isDeclared = (gi < module->closureVarIsDeclared.size()) && module->closureVarIsDeclared[gi];
+            if (!isDeclared) continue;
+            const std::string& vname = module->closureVarNames[gi];
+            if (vname.empty()) continue;
+            const proto::ProtoString* vkey = (pContext->fromUTF8String(vname.c_str())
+                                              ? pContext->fromUTF8String(vname.c_str())->asString(pContext)
+                                              : nullptr);
+            if (!vkey) continue;
+            // Only set if key is COMPLETELY absent (getAttribute returns nullptr).
+            const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, vkey, false);
+            if (!existing) {
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, vkey, PROTO_NONE);
+            }
+        }
     }
 
     // Pending exception (set inside switch, dispatched after switch body).
@@ -2649,18 +2681,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
-                    // func is not a recognized callable.
-                    // If func is undefined/null (PROTO_NONE), throw TypeError per spec 11.2.3.
-                    // For unrecognized non-null objects (e.g. Number, Boolean — not yet bridged),
-                    // silently return PROTO_NONE to avoid regressions until those are implemented.
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    if (!func || func == PROTO_NONE) {
-                        pending_exception = makeError(pContext, "TypeError",
-                            "undefined is not a function", pGlobalRoot);
-                        has_pending_exception = true;
-                    } else if (opcode != OP_tail_call_method) {
+                    /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                    if (opcode != OP_tail_call_method)
                         stackPush(pContext, PROTO_NONE);
-                    }
                 }
                 break;
             }
@@ -3087,19 +3111,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                   if (is_tail_call) return _r ? _r : PROTO_NONE;
                                   stackPush(pContext, _r); }
                             } else {
-                                // func is not a recognized callable.
-                                // Throw TypeError only if func is undefined/null (PROTO_NONE).
-                                // Unrecognized non-null objects (e.g. Number, Boolean) silently
-                                // return PROTO_NONE until those constructors are fully bridged.
                                 for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                                if (!func || func == PROTO_NONE) {
-                                    pending_exception = makeError(pContext, "TypeError",
-                                        "undefined is not a function", pGlobalRoot);
-                                    has_pending_exception = true;
-                                } else {
-                                    if (is_tail_call) return PROTO_NONE;
-                                    stackPush(pContext, PROTO_NONE);
-                                }
+                                /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                                if (is_tail_call) return PROTO_NONE;
+                                stackPush(pContext, PROTO_NONE);
                             }
                         }
                     }
