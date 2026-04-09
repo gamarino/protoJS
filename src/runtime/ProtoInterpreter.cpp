@@ -3017,7 +3017,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // Due to protoCore's immutable-update semantics, the __arrow_this__ pointer
                     // captured at OP_fclosure time may be a stale pre-mutation snapshot, so for
                     // OP_call_method we trust the call-site receiver when the function is an arrow.
-                    const proto::ProtoObject* effectiveThis2 = thisVal;
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
@@ -3026,7 +3025,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, effectiveThis2, argsList, pGlobalRoot, &childEx);
+                        runBytecode(&childCtx, &nf, thisVal, argsList, pGlobalRoot, &childEx);
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
@@ -3540,7 +3539,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (nameVal)
                                 fnInst = fnInst->setAttribute(pContext, JSSymbols::name(pContext), nameVal);
                         }
-                        // Capture lexical this for arrow functions.
                         // Capture lexical this for arrow functions.
                         if (nested[static_cast<size_t>(fnBcId8)].isArrow) {
                             fnInst = fnInst->setAttribute(pContext, JSSymbols::arrowThis(pContext),
