@@ -96,6 +96,7 @@ const proto::ProtoString* iterStr(proto::ProtoContext* ctx);        // "__iter_s
 const proto::ProtoString* isArray(proto::ProtoContext* ctx);        // "__is_array__"
 const proto::ProtoString* stringCtor(proto::ProtoContext* ctx);     // "__string_ctor__"
 const proto::ProtoString* primitiveValue(proto::ProtoContext* ctx); // "__primitive_value__"
+const proto::ProtoString* arrowThis(proto::ProtoContext* ctx);      // "__arrow_this__"
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"

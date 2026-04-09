@@ -96,6 +96,7 @@ DEFINE_SYMBOL(iterStr,          "__iter_str__")
 DEFINE_SYMBOL(isArray,          "__is_array__")
 DEFINE_SYMBOL(stringCtor,       "__string_ctor__")
 DEFINE_SYMBOL(primitiveValue,   "__primitive_value__")
+DEFINE_SYMBOL(arrowThis,        "__arrow_this__")
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 DEFINE_SYMBOL(abData,        "__ab_data__")
