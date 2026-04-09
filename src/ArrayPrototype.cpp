@@ -106,7 +106,8 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
 // ---------------------------------------------------------------------------
 static std::string elemToString(proto::ProtoContext* ctx,
                                  const proto::ProtoObject* val) {
-    if (!val || val == PROTO_NONE) return "";
+    // Per spec: null and undefined elements in join produce empty string.
+    if (!val || val == PROTO_NONE || val == protojs::getNullSentinel()) return "";
     if (val->isString(ctx)) {
         const proto::ProtoString* s = val->asString(ctx);
         if (s) {
@@ -237,7 +238,9 @@ static const proto::ProtoObject* arrayJoin(
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* sepObj = args->getAt(ctx, 0);
         if (!sepObj || sepObj == PROTO_NONE) {
-            sep = ",";
+            sep = ",";  // undefined separator → default ","
+        } else if (sepObj == protojs::getNullSentinel()) {
+            sep = "null";  // null separator → "null" (ToString(null))
         } else {
             sep = elemToString(ctx, sepObj);
         }
