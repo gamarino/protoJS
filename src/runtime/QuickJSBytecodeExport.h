@@ -53,6 +53,10 @@ int protojs_bytecode_closure_var_type(void* bytecode, uint16_t idx);
 /** Return 1 if the function was compiled in strict mode, 0 otherwise. */
 int protojs_bytecode_is_strict(void* bytecode);
 
+/** Return the function's declared name as a C string, or NULL if anonymous.
+ *  Caller must JS_FreeCString(ctx, result) when done. */
+const char* protojs_bytecode_func_name(struct JSContext* ctx, void* bytecode);
+
 #ifdef __cplusplus
 }
 #endif

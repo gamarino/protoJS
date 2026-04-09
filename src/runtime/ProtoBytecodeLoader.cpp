@@ -101,6 +101,9 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->varCount_ = protojs_bytecode_var_count(quickjsBytecode);
     out->stackSize_ = protojs_bytecode_stack_size(quickjsBytecode);
     out->isStrict = protojs_bytecode_is_strict(quickjsBytecode) != 0;
+    const char* funcNameCstr = protojs_bytecode_func_name(ctx, quickjsBytecode);
+    out->funcName = funcNameCstr ? funcNameCstr : "";
+    if (funcNameCstr) JS_FreeCString(ctx, funcNameCstr);
 
     const int closureVarCount = protojs_bytecode_closure_var_count(quickjsBytecode);
     out->closureVarNames.clear();
