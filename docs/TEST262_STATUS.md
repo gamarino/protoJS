@@ -18,7 +18,46 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 9 Snapshot — 2026-04-09  ✅ CURRENT
+## Phase 10 Snapshot — 2026-04-09  ✅ CURRENT
+
+> **Phase 10 target:** ES6 generator protocol (`function*`, `yield`, `yield*`) + `Object.defineProperty` writable enforcement.
+> Snapshot file: `tests/test262/reports/snapshot-language-expressions-1775750951135.json`
+> Runner command: `PROTOJS=.worktrees/feat-generators/build/protojs TEST262_PATTERNS="language/expressions"`
+
+### Results
+
+| Area | Total | Passed | Pass % | Prior | Delta |
+|------|------:|-------:|-------:|------:|-------|
+| `language/expressions` | 11,036 | 9,219 | **83.5%** | 82.3% | **+141 passes** |
+
+### Key implementations delivered
+
+| Feature | Opcodes / APIs | Tests recovered |
+|---------|---------------|----------------|
+| Generator iterator creation | `OP_initial_yield` (0x85) | ~100 |
+| Generator suspend / resume | `OP_yield` (0x86) + `resumeGenerator` | ~30 |
+| Generator delegation | `OP_yield_star` (0x87) | ~11 |
+| `Object.defineProperty` | `objectDefineProperty`, sidecar `__pd_<prop>__` flags | ~0 direct (infrastructure for next phases) |
+| Writable enforcement | `OP_put_field` descriptor check | ~0 direct |
+
+### Notes on test recovery
+
+The +141 new passes is lower than the projected +480–500. Analysis:
+- Many generator test262 tests exercise edge cases not yet handled (`.return()`, `.throw()`, complex protocol interactions, async generators).
+- The `assignment` / `compound-assignment` failures caused by `writable: false` enforcement require that `Object.defineProperty` was called before the assignment — many tests use `Object.freeze` or `configurable: false` logic beyond basic writable checks.
+- The infrastructure (GeneratorFrame.h, resumeGenerator, descriptor sidecar) is in place for continued improvement.
+
+### Remaining failures (1,817 total)
+
+| Category | Count | Description |
+|----------|------:|-------------|
+| Failed semantics | 1,529 | Generators complex cases (~421), async/await (~224), eval (~183), other semantic (~701) |
+| Failed syntax | 176 | Parser rejects valid constructs |
+| Timeouts | 112 | Mostly async infinite loops |
+
+---
+
+## Phase 9 Snapshot — 2026-04-09  (superseded by Phase 10)
 
 > **Phase 9 target:** `null` vs `undefined` distinction in `language/expressions`.
 > Snapshot file: `tests/test262/reports/snapshot-language-expressions-1775710546713.json`
@@ -218,6 +257,18 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 - Fixed by `hasOwnProperty`/`OP_object` prototype chain fix. `Object/defineProperty` re-run: 1,037/1,131 = 91.7%.
 
 #### 3. ~~**`null` vs `undefined` distinction**~~ — RESOLVED (2026-04-09)
+
+#### 4. ~~**Generator protocol (`function*`, `yield`, `yield*`)**~~ — RESOLVED (2026-04-09)
+- Implemented `OP_initial_yield`, `OP_yield`, `OP_yield_star`, `resumeGenerator`, and `.next/.return/.throw` ProtoMethod callbacks.
+- Result: `language/expressions` **83.5%** (9,219/11,036) — +141 passes vs 82.3% baseline.
+- **Spec:** `docs/superpowers/specs/2026-04-09-generators-property-descriptors-design.md`
+
+#### 5. ~~**`Object.defineProperty` + writable enforcement**~~ — RESOLVED (2026-04-09)
+- `Object.defineProperty` stores value and flags as sidecar `__pd_<propName>__` integer.
+- `OP_put_field` checks bit0 (writable) in strict mode → TypeError; in non-strict → silent ignore.
+- Infrastructure in place; test recovery continues as more tests exercise the full descriptor protocol.
+
+#### (Previously #4) `eval` not available in protoCore no-fallback mode
 - Introduced `t_nullSentinel` GC-safe thread-local; updated TypeBridge, 8 opcode sites, console, and ArrayPrototype.
 - Result: `language/expressions` **82.3%** (9,078/11,036) — +150 passes vs 80.9% baseline.
 - **Spec:** `docs/superpowers/specs/2026-04-09-null-undefined-distinction-design.md`
@@ -276,3 +327,4 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 | 2026-04-07 | `language/expressions` honest baseline: **79.8%** (8,811/11,036) | After correctness fixes exposed false positives (cross-scope calls, tail calls, phantom catch frames). Previous 92.6% had ~14% vacuous passes. |
 | 2026-04-07–08 | `language/expressions` post-fix: **80.9%** (~8,928/11,036) | +117 passes from: ReferenceError for undeclared `OP_get_var`, `instanceof Object` chain fix, ToPrimitive via `asMethod()`, String wrapper primitive value. |
 | 2026-04-09 | `language/expressions` null/undefined distinction: **82.3%** (9,078/11,036) | +150 passes vs 80.9%. Fixes: `typeof null`, `null===null`, `null!==undefined`, `null==undefined`, `??`, `?.`, Array join null, console.log null. Snapshot: `snapshot-language-expressions-1775710546713.json`. |
+| 2026-04-09 | `language/expressions` Phase 10 generators + property descriptors: **83.5%** (9,219/11,036) | +141 passes vs 82.3%. Generators: `OP_initial_yield`, `OP_yield`, `OP_yield_star`, `resumeGenerator`. Property descriptors: `Object.defineProperty` sidecar, `OP_put_field` writable check. Snapshot: `snapshot-language-expressions-1775750951135.json`. |
