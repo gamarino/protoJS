@@ -3733,6 +3733,72 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
 
+            // OP_initial_yield: DEF(initial_yield, 1, 0, 0, none)
+            // First opcode in every generator function body.
+            // Creates the generator iterator object, saves all current state
+            // as attributes on it, and returns it immediately (generator body
+            // hasn't started yet — it resumes when .next() is called).
+            case OP_initial_yield: {
+                // Build the iterator object.
+                const proto::ProtoObject* iterObj = pContext->newObject(true);
+                if (!iterObj) return PROTO_NONE;
+
+                // Helper lambdas: set attributes on iterObj.
+                auto setA = [&](const char* name, const proto::ProtoObject* val) {
+                    iterObj = genSetObj(pContext, iterObj, name, val);
+                };
+                auto setI = [&](const char* name, long long val) {
+                    iterObj = genSetInt(pContext, iterObj, name, val);
+                };
+
+                // pc already points past OP_initial_yield (incremented in the switch).
+                setI(kGenPc, (long long)pc);
+
+                // Save thisObj.
+                setA(kGenThis, thisObj ? thisObj : PROTO_NONE);
+
+                // Save module pointer as integer (raw pointer; module lifetime >= program).
+                setI(kGenMod, (long long)(uintptr_t)mod);
+
+                // Save closureLocals snapshot (GC-safe: stored as attribute on iterObj).
+                const proto::ProtoObject* savedLoc = pContext->closureLocals
+                    ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
+                setA(kGenLocals, savedLoc);
+
+                // Save catch stack.
+                setI(kGenNcc, (long long)catch_stack.size());
+                for (size_t ci = 0; ci < catch_stack.size(); ci++) {
+                    std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
+                    std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
+                    setI(kpc.c_str(), (long long)catch_stack[ci].handler_pc);
+                    setI(ksp.c_str(), (long long)catch_stack[ci].placeholder_stack_pos);
+                }
+
+                // State: 0 = suspended.
+                setI(kGenState, 0LL);
+
+                // Register .next, .return, .throw methods.
+                auto regM = [&](const char* name, proto::ProtoMethod fn) {
+                    const proto::ProtoObject* ko = pContext->fromUTF8String(name);
+                    const proto::ProtoString* k  = ko ? ko->asString(pContext) : nullptr;
+                    if (k) iterObj = iterObj->setAttribute(pContext, k,
+                                                            pContext->fromMethod(nullptr, fn));
+                };
+                regM("next",   generatorNext);
+                regM("return", generatorReturn);
+                regM("throw",  generatorThrow);
+
+                // Mark as a generator iterator for OP_for_of_start iterator detection.
+                // We add __iter_arr__ so that OP_for_of_start's existing "Case A" logic
+                // (object with .next and __iter_arr__) treats this as an iterator.
+                const proto::ProtoString* iterArrKey3 = JSSymbols::iterArr(pContext);
+                if (iterArrKey3)
+                    iterObj = iterObj->setAttribute(pContext, iterArrKey3,
+                                                     pContext->fromInteger(0LL));
+
+                return iterObj;
+            }
+
             default: {
                 // Unknown opcode: log for diagnostics; execution cannot continue safely.
                 std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
@@ -3766,6 +3832,48 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
     return PROTO_NONE;
+}
+
+// ---------------------------------------------------------------------------
+// Generator callbacks — stub implementations (Task 6 will replace these).
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* /*ctx*/,
+                                                   const proto::ProtoObject* /*iter*/,
+                                                   const proto::ProtoObject* /*sentVal*/,
+                                                   int /*mode*/) {
+    // TODO(Task 6): implement full resume logic.
+    return PROTO_NONE;
+}
+
+static const proto::ProtoObject* generatorNext(proto::ProtoContext* ctx,
+    const proto::ProtoObject* thisVal,
+    const proto::ParentLink* /*parent*/,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* /*named*/) {
+    const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    return resumeGenerator(ctx, thisVal, sentVal, 0 /* next */);
+}
+
+static const proto::ProtoObject* generatorReturn(proto::ProtoContext* ctx,
+    const proto::ProtoObject* thisVal,
+    const proto::ParentLink* /*parent*/,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* /*named*/) {
+    const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    return resumeGenerator(ctx, thisVal, sentVal, 1 /* return */);
+}
+
+static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
+    const proto::ProtoObject* thisVal,
+    const proto::ParentLink* /*parent*/,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* /*named*/) {
+    const proto::ProtoObject* sentVal = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    return resumeGenerator(ctx, thisVal, sentVal, 2 /* throw */);
 }
 
 const proto::ProtoObject* getNullSentinel() {
