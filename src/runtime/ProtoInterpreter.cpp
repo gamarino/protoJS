@@ -2075,13 +2075,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (key && obj) {
+                    // Strict-mode writable check: look up __pd_<propName>__ sidecar.
+                    // If bit0 == 0, the property is non-writable.
+                    std::string keyStr2;
+                    key->toUTF8String(pContext, keyStr2);
+                    std::string pdKeyStr = "__pd_" + keyStr2 + "__";
+                    const proto::ProtoObject* pdko2 = pContext->fromUTF8String(pdKeyStr.c_str());
+                    const proto::ProtoString* pdk2  = pdko2 ? pdko2->asString(pContext) : nullptr;
+                    if (pdk2) {
+                        const proto::ProtoObject* bitsObj2 = obj->getAttribute(pContext, pdk2, false);
+                        if (bitsObj2 && bitsObj2 != PROTO_NONE && bitsObj2->isInteger(pContext)) {
+                            uint8_t bits2 = static_cast<uint8_t>(bitsObj2->asLong(pContext));
+                            bool writable2 = (bits2 & 0x1) != 0;
+                            if (!writable2) {
+                                if (module->isStrict) {
+                                    // Strict mode: throw TypeError.
+                                    pending_exception = makeError(pContext, "TypeError",
+                                        "Cannot assign to read only property", pGlobalRoot);
+                                    has_pending_exception = true;
+                                    break;
+                                } else {
+                                    // Non-strict: silently ignore the assignment.
+                                    stackPush(pContext, obj);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
                     if (newObj != obj) {
                         updateMapping(pContext, obj, newObj);
                     }
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
-                    stackPush(pContext,newObj ? newObj : obj);
+                    stackPush(pContext, newObj ? newObj : obj);
                 }
                 break;
             }
