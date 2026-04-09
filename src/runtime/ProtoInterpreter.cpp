@@ -2624,10 +2624,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_is_undefined_or_null: {
-                // Pops one value; pushes true if it is undefined or null (both PROTO_NONE in protoCore).
+                // Pops one value; pushes true if it is undefined (PROTO_NONE) or null (t_nullSentinel).
+                // Used by the ?? operator and ?. optional chaining.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
+                stackPush(pContext, (!val || val == PROTO_NONE || val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
             case OP_nop:
@@ -2735,7 +2736,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* v = stackTop(pContext);
                 stackPop(pContext);
                 const char* typeStr = "undefined";
-                if (v && v != PROTO_NONE && !v->isNone(pContext)) {
+                if (v == t_nullSentinel) {
+                    typeStr = "object";  // typeof null === "object" per spec
+                } else if (v && v != PROTO_NONE && !v->isNone(pContext)) {
                     if (v->isBoolean(pContext)) typeStr = "boolean";
                     else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
                     else if (v->asString(pContext)) typeStr = "string";
@@ -3366,12 +3369,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_is_null: {
-                // Pops one value; pushes true if it is null. protoCore maps both null and
-                // undefined to PROTO_NONE, so we treat PROTO_NONE as null here.
+                // Pops one value; pushes true if it is null (t_nullSentinel only).
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
+                stackPush(pContext, (val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
             case OP_typeof_is_undefined: {
