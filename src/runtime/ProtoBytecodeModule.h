@@ -43,6 +43,8 @@ struct ProtoBytecodeModule {
     std::vector<bool> closureVarIsDeclared;
     /** True when the function was compiled with "use strict" (JS_MODE_STRICT). */
     bool isStrict{false};
+    /** The function's declared name (empty for anonymous functions). */
+    std::string funcName;
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }

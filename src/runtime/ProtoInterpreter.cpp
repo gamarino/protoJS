@@ -42,6 +42,9 @@ thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
 // All function objects carry bytecode IDs that are indices into the root module's nestedFunctions.
 // Nested invocations (inner functions) must look up bytecode IDs in the root module, not their own.
 thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
+// The JS null sentinel: a stable ProtoObject* representing null.
+// PROTO_NONE continues to represent undefined/absence.
+thread_local const proto::ProtoObject* t_nullSentinel = nullptr;
 
 // ---------------------------------------------------------------------------
 // Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
@@ -772,6 +775,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
     const proto::ProtoObject* tdzSentinel = pContext->fromUTF8String("\x00__protojs_tdz_sentinel__");
     if (!tdzSentinel) tdzSentinel = PROTO_NONE;
+
+    // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
+    // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
+    if (!t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoString* sentinelKey =
+            (pContext->fromUTF8String("__js_null_sentinel__")
+                ? pContext->fromUTF8String("__js_null_sentinel__")->asString(pContext)
+                : nullptr);
+        if (sentinelKey) {
+            const proto::ProtoObject* existing =
+                (*pGlobalRoot)->getAttribute(pContext, sentinelKey, false);
+            if (existing && existing != PROTO_NONE) {
+                t_nullSentinel = existing;
+            } else {
+                const proto::ProtoObject* sentinel = pContext->newObject(false);
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, sentinelKey, sentinel);
+                t_nullSentinel = sentinel;
+            }
+        }
+    }
 
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
@@ -3649,6 +3672,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
     return PROTO_NONE;
+}
+
+const proto::ProtoObject* getNullSentinel() {
+    return t_nullSentinel;
 }
 
 const proto::ProtoObject* callJSFunction(
