@@ -18,7 +18,42 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 8 Snapshot — 2026-04-07  ✅ CURRENT
+## Phase 9 Snapshot — 2026-04-09  ✅ CURRENT
+
+> **Phase 9 target:** `null` vs `undefined` distinction in `language/expressions`.
+> Snapshot file: `tests/test262/reports/snapshot-language-expressions-1775710546713.json`
+> Runner command: `TEST262_PATTERNS="language/expressions"`
+
+### Results
+
+| Area | Total | Passed | Pass % | Prior | Delta |
+|------|------:|-------:|-------:|------:|-------|
+| `language/expressions` | 11,036 | 9,078 | **82.3%** | 80.9% | **+150 passes** |
+
+### Key fixes delivered
+
+| Symptom | Root cause | Fix |
+|---------|-----------|-----|
+| `typeof null !== "object"` | `null` mapped to `PROTO_NONE` → fell through to `"undefined"` | Added `t_nullSentinel`; `OP_typeof` checks sentinel first |
+| `null === null` returned `false` | PROTO_NONE identity ≠ PROTO_NONE when compared to another null | Sentinel is a single stable pointer; pointer equality works |
+| `null !== undefined` returned `false` | Both were `PROTO_NONE` | Sentinel ≠ PROTO_NONE pointer — natural separation |
+| `null == undefined` returned `false` | Abstract equality treated both as undefined | `jsAbstractEquals` treats `xNullish && yNullish` → true |
+| `null ?? "default"` returned `"default"` incorrectly | `??` uses `isNone()` which returned true for null | Nullish coalescing now checks sentinel: null is nullish |
+| `(null)?.x` returned `undefined` rather than short-circuiting | Optional chaining lacked null sentinel awareness | `OP_is_undefined_or_null` checks sentinel |
+| `console.log(null)` printed `[object Object]` | Sentinel fell through to generic object branch | Added sentinel check in `printProtoValue` |
+| `[null, 1].join(",")` produced wrong string | `elemToString` treated null as empty string | `ArrayPrototype.cpp` now renders null as `"null"` |
+
+### Remaining failures (1,958 total)
+
+| Category | Count | Description |
+|----------|------:|-------------|
+| Failed semantics | 1,670 | Generators (~540), async/await (~224), eval (~183), dynamic import (~62), other semantic (~661) |
+| Failed syntax | 176 | Parser rejects valid constructs |
+| Timeouts | 112 | Mostly generator/async infinite loops |
+
+---
+
+## Phase 8 Snapshot — 2026-04-07  (superseded by Phase 9)
 
 > **Phase 8 target areas:** TypedArray, TypedArrayConstructors, ArrayBuffer, DataView.
 > Snapshot file: `tests/test262/reports/snapshot-built-ins-ArrayBuffer_built-ins-TypedArray_built-ins-TypedArrayConstructors_buil-1775591003519.json`
@@ -182,11 +217,10 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 #### 2. ~~Timeouts in `built-ins/Object` (337 timeouts)~~ — RESOLVED (2026-04-04)
 - Fixed by `hasOwnProperty`/`OP_object` prototype chain fix. `Object/defineProperty` re-run: 1,037/1,131 = 91.7%.
 
-#### 3. **`null` vs `undefined` distinction** — ~150–200 expression tests (PLANNED 2026-04-09)
-- Both values map to `PROTO_NONE` in TypeBridge; `typeof null`, `null === undefined`, `null == undefined`, `??`, `?.`, and destructuring defaults all behave incorrectly.
+#### 3. ~~**`null` vs `undefined` distinction**~~ — RESOLVED (2026-04-09)
+- Introduced `t_nullSentinel` GC-safe thread-local; updated TypeBridge, 8 opcode sites, console, and ArrayPrototype.
+- Result: `language/expressions` **82.3%** (9,078/11,036) — +150 passes vs 80.9% baseline.
 - **Spec:** `docs/superpowers/specs/2026-04-09-null-undefined-distinction-design.md`
-- **Action:** introduce `pNullSentinel` in interpreter bootstrap; update TypeBridge + 8 opcode sites; audit native methods.
-- **Estimated gain:** ~150–200 new passes → `language/expressions` ~83–84%.
 
 #### 4. `eval` not available in protoCore no-fallback mode (~104+ expression tests)
 - Tests using `eval()` to probe unicode-whitespace handling in operators fail with `ReferenceError: eval is not defined`.
@@ -241,4 +275,4 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 | 2026-04-07 | `language/expressions` first clean run: **92.6%** (10,221/11,036) | 815 remaining failures: ~104 eval-limited, ~161 syntax, ~550 semantic. |
 | 2026-04-07 | `language/expressions` honest baseline: **79.8%** (8,811/11,036) | After correctness fixes exposed false positives (cross-scope calls, tail calls, phantom catch frames). Previous 92.6% had ~14% vacuous passes. |
 | 2026-04-07–08 | `language/expressions` post-fix: **80.9%** (~8,928/11,036) | +117 passes from: ReferenceError for undeclared `OP_get_var`, `instanceof Object` chain fix, ToPrimitive via `asMethod()`, String wrapper primitive value. |
-| 2026-04-09 | Next: null/undefined distinction planned | Spec at `docs/superpowers/specs/2026-04-09-null-undefined-distinction-design.md`. Estimated +150–200 passes → ~83–84%. |
+| 2026-04-09 | `language/expressions` null/undefined distinction: **82.3%** (9,078/11,036) | +150 passes vs 80.9%. Fixes: `typeof null`, `null===null`, `null!==undefined`, `null==undefined`, `??`, `?.`, Array join null, console.log null. Snapshot: `snapshot-language-expressions-1775710546713.json`. |
