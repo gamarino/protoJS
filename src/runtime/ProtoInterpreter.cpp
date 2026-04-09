@@ -516,11 +516,16 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
         // Guard against infinite recursion.
         return x == y;
     }
-    // null/undefined both map to PROTO_NONE; they are equal to each other.
-    bool xNone = !x || x == PROTO_NONE || x->isNone(ctx);
-    bool yNone = !y || y == PROTO_NONE || y->isNone(ctx);
-    if (xNone && yNone) return true;
-    if (xNone || yNone) return false;
+    // null and undefined are distinct but equal to each other under abstract equality.
+    // Per spec §7.2.13 step 2-3: null == undefined → true; null/undefined == other → false.
+    bool xNull  = (x == t_nullSentinel);
+    bool yNull  = (y == t_nullSentinel);
+    bool xUndef = !x || x == PROTO_NONE || x->isNone(ctx);
+    bool yUndef = !y || y == PROTO_NONE || y->isNone(ctx);
+    bool xNullish = xNull || xUndef;
+    bool yNullish = yNull || yUndef;
+    if (xNullish && yNullish) return true;   // null==null, null==undefined, undefined==null
+    if (xNullish || yNullish) return false;  // null/undefined == number/string/bool → false
 
     bool xBool = x->isBoolean(ctx);
     bool yBool = y->isBoolean(ctx);
