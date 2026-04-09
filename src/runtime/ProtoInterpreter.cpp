@@ -1249,10 +1249,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 break;
             case OP_special_object: {
-                // TODO: Implement arguments/new.target/etc. wiring.
                 if (pc + 1 > len) return PROTO_NONE;
-                pc += 1; // skip kind
-                stackPush(pContext,PROTO_NONE);
+                uint8_t soKind = buf[pc++];
+                if (soKind == 0 || soKind == 1) {
+                    // ARGUMENTS / MAPPED_ARGUMENTS: build array-like object from args.
+                    // QuickJS only emits this in functions with has_arguments_binding, never in arrow fns.
+                    const proto::ProtoObject* argsObj = pContext->newObject(true);
+                    int argc2 = args ? static_cast<int>(args->getSize(pContext)) : 0;
+                    for (int ai = 0; ai < argc2; ai++) {
+                        const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, static_cast<uint32_t>(ai));
+                        const proto::ProtoObject* argVal = args->getAt(pContext, ai);
+                        if (idxKey && argsObj)
+                            argsObj = argsObj->setAttribute(pContext, idxKey, argVal ? argVal : PROTO_NONE);
+                    }
+                    const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
+                    if (lenKey2 && argsObj)
+                        argsObj = argsObj->setAttribute(pContext, lenKey2, pContext->fromInteger(static_cast<long long>(argc2)));
+                    stackPush(pContext, argsObj ? argsObj : PROTO_NONE);
+                } else {
+                    // kind 2 = THIS_FUNC, kind 3 = NEW_TARGET — not yet implemented.
+                    stackPush(pContext, PROTO_NONE);
+                }
                 break;
             }
             case OP_rest: {
