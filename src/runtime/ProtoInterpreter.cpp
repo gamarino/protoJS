@@ -3891,6 +3891,86 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 return makeIterResult(pContext, yieldVal, false);
             }
 
+            // OP_yield_star: DEF(yield_star, 1, 1, 2, none)
+            // Delegates to inner iterable: calls inner.next() repeatedly, yielding each
+            // value to the outer caller. When inner is done, pushes the final value.
+            case OP_yield_star: {
+                if (stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* innerIter = stackTop(pContext);
+                stackPop(pContext);
+                if (!innerIter || innerIter == PROTO_NONE) {
+                    stackPush(pContext, PROTO_NONE);
+                    break;
+                }
+
+                // Get .next method from the inner iterator.
+                const proto::ProtoString* nextKey3 = JSSymbols::next(pContext);
+                const proto::ProtoObject* nextFn = nextKey3
+                    ? innerIter->getAttribute(pContext, nextKey3, true) : PROTO_NONE;
+                if (!nextFn || nextFn == PROTO_NONE) {
+                    stackPush(pContext, PROTO_NONE);
+                    break;
+                }
+
+                // Delegate: loop calling inner.next(sentToInner) and yield each value.
+                const proto::ProtoObject* sentToInner = PROTO_NONE;
+                while (true) {
+                    // Build args for inner.next(sentToInner).
+                    const proto::ProtoList* nextArgs = nullptr;
+                    if (sentToInner && sentToInner != PROTO_NONE) {
+                        const proto::ProtoList* tmp = pContext->newList();
+                        if (tmp) nextArgs = tmp->appendLast(pContext, sentToInner);
+                    }
+                    const proto::ProtoObject* iterResult = callJSFunction(pContext, nextFn,
+                                                                           innerIter, nextArgs);
+                    if (!iterResult || iterResult == PROTO_NONE) {
+                        stackPush(pContext, PROTO_NONE);
+                        break;
+                    }
+
+                    const proto::ProtoString* vk2  = JSSymbols::value(pContext);
+                    const proto::ProtoString* dk2  = JSSymbols::done(pContext);
+                    const proto::ProtoObject* val2 = vk2
+                        ? iterResult->getAttribute(pContext, vk2, false) : PROTO_NONE;
+                    const proto::ProtoObject* done2 = dk2
+                        ? iterResult->getAttribute(pContext, dk2, false) : PROTO_FALSE;
+
+                    bool isDone = (done2 == PROTO_TRUE ||
+                                   (done2 && done2 != PROTO_NONE &&
+                                    done2->isBoolean(pContext) && done2->asBoolean(pContext)));
+                    if (isDone) {
+                        // Inner iterator exhausted: push final value for yield* expression.
+                        stackPush(pContext, val2 ? val2 : PROTO_NONE);
+                        break;
+                    }
+
+                    if (!t_genIterator) {
+                        // Not inside a generator resume — push final value and break.
+                        stackPush(pContext, val2 ? val2 : PROTO_NONE);
+                        break;
+                    }
+
+                    // Yield this inner value to the outer caller.
+                    // Save state and have OP_yield_star re-entered next time .next() is called.
+                    // We save pc-1 (pointing back at OP_yield_star) so re-execution re-enters
+                    // this case and finds innerIter on the stack.
+                    stackPush(pContext, innerIter); // push inner iter back
+                    const proto::ProtoObject* newLoc2 = pContext->closureLocals
+                        ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
+                    const proto::ProtoObject* updIter = t_genIterator;
+                    updIter = genSetInt(pContext, updIter, kGenPc, (long long)(pc - 1));
+                    updIter = genSetObj(pContext, updIter, kGenLocals, newLoc2);
+                    updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
+                    updIter = genSetInt(pContext, updIter, kGenState, 0LL);
+                    if (updIter != t_genIterator)
+                        updateMapping(pContext, t_genIterator, updIter);
+                    t_genIterator = nullptr;
+                    t_genResumePc = -2;
+                    return makeIterResult(pContext, val2, false);
+                }
+                break;
+            }
+
             default: {
                 // Unknown opcode: log for diagnostics; execution cannot continue safely.
                 std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
