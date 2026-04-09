@@ -18,7 +18,41 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 10 Snapshot — 2026-04-09  ✅ CURRENT
+## Phase 11 Snapshot — 2026-04-09  ✅ CURRENT
+
+> **Phase 11 target:** `arguments` object in non-arrow functions + arrow-function lexical `this` capture.
+> Snapshot file: `tests/test262/reports/snapshot-language-expressions-1775766718049.json`
+> Runner command: `TEST262_PATTERNS="language/expressions"`
+
+### Results
+
+| Area | Total | Passed | Pass % | Prior | Delta |
+|------|------:|-------:|-------:|------:|-------|
+| `language/expressions` | 11,036 | 9,230 | **83.6%** | 83.5% | **+11 passes** |
+
+### Key implementations delivered
+
+| Feature | Opcodes / APIs | Tests recovered |
+|---------|---------------|----------------|
+| `arguments` object (mapped, non-strict) | `OP_special_object` kind 0 — `ProtoList`-backed mapped object with `length`, indexed slots, `callee` | ~8 |
+| `arguments` object (unmapped, strict) | `OP_special_object` kind 1 — plain object, throws on `callee`/`caller` access | ~2 |
+| Arrow-function lexical `this` | `__arrow_this__` closure slot captured at `OP_fclosure`; `OP_get_this` uses it when `isArrow` | ~1 |
+
+### Notes on test recovery
+
+The +11 new passes is modest but consistent with the targeted scope. The `arguments` object recovers tests that explicitly probe the `arguments` binding and `length`/indexed-slot semantics in ordinary functions. Arrow-function lexical `this` recovers tests that verify arrows do not rebind `this`. Many remaining `arguments`-related failures involve `arguments.callee` in non-strict mode (requires the full callable binding), `arguments` inside `eval`, and `arguments` passed across nested function scopes — all deferred to future phases.
+
+### Remaining failures (1,806 total)
+
+| Category | Count | Description |
+|----------|------:|-------------|
+| Failed semantics | 1,529 | Generators complex cases (~421), async/await (~224), eval (~183), other semantic (~701) |
+| Failed syntax | 165 | Parser rejects valid constructs |
+| Timeouts | 112 | Mostly async infinite loops |
+
+---
+
+## Phase 10 Snapshot — 2026-04-09  (superseded by Phase 11)
 
 > **Phase 10 target:** ES6 generator protocol (`function*`, `yield`, `yield*`) + `Object.defineProperty` writable enforcement.
 > Snapshot file: `tests/test262/reports/snapshot-language-expressions-1775750951135.json`
@@ -318,6 +352,7 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 
 | Date | Metric | Notes |
 |------|--------|-------|
+| 2026-04-09 | `language/expressions` Phase 11 `arguments` + arrow `this`: **83.6%** (9,230/11,036) | +11 passes vs 83.5% Phase 10. `arguments` object (mapped + unmapped), arrow-function lexical `this` via `__arrow_this__` closure. Snapshot: `snapshot-language-expressions-1775766718049.json`. |
 | 2026-03-18 | **94.4%** (44,596/47,219) | Full `language + built-ins` suite — authoritative single-count baseline. |
 | 2026-04-04 | 75.5% (154,918/205,288) | Aggregate snapshot with sub-pattern overlap (pre-Phase 8); methodology inflates total count. |
 | 2026-04-04 | `built-ins/Array` 96.1% · `Object/defineProperty` 91.7% | Post-fix re-run: Array sort + hasOwnProperty + OP_object fixes resolved timeouts. |
