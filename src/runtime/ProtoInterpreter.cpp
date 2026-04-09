@@ -351,6 +351,7 @@ static inline uint16_t get_u16(const uint8_t* p) {
 static bool toBool(proto::ProtoContext* context, const proto::ProtoObject* value) {
     if (!context) return false;
     if (!value || value == PROTO_NONE || value->isNone(context)) return false;
+    if (value == t_nullSentinel) return false;  // JS null is falsy
     if (value == PROTO_TRUE) return true;
     if (value == PROTO_FALSE) return false;
     if (value->isBoolean(context)) return value->asBoolean(context);
@@ -980,6 +981,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * Returns the original value unchanged when the object is already a primitive. */
     auto toPrimIfObject = [&](const proto::ProtoObject* obj) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj->isNone(pContext)) return obj;
+        if (obj == t_nullSentinel) return obj;  // null does not coerce to primitive
         if (obj->isBoolean(pContext) || obj->isInteger(pContext) ||
             obj->isDouble(pContext) || obj->isFloat(pContext) ||
             obj->asString(pContext)) return obj;
@@ -2134,7 +2136,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext,PROTO_NONE);
                 break;
             case OP_null:
-                stackPush(pContext,PROTO_NONE);
+                // JS null is the null sentinel, not PROTO_NONE (which is undefined).
+                stackPush(pContext, t_nullSentinel ? t_nullSentinel : PROTO_NONE);
                 break;
             case OP_push_false:
                 stackPush(pContext,PROTO_FALSE);
