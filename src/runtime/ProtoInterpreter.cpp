@@ -843,25 +843,90 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const std::vector<std::string>& closureVarNames = module->closureVarNames;
     unsigned argCount = module->argCount();
     unsigned varCount = module->varCount();
-    // Locals and stack live only in ProtoContext::closureLocals (GC-visible). No std::vector.
-    initStack(pContext);
-    const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
-    /* Pre-load closure vars from the global object into their dedicated slots.
-     * Closure vars occupy a SEPARATE slot region from local vars:
-     *   local vars:    slot[argCount + 0 .. argCount + varCount - 1]
-     *   closure vars:  slot[argCount + varCount + 0 .. argCount + varCount + N - 1]
-     * This separation prevents the _ret_ hidden eval variable (local slot 0) from
-     * colliding with closure-var slot 0 (used for hoisted function declarations). */
-    for (size_t i = 0; i < closureVarNames.size(); i++) {
-        if (closureVarNames[i].empty() || !globalObjInit || globalObjInit == PROTO_NONE) continue;
-        const proto::ProtoString* key = (pContext->fromUTF8String(closureVarNames[i].c_str()) ? pContext->fromUTF8String(closureVarNames[i].c_str())->asString(pContext) : nullptr);
-        if (key) {
-            const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
-            if (val && val != PROTO_NONE)
-                setSlot(pContext, argCount + varCount + static_cast<unsigned>(i), val);
+
+    // Pending exception (set inside switch, dispatched after switch body).
+    // Use a separate flag so that `throw undefined` (PROTO_NONE) is also catchable.
+    const proto::ProtoObject* pending_exception = nullptr;
+    bool has_pending_exception = false;
+
+    // Catch-handler stack.
+    // In QuickJS, OP_catch pushes a tagged catch-offset integer onto the VALUE stack; the
+    // exception handler scans the value stack backwards for it.  Our value stack holds
+    // opaque ProtoObject pointers, so we cannot embed a tag there.  Instead we use this
+    // parallel vector, but we must mirror QuickJS's stack-based semantics exactly:
+    //   - placeholder_stack_pos  = value-stack index of the sentinel pushed by OP_catch.
+    //   - The sentinel IS the catch frame from the stack's perspective.  OP_drop that lands
+    //     on placeholder_stack_pos must also pop the catch frame (just as QuickJS's OP_drop
+    //     removes the tagged integer from the value stack, removing the catch frame).
+    std::vector<CatchFrame> catch_stack;
+
+    // -----------------------------------------------------------------------
+    // Generator resume: if t_genResumePc >= 0, skip normal stack init and
+    // restore saved state from thread-locals set by resumeGenerator().
+    // -----------------------------------------------------------------------
+    int pc = 0;
+    if (t_genResumePc >= 0) {
+        pc = t_genResumePc;
+        t_genResumePc = -1;
+
+        // Restore closureLocals snapshot.
+        if (t_genResumeLocals) {
+            const proto::ProtoSparseList* sl = t_genResumeLocals->asSparseList(pContext);
+            if (sl) pContext->closureLocals = sl;
+            t_genResumeLocals = nullptr;
+        }
+
+        // Restore catch stack.
+        if (t_genResumeCatchStack) {
+            catch_stack = *t_genResumeCatchStack;
+            t_genResumeCatchStack = nullptr;
+        }
+
+        // Push the sent value onto the stack (becomes the result of the yield expression).
+        const proto::ProtoObject* sentVal = PROTO_NONE;
+        if (t_genIterator) {
+            const proto::ProtoObject* ko2 = pContext->fromUTF8String("__gen_sent__");
+            const proto::ProtoString* k2  = ko2 ? ko2->asString(pContext) : nullptr;
+            if (k2) {
+                const proto::ProtoObject* sv = t_genIterator->getAttribute(pContext, k2, false);
+                if (sv && sv != PROTO_NONE) sentVal = sv;
+            }
+        }
+        stackPush(pContext, sentVal);
+
+        // If mode==2 (throw): override sentVal with the throw value as pending_exception.
+        if (t_genIterator) {
+            const proto::ProtoObject* ko3 = pContext->fromUTF8String("__gen_throw_val__");
+            const proto::ProtoString* k3  = ko3 ? ko3->asString(pContext) : nullptr;
+            if (k3) {
+                const proto::ProtoObject* tv = t_genIterator->getAttribute(pContext, k3, false);
+                if (tv && tv != PROTO_NONE) {
+                    stackPop(pContext);
+                    pending_exception = tv;
+                    has_pending_exception = true;
+                }
+            }
+        }
+    } else {
+        // Locals and stack live only in ProtoContext::closureLocals (GC-visible). No std::vector.
+        initStack(pContext);
+        const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
+        /* Pre-load closure vars from the global object into their dedicated slots.
+         * Closure vars occupy a SEPARATE slot region from local vars:
+         *   local vars:    slot[argCount + 0 .. argCount + varCount - 1]
+         *   closure vars:  slot[argCount + varCount + 0 .. argCount + varCount + N - 1]
+         * This separation prevents the _ret_ hidden eval variable (local slot 0) from
+         * colliding with closure-var slot 0 (used for hoisted function declarations). */
+        for (size_t i = 0; i < closureVarNames.size(); i++) {
+            if (closureVarNames[i].empty() || !globalObjInit || globalObjInit == PROTO_NONE) continue;
+            const proto::ProtoString* key = (pContext->fromUTF8String(closureVarNames[i].c_str()) ? pContext->fromUTF8String(closureVarNames[i].c_str())->asString(pContext) : nullptr);
+            if (key) {
+                const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
+                if (val && val != PROTO_NONE)
+                    setSlot(pContext, argCount + varCount + static_cast<unsigned>(i), val);
+            }
         }
     }
-    int pc = 0;
     ProtoBytecodeModule* mod = const_cast<ProtoBytecodeModule*>(module);
 
     const proto::ProtoObject* tdzSentinel = pContext->fromUTF8String("\x00__protojs_tdz_sentinel__");
@@ -1010,22 +1075,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     }
-
-    // Pending exception (set inside switch, dispatched after switch body).
-    // Use a separate flag so that `throw undefined` (PROTO_NONE) is also catchable.
-    const proto::ProtoObject* pending_exception = nullptr;
-    bool has_pending_exception = false;
-
-    // Catch-handler stack.
-    // In QuickJS, OP_catch pushes a tagged catch-offset integer onto the VALUE stack; the
-    // exception handler scans the value stack backwards for it.  Our value stack holds
-    // opaque ProtoObject pointers, so we cannot embed a tag there.  Instead we use this
-    // parallel vector, but we must mirror QuickJS's stack-based semantics exactly:
-    //   - placeholder_stack_pos  = value-stack index of the sentinel pushed by OP_catch.
-    //   - The sentinel IS the catch frame from the stack's perspective.  OP_drop that lands
-    //     on placeholder_stack_pos must also pop the catch frame (just as QuickJS's OP_drop
-    //     removes the tagged integer from the value stack, removing the catch frame).
-    std::vector<CatchFrame> catch_stack;
 
     /* Invoke a method stored as a bytecode or native function on thisVal with no arguments.
      * If the method throws, sets pending_exception / has_pending_exception and returns PROTO_NONE.
@@ -3799,6 +3848,49 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 return iterObj;
             }
 
+            // OP_yield: DEF(yield, 1, 1, 2, none)
+            // Suspends the generator and yields a value to the outer caller.
+            case OP_yield: {
+                if (stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* yieldVal = stackTop(pContext);
+                stackPop(pContext);
+
+                if (!t_genIterator) {
+                    // OP_yield outside a generator resume — return undefined.
+                    return PROTO_NONE;
+                }
+
+                // Save updated state back onto the iterator object.
+                // pc already points past OP_yield.
+                const proto::ProtoObject* updIter = t_genIterator;
+                updIter = genSetInt(pContext, updIter, kGenPc, (long long)pc);
+                const proto::ProtoObject* newLoc = pContext->closureLocals
+                    ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
+                updIter = genSetObj(pContext, updIter, kGenLocals, newLoc);
+                updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
+                for (size_t ci = 0; ci < catch_stack.size(); ci++) {
+                    std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
+                    std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
+                    updIter = genSetInt(pContext, updIter, kpc.c_str(),
+                                        (long long)catch_stack[ci].handler_pc);
+                    updIter = genSetInt(pContext, updIter, ksp.c_str(),
+                                        (long long)catch_stack[ci].placeholder_stack_pos);
+                }
+                updIter = genSetInt(pContext, updIter, kGenState, 0LL); // still suspended
+
+                // Sync the updated iterator pointer back to the GC mapping table.
+                if (updIter != t_genIterator) {
+                    updateMapping(pContext, t_genIterator, updIter);
+                }
+                t_genIterator = nullptr; // clear to signal we yielded
+
+                // Signal to resumeGenerator that OP_yield fired (not OP_return).
+                t_genResumePc = -2;
+
+                // Return {value: yieldVal, done: false} from this runBytecode invocation.
+                return makeIterResult(pContext, yieldVal, false);
+            }
+
             default: {
                 // Unknown opcode: log for diagnostics; execution cannot continue safely.
                 std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
@@ -3835,15 +3927,94 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 }
 
 // ---------------------------------------------------------------------------
-// Generator callbacks — stub implementations (Task 6 will replace these).
+// Generator callbacks.
 // ---------------------------------------------------------------------------
 
-static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* /*ctx*/,
-                                                   const proto::ProtoObject* /*iter*/,
-                                                   const proto::ProtoObject* /*sentVal*/,
-                                                   int /*mode*/) {
-    // TODO(Task 6): implement full resume logic.
-    return PROTO_NONE;
+static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* iter,
+                                                   const proto::ProtoObject* sentVal,
+                                                   int mode) {
+    if (!ctx || !iter || iter == PROTO_NONE) return makeIterResult(ctx, PROTO_NONE, true);
+
+    long long state = genGetInt(ctx, iter, kGenState);
+    if (state == 1) return makeIterResult(ctx, PROTO_NONE, true); // already completed
+
+    if (mode == 1) {
+        // .return(val): mark done, return {value: val, done: true}.
+        iter = genSetInt(ctx, iter, kGenState, 1LL);
+        return makeIterResult(ctx, sentVal, true);
+    }
+
+    // Recover module pointer.
+    long long modRaw = genGetInt(ctx, iter, kGenMod);
+    if (modRaw <= 0) return makeIterResult(ctx, PROTO_NONE, true);
+    const ProtoBytecodeModule* mod = reinterpret_cast<const ProtoBytecodeModule*>((uintptr_t)modRaw);
+
+    // Recover saved pc.
+    long long resumePc = genGetInt(ctx, iter, kGenPc);
+    if (resumePc < 0) return makeIterResult(ctx, PROTO_NONE, true);
+
+    // Recover closureLocals.
+    const proto::ProtoObject* ko = ctx->fromUTF8String(kGenLocals);
+    const proto::ProtoString* lk = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoObject* savedLocObj = lk ? iter->getAttribute(ctx, lk, false) : nullptr;
+
+    // Recover thisObj.
+    const proto::ProtoObject* tok = ctx->fromUTF8String(kGenThis);
+    const proto::ProtoString* tk2 = tok ? tok->asString(ctx) : nullptr;
+    const proto::ProtoObject* genThis = tk2 ? iter->getAttribute(ctx, tk2, false) : PROTO_NONE;
+
+    // Recover catch stack.
+    long long ncc = genGetInt(ctx, iter, kGenNcc, 0LL);
+    std::vector<CatchFrame> restoredCatch;
+    for (long long ci = 0; ci < ncc; ci++) {
+        std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
+        std::string ksp = "__gen_cc_" + std::to_string(ci) + "_sp__";
+        restoredCatch.push_back({(int)genGetInt(ctx, iter, kpc.c_str()),
+                                  (unsigned long)genGetInt(ctx, iter, ksp.c_str())});
+    }
+
+    // If mode == 2 (throw): pre-store the throw value on the iterator.
+    if (mode == 2 && sentVal && sentVal != PROTO_NONE) {
+        iter = genSetObj(ctx, iter, "__gen_throw_val__", sentVal);
+    } else {
+        // Store sent value (result of yield expr on resume).
+        iter = genSetObj(ctx, iter, "__gen_sent__", sentVal ? sentVal : PROTO_NONE);
+        // Clear any prior throw val.
+        iter = genSetObj(ctx, iter, "__gen_throw_val__", PROTO_NONE);
+    }
+
+    // Set up resume thread-locals.
+    t_genResumePc         = (int)resumePc;
+    t_genResumeLocals     = savedLocObj;
+    t_genResumeCatchStack = restoredCatch.empty() ? nullptr : &restoredCatch;
+    t_genIterator         = iter;
+
+    // Create child context and invoke runBytecode.
+    proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
+    childCtx.currentFileName   = ctx->currentFileName;
+    childCtx.currentLineNumber = ctx->currentLineNumber;
+    const proto::ProtoObject* childEx = PROTO_NONE;
+    const proto::ProtoObject** gr = t_currentGlobalRoot;
+
+    const proto::ProtoObject* result = runBytecode(&childCtx, mod, genThis,
+                                                     nullptr, gr, &childEx);
+
+    // Propagate exceptions from generator body.
+    if (childEx && childEx != PROTO_NONE) return childEx;
+
+    if (t_genResumePc == -2) {
+        // OP_yield fired — result is already {value, done:false}.
+        t_genResumePc = -1;
+        return result;
+    }
+
+    // Generator body completed (OP_return or end of bytecode).
+    if (t_genIterator) {
+        t_genIterator = genSetInt(ctx, t_genIterator, kGenState, 1LL);
+    }
+    t_genIterator = nullptr;
+    return makeIterResult(ctx, result ? result : PROTO_NONE, true);
 }
 
 static const proto::ProtoObject* generatorNext(proto::ProtoContext* ctx,
