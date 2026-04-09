@@ -1,4 +1,5 @@
 #include "TypeBridge.h"
+#include "runtime/ProtoInterpreter.h"
 #include "GCBridge.h"
 #include "JSContext.h"
 #include "ProtoArrayAdapter.h"
@@ -10,7 +11,12 @@
 namespace protojs {
 
 const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto::ProtoContext* pContext) {
-    if (JS_IsNull(val) || JS_IsUndefined(val)) {
+    if (JS_IsNull(val)) {
+        // Return the null sentinel if the interpreter is active; fall back to PROTO_NONE.
+        const proto::ProtoObject* s = protojs::getNullSentinel();
+        return s ? s : PROTO_NONE;
+    }
+    if (JS_IsUndefined(val)) {
         return PROTO_NONE;
     }
 
@@ -305,8 +311,12 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
 }
 
 JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::ProtoContext* pContext) {
-    if (obj == PROTO_NONE || obj == nullptr) {
+    const proto::ProtoObject* nullSentinel = protojs::getNullSentinel();
+    if (nullSentinel && obj == nullSentinel) {
         return JS_NULL;
+    }
+    if (obj == PROTO_NONE || obj == nullptr) {
+        return JS_UNDEFINED;
     }
 
     // Check if we already have a JSValue for this ProtoObject

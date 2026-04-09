@@ -1,5 +1,6 @@
 #include "console.h"
 #include "ProtoNativeModule.h"
+#include "runtime/ProtoInterpreter.h"
 #include <iostream>
 #include <string>
 
@@ -12,6 +13,11 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
                              std::ostream& out) {
     if (!ctx || !val || val == PROTO_NONE || val->isNone(ctx)) {
         out << "undefined";
+        return;
+    }
+    // Check for null sentinel before any other type check.
+    if (val == protojs::getNullSentinel()) {
+        out << "null";
         return;
     }
     if (val->isString(ctx)) {

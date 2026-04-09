@@ -42,6 +42,9 @@ thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
 // All function objects carry bytecode IDs that are indices into the root module's nestedFunctions.
 // Nested invocations (inner functions) must look up bytecode IDs in the root module, not their own.
 thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
+// The JS null sentinel: a stable ProtoObject* representing null.
+// PROTO_NONE continues to represent undefined/absence.
+thread_local const proto::ProtoObject* t_nullSentinel = nullptr;
 
 // ---------------------------------------------------------------------------
 // Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
@@ -348,6 +351,7 @@ static inline uint16_t get_u16(const uint8_t* p) {
 static bool toBool(proto::ProtoContext* context, const proto::ProtoObject* value) {
     if (!context) return false;
     if (!value || value == PROTO_NONE || value->isNone(context)) return false;
+    if (value == t_nullSentinel) return false;  // JS null is falsy
     if (value == PROTO_TRUE) return true;
     if (value == PROTO_FALSE) return false;
     if (value->isBoolean(context)) return value->asBoolean(context);
@@ -469,6 +473,11 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         return context->fromUTF8String("undefined");
     }
 
+    // null converts to the string "null".
+    if (value == t_nullSentinel) {
+        return context->fromUTF8String("null");
+    }
+
     if (value->isString(context)) {
         const proto::ProtoString* s = value->asString(context);
         return s ? s->asObject(context) : context->fromUTF8String("");
@@ -512,11 +521,16 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
         // Guard against infinite recursion.
         return x == y;
     }
-    // null/undefined both map to PROTO_NONE; they are equal to each other.
-    bool xNone = !x || x == PROTO_NONE || x->isNone(ctx);
-    bool yNone = !y || y == PROTO_NONE || y->isNone(ctx);
-    if (xNone && yNone) return true;
-    if (xNone || yNone) return false;
+    // null and undefined are distinct but equal to each other under abstract equality.
+    // Per spec §7.2.13 step 2-3: null == undefined → true; null/undefined == other → false.
+    bool xNull  = (x == t_nullSentinel);
+    bool yNull  = (y == t_nullSentinel);
+    bool xUndef = !x || x == PROTO_NONE || x->isNone(ctx);
+    bool yUndef = !y || y == PROTO_NONE || y->isNone(ctx);
+    bool xNullish = xNull || xUndef;
+    bool yNullish = yNull || yUndef;
+    if (xNullish && yNullish) return true;   // null==null, null==undefined, undefined==null
+    if (xNullish || yNullish) return false;  // null/undefined == number/string/bool → false
 
     bool xBool = x->isBoolean(ctx);
     bool yBool = y->isBoolean(ctx);
@@ -773,6 +787,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const proto::ProtoObject* tdzSentinel = pContext->fromUTF8String("\x00__protojs_tdz_sentinel__");
     if (!tdzSentinel) tdzSentinel = PROTO_NONE;
 
+    // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
+    // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
+    if (!t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoString* sentinelKey =
+            (pContext->fromUTF8String("__js_null_sentinel__")
+                ? pContext->fromUTF8String("__js_null_sentinel__")->asString(pContext)
+                : nullptr);
+        if (sentinelKey) {
+            const proto::ProtoObject* existing =
+                (*pGlobalRoot)->getAttribute(pContext, sentinelKey, false);
+            if (existing && existing != PROTO_NONE) {
+                t_nullSentinel = existing;
+            } else {
+                const proto::ProtoObject* sentinel = pContext->newObject(false);
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, sentinelKey, sentinel);
+                t_nullSentinel = sentinel;
+            }
+        }
+    }
+
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
 
@@ -957,6 +991,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * Returns the original value unchanged when the object is already a primitive. */
     auto toPrimIfObject = [&](const proto::ProtoObject* obj) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj->isNone(pContext)) return obj;
+        if (obj == t_nullSentinel) return obj;  // null does not coerce to primitive
         if (obj->isBoolean(pContext) || obj->isInteger(pContext) ||
             obj->isDouble(pContext) || obj->isFloat(pContext) ||
             obj->asString(pContext)) return obj;
@@ -2111,7 +2146,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext,PROTO_NONE);
                 break;
             case OP_null:
-                stackPush(pContext,PROTO_NONE);
+                // JS null is the null sentinel, not PROTO_NONE (which is undefined).
+                stackPush(pContext, t_nullSentinel ? t_nullSentinel : PROTO_NONE);
                 break;
             case OP_push_false:
                 stackPush(pContext,PROTO_FALSE);
@@ -2598,10 +2634,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_is_undefined_or_null: {
-                // Pops one value; pushes true if it is undefined or null (both PROTO_NONE in protoCore).
+                // Pops one value; pushes true if it is undefined (PROTO_NONE) or null (t_nullSentinel).
+                // Used by the ?? operator and ?. optional chaining.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
+                stackPush(pContext, (!val || val == PROTO_NONE || val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
             case OP_nop:
@@ -2709,7 +2746,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* v = stackTop(pContext);
                 stackPop(pContext);
                 const char* typeStr = "undefined";
-                if (v && v != PROTO_NONE && !v->isNone(pContext)) {
+                if (v == t_nullSentinel) {
+                    typeStr = "object";  // typeof null === "object" per spec
+                } else if (v && v != PROTO_NONE && !v->isNone(pContext)) {
                     if (v->isBoolean(pContext)) typeStr = "boolean";
                     else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
                     else if (v->asString(pContext)) typeStr = "string";
@@ -3340,12 +3379,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_is_null: {
-                // Pops one value; pushes true if it is null. protoCore maps both null and
-                // undefined to PROTO_NONE, so we treat PROTO_NONE as null here.
+                // Pops one value; pushes true if it is null (t_nullSentinel only).
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
+                stackPush(pContext, (val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
             case OP_typeof_is_undefined: {
@@ -3649,6 +3687,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
     return PROTO_NONE;
+}
+
+const proto::ProtoObject* getNullSentinel() {
+    return t_nullSentinel;
 }
 
 const proto::ProtoObject* callJSFunction(

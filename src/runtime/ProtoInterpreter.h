@@ -52,6 +52,12 @@ const proto::ProtoObject* callJSFunction(
     const proto::ProtoObject* thisVal,
     const proto::ProtoList* args);
 
+/**
+ * Returns the thread-local null sentinel — the ProtoObject that represents JS null.
+ * Returns nullptr if called before runBytecode has been entered on this thread.
+ */
+const proto::ProtoObject* getNullSentinel();
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */
