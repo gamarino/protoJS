@@ -182,29 +182,35 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 #### 2. ~~Timeouts in `built-ins/Object` (337 timeouts)~~ — RESOLVED (2026-04-04)
 - Fixed by `hasOwnProperty`/`OP_object` prototype chain fix. `Object/defineProperty` re-run: 1,037/1,131 = 91.7%.
 
-#### 3. `eval` not available in protoCore no-fallback mode (~104+ expression tests)
+#### 3. **`null` vs `undefined` distinction** — ~150–200 expression tests (PLANNED 2026-04-09)
+- Both values map to `PROTO_NONE` in TypeBridge; `typeof null`, `null === undefined`, `null == undefined`, `??`, `?.`, and destructuring defaults all behave incorrectly.
+- **Spec:** `docs/superpowers/specs/2026-04-09-null-undefined-distinction-design.md`
+- **Action:** introduce `pNullSentinel` in interpreter bootstrap; update TypeBridge + 8 opcode sites; audit native methods.
+- **Estimated gain:** ~150–200 new passes → `language/expressions` ~83–84%.
+
+#### 4. `eval` not available in protoCore no-fallback mode (~104+ expression tests)
 - Tests using `eval()` to probe unicode-whitespace handling in operators fail with `ReferenceError: eval is not defined`.
 - This is a known limitation: `PROTOJS_NO_FALLBACK=1` prevents QuickJS fallback for unimplemented operations.
 - **Action (short-term):** add these test paths to `tests/test262/config/skip_proto_eval.json` to remove noise from the pass rate.
 - **Action (long-term):** implement `eval` in the ProtoInterpreter (compile + run inline bytecode with same context).
 
-#### 4. `language/expressions` run2 regression (7,944 failures) — RESOLVED (2026-04-07)
+#### 5. ~~`language/expressions` run2 regression (7,944 failures)~~ — RESOLVED (2026-04-07)
 - Root cause: intermediate binary during Phase 8 development crashed on startup. Fixed by final Phase 8 commit `cfc6b85`.
 
 ---
 
 ### Tier 2 — Medium effort, high impact
 
-#### 4. `built-ins/Promise` — 711 failures (47.9%)
+#### 6. `built-ins/Promise` — 711 failures (47.9%)
 - Root causes: `Symbol.species` not forwarded on Promise subclasses; `Promise.all` edge cases.
 - Fixing `Symbol.species` on Promise likely recovers a large cluster of tests.
 - **Action:** implement `Promise[Symbol.species]` and audit `Promise.all` / `Promise.race`.
 
-#### 5. `built-ins/RegExp` — 1,772 failures (59.3%)
+#### 7. `built-ins/RegExp` — 1,772 failures (59.3%)
 - `RegExpStringIteratorPrototype` is the first failing group — the iterator is not implemented.
 - **Action:** implement `String.prototype.matchAll` + `%RegExpStringIterator%` prototype.
 
-#### 6. `language/statements` — 138 syntax failures
+#### 8. `language/statements` — 138 syntax failures
 - The parser is rejecting syntactically valid statement constructs.
 - **Action:** collect the 138 `failed_syntax` paths, identify the common construct, fix the parser.
 
@@ -233,3 +239,6 @@ Priority is ordered by **ROI** (tests recovered / implementation effort).
 | 2026-04-07 | Phase 8: TypedArray **99.9%** · TypedArrayConstructors **98.5%** · ArrayBuffer **99.5%** · DataView **99.8%** | 2,916/2,931 combined. Previous: ~1–3%. |
 | 2026-04-07 | `language/expressions` run2 regression resolved | Intermediate binary startup crash caused 7,944-test drop; fixed by commit `cfc6b85`. |
 | 2026-04-07 | `language/expressions` first clean run: **92.6%** (10,221/11,036) | 815 remaining failures: ~104 eval-limited, ~161 syntax, ~550 semantic. |
+| 2026-04-07 | `language/expressions` honest baseline: **79.8%** (8,811/11,036) | After correctness fixes exposed false positives (cross-scope calls, tail calls, phantom catch frames). Previous 92.6% had ~14% vacuous passes. |
+| 2026-04-07–08 | `language/expressions` post-fix: **80.9%** (~8,928/11,036) | +117 passes from: ReferenceError for undeclared `OP_get_var`, `instanceof Object` chain fix, ToPrimitive via `asMethod()`, String wrapper primitive value. |
+| 2026-04-09 | Next: null/undefined distinction planned | Spec at `docs/superpowers/specs/2026-04-09-null-undefined-distinction-design.md`. Estimated +150–200 passes → ~83–84%. |
