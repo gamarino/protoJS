@@ -34,8 +34,8 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 | Feature | Opcodes / APIs | Tests recovered |
 |---------|---------------|----------------|
-| `arguments` object (mapped, non-strict) | `OP_special_object` kind 0 — `ProtoList`-backed mapped object with `length`, indexed slots, `callee` | ~8 |
-| `arguments` object (unmapped, strict) | `OP_special_object` kind 1 — plain object, throws on `callee`/`caller` access | ~2 |
+| `arguments` object (non-strict) | `OP_special_object` kind 0 — `ProtoList`-backed object with `length` and indexed slots; `callee` is not implemented; strict/non-strict distinction deferred | ~8 |
+| `arguments` object (strict) | `OP_special_object` kind 1 — plain object; strict/non-strict distinction not yet enforced | ~2 |
 | Arrow-function lexical `this` | `__arrow_this__` closure slot captured at `OP_fclosure`; `OP_get_this` uses it when `isArrow` | ~1 |
 
 ### Notes on test recovery

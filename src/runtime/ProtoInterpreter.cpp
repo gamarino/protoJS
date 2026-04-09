@@ -3012,11 +3012,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                    // Arrow functions: for method calls (e.g. c.inc()), the call-site receiver
-                    // is the current, fully-formed version of the object that owns the arrow.
-                    // Due to protoCore's immutable-update semantics, the __arrow_this__ pointer
-                    // captured at OP_fclosure time may be a stale pre-mutation snapshot, so for
-                    // OP_call_method we trust the call-site receiver when the function is an arrow.
+                    // Determine effective this: arrow functions use their lexical __arrow_this__
+                    // capture rather than the call-site receiver, matching ECMAScript semantics.
+                    const proto::ProtoObject* effectiveThis = thisVal;
+                    if (nf.isArrow) {
+                        const proto::ProtoObject* captured =
+                            func->getAttribute(pContext, JSSymbols::arrowThis(pContext), false);
+                        if (captured && captured != PROTO_NONE)
+                            effectiveThis = captured;
+                    }
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
@@ -3025,7 +3029,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
-                        runBytecode(&childCtx, &nf, thisVal, argsList, pGlobalRoot, &childEx);
+                        runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot, &childEx);
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;

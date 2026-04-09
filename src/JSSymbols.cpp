@@ -284,6 +284,7 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(iterStr,       "__iter_str__")
         REGISTER(isArray,       "__is_array__")
         REGISTER(stringCtor,    "__string_ctor__")
+        REGISTER(arrowThis,     "__arrow_this__")
         REGISTER(primitiveValue,"__primitive_value__")
         REGISTER(abData,        "__ab_data__")
         REGISTER(abDetached,    "__ab_detached__")
