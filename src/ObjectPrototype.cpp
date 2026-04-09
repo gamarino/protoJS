@@ -163,6 +163,131 @@ static const proto::ProtoObject* objectGetPrototypeOf(
 }
 
 // ---------------------------------------------------------------------------
+// Object.defineProperty(obj, propName, descriptor)
+//
+// Stores the property value and descriptor flags on the target object.
+// Descriptor flags are encoded as a single integer (bits: 0=writable,
+// 1=configurable, 2=enumerable) under the hidden key "__pd_<propName>__".
+// A missing __pd__ key means all flags are true (default JS semantics).
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectDefineProperty(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !args || args->getSize(ctx) < 3) return PROTO_NONE;
+
+    const proto::ProtoObject* target = args->getAt(ctx, 0);
+    if (!target || target == PROTO_NONE) return PROTO_NONE;
+
+    // Get property name string.
+    const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
+    if (!propNameObj || propNameObj == PROTO_NONE) return target;
+    std::string propName;
+    const proto::ProtoString* ps = propNameObj->asString(ctx);
+    if (ps) ps->toUTF8String(ctx, propName);
+    else if (propNameObj->isInteger(ctx))
+        propName = std::to_string(propNameObj->asLong(ctx));
+    if (propName.empty()) return target;
+
+    // Get descriptor object.
+    const proto::ProtoObject* desc = args->getAt(ctx, 2);
+    if (!desc || desc == PROTO_NONE) return target;
+
+    // Extract flags from descriptor.
+    // Per ES spec, Object.defineProperty defaults: writable=false, configurable=false, enumerable=false
+    // when flags are not explicitly provided.
+    auto getBoolProp = [&](const char* name, bool defaultVal) -> bool {
+        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+        const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+        if (!k) return defaultVal;
+        const proto::ProtoObject* v = desc->getAttribute(ctx, k, false);
+        if (!v || v == PROTO_NONE) return defaultVal;
+        return (v == PROTO_TRUE) || (v->isBoolean(ctx) && v->asBoolean(ctx));
+    };
+
+    bool writable     = getBoolProp("writable",     false);
+    bool configurable = getBoolProp("configurable",  false);
+    bool enumerable   = getBoolProp("enumerable",    false);
+
+    // Store the value if present in the descriptor.
+    const proto::ProtoObject* valueKey = ctx->fromUTF8String("value");
+    const proto::ProtoString* vkp = valueKey ? valueKey->asString(ctx) : nullptr;
+    if (vkp) {
+        const proto::ProtoObject* val = desc->getAttribute(ctx, vkp, false);
+        if (val) { // val may be PROTO_NONE (explicit undefined)
+            const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
+            const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
+            if (pk) target = target->setAttribute(ctx, pk, val);
+        }
+    }
+
+    // Encode descriptor flags and store as sidecar attribute.
+    uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
+    std::string pdKeyStr = "__pd_" + propName + "__";
+    const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+    const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+    if (pdk) target = target->setAttribute(ctx, pdk, ctx->fromInteger((long long)bits));
+
+    return target;
+}
+
+// ---------------------------------------------------------------------------
+// Object.getOwnPropertyDescriptor(obj, propName) → descriptor object
+// Returns {value, writable, configurable, enumerable} or undefined if absent.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
+    const proto::ProtoObject* target = args->getAt(ctx, 0);
+    const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
+    if (!target || target == PROTO_NONE || !propNameObj || propNameObj == PROTO_NONE)
+        return PROTO_NONE;
+
+    std::string propName;
+    const proto::ProtoString* ps = propNameObj->asString(ctx);
+    if (ps) ps->toUTF8String(ctx, propName);
+    else if (propNameObj->isInteger(ctx)) propName = std::to_string(propNameObj->asLong(ctx));
+    if (propName.empty()) return PROTO_NONE;
+
+    // Get the value.
+    const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
+    const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoObject* val = pk ? target->getAttribute(ctx, pk, false) : nullptr;
+    if (!val) return PROTO_NONE; // property doesn't exist
+
+    // Get the descriptor flags.
+    std::string pdKeyStr = "__pd_" + propName + "__";
+    const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+    const proto::ProtoString* pdk  = pdko ? pdko->asString(ctx) : nullptr;
+    const proto::ProtoObject* bitsObj = pdk ? target->getAttribute(ctx, pdk, false) : nullptr;
+    uint8_t bits = 0x7; // default: all true (writable + configurable + enumerable)
+    if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(ctx))
+        bits = static_cast<uint8_t>(bitsObj->asLong(ctx));
+
+    const proto::ProtoObject* result = ctx->newObject(true);
+    auto setAttr = [&](const char* name, const proto::ProtoObject* v) {
+        const proto::ProtoObject* k = ctx->fromUTF8String(name);
+        const proto::ProtoString* ks = k ? k->asString(ctx) : nullptr;
+        if (ks) result = result->setAttribute(ctx, ks, v);
+    };
+    setAttr("value",        val);
+    setAttr("writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr("configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr("enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Object.fromEntries(iterable) → object from [[key,val], ...] pairs
 // ---------------------------------------------------------------------------
 
@@ -407,6 +532,8 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("setPrototypeOf",        objectGetPrototypeOf); // stub: same as getPrototypeOf
     reg("fromEntries",           objectFromEntries);
     reg("hasOwn",                objectHasOwn);
+    reg("defineProperty",           objectDefineProperty);
+    reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor);
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
