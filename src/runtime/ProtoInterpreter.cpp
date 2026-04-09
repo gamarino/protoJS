@@ -1,6 +1,7 @@
 #include "ProtoInterpreter.h"
 #include "QuickJSOpcodeEnum.h"
 #include "QuickJSBytecodeExport.h"
+#include "GeneratorFrame.h"
 #include "../JSSymbols.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
@@ -945,7 +946,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     //   - The sentinel IS the catch frame from the stack's perspective.  OP_drop that lands
     //     on placeholder_stack_pos must also pop the catch frame (just as QuickJS's OP_drop
     //     removes the tagged integer from the value stack, removing the catch frame).
-    struct CatchFrame { int handler_pc; unsigned long placeholder_stack_pos; };
     std::vector<CatchFrame> catch_stack;
 
     /* Invoke a method stored as a bytecode or native function on thisVal with no arguments.
