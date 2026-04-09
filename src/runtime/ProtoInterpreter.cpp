@@ -473,6 +473,11 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         return context->fromUTF8String("undefined");
     }
 
+    // null converts to the string "null".
+    if (value == t_nullSentinel) {
+        return context->fromUTF8String("null");
+    }
+
     if (value->isString(context)) {
         const proto::ProtoString* s = value->asString(context);
         return s ? s->asObject(context) : context->fromUTF8String("");
