@@ -48,6 +48,18 @@ thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
 thread_local const proto::ProtoObject* t_nullSentinel = nullptr;
 
 // ---------------------------------------------------------------------------
+// Generator resume state.
+// Set by generatorNext/Return/Throw before calling runBytecode.
+// Consumed (and cleared) by runBytecode at startup when t_genResumePc >= 0.
+// ---------------------------------------------------------------------------
+thread_local int                                    t_genResumePc       = -1;
+thread_local const proto::ProtoObject*              t_genResumeLocals   = nullptr;
+thread_local std::vector<protojs::CatchFrame>*      t_genResumeCatchStack = nullptr;
+// The active generator iterator during a resume call.
+// Set by generatorNext before entering runBytecode; read by OP_yield to update state.
+thread_local const proto::ProtoObject*              t_genIterator       = nullptr;
+
+// ---------------------------------------------------------------------------
 // Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
 // These are registered as global properties during bootstrap.
 // ---------------------------------------------------------------------------
@@ -733,6 +745,73 @@ static void updateMapping(proto::ProtoContext* pContext, const proto::ProtoObjec
     }
     JS_FreeValue(ctx, jsVal);
 }
+
+// ---------------------------------------------------------------------------
+// Generator protocol helpers (defined before runBytecode so OP_initial_yield
+// can reference the ProtoMethod function pointers).
+// These functions live in namespace protojs (same as runBytecode).
+// They have access to thread-locals defined in the anonymous namespace above
+// because they are in the same translation unit.
+// ---------------------------------------------------------------------------
+
+/** Read a long long attribute from iter by name. Returns defaultVal if absent. */
+static long long genGetInt(proto::ProtoContext* ctx, const proto::ProtoObject* iter,
+                            const char* name, long long defaultVal = -1LL) {
+    if (!iter || iter == PROTO_NONE) return defaultVal;
+    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    if (!k) return defaultVal;
+    const proto::ProtoObject* v = iter->getAttribute(ctx, k, false);
+    return (v && v != PROTO_NONE && v->isInteger(ctx)) ? v->asLong(ctx) : defaultVal;
+}
+
+/** Set a long long attribute on iter; returns the updated iter pointer. */
+static const proto::ProtoObject* genSetInt(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* iter,
+                                            const char* name, long long val) {
+    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    return (k && iter) ? iter->setAttribute(ctx, k, ctx->fromInteger(val)) : iter;
+}
+
+/** Set a ProtoObject attribute on iter; returns the updated iter pointer. */
+static const proto::ProtoObject* genSetObj(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* iter,
+                                            const char* name,
+                                            const proto::ProtoObject* val) {
+    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    return (k && iter) ? iter->setAttribute(ctx, k, val ? val : PROTO_NONE) : iter;
+}
+
+/** Build a {value, done} iterator result object. */
+static const proto::ProtoObject* makeIterResult(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* value,
+                                                  bool done) {
+    const proto::ProtoObject* r = ctx->newObject(true);
+    if (!r) return PROTO_NONE;
+    const proto::ProtoString* vk = JSSymbols::value(ctx);
+    const proto::ProtoString* dk = JSSymbols::done(ctx);
+    if (vk) r = r->setAttribute(ctx, vk, value ? value : PROTO_NONE);
+    if (dk) r = r->setAttribute(ctx, dk, done ? PROTO_TRUE : PROTO_FALSE);
+    return r ? r : PROTO_NONE;
+}
+
+/** Core resume: runs the generator body from the saved pc.
+ *  mode: 0=next, 1=return, 2=throw.
+ *  Forward declaration — implemented after runBytecode forward declarations. */
+static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* iter,
+                                                   const proto::ProtoObject* sentVal,
+                                                   int mode);
+
+// Forward declarations for the ProtoMethod callbacks.
+static const proto::ProtoObject* generatorNext(proto::ProtoContext*, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*);
+static const proto::ProtoObject* generatorReturn(proto::ProtoContext*, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*);
+static const proto::ProtoObject* generatorThrow(proto::ProtoContext*, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*);
 
 const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const ProtoBytecodeModule* module,
