@@ -45,6 +45,8 @@ struct ProtoBytecodeModule {
     bool isStrict{false};
     /** The function's declared name (empty for anonymous functions). */
     std::string funcName;
+    /** True when this function is an arrow function (no own this/arguments). */
+    bool isArrow{false};
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }
