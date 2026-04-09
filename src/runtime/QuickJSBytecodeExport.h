@@ -57,6 +57,9 @@ int protojs_bytecode_is_strict(void* bytecode);
  *  Caller must JS_FreeCString(ctx, result) when done. */
 const char* protojs_bytecode_func_name(struct JSContext* ctx, void* bytecode);
 
+/** Return 1 if the function is an arrow function (no own this/new.target binding), 0 otherwise. */
+int protojs_bytecode_is_arrow(void* bytecode);
+
 #ifdef __cplusplus
 }
 #endif
