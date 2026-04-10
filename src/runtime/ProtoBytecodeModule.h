@@ -41,6 +41,16 @@ struct ProtoBytecodeModule {
     /** Whether each closure var is a declared global (var x; hoistable to undefined).
      *  True when closure_type == JS_CLOSURE_GLOBAL_DECL (4). */
     std::vector<bool> closureVarIsDeclared;
+    /** Full closure type for each closure var (JSClosureTypeEnum values):
+     *  0=LOCAL (parent local), 1=ARG (parent arg), 2=REF (parent closure var),
+     *  3=GLOBAL_REF, 4=GLOBAL_DECL, 5=GLOBAL, 6=MODULE_DECL, 7=MODULE_IMPORT. */
+    std::vector<int> closureVarTypes;
+    /** Index into the parent function's corresponding slot array (var_idx field).
+     *  Meaning depends on closureVarTypes[i]:
+     *  type 0 (LOCAL)  → parent local var slot index (relative to argCount)
+     *  type 1 (ARG)    → parent arg slot index (0-based)
+     *  type 2 (REF)    → parent closure var index (relative to argCount+varCount) */
+    std::vector<uint16_t> closureVarIndices;
     /** True when the function was compiled with "use strict" (JS_MODE_STRICT). */
     bool isStrict{false};
     /** The function's declared name (empty for anonymous functions). */

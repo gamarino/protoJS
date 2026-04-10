@@ -97,6 +97,7 @@ DEFINE_SYMBOL(isArray,          "__is_array__")
 DEFINE_SYMBOL(stringCtor,       "__string_ctor__")
 DEFINE_SYMBOL(primitiveValue,   "__primitive_value__")
 DEFINE_SYMBOL(arrowThis,        "__arrow_this__")
+DEFINE_SYMBOL(closureModule,    "__closure_module__")
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 DEFINE_SYMBOL(abData,        "__ab_data__")
@@ -285,6 +286,7 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(isArray,       "__is_array__")
         REGISTER(stringCtor,    "__string_ctor__")
         REGISTER(arrowThis,     "__arrow_this__")
+        REGISTER(closureModule, "__closure_module__")
         REGISTER(primitiveValue,"__primitive_value__")
         REGISTER(abData,        "__ab_data__")
         REGISTER(abDetached,    "__ab_detached__")

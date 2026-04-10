@@ -59617,6 +59617,13 @@ int protojs_bytecode_closure_var_type(void *bytecode, uint16_t idx) {
     return (int)b->closure_var[idx].closure_type;
 }
 
+uint16_t protojs_bytecode_closure_var_idx(void *bytecode, uint16_t idx) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (idx >= (uint16_t)b->closure_var_count)
+        return 0;
+    return (uint16_t)b->closure_var[idx].var_idx;
+}
+
 int protojs_bytecode_is_strict(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     return (b->js_mode & JS_MODE_STRICT) ? 1 : 0;

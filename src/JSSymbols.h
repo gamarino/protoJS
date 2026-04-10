@@ -97,6 +97,7 @@ const proto::ProtoString* isArray(proto::ProtoContext* ctx);        // "__is_arr
 const proto::ProtoString* stringCtor(proto::ProtoContext* ctx);     // "__string_ctor__"
 const proto::ProtoString* primitiveValue(proto::ProtoContext* ctx); // "__primitive_value__"
 const proto::ProtoString* arrowThis(proto::ProtoContext* ctx);      // "__arrow_this__"
+const proto::ProtoString* closureModule(proto::ProtoContext* ctx);  // "__closure_module__"
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"

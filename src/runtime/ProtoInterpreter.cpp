@@ -623,6 +623,21 @@ int getBytecodeId(proto::ProtoContext* pContext, const proto::ProtoObject* obj) 
     return id >= 0 ? static_cast<int>(id) : -1;
 }
 
+// Returns the parent ProtoBytecodeModule stored on a function closure, or nullptr.
+// Each function created by OP_fclosure/OP_fclosure8 stores its parent module pointer
+// as an integer attribute so that callJSFunction resolves the correct nestedFunctions[id].
+static const ProtoBytecodeModule* getClosureModule(
+    proto::ProtoContext* pContext, const proto::ProtoObject* fn)
+{
+    if (!fn || fn == PROTO_NONE || !pContext) return nullptr;
+    const proto::ProtoString* key = JSSymbols::closureModule(pContext);
+    if (!key) return nullptr;
+    const proto::ProtoObject* val = fn->getAttribute(pContext, key, false);
+    if (!val || val == PROTO_NONE || !val->isInteger(pContext)) return nullptr;
+    uintptr_t ptr = static_cast<uintptr_t>(val->asLong(pContext));
+    return ptr ? reinterpret_cast<const ProtoBytecodeModule*>(ptr) : nullptr;
+}
+
 /** Native ProtoMethod for Error.prototype.toString(). Returns "name: message" or just "name". */
 static const proto::ProtoObject* errorPrototypeToString(
         proto::ProtoContext* context,
@@ -1047,6 +1062,47 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureMathObject(pContext, pGlobalRoot);
     ensureObjectConstructor(pContext, pGlobalRoot);
     ensureFunctionPrototype(pContext, pGlobalRoot);
+    // Bootstrap Symbol well-known symbols as string-valued properties on the Symbol stub.
+    // This allows JS code like `obj[Symbol.iterator] = fn` to use the canonical key
+    // "Symbol.iterator" that JSSymbols::symbolIterator() also returns.
+    if (pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoString* symbolGlobalKey =
+            pContext->fromUTF8String("Symbol")
+                ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
+        if (symbolGlobalKey) {
+            const proto::ProtoObject* symbolObj =
+                (*pGlobalRoot)->getAttribute(pContext, symbolGlobalKey, false);
+            if (symbolObj && symbolObj != PROTO_NONE) {
+                // Each well-known symbol: prop name → canonical string key.
+                struct { const char* prop; const char* key; } wks[] = {
+                    { "iterator",           "Symbol.iterator"           },
+                    { "toPrimitive",        "Symbol.toPrimitive"        },
+                    { "toStringTag",        "Symbol.toStringTag"        },
+                    { "hasInstance",        "Symbol.hasInstance"        },
+                    { "isConcatSpreadable", "Symbol.isConcatSpreadable" },
+                    { "match",              "Symbol.match"              },
+                    { "matchAll",           "Symbol.matchAll"           },
+                    { "replace",            "Symbol.replace"            },
+                    { "search",             "Symbol.search"             },
+                    { "species",            "Symbol.species"            },
+                    { "split",              "Symbol.split"              },
+                    { "asyncIterator",      "Symbol.asyncIterator"      },
+                    { "unscopables",        "Symbol.unscopables"        },
+                    { nullptr, nullptr }
+                };
+                for (int wi = 0; wks[wi].prop; ++wi) {
+                    const proto::ProtoString* propKey =
+                        pContext->fromUTF8String(wks[wi].prop)
+                            ? pContext->fromUTF8String(wks[wi].prop)->asString(pContext) : nullptr;
+                    const proto::ProtoObject* keyVal =
+                        pContext->fromUTF8String(wks[wi].key);
+                    if (propKey && keyVal)
+                        symbolObj = symbolObj->setAttribute(pContext, propKey, keyVal);
+                }
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolObj);
+            }
+        }
+    }
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn) {
             const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
@@ -2253,6 +2309,110 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 break;
             }
+            case OP_define_array_el: {
+                // DEF(define_array_el, 1, 3, 2, none)
+                // Stack: [..., array, index, value] → [..., array, index]
+                // Writes array[index] = value and discards the value.
+                if (stackSize(pContext) < 3) break;
+                const proto::ProtoObject* elemVal2 = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* idxVal   = stackTop(pContext);  // peek — stays on stack
+                const proto::ProtoObject* arrObj2  = stackAt(pContext, 1); // peek — stays
+                if (!arrObj2 || arrObj2 == PROTO_NONE) break;
+                // Convert index to string key.
+                const proto::ProtoString* idxKey2 = nullptr;
+                if (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(pContext)) {
+                    long long i2 = idxVal->asLong(pContext);
+                    if (i2 >= 0)
+                        idxKey2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i2));
+                } else if (idxVal && idxVal != PROTO_NONE) {
+                    idxKey2 = idxVal->asString(pContext);
+                }
+                if (!idxKey2) break;
+                // Set array[index] = value; update array pointer in slot below index.
+                const proto::ProtoObject* newArr = arrObj2->setAttribute(
+                    pContext, idxKey2, elemVal2 ? elemVal2 : PROTO_NONE);
+                // Update the length if needed.
+                if (newArr && idxVal && idxVal->isInteger(pContext)) {
+                    long long i2 = idxVal->asLong(pContext);
+                    const proto::ProtoString* lenKey4 = JSSymbols::length(pContext);
+                    if (lenKey4) {
+                        const proto::ProtoObject* curLenObj4 = newArr->getAttribute(pContext, lenKey4, false);
+                        long long curLen4 = (curLenObj4 && curLenObj4 != PROTO_NONE && curLenObj4->isInteger(pContext))
+                            ? curLenObj4->asLong(pContext) : 0LL;
+                        if (i2 + 1LL > curLen4) {
+                            const proto::ProtoObject* updatedArr =
+                                newArr->setAttribute(pContext, lenKey4, pContext->fromInteger(i2 + 1LL));
+                            updateMapping(pContext, newArr, updatedArr);
+                            newArr = updatedArr;
+                        }
+                    }
+                }
+                updateMapping(pContext, arrObj2, newArr);
+                // Replace the array slot (2nd from top) with updated array.
+                stackPop(pContext);                // pop index
+                stackPop(pContext);                // pop old array
+                stackPush(pContext, newArr ? newArr : arrObj2);  // push updated array
+                stackPush(pContext, idxVal);        // push index back
+                break;
+            }
+            case OP_to_propkey: {
+                // Converts TOS to a canonical property key (string, integer, or symbol).
+                // In our protoCore world the value on stack is already a ProtoObject that
+                // can be used directly as an attribute key via asString(). This is a no-op:
+                // the key remains on the stack unchanged.
+                break;
+            }
+            case OP_define_method_computed: {
+                // DEF(define_method_computed, 2, 3, 1, u8)
+                // Format: 1 byte op_flags. Stack: [..., obj, key, method] → [..., obj].
+                // Assigns obj[key] = method for computed-property object literals and classes.
+                if (pc + 1 > len || stackSize(pContext) < 3) { if (pc + 1 <= len) pc++; return PROTO_NONE; }
+                /* uint8_t op_flags = */ buf[pc++]; // consumed but unused (METHOD/GETTER/SETTER flag)
+                const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* keyVal    = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* obj2      = stackTop(pContext);
+                if (!obj2 || obj2 == PROTO_NONE || !keyVal || keyVal == PROTO_NONE) break;
+                // Convert key to ProtoString (handles string or numeric keys).
+                const proto::ProtoString* keyStr2 = keyVal->asString(pContext);
+                if (!keyStr2 && keyVal->isInteger(pContext)) {
+                    long long idx = keyVal->asLong(pContext);
+                    if (idx >= 0)
+                        keyStr2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
+                }
+                if (!keyStr2) break;
+                const proto::ProtoObject* newObj2 =
+                    obj2->setAttribute(pContext, keyStr2, methodVal ? methodVal : PROTO_NONE);
+                stackPop(pContext);
+                stackPush(pContext, newObj2 ? newObj2 : obj2);
+                break;
+            }
+            case OP_set_name_computed: {
+                // DEF(set_name_computed, 1, 2, 2, none)
+                // Stack: [..., key, function] — sets function.name = String(key), stack unchanged.
+                if (stackSize(pContext) < 2) break;
+                const proto::ProtoObject* funcSNC = stackTop(pContext);
+                const proto::ProtoObject* keySNC  = stackAt(pContext, 1);
+                if (funcSNC && funcSNC != PROTO_NONE && keySNC && keySNC != PROTO_NONE) {
+                    const proto::ProtoString* nameKey = JSSymbols::name(pContext);
+                    if (nameKey) {
+                        // Convert key to string for the name value.
+                        std::string nameStr;
+                        const proto::ProtoString* keyPS = keySNC->asString(pContext);
+                        if (keyPS) keyPS->toUTF8String(pContext, nameStr);
+                        else if (keySNC->isInteger(pContext))
+                            nameStr = std::to_string(keySNC->asLong(pContext));
+                        const proto::ProtoObject* nameVal = pContext->fromUTF8String(nameStr.c_str());
+                        if (nameVal) {
+                            const proto::ProtoObject* newFunc = funcSNC->setAttribute(pContext, nameKey, nameVal);
+                            updateMapping(pContext, funcSNC, newFunc);
+                            // Replace TOS with updated function.
+                            stackPop(pContext);
+                            stackPush(pContext, newFunc ? newFunc : funcSNC);
+                        }
+                    }
+                }
+                break;
+            }
             case OP_set_name: {
                 /* Sets the .name property of TOS (function/value) to the given atom string.
                  * Format: atom (4 bytes). n_pop=1, n_push=1. */
@@ -3061,7 +3221,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 const proto::ProtoObject* thisVal = stackAt(pContext, argc + 1);
                 int bcId = getBytecodeId(pContext, func);
-                // Resolve bytecode ID: current module first, then root module (see OP_call comment).
+                // Resolve bytecode ID: current module first, then root module.
                 const ProtoBytecodeModule* resolvedMod2 = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
                     resolvedMod2 = &nested[bcId];
@@ -3187,7 +3347,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                 const proto::ProtoObject* result = PROTO_NONE;
                 int bcId = getBytecodeId(pContext, func);
-                // Resolve bytecode ID: current module first, then root module (see OP_call comment).
+                // Resolve bytecode ID: current module first, then root module.
                 const ProtoBytecodeModule* resolvedMod3 = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
                     resolvedMod3 = &nested[bcId];
@@ -3481,10 +3641,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 int bcId = getBytecodeId(pContext, func);
                 // Resolve the bytecode ID: first try the current module, then the root module.
-                // Function objects carry IDs that are indices into the root (global eval) module
-                // for all non-locally-nested functions.  When called from inside another function
-                // the current module's nestedFunctions list won't contain the callee, so we fall
-                // back to the root module.
                 const ProtoBytecodeModule* resolvedModule = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
                     resolvedModule = &nested[bcId];
@@ -3696,9 +3852,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->fromInteger(static_cast<long long>(fnBcId8)));
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext),
                         pContext->newObject(true));
-                    // Set function name and length from bytecode metadata.
-                    if (static_cast<size_t>(fnBcId8) < nested.size()) {
-                        const ProtoBytecodeModule& nm8 = nested[static_cast<size_t>(fnBcId8)];
+                    // Resolve function metadata from the root module's flat nestedFunctions
+                    // list where all functions reside with globally unique IDs.
+                    const ProtoBytecodeModule* nm8Ptr = nullptr;
+                    if (fnBcId8 >= 0 && t_rootModule &&
+                            static_cast<size_t>(fnBcId8) < t_rootModule->nestedFunctions.size())
+                        nm8Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId8)];
+                    if (nm8Ptr) {
+                        const ProtoBytecodeModule& nm8 = *nm8Ptr;
                         if (!nm8.funcName.empty()) {
                             const proto::ProtoObject* nameVal = pContext->fromUTF8String(nm8.funcName.c_str());
                             if (nameVal)
@@ -3712,6 +3873,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (nm8.isArrow) {
                             fnInst = fnInst->setAttribute(pContext, JSSymbols::arrowThis(pContext),
                                 thisObj ? thisObj : PROTO_NONE);
+                        }
+                        // Closure var capture: publish non-global captured vars to the
+                        // global object so the inner function's startup reads the correct
+                        // initial values.  Types: 0=LOCAL, 1=ARG, 2=REF (parent closure var).
+                        if (pGlobalRoot && *pGlobalRoot) {
+                            for (size_t cvi = 0; cvi < nm8.closureVarNames.size(); ++cvi) {
+                                const std::string& cvName = nm8.closureVarNames[cvi];
+                                if (cvName.empty()) continue;
+                                int cvType = (cvi < nm8.closureVarTypes.size())
+                                    ? nm8.closureVarTypes[cvi] : -1;
+                                uint16_t cvIdx = (cvi < nm8.closureVarIndices.size())
+                                    ? nm8.closureVarIndices[cvi] : 0;
+                                const proto::ProtoObject* cvVal = PROTO_NONE;
+                                if (cvType == 1 /* ARG */) {
+                                    cvVal = getSlot(pContext, cvIdx);
+                                } else if (cvType == 0 /* LOCAL */) {
+                                    cvVal = getSlot(pContext, argCount + cvIdx);
+                                } else if (cvType == 2 /* REF */) {
+                                    cvVal = getSlot(pContext, argCount + varCount + cvIdx);
+                                } else {
+                                    continue; // global/module vars: handled elsewhere
+                                }
+                                const proto::ProtoString* cvKey =
+                                    pContext->fromUTF8String(cvName.c_str())
+                                    ? pContext->fromUTF8String(cvName.c_str())->asString(pContext)
+                                    : nullptr;
+                                if (cvKey)
+                                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(
+                                        pContext, cvKey, cvVal ? cvVal : PROTO_NONE);
+                            }
                         }
                     }
                     stackPush(pContext, fnInst);
@@ -3740,9 +3931,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->fromInteger(static_cast<long long>(fnBcId2)));
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext),
                         pContext->newObject(true));
-                    // Set function name and length from bytecode metadata.
-                    if (static_cast<size_t>(fnBcId2) < nested.size()) {
-                        const ProtoBytecodeModule& nm2 = nested[static_cast<size_t>(fnBcId2)];
+                    // Resolve function metadata from the root module's flat nestedFunctions list.
+                    const ProtoBytecodeModule* nm2Ptr = nullptr;
+                    if (fnBcId2 >= 0 && t_rootModule &&
+                            static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
+                        nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    if (nm2Ptr) {
+                        const ProtoBytecodeModule& nm2 = *nm2Ptr;
                         if (!nm2.funcName.empty()) {
                             const proto::ProtoObject* nameVal2 = pContext->fromUTF8String(nm2.funcName.c_str());
                             if (nameVal2)
@@ -3756,6 +3951,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (nm2.isArrow) {
                             fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::arrowThis(pContext),
                                 thisObj ? thisObj : PROTO_NONE);
+                        }
+                        // Closure var capture: publish non-global captured vars to global object.
+                        if (pGlobalRoot && *pGlobalRoot) {
+                            for (size_t cvi2 = 0; cvi2 < nm2.closureVarNames.size(); ++cvi2) {
+                                const std::string& cvName2 = nm2.closureVarNames[cvi2];
+                                if (cvName2.empty()) continue;
+                                int cvType2 = (cvi2 < nm2.closureVarTypes.size())
+                                    ? nm2.closureVarTypes[cvi2] : -1;
+                                uint16_t cvIdx2 = (cvi2 < nm2.closureVarIndices.size())
+                                    ? nm2.closureVarIndices[cvi2] : 0;
+                                const proto::ProtoObject* cvVal2 = PROTO_NONE;
+                                if (cvType2 == 1 /* ARG */) {
+                                    cvVal2 = getSlot(pContext, cvIdx2);
+                                } else if (cvType2 == 0 /* LOCAL */) {
+                                    cvVal2 = getSlot(pContext, argCount + cvIdx2);
+                                } else if (cvType2 == 2 /* REF */) {
+                                    cvVal2 = getSlot(pContext, argCount + varCount + cvIdx2);
+                                } else {
+                                    continue;
+                                }
+                                const proto::ProtoString* cvKey2 =
+                                    pContext->fromUTF8String(cvName2.c_str())
+                                    ? pContext->fromUTF8String(cvName2.c_str())->asString(pContext)
+                                    : nullptr;
+                                if (cvKey2)
+                                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(
+                                        pContext, cvKey2, cvVal2 ? cvVal2 : PROTO_NONE);
+                            }
                         }
                     }
                     stackPush(pContext, fnInst2);
@@ -3889,7 +4112,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Case B: array or TypedArray with numeric .length — index-based iteration.
                 const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
                 const proto::ProtoObject* lenVal = lenKey2 ? iterable->getAttribute(pContext, lenKey2, false) : PROTO_NONE;
-                if (!lenVal || lenVal == PROTO_NONE || !lenVal->isInteger(pContext)) return PROTO_NONE;
+                if (!lenVal || lenVal == PROTO_NONE || !lenVal->isInteger(pContext)) {
+                    // Case C: general iterable — call Symbol.iterator to get an iterator,
+                    // then use sentinel -1 to dispatch through next()-based OP_for_of_next.
+                    const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(pContext);
+                    const proto::ProtoObject* iterFn = symIterKey
+                        ? iterable->getAttribute(pContext, symIterKey, false) : PROTO_NONE;
+                    if (!iterFn || iterFn == PROTO_NONE) return PROTO_NONE;
+                    const proto::ProtoList* emptyArgs2 = pContext->newList();
+                    const proto::ProtoObject* iterator = callJSFunction(pContext, iterFn, iterable, emptyArgs2);
+                    if (!iterator || iterator == PROTO_NONE) return PROTO_NONE;
+                    uint32_t baseSlotC = 0x10000u + static_cast<uint32_t>(pc - 1);
+                    setSlot(pContext, baseSlotC,     iterator);
+                    setSlot(pContext, baseSlotC + 1, pContext->fromInteger(-1LL)); // sentinel: next()-based
+                    const proto::ProtoObject* iterObjC = pContext->newObject(false);
+                    if (!iterObjC) return PROTO_NONE;
+                    const proto::ProtoString* slotKeyC = JSSymbols::iterSlot(pContext);
+                    if (slotKeyC)
+                        iterObjC = iterObjC->setAttribute(pContext, slotKeyC,
+                            pContext->fromInteger(static_cast<long long>(baseSlotC)));
+                    stackPush(pContext, iterObjC);
+                    stackPush(pContext, PROTO_NONE);
+                    stackPush(pContext, pContext->fromInteger(0LL));
+                    break;
+                }
                 // Use a PC-based slot pair unique to this for-of loop site.
                 uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
                 setSlot(pContext, baseSlot,     iterable);
@@ -3942,10 +4188,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* nextFnFO = (nextKeyFO && arrObj != PROTO_NONE)
                         ? arrObj->getAttribute(pContext, nextKeyFO, false) : PROTO_NONE;
                     const proto::ProtoObject* resultFO = PROTO_NONE;
-                    if (nextFnFO && nextFnFO != PROTO_NONE && nextFnFO->isMethod(pContext)) {
-                        proto::ProtoMethod nativeFnFO = nextFnFO->asMethod(pContext);
-                        if (nativeFnFO)
-                            resultFO = nativeFnFO(pContext, arrObj, nullptr, nullptr, nullptr);
+                    if (nextFnFO && nextFnFO != PROTO_NONE) {
+                        if (nextFnFO->isMethod(pContext)) {
+                            // Native ProtoMethod: invoke directly.
+                            proto::ProtoMethod nativeFnFO = nextFnFO->asMethod(pContext);
+                            if (nativeFnFO)
+                                resultFO = nativeFnFO(pContext, arrObj, nullptr, nullptr, nullptr);
+                        } else {
+                            // JS-defined next(): dispatch through callJSFunction.
+                            const proto::ProtoList* emptyArgsFO = pContext->newList();
+                            resultFO = callJSFunction(pContext, nextFnFO, arrObj, emptyArgsFO);
+                        }
                     }
                     const proto::ProtoString* doneKeyFO  = JSSymbols::done(pContext);
                     const proto::ProtoString* valueKeyFO = JSSymbols::value(pContext);
@@ -4421,13 +4674,10 @@ const proto::ProtoObject* callJSFunction(
     }
 
     // Bytecode closure: resolve __bytecode_id__ against the current or root module.
-    // Function objects carry IDs that are indices into the root (global eval) module's
-    // nestedFunctions.  t_currentModule may be an inner function's module, so we try
-    // both before giving up.
     int bcId = getBytecodeId(ctx, fn);
     const ProtoBytecodeModule* resolveMod =
         (bcId >= 0 && t_currentModule &&
-         static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size())
+           static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size())
             ? t_currentModule
         : (bcId >= 0 && t_rootModule &&
            static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())

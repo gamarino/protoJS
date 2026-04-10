@@ -84,10 +84,25 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
     }
 }
 
+/**
+ * Load a QuickJS bytecode function into `out`, appending ALL nested functions
+ * (at any depth) to `allFunctions` with globally unique IDs.
+ *
+ * The IDs are assigned in post-order (children before parents), so each function
+ * is appended to `allFunctions` only after all its own descendants have been
+ * appended.  This means we never hold a pointer into `allFunctions` while
+ * executing a push_back that could trigger reallocation.
+ *
+ * After loadBytecode completes, `root->nestedFunctions` is the flat list of ALL
+ * functions at every depth.  Each placeholder object in any module's protoCpool
+ * carries a `__bytecode_id__` that is a valid index into that flat list.
+ */
 static bool loadBytecodeRecursive(JSContext* ctx,
                                   void* quickjsBytecode,
                                   proto::ProtoContext* pContext,
-                                  ProtoBytecodeModule* out) {
+                                  ProtoBytecodeModule* out,
+                                  std::vector<ProtoBytecodeModule>& allFunctions,
+                                  size_t& nextGlobalId) {
     if (!ctx || !quickjsBytecode || !pContext || !out) return false;
 
     out->jsContext = ctx;
@@ -113,6 +128,10 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->closureVarIsLexical.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIsDeclared.clear();
     out->closureVarIsDeclared.reserve(static_cast<size_t>(closureVarCount));
+    out->closureVarTypes.clear();
+    out->closureVarTypes.reserve(static_cast<size_t>(closureVarCount));
+    out->closureVarIndices.clear();
+    out->closureVarIndices.reserve(static_cast<size_t>(closureVarCount));
     for (int i = 0; i < closureVarCount; i++) {
         const char* name = protojs_bytecode_closure_var_name(ctx, quickjsBytecode, static_cast<uint16_t>(i));
         out->closureVarNames.push_back(name ? name : "");
@@ -121,6 +140,9 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         // JS_CLOSURE_GLOBAL_DECL = 4: var-declared global; must be hoisted to undefined.
         int ctype = protojs_bytecode_closure_var_type(quickjsBytecode, static_cast<uint16_t>(i));
         out->closureVarIsDeclared.push_back(ctype == 4 /* JS_CLOSURE_GLOBAL_DECL */);
+        out->closureVarTypes.push_back(ctype);
+        out->closureVarIndices.push_back(
+            protojs_bytecode_closure_var_idx(quickjsBytecode, static_cast<uint16_t>(i)));
         if (name) JS_FreeCString(ctx, name);
     }
 
@@ -142,22 +164,24 @@ static bool loadBytecodeRecursive(JSContext* ctx,
          * handles both JS_TAG_FUNCTION_BYTECODE and JS_TAG_OBJECT (function) cases. */
         void* nestedQuickjsBytecode = protojs_get_function_bytecode(ctx, &v);
         if (nestedQuickjsBytecode) {
-            {
-
-            // Recursively load nested function into its own module.
+            // Post-order loading: recursively load all descendants into allFunctions
+            // first (they get lower IDs), then assign this function's globally unique ID
+            // and append it.  Loading into a local temp avoids any dangling-pointer
+            // hazard from vector reallocation during the recursive call.
             ProtoBytecodeModule nestedMod;
-            if (!loadBytecodeRecursive(ctx, nestedQuickjsBytecode, pContext, &nestedMod))
+            if (!loadBytecodeRecursive(ctx, nestedQuickjsBytecode, pContext,
+                                       &nestedMod, allFunctions, nextGlobalId))
                 return false;
 
-            out->nestedFunctions.push_back(std::move(nestedMod));
-            size_t id = out->nestedFunctions.size() - 1;
+            size_t globalId = nextGlobalId++;
+            allFunctions.push_back(std::move(nestedMod));
+            // allFunctions[globalId] is now valid (just appended).
 
             const proto::ProtoString* key = JSSymbols::bytecodeId(pContext);
             const proto::ProtoObject* placeholder = pContext->newObject(true);
             placeholder = placeholder->setAttribute(
-                pContext, key, pContext->fromInteger(static_cast<long long>(id)));
+                pContext, key, pContext->fromInteger(static_cast<long long>(globalId)));
             out->protoCpool.push_back(placeholder);
-            }
         } else {
             const proto::ProtoObject* obj = TypeBridge::fromJS(ctx, v, pContext);
             out->protoCpool.push_back(obj ? obj : PROTO_NONE);
@@ -169,7 +193,12 @@ static bool loadBytecodeRecursive(JSContext* ctx,
 bool loadBytecode(JSContext* ctx, void* bytecode, proto::ProtoContext* pContext,
                   ProtoBytecodeModule* out) {
     if (!out) return false;
-    if (!loadBytecodeRecursive(ctx, bytecode, pContext, out)) return false;
+    // Pass out->nestedFunctions as the shared flat list.  All functions at every
+    // depth end up there with globally unique IDs, so the interpreter can always
+    // resolve bcId via t_rootModule->nestedFunctions[bcId].
+    size_t nextGlobalId = 0;
+    if (!loadBytecodeRecursive(ctx, bytecode, pContext, out, out->nestedFunctions, nextGlobalId))
+        return false;
     /* Pre-resolve all atom operands so the interpreter never needs JSContext* at runtime. */
     preResolveAllAtoms(ctx, out, pContext);
     return true;

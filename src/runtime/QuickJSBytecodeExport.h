@@ -45,10 +45,15 @@ const char* protojs_bytecode_closure_var_name(struct JSContext* ctx, void* bytec
 int protojs_bytecode_closure_var_is_lexical(void* bytecode, uint16_t idx);
 
 /** Return the JSClosureTypeEnum value for closure var at idx.
- *  JS_CLOSURE_GLOBAL_DECL (4) = var-declared global (hoist to undefined).
- *  JS_CLOSURE_GLOBAL (5)      = undeclared global reference (throw on missing).
+ *  0=LOCAL (parent local var), 1=ARG (parent arg), 2=REF (parent closure var),
+ *  3=GLOBAL_REF, 4=GLOBAL_DECL, 5=GLOBAL, 6=MODULE_DECL, 7=MODULE_IMPORT.
  *  Returns -1 on out-of-bounds. */
 int protojs_bytecode_closure_var_type(void* bytecode, uint16_t idx);
+
+/** Return var_idx for closure var at idx — the slot index into the parent function's
+ *  arg array (type 1), local var array (type 0), or closure var array (type 2).
+ *  Returns 0 on out-of-bounds. */
+uint16_t protojs_bytecode_closure_var_idx(void* bytecode, uint16_t idx);
 
 /** Return 1 if the function was compiled in strict mode, 0 otherwise. */
 int protojs_bytecode_is_strict(void* bytecode);
