@@ -59547,6 +59547,12 @@ int JS_AddIntrinsicWeakRef(JSContext *ctx)
 
 void* protojs_get_function_bytecode(JSContext *ctx, const void *value_ptr) {
     JSValueConst val = *(const JSValueConst *)value_ptr;
+    /* JS_Eval with JS_EVAL_FLAG_COMPILE_ONLY returns JS_TAG_FUNCTION_BYTECODE
+     * directly (not wrapped in a JS_TAG_OBJECT). Handle both cases. */
+    int tag = JS_VALUE_GET_TAG(val);
+    if (tag == JS_TAG_FUNCTION_BYTECODE) {
+        return JS_VALUE_GET_PTR(val);
+    }
     return JS_GetFunctionBytecode(val);
 }
 
