@@ -9,6 +9,7 @@
 #include "../NumberPrototype.h"
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
+#include "../FunctionPrototype.h"
 #include "../ArrayBufferPrototype.h"
 #include "../TypedArrayPrototype.h"
 #include "../DataViewPrototype.h"
@@ -1001,7 +1002,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // Non-constructor globals (eval, globalThis, etc.) are stubbed as PROTO_NONE.
         static const char* kUnimplementedCtors[] = {
             // Unimplemented standard JS built-in constructors.
-            "Function", "Boolean", "Promise", "Date", "Map", "Set",
+            // NOTE: "Function" is intentionally omitted — wired via ensureFunctionPrototype.
+            "Boolean", "Promise", "Date", "Map", "Set",
             "BigInt", "AggregateError",
             // Metaprogramming built-in constructors.
             "Symbol", "Proxy", "WeakRef", "WeakMap", "WeakSet",
@@ -1044,6 +1046,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureNumberConstructor(pContext, pGlobalRoot);
     ensureMathObject(pContext, pGlobalRoot);
     ensureObjectConstructor(pContext, pGlobalRoot);
+    ensureFunctionPrototype(pContext, pGlobalRoot);
     if (pGlobalRoot && *pGlobalRoot) {
         auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn) {
             const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
@@ -2997,7 +3000,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
                     else if (v->asString(pContext)) typeStr = "string";
                     else if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
-                    else typeStr = "object";
+                    else {
+                        // Check for bound function sentinel (__bound_fn__ attribute).
+                        const proto::ProtoString* bfTypeKey = JSSymbols::boundFn(pContext);
+                        const proto::ProtoObject* bfTypeTarget = bfTypeKey
+                            ? v->getAttribute(pContext, bfTypeKey, false) : nullptr;
+                        typeStr = (bfTypeTarget && bfTypeTarget != PROTO_NONE) ? "function" : "object";
+                    }
                 }
                 stackPush(pContext, pContext->fromUTF8String(typeStr));
                 break;
@@ -3103,10 +3112,56 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
-                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                    if (opcode != OP_tail_call_method)
-                        stackPush(pContext, PROTO_NONE);
+                    // Check for bound function sentinel (__bound_fn__ attribute).
+                    const proto::ProtoString* bfMethKey = JSSymbols::boundFn(pContext);
+                    const proto::ProtoObject* bfMethTarget = (func && func != PROTO_NONE && bfMethKey)
+                        ? func->getAttribute(pContext, bfMethKey, false) : nullptr;
+                    if (bfMethTarget && bfMethTarget != PROTO_NONE) {
+                        const proto::ProtoString* btMethKey = JSSymbols::boundThis(pContext);
+                        const proto::ProtoString* baMethKey = JSSymbols::boundArgs(pContext);
+                        const proto::ProtoObject* boundThisMeth =
+                            (btMethKey) ? func->getAttribute(pContext, btMethKey, false) : PROTO_NONE;
+                        if (!boundThisMeth) boundThisMeth = PROTO_NONE;
+                        const proto::ProtoObject* boundArgsMeth =
+                            (baMethKey) ? func->getAttribute(pContext, baMethKey, false) : nullptr;
+
+                        // Collect call-site args before popping stack.
+                        const proto::ProtoList* callSiteMethArgs = pContext->newList();
+                        for (uint32_t i = 0; i < argc; i++)
+                            callSiteMethArgs = callSiteMethArgs->appendLast(pContext,
+                                stackAt(pContext, argc - 1 - i));
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+
+                        // Prepend pre-bound args to call-site args.
+                        const proto::ProtoList* mergedMethArgs = pContext->newList();
+                        if (boundArgsMeth && boundArgsMeth != PROTO_NONE) {
+                            const proto::ProtoString* lenKeyMeth = JSSymbols::length(pContext);
+                            long long blenMeth = 0;
+                            if (lenKeyMeth) {
+                                const proto::ProtoObject* lo = boundArgsMeth->getAttribute(pContext, lenKeyMeth, false);
+                                if (lo && lo != PROTO_NONE) {
+                                    if (lo->isInteger(pContext))     blenMeth = lo->asLong(pContext);
+                                    else if (lo->isDouble(pContext)) blenMeth = static_cast<long long>(lo->asDouble(pContext));
+                                }
+                            }
+                            for (long long bi = 0; bi < blenMeth; bi++) {
+                                const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(bi));
+                                const proto::ProtoObject* av = ik ? boundArgsMeth->getAttribute(pContext, ik, false) : PROTO_NONE;
+                                mergedMethArgs = mergedMethArgs->appendLast(pContext, av ? av : PROTO_NONE);
+                            }
+                        }
+                        int csmArgc = callSiteMethArgs ? callSiteMethArgs->getSize(pContext) : 0;
+                        for (int ci = 0; ci < csmArgc; ci++)
+                            mergedMethArgs = mergedMethArgs->appendLast(pContext,
+                                callSiteMethArgs->getAt(pContext, ci));
+                        const proto::ProtoObject* result = callJSFunction(pContext, bfMethTarget, boundThisMeth, mergedMethArgs);
+                        if (opcode != OP_tail_call_method) stackPush(pContext, result ? result : PROTO_NONE);
+                    } else {
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                        /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                        if (opcode != OP_tail_call_method)
+                            stackPush(pContext, PROTO_NONE);
+                    }
                 }
                 break;
             }
@@ -3565,10 +3620,57 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                   if (is_tail_call) return _r ? _r : PROTO_NONE;
                                   stackPush(pContext, _r); }
                             } else {
-                                for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                                /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                                if (is_tail_call) return PROTO_NONE;
-                                stackPush(pContext, PROTO_NONE);
+                                // Check for bound function sentinel (__bound_fn__ attribute).
+                                const proto::ProtoString* bfCallKey = JSSymbols::boundFn(pContext);
+                                const proto::ProtoObject* bfCallTarget = (func && func != PROTO_NONE && bfCallKey)
+                                    ? func->getAttribute(pContext, bfCallKey, false) : nullptr;
+                                if (bfCallTarget && bfCallTarget != PROTO_NONE) {
+                                    const proto::ProtoString* btCallKey = JSSymbols::boundThis(pContext);
+                                    const proto::ProtoString* baCallKey = JSSymbols::boundArgs(pContext);
+                                    const proto::ProtoObject* boundThisCall =
+                                        (btCallKey) ? func->getAttribute(pContext, btCallKey, false) : PROTO_NONE;
+                                    if (!boundThisCall) boundThisCall = PROTO_NONE;
+                                    const proto::ProtoObject* boundArgsCall =
+                                        (baCallKey) ? func->getAttribute(pContext, baCallKey, false) : nullptr;
+
+                                    // Collect call-site args before popping stack.
+                                    const proto::ProtoList* callSiteArgs = pContext->newList();
+                                    for (uint32_t i = 0; i < argc; i++)
+                                        callSiteArgs = callSiteArgs->appendLast(pContext,
+                                            stackAt(pContext, argc - 1 - i));
+                                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+
+                                    // Prepend pre-bound args to call-site args.
+                                    const proto::ProtoList* mergedCallArgs = pContext->newList();
+                                    if (boundArgsCall && boundArgsCall != PROTO_NONE) {
+                                        const proto::ProtoString* lenKeyCall = JSSymbols::length(pContext);
+                                        long long blenCall = 0;
+                                        if (lenKeyCall) {
+                                            const proto::ProtoObject* lo = boundArgsCall->getAttribute(pContext, lenKeyCall, false);
+                                            if (lo && lo != PROTO_NONE) {
+                                                if (lo->isInteger(pContext))     blenCall = lo->asLong(pContext);
+                                                else if (lo->isDouble(pContext)) blenCall = static_cast<long long>(lo->asDouble(pContext));
+                                            }
+                                        }
+                                        for (long long bi = 0; bi < blenCall; bi++) {
+                                            const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(bi));
+                                            const proto::ProtoObject* av = ik ? boundArgsCall->getAttribute(pContext, ik, false) : PROTO_NONE;
+                                            mergedCallArgs = mergedCallArgs->appendLast(pContext, av ? av : PROTO_NONE);
+                                        }
+                                    }
+                                    int csArgc = callSiteArgs ? callSiteArgs->getSize(pContext) : 0;
+                                    for (int ci = 0; ci < csArgc; ci++)
+                                        mergedCallArgs = mergedCallArgs->appendLast(pContext,
+                                            callSiteArgs->getAt(pContext, ci));
+                                    const proto::ProtoObject* result = callJSFunction(pContext, bfCallTarget, boundThisCall, mergedCallArgs);
+                                    if (is_tail_call) return result ? result : PROTO_NONE;
+                                    stackPush(pContext, result ? result : PROTO_NONE);
+                                } else {
+                                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                                    /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
+                                    if (is_tail_call) return PROTO_NONE;
+                                    stackPush(pContext, PROTO_NONE);
+                                }
                             }
                         }
                     }
@@ -3581,22 +3683,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* rawFn = (idx < cpool.size()) ? cpool[idx] : PROTO_NONE;
                 int fnBcId8 = getBytecodeId(pContext, rawFn);
                 if (fnBcId8 >= 0) {
-                    // Create fresh function instance with its own prototype so `instanceof` works.
-                    const proto::ProtoObject* fnInst = pContext->newObject(true);
+                    // Create fresh function instance inheriting from Function.prototype so
+                    // fn.call/bind/apply resolve up the prototype chain.
+                    const proto::ProtoObject** gr8 = t_currentGlobalRoot;
+                    const proto::ProtoString* fpKey8 = JSSymbols::functionProto(pContext);
+                    const proto::ProtoObject* fp8 = (gr8 && *gr8 && fpKey8)
+                        ? (*gr8)->getAttribute(pContext, fpKey8, false) : nullptr;
+                    const proto::ProtoObject* fnInst = (fp8 && fp8 != PROTO_NONE)
+                        ? fp8->newChild(pContext, true)
+                        : pContext->newObject(true);
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId8)));
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext),
                         pContext->newObject(true));
-                    // Set function name from bytecode metadata.
+                    // Set function name and length from bytecode metadata.
                     if (static_cast<size_t>(fnBcId8) < nested.size()) {
-                        const std::string& fn8Name = nested[static_cast<size_t>(fnBcId8)].funcName;
-                        if (!fn8Name.empty()) {
-                            const proto::ProtoObject* nameVal = pContext->fromUTF8String(fn8Name.c_str());
+                        const ProtoBytecodeModule& nm8 = nested[static_cast<size_t>(fnBcId8)];
+                        if (!nm8.funcName.empty()) {
+                            const proto::ProtoObject* nameVal = pContext->fromUTF8String(nm8.funcName.c_str());
                             if (nameVal)
                                 fnInst = fnInst->setAttribute(pContext, JSSymbols::name(pContext), nameVal);
                         }
+                        const proto::ProtoString* lenKey8 = JSSymbols::length(pContext);
+                        if (lenKey8)
+                            fnInst = fnInst->setAttribute(pContext, lenKey8,
+                                pContext->fromInteger(static_cast<long long>(nm8.argCount_)));
                         // Capture lexical this for arrow functions.
-                        if (nested[static_cast<size_t>(fnBcId8)].isArrow) {
+                        if (nm8.isArrow) {
                             fnInst = fnInst->setAttribute(pContext, JSSymbols::arrowThis(pContext),
                                 thisObj ? thisObj : PROTO_NONE);
                         }
@@ -3614,22 +3727,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* rawFn2 = (idx < cpool.size()) ? cpool[idx] : PROTO_NONE;
                 int fnBcId2 = getBytecodeId(pContext, rawFn2);
                 if (fnBcId2 >= 0) {
-                    // Create fresh function instance with its own prototype so `instanceof` works.
-                    const proto::ProtoObject* fnInst2 = pContext->newObject(true);
+                    // Create fresh function instance inheriting from Function.prototype so
+                    // fn.call/bind/apply resolve up the prototype chain.
+                    const proto::ProtoObject** gr2 = t_currentGlobalRoot;
+                    const proto::ProtoString* fpKey2 = JSSymbols::functionProto(pContext);
+                    const proto::ProtoObject* fp2 = (gr2 && *gr2 && fpKey2)
+                        ? (*gr2)->getAttribute(pContext, fpKey2, false) : nullptr;
+                    const proto::ProtoObject* fnInst2 = (fp2 && fp2 != PROTO_NONE)
+                        ? fp2->newChild(pContext, true)
+                        : pContext->newObject(true);
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId2)));
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext),
                         pContext->newObject(true));
-                    // Set function name from bytecode metadata.
+                    // Set function name and length from bytecode metadata.
                     if (static_cast<size_t>(fnBcId2) < nested.size()) {
-                        const std::string& fn2Name = nested[static_cast<size_t>(fnBcId2)].funcName;
-                        if (!fn2Name.empty()) {
-                            const proto::ProtoObject* nameVal2 = pContext->fromUTF8String(fn2Name.c_str());
+                        const ProtoBytecodeModule& nm2 = nested[static_cast<size_t>(fnBcId2)];
+                        if (!nm2.funcName.empty()) {
+                            const proto::ProtoObject* nameVal2 = pContext->fromUTF8String(nm2.funcName.c_str());
                             if (nameVal2)
                                 fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::name(pContext), nameVal2);
                         }
+                        const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
+                        if (lenKey2)
+                            fnInst2 = fnInst2->setAttribute(pContext, lenKey2,
+                                pContext->fromInteger(static_cast<long long>(nm2.argCount_)));
                         // Capture lexical this for arrow functions.
-                        if (nested[static_cast<size_t>(fnBcId2)].isArrow) {
+                        if (nm2.isArrow) {
                             fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::arrowThis(pContext),
                                 thisObj ? thisObj : PROTO_NONE);
                         }
@@ -3672,6 +3796,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 int bcId = getBytecodeId(pContext, val);
                 bool isFunc = (bcId >= 0) ||
                               (val && val != PROTO_NONE && val->isMethod(pContext));
+                if (!isFunc && val && val != PROTO_NONE) {
+                    const proto::ProtoString* bfIsFnKey = JSSymbols::boundFn(pContext);
+                    const proto::ProtoObject* bfIsFnTarget = bfIsFnKey
+                        ? val->getAttribute(pContext, bfIsFnKey, false) : nullptr;
+                    isFunc = (bfIsFnTarget && bfIsFnTarget != PROTO_NONE);
+                }
                 stackPush(pContext, isFunc ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
@@ -4324,6 +4454,46 @@ const proto::ProtoObject* callJSFunction(
         childCtx.returnValue = result;
         // Exceptions from callbacks are silently suppressed at this level.
         return result ? result : PROTO_NONE;
+    }
+
+    // Bound function sentinel: unwrap target function and recurse with prepended pre-bound args.
+    const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+    if (bfKey) {
+        const proto::ProtoObject* target = fn->getAttribute(ctx, bfKey, false);
+        if (target && target != PROTO_NONE) {
+            const proto::ProtoString* btKey = JSSymbols::boundThis(ctx);
+            const proto::ProtoString* baKey = JSSymbols::boundArgs(ctx);
+            const proto::ProtoObject* effectiveBoundThis =
+                (btKey) ? fn->getAttribute(ctx, btKey, false) : PROTO_NONE;
+            if (!effectiveBoundThis) effectiveBoundThis = PROTO_NONE;
+            const proto::ProtoObject* boundArgsObj =
+                (baKey) ? fn->getAttribute(ctx, baKey, false) : nullptr;
+
+            // Build merged arg list: pre-bound args followed by call-site args.
+            const proto::ProtoList* mergedArgs = ctx->newList();
+            if (boundArgsObj && boundArgsObj != PROTO_NONE) {
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                long long blen = 0;
+                if (lenKey) {
+                    const proto::ProtoObject* lo = boundArgsObj->getAttribute(ctx, lenKey, false);
+                    if (lo && lo != PROTO_NONE) {
+                        if (lo->isInteger(ctx))     blen = lo->asLong(ctx);
+                        else if (lo->isDouble(ctx)) blen = static_cast<long long>(lo->asDouble(ctx));
+                    }
+                }
+                for (long long i = 0; i < blen; i++) {
+                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                    const proto::ProtoObject* av = ik ? boundArgsObj->getAttribute(ctx, ik, false) : PROTO_NONE;
+                    mergedArgs = mergedArgs->appendLast(ctx, av ? av : PROTO_NONE);
+                }
+            }
+            int callArgc = args ? args->getSize(ctx) : 0;
+            for (int i = 0; i < callArgc; i++) {
+                const proto::ProtoObject* a = args->getAt(ctx, i);
+                mergedArgs = mergedArgs->appendLast(ctx, a ? a : PROTO_NONE);
+            }
+            return callJSFunction(ctx, target, effectiveBoundThis, mergedArgs);
+        }
     }
 
     return PROTO_NONE;

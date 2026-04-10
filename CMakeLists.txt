@@ -119,6 +119,7 @@ add_executable(protojs
     src/DataViewPrototype.cpp
     src/MathBuiltin.cpp
     src/ObjectPrototype.cpp
+    src/FunctionPrototype.cpp
     src/JSPrototypes.cpp
     src/ProtoArrayAdapter.cpp
     src/ProtoArgumentsAdapter.cpp

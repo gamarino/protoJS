@@ -113,6 +113,33 @@ static const proto::ProtoObject* fnBind(
     if (bfKey) bound = bound->setAttribute(ctx, bfKey, self);
     if (btKey) bound = bound->setAttribute(ctx, btKey, thisArg);
     if (baKey) bound = bound->setAttribute(ctx, baKey, boundArgsArr);
+
+    // Set bound.length = max(0, target.length - pre_bound_arg_count).
+    const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
+    if (lenKey2) {
+        long long targetLen = 0;
+        const proto::ProtoObject* lo = self->getAttribute(ctx, lenKey2, false);
+        if (lo && lo != PROTO_NONE) {
+            if (lo->isInteger(ctx))     targetLen = lo->asLong(ctx);
+            else if (lo->isDouble(ctx)) targetLen = static_cast<long long>(lo->asDouble(ctx));
+        }
+        long long boundLen = targetLen - bcount;
+        if (boundLen < 0) boundLen = 0;
+        bound = bound->setAttribute(ctx, lenKey2, ctx->fromInteger(boundLen));
+    }
+    // Set bound.name = "bound " + target.name.
+    const proto::ProtoString* nameKey2 = JSSymbols::name(ctx);
+    if (nameKey2) {
+        std::string targetName;
+        const proto::ProtoObject* no = self->getAttribute(ctx, nameKey2, false);
+        if (no && no != PROTO_NONE) {
+            const proto::ProtoString* ns = no->asString(ctx);
+            if (ns) targetName = ns->toStdString(ctx);
+        }
+        std::string boundName = "bound " + targetName;
+        const proto::ProtoObject* bnVal = ctx->fromUTF8String(boundName.c_str());
+        if (bnVal) bound = bound->setAttribute(ctx, nameKey2, bnVal);
+    }
     return bound;
 }
 

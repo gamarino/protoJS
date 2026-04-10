@@ -46,8 +46,8 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### language/expressions
 
-**Date:** `2026-04-08`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775616853363.json`
+**Date:** `2026-04-10`  
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775827392963.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -58,6 +58,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | ReferenceError conformance (02:47 UTC 04-08) | 11036 | 8928 (80.9%) | — | — | — | +117 genuine improvements, 0 regressions |
 | ToPrimitive / String wrapper (09:33 UTC 04-08) | 11036 | 9001 (81.6%) | 176 | 1747 | 112 | toPrimIfObject + callMethod via asMethod |
 | **ToPrimitive fix + callMethod correction (10:00 UTC 04-08)** | 11036 | **9071 (82.2%)** | 176 | 1677 | 112 | +70 vs prior run, 0 regressions; asMethod() call fix |
+| **Phase 13: Function.prototype wire-up (10:00 UTC 04-10)** | 11036 | **9339 (84.6%)** | 176 | 1521 | 0 | +268 vs prior; fn.call/bind/apply/length/name working |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -77,6 +78,14 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *OP_get_var ReferenceError* — accessing a truly undeclared global variable now throws `ReferenceError: x is not defined` per spec; uses `JS_CLOSURE_GLOBAL_DECL` (closure_type=4) to distinguish declared vars (hoisted to undefined) from undeclared references (throw on missing).  
 > 3. *Missing globals stubs* — `Function`, `Boolean`, `Promise`, `Date`, `Map`, `Set`, `BigInt`, `AggregateError`, `JSON`, and test262 harness globals (`$DONE`, `$262`, `print`) registered as PROTO_NONE to prevent false ReferenceErrors for unimplemented built-ins.  
 > 4. *Async test runner* — `doneprintHandle.js` now included for `flags: [async]` tests, preventing ReferenceError for `$DONE` in async test harness.
+>
+> **Phase 13: Function.prototype wire-up (commit TBD):**
+> 1. *`ensureFunctionPrototype` wired in bootstrap* — `FunctionPrototype.cpp` was fully implemented but never called; added call after `ensureObjectConstructor` and removed `"Function"` from `kUnimplementedCtors` stub list.
+> 2. *OP_fclosure / OP_fclosure8 inherit Function.prototype* — Function instances created via `fp->newChild(pContext, true)` so `fn.call`, `fn.bind`, `fn.apply` resolve up the prototype chain without explicit attribute lookup.
+> 3. *`fn.length` set from bytecode metadata* — `ProtoBytecodeModule::argCount_` now stored as `length` attribute on each function instance at closure-creation time.
+> 4. *Bound function dispatch* — `callJSFunction`, `OP_call`, and `OP_call_method` detect `__bound_fn__` sentinel and unwrap: pre-bound args prepended to call-site args, bound `this` substituted; `typeof boundFn === "function"` via `OP_typeof` / `OP_typeof_is_function` updated.
+> 5. *`bound.length` and `bound.name`* — `fnBind` now sets `bound.length = max(0, target.length - prebound_count)` and `bound.name = "bound " + target.name` per spec.
+> 6. *`FunctionPrototype.cpp` added to CMakeLists.txt* — was compiled but not linked.
 
 ### built-ins/Object/freeze + seal + isSealed + isFrozen + preventExtensions + isExtensible
 
