@@ -80,17 +80,17 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### built-ins/Object/freeze + seal + isSealed + isFrozen + preventExtensions + isExtensible
 
-**Date:** `2026-04-09`
-**Snapshot:** `tests/test262/reports/snapshot-built-ins-Object-freeze_built-ins-Object-isFrozen_built-ins-Object-seal_built-in-1775801363973.json`
+**Date:** `2026-04-10` (confirmed post-regression-fix)
+**Snapshot:** `tests/test262/reports/snapshot-built-ins-Object-freeze_built-ins-Object-isFrozen_built-ins-Object-seal_built-in-1775803259875.json`
 
 | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-------|--------|-----------------|--------------------|----------|-------|
 | 317   | **222 (70.0%)** | 0 | 95 | 0 | Phase 12 hang fix; remaining failures are .length metadata and Object.defineProperty dependency |
 
-> **Phase 12 hang root-cause analysis and fixes (commit d915fca):**
+> **Phase 12 hang root-cause analysis and fixes (commit d915fca + regression fix ea163b6):**
 > 1. *GCBridge::mapMutex deadlock* — `registerMapping()` holds `mapMutex` then calls `registerRoot()` which tries to lock the same non-recursive `std::mutex`; changed to `std::recursive_mutex`.
-> 2. *TypeBridge::toJS: isCell before isString* — `obj->isString(pContext)` hangs for plain mutable ProtoObject cells (protoCore internal bug). Moved `isCell` check before `isString` since they are mutually exclusive.
-> 3. *ObjectPrototype freeze/seal state* — used `obj->setAttribute()` to store `__extensible__`/`__is_frozen__` flags; calling protoCore type predicates on a post-setAttribute object hangs. Replaced with `thread_local std::unordered_set<const ProtoObject*>` for zero-overhead O(1) state tracking with no protoCore side effects. Also removed `isString()` from `isPrimitive()` for the same reason.
+> 2. *ObjectPrototype freeze/seal state* — used `obj->setAttribute()` to store `__extensible__`/`__is_frozen__` flags; calling protoCore type predicates on a post-setAttribute object hangs. Replaced with `thread_local std::unordered_set<const ProtoObject*>` for zero-overhead O(1) state tracking with no protoCore side effects. Also removed `isString()` from `isPrimitive()` for the same reason.
+> 3. *TypeBridge::toJS isCell regression (commit ea163b6)* — The initial d915fca fix inserted an `isCell()` check before `isString()` under the incorrect assumption they are mutually exclusive. In protoCore, `ProtoString` objects also return `true` for `isCell()`, so ProtoStrings were being wrapped as generic JS objects instead of converted to JS strings. This caused `Function.prototype.bind` / `call` / `apply` to become `undefined`. Since `setAttribute` is no longer called on ProtoObjects (fix #2 uses thread_local sets), `isString()` is now safe to call before `isCell()`, and the block was removed.
 
 ---
 
