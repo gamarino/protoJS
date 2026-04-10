@@ -1,0 +1,2240 @@
+{
+  "generatedAt": "2026-04-10T05:00:37.927Z",
+  "patterns": [
+    "built-ins/Object/freeze",
+    "built-ins/Object/isFrozen",
+    "built-ins/Object/seal",
+    "built-ins/Object/isSealed",
+    "built-ins/Object/preventExtensions",
+    "built-ins/Object/isExtensible"
+  ],
+  "total": 317,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 1,
+    "failed_semantics": 316,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-0-1.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-0-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-0-2.js",
+      "result": "failed_semantics",
+      "durationMs": 55,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-0-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-1-1.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-1-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-1-2.js",
+      "result": "failed_semantics",
+      "durationMs": 109,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-1-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-1-3.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-1-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-1-4.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-1-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-1.js",
+      "result": "failed_semantics",
+      "durationMs": 93,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-1.js",
+      "result": "failed_semantics",
+      "durationMs": 122,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-2.js",
+      "result": "failed_semantics",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-3.js",
+      "result": "failed_semantics",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-4.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-1.js",
+      "result": "failed_semantics",
+      "durationMs": 75,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-10.js",
+      "result": "failed_semantics",
+      "durationMs": 105,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-10.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-11.js",
+      "result": "failed_semantics",
+      "durationMs": 90,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-11.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-12.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-12.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-13.js",
+      "result": "failed_semantics",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-13.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-14.js",
+      "result": "failed_semantics",
+      "durationMs": 129,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-14.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-2.js",
+      "result": "failed_semantics",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-3.js",
+      "result": "failed_semantics",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-4.js",
+      "result": "failed_semantics",
+      "durationMs": 73,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-5.js",
+      "result": "failed_semantics",
+      "durationMs": 113,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-6.js",
+      "result": "failed_semantics",
+      "durationMs": 91,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-7.js",
+      "result": "failed_semantics",
+      "durationMs": 99,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-8.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-8.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-a-9.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-a-9.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-b-i-1.js",
+      "result": "failed_semantics",
+      "durationMs": 108,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-b-i-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-b-i-2.js",
+      "result": "failed_semantics",
+      "durationMs": 121,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-b-i-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-c-1.js",
+      "result": "failed_semantics",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-c-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-c-2.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-c-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-c-3.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-c-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-c-4.js",
+      "result": "failed_semantics",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-c-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-1.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-2.js",
+      "result": "failed_semantics",
+      "durationMs": 98,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-3.js",
+      "result": "failed_semantics",
+      "durationMs": 87,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-4.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-5.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-6.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-7.js",
+      "result": "failed_semantics",
+      "durationMs": 75,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-8.js",
+      "result": "failed_semantics",
+      "durationMs": 97,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-8.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-2-d-9.js",
+      "result": "failed_semantics",
+      "durationMs": 90,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-2-d-9.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-3-1.js",
+      "result": "failed_semantics",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-3-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-4-1.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-4-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-4-2.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-4-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/15.2.3.9-4-3.js",
+      "result": "failed_semantics",
+      "durationMs": 98,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__15.2.3.9-4-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/freeze/abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 142,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__abrupt-completion.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/freeze/frozen-object-contains-symbol-properties-non-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__frozen-object-contains-symbol-properties-non-strict.js\n[protojs] CLI: creating"
+    },
+    {
+      "path": "built-ins/Object/freeze/frozen-object-contains-symbol-properties-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__frozen-object-contains-symbol-properties-strict.js\n[protojs] CLI: creating JSC"
+    },
+    {
+      "path": "built-ins/Object/freeze/name.js",
+      "result": "failed_semantics",
+      "durationMs": 79,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__name.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSContex"
+    },
+    {
+      "path": "built-ins/Object/freeze/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 82,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__not-a-constructor.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/freeze/proxy-no-ownkeys-returned-keys-order.js",
+      "result": "failed_semantics",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__proxy-no-ownkeys-returned-keys-order.js\n[protojs] CLI: creating JSContextWrapp"
+    },
+    {
+      "path": "built-ins/Object/freeze/proxy-with-defineProperty-handler.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__proxy-with-defineProperty-handler.js\n[protojs] CLI: creating JSContextWrapper "
+    },
+    {
+      "path": "built-ins/Object/freeze/throws-when-false.js",
+      "result": "failed_semantics",
+      "durationMs": 128,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__throws-when-false.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/freeze/typedarray-backed-by-resizable-buffer.js",
+      "result": "failed_semantics",
+      "durationMs": 87,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__freeze__typedarray-backed-by-resizable-buffer.js\n[protojs] CLI: creating JSContextWrap"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-0-1.js",
+      "result": "failed_semantics",
+      "durationMs": 115,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-0-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-0-2.js",
+      "result": "failed_semantics",
+      "durationMs": 111,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-0-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-0-3.js",
+      "result": "failed_semantics",
+      "durationMs": 66,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-0-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-1-1.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-1-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-1-2.js",
+      "result": "failed_semantics",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-1-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-1-3.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-1-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-1-4.js",
+      "result": "failed_semantics",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-1-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-1.js",
+      "result": "failed_semantics",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-1.js",
+      "result": "failed_semantics",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-10.js",
+      "result": "failed_semantics",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-10.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-11.js",
+      "result": "failed_semantics",
+      "durationMs": 79,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-11.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-12.js",
+      "result": "failed_semantics",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-12.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-13.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-13.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-14.js",
+      "result": "failed_semantics",
+      "durationMs": 99,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-14.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-15.js",
+      "result": "failed_semantics",
+      "durationMs": 87,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-15.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-16.js",
+      "result": "failed_semantics",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-16.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-17.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-17.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-18.js",
+      "result": "failed_semantics",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-18.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-19.js",
+      "result": "failed_semantics",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-19.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-2.js",
+      "result": "failed_semantics",
+      "durationMs": 91,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-20.js",
+      "result": "failed_semantics",
+      "durationMs": 115,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-20.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-21.js",
+      "result": "failed_semantics",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-21.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-22.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-22.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-23.js",
+      "result": "failed_semantics",
+      "durationMs": 73,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-23.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-24.js",
+      "result": "failed_semantics",
+      "durationMs": 94,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-24.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-25.js",
+      "result": "failed_semantics",
+      "durationMs": 120,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-25.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-26.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-26.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-27.js",
+      "result": "failed_semantics",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-27.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-29.js",
+      "result": "failed_semantics",
+      "durationMs": 90,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-29.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-3.js",
+      "result": "failed_semantics",
+      "durationMs": 97,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-4.js",
+      "result": "failed_semantics",
+      "durationMs": 67,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-5.js",
+      "result": "failed_semantics",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-6.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-7.js",
+      "result": "failed_semantics",
+      "durationMs": 101,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-8.js",
+      "result": "failed_semantics",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-8.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/15.2.3.13-2-9.js",
+      "result": "failed_semantics",
+      "durationMs": 67,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__15.2.3.13-2-9.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/name.js",
+      "result": "failed_semantics",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__name.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/isExtensible/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isExtensible__not-a-constructor.js\n[protojs] CLI: creating JSContextWrapper for script"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-0-1.js",
+      "result": "failed_semantics",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-0-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-0-2.js",
+      "result": "failed_semantics",
+      "durationMs": 114,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-0-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-1.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-2.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-3.js",
+      "result": "failed_semantics",
+      "durationMs": 66,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-4.js",
+      "result": "failed_semantics",
+      "durationMs": 108,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-5.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-6.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1-7.js",
+      "result": "failed_semantics",
+      "durationMs": 63,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-1.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs]"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-1.js",
+      "result": "failed_semantics",
+      "durationMs": 72,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-2.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-1.js",
+      "result": "failed_semantics",
+      "durationMs": 121,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-11.js",
+      "result": "failed_semantics",
+      "durationMs": 57,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-11.js\n[protojs] CLI: creating JSContextWrapper for script\n[pro"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-12.js",
+      "result": "failed_semantics",
+      "durationMs": 91,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-12.js\n[protojs] CLI: creating JSContextWrapper for script\n[pro"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-13.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-13.js\n[protojs] CLI: creating JSContextWrapper for script\n[pro"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-14.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-14.js\n[protojs] CLI: creating JSContextWrapper for script\n[pro"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-2.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-3.js",
+      "result": "failed_semantics",
+      "durationMs": 100,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-4.js",
+      "result": "failed_semantics",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-5.js",
+      "result": "failed_semantics",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-6.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-7.js",
+      "result": "failed_semantics",
+      "durationMs": 94,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-a-8.js",
+      "result": "failed_semantics",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-a-8.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-b-i-1.js",
+      "result": "failed_semantics",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-b-i-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-c-1.js",
+      "result": "failed_semantics",
+      "durationMs": 100,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-c-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-2-c-2.js",
+      "result": "failed_semantics",
+      "durationMs": 50,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-2-c-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-1.js",
+      "result": "failed_semantics",
+      "durationMs": 102,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-10.js",
+      "result": "failed_semantics",
+      "durationMs": 85,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-10.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-11.js",
+      "result": "failed_semantics",
+      "durationMs": 76,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-11.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-12.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-12.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-13.js",
+      "result": "failed_semantics",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-13.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-14.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-14.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-15.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-15.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-16.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-16.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-17.js",
+      "result": "failed_semantics",
+      "durationMs": 98,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-17.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-18.js",
+      "result": "failed_semantics",
+      "durationMs": 105,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-18.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-19.js",
+      "result": "failed_semantics",
+      "durationMs": 73,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-19.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-2.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-20.js",
+      "result": "failed_semantics",
+      "durationMs": 114,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-20.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-21.js",
+      "result": "failed_semantics",
+      "durationMs": 60,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-21.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-22.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-22.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-23.js",
+      "result": "failed_semantics",
+      "durationMs": 57,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-23.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-24.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-24.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-25.js",
+      "result": "failed_semantics",
+      "durationMs": 122,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-25.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-26.js",
+      "result": "failed_semantics",
+      "durationMs": 86,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-26.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-27.js",
+      "result": "failed_semantics",
+      "durationMs": 97,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-27.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-28.js",
+      "result": "failed_semantics",
+      "durationMs": 91,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-28.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-3.js",
+      "result": "failed_semantics",
+      "durationMs": 112,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-4.js",
+      "result": "failed_semantics",
+      "durationMs": 101,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-5.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-6.js",
+      "result": "failed_semantics",
+      "durationMs": 73,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-7.js",
+      "result": "failed_semantics",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-8.js",
+      "result": "failed_semantics",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-8.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-3-9.js",
+      "result": "failed_semantics",
+      "durationMs": 139,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-3-9.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/15.2.3.12-4-1.js",
+      "result": "failed_semantics",
+      "durationMs": 75,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__15.2.3.12-4-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/name.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__name.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCont"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 122,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__not-a-constructor.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isFrozen/proxy-no-ownkeys-returned-keys-order.js",
+      "result": "failed_semantics",
+      "durationMs": 103,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isFrozen__proxy-no-ownkeys-returned-keys-order.js\n[protojs] CLI: creating JSContextWra"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-0-1.js",
+      "result": "failed_semantics",
+      "durationMs": 136,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-0-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-0-2.js",
+      "result": "failed_semantics",
+      "durationMs": 72,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-0-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-1.js",
+      "result": "failed_semantics",
+      "durationMs": 105,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs]"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-1.js",
+      "result": "failed_semantics",
+      "durationMs": 97,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-1.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-10.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-10.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-11.js",
+      "result": "failed_semantics",
+      "durationMs": 107,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-11.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-12.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-12.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-13.js",
+      "result": "failed_semantics",
+      "durationMs": 106,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-13.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-14.js",
+      "result": "failed_semantics",
+      "durationMs": 102,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-14.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-15.js",
+      "result": "failed_semantics",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-15.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-16.js",
+      "result": "failed_semantics",
+      "durationMs": 115,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-16.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-17.js",
+      "result": "failed_semantics",
+      "durationMs": 87,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-17.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-18.js",
+      "result": "failed_semantics",
+      "durationMs": 174,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-18.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-19.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-19.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-2.js",
+      "result": "failed_semantics",
+      "durationMs": 103,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-2.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-20.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-20.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-21.js",
+      "result": "failed_semantics",
+      "durationMs": 55,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-21.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-22.js",
+      "result": "failed_semantics",
+      "durationMs": 55,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-22.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-23.js",
+      "result": "failed_semantics",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-23.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-24.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-24.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-25.js",
+      "result": "failed_semantics",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-25.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-26.js",
+      "result": "failed_semantics",
+      "durationMs": 120,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-26.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-27.js",
+      "result": "failed_semantics",
+      "durationMs": 108,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-27.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-3.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-3.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-4.js",
+      "result": "failed_semantics",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-4.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-5.js",
+      "result": "failed_semantics",
+      "durationMs": 74,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-5.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-6.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-6.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-7.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-7.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-8.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-8.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/15.2.3.11-4-9.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__15.2.3.11-4-9.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/isSealed/name.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__name.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCont"
+    },
+    {
+      "path": "built-ins/Object/isSealed/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__not-a-constructor.js\n[protojs] CLI: creating JSContextWrapper for script\n[pr"
+    },
+    {
+      "path": "built-ins/Object/isSealed/proxy-no-ownkeys-returned-keys-order.js",
+      "result": "failed_semantics",
+      "durationMs": 109,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__isSealed__proxy-no-ownkeys-returned-keys-order.js\n[protojs] CLI: creating JSContextWra"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-0-1.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-0-1.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-0-2.js",
+      "result": "failed_semantics",
+      "durationMs": 106,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-0-2.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-1-1.js",
+      "result": "failed_semantics",
+      "durationMs": 72,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-1-1.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-1-2.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-1-2.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-1-3.js",
+      "result": "failed_semantics",
+      "durationMs": 94,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-1-3.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-1-4.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-1-4.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-1.js",
+      "result": "failed_semantics",
+      "durationMs": 86,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-1.js\n[protojs] CLI: creating JSContextWrapper for script\n"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-2-1.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-2-1.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-2.js",
+      "result": "failed_semantics",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-2.js\n[protojs] CLI: creating JSContextWrapper for script\n"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-1.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-1.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-10.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-10.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-11.js",
+      "result": "failed_semantics",
+      "durationMs": 60,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-11.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-12.js",
+      "result": "failed_semantics",
+      "durationMs": 85,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-12.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-13.js",
+      "result": "failed_semantics",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-13.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-14.js",
+      "result": "failed_semantics",
+      "durationMs": 79,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-14.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-15.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-15.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-16.js",
+      "result": "failed_semantics",
+      "durationMs": 112,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-16.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-17.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-17.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-18.js",
+      "result": "failed_semantics",
+      "durationMs": 81,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-18.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-19.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-19.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-2.js",
+      "result": "failed_semantics",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-2.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-20.js",
+      "result": "failed_semantics",
+      "durationMs": 79,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-20.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-21.js",
+      "result": "failed_semantics",
+      "durationMs": 104,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-21.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-22.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-22.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-23.js",
+      "result": "failed_semantics",
+      "durationMs": 113,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-23.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-24.js",
+      "result": "failed_semantics",
+      "durationMs": 73,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-24.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-3.js",
+      "result": "failed_semantics",
+      "durationMs": 66,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-3.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-4.js",
+      "result": "failed_semantics",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-4.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-5-1.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-5-1.js\n[protojs] CLI: creating JSContextWrapper for scr"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-5.js",
+      "result": "failed_semantics",
+      "durationMs": 64,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-5.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-6.js",
+      "result": "failed_semantics",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-6.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-7.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-7.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-8.js",
+      "result": "failed_semantics",
+      "durationMs": 112,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-8.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/15.2.3.10-3-9.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__15.2.3.10-3-9.js\n[protojs] CLI: creating JSContextWrapper for scrip"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 118,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__abrupt-completion.js\n[protojs] CLI: creating JSContextWrapper for s"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/name.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__name.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 130,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__not-a-constructor.js\n[protojs] CLI: creating JSContextWrapper for s"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/symbol-object-contains-symbol-properties-non-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__symbol-object-contains-symbol-properties-non-strict.js\n[protojs] CL"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/symbol-object-contains-symbol-properties-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 82,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__symbol-object-contains-symbol-properties-strict.js\n[protojs] CLI: c"
+    },
+    {
+      "path": "built-ins/Object/preventExtensions/throws-when-false.js",
+      "result": "failed_semantics",
+      "durationMs": 97,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__preventExtensions__throws-when-false.js\n[protojs] CLI: creating JSContextWrapper for s"
+    },
+    {
+      "path": "built-ins/Object/seal/abrupt-completion.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__abrupt-completion.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/seal/configurable-attribute-all-own-properties-set-from-true-to-false-property-are-unaltered.js",
+      "result": "failed_semantics",
+      "durationMs": 85,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__configurable-attribute-all-own-properties-set-from-true-to-false-property-are-un"
+    },
+    {
+      "path": "built-ins/Object/seal/configurable-attribute-own-accessor-property-set-from-true-to-false-property-are-unaltered.js",
+      "result": "failed_semantics",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__configurable-attribute-own-accessor-property-set-from-true-to-false-property-are"
+    },
+    {
+      "path": "built-ins/Object/seal/length.js",
+      "result": "failed_semantics",
+      "durationMs": 148,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__length.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSContex"
+    },
+    {
+      "path": "built-ins/Object/seal/name.js",
+      "result": "failed_semantics",
+      "durationMs": 87,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__name.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSContextW"
+    },
+    {
+      "path": "built-ins/Object/seal/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 70,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__not-a-constructor.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-all-own-properties-of-o-are-already-non-configurable.js",
+      "result": "failed_semantics",
+      "durationMs": 103,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-all-own-properties-of-o-are-already-non-configurable.js\n[protojs] CL"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-configurable-attribute-of-own-data-property-of-o-is-set-from-true-to-false-and-other-attributes-of-the-property-are-unaltered.js",
+      "result": "failed_semantics",
+      "durationMs": 86,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-configurable-attribute-of-own-data-property-of-o-is-set-from-true-to"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-extensible-of-o-is-set-as-false-even-if-o-has-no-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 68,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-extensible-of-o-is-set-as-false-even-if-o-has-no-own-property.js\n[pr"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-inherited-accessor-properties-are-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 91,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-inherited-accessor-properties-are-ignored.js\n[protojs] CLI: creating"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-inherited-data-properties-are-ignored.js",
+      "result": "failed_semantics",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-inherited-data-properties-are-ignored.js\n[protojs] CLI: creating JSC"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-is-a-function.js",
+      "result": "failed_semantics",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-is-a-function.js\n[protojs] CLI: creating JSContextWrapper for script"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-non-enumerable-own-property-of-o-is-sealed.js",
+      "result": "failed_semantics",
+      "durationMs": 75,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-non-enumerable-own-property-of-o-is-sealed.js\n[protojs] CLI: creatin"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-a-boolean-object.js",
+      "result": "failed_semantics",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-a-boolean-object.js\n[protojs] CLI: creating JSContextWrapper fo"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-a-date-object.js",
+      "result": "failed_semantics",
+      "durationMs": 90,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-a-date-object.js\n[protojs] CLI: creating JSContextWrapper for s"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-a-function-object.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-a-function-object.js\n[protojs] CLI: creating JSContextWrapper f"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-a-number-object.js",
+      "result": "failed_semantics",
+      "durationMs": 63,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-a-number-object.js\n[protojs] CLI: creating JSContextWrapper for"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-a-reg-exp-object.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-a-reg-exp-object.js\n[protojs] CLI: creating JSContextWrapper fo"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-a-string-object.js",
+      "result": "failed_semantics",
+      "durationMs": 53,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-a-string-object.js\n[protojs] CLI: creating JSContextWrapper for"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-an-arguments-object.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-an-arguments-object.js\n[protojs] CLI: creating JSContextWrapper"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-an-array-object.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-an-array-object.js\n[protojs] CLI: creating JSContextWrapper for"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-an-error-object.js",
+      "result": "failed_semantics",
+      "durationMs": 104,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-an-error-object.js\n[protojs] CLI: creating JSContextWrapper for"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-frozen-already.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-frozen-already.js\n[protojs] CLI: creating JSContextWrapper for "
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-o-is-sealed-already.js",
+      "result": "failed_semantics",
+      "durationMs": 102,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-o-is-sealed-already.js\n[protojs] CLI: creating JSContextWrapper for "
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-accessor-property-that-overrides-an-inherited-accessor-property.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-accessor-property-that-overrides-an-inherited-accessor-prop"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-accessor-property-that-overrides-an-inherited-data-property.js",
+      "result": "failed_semantics",
+      "durationMs": 102,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-accessor-property-that-overrides-an-inherited-data-property"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-accessor-property.js",
+      "result": "failed_semantics",
+      "durationMs": 128,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-accessor-property.js\n[protojs] CLI: creating JSContextWrapp"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-data-property-that-overrides-an-inherited-accessor-property.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-data-property-that-overrides-an-inherited-accessor-property"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-data-property-that-overrides-an-inherited-data-property.js",
+      "result": "failed_semantics",
+      "durationMs": 59,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-data-property-that-overrides-an-inherited-data-property.js\n"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-data-property.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-data-property.js\n[protojs] CLI: creating JSContextWrapper f"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-a-boolean-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 84,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-a-boolean-object-that-uses-object-s-get-own-pro"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-a-date-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-a-date-object-that-uses-object-s-get-own-proper"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-a-function-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-a-function-object-that-uses-object-s-get-own-pr"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-a-number-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-a-number-object-that-uses-object-s-get-own-prop"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-a-reg-exp-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 82,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-a-reg-exp-object-that-uses-object-s-get-own-pro"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-a-string-object-which-implements-its-own-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-a-string-object-which-implements-its-own-get-ow"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-an-arguments-object-which-implements-its-own-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 85,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-an-arguments-object-which-implements-its-own-ge"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-an-array-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 95,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-an-array-object-that-uses-object-s-get-own-prop"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-p-is-own-property-of-an-error-object-that-uses-object-s-get-own-property.js",
+      "result": "failed_semantics",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-p-is-own-property-of-an-error-object-that-uses-object-s-get-own-prop"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-returned-object-is-not-extensible.js",
+      "result": "failed_semantics",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-returned-object-is-not-extensible.js\n[protojs] CLI: creating JSConte"
+    },
+    {
+      "path": "built-ins/Object/seal/object-seal-the-extension-of-o-is-prevented-already.js",
+      "result": "failed_semantics",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__object-seal-the-extension-of-o-is-prevented-already.js\n[protojs] CLI: creating J"
+    },
+    {
+      "path": "built-ins/Object/seal/proxy-no-ownkeys-returned-keys-order.js",
+      "result": "failed_semantics",
+      "durationMs": 58,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__proxy-no-ownkeys-returned-keys-order.js\n[protojs] CLI: creating JSContextWrapper"
+    },
+    {
+      "path": "built-ins/Object/seal/proxy-with-defineProperty-handler.js",
+      "result": "failed_semantics",
+      "durationMs": 176,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__proxy-with-defineProperty-handler.js\n[protojs] CLI: creating JSContextWrapper fo"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-aggregateerror.js",
+      "result": "failed_semantics",
+      "durationMs": 96,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-aggregateerror.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-arraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-arraybuffer.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-arrowfunction.js",
+      "result": "failed_semantics",
+      "durationMs": 80,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-arrowfunction.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-asyncarrowfunction.js",
+      "result": "failed_semantics",
+      "durationMs": 63,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-asyncarrowfunction.js\n[protojs] CLI: creating JSContextWrapper for script\n["
+    },
+    {
+      "path": "built-ins/Object/seal/seal-asyncfunction.js",
+      "result": "failed_semantics",
+      "durationMs": 131,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-asyncfunction.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-asyncgeneratorfunction.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-asyncgeneratorfunction.js\n[protojs] CLI: creating JSContextWrapper for scri"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-bigint64array.js",
+      "result": "failed_semantics",
+      "durationMs": 56,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-bigint64array.js\n[protojs] CLI: creating JSContextWrapper for script\n[proto"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-biguint64array.js",
+      "result": "failed_semantics",
+      "durationMs": 69,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-biguint64array.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-boolean-literal.js",
+      "result": "failed_semantics",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-boolean-literal.js\n[protojs] CLI: creating JSContextWrapper for script\n[pro"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-boolean.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-boolean.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-dataview.js",
+      "result": "failed_semantics",
+      "durationMs": 85,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-dataview.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] J"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-date.js",
+      "result": "failed_semantics",
+      "durationMs": 67,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-date.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCon"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-error.js",
+      "result": "failed_semantics",
+      "durationMs": 79,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-error.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCo"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-evalerror.js",
+      "result": "failed_semantics",
+      "durationMs": 110,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-evalerror.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/seal/seal-finalizationregistry.js",
+      "result": "failed_semantics",
+      "durationMs": 130,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-finalizationregistry.js\n[protojs] CLI: creating JSContextWrapper for script"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-float32array.js",
+      "result": "failed_semantics",
+      "durationMs": 65,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-float32array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-float64array.js",
+      "result": "failed_semantics",
+      "durationMs": 113,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-float64array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-function.js",
+      "result": "failed_semantics",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-function.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] J"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-generatorfunction.js",
+      "result": "failed_semantics",
+      "durationMs": 89,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-generatorfunction.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-infinity.js",
+      "result": "failed_semantics",
+      "durationMs": 111,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-infinity.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] J"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-int16array.js",
+      "result": "failed_semantics",
+      "durationMs": 83,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-int16array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs]"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-int32array.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-int32array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs]"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-int8array.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-int8array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/seal/seal-map.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-map.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCont"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-nan.js",
+      "result": "failed_semantics",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-nan.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCont"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-null.js",
+      "result": "failed_semantics",
+      "durationMs": 116,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-null.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCon"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-number.js",
+      "result": "failed_semantics",
+      "durationMs": 118,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-number.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSC"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-object.js",
+      "result": "failed_semantics",
+      "durationMs": 110,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-object.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSC"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-promise.js",
+      "result": "failed_semantics",
+      "durationMs": 71,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-promise.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-proxy.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-proxy.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCo"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-rangeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 85,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-rangeerror.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs]"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-referenceerror.js",
+      "result": "failed_semantics",
+      "durationMs": 78,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-referenceerror.js\n[protojs] CLI: creating JSContextWrapper for script\n[prot"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-regexp.js",
+      "result": "failed_semantics",
+      "durationMs": 99,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-regexp.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSC"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-set.js",
+      "result": "failed_semantics",
+      "durationMs": 114,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-set.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSCont"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-sharedarraybuffer.js",
+      "result": "failed_semantics",
+      "durationMs": 94,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-sharedarraybuffer.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-string.js",
+      "result": "failed_semantics",
+      "durationMs": 75,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-string.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSC"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 88,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-symbol.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JSC"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-syntaxerror.js",
+      "result": "failed_syntax",
+      "durationMs": 61,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-syntaxerror.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-typeerror.js",
+      "result": "failed_semantics",
+      "durationMs": 87,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-typeerror.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/seal/seal-uint16array.js",
+      "result": "failed_semantics",
+      "durationMs": 101,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-uint16array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-uint32array.js",
+      "result": "failed_semantics",
+      "durationMs": 91,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-uint32array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-uint8array.js",
+      "result": "failed_semantics",
+      "durationMs": 72,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-uint8array.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs]"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-uint8clampedarray.js",
+      "result": "failed_semantics",
+      "durationMs": 104,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-uint8clampedarray.js\n[protojs] CLI: creating JSContextWrapper for script\n[p"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 94,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-undefined.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] "
+    },
+    {
+      "path": "built-ins/Object/seal/seal-urierror.js",
+      "result": "failed_semantics",
+      "durationMs": 77,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-urierror.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] J"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-weakmap.js",
+      "result": "failed_semantics",
+      "durationMs": 60,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-weakmap.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-weakref.js",
+      "result": "failed_semantics",
+      "durationMs": 123,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-weakref.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/seal/seal-weakset.js",
+      "result": "failed_semantics",
+      "durationMs": 155,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__seal-weakset.js\n[protojs] CLI: creating JSContextWrapper for script\n[protojs] JS"
+    },
+    {
+      "path": "built-ins/Object/seal/symbol-object-contains-symbol-properties-non-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 125,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__symbol-object-contains-symbol-properties-non-strict.js\n[protojs] CLI: creating J"
+    },
+    {
+      "path": "built-ins/Object/seal/symbol-object-contains-symbol-properties-strict.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__symbol-object-contains-symbol-properties-strict.js\n[protojs] CLI: creating JSCon"
+    },
+    {
+      "path": "built-ins/Object/seal/throws-when-false.js",
+      "result": "failed_semantics",
+      "durationMs": 92,
+      "negative": null,
+      "errorSummary": "Command failed: ./build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__seal__throws-when-false.js\n[protojs] CLI: creating JSContextWrapper for script\n[protoj"
+    }
+  ]
+}
