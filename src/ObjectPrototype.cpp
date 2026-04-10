@@ -103,7 +103,44 @@ static const proto::ProtoObject* objectCreate(
 }
 
 // ---------------------------------------------------------------------------
-// Object.freeze(obj) → obj (no-op — protoCore immutable semantics apply)
+// Helpers: set / check the __extensible__ and __is_frozen__ / __is_sealed__
+// sidecar flags that OP_put_field and isExtensible read.
+// ---------------------------------------------------------------------------
+
+// Returns true if obj is a JS primitive (not a plain object or array).
+static bool isPrimitive(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+    if (!obj || obj == PROTO_NONE) return true;
+    return obj->isBoolean(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx) ||
+           obj->isFloat(ctx) || obj->isString(ctx) || obj->isNone(ctx);
+}
+
+static const proto::ProtoObject* setObjFlag(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* obj,
+    const char* flagName,
+    bool value)
+{
+    const proto::ProtoObject* ko = ctx->fromUTF8String(flagName);
+    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    if (!k) return obj;
+    return obj->setAttribute(ctx, k, value ? PROTO_TRUE : PROTO_FALSE);
+}
+
+static bool getObjFlag(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* obj,
+    const char* flagName)
+{
+    const proto::ProtoObject* ko = ctx->fromUTF8String(flagName);
+    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    if (!k) return false;
+    const proto::ProtoObject* v = obj->getAttribute(ctx, k, false);
+    return v == PROTO_TRUE;
+}
+
+// ---------------------------------------------------------------------------
+// Object.freeze(obj) — marks the object non-extensible and frozen.
+// All current and future property writes will be rejected by OP_put_field.
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectFreeze(
@@ -113,24 +150,120 @@ static const proto::ProtoObject* objectFreeze(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    (void)ctx;
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
-    return args->getAt(ctx, 0);
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    // Primitives: spec says freeze is a no-op and returns the value unchanged.
+    if (isPrimitive(ctx, obj)) return obj;
+    obj = setObjFlag(ctx, obj, "__extensible__", false);
+    obj = setObjFlag(ctx, obj, "__is_frozen__",  true);
+    return obj;
 }
 
 // ---------------------------------------------------------------------------
-// Object.isFrozen(obj) → always false (freeze state not tracked)
+// Object.isFrozen(obj)
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectIsFrozen(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    (void)ctx;
-    return PROTO_FALSE;
+    if (!args || args->getSize(ctx) == 0) return PROTO_TRUE; // no arg → undefined → frozen
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_TRUE; // undefined/null are frozen
+    if (isPrimitive(ctx, obj)) return PROTO_TRUE; // primitives are frozen
+    return getObjFlag(ctx, obj, "__is_frozen__") ? PROTO_TRUE : PROTO_FALSE;
+}
+
+// ---------------------------------------------------------------------------
+// Object.seal(obj) — marks the object non-extensible and sealed.
+// Existing properties remain writable but cannot be deleted or reconfigured.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectSeal(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    if (isPrimitive(ctx, obj)) return obj;
+    obj = setObjFlag(ctx, obj, "__extensible__", false);
+    obj = setObjFlag(ctx, obj, "__is_sealed__",  true);
+    return obj;
+}
+
+// ---------------------------------------------------------------------------
+// Object.isSealed(obj)
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectIsSealed(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_TRUE;
+    if (isPrimitive(ctx, obj)) return PROTO_TRUE;
+    // Frozen objects are also sealed.
+    if (getObjFlag(ctx, obj, "__is_frozen__")) return PROTO_TRUE;
+    return getObjFlag(ctx, obj, "__is_sealed__") ? PROTO_TRUE : PROTO_FALSE;
+}
+
+// ---------------------------------------------------------------------------
+// Object.preventExtensions(obj) — marks the object non-extensible.
+// New properties cannot be added, but existing ones remain writable.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectPreventExtensions(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    if (isPrimitive(ctx, obj)) return obj;
+    obj = setObjFlag(ctx, obj, "__extensible__", false);
+    return obj;
+}
+
+// ---------------------------------------------------------------------------
+// Object.isExtensible(obj) — returns true unless prevented/sealed/frozen.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectIsExtensible(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_FALSE;
+    if (isPrimitive(ctx, obj)) return PROTO_FALSE;
+    // If __extensible__ == false was explicitly set, not extensible.
+    if (getObjFlag(ctx, obj, "__is_frozen__") || getObjFlag(ctx, obj, "__is_sealed__"))
+        return PROTO_FALSE;
+    const proto::ProtoObject* ko = ctx->fromUTF8String("__extensible__");
+    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+    if (k) {
+        const proto::ProtoObject* v = obj->getAttribute(ctx, k, false);
+        if (v == PROTO_FALSE) return PROTO_FALSE;
+    }
+    return PROTO_TRUE; // extensible by default
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +660,10 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("create",                objectCreate);
     reg("freeze",                objectFreeze);
     reg("isFrozen",              objectIsFrozen);
+    reg("seal",                  objectSeal);
+    reg("isSealed",              objectIsSealed);
+    reg("preventExtensions",     objectPreventExtensions);
+    reg("isExtensible",          objectIsExtensible);
     reg("getOwnPropertyNames",   objectGetOwnPropertyNames);
     reg("getPrototypeOf",        objectGetPrototypeOf);
     reg("setPrototypeOf",        objectGetPrototypeOf); // stub: same as getPrototypeOf

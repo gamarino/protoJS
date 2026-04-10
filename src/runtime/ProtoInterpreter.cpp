@@ -2112,33 +2112,85 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (key && obj) {
-                    // Strict-mode writable check: look up __pd_<propName>__ sidecar.
-                    // If bit0 == 0, the property is non-writable.
                     std::string keyStr2;
                     key->toUTF8String(pContext, keyStr2);
-                    std::string pdKeyStr = "__pd_" + keyStr2 + "__";
-                    const proto::ProtoObject* pdko2 = pContext->fromUTF8String(pdKeyStr.c_str());
-                    const proto::ProtoString* pdk2  = pdko2 ? pdko2->asString(pContext) : nullptr;
-                    if (pdk2) {
-                        const proto::ProtoObject* bitsObj2 = obj->getAttribute(pContext, pdk2, false);
-                        if (bitsObj2 && bitsObj2 != PROTO_NONE && bitsObj2->isInteger(pContext)) {
-                            uint8_t bits2 = static_cast<uint8_t>(bitsObj2->asLong(pContext));
-                            bool writable2 = (bits2 & 0x1) != 0;
-                            if (!writable2) {
+
+                    // Check 1: Object.freeze — frozen objects reject all writes.
+                    {
+                        const proto::ProtoObject* fko = pContext->fromUTF8String("__is_frozen__");
+                        const proto::ProtoString* fk  = fko ? fko->asString(pContext) : nullptr;
+                        if (fk) {
+                            const proto::ProtoObject* fv = obj->getAttribute(pContext, fk, false);
+                            if (fv == PROTO_TRUE) {
                                 if (module->isStrict) {
-                                    // Strict mode: throw TypeError.
                                     pending_exception = makeError(pContext, "TypeError",
-                                        "Cannot assign to read only property", pGlobalRoot);
+                                        "Cannot assign to property of frozen object", pGlobalRoot);
                                     has_pending_exception = true;
                                     break;
                                 } else {
-                                    // Non-strict: silently ignore the assignment.
                                     stackPush(pContext, obj);
                                     break;
                                 }
                             }
                         }
                     }
+
+                    // Check 2: Non-writable data property (__pd_ sidecar, bit0=writable).
+                    {
+                        std::string pdKeyStr = "__pd_" + keyStr2 + "__";
+                        const proto::ProtoObject* pdko2 = pContext->fromUTF8String(pdKeyStr.c_str());
+                        const proto::ProtoString* pdk2  = pdko2 ? pdko2->asString(pContext) : nullptr;
+                        if (pdk2) {
+                            const proto::ProtoObject* bitsObj2 = obj->getAttribute(pContext, pdk2, false);
+                            if (bitsObj2 && bitsObj2 != PROTO_NONE && bitsObj2->isInteger(pContext)) {
+                                uint8_t bits2 = static_cast<uint8_t>(bitsObj2->asLong(pContext));
+                                bool writable2 = (bits2 & 0x1) != 0;
+                                if (!writable2) {
+                                    if (module->isStrict) {
+                                        pending_exception = makeError(pContext, "TypeError",
+                                            "Cannot assign to read only property", pGlobalRoot);
+                                        has_pending_exception = true;
+                                        break;
+                                    } else {
+                                        stackPush(pContext, obj);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Check 3: Object.preventExtensions — reject adding new own properties.
+                    {
+                        const proto::ProtoObject* eko = pContext->fromUTF8String("__extensible__");
+                        const proto::ProtoString* ek  = eko ? eko->asString(pContext) : nullptr;
+                        if (ek) {
+                            const proto::ProtoObject* ev = obj->getAttribute(pContext, ek, false);
+                            if (ev == PROTO_FALSE) {
+                                // Object is non-extensible. Reject only if the property
+                                // does not already exist as an own property.
+                                const proto::ProtoString* propKey = pContext->fromUTF8String(keyStr2.c_str()) ?
+                                    pContext->fromUTF8String(keyStr2.c_str())->asString(pContext) : nullptr;
+                                bool alreadyOwn = false;
+                                if (propKey) {
+                                    const proto::ProtoObject* own = obj->hasOwnAttribute(pContext, propKey);
+                                    alreadyOwn = (own == PROTO_TRUE);
+                                }
+                                if (!alreadyOwn) {
+                                    if (module->isStrict) {
+                                        pending_exception = makeError(pContext, "TypeError",
+                                            "Cannot add property to non-extensible object", pGlobalRoot);
+                                        has_pending_exception = true;
+                                        break;
+                                    } else {
+                                        stackPush(pContext, obj);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
                     if (newObj != obj) {
                         updateMapping(pContext, obj, newObj);
