@@ -35,7 +35,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 |-----|-------|--------|-----------------|--------------------|----------|-------|
 | Pre-Phase-13 baseline (2026-04-04) | 9337 | 9053 (96.9%) | 133 | 139 | 1 | **False positive** — taken with buggy Phase 11/12 build; assert.throws/sameValue did not propagate failures correctly |
 | Phase 13 honest baseline (2026-04-10) | 9337 | 8133 (87.1%) | 176 | 1017 | 0 | Phase 13 binary (Function.prototype wired); honest conformance |
-| **Phase 14: flat bcId + closure capture (2026-04-10)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | +34 vs Phase 13 honest; flat bcId fix + ARG closure capture |
+| **Phase 14: flat bcId + closure capture (2026-04-10)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | +34 vs Phase 13 honest; flat bcId fix + closure var capture (LOCAL/ARG/REF) |
 
 ### language/module-code
 
@@ -49,7 +49,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-10`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775827392963.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775836540274.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -82,7 +82,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 3. *Missing globals stubs* — `Function`, `Boolean`, `Promise`, `Date`, `Map`, `Set`, `BigInt`, `AggregateError`, `JSON`, and test262 harness globals (`$DONE`, `$262`, `print`) registered as PROTO_NONE to prevent false ReferenceErrors for unimplemented built-ins.  
 > 4. *Async test runner* — `doneprintHandle.js` now included for `flags: [async]` tests, preventing ReferenceError for `$DONE` in async test harness.
 >
-> **Phase 13: Function.prototype wire-up (commit TBD):**
+> **Phase 13: Function.prototype wire-up (commit 7bd397f):**
 > 1. *`ensureFunctionPrototype` wired in bootstrap* — `FunctionPrototype.cpp` was fully implemented but never called; added call after `ensureObjectConstructor` and removed `"Function"` from `kUnimplementedCtors` stub list.
 > 2. *OP_fclosure / OP_fclosure8 inherit Function.prototype* — Function instances created via `fp->newChild(pContext, true)` so `fn.call`, `fn.bind`, `fn.apply` resolve up the prototype chain without explicit attribute lookup.
 > 3. *`fn.length` set from bytecode metadata* — `ProtoBytecodeModule::argCount_` now stored as `length` attribute on each function instance at closure-creation time.
@@ -95,6 +95,22 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *Closure var capture at `OP_fclosure8` / `OP_fclosure`* — At closure-creation time, captured parent-scope vars (types 0=LOCAL, 1=ARG, 2=REF) are published to the global object keyed by their declared names. This ensures the inner function's startup `OP_get_var` / `OP_put_var` ops read the correct initial values rather than `undefined`. Enables `makeAdder`, `makeCounter`, and closures used by the Symbol.iterator / for-of protocol.
 > 3. *`closureVarTypes` / `closureVarIndices` added to `ProtoBytecodeModule`* — `loadBytecodeRecursive` populates these from `protojs_bytecode_closure_var_type` / `protojs_bytecode_closure_var_idx` so the interpreter can resolve the correct parent slot at fclosure time without holding a JSContext pointer.
 > 4. *Symbol.iterator / for-of protocol* — Arrays and iterables now produce correct results via closure-captured `Symbol.iterator` methods; `[10,20,30]` yields `"10,20,30"`.
+
+### language/statements/class + language/expressions/class
+
+**Date:** `2026-04-10`  
+**Snapshots:**  
+- `tests/test262/reports/snapshot-language-statements-class-1775828468114.json`  
+- `tests/test262/reports/snapshot-language-expressions-class-1775828457838.json`
+
+| Category | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
+|----------|-------|--------|-----------------|--------------------|----------|-------|
+| language/statements/class | 4367 | **4304 (98.6%)** | 15 | 48 | 0 | Phase 13 binary |
+| language/expressions/class | 4059 | **3994 (98.4%)** | 9 | 56 | 0 | Phase 13 binary |
+
+> **Context:** Class syntax conformance is very high (~98.5%) because class declarations and expressions compile through the same function/prototype machinery already exercised by Phase 13. Remaining failures are concentrated in static private fields, class decorators, and `[[IsHTMLDDA]]`-dependent patterns.
+
+---
 
 ### built-ins/Object/freeze + seal + isSealed + isFrozen + preventExtensions + isExtensible
 
