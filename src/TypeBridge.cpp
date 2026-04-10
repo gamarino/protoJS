@@ -344,35 +344,6 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         return JS_NewFloat64(ctx, obj->asDouble(pContext));
     }
 
-    // Check for plain ProtoObject cells BEFORE isString: calling isString on a cell
-    // object that has been modified via setAttribute (e.g. frozen/sealed objects) causes
-    // a hang inside protoCore. isCell and isString are mutually exclusive — ProtoStrings
-    // are NOT cells, so checking isCell first is safe and avoids the hang.
-    if (obj->isCell(pContext)) {
-        JSValue jsObj = JS_NewObject(ctx);
-        // Register mapping so round-trip works
-        GCBridge::registerMapping(jsObj, obj, ctx);
-
-        // Copy attributes to JS object
-        const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
-        if (attrs) {
-            proto::ProtoSparseListIterator* iter = const_cast<proto::ProtoSparseListIterator*>(attrs->getIterator(pContext));
-            while (iter && iter->hasNext(pContext)) {
-                unsigned long hash = iter->nextKey(pContext);
-                const proto::ProtoObject* val = iter->nextValue(pContext);
-
-                std::string name = JSSymbols::getNameFromHash(pContext, hash);
-                if (!name.empty()) {
-                    JS_SetPropertyStr(ctx, jsObj, name.c_str(), toJS(ctx, val, pContext));
-                }
-
-                iter = const_cast<proto::ProtoSparseListIterator*>(iter->advance(pContext));
-            }
-        }
-
-        return jsObj;
-    }
-
     if (obj->isString(pContext)) {
         // Convert ProtoString to UTF-8 string
         // Use asList to iterate over characters
