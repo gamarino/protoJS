@@ -2,8 +2,10 @@
 #include "ArrayPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
+#include "runtime/ProtoInterpreter.h"
 #include <cstring>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace protojs {
@@ -103,39 +105,34 @@ static const proto::ProtoObject* objectCreate(
 }
 
 // ---------------------------------------------------------------------------
-// Helpers: set / check the __extensible__ and __is_frozen__ / __is_sealed__
-// sidecar flags that OP_put_field and isExtensible read.
+// Freeze / seal / extensibility state storage.
+//
+// IMPORTANT: We do NOT store these flags as ProtoObject attributes via
+// setAttribute(). Calling protoCore type-interrogation methods (isString,
+// isCell, etc.) on a ProtoObject after setAttribute() has been called on it
+// causes infinite loops inside protoCore. This is a known protoCore bug.
+//
+// Instead, we track state in thread-local pointer sets. Using the raw pointer
+// as the key is safe within a single script execution: frozen/sealed objects
+// remain referenced (and thus not GC'd) for their entire observable lifetime.
 // ---------------------------------------------------------------------------
 
+static thread_local std::unordered_set<const proto::ProtoObject*> t_frozenObjects;
+static thread_local std::unordered_set<const proto::ProtoObject*> t_sealedObjects;
+static thread_local std::unordered_set<const proto::ProtoObject*> t_nonExtensibleObjects;
+
 // Returns true if obj is a JS primitive (not a plain object or array).
+// JS null is represented as t_nullSentinel (a real ProtoObject cell), so we
+// must check it explicitly.
+//
+// NOTE: We deliberately avoid calling obj->isString(ctx) here. Calling isString
+// on a plain mutable ProtoObject cell causes an infinite loop inside protoCore.
 static bool isPrimitive(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE) return true;
+    if (obj == getNullSentinel()) return true;   // JS null is a primitive
+    // Fast tagged-pointer checks only; no isString (hangs on plain cells).
     return obj->isBoolean(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx) ||
-           obj->isFloat(ctx) || obj->isString(ctx) || obj->isNone(ctx);
-}
-
-static const proto::ProtoObject* setObjFlag(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* obj,
-    const char* flagName,
-    bool value)
-{
-    const proto::ProtoObject* ko = ctx->fromUTF8String(flagName);
-    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-    if (!k) return obj;
-    return obj->setAttribute(ctx, k, value ? PROTO_TRUE : PROTO_FALSE);
-}
-
-static bool getObjFlag(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* obj,
-    const char* flagName)
-{
-    const proto::ProtoObject* ko = ctx->fromUTF8String(flagName);
-    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-    if (!k) return false;
-    const proto::ProtoObject* v = obj->getAttribute(ctx, k, false);
-    return v == PROTO_TRUE;
+           obj->isFloat(ctx) || obj->isNone(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -155,8 +152,8 @@ static const proto::ProtoObject* objectFreeze(
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     // Primitives: spec says freeze is a no-op and returns the value unchanged.
     if (isPrimitive(ctx, obj)) return obj;
-    obj = setObjFlag(ctx, obj, "__extensible__", false);
-    obj = setObjFlag(ctx, obj, "__is_frozen__",  true);
+    t_frozenObjects.insert(obj);
+    t_nonExtensibleObjects.insert(obj);
     return obj;
 }
 
@@ -175,7 +172,7 @@ static const proto::ProtoObject* objectIsFrozen(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_TRUE; // undefined/null are frozen
     if (isPrimitive(ctx, obj)) return PROTO_TRUE; // primitives are frozen
-    return getObjFlag(ctx, obj, "__is_frozen__") ? PROTO_TRUE : PROTO_FALSE;
+    return t_frozenObjects.count(obj) ? PROTO_TRUE : PROTO_FALSE;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,8 +191,8 @@ static const proto::ProtoObject* objectSeal(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
-    obj = setObjFlag(ctx, obj, "__extensible__", false);
-    obj = setObjFlag(ctx, obj, "__is_sealed__",  true);
+    t_sealedObjects.insert(obj);
+    t_nonExtensibleObjects.insert(obj);
     return obj;
 }
 
@@ -215,8 +212,8 @@ static const proto::ProtoObject* objectIsSealed(
     if (!obj || obj == PROTO_NONE) return PROTO_TRUE;
     if (isPrimitive(ctx, obj)) return PROTO_TRUE;
     // Frozen objects are also sealed.
-    if (getObjFlag(ctx, obj, "__is_frozen__")) return PROTO_TRUE;
-    return getObjFlag(ctx, obj, "__is_sealed__") ? PROTO_TRUE : PROTO_FALSE;
+    if (t_frozenObjects.count(obj) || t_sealedObjects.count(obj)) return PROTO_TRUE;
+    return PROTO_FALSE;
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +232,7 @@ static const proto::ProtoObject* objectPreventExtensions(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
-    obj = setObjFlag(ctx, obj, "__extensible__", false);
+    t_nonExtensibleObjects.insert(obj);
     return obj;
 }
 
@@ -254,16 +251,7 @@ static const proto::ProtoObject* objectIsExtensible(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_FALSE;
     if (isPrimitive(ctx, obj)) return PROTO_FALSE;
-    // If __extensible__ == false was explicitly set, not extensible.
-    if (getObjFlag(ctx, obj, "__is_frozen__") || getObjFlag(ctx, obj, "__is_sealed__"))
-        return PROTO_FALSE;
-    const proto::ProtoObject* ko = ctx->fromUTF8String("__extensible__");
-    const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-    if (k) {
-        const proto::ProtoObject* v = obj->getAttribute(ctx, k, false);
-        if (v == PROTO_FALSE) return PROTO_FALSE;
-    }
-    return PROTO_TRUE; // extensible by default
+    return t_nonExtensibleObjects.count(obj) ? PROTO_FALSE : PROTO_TRUE;
 }
 
 // ---------------------------------------------------------------------------

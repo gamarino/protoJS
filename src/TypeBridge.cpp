@@ -344,21 +344,50 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         return JS_NewFloat64(ctx, obj->asDouble(pContext));
     }
 
+    // Check for plain ProtoObject cells BEFORE isString: calling isString on a cell
+    // object that has been modified via setAttribute (e.g. frozen/sealed objects) causes
+    // a hang inside protoCore. isCell and isString are mutually exclusive — ProtoStrings
+    // are NOT cells, so checking isCell first is safe and avoids the hang.
+    if (obj->isCell(pContext)) {
+        JSValue jsObj = JS_NewObject(ctx);
+        // Register mapping so round-trip works
+        GCBridge::registerMapping(jsObj, obj, ctx);
+
+        // Copy attributes to JS object
+        const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
+        if (attrs) {
+            proto::ProtoSparseListIterator* iter = const_cast<proto::ProtoSparseListIterator*>(attrs->getIterator(pContext));
+            while (iter && iter->hasNext(pContext)) {
+                unsigned long hash = iter->nextKey(pContext);
+                const proto::ProtoObject* val = iter->nextValue(pContext);
+
+                std::string name = JSSymbols::getNameFromHash(pContext, hash);
+                if (!name.empty()) {
+                    JS_SetPropertyStr(ctx, jsObj, name.c_str(), toJS(ctx, val, pContext));
+                }
+
+                iter = const_cast<proto::ProtoSparseListIterator*>(iter->advance(pContext));
+            }
+        }
+
+        return jsObj;
+    }
+
     if (obj->isString(pContext)) {
         // Convert ProtoString to UTF-8 string
         // Use asList to iterate over characters
         const proto::ProtoString* pStr = obj->asString(pContext);
         const proto::ProtoList* charList = pStr->asList(pContext);
-        
+
         std::string result;
         result.reserve(pStr->getSize(pContext) * 4); // Reserve space for UTF-8
-        
+
         unsigned long size = charList->getSize(pContext);
         for (unsigned long i = 0; i < size; i++) {
             const proto::ProtoObject* charObj = charList->getAt(pContext, i);
             // Character is stored as UnicodeChar (unsigned int)
             unsigned int unicodeChar = charObj->asLong(pContext);
-            
+
             // Convert Unicode to UTF-8
             if (unicodeChar < 0x80) {
                 result += static_cast<char>(unicodeChar);
@@ -376,7 +405,7 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
                 result += static_cast<char>(0x80 | (unicodeChar & 0x3F));
             }
         }
-        
+
         return JS_NewString(ctx, result.c_str());
     }
 
@@ -420,50 +449,6 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         // ProtoSet iteration needs to be implemented properly
         // For Fase 1, return empty array as placeholder
         return arr;
-    }
-
-    // Check for Date (stored as Double timestamp)
-    if (obj->isDouble(pContext)) {
-        // Could be a Date - for Phase 1, we'll check if it's in a reasonable date range
-        double d = obj->asDouble(pContext);
-        // If it's a reasonable timestamp (between 1970 and 2100), treat as Date
-        if (d > 0 && d < 4102444800000.0) { // Jan 1, 1970 to Jan 1, 2100 in milliseconds
-            JSValue date = JS_NewDate(ctx, d);
-            if (!JS_IsException(date)) {
-                return date;
-            }
-            JS_FreeValue(ctx, date);
-        }
-        // Otherwise, return as number
-        return JS_NewFloat64(ctx, d);
-    }
-
-    // Check for RegExp (stored as object with source and flags)
-    if (obj->isCell(pContext)) {
-        // Try to detect if it's a RegExp by checking attributes
-        // For now, map back to JS Object
-        JSValue jsObj = JS_NewObject(ctx);
-        // Register mapping so round-trip works
-        GCBridge::registerMapping(jsObj, obj, ctx);
-        
-        // Copy attributes to JS object
-        const proto::ProtoSparseList* attrs = obj->getAttributes(pContext);
-        if (attrs) {
-            proto::ProtoSparseListIterator* iter = const_cast<proto::ProtoSparseListIterator*>(attrs->getIterator(pContext));
-            while (iter && iter->hasNext(pContext)) {
-                unsigned long hash = iter->nextKey(pContext);
-                const proto::ProtoObject* val = iter->nextValue(pContext);
-                
-                std::string name = JSSymbols::getNameFromHash(pContext, hash);
-                if (!name.empty()) {
-                    JS_SetPropertyStr(ctx, jsObj, name.c_str(), toJS(ctx, val, pContext));
-                }
-                
-                iter = const_cast<proto::ProtoSparseListIterator*>(iter->advance(pContext));
-            }
-        }
-        
-        return jsObj;
     }
 
     // Check for Symbol (stored as object with description)

@@ -155,7 +155,7 @@ private:
     // Global map: JSContext* -> ProtoSparseList (mappings for that context)
     // Stored as ProtoSparseList where key is JSContext* hash (via ProtoExternalPointer)
     static const proto::ProtoSparseList* contextMappings;
-    static std::mutex mapMutex;
+    static std::recursive_mutex mapMutex;
 
     /**
      * @brief Get or create mappings for a context

@@ -12,10 +12,10 @@ namespace protojs {
 
 // Static member definitions
 const proto::ProtoSparseList* GCBridge::contextMappings = nullptr;
-std::mutex GCBridge::mapMutex;
+std::recursive_mutex GCBridge::mapMutex;
 
 void GCBridge::initialize(JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
     
@@ -29,7 +29,7 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
         return;
     }
 
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -91,7 +91,7 @@ void GCBridge::registerMapping(JSValue jsVal, const proto::ProtoObject* protoObj
 }
 
 void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -138,7 +138,7 @@ void GCBridge::unregisterMapping(JSValue jsVal, JSContext* ctx) {
 }
 
 const proto::ProtoObject* GCBridge::getProtoObject(JSValue jsVal, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return nullptr;
 
@@ -157,7 +157,7 @@ const proto::ProtoObject* GCBridge::getProtoObject(JSValue jsVal, JSContext* ctx
 }
 
 JSValue GCBridge::getJSValue(const proto::ProtoObject* protoObj, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return JS_NULL;
 
@@ -179,7 +179,7 @@ JSValue GCBridge::getJSValue(const proto::ProtoObject* protoObj, JSContext* ctx)
 }
 
 void GCBridge::registerRoot(JSValue jsVal, const proto::ProtoObject* protoObj, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -203,7 +203,7 @@ void GCBridge::registerRoot(JSValue jsVal, const proto::ProtoObject* protoObj, J
 }
 
 void GCBridge::unregisterRoot(JSValue jsVal, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -223,7 +223,7 @@ void GCBridge::unregisterRoot(JSValue jsVal, JSContext* ctx) {
 }
 
 void GCBridge::registerWeakRef(JSValue jsVal, const proto::ProtoObject* protoObj, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -261,7 +261,7 @@ void GCBridge::registerWeakRef(JSValue jsVal, const proto::ProtoObject* protoObj
 }
 
 void GCBridge::unregisterWeakRef(JSValue jsVal, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -293,7 +293,7 @@ void GCBridge::unregisterWeakRef(JSValue jsVal, JSContext* ctx) {
 
 GCBridge::MemoryLeakReport GCBridge::detectLeaks(JSContext* ctx) {
     MemoryLeakReport report;
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) {
         report.orphanedJSValues = nullptr;
@@ -384,7 +384,7 @@ void GCBridge::reportLeaks(JSContext* ctx) {
 
 GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
     MemoryStats stats;
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) {
         stats.totalJSValues = nullptr;
@@ -445,7 +445,7 @@ GCBridge::MemoryStats GCBridge::getMemoryStats(JSContext* ctx) {
 }
 
 void GCBridge::cleanup(JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
@@ -461,7 +461,7 @@ void GCBridge::cleanup(JSContext* ctx) {
 }
 
 void GCBridge::scanRoots(proto::ProtoSpace* space, JSContext* ctx) {
-    std::lock_guard<std::mutex> lock(mapMutex);
+    std::lock_guard<std::recursive_mutex> lock(mapMutex);
     proto::ProtoContext* pContext = getProtoContext(ctx);
     if (!pContext) return;
 
