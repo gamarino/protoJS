@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775868285964.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775869775961.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -38,6 +38,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 14: flat bcId + closure capture (2026-04-10)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | +34 vs Phase 13 honest; flat bcId fix + closure var capture (LOCAL/ARG/REF) |
 | **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | No net change — see Phase 15 notes below |
 | **Phase 16: destructuring error handling (2026-04-11)** | 9337 | **8239 (88.2%)** | 176 | 911 | 0 | +72 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
+| **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 9337 | **6453 (69.1%)** | 177 | 2696 | 0 | +357 genuine (+357 P16-fail→pass), −2143 false-positives removed; see Phase 17 notes |
 
 ### language/module-code
 
@@ -51,7 +52,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775868345559.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775869837656.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -66,6 +67,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 14: flat bcId + closure capture (2026-04-10)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | +17 vs Phase 13; flat bcId fix + closure var capture for Symbol.iterator/for-of |
 | **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | No net change — see Phase 15 notes below |
 | **Phase 16: destructuring error handling (2026-04-11)** | 11036 | **9401 (85.2%)** | 176 | 1459 | 0 | +45 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
+| **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 11036 | **8315 (75.3%)** | 176 | 2545 | 0 | +261 genuine (+261 P16-fail→pass), −1347 false-positives removed; see Phase 17 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -99,6 +101,21 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *Closure var capture at `OP_fclosure8` / `OP_fclosure`* — At closure-creation time, captured parent-scope vars (types 0=LOCAL, 1=ARG, 2=REF) are published to the global object keyed by their declared names. This ensures the inner function's startup `OP_get_var` / `OP_put_var` ops read the correct initial values rather than `undefined`. Enables `makeAdder`, `makeCounter`, and closures used by the Symbol.iterator / for-of protocol.
 > 3. *`closureVarTypes` / `closureVarIndices` added to `ProtoBytecodeModule`* — `loadBytecodeRecursive` populates these from `protojs_bytecode_closure_var_type` / `protojs_bytecode_closure_var_idx` so the interpreter can resolve the correct parent slot at fclosure time without holding a JSContext pointer.
 > 4. *Symbol.iterator / for-of protocol* — Arrays and iterables now produce correct results via closure-captured `Symbol.iterator` methods; `[10,20,30]` yields `"10,20,30"`.
+>
+> **Phase 17: TypeError for null/undefined access + error constructor identity (2026-04-11):**
+> 1. *`OP_get_field` / `OP_get_field2` null guard* — Reading a property on `undefined` or `null` now throws `TypeError: Cannot read properties of undefined/null (reading 'x')`. Previously the runtime silently returned `PROTO_NONE` for `undefined.x` because `t_nullSentinel` is a valid C++ pointer (truthy), bypassing the old `obj ?` ternary guard.
+> 2. *`OP_get_array_el` / `OP_get_array_el2` / `OP_get_array_el3` null guard* — Same fix for bracket notation: `undefined[0]` and `null[0]` now throw TypeError.
+> 3. *`OP_to_object` null guard* — Object destructuring `const {} = null` previously silently succeeded. The opcode now throws `TypeError: Cannot convert null/undefined to object` per spec.
+> 4. *`OP_call_method` TypeError for non-callable* — `x.foo()` where `foo` is `undefined` now throws `TypeError: is not a function`. Previously it pushed `PROTO_NONE` onto the stack as a silent no-op return.
+> 5. *Error constructor identity* — `ensureBuiltinErrorConstructors` now sets `ErrorClass.prototype.constructor = ErrorClass` for all built-in error types, so `e.constructor === TypeError` identity checks pass.
+>
+> **Phase 17 false-positive removal (−3490 tests vs Phase 16):**  
+> The stricter TypeError checks exposed three categories of tests that were silently passing in Phase 16:
+> - *Async/generator false positives (≈1300 tests)* — `async function f() {}; f()` returns `PROTO_NONE` (async not implemented). Calling `.then()` on this result via `OP_get_field` now throws `TypeError: Cannot read properties of undefined (reading 'then')` instead of silently returning undefined. Affected: `for-await-of` (1100), `async-generator` (~200), `async-function` (~30), `async-arrow-function` (~50).
+> - *Class/propertyHelper false positives (≈1452 tests)* — The `propertyHelper.js` test262 harness captures `Function.prototype.call.bind(Array.prototype.join)` etc. at module load time. Since `.bind()` lookup returns `PROTO_NONE` on some function objects in this runtime, the bound helpers (`__join`, `__hasOwnProperty`, etc.) were all `PROTO_NONE`. In Phase 16, calling `PROTO_NONE(...)` via `OP_call_method` silently returned `undefined`, so `verifyProperty()` skipped all checks and tests "passed". In Phase 17, `OP_call_method` with a `PROTO_NONE` method throws TypeError, causing the tests to correctly fail. Affected: `class` (739 statements, 713 expressions), plus `dynamic-import` (93) and others.
+> - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
+>
+> **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
 >
 > **Phase 16: destructuring error handling (2026-04-11):**
 > 1. *TypeError for null in `OP_for_of_start`* — When the destructuring target is `t_nullSentinel` (JS `null`), the opcode now sets `pending_exception` to `TypeError: null is not iterable` and `break`s (not `return PROTO_NONE`) so the exception is catchable by JS `try/catch` via the dispatch loop at line ~4712.
@@ -153,6 +170,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-03-18 | `snapshot-language_built-ins-1773855099985.json` | **44596 / 47219** | Best full-suite result to date (94.4%). |
 | 2026-04-10 | *(per-category only; full-suite run pending)* | — | Phase 13: +268 expressions; Phase 14: +17 expressions, +34 statements vs Phase 13 honest. Full-suite run needed to capture Phases 8–16 gains. |
 | 2026-04-11 | *(per-category only)* | 17640 / 20373 (86.6%) | Phase 16: +45 expressions, +72 statements vs Phase 15 (language/expressions + language/statements only). |
+| 2026-04-11 | *(per-category only)* | 14768 / 20373 (72.5%) | Phase 17: −2872 net (618 genuine improvements, 3490 false-positives unmasked). Stricter TypeError checking exposed tests that were silently passing due to absent error propagation. |
 
 ---
 

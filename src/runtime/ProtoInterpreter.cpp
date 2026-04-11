@@ -710,6 +710,19 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!ctor) continue;
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         if (!ctor) continue;
+        // Set prototype.constructor = ctor so `e.constructor === TypeError` identity checks pass.
+        {
+            const proto::ProtoString* ctorPropKey =
+                ctx->fromUTF8String("constructor")
+                ? ctx->fromUTF8String("constructor")->asString(ctx) : nullptr;
+            if (ctorPropKey) {
+                proto = proto->setAttribute(ctx, ctorPropKey, ctor);
+                if (!proto) continue;
+                // Re-link ctor.prototype after proto was updated.
+                ctor = ctor->setAttribute(ctx, protoKey, proto);
+                if (!ctor) continue;
+            }
+        }
         // Mark as a built-in error constructor so OP_call can invoke it.
         const proto::ProtoString* errCtorKey = JSSymbols::errorCtor(ctx);
         if (errCtorKey) ctor = ctor->setAttribute(ctx, errCtorKey, ctx->fromUTF8String(kNames[i]));
@@ -2104,6 +2117,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key) { stackPush(pContext, PROTO_NONE); break; }
+                // Throw TypeError for null/undefined receiver.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    std::string keyStr;
+                    if (key) key->toUTF8String(pContext, keyStr);
+                    std::string msg = "Cannot read properties of ";
+                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    msg += " (reading '"; msg += keyStr; msg += "')";
+                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoObject* val;
                 uint8_t taTypeF = getTypedArrayElementType(pContext, obj);
                 if (taTypeF != 0xFF) {
@@ -2132,6 +2156,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 4;
                 const proto::ProtoObject* obj = stackTop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
+                // Throw TypeError for null/undefined receiver (OP_get_field2 keeps obj on stack).
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    stackPop(pContext); // consume obj from stack
+                    std::string keyStr;
+                    if (key) key->toUTF8String(pContext, keyStr);
+                    std::string msg = "Cannot read properties of ";
+                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    msg += " (reading '"; msg += keyStr; msg += "')";
+                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoObject* val;
                 uint8_t taTypeF2 = getTypedArrayElementType(pContext, obj);
                 if (taTypeF2 != 0xFF && key) {
@@ -2465,6 +2501,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
+                // Throw TypeError for null/undefined receiver.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    std::string msg = "Cannot read properties of ";
+                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoObject* val;
                 uint8_t taType = getTypedArrayElementType(pContext, obj);
                 if (taType != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
@@ -2481,6 +2525,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 const proto::ProtoObject* obj = stackAt(pContext, 1);
+                // Throw TypeError for null/undefined receiver.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    stackPop(pContext); // pop index
+                    stackPop(pContext); // pop obj
+                    std::string msg = "Cannot read properties of ";
+                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoObject* val;
                 uint8_t taType2 = getTypedArrayElementType(pContext, obj);
                 if (taType2 != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
@@ -2497,6 +2551,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 const proto::ProtoObject* obj = stackAt(pContext, 1);
+                // Throw TypeError for null/undefined receiver.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    stackPop(pContext); // pop index
+                    stackPop(pContext); // pop obj
+                    std::string msg = "Cannot read properties of ";
+                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoObject* val;
                 uint8_t taType3 = getTypedArrayElementType(pContext, obj);
                 if (taType3 != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
@@ -3070,12 +3134,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_to_object: {
-                // ToObject: for primitive types, returns a wrapper object.
-                // For objects, returns the value unchanged.
+                // ToObject: null and undefined are not object-coercible — throw TypeError.
+                // For any other value, push unchanged (primitives wrap lazily).
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                // In our system, primitives remain as-is (we don't have wrapper objects yet).
-                stackPush(pContext, val ? val : PROTO_NONE);
+                if (!val || val == PROTO_NONE || val == t_nullSentinel) {
+                    const bool isNull = (val == t_nullSentinel);
+                    pending_exception = makeError(pContext, "TypeError",
+                        isNull ? "Cannot convert null to object"
+                               : "Cannot convert undefined to object",
+                        pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
+                stackPush(pContext, val);
                 break;
             }
             case OP_throw_error: {
@@ -3327,9 +3399,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (opcode != OP_tail_call_method) stackPush(pContext, result ? result : PROTO_NONE);
                     } else {
                         for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                        /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                        if (opcode != OP_tail_call_method)
-                            stackPush(pContext, PROTO_NONE);
+                        // func is neither bytecode, native, nor bound — throw TypeError.
+                        if (!func || func == PROTO_NONE) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "is not a function", pGlobalRoot);
+                            has_pending_exception = true;
+                        } else {
+                            // Non-null but unrecognized callable — best-effort PROTO_NONE.
+                            if (opcode != OP_tail_call_method)
+                                stackPush(pContext, PROTO_NONE);
+                        }
                     }
                 }
                 break;
