@@ -28,14 +28,15 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### language/statements
 
-**Date:** `2026-04-10`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775836771563.json`
+**Date:** `2026-04-11`  
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775865664706.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
 | Pre-Phase-13 baseline (2026-04-04) | 9337 | 9053 (96.9%) | 133 | 139 | 1 | **False positive** — taken with buggy Phase 11/12 build; assert.throws/sameValue did not propagate failures correctly |
 | Phase 13 honest baseline (2026-04-10) | 9337 | 8133 (87.1%) | 176 | 1017 | 0 | Phase 13 binary (Function.prototype wired); honest conformance |
 | **Phase 14: flat bcId + closure capture (2026-04-10)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | +34 vs Phase 13 honest; flat bcId fix + closure var capture (LOCAL/ARG/REF) |
+| **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | No net change — see Phase 15 notes below |
 
 ### language/module-code
 
@@ -48,8 +49,8 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### language/expressions
 
-**Date:** `2026-04-10`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775836540274.json`
+**Date:** `2026-04-11`  
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775865722194.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -62,6 +63,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **ToPrimitive fix + callMethod correction (10:00 UTC 04-08)** | 11036 | **9071 (82.2%)** | 176 | 1677 | 112 | +70 vs prior run, 0 regressions; asMethod() call fix |
 | **Phase 13: Function.prototype wire-up (10:00 UTC 04-10)** | 11036 | **9339 (84.6%)** | 176 | 1521 | 0 | +268 vs prior; fn.call/bind/apply/length/name working |
 | **Phase 14: flat bcId + closure capture (2026-04-10)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | +17 vs Phase 13; flat bcId fix + closure var capture for Symbol.iterator/for-of |
+| **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | No net change — see Phase 15 notes below |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -95,6 +97,12 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *Closure var capture at `OP_fclosure8` / `OP_fclosure`* — At closure-creation time, captured parent-scope vars (types 0=LOCAL, 1=ARG, 2=REF) are published to the global object keyed by their declared names. This ensures the inner function's startup `OP_get_var` / `OP_put_var` ops read the correct initial values rather than `undefined`. Enables `makeAdder`, `makeCounter`, and closures used by the Symbol.iterator / for-of protocol.
 > 3. *`closureVarTypes` / `closureVarIndices` added to `ProtoBytecodeModule`* — `loadBytecodeRecursive` populates these from `protojs_bytecode_closure_var_type` / `protojs_bytecode_closure_var_idx` so the interpreter can resolve the correct parent slot at fclosure time without holding a JSContext pointer.
 > 4. *Symbol.iterator / for-of protocol* — Arrays and iterables now produce correct results via closure-captured `Symbol.iterator` methods; `[10,20,30]` yields `"10,20,30"`.
+>
+> **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11):**
+> 1. *`OP_iterator_next` implemented* — Stack: `[iter, nextMethod, catch, sentinel]` (4) → pops all 4, calls `iter.next()` (native path: slot sentinel=-1) or reads `arr[idx]` (array path: idx≥0), builds `{value, done}` result object, pushes back `[iter, nextMethod, catch, result_obj]`. Correctly handles TypedArrays via `getTypedArrayElementType`.
+> 2. *`OP_iterator_call flag=1` implemented* — Drains remaining iterator values into a rest array. Array path slices from current slot index to end; native path drains via `next()` loop. Pushes `[iter, nextMethod, catch, rest_array, false]` (5 items).
+> 3. *Net zero test count change explained* — Basic array destructuring (`const [a,b] = [1,2]`) was already counted as passing via vacuous-pass (silent exit when `OP_iterator_next` returned `PROTO_NONE`). Error-expecting destructuring tests (`ary-ptrn-elem-ary-val-null`, `ary-ptrn-elem-id-init-unresolvable`, etc.) were already failing ("Command failed") before and still fail with assertion errors now. The implementation is correct but unblocks a different layer of failures.
+> 4. *Root cause for remaining ~677 dstr failures* — Missing error handling, not missing iterator mechanics: (a) no TypeError when destructuring null/undefined; (b) no ReferenceError for unresolvable binding targets; (c) no error propagation from iterator.next() throwing; (d) `OP_iterator_close` does not call iterator.return() on non-exhausted iterators; (e) generators/async-generators entirely unimplemented (160 tests).
 
 ### language/statements/class + language/expressions/class
 

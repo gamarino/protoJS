@@ -4275,16 +4275,217 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
 
             // OP_iterator_next: DEF(iterator_next, 1, 4, 4, none)
-            // Used in destructuring. Unsupported — preserve vacuous-pass behaviour for
-            // tests that use iterator destructuring (they previously exited here via default:).
-            case OP_iterator_next:
-                return PROTO_NONE;
+            // Stack before: [iter, nextMethod, catch_offset, sentinel]  (4 consumed)
+            // Stack after:  [iter, nextMethod, catch_offset, result_obj] (4 produced)
+            // result_obj is a ProtoObject with "value" and "done" attributes.
+            // Used by array/object destructuring patterns: const [a,b] = expr.
+            case OP_iterator_next: {
+                if (stackSize(pContext) < 4) return PROTO_NONE;
+                // Pop all 4; save iter/nextMethod/catch for re-push.
+                stackPop(pContext); // sentinel (undefined or previous value — discarded)
+                const proto::ProtoObject* catchOffIN    = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* nextMethodIN  = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* iterObjIN     = stackTop(pContext); stackPop(pContext);
+
+                const proto::ProtoString* slotKeyIN = JSSymbols::iterSlot(pContext);
+                const proto::ProtoObject* slotValIN = (slotKeyIN && iterObjIN && iterObjIN != PROTO_NONE)
+                    ? iterObjIN->getAttribute(pContext, slotKeyIN, false) : PROTO_NONE;
+
+                const proto::ProtoObject* resultObjIN = PROTO_NONE;
+                const proto::ProtoString* valueKeyIN  = JSSymbols::value(pContext);
+                const proto::ProtoString* doneKeyIN   = JSSymbols::done(pContext);
+
+                if (slotValIN && slotValIN != PROTO_NONE && slotValIN->isInteger(pContext)) {
+                    uint32_t bsIN = static_cast<uint32_t>(slotValIN->asLong(pContext));
+                    const proto::ProtoObject* actualIter  = getSlot(pContext, bsIN);
+                    const proto::ProtoObject* idxObjIN    = getSlot(pContext, bsIN + 1);
+                    long long idxIN = (idxObjIN && idxObjIN->isInteger(pContext))
+                                      ? idxObjIN->asLong(pContext) : 0LL;
+
+                    if (idxIN == -1LL) {
+                        // Native iterator: call iter.next() and use the returned object directly.
+                        const proto::ProtoString* nextKeyIN = JSSymbols::next(pContext);
+                        const proto::ProtoObject* nextFnIN  =
+                            (nextKeyIN && actualIter && actualIter != PROTO_NONE)
+                            ? actualIter->getAttribute(pContext, nextKeyIN, false) : PROTO_NONE;
+                        if (nextFnIN && nextFnIN != PROTO_NONE) {
+                            if (nextFnIN->isMethod(pContext)) {
+                                resultObjIN = nextFnIN->asMethod(pContext)(
+                                    pContext, actualIter, nullptr, nullptr, nullptr);
+                            } else {
+                                const proto::ProtoList* emptyArgsIN = pContext->newList();
+                                resultObjIN = callJSFunction(pContext, nextFnIN, actualIter, emptyArgsIN);
+                            }
+                        }
+                    } else {
+                        // Array/TypedArray: build synthetic {value, done} result object.
+                        const proto::ProtoString* lenKeyIN = JSSymbols::length(pContext);
+                        const proto::ProtoObject* lenValIN = lenKeyIN
+                            ? actualIter->getAttribute(pContext, lenKeyIN, false) : PROTO_NONE;
+                        long long arrLenIN = (lenValIN && lenValIN->isInteger(pContext))
+                                             ? lenValIN->asLong(pContext) : 0LL;
+
+                        const proto::ProtoObject* synResult = pContext->newObject(false);
+                        if (idxIN >= arrLenIN) {
+                            if (valueKeyIN) synResult = synResult->setAttribute(pContext, valueKeyIN, PROTO_NONE);
+                            if (doneKeyIN)  synResult = synResult->setAttribute(pContext, doneKeyIN,  PROTO_TRUE);
+                        } else {
+                            const proto::ProtoObject* elemVal = PROTO_NONE;
+                            uint8_t taTypeIN = getTypedArrayElementType(pContext, actualIter);
+                            if (taTypeIN != 0xFF) {
+                                elemVal = typedArrayGetElement(pContext, actualIter,
+                                    static_cast<uint32_t>(idxIN), taTypeIN);
+                            } else {
+                                std::string eidxStr = std::to_string(idxIN);
+                                const proto::ProtoObject* eidxObj =
+                                    pContext->fromUTF8String(eidxStr.c_str());
+                                const proto::ProtoString* eidxKey =
+                                    eidxObj ? eidxObj->asString(pContext) : nullptr;
+                                elemVal = eidxKey
+                                    ? actualIter->getAttribute(pContext, eidxKey, false) : PROTO_NONE;
+                            }
+                            setSlot(pContext, bsIN + 1, pContext->fromInteger(idxIN + 1LL));
+                            if (valueKeyIN)
+                                synResult = synResult->setAttribute(pContext, valueKeyIN,
+                                    elemVal ? elemVal : PROTO_NONE);
+                            if (doneKeyIN)
+                                synResult = synResult->setAttribute(pContext, doneKeyIN, PROTO_FALSE);
+                        }
+                        resultObjIN = synResult;
+                    }
+                }
+
+                // Push back [iter, nextMethod, catch_offset, result_obj].
+                stackPush(pContext, iterObjIN);
+                stackPush(pContext, nextMethodIN);
+                stackPush(pContext, catchOffIN ? catchOffIN : pContext->fromInteger(0LL));
+                stackPush(pContext, resultObjIN ? resultObjIN : PROTO_NONE);
+                break;
+            }
 
             // OP_iterator_call: DEF(iterator_call, 2, 4, 5, u8)
-            // Used in advanced iterator protocol. Unsupported — preserve vacuous-pass.
-            case OP_iterator_call:
-                if (pc + 1 <= len) pc += 1; // skip u8 flags byte before returning
-                return PROTO_NONE;
+            // Stack before: [iter, nextMethod, catch_offset, sentinel]  (4 consumed)
+            // Stack after:  [iter, nextMethod, catch_offset, value, done] (5 produced)
+            // flags=1: collect remaining iterator values into a rest array, done=false.
+            // flags=0: iterator.return() cleanup path, value=undefined, done=true.
+            case OP_iterator_call: {
+                if (pc + 1 > len) return PROTO_NONE;
+                uint8_t icFlags = buf[pc++];
+                if (stackSize(pContext) < 4) {
+                    stackPush(pContext, PROTO_NONE);
+                    return PROTO_NONE;
+                }
+                // Pop all 4; save iter/nextMethod/catch for re-push.
+                stackPop(pContext); // sentinel
+                const proto::ProtoObject* catchOffIC   = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* nextMethodIC = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* iterObjIC    = stackTop(pContext); stackPop(pContext);
+
+                const proto::ProtoObject* resultValIC  = PROTO_NONE;
+                const proto::ProtoObject* resultDoneIC = PROTO_TRUE;
+
+                if (icFlags == 1) {
+                    // Collect all remaining iterator values into a rest array.
+                    const proto::ProtoString* slotKeyIC = JSSymbols::iterSlot(pContext);
+                    const proto::ProtoObject* slotValIC =
+                        (slotKeyIC && iterObjIC && iterObjIC != PROTO_NONE)
+                        ? iterObjIC->getAttribute(pContext, slotKeyIC, false) : PROTO_NONE;
+
+                    const proto::ProtoObject* restArr = pContext->newObject(false);
+                    const proto::ProtoString* lenKeyIC = JSSymbols::length(pContext);
+                    long long restIdx = 0;
+
+                    if (slotValIC && slotValIC != PROTO_NONE && slotValIC->isInteger(pContext)) {
+                        uint32_t bsIC = static_cast<uint32_t>(slotValIC->asLong(pContext));
+                        const proto::ProtoObject* actualIterIC = getSlot(pContext, bsIC);
+                        const proto::ProtoObject* idxObjIC = getSlot(pContext, bsIC + 1);
+                        long long idxIC = (idxObjIC && idxObjIC->isInteger(pContext))
+                                          ? idxObjIC->asLong(pContext) : 0LL;
+
+                        if (idxIC == -1LL) {
+                            // Native iterator: drain via repeated next() calls.
+                            const proto::ProtoString* nextKeyIC  = JSSymbols::next(pContext);
+                            const proto::ProtoString* doneKeyIC2 = JSSymbols::done(pContext);
+                            const proto::ProtoString* valKeyIC2  = JSSymbols::value(pContext);
+                            const proto::ProtoObject* nextFnIC   =
+                                (nextKeyIC && actualIterIC && actualIterIC != PROTO_NONE)
+                                ? actualIterIC->getAttribute(pContext, nextKeyIC, false) : PROTO_NONE;
+                            while (nextFnIC && nextFnIC != PROTO_NONE) {
+                                const proto::ProtoObject* resIC = PROTO_NONE;
+                                if (nextFnIC->isMethod(pContext)) {
+                                    resIC = nextFnIC->asMethod(pContext)(
+                                        pContext, actualIterIC, nullptr, nullptr, nullptr);
+                                } else {
+                                    const proto::ProtoList* argsIC = pContext->newList();
+                                    resIC = callJSFunction(pContext, nextFnIC, actualIterIC, argsIC);
+                                }
+                                const proto::ProtoObject* doneIC =
+                                    (resIC && resIC != PROTO_NONE && doneKeyIC2)
+                                    ? resIC->getAttribute(pContext, doneKeyIC2, false) : PROTO_TRUE;
+                                if (!doneIC || doneIC == PROTO_NONE || doneIC == PROTO_TRUE) break;
+                                const proto::ProtoObject* valIC =
+                                    (resIC && resIC != PROTO_NONE && valKeyIC2)
+                                    ? resIC->getAttribute(pContext, valKeyIC2, false) : PROTO_NONE;
+                                std::string ridxStr = std::to_string(restIdx++);
+                                const proto::ProtoObject* ridxObj =
+                                    pContext->fromUTF8String(ridxStr.c_str());
+                                const proto::ProtoString* ridxKey =
+                                    ridxObj ? ridxObj->asString(pContext) : nullptr;
+                                if (ridxKey)
+                                    restArr = restArr->setAttribute(pContext, ridxKey,
+                                        valIC ? valIC : PROTO_NONE);
+                            }
+                        } else {
+                            // Array/TypedArray: slice from current slot index to end.
+                            const proto::ProtoString* lenKeyIC2 = JSSymbols::length(pContext);
+                            const proto::ProtoObject* lenValIC  = lenKeyIC2
+                                ? actualIterIC->getAttribute(pContext, lenKeyIC2, false) : PROTO_NONE;
+                            long long arrLenIC = (lenValIC && lenValIC->isInteger(pContext))
+                                                 ? lenValIC->asLong(pContext) : 0LL;
+                            for (long long i = idxIC; i < arrLenIC; ++i) {
+                                const proto::ProtoObject* evIC = PROTO_NONE;
+                                uint8_t taTIC = getTypedArrayElementType(pContext, actualIterIC);
+                                if (taTIC != 0xFF) {
+                                    evIC = typedArrayGetElement(pContext, actualIterIC,
+                                        static_cast<uint32_t>(i), taTIC);
+                                } else {
+                                    std::string eiStr = std::to_string(i);
+                                    const proto::ProtoObject* eiObj =
+                                        pContext->fromUTF8String(eiStr.c_str());
+                                    const proto::ProtoString* eiKey =
+                                        eiObj ? eiObj->asString(pContext) : nullptr;
+                                    evIC = eiKey
+                                        ? actualIterIC->getAttribute(pContext, eiKey, false) : PROTO_NONE;
+                                }
+                                std::string riStr = std::to_string(restIdx++);
+                                const proto::ProtoObject* riObj =
+                                    pContext->fromUTF8String(riStr.c_str());
+                                const proto::ProtoString* riKey =
+                                    riObj ? riObj->asString(pContext) : nullptr;
+                                if (riKey)
+                                    restArr = restArr->setAttribute(pContext, riKey,
+                                        evIC ? evIC : PROTO_NONE);
+                            }
+                            setSlot(pContext, bsIC + 1, pContext->fromInteger(arrLenIC));
+                        }
+                    }
+
+                    if (lenKeyIC)
+                        restArr = restArr->setAttribute(pContext, lenKeyIC,
+                            pContext->fromInteger(restIdx));
+                    resultValIC  = restArr;
+                    resultDoneIC = PROTO_FALSE;
+                }
+                // flags=0 and others: cleanup/return() path — value=undefined, done=true (defaults).
+
+                // Push back [iter, nextMethod, catch_offset, value, done].
+                stackPush(pContext, iterObjIC);
+                stackPush(pContext, nextMethodIC);
+                stackPush(pContext, catchOffIC ? catchOffIC : pContext->fromInteger(0LL));
+                stackPush(pContext, resultValIC  ? resultValIC  : PROTO_NONE);
+                stackPush(pContext, resultDoneIC ? resultDoneIC : PROTO_TRUE);
+                break;
+            }
 
             // ---------------------------------------------------------------
             // Step C — for-in (PROTO_NONE guard — key enumeration not supported)
