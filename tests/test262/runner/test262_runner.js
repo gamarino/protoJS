@@ -223,10 +223,13 @@ function buildTestFile(cfg, test) {
       const doneHandle = path.join(cfg.harnessDir, "doneprintHandle.js");
       if (fs.existsSync(doneHandle)) parts.push(fs.readFileSync(doneHandle, "utf8"));
     }
-    // Honor Test262 flags (partial support: onlyStrict).
-    if (meta.flags && (meta.flags.onlyStrict || meta.flags["onlyStrict"])) {
-      parts.push('"use strict";');
-    }
+  }
+  // Honor Test262 flags (partial support: onlyStrict).
+  // "use strict" MUST be the first statement in the combined file (before harness
+  // scripts) so the directive prologue is recognised by the parser. Using push()
+  // would place it after 200+ lines of harness code where it has no effect.
+  if (meta.flags && (meta.flags.onlyStrict || meta.flags["onlyStrict"])) {
+    parts.unshift('"use strict";');
   }
   parts.push(src);
 

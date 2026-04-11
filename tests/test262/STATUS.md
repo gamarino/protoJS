@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775926138304.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775933109474.json` (full language+built-ins run; statements extracted: 7286/9337)
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -45,6 +45,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 9337 | **7229 (77.4%)** | 176 | 1921 | 0 | +21 net (+21 genuine); see Phase 21 notes |
 | **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 9337 | **7258 (77.7%)** | 176 | 1892 | 0 | +29 vs Phase 21; see Phase 22 notes |
 | **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11)** | 9337 | **7286 (78.0%)** | 176 | 1864 | 0 | +28 vs Phase 22; see Phase 23 notes |
+| **Phase 24: strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11)** | 9337 | **7286 (78.0%)** | 176 | 1864 | 0 | +0 vs Phase 23 (gains in expressions only); see Phase 24 notes |
 
 ### language/module-code
 
@@ -58,7 +59,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775925877733.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775933109474.json` (full language+built-ins run; expressions extracted: 9194/11036)
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -80,6 +81,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 11036 | **9129 (82.7%)** | 176 | 1731 | 0 | +21 net (+25 genuine, −4 false-positives exposed); see Phase 21 notes |
 | **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 11036 | **9159 (83.0%)** | 176 | 1701 | 0 | +30 vs Phase 21; see Phase 22 notes |
 | **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11)** | 11036 | **9176 (83.1%)** | 176 | 1684 | 0 | +17 vs Phase 22; see Phase 23 notes |
+| **Phase 24: strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11)** | 11036 | **9194 (83.3%)** | 176 | 1666 | 0 | +18 vs Phase 23; see Phase 24 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -128,6 +130,11 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 24: Strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11):**
+> 1. *`"use strict"` placement in test runner* — When a test has the `onlyStrict` flag, the runner previously appended `"use strict";` after all harness scripts (200+ lines of code). JavaScript only recognises a `"use strict"` directive if it is the first statement in the enclosing script or function body; placed after harness code it is inert. Fixed by using `parts.unshift('"use strict";')` instead of `parts.push(...)`, so the directive appears as the very first token of the combined file. Fixes 18 strict-mode expression tests (compound-assignment non-writable puts, assignment non-writable property, logical-assignment non-writable, tagged-template strict context). The same fix applies to `language/statements` tests but produced no net gain there, indicating those tests fail for other reasons on top of strict mode.
+> 2. *TDZ sentinel check added to `OP_get_var_ref0/1/2/3`* — The fast-path variants that read closure variable slots (index 0–3) now compare the slot value against `tdzSentinel` before pushing and throw `ReferenceError: Cannot access before initialization` if the slot is still in the TDZ state. This mirrors the existing behaviour in `OP_get_var_ref_check`. In practice, closure var slots are not pre-initialized to `tdzSentinel` in the current bootstrap path, so this fix is a correctness improvement for future work but did not change pass counts in this run.
+> 3. *Net gain* — +18 expressions (strict-mode assignment/compound-assignment fixes), +0 statements. Combined: 16480/20373 (80.9%), +18 vs Phase 23.
 >
 > **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11):**
 > 1. *`OP_set_name` / `OP_set_name_computed` now set `__pd_name__=0x2` after writing the name* — QuickJS emits these opcodes (via `SetFunctionName`) when an anonymous function is assigned to a named variable (e.g. `arrow = () => {}` or destructuring patterns). Previously, the name attribute was updated but the descriptor sidecar was omitted, so `Object.getOwnPropertyDescriptor(fn, 'name').writable` returned `true` even after the name was set by OP_set_name. Fixed by calling `setNWCDescriptor(pContext, newFunc, "name")` immediately after `setAttribute` in both opcodes, and updating the mapping before pushing the result back to the stack.

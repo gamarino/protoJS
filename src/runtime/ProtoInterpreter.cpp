@@ -1864,9 +1864,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             case OP_get_var_ref3: {
                 /* Closure vars occupy slots AFTER local vars: slot[argCount + varCount + refIndex].
                  * This separates them from local vars (slot[argCount + localIdx]) so that the
-                 * hidden _ret_ eval variable at local slot 0 never collides with closure var 0. */
+                 * hidden _ret_ eval variable at local slot 0 never collides with closure var 0.
+                 * TDZ check: if the slot still holds the sentinel, the let/const variable has not
+                 * yet been initialised — throw ReferenceError per spec §10.4.2.1. */
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_get_var_ref0);
-                stackPush(pContext, getSlot(pContext, argCount + varCount + refIndex));
+                {
+                    const proto::ProtoObject* val = getSlot(pContext, argCount + varCount + refIndex);
+                    if (val == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                        has_pending_exception = true;
+                        break;
+                    }
+                    stackPush(pContext, val ? val : PROTO_NONE);
+                }
                 break;
             }
             case OP_put_var_ref0:
