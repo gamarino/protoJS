@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775924425750.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775926138304.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -44,6 +44,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 9337 | **7208 (77.2%)** | 176 | 1942 | 0 | −31 apparent (−64 false-positives exposed, +33 genuine); see Phase 20 notes |
 | **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 9337 | **7229 (77.4%)** | 176 | 1921 | 0 | +21 net (+21 genuine); see Phase 21 notes |
 | **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 9337 | **7258 (77.7%)** | 176 | 1892 | 0 | +29 vs Phase 21; see Phase 22 notes |
+| **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11)** | 9337 | **7286 (78.0%)** | 176 | 1864 | 0 | +28 vs Phase 22; see Phase 23 notes |
 
 ### language/module-code
 
@@ -57,7 +58,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775924489449.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775925877733.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -78,6 +79,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 11036 | **9108 (82.5%)** | 176 | 1752 | 0 | −17 apparent (−64 false-positives exposed, +47 genuine); see Phase 20 notes |
 | **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 11036 | **9129 (82.7%)** | 176 | 1731 | 0 | +21 net (+25 genuine, −4 false-positives exposed); see Phase 21 notes |
 | **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 11036 | **9159 (83.0%)** | 176 | 1701 | 0 | +30 vs Phase 21; see Phase 22 notes |
+| **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11)** | 11036 | **9176 (83.1%)** | 176 | 1684 | 0 | +17 vs Phase 22; see Phase 23 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -126,6 +128,12 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11):**
+> 1. *`OP_set_name` / `OP_set_name_computed` now set `__pd_name__=0x2` after writing the name* — QuickJS emits these opcodes (via `SetFunctionName`) when an anonymous function is assigned to a named variable (e.g. `arrow = () => {}` or destructuring patterns). Previously, the name attribute was updated but the descriptor sidecar was omitted, so `Object.getOwnPropertyDescriptor(fn, 'name').writable` returned `true` even after the name was set by OP_set_name. Fixed by calling `setNWCDescriptor(pContext, newFunc, "name")` immediately after `setAttribute` in both opcodes, and updating the mapping before pushing the result back to the stack.
+> 2. *`OP_put_array_el` now enforces non-writable descriptors* — Computed-key property writes (`obj[key] = val`) bypassed the `__pd_<key>__` writable flag check that was already present in `OP_put_field` (literal-key writes). The test262 harness's `isWritable()` helper checks writability by doing `obj[name] = "unlikelyValue"` (a computed-key write), so it returned `true` for properties with `{writable:false}` descriptors. Added the same frozen-flag and `__pd__` writable-bit check to `OP_put_array_el`, with silent-fail in sloppy mode and TypeError in strict mode, matching JS spec semantics.
+> 3. *Root cause of the test failure* — `verifyProperty(fn, 'name', {writable: false, ...})` calls `isWritable(fn, 'name')` which does `fn['name'] = "unlikelyValue"` (a `OP_put_array_el` operation). Before this fix, that write succeeded even though `Object.getOwnPropertyDescriptor` correctly reported `writable: false`, because the descriptor check was only in `OP_put_field`. The test then concluded the property was writable and failed with "obj['name'] descriptor should not be writable".
+> 4. *Impact* — 45 combined tests fixed (+17 expressions, +28 statements). Primarily `dstr/assignment`, `dstr/function`, `dstr/for-of`, `dstr/generators`, `dstr/const`, `dstr/let`, `dstr/try`, `dstr/variable` patterns for fn-name assignment in destructuring contexts with arrow, regular, generator, and cover function variants.
 >
 > **Phase 22: Function.prototype → Object.prototype chain, property descriptor attributes (2026-04-11):**
 > 1. *`Function.prototype` now inherits from `Object.prototype`* — `FunctionPrototype.cpp` previously created `fp = ctx->newObject(false)` (no parent). Changed to `fp = ctx->space->objectPrototype->newChild(ctx, false)` so the prototype chain is: `fn instance → Function.prototype → Object.prototype`. This gives all function instances access to `hasOwnProperty`, `toString` (Object's), `valueOf`, etc. Fixes 60+ `forbidden-ext` tests that called `fn.hasOwnProperty("caller")` / `fn.hasOwnProperty("arguments")`.

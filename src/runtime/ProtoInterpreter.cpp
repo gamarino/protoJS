@@ -2711,6 +2711,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* nameVal = pContext->fromUTF8String(nameStr.c_str());
                         if (nameVal) {
                             const proto::ProtoObject* newFunc = funcSNC->setAttribute(pContext, nameKey, nameVal);
+                            // Spec: name is {writable:false, enumerable:false, configurable:true}
+                            setNWCDescriptor(pContext, newFunc, "name");
                             updateMapping(pContext, funcSNC, newFunc);
                             // Replace TOS with updated function.
                             stackPop(pContext);
@@ -2737,6 +2739,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* nameVal = pContext->fromUTF8String(nameUtf8.c_str());
                         if (nameVal) {
                             const proto::ProtoObject* newFunc = func->setAttribute(pContext, nameKey, nameVal);
+                            // Spec: name is {writable:false, enumerable:false, configurable:true}
+                            setNWCDescriptor(pContext, newFunc, "name");
                             updateMapping(pContext, func, newFunc);
                             func = newFunc;
                         }
@@ -2858,6 +2862,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key =
                     keyObj ? keyObj->asString(pContext) : nullptr;
                 if (obj && key) {
+                    // Check frozen flag
+                    {
+                        const proto::ProtoObject* fko = pContext->fromUTF8String("__is_frozen__");
+                        const proto::ProtoString* fk  = fko ? fko->asString(pContext) : nullptr;
+                        if (fk) {
+                            const proto::ProtoObject* fv = obj->getAttribute(pContext, fk, false);
+                            if (fv == PROTO_TRUE) {
+                                if (module->isStrict) {
+                                    pending_exception = makeError(pContext, "TypeError",
+                                        "Cannot assign to property of frozen object", pGlobalRoot);
+                                    has_pending_exception = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    // Check non-writable descriptor (__pd_<key>__ bit0=writable).
+                    {
+                        std::string keyStr;
+                        key->toUTF8String(pContext, keyStr);
+                        std::string pdKeyStr = "__pd_" + keyStr + "__";
+                        const proto::ProtoObject* pdko = pContext->fromUTF8String(pdKeyStr.c_str());
+                        const proto::ProtoString* pdk  = pdko ? pdko->asString(pContext) : nullptr;
+                        if (pdk) {
+                            const proto::ProtoObject* bitsObj = obj->getAttribute(pContext, pdk, false);
+                            if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(pContext)) {
+                                uint8_t bits = static_cast<uint8_t>(bitsObj->asLong(pContext));
+                                if (!(bits & 0x1)) {
+                                    if (module->isStrict) {
+                                        pending_exception = makeError(pContext, "TypeError",
+                                            "Cannot assign to read only property", pGlobalRoot);
+                                        has_pending_exception = true;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
                     updateMapping(pContext, obj, newObj);
                     // Update .length if index is a valid array index (non-negative integer).
