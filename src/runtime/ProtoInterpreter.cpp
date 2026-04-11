@@ -2189,6 +2189,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_put_field: {
+                // DEF(put_field, 5, 2, 0, atom) — n_pop=2, n_push=0.
+                // Pops obj (second) and val (top), sets obj[key]=val. Pushes NOTHING.
+                // QuickJS peephole-optimizes "insert2 + put_field + drop" → "put_field" so
+                // the result value is never on the stack here.
                 if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
@@ -2211,7 +2215,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (updatedTA && updatedTA != obj) {
                             updateMapping(pContext, obj, updatedTA);
                         }
-                        stackPush(pContext, updatedTA ? updatedTA : obj);
+                        // n_push=0: do NOT push anything back
                         break;
                     }
                 }
@@ -2230,11 +2234,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     pending_exception = makeError(pContext, "TypeError",
                                         "Cannot assign to property of frozen object", pGlobalRoot);
                                     has_pending_exception = true;
-                                    break;
-                                } else {
-                                    stackPush(pContext, obj);
-                                    break;
                                 }
+                                break; // n_push=0: do NOT push anything
                             }
                         }
                     }
@@ -2254,11 +2255,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         pending_exception = makeError(pContext, "TypeError",
                                             "Cannot assign to read only property", pGlobalRoot);
                                         has_pending_exception = true;
-                                        break;
-                                    } else {
-                                        stackPush(pContext, obj);
-                                        break;
                                     }
+                                    break; // n_push=0: do NOT push anything
                                 }
                             }
                         }
@@ -2271,8 +2269,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (ek) {
                             const proto::ProtoObject* ev = obj->getAttribute(pContext, ek, false);
                             if (ev == PROTO_FALSE) {
-                                // Object is non-extensible. Reject only if the property
-                                // does not already exist as an own property.
                                 const proto::ProtoString* propKey = pContext->fromUTF8String(keyStr2.c_str()) ?
                                     pContext->fromUTF8String(keyStr2.c_str())->asString(pContext) : nullptr;
                                 bool alreadyOwn = false;
@@ -2285,11 +2281,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         pending_exception = makeError(pContext, "TypeError",
                                             "Cannot add property to non-extensible object", pGlobalRoot);
                                         has_pending_exception = true;
-                                        break;
-                                    } else {
-                                        stackPush(pContext, obj);
-                                        break;
                                     }
+                                    break; // n_push=0: do NOT push anything
                                 }
                             }
                         }
@@ -2301,7 +2294,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
-                    stackPush(pContext, newObj ? newObj : obj);
+                    // n_push=0: do NOT push anything back
                 }
                 break;
             }
@@ -3266,14 +3259,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
             case OP_in: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
+                // QuickJS pushes: key first, then object. Stack top = object, second = key.
+                const proto::ProtoObject* obj    = stackTop(pContext);
+                stackPop(pContext);
                 const proto::ProtoObject* keyVal = stackTop(pContext);
                 stackPop(pContext);
-                const proto::ProtoObject* obj = stackTop(pContext);
-                stackPop(pContext);
+                // Spec §13.10.1: throw TypeError if RHS is not an object (null, undefined,
+                // booleans, numbers, and plain strings are not valid RHS for 'in').
+                bool objIsPrimitive = (!obj || obj == PROTO_NONE || obj == t_nullSentinel
+                    || obj->isBoolean(pContext) || obj->isInteger(pContext)
+                    || (obj->isString(pContext) && !obj->isMethod(pContext)));
+                if (objIsPrimitive) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "Cannot use 'in' operator to search for property in non-object", pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
-                bool has = (obj && key && obj->hasAttribute(pContext, key));
-                stackPush(pContext, has ? PROTO_TRUE : PROTO_FALSE);
+                // IMPORTANT: hasAttribute returns PROTO_TRUE or PROTO_FALSE (both are non-null
+                // pointers), so must compare against PROTO_TRUE — never cast to bool directly.
+                const proto::ProtoObject* hasResult = (key) ? obj->hasAttribute(pContext, key) : PROTO_FALSE;
+                stackPush(pContext, hasResult == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
             case OP_delete: {

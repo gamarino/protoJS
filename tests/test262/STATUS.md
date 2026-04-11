@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775869775961.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775907911143.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -39,6 +39,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | No net change — see Phase 15 notes below |
 | **Phase 16: destructuring error handling (2026-04-11)** | 9337 | **8239 (88.2%)** | 176 | 911 | 0 | +72 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
 | **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 9337 | **6453 (69.1%)** | 177 | 2696 | 0 | +357 genuine (+357 P16-fail→pass), −2143 false-positives removed; see Phase 17 notes |
+| **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 9337 | **6459 (69.2%)** | 177 | 2690 | 0 | +6 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
 
 ### language/module-code
 
@@ -52,7 +53,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775869837656.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775907568993.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -68,6 +69,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | No net change — see Phase 15 notes below |
 | **Phase 16: destructuring error handling (2026-04-11)** | 11036 | **9401 (85.2%)** | 176 | 1459 | 0 | +45 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
 | **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 11036 | **8315 (75.3%)** | 176 | 2545 | 0 | +261 genuine (+261 P16-fail→pass), −1347 false-positives removed; see Phase 17 notes |
+| **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 11036 | **8343 (75.6%)** | 176 | 2517 | 0 | +28 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -116,6 +118,10 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11):**
+> 1. *`OP_in` always returned `true`* — Two compounding bugs: (a) QuickJS pushes `key` first then `obj`, so stack top is `obj` and second is `key` — our implementation had these swapped; (b) `obj->hasAttribute(pContext, key)` returns `PROTO_TRUE` or `PROTO_FALSE` (both are non-null `ProtoObject*`), so `bool has = (bool)obj->hasAttribute(...)` was always `true` even when `hasAttribute` returned `PROTO_FALSE`. Fixed by reading `obj` from `stackTop` (not second), and comparing the result with `== PROTO_TRUE`. Also added TypeError for non-object operands per spec.
+> 2. *`OP_put_field` stack net effect was −1 instead of −2* — QuickJS specifies `DEF(put_field, 5, 2, 0, atom)` (n_pop=2, n_push=0). Our implementation popped `val` (top) and `obj` (second) correctly but then pushed `obj` or the updated object back, leaving net −1. This caused `f([,])` (function with an elision hole parameter) to never execute the function body: QuickJS compiles `[,]` as `OP_array_from 0` + `OP_dup` + `OP_push_i32 1` + `OP_put_field "length"`, then the peephole optimizer elides `insert2 + put_field + drop → put_field`. Our +1 push made `OP_call` read the array from the wrong stack position (one slot off), silently no-oping the call. Fixed by removing all `stackPush` calls from `OP_put_field`.
 >
 > **Phase 16: destructuring error handling (2026-04-11):**
 > 1. *TypeError for null in `OP_for_of_start`* — When the destructuring target is `t_nullSentinel` (JS `null`), the opcode now sets `pending_exception` to `TypeError: null is not iterable` and `break`s (not `return PROTO_NONE`) so the exception is catchable by JS `try/catch` via the dispatch loop at line ~4712.
@@ -171,6 +177,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-04-10 | *(per-category only; full-suite run pending)* | — | Phase 13: +268 expressions; Phase 14: +17 expressions, +34 statements vs Phase 13 honest. Full-suite run needed to capture Phases 8–16 gains. |
 | 2026-04-11 | *(per-category only)* | 17640 / 20373 (86.6%) | Phase 16: +45 expressions, +72 statements vs Phase 15 (language/expressions + language/statements only). |
 | 2026-04-11 | *(per-category only)* | 14768 / 20373 (72.5%) | Phase 17: −2872 net (618 genuine improvements, 3490 false-positives unmasked). Stricter TypeError checking exposed tests that were silently passing due to absent error propagation. |
+| 2026-04-11 | *(per-category only)* | 14802 / 20373 (72.7%) | Phase 18: +34 net (+28 expressions, +6 statements). Fixed `OP_in` always-true and `OP_put_field` stack over-push. |
 
 ---
 
