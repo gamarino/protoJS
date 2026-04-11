@@ -61,6 +61,15 @@ thread_local std::vector<protojs::CatchFrame>*      t_genResumeCatchStack = null
 thread_local const proto::ProtoObject*              t_genIterator       = nullptr;
 
 // ---------------------------------------------------------------------------
+// Iterator callback exception propagation.
+// callJSFunction() cannot set pending_exception (it has no access to the
+// local variables inside runBytecode).  Instead it stores the exception here
+// and iterator-related call sites check this flag immediately after return.
+// ---------------------------------------------------------------------------
+thread_local const proto::ProtoObject*              t_callException     = nullptr;
+thread_local bool                                   t_hasCallException  = false;
+
+// ---------------------------------------------------------------------------
 // Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
 // These are registered as global properties during bootstrap.
 // ---------------------------------------------------------------------------
@@ -4078,6 +4087,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* iterable = stackTop(pContext);
                 stackPop(pContext);
+                // Null is not iterable — throw TypeError.
+                if (iterable == t_nullSentinel) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "null is not iterable", pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 // PROTO_NONE guard: generator iterables return PROTO_NONE from OP_initial_yield
                 // (unsupported). Propagate vacuous-pass so generator-based for-of tests don't regress.
                 if (!iterable || iterable == PROTO_NONE) return PROTO_NONE;
@@ -4096,6 +4112,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
                         setSlot(pContext, baseSlot,     iterable);
                         setSlot(pContext, baseSlot + 1, pContext->fromInteger(-1LL)); // sentinel
+                        setSlot(pContext, baseSlot + 2, pContext->fromInteger(0LL));  // done flag
                         const proto::ProtoObject* iterObj = pContext->newObject(false);
                         if (!iterObj) return PROTO_NONE;
                         const proto::ProtoString* slotKey2 = JSSymbols::iterSlot(pContext);
@@ -4121,10 +4138,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!iterFn || iterFn == PROTO_NONE) return PROTO_NONE;
                     const proto::ProtoList* emptyArgs2 = pContext->newList();
                     const proto::ProtoObject* iterator = callJSFunction(pContext, iterFn, iterable, emptyArgs2);
+                    if (t_hasCallException) {
+                        pending_exception  = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException    = nullptr;
+                        break;
+                    }
                     if (!iterator || iterator == PROTO_NONE) return PROTO_NONE;
                     uint32_t baseSlotC = 0x10000u + static_cast<uint32_t>(pc - 1);
                     setSlot(pContext, baseSlotC,     iterator);
                     setSlot(pContext, baseSlotC + 1, pContext->fromInteger(-1LL)); // sentinel: next()-based
+                    setSlot(pContext, baseSlotC + 2, pContext->fromInteger(0LL));  // done flag
                     const proto::ProtoObject* iterObjC = pContext->newObject(false);
                     if (!iterObjC) return PROTO_NONE;
                     const proto::ProtoString* slotKeyC = JSSymbols::iterSlot(pContext);
@@ -4198,6 +4223,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // JS-defined next(): dispatch through callJSFunction.
                             const proto::ProtoList* emptyArgsFO = pContext->newList();
                             resultFO = callJSFunction(pContext, nextFnFO, arrObj, emptyArgsFO);
+                            if (t_hasCallException) {
+                                pending_exception  = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException    = nullptr;
+                                break;
+                            }
                         }
                     }
                     const proto::ProtoString* doneKeyFO  = JSSymbols::done(pContext);
@@ -4207,6 +4239,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* valueFO = (resultFO && resultFO != PROTO_NONE && valueKeyFO)
                         ? resultFO->getAttribute(pContext, valueKeyFO, false) : PROTO_NONE;
                     const bool isDone = (!doneFO || doneFO == PROTO_NONE || doneFO == PROTO_TRUE);
+                    // Track done state in slot bs+2 so OP_iterator_close knows whether to call return().
+                    if (isDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
                     stackPush(pContext, valueFO ? valueFO : PROTO_NONE);
                     stackPush(pContext, isDone ? PROTO_TRUE : PROTO_FALSE);
                     break;
@@ -4269,8 +4303,67 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
             // OP_iterator_close: DEF(iterator_close, 1, 3, 0, none)
             // Pops [iter, nextMethod, catch_0] from stack.
+            // For native iterators (sentinel -1) call iterator.return() if present.
             case OP_iterator_close: {
-                for (int i = 0; i < 3 && !stackEmpty(pContext); i++) stackPop(pContext);
+                // Pop catch_offset and nextMethod; keep iterObj to inspect.
+                if (!stackEmpty(pContext)) stackPop(pContext); // catch_offset
+                if (!stackEmpty(pContext)) stackPop(pContext); // nextMethod
+                const proto::ProtoObject* iterObjCL = PROTO_NONE;
+                if (!stackEmpty(pContext)) {
+                    iterObjCL = stackTop(pContext);
+                    stackPop(pContext); // iterObj wrapper
+                }
+                // If this was a native iterator (sentinel -1), call .return() for cleanup.
+                if (iterObjCL && iterObjCL != PROTO_NONE) {
+                    const proto::ProtoString* slotKeyCL = JSSymbols::iterSlot(pContext);
+                    const proto::ProtoObject* slotValCL =
+                        slotKeyCL ? iterObjCL->getAttribute(pContext, slotKeyCL, false) : PROTO_NONE;
+                    if (slotValCL && slotValCL != PROTO_NONE && slotValCL->isInteger(pContext)) {
+                        uint32_t bsCL = static_cast<uint32_t>(slotValCL->asLong(pContext));
+                        const proto::ProtoObject* actualIterCL = getSlot(pContext, bsCL);
+                        const proto::ProtoObject* idxObjCL     = getSlot(pContext, bsCL + 1);
+                        long long idxCL = (idxObjCL && idxObjCL->isInteger(pContext))
+                                          ? idxObjCL->asLong(pContext) : 0LL;
+                        // Determine whether the iterator was already exhausted.
+                        // Spec: IteratorClose only calls return() if iteratorRecord.[[done]] is false.
+                        bool iterAlreadyDone = false;
+                        if (idxCL == -1LL) {
+                            // Native iterator: check done flag in slot bsCL+2 (0=not done, 1=done).
+                            const proto::ProtoObject* doneFlagCL = getSlot(pContext, bsCL + 2);
+                            iterAlreadyDone = (doneFlagCL && doneFlagCL->isInteger(pContext)
+                                               && doneFlagCL->asLong(pContext) == 1LL);
+                        } else {
+                            // Array/TypedArray: exhausted if idx >= length.
+                            const proto::ProtoString* lenKeyCL2 = JSSymbols::length(pContext);
+                            const proto::ProtoObject* lenValCL  = lenKeyCL2
+                                ? actualIterCL->getAttribute(pContext, lenKeyCL2, false) : PROTO_NONE;
+                            long long arrLenCL = (lenValCL && lenValCL->isInteger(pContext))
+                                                 ? lenValCL->asLong(pContext) : 0LL;
+                            iterAlreadyDone = (idxCL >= arrLenCL);
+                        }
+                        if (idxCL == -1LL && !iterAlreadyDone && actualIterCL && actualIterCL != PROTO_NONE) {
+                            const proto::ProtoObject* retKeyObj =
+                                pContext->fromUTF8String("return");
+                            const proto::ProtoString* retKey =
+                                retKeyObj ? retKeyObj->asString(pContext) : nullptr;
+                            const proto::ProtoObject* retFn = retKey
+                                ? actualIterCL->getAttribute(pContext, retKey, false) : PROTO_NONE;
+                            if (retFn && retFn != PROTO_NONE) {
+                                if (retFn->isMethod(pContext)) {
+                                    proto::ProtoMethod nativeRet = retFn->asMethod(pContext);
+                                    if (nativeRet)
+                                        nativeRet(pContext, actualIterCL, nullptr, nullptr, nullptr);
+                                } else {
+                                    const proto::ProtoList* emptyRetArgs = pContext->newList();
+                                    callJSFunction(pContext, retFn, actualIterCL, emptyRetArgs);
+                                    // Clear any exception from return() — close is best-effort.
+                                    t_hasCallException = false;
+                                    t_callException    = nullptr;
+                                }
+                            }
+                        }
+                    }
+                }
                 break;
             }
 
@@ -4315,7 +4408,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             } else {
                                 const proto::ProtoList* emptyArgsIN = pContext->newList();
                                 resultObjIN = callJSFunction(pContext, nextFnIN, actualIter, emptyArgsIN);
+                                if (t_hasCallException) {
+                                    pending_exception  = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException = false;
+                                    t_callException    = nullptr;
+                                    // Re-push [iter, nextMethod, catch_offset] before breaking so
+                                    // OP_iterator_close can pop them cleanly on the exception path.
+                                    stackPush(pContext, iterObjIN);
+                                    stackPush(pContext, nextMethodIN);
+                                    stackPush(pContext, catchOffIN ? catchOffIN : pContext->fromInteger(0LL));
+                                    break;
+                                }
                             }
+                        }
+                        // Track done state in slot bsIN+2 so OP_iterator_close can decide
+                        // whether to call return() (only if the iterator was not yet exhausted).
+                        if (resultObjIN && resultObjIN != PROTO_NONE && doneKeyIN) {
+                            const proto::ProtoObject* doneValIN =
+                                resultObjIN->getAttribute(pContext, doneKeyIN, false);
+                            const bool iterDoneIN = (!doneValIN || doneValIN == PROTO_NONE
+                                                     || doneValIN == PROTO_TRUE);
+                            if (iterDoneIN)
+                                setSlot(pContext, bsIN + 2, pContext->fromInteger(1LL));
                         }
                     } else {
                         // Array/TypedArray: build synthetic {value, done} result object.
@@ -4383,6 +4498,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 const proto::ProtoObject* resultValIC  = PROTO_NONE;
                 const proto::ProtoObject* resultDoneIC = PROTO_TRUE;
+                bool icCallException = false;
 
                 if (icFlags == 1) {
                     // Collect all remaining iterator values into a rest array.
@@ -4418,6 +4534,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 } else {
                                     const proto::ProtoList* argsIC = pContext->newList();
                                     resIC = callJSFunction(pContext, nextFnIC, actualIterIC, argsIC);
+                                    if (t_hasCallException) {
+                                        pending_exception  = t_callException;
+                                        has_pending_exception = true;
+                                        t_hasCallException = false;
+                                        t_callException    = nullptr;
+                                        icCallException    = true;
+                                        break;
+                                    }
                                 }
                                 const proto::ProtoObject* doneIC =
                                     (resIC && resIC != PROTO_NONE && doneKeyIC2)
@@ -4477,6 +4601,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     resultDoneIC = PROTO_FALSE;
                 }
                 // flags=0 and others: cleanup/return() path — value=undefined, done=true (defaults).
+
+                // If an exception was thrown inside the drain loop, the exception is
+                // already set; skip the push-back and let dispatch handle it.
+                if (icCallException) break;
 
                 // Push back [iter, nextMethod, catch_offset, value, done].
                 stackPush(pContext, iterObjIC);
@@ -4903,7 +5031,13 @@ const proto::ProtoObject* callJSFunction(
         const proto::ProtoObject* result =
             runBytecode(&childCtx, &nf, effectiveThis, args, globalRoot, &childEx);
         childCtx.returnValue = result;
-        // Exceptions from callbacks are silently suppressed at this level.
+        // Propagate exceptions from JS callbacks via thread-local so that
+        // iterator-related call sites inside runBytecode can set pending_exception.
+        if (childEx && childEx != PROTO_NONE) {
+            t_callException    = childEx;
+            t_hasCallException = true;
+            return PROTO_NONE;
+        }
         return result ? result : PROTO_NONE;
     }
 

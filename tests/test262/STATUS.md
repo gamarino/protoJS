@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775865664706.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775868285964.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -37,6 +37,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | Phase 13 honest baseline (2026-04-10) | 9337 | 8133 (87.1%) | 176 | 1017 | 0 | Phase 13 binary (Function.prototype wired); honest conformance |
 | **Phase 14: flat bcId + closure capture (2026-04-10)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | +34 vs Phase 13 honest; flat bcId fix + closure var capture (LOCAL/ARG/REF) |
 | **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 9337 | **8167 (87.5%)** | 176 | 983 | 0 | No net change — see Phase 15 notes below |
+| **Phase 16: destructuring error handling (2026-04-11)** | 9337 | **8239 (88.2%)** | 176 | 911 | 0 | +72 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
 
 ### language/module-code
 
@@ -50,7 +51,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775865722194.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775868345559.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -64,6 +65,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 13: Function.prototype wire-up (10:00 UTC 04-10)** | 11036 | **9339 (84.6%)** | 176 | 1521 | 0 | +268 vs prior; fn.call/bind/apply/length/name working |
 | **Phase 14: flat bcId + closure capture (2026-04-10)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | +17 vs Phase 13; flat bcId fix + closure var capture for Symbol.iterator/for-of |
 | **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11)** | 11036 | **9356 (84.8%)** | 176 | 1504 | 0 | No net change — see Phase 15 notes below |
+| **Phase 16: destructuring error handling (2026-04-11)** | 11036 | **9401 (85.2%)** | 176 | 1459 | 0 | +45 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -97,6 +99,11 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 2. *Closure var capture at `OP_fclosure8` / `OP_fclosure`* — At closure-creation time, captured parent-scope vars (types 0=LOCAL, 1=ARG, 2=REF) are published to the global object keyed by their declared names. This ensures the inner function's startup `OP_get_var` / `OP_put_var` ops read the correct initial values rather than `undefined`. Enables `makeAdder`, `makeCounter`, and closures used by the Symbol.iterator / for-of protocol.
 > 3. *`closureVarTypes` / `closureVarIndices` added to `ProtoBytecodeModule`* — `loadBytecodeRecursive` populates these from `protojs_bytecode_closure_var_type` / `protojs_bytecode_closure_var_idx` so the interpreter can resolve the correct parent slot at fclosure time without holding a JSContext pointer.
 > 4. *Symbol.iterator / for-of protocol* — Arrays and iterables now produce correct results via closure-captured `Symbol.iterator` methods; `[10,20,30]` yields `"10,20,30"`.
+>
+> **Phase 16: destructuring error handling (2026-04-11):**
+> 1. *TypeError for null in `OP_for_of_start`* — When the destructuring target is `t_nullSentinel` (JS `null`), the opcode now sets `pending_exception` to `TypeError: null is not iterable` and `break`s (not `return PROTO_NONE`) so the exception is catchable by JS `try/catch` via the dispatch loop at line ~4712.
+> 2. *Exception propagation from JS callbacks via thread-locals* — `callJSFunction` previously silently suppressed `childEx`. It now stores exceptions in `t_callException`/`t_hasCallException` thread-locals. All four iterator call sites (`OP_for_of_start` Case C, `OP_for_of_next`, `OP_iterator_next`, `OP_iterator_call` drain loop) check these thread-locals immediately after return and convert them to `pending_exception`.
+> 3. *`OP_iterator_close` calls `iterator.return()` per spec* — When a `for-of` loop exits early (via `break`, `throw`, or `return`), the spec requires calling `return()` on the iterator to allow cleanup. The close opcode now reads the iterator from its slot, checks the iterator's `return` property, and calls it (native or JS). A done-tracking flag in slot `bs+2` (initialized at `OP_for_of_start`, set to 1 when `done: true` is received) prevents calling `return()` on already-exhausted iterators, fixing 13 `iter-no-close` regressions from Phase 16 v1.
 >
 > **Phase 15: OP_iterator_next + OP_iterator_call (2026-04-11):**
 > 1. *`OP_iterator_next` implemented* — Stack: `[iter, nextMethod, catch, sentinel]` (4) → pops all 4, calls `iter.next()` (native path: slot sentinel=-1) or reads `arr[idx]` (array path: idx≥0), builds `{value, done}` result object, pushes back `[iter, nextMethod, catch, result_obj]`. Correctly handles TypedArrays via `getTypedArrayElementType`.
@@ -144,7 +151,8 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-03-08 | `snapshot-language_built-ins-1773028489384.json` | 42643 / 47219 | Phase 6 Step 1+2: module mode wired, line-terminators unlocked, 7 skipped. |
 | 2026-03-09 | `snapshot-language_built-ins-1773077022112.json` | 42892 / 47219 | Phase 7: `OP_array_from`, for-of / for-in iterator opcodes; +249 vs Phase 6. |
 | 2026-03-18 | `snapshot-language_built-ins-1773855099985.json` | **44596 / 47219** | Best full-suite result to date (94.4%). |
-| 2026-04-10 | *(per-category only; full-suite run pending)* | — | Phase 13: +268 expressions; Phase 14: +17 expressions, +34 statements vs Phase 13 honest. Full-suite run needed to capture Phases 8–14 gains. |
+| 2026-04-10 | *(per-category only; full-suite run pending)* | — | Phase 13: +268 expressions; Phase 14: +17 expressions, +34 statements vs Phase 13 honest. Full-suite run needed to capture Phases 8–16 gains. |
+| 2026-04-11 | *(per-category only)* | 17640 / 20373 (86.6%) | Phase 16: +45 expressions, +72 statements vs Phase 15 (language/expressions + language/statements only). |
 
 ---
 
