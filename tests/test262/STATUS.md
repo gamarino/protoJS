@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775907911143.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775910013354.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -40,6 +40,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 16: destructuring error handling (2026-04-11)** | 9337 | **8239 (88.2%)** | 176 | 911 | 0 | +72 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
 | **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 9337 | **6453 (69.1%)** | 177 | 2696 | 0 | +357 genuine (+357 P16-fail→pass), −2143 false-positives removed; see Phase 17 notes |
 | **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 9337 | **6459 (69.2%)** | 177 | 2690 | 0 | +6 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
+| **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 9337 | **7239 (77.5%)** | 177 | 1910 | 0 | +780 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
 
 ### language/module-code
 
@@ -53,7 +54,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775907568993.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775909644055.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -70,6 +71,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 16: destructuring error handling (2026-04-11)** | 11036 | **9401 (85.2%)** | 176 | 1459 | 0 | +45 vs Phase 15; TypeError for null, exception propagation from callbacks, iterator.return() on close |
 | **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 11036 | **8315 (75.3%)** | 176 | 2545 | 0 | +261 genuine (+261 P16-fail→pass), −1347 false-positives removed; see Phase 17 notes |
 | **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 11036 | **8343 (75.6%)** | 176 | 2517 | 0 | +28 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
+| **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 11036 | **9125 (82.7%)** | 176 | 2735 | 0 | +782 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -118,6 +120,12 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 19: `space->methodPrototype = Function.prototype` (2026-04-11):**
+> 1. *Root cause* — `ProtoObject::getPrototype()` for `POINTER_TAG_METHOD` objects returns `context->space->methodPrototype`. This was `nullptr` (never set), so any property lookup on a native function object (e.g. `Array.prototype.join`, `Function.prototype.call`) returned `PROTO_NONE` immediately. This meant `fn.bind`, `fn.call`, `fn.apply`, and `fn.toString` were all `undefined` on any native function.
+> 2. *Fix* — In `ensureFunctionPrototype` (called during bootstrap), after building the complete `fp` object with all four methods, set `ctx->space->methodPrototype = fp`. From that point forward, every `ProtoMethodCell` (`POINTER_TAG_METHOD`) object inherits from Function.prototype via `getPrototype()` → `methodPrototype` → attribute walk.
+> 3. *Primary beneficiary — `propertyHelper.js`* — The test262 harness does `var __join = Function.prototype.call.bind(Array.prototype.join)` at module load time. Previously `.bind` on `Function.prototype.call` returned `undefined`, making all `verifyProperty()` helpers silently null, and causing TypeError in Phase 17. Now `Function.prototype.call.bind(...)` returns a proper bound function, `verifyProperty()` runs its checks, and class/elements tests that have correct property semantics pass.
+> 4. *+1562 tests recovered* — 782 expressions (mostly class/elements + arrow-function tests) + 780 statements (mostly class/elements). The previous Phase 17 "false positives" (which threw TypeError when verifyProperty() tried to call a null helper) are now genuine passes where the property checks succeed.
 >
 > **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11):**
 > 1. *`OP_in` always returned `true`* — Two compounding bugs: (a) QuickJS pushes `key` first then `obj`, so stack top is `obj` and second is `key` — our implementation had these swapped; (b) `obj->hasAttribute(pContext, key)` returns `PROTO_TRUE` or `PROTO_FALSE` (both are non-null `ProtoObject*`), so `bool has = (bool)obj->hasAttribute(...)` was always `true` even when `hasAttribute` returned `PROTO_FALSE`. Fixed by reading `obj` from `stackTop` (not second), and comparing the result with `== PROTO_TRUE`. Also added TypeError for non-object operands per spec.
@@ -178,6 +186,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-04-11 | *(per-category only)* | 17640 / 20373 (86.6%) | Phase 16: +45 expressions, +72 statements vs Phase 15 (language/expressions + language/statements only). |
 | 2026-04-11 | *(per-category only)* | 14768 / 20373 (72.5%) | Phase 17: −2872 net (618 genuine improvements, 3490 false-positives unmasked). Stricter TypeError checking exposed tests that were silently passing due to absent error propagation. |
 | 2026-04-11 | *(per-category only)* | 14802 / 20373 (72.7%) | Phase 18: +34 net (+28 expressions, +6 statements). Fixed `OP_in` always-true and `OP_put_field` stack over-push. |
+| 2026-04-11 | *(per-category only)* | 16364 / 20373 (80.3%) | Phase 19: +1562 net (+782 expressions, +780 statements). Set `space->methodPrototype = Function.prototype` so all native functions inherit call/bind/apply. |
 
 ---
 

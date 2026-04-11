@@ -183,6 +183,13 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     reg(JSSymbols::bind(ctx),     fnBind);
     reg(JSSymbols::toString(ctx), fnToString);
 
+    // Register fp as the ProtoSpace method prototype so that ALL native ProtoMethod
+    // objects (e.g. Array.prototype.join, Function.prototype.call itself) inherit
+    // from Function.prototype.  This is what makes `fn.bind(...)`, `fn.call(...)`,
+    // and `fn.apply(...)` work on any native function, matching JS semantics where
+    // every callable has Function.prototype in its [[Prototype]] chain.
+    if (ctx->space) ctx->space->methodPrototype = const_cast<proto::ProtoObject*>(fp);
+
     // Store at __function_proto__ so the interpreter can look it up.
     *globalRoot = (*globalRoot)->setAttribute(ctx, fpKey, fp);
 
