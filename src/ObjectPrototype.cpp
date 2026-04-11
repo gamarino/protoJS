@@ -63,6 +63,20 @@ static void collectOwnKeys(
         if (isArr && lenSymbol && propKey == lenSymbol) continue;
         std::string kstr;
         propKey->toUTF8String(ctx, kstr);
+        // Respect the enumerable descriptor flag (bit 2 of __pd_<key>__).
+        // A missing __pd__ key means default = enumerable (bit 2 = 1).
+        {
+            std::string pdKeyStr = "__pd_" + kstr + "__";
+            const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+            const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+            if (pdk) {
+                const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
+                if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
+                    if (!(bits & 0x4)) continue; // not enumerable — skip
+                }
+            }
+        }
         keys.push_back(kstr);
         if (vals) vals->push_back(val ? val : PROTO_NONE);
     }

@@ -654,6 +654,24 @@ static const ProtoBytecodeModule* getClosureModule(
     return ptr ? reinterpret_cast<const ProtoBytecodeModule*>(ptr) : nullptr;
 }
 
+// ---------------------------------------------------------------------------
+// setNWCDescriptor — store the property-descriptor sidecar key __pd_<prop>__
+// with bits = 0x2 (configurable only: not writable, not enumerable).
+// Used for fn.name and fn.length which the spec requires to be:
+//   { writable: false, enumerable: false, configurable: true }
+// Descriptor bits: 0x1=writable, 0x2=configurable, 0x4=enumerable.
+// ---------------------------------------------------------------------------
+static void setNWCDescriptor(proto::ProtoContext* ctx,
+                             const proto::ProtoObject*& obj,
+                             const std::string& propName)
+{
+    if (!ctx || !obj) return;
+    std::string pdKeyStr = "__pd_" + propName + "__";
+    const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+    const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+    if (pdk) obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+}
+
 /** Native ProtoMethod for Error.prototype.toString(). Returns "name: message" or just "name". */
 static const proto::ProtoObject* errorPrototypeToString(
         proto::ProtoContext* context,
@@ -2601,6 +2619,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* propKey =
                             reinterpret_cast<const proto::ProtoString*>(attrRawKey);
                         if (!propKey) continue;
+                        // Skip internal bookkeeping keys (__name__ pattern).
+                        std::string cdpKstr;
+                        propKey->toUTF8String(pContext, cdpKstr);
+                        if (cdpKstr.size() >= 4 && cdpKstr[0]=='_' && cdpKstr[1]=='_'
+                            && cdpKstr[cdpKstr.size()-1]=='_' && cdpKstr[cdpKstr.size()-2]=='_') continue;
+                        // Respect enumerable descriptor flag (bit 2 of __pd_<key>__).
+                        {
+                            std::string pdks = "__pd_" + cdpKstr + "__";
+                            const proto::ProtoObject* pko = pContext->fromUTF8String(pdks.c_str());
+                            const proto::ProtoString* pdk = pko ? pko->asString(pContext) : nullptr;
+                            if (pdk) {
+                                const proto::ProtoObject* pdv =
+                                    cdpSource->getAttribute(pContext, pdk, false);
+                                if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
+                                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
+                                    if (!(bits & 0x4)) continue; // not enumerable — skip
+                                }
+                            }
+                        }
                         // Skip keys in the exclusion list.
                         if (cdpHasExcl) {
                             const proto::ProtoObject* exclCheck =
@@ -4212,6 +4249,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->fromInteger(static_cast<long long>(fnBcId8)));
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext),
                         pContext->newObject(true));
+                    // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
+                    // bits: 0x1=writable, 0x2=configurable, 0x4=enumerable → 0x1 only.
+                    {
+                        const proto::ProtoObject* pdko = pContext->fromUTF8String("__pd_prototype__");
+                        const proto::ProtoString* pdks = pdko ? pdko->asString(pContext) : nullptr;
+                        if (pdks) fnInst = fnInst->setAttribute(pContext, pdks, pContext->fromInteger(0x1LL));
+                    }
                     // Resolve function metadata from the root module's flat nestedFunctions
                     // list where all functions reside with globally unique IDs.
                     const ProtoBytecodeModule* nm8Ptr = nullptr;
@@ -4225,10 +4269,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (nameVal)
                                 fnInst = fnInst->setAttribute(pContext, JSSymbols::name(pContext), nameVal);
                         }
+                        // Spec: fn.name is {writable:false, enumerable:false, configurable:true}
+                        setNWCDescriptor(pContext, fnInst, "name");
                         const proto::ProtoString* lenKey8 = JSSymbols::length(pContext);
                         if (lenKey8)
                             fnInst = fnInst->setAttribute(pContext, lenKey8,
                                 pContext->fromInteger(static_cast<long long>(nm8.argCount_)));
+                        // Spec: fn.length is {writable:false, enumerable:false, configurable:true}
+                        setNWCDescriptor(pContext, fnInst, "length");
                         // Capture lexical this for arrow functions.
                         if (nm8.isArrow) {
                             fnInst = fnInst->setAttribute(pContext, JSSymbols::arrowThis(pContext),
@@ -4291,6 +4339,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->fromInteger(static_cast<long long>(fnBcId2)));
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext),
                         pContext->newObject(true));
+                    // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
+                    {
+                        const proto::ProtoObject* pdko2 = pContext->fromUTF8String("__pd_prototype__");
+                        const proto::ProtoString* pdks2 = pdko2 ? pdko2->asString(pContext) : nullptr;
+                        if (pdks2) fnInst2 = fnInst2->setAttribute(pContext, pdks2, pContext->fromInteger(0x1LL));
+                    }
                     // Resolve function metadata from the root module's flat nestedFunctions list.
                     const ProtoBytecodeModule* nm2Ptr = nullptr;
                     if (fnBcId2 >= 0 && t_rootModule &&
@@ -4303,10 +4357,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (nameVal2)
                                 fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::name(pContext), nameVal2);
                         }
+                        // Spec: fn.name is {writable:false, enumerable:false, configurable:true}
+                        setNWCDescriptor(pContext, fnInst2, "name");
                         const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
                         if (lenKey2)
                             fnInst2 = fnInst2->setAttribute(pContext, lenKey2,
                                 pContext->fromInteger(static_cast<long long>(nm2.argCount_)));
+                        // Spec: fn.length is {writable:false, enumerable:false, configurable:true}
+                        setNWCDescriptor(pContext, fnInst2, "length");
                         // Capture lexical this for arrow functions.
                         if (nm2.isArrow) {
                             fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::arrowThis(pContext),
@@ -5031,6 +5089,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 && kstr[kstr.size()-1]=='_' && kstr[kstr.size()-2]=='_') continue;
                             // Suppress "length" on arrays.
                             if (fiIsArray && kstr == "length") continue;
+                            // Respect enumerable descriptor flag (bit 2 of __pd_<key>__).
+                            // Missing __pd__ means default=enumerable; explicit 0 in bit 2 = skip.
+                            {
+                                std::string pdks = "__pd_" + kstr + "__";
+                                const proto::ProtoObject* pko = pContext->fromUTF8String(pdks.c_str());
+                                const proto::ProtoString* pdkStr = pko ? pko->asString(pContext) : nullptr;
+                                if (pdkStr) {
+                                    const proto::ProtoObject* pdv =
+                                        fiObj->getAttribute(pContext, pdkStr, false);
+                                    if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
+                                        uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
+                                        if (!(bits & 0x4)) continue; // not enumerable
+                                    }
+                                }
+                            }
                             addFiKey(kstr);
                         }
                     }

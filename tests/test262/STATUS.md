@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775923159954.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775924425750.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -43,6 +43,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 9337 | **7239 (77.5%)** | 177 | 1910 | 0 | +780 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
 | **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 9337 | **7208 (77.2%)** | 176 | 1942 | 0 | −31 apparent (−64 false-positives exposed, +33 genuine); see Phase 20 notes |
 | **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 9337 | **7229 (77.4%)** | 176 | 1921 | 0 | +21 net (+21 genuine); see Phase 21 notes |
+| **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 9337 | **7258 (77.7%)** | 176 | 1892 | 0 | +29 vs Phase 21; see Phase 22 notes |
 
 ### language/module-code
 
@@ -56,7 +57,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775923219076.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775924489449.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -76,6 +77,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 11036 | **9125 (82.7%)** | 176 | 2735 | 0 | +782 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
 | **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 11036 | **9108 (82.5%)** | 176 | 1752 | 0 | −17 apparent (−64 false-positives exposed, +47 genuine); see Phase 20 notes |
 | **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 11036 | **9129 (82.7%)** | 176 | 1731 | 0 | +21 net (+25 genuine, −4 false-positives exposed); see Phase 21 notes |
+| **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 11036 | **9159 (83.0%)** | 176 | 1701 | 0 | +30 vs Phase 21; see Phase 22 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -124,6 +126,13 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 22: Function.prototype → Object.prototype chain, property descriptor attributes (2026-04-11):**
+> 1. *`Function.prototype` now inherits from `Object.prototype`* — `FunctionPrototype.cpp` previously created `fp = ctx->newObject(false)` (no parent). Changed to `fp = ctx->space->objectPrototype->newChild(ctx, false)` so the prototype chain is: `fn instance → Function.prototype → Object.prototype`. This gives all function instances access to `hasOwnProperty`, `toString` (Object's), `valueOf`, etc. Fixes 60+ `forbidden-ext` tests that called `fn.hasOwnProperty("caller")` / `fn.hasOwnProperty("arguments")`.
+> 2. *`fn.name`, `fn.length`, `fn.prototype` non-enumerable descriptors* — `OP_fclosure8` and `OP_fclosure` now store `__pd_name__=0x2`, `__pd_length__=0x2` (configurable only: not writable, not enumerable) and `__pd_prototype__=0x1` (writable only: not configurable, not enumerable) immediately after setting those attributes on the new function instance. Matches spec: `name` and `length` must be `{writable:false, enumerable:false, configurable:true}`; `prototype` must be `{writable:true, enumerable:false, configurable:false}`. Fixes `fn.name`-related `verifyProperty` checks and ensures `for (var k in fn)` iterates nothing.
+> 3. *Enumerable filtering in `OP_for_in_start`* — The key-collection loop now checks `__pd_<key>__` for each property; if bit 2 (0x4) is absent, the key is skipped. Ensures `for...in` on functions (or any object with non-enumerable properties) correctly omits them.
+> 4. *Enumerable filtering in `collectOwnKeys` (ObjectPrototype.cpp)* — The helper used by `Object.keys`, `Object.values`, and `Object.entries` now applies the same `__pd__` check, so `Object.keys(fn)` returns `[]` when all own props are non-enumerable.
+> 5. *Enumerable + internal-key filtering in `OP_copy_data_properties`* — Object spread `{...obj}` previously copied all own properties including internal `__*__` bookkeeping keys. Now skips both internal-pattern keys and non-enumerable properties (checked via `__pd__`). This is spec-correct: spread and `Object.assign` copy only own enumerable string-keyed properties.
 >
 > **Phase 21: TDZ sentinel fix, OP_append (array spread), instanceof TypeError (2026-04-11):**
 > 1. *TDZ sentinel correctness fix* — The previous sentinel was created via `fromUTF8String("\x00__protojs_tdz_sentinel__")`. C strings terminate at the first null byte, so the sentinel was indistinguishable from the empty string `""`. Any binding whose initial value was `''` (e.g. `f([null, 0, false, ''])`) matched the sentinel check and spuriously threw `ReferenceError: Cannot access before initialization`. Fixed using the same `newObject(false)` pattern as `t_nullSentinel`: a unique `ProtoObject*` stored at `__js_tdz_sentinel__` in the global root, impossible to collide with any JS value including empty string. This was a `thread_local` stored in both the declaration and the per-invocation initialization path.
@@ -206,6 +215,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-04-11 | *(per-category only)* | 16364 / 20373 (80.3%) | Phase 19: +1562 net (+782 expressions, +780 statements). Set `space->methodPrototype = Function.prototype` so all native functions inherit call/bind/apply. |
 | 2026-04-11 | *(per-category only)* | 16316 / 20373 (80.1%) | Phase 20: −48 apparent net (−17 expressions, −31 statements). 64 false-positives exposed by implementing `OP_copy_data_properties`; +80 genuine (spread/rest, for-in, delete, Object.keys/values/entries). |
 | 2026-04-11 | *(per-category only)* | 16358 / 20373 (80.3%) | Phase 21: +42 net (+21 expressions, +21 statements). TDZ sentinel correctness fix, `OP_append` (array spread `[...x]`) implemented, `instanceof` TypeError per §13.10.2. 4 false-positives exposed (S15.3.5.3_A1_T1–T4). |
+| 2026-04-11 | *(per-category only)* | 16417 / 20373 (80.6%) | Phase 22: +59 net (+30 expressions, +29 statements). `Function.prototype → Object.prototype` chain; `fn.name`/`length`/`prototype` non-enumerable descriptors; enumerable filtering in `for...in`, `Object.keys/values/entries`, and `{...spread}`. |
 
 ---
 

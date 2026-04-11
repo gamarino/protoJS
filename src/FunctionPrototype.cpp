@@ -170,8 +170,15 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, fpKey, false);
     if (existing && existing != PROTO_NONE) return;
 
-    // Build Function.prototype.
-    const proto::ProtoObject* fp = ctx->newObject(false);
+    // Build Function.prototype as a child of Object.prototype so that the full
+    // chain  fn → Function.prototype → Object.prototype  is in place.
+    // This gives every function instance access to hasOwnProperty, toString
+    // (Object's), valueOf, etc., matching the ES spec prototype hierarchy.
+    const proto::ProtoObject* objProto =
+        ctx->space ? ctx->space->objectPrototype : nullptr;
+    const proto::ProtoObject* fp = (objProto && objProto != PROTO_NONE)
+        ? objProto->newChild(ctx, false)
+        : ctx->newObject(false);
     if (!fp) return;
 
     auto reg = [&](const proto::ProtoString* key, proto::ProtoMethod fn) {
