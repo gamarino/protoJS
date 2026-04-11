@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775910013354.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-statements-1775923159954.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -42,6 +42,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 9337 | **6459 (69.2%)** | 177 | 2690 | 0 | +6 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
 | **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 9337 | **7239 (77.5%)** | 177 | 1910 | 0 | +780 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
 | **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 9337 | **7208 (77.2%)** | 176 | 1942 | 0 | −31 apparent (−64 false-positives exposed, +33 genuine); see Phase 20 notes |
+| **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 9337 | **7229 (77.4%)** | 176 | 1921 | 0 | +21 net (+21 genuine); see Phase 21 notes |
 
 ### language/module-code
 
@@ -55,7 +56,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775909644055.json`
+**Most recent snapshot:** `tests/test262/reports/snapshot-language-expressions-1775923219076.json`
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -74,6 +75,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 11036 | **8343 (75.6%)** | 176 | 2517 | 0 | +28 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
 | **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 11036 | **9125 (82.7%)** | 176 | 2735 | 0 | +782 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
 | **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 11036 | **9108 (82.5%)** | 176 | 1752 | 0 | −17 apparent (−64 false-positives exposed, +47 genuine); see Phase 20 notes |
+| **Phase 21: TDZ sentinel fix, OP_append (spread in array literals), instanceof TypeError (2026-04-11)** | 11036 | **9129 (82.7%)** | 176 | 1731 | 0 | +21 net (+25 genuine, −4 false-positives exposed); see Phase 21 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -122,6 +124,12 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 21: TDZ sentinel fix, OP_append (array spread), instanceof TypeError (2026-04-11):**
+> 1. *TDZ sentinel correctness fix* — The previous sentinel was created via `fromUTF8String("\x00__protojs_tdz_sentinel__")`. C strings terminate at the first null byte, so the sentinel was indistinguishable from the empty string `""`. Any binding whose initial value was `''` (e.g. `f([null, 0, false, ''])`) matched the sentinel check and spuriously threw `ReferenceError: Cannot access before initialization`. Fixed using the same `newObject(false)` pattern as `t_nullSentinel`: a unique `ProtoObject*` stored at `__js_tdz_sentinel__` in the global root, impossible to collide with any JS value including empty string. This was a `thread_local` stored in both the declaration and the per-invocation initialization path.
+> 2. *`OP_append` (opcode 0x4F) implemented* — `DEF(append, 1, 3, 2, none)` is emitted for array spread: `[a, ...x, b]`. Stack contract: `[array, index, iterable]` → `[array, new_index]`. Implementation handles two paths: (a) array-like operands (have a numeric `length`) copy elements by index; (b) general iterables call `Symbol.iterator()` then loop `next()` with exception propagation via `t_hasCallException`/`t_callException`. The `updateMapping` helper keeps the immutable array slot current after each `setAttribute`. Enables `[...arr]`, `[...str]`, rest-in-spread patterns, and `Array.from`-equivalent spreads.
+> 3. *`instanceof` TypeError per §13.10.2* — When the right-hand side of `instanceof` is a primitive (boolean, integer, double, string that is not a method), the spec requires `TypeError: Right-hand side of 'instanceof' is not callable`. Previously the check was absent; `true instanceof true` silently returned `false`. Now throws TypeError correctly. When `F.prototype` is a primitive (excluding `PROTO_NONE`), throws `TypeError: Function has non-object prototype in instanceof check` per §13.10.2 step 7.
+> 4. *False-positive exposure (4 tests: S15.3.5.3_A1_T1–T4)* — These tests verify `instanceof` throws TypeError for non-callable RHS. They use `FACTORY = Function("name","this.name=name;")`, which returns `undefined` since the `Function()` constructor is not implemented. Previously `undefined instanceof undefined` silently returned `false` (no error check). Now it correctly throws TypeError. The tests were already "expecting TypeError to be thrown" — but they were previously passing because the implicit vacuous return path was reached instead. In Phase 20 snapshots all 4 show `passed` confirming they were false positives. Net: 4 false-positive exposures, but +25 genuine new passes (21 net + 4 exposed).
 >
 > **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11):**
 > 1. *`OP_copy_data_properties` implemented* — Handles the 3-field mask (bits 0–1 = targetDepth, bits 2–4 = sourceDepth, bits 5–7 = exclDepth; 0 = no exclusion list). Iterates source's own attributes via `getOwnAttributes()`/`ProtoSparseListIterator`, skipping keys present in the exclusion object. Uses a save/pop/push pattern to update the immutable target slot in-place. Enables `{ ...obj }` spreads and `const { a, ...rest }` rest patterns.
@@ -197,6 +205,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-04-11 | *(per-category only)* | 14802 / 20373 (72.7%) | Phase 18: +34 net (+28 expressions, +6 statements). Fixed `OP_in` always-true and `OP_put_field` stack over-push. |
 | 2026-04-11 | *(per-category only)* | 16364 / 20373 (80.3%) | Phase 19: +1562 net (+782 expressions, +780 statements). Set `space->methodPrototype = Function.prototype` so all native functions inherit call/bind/apply. |
 | 2026-04-11 | *(per-category only)* | 16316 / 20373 (80.1%) | Phase 20: −48 apparent net (−17 expressions, −31 statements). 64 false-positives exposed by implementing `OP_copy_data_properties`; +80 genuine (spread/rest, for-in, delete, Object.keys/values/entries). |
+| 2026-04-11 | *(per-category only)* | 16358 / 20373 (80.3%) | Phase 21: +42 net (+21 expressions, +21 statements). TDZ sentinel correctness fix, `OP_append` (array spread `[...x]`) implemented, `instanceof` TypeError per §13.10.2. 4 false-positives exposed (S15.3.5.3_A1_T1–T4). |
 
 ---
 

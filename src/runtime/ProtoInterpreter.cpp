@@ -68,6 +68,13 @@ thread_local const proto::ProtoObject*              t_genIterator       = nullpt
 // ---------------------------------------------------------------------------
 thread_local const proto::ProtoObject*              t_callException     = nullptr;
 thread_local bool                                   t_hasCallException  = false;
+// TDZ sentinel: a unique ProtoObject that marks let/const bindings not yet initialized.
+// Stored as __js_tdz_sentinel__ on the global root (like t_nullSentinel) so the GC
+// can trace it.  Cached per-thread for O(1) comparison inside runBytecode.
+// IMPORTANT: do NOT use fromUTF8String("\x00...") — the C-string is truncated at the
+// null byte, making it equal to "" (empty string), which then falsely matches legitimate
+// '' values stored in destructuring patterns.
+thread_local const proto::ProtoObject*              t_tdzSentinel       = nullptr;
 
 // ---------------------------------------------------------------------------
 // Global utility functions (parseInt, parseFloat, isNaN, isFinite, URI encode/decode)
@@ -979,9 +986,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     }
     ProtoBytecodeModule* mod = const_cast<ProtoBytecodeModule*>(module);
 
-    const proto::ProtoObject* tdzSentinel = pContext->fromUTF8String("\x00__protojs_tdz_sentinel__");
-    if (!tdzSentinel) tdzSentinel = PROTO_NONE;
-
     // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
     // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
     if (!t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
@@ -1001,6 +1005,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     }
+
+    // Bootstrap the TDZ sentinel. Same approach as t_nullSentinel: a unique ProtoObject
+    // that cannot equal any legitimate JS value (including empty string "").
+    if (!t_tdzSentinel && pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoString* tdzKey =
+            (pContext->fromUTF8String("__js_tdz_sentinel__")
+                ? pContext->fromUTF8String("__js_tdz_sentinel__")->asString(pContext)
+                : nullptr);
+        if (tdzKey) {
+            const proto::ProtoObject* existing =
+                (*pGlobalRoot)->getAttribute(pContext, tdzKey, false);
+            if (existing && existing != PROTO_NONE) {
+                t_tdzSentinel = existing;
+            } else {
+                const proto::ProtoObject* sentinel = pContext->newObject(false);
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, tdzKey, sentinel);
+                t_tdzSentinel = sentinel;
+            }
+        }
+    }
+    const proto::ProtoObject* tdzSentinel = t_tdzSentinel ? t_tdzSentinel : PROTO_NONE;
 
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
@@ -2393,6 +2418,138 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, idxVal);        // push index back
                 break;
             }
+            case OP_append: {
+                // DEF(append, 1, 3, 2, none) /* append enumerated object, update length */
+                // Stack: [..., array, index, iterable] → [..., array, new_index]
+                // Used for array spread literals: [...x, ...y].
+                // Iterates the iterable and appends each element to array starting at index.
+                if (stackSize(pContext) < 3) break;
+                const proto::ProtoObject* apIterable = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* apIdxObj   = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* apArray    = stackTop(pContext); stackPop(pContext);
+
+                long long apIdx = (apIdxObj && apIdxObj != PROTO_NONE && apIdxObj->isInteger(pContext))
+                    ? apIdxObj->asLong(pContext)
+                    : (apIdxObj && apIdxObj != PROTO_NONE && apIdxObj->isDouble(pContext))
+                    ? static_cast<long long>(apIdxObj->asDouble(pContext)) : 0LL;
+
+                if (!apArray || apArray == PROTO_NONE) {
+                    stackPush(pContext, PROTO_NONE);
+                    stackPush(pContext, pContext->fromInteger(apIdx));
+                    break;
+                }
+                if (!apIterable || apIterable == PROTO_NONE || apIterable == t_nullSentinel
+                    || apIterable->isBoolean(pContext)
+                    || apIterable->isInteger(pContext)
+                    || apIterable->isDouble(pContext)) {
+                    // null/undefined/primitives are silently skipped in spread context
+                    stackPush(pContext, apArray);
+                    stackPush(pContext, pContext->fromInteger(apIdx));
+                    break;
+                }
+
+                // Case A: array-like with .length — use index-based copy.
+                const proto::ProtoString* apLenKey = JSSymbols::length(pContext);
+                const proto::ProtoObject* apLenObj = apLenKey
+                    ? apIterable->getAttribute(pContext, apLenKey, false) : PROTO_NONE;
+                long long apSrcLen = (apLenObj && apLenObj != PROTO_NONE && apLenObj->isInteger(pContext))
+                    ? apLenObj->asLong(pContext)
+                    : (apLenObj && apLenObj != PROTO_NONE && apLenObj->isDouble(pContext))
+                    ? static_cast<long long>(apLenObj->asDouble(pContext)) : -1LL;
+
+                bool apDone = false;
+                bool apError = false;
+                if (apSrcLen >= 0) {
+                    // Array / TypedArray path.
+                    for (long long i = 0; i < apSrcLen && !apError; i++) {
+                        const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
+                        const proto::ProtoObject* v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
+                        if (!v) v = PROTO_NONE;
+                        const proto::ProtoString* tk = JSSymbols::indexKey(pContext, static_cast<uint32_t>(apIdx));
+                        if (tk) {
+                            const proto::ProtoObject* na = apArray->setAttribute(pContext, tk, v);
+                            if (na) { updateMapping(pContext, apArray, na); apArray = na; }
+                        }
+                        apIdx++;
+                    }
+                    apDone = true;
+                } else {
+                    // Case B: general iterable — call Symbol.iterator, loop next().
+                    const proto::ProtoString* apSymIterKey = JSSymbols::symbolIterator(pContext);
+                    const proto::ProtoObject* apIterFn = apSymIterKey
+                        ? apIterable->getAttribute(pContext, apSymIterKey, false) : PROTO_NONE;
+                    if (apIterFn && apIterFn != PROTO_NONE) {
+                        const proto::ProtoList* emptyA = pContext->newList();
+                        const proto::ProtoObject* apIter = callJSFunction(pContext, apIterFn, apIterable, emptyA);
+                        if (t_hasCallException) {
+                            pending_exception  = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException = false;
+                            t_callException    = nullptr;
+                            apError = true;
+                        } else if (apIter && apIter != PROTO_NONE) {
+                            // Get the .next method.
+                            const proto::ProtoString* apNextKey = JSSymbols::next(pContext);
+                            const proto::ProtoObject* apNextFn = apNextKey
+                                ? apIter->getAttribute(pContext, apNextKey, false) : PROTO_NONE;
+                            // Loop: call next() until done.
+                            const proto::ProtoString* apDoneKey  = JSSymbols::done(pContext);
+                            const proto::ProtoString* apValKey   = JSSymbols::value(pContext);
+                            while (!apError) {
+                                const proto::ProtoList* noArgs = pContext->newList();
+                                const proto::ProtoObject* apResult = callJSFunction(
+                                    pContext, apNextFn, apIter, noArgs);
+                                if (t_hasCallException) {
+                                    pending_exception  = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException = false;
+                                    t_callException    = nullptr;
+                                    apError = true;
+                                    break;
+                                }
+                                const proto::ProtoObject* apDoneV = (apResult && apResult != PROTO_NONE && apDoneKey)
+                                    ? apResult->getAttribute(pContext, apDoneKey, false) : PROTO_NONE;
+                                bool iterDone = (!apDoneV || apDoneV == PROTO_NONE || apDoneV == PROTO_TRUE);
+                                if (iterDone) break;
+                                const proto::ProtoObject* apVal = (apResult && apResult != PROTO_NONE && apValKey)
+                                    ? apResult->getAttribute(pContext, apValKey, false) : PROTO_NONE;
+                                if (!apVal) apVal = PROTO_NONE;
+                                const proto::ProtoString* tk = JSSymbols::indexKey(pContext, static_cast<uint32_t>(apIdx));
+                                if (tk) {
+                                    const proto::ProtoObject* na = apArray->setAttribute(pContext, tk, apVal);
+                                    if (na) { updateMapping(pContext, apArray, na); apArray = na; }
+                                }
+                                apIdx++;
+                            }
+                            apDone = !apError;
+                        }
+                    }
+                    // If no Symbol.iterator, treat as empty (nothing to spread).
+                    if (!apDone && !apError) apDone = true;
+                }
+
+                if (apError) {
+                    // Exception already set; push dummy values so the stack stays balanced.
+                    stackPush(pContext, PROTO_NONE);
+                    stackPush(pContext, pContext->fromInteger(apIdx));
+                    break;
+                }
+
+                // Update array.length to cover all inserted elements.
+                if (apLenKey && apArray && apArray != PROTO_NONE) {
+                    const proto::ProtoObject* curLenO = apArray->getAttribute(pContext, apLenKey, false);
+                    long long curLen = (curLenO && curLenO != PROTO_NONE && curLenO->isInteger(pContext))
+                        ? curLenO->asLong(pContext) : 0LL;
+                    if (apIdx > curLen) {
+                        const proto::ProtoObject* na = apArray->setAttribute(pContext, apLenKey,
+                            pContext->fromInteger(apIdx));
+                        if (na) { updateMapping(pContext, apArray, na); apArray = na; }
+                    }
+                }
+                stackPush(pContext, apArray);
+                stackPush(pContext, pContext->fromInteger(apIdx));
+                break;
+            }
             case OP_copy_data_properties: {
                 // DEF(copy_data_properties, 2, 3, 3, u8)
                 // Used for object spread ({...src}) and object rest ({a, ...rest}).
@@ -3326,9 +3483,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
+                // Spec §13.10.2: If Type(F) is not Object → throw TypeError.
+                bool funcIsPrimitive = (!func || func == PROTO_NONE || func == t_nullSentinel
+                    || func->isBoolean(pContext) || func->isInteger(pContext) || func->isDouble(pContext)
+                    || (func->isString(pContext) && !func->isMethod(pContext)));
+                if (funcIsPrimitive) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "Right-hand side of 'instanceof' is not callable", pGlobalRoot);
+                    has_pending_exception = true;
+                    break;
+                }
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                 const proto::ProtoObject* protoObj = func ? func->getAttribute(pContext, protoKey, false) : nullptr;
-                const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE) ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
+                // Spec §13.10.2 step 5: If Type(F.[[Prototype]]) is not Object → throw TypeError.
+                // We only throw if protoObj is a primitive (not null/undefined — PROTO_NONE — which
+                // produces false instead of TypeError per spec OrdinaryHasInstance step 3).
+                if (protoObj && protoObj != PROTO_NONE) {
+                    bool protoIsPrimitive = (protoObj == t_nullSentinel
+                        || protoObj->isBoolean(pContext) || protoObj->isInteger(pContext)
+                        || protoObj->isDouble(pContext)
+                        || (protoObj->isString(pContext) && !protoObj->isMethod(pContext)));
+                    if (protoIsPrimitive) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Function has non-object prototype in instanceof check", pGlobalRoot);
+                        has_pending_exception = true;
+                        break;
+                    }
+                }
+                const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE)
+                    ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
                 stackPush(pContext, (res == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
