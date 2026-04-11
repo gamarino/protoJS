@@ -460,15 +460,43 @@ static const proto::ProtoObject* objectDefineProperty(
     bool configurable = getBoolProp("configurable",  false);
     bool enumerable   = getBoolProp("enumerable",    false);
 
-    // Store the value if present in the descriptor.
-    const proto::ProtoObject* valueKey = ctx->fromUTF8String("value");
-    const proto::ProtoString* vkp = valueKey ? valueKey->asString(ctx) : nullptr;
-    if (vkp) {
-        const proto::ProtoObject* val = desc->getAttribute(ctx, vkp, false);
-        if (val) { // val may be PROTO_NONE (explicit undefined)
-            const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
-            const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
-            if (pk) target = target->setAttribute(ctx, pk, val);
+    // Accessor descriptor: extract get/set functions and store as __get_<name>__ / __set_<name>__.
+    auto getFnProp = [&](const char* name) -> const proto::ProtoObject* {
+        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+        const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
+        if (!k) return nullptr;
+        const proto::ProtoObject* v = desc->getAttribute(ctx, k, false);
+        if (!v || v == PROTO_NONE || v->isNone(ctx)) return nullptr;
+        return v;
+    };
+    const proto::ProtoObject* getter = getFnProp("get");
+    const proto::ProtoObject* setter = getFnProp("set");
+    bool isAccessor = getter || setter;
+
+    if (getter) {
+        std::string gkStr = "__get_" + propName + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        if (gk) target = target->setAttribute(ctx, gk, getter);
+    }
+    if (setter) {
+        std::string skStr = "__set_" + propName + "__";
+        const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+        const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+        if (sk) target = target->setAttribute(ctx, sk, setter);
+    }
+
+    // Store the value if present in the descriptor (data descriptor only).
+    if (!isAccessor) {
+        const proto::ProtoObject* valueKey = ctx->fromUTF8String("value");
+        const proto::ProtoString* vkp = valueKey ? valueKey->asString(ctx) : nullptr;
+        if (vkp) {
+            const proto::ProtoObject* val = desc->getAttribute(ctx, vkp, false);
+            if (val) { // val may be PROTO_NONE (explicit undefined)
+                const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
+                const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
+                if (pk) target = target->setAttribute(ctx, pk, val);
+            }
         }
     }
 

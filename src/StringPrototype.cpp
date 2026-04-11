@@ -37,7 +37,31 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         snprintf(buf, sizeof(buf), "%.15g", d);
         return buf;
     }
-    return "";
+    if (obj->isBoolean(ctx)) return obj->asBoolean(ctx) ? "true" : "false";
+    // Object: try toString() from the prototype chain.
+    // Only native (ProtoMethod) toString can be called directly here; JS-function toString
+    // requires interpreter re-entry (handled separately for template literals).
+    {
+        const proto::ProtoObject* tsKey_o = ctx->fromUTF8String("toString");
+        const proto::ProtoString* tsKey = tsKey_o ? tsKey_o->asString(ctx) : nullptr;
+        if (tsKey) {
+            const proto::ProtoObject* tsFn = obj->getAttribute(ctx, tsKey, true);
+            if (tsFn && tsFn != PROTO_NONE && tsFn->isMethod(ctx)) {
+                proto::ProtoMethod nativeFn = tsFn->asMethod(ctx);
+                if (nativeFn) {
+                    const proto::ProtoObject* result = nativeFn(ctx, obj, nullptr, nullptr, nullptr);
+                    if (result && result != PROTO_NONE) {
+                        const proto::ProtoString* rs = result->asString(ctx);
+                        if (rs) {
+                            rs->toUTF8String(ctx, r);
+                            return r;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return "[object Object]";
 }
 
 /** Extract a numeric argument.  NaN → 0; ±Infinity → LLONG extremes. */

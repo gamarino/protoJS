@@ -29,7 +29,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/statements
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775933109474.json` (full language+built-ins run; statements extracted: 7286/9337)
+**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775947922622.json` (full language+built-ins run; statements extracted: 7318/9337)
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -46,6 +46,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 9337 | **7258 (77.7%)** | 176 | 1892 | 0 | +29 vs Phase 21; see Phase 22 notes |
 | **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11)** | 9337 | **7286 (78.0%)** | 176 | 1864 | 0 | +28 vs Phase 22; see Phase 23 notes |
 | **Phase 24: strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11)** | 9337 | **7286 (78.0%)** | 176 | 1864 | 0 | +0 vs Phase 23 (gains in expressions only); see Phase 24 notes |
+| **Phase 25: NaN equality, accessor property getter/setter, String.concat toString (2026-04-11)** | 9337 | **7318 (78.4%)** | 176 | — | — | +32 vs Phase 24; see Phase 25 notes |
 
 ### language/module-code
 
@@ -59,7 +60,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 ### language/expressions
 
 **Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775933109474.json` (full language+built-ins run; expressions extracted: 9194/11036)
+**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775947922622.json` (full language+built-ins run; expressions extracted: 9243/11036)
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -82,6 +83,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 22: Function.prototype→Object.prototype chain, non-enumerable fn.name/length/prototype (2026-04-11)** | 11036 | **9159 (83.0%)** | 176 | 1701 | 0 | +30 vs Phase 21; see Phase 22 notes |
 | **Phase 23: OP_set_name/OP_set_name_computed fn.name descriptor + OP_put_array_el writable check (2026-04-11)** | 11036 | **9176 (83.1%)** | 176 | 1684 | 0 | +17 vs Phase 22; see Phase 23 notes |
 | **Phase 24: strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11)** | 11036 | **9194 (83.3%)** | 176 | 1666 | 0 | +18 vs Phase 23; see Phase 24 notes |
+| **Phase 25: NaN equality, accessor property getter/setter, String.concat toString (2026-04-11)** | 11036 | **9243 (83.8%)** | 176 | — | — | +49 vs Phase 24; see Phase 25 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -130,6 +132,12 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 25: NaN equality, accessor property getter/setter, String.concat toString (2026-04-11):**
+> 1. *NaN equality fix in `jsAbstractEquals`* — The Abstract Equality Comparison (§7.2.13) was using `x->compare(ctx, y) == 0` for numeric comparisons, which returned 0 (equal) when both sides were NaN because `compare` delegates to the underlying double comparison where `NaN == NaN` is implementation-defined (IEEE 754: false, but protoCore returns 0). Added explicit `std::isnan` checks: if either operand is a NaN double/float, return `false` immediately per spec. Fixes `NaN == NaN → false`, `NaN != NaN → true`, `NaN == 1 → false`, and compound-assignment tests like `x == true` for NaN values.
+> 2. *Accessor property getter support via `Object.defineProperty`* — `objectDefineProperty` in `ObjectPrototype.cpp` previously ignored `get` and `set` fields in the descriptor object, only writing the `value`. Now extracts getter and setter functions and stores them under sidecar keys: `__get_<propName>__` for the getter and `__set_<propName>__` for the setter. For accessor descriptors (those with a `get` or `set` field), the `value` field is not stored. Two lambda helpers added to `runBytecode`: `invokeGetterIfPresent` and `invokeSetterIfPresent`. `invokeGetterIfPresent` is called as a fallback in `OP_get_field`, `OP_get_field2`, `OP_get_array_el`, `OP_get_array_el2`, `OP_get_array_el3`, `OP_for_of_next`, and `OP_iterator_get_value_done` when `getAttribute` returns `PROTO_NONE`. This enables `Object.defineProperty(obj, 'x', { get() { return 42; } })` to correctly return 42 when `obj.x` is read. `invokeSetterIfPresent` is applied on property writes in strict mode (throws TypeError for getter-only accessors).
+> 3. *`String.prototype.concat` / template literal `toString`* — `objToStr` in `StringPrototype.cpp` previously returned `""` for non-primitive objects (the `isBoolean` check was the last guard, no object branch). Template literals like `` `${obj}` `` compile to `"".concat(obj)`, which calls `objToStr`, which returned `""` instead of `"[object Object]"` or the object's custom `toString()`. Fixed by adding an object branch that: (a) looks up `toString` on the prototype chain via `getAttribute(ctx, tsKey, true)`; (b) if found as a native method (`isMethod`), calls it via `asMethod(ctx)`; (c) if the result is a string, uses it; (d) otherwise falls back to `"[object Object]"`. Enables `` `${{}}` → "[object Object]"` `` and `` `${new Date()}` → date string` `` patterns.
+> 4. *Net gain* — +49 expressions, +32 statements, +105 overall. Snapshot: `tests/test262/reports/snapshot-language_built-ins-1775947922622.json`.
 >
 > **Phase 24: Strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11):**
 > 1. *`"use strict"` placement in test runner* — When a test has the `onlyStrict` flag, the runner previously appended `"use strict";` after all harness scripts (200+ lines of code). JavaScript only recognises a `"use strict"` directive if it is the first statement in the enclosing script or function body; placed after harness code it is inert. Fixed by using `parts.unshift('"use strict";')` instead of `parts.push(...)`, so the directive appears as the very first token of the combined file. Fixes 18 strict-mode expression tests (compound-assignment non-writable puts, assignment non-writable property, logical-assignment non-writable, tagged-template strict context). The same fix applies to `language/statements` tests but produced no net gain there, indicating those tests fail for other reasons on top of strict mode.

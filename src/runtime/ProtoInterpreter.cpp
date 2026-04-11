@@ -571,7 +571,13 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
 
     // Same type: use strict compare.
     if (xBool && yBool) return x->compare(ctx, y) == 0;
-    if (xNum  && yNum)  return x->compare(ctx, y) == 0;
+    if (xNum  && yNum) {
+        // Per §7.2.13 step 1c: if either operand is NaN, return false.
+        bool xnan = (x->isDouble(ctx) || x->isFloat(ctx)) && std::isnan(x->asDouble(ctx));
+        bool ynan = (y->isDouble(ctx) || y->isFloat(ctx)) && std::isnan(y->asDouble(ctx));
+        if (xnan || ynan) return false;
+        return x->compare(ctx, y) == 0;
+    }
     if (xStr  && yStr)  return x->compare(ctx, y) == 0;
 
     // Boolean: convert to number first, then retry.
@@ -1315,6 +1321,73 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             has_pending_exception = true;
         }
         return PROTO_NONE;
+    };
+
+    /* Accessor property helper: invoke getter stored as __get_<keyStr>__ on the object (or
+     * its prototype chain).  Returns the getter result, PROTO_NONE if no getter is defined,
+     * or PROTO_NONE with has_pending_exception set if the getter throws.
+     * Call sites should `break` immediately when has_pending_exception is true. */
+    auto invokeGetterIfPresent = [&](
+            const proto::ProtoObject* obj,
+            const std::string& keyStr) -> const proto::ProtoObject* {
+        if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return PROTO_NONE;
+        std::string gkStr = "__get_" + keyStr + "__";
+        const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
+        if (!gk) return PROTO_NONE;
+        const proto::ProtoObject* getter = obj->getAttribute(pContext, gk, true);
+        if (!getter || getter == PROTO_NONE) return PROTO_NONE;
+        // Call getter with obj as `this` — no arguments.
+        const proto::ProtoList* emptyArgs = pContext->newList();
+        const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
+        if (t_hasCallException) {
+            pending_exception  = t_callException;
+            has_pending_exception = true;
+            t_hasCallException = false;
+            t_callException    = nullptr;
+            return PROTO_NONE;
+        }
+        return result ? result : PROTO_NONE;
+    };
+
+    /* Accessor setter helper: invoke setter stored as __set_<keyStr>__. Returns false (and
+     * sets pending_exception) if this is an accessor with NO setter in strict mode. */
+    auto invokeSetterIfPresent = [&](
+            const proto::ProtoObject* obj,
+            const std::string& keyStr,
+            const proto::ProtoObject* newVal,
+            bool isStrict) -> bool /* true = setter was called, false = no setter */ {
+        if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return false;
+        std::string skStr = "__set_" + keyStr + "__";
+        const proto::ProtoObject* sko = pContext->fromUTF8String(skStr.c_str());
+        const proto::ProtoString* sk  = sko ? sko->asString(pContext) : nullptr;
+        if (!sk) {
+            // Check if it's a getter-only accessor (no setter) — throw TypeError in strict.
+            std::string gkStr = "__get_" + keyStr + "__";
+            const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
+            if (gk && obj->getAttribute(pContext, gk, true) != PROTO_NONE) {
+                if (isStrict) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "Cannot set property with no setter", pGlobalRoot);
+                    has_pending_exception = true;
+                }
+                return true;  // accessor exists, write was silently ignored in sloppy mode
+            }
+            return false;  // not an accessor at all
+        }
+        const proto::ProtoObject* setter = obj->getAttribute(pContext, sk, true);
+        if (!setter || setter == PROTO_NONE) return false;
+        const proto::ProtoList* emptySetArgs = pContext->newList();
+        const proto::ProtoList* setArgs = emptySetArgs->appendLast(pContext, newVal ? newVal : PROTO_NONE);
+        callJSFunction(pContext, setter, obj, setArgs ? setArgs : emptySetArgs);
+        if (t_hasCallException) {
+            pending_exception  = t_callException;
+            has_pending_exception = true;
+            t_hasCallException = false;
+            t_callException    = nullptr;
+        }
+        return true;
     };
 
     while (pc >= 0 && pc < len) {
@@ -2200,6 +2273,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
                 }
+                // Invoke getter if no data value but an accessor is defined.
+                if (!val || val == PROTO_NONE) {
+                    std::string keyStr2;
+                    key->toUTF8String(pContext, keyStr2);
+                    const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStr2);
+                    if (has_pending_exception) break;
+                    if (gval && gval != PROTO_NONE) val = gval;
+                }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
             }
@@ -2237,6 +2318,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 } else {
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                }
+                // Invoke getter if no data value but an accessor is defined.
+                if ((!val || val == PROTO_NONE) && key) {
+                    std::string keyStr2;
+                    key->toUTF8String(pContext, keyStr2);
+                    const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStr2);
+                    if (has_pending_exception) break;
+                    if (gval && gval != PROTO_NONE) val = gval;
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
@@ -2793,6 +2882,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* keyObj = toString(pContext, index);
                     const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    if ((!val || val == PROTO_NONE) && key) {
+                        std::string keyStrGAE;
+                        key->toUTF8String(pContext, keyStrGAE);
+                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE);
+                        if (has_pending_exception) break;
+                        if (gval && gval != PROTO_NONE) val = gval;
+                    }
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
@@ -2819,6 +2915,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* keyObj = toString(pContext, index);
                     const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    if ((!val || val == PROTO_NONE) && key) {
+                        std::string keyStrGAE2;
+                        key->toUTF8String(pContext, keyStrGAE2);
+                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE2);
+                        if (has_pending_exception) break;
+                        if (gval && gval != PROTO_NONE) val = gval;
+                    }
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 break;
@@ -2845,6 +2948,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* keyObj = toString(pContext, index);
                     const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    if ((!val || val == PROTO_NONE) && key) {
+                        std::string keyStrGAE3;
+                        key->toUTF8String(pContext, keyStrGAE3);
+                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE3);
+                        if (has_pending_exception) break;
+                        if (gval && gval != PROTO_NONE) val = gval;
+                    }
                 }
                 stackPush(pContext, index);
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
@@ -4697,8 +4807,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* valueKeyFO = JSSymbols::value(pContext);
                     const proto::ProtoObject* doneFO = (resultFO && resultFO != PROTO_NONE && doneKeyFO)
                         ? resultFO->getAttribute(pContext, doneKeyFO, false) : PROTO_TRUE;
+                    // Invoke getter if .done is an accessor property.
+                    if ((!doneFO || doneFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
+                        const proto::ProtoObject* gd = invokeGetterIfPresent(resultFO, "done");
+                        if (has_pending_exception) break;
+                        if (gd && gd != PROTO_NONE) doneFO = gd;
+                    }
                     const proto::ProtoObject* valueFO = (resultFO && resultFO != PROTO_NONE && valueKeyFO)
                         ? resultFO->getAttribute(pContext, valueKeyFO, false) : PROTO_NONE;
+                    // Invoke getter if .value is an accessor property.
+                    if ((!valueFO || valueFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
+                        const proto::ProtoObject* gv = invokeGetterIfPresent(resultFO, "value");
+                        if (has_pending_exception) break;
+                        if (gv && gv != PROTO_NONE) valueFO = gv;
+                    }
                     const bool isDone = (!doneFO || doneFO == PROTO_NONE || doneFO == PROTO_TRUE);
                     // Track done state in slot bs+2 so OP_iterator_close knows whether to call return().
                     if (isDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
