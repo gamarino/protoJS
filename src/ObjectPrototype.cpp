@@ -13,68 +13,163 @@ namespace protojs {
 namespace {
 
 // ---------------------------------------------------------------------------
-// Object.keys(obj) → array of own enumerable string property names.
-// Note: protoCore does not expose a string-keyed property enumeration API;
-// getOwnAttributes() returns a ProtoSparseList keyed by hash integers.
-// Until a proper enumeration API is available, we return an empty array
-// (safe stub — preserves vacuous-pass behaviour for most tests).
+// isInternalKey — returns true for interpreter bookkeeping attributes that
+// must not be exposed as JS-visible own properties.  All internal keys use
+// the "__name__" pattern (leading and trailing double underscore).
 // ---------------------------------------------------------------------------
+static bool isInternalKey(proto::ProtoContext* ctx, const proto::ProtoString* key) {
+    if (!key) return false;
+    std::string s;
+    key->toUTF8String(ctx, s);
+    return s.size() >= 4
+        && s[0] == '_' && s[1] == '_'
+        && s[s.size()-1] == '_' && s[s.size()-2] == '_';
+}
 
+// ---------------------------------------------------------------------------
+// collectOwnKeys — fills `keys` and `vals` with the JS-visible own
+// enumerable string properties of `obj`.  Internal (__*__) keys and the
+// "length" property of arrays are excluded.
+// ---------------------------------------------------------------------------
+static void collectOwnKeys(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* obj,
+    std::vector<std::string>&       keys,
+    std::vector<const proto::ProtoObject*>* vals)
+{
+    if (!obj || obj == PROTO_NONE) return;
+    const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
+    if (!own) return;
+
+    // Detect arrays to suppress the "length" key (length is non-enumerable on arrays).
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    bool isArr = false;
+    if (isArrKey) {
+        const proto::ProtoObject* arrFlag = obj->getAttribute(ctx, isArrKey, false);
+        isArr = arrFlag && arrFlag != PROTO_NONE;
+    }
+    const proto::ProtoString* lenSymbol = JSSymbols::length(ctx);
+
+    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+    while (it && it->hasNext(ctx)) {
+        unsigned long rawKey = it->nextKey(ctx);
+        const proto::ProtoObject* val = it->nextValue(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        const proto::ProtoString* propKey =
+            reinterpret_cast<const proto::ProtoString*>(rawKey);
+        if (!propKey) continue;
+        if (isInternalKey(ctx, propKey)) continue;
+        // Suppress "length" on arrays (matches spec: array length is non-enumerable).
+        if (isArr && lenSymbol && propKey == lenSymbol) continue;
+        std::string kstr;
+        propKey->toUTF8String(ctx, kstr);
+        keys.push_back(kstr);
+        if (vals) vals->push_back(val ? val : PROTO_NONE);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Object.keys(obj) → array of own enumerable string property names.
+// ---------------------------------------------------------------------------
 static const proto::ProtoObject* objectKeys(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    // Return empty array — cannot enumerate string keys without protoCore API.
+    const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : nullptr;
+
+    std::vector<std::string> keys;
+    collectOwnKeys(ctx, obj, keys, nullptr);
+
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
+    const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    for (size_t i = 0; i < keys.size(); i++) {
+        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
+        if (ik && kv) result = result->setAttribute(ctx, ik, kv);
+    }
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(keys.size())));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
     return result;
 }
 
 // ---------------------------------------------------------------------------
-// Object.values(obj) → array of own enumerable values (stub: empty)
+// Object.values(obj) → array of own enumerable property values.
 // ---------------------------------------------------------------------------
-
 static const proto::ProtoObject* objectValues(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : nullptr;
+
+    std::vector<std::string> keys;
+    std::vector<const proto::ProtoObject*> vals;
+    collectOwnKeys(ctx, obj, keys, &vals);
+
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
+    const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    for (size_t i = 0; i < vals.size(); i++) {
+        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        if (ik) result = result->setAttribute(ctx, ik, vals[i]);
+    }
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(vals.size())));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
     return result;
 }
 
 // ---------------------------------------------------------------------------
-// Object.entries(obj) → array of [key, value] pair arrays (stub: empty)
+// Object.entries(obj) → array of [key, value] pair arrays.
 // ---------------------------------------------------------------------------
-
 static const proto::ProtoObject* objectEntries(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : nullptr;
+
+    std::vector<std::string> keys;
+    std::vector<const proto::ProtoObject*> vals;
+    collectOwnKeys(ctx, obj, keys, &vals);
+
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
+    const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    const proto::ProtoString* idx0 = JSSymbols::indexKey(ctx, 0);
+    const proto::ProtoString* idx1 = JSSymbols::indexKey(ctx, 1);
+
+    for (size_t i = 0; i < keys.size(); i++) {
+        // Build pair [key, value] as a 2-element array.
+        const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
+        const proto::ProtoObject* kv  = ctx->fromUTF8String(keys[i].c_str());
+        if (idx0 && kv)       pair = pair->setAttribute(ctx, idx0, kv);
+        if (idx1)             pair = pair->setAttribute(ctx, idx1, vals[i]);
+        if (lenKey)           pair = pair->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
+        if (isArrKey2)        pair = pair->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+
+        const proto::ProtoString* outerIdx = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        if (outerIdx) result = result->setAttribute(ctx, outerIdx, pair);
+    }
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(keys.size())));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
     return result;
 }
 
 // ---------------------------------------------------------------------------
 // Object.assign(target, ...sources) → target
-// Copies own enumerable string-keyed properties from sources to target.
-// Since key enumeration is not available, we fall back to a no-op that
-// returns the target unchanged — safe stub.
+// Copies own enumerable string-keyed properties from each source into target.
 // ---------------------------------------------------------------------------
-
 static const proto::ProtoObject* objectAssign(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
@@ -82,11 +177,28 @@ static const proto::ProtoObject* objectAssign(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    int argc = args ? args->getSize(ctx) : 0;
+    if (argc == 0) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
     if (!target || target == PROTO_NONE) return target ? target : PROTO_NONE;
-    // Without key enumeration we cannot copy source properties.
-    // Return target as-is (safe no-op).
+
+    for (int si = 1; si < argc; si++) {
+        const proto::ProtoObject* src = args->getAt(ctx, si);
+        if (!src || src == PROTO_NONE) continue;
+        const proto::ProtoSparseList* own = src->getOwnAttributes(ctx);
+        if (!own) continue;
+        const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            unsigned long rawKey = it->nextKey(ctx);
+            const proto::ProtoObject* val = it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            const proto::ProtoString* propKey =
+                reinterpret_cast<const proto::ProtoString*>(rawKey);
+            if (!propKey) continue;
+            if (isInternalKey(ctx, propKey)) continue;
+            target = target->setAttribute(ctx, propKey, val ? val : PROTO_NONE);
+        }
+    }
     return target;
 }
 
@@ -517,6 +629,7 @@ static const proto::ProtoObject* objectHasOwnProperty(
         keyStr = std::to_string(key->asLong(ctx));
     }
     if (keyStr.empty()) return PROTO_FALSE;
+
     const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
     if (!strKey) return PROTO_FALSE;
     const proto::ProtoObject* own = self->hasOwnAttribute(ctx, strKey);

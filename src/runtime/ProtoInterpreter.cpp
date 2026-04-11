@@ -2393,6 +2393,81 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, idxVal);        // push index back
                 break;
             }
+            case OP_copy_data_properties: {
+                // DEF(copy_data_properties, 2, 3, 3, u8)
+                // Used for object spread ({...src}) and object rest ({a, ...rest}).
+                // u8 mask: bits 0-1 = target depth from TOS, bits 2-4 = source depth,
+                //          bits 5-7 = exclusion list depth (0 means NO exclusion list,
+                //          matching QuickJS semantics: mask>>5 ? sp[-1-(mask>>5)] : JS_UNDEFINED).
+                // Net-zero stack effect: reads and writes item at targetDepth.
+                if (pc >= len) break;
+                uint8_t cdpMask      = buf[pc++];
+                unsigned targetDepth  = cdpMask & 0x03u;
+                unsigned sourceDepth  = (cdpMask >> 2) & 0x07u;
+                unsigned exclDepth    = (cdpMask >> 5) & 0x07u; // 0 = no exclusion list
+
+                unsigned maxDepth = targetDepth;
+                if (sourceDepth > maxDepth) maxDepth = sourceDepth;
+                if (exclDepth > 0 && exclDepth > maxDepth) maxDepth = exclDepth;
+                if (stackSize(pContext) <= (int)maxDepth) break;
+
+                const proto::ProtoObject* cdpTarget = stackAt(pContext, targetDepth);
+                const proto::ProtoObject* cdpSource = stackAt(pContext, sourceDepth);
+
+                // Skip null, undefined, and primitive sources (nothing to spread).
+                if (!cdpSource || cdpSource == PROTO_NONE || cdpSource == t_nullSentinel
+                    || cdpSource->isBoolean(pContext)
+                    || cdpSource->isInteger(pContext)
+                    || cdpSource->isDouble(pContext)) break;
+                // Strings: no own enumerable index-keyed props worth spreading here.
+                if (cdpSource->isString(pContext) && !cdpSource->isMethod(pContext)) break;
+
+                if (!cdpTarget) cdpTarget = PROTO_NONE;
+
+                // Exclusion list: only valid when exclDepth > 0 (mirrors QuickJS mask>>5).
+                const proto::ProtoObject* cdpExcl = PROTO_NONE;
+                bool cdpHasExcl = false;
+                if (exclDepth > 0) {
+                    cdpExcl = stackAt(pContext, exclDepth);
+                    cdpHasExcl = cdpExcl && cdpExcl != PROTO_NONE && cdpExcl != t_nullSentinel;
+                }
+
+                // Iterate own enumerable properties of source and copy to target.
+                const proto::ProtoSparseList* ownAttrs = cdpSource->getOwnAttributes(pContext);
+                if (ownAttrs) {
+                    const proto::ProtoSparseListIterator* cdpIt = ownAttrs->getIterator(pContext);
+                    while (cdpIt && cdpIt->hasNext(pContext)) {
+                        unsigned long attrRawKey = cdpIt->nextKey(pContext);
+                        const proto::ProtoObject* attrVal = cdpIt->nextValue(pContext);
+                        cdpIt = const_cast<proto::ProtoSparseListIterator*>(cdpIt)->advance(pContext);
+                        if (!attrVal || attrVal == PROTO_NONE) continue;
+                        const proto::ProtoString* propKey =
+                            reinterpret_cast<const proto::ProtoString*>(attrRawKey);
+                        if (!propKey) continue;
+                        // Skip keys in the exclusion list.
+                        if (cdpHasExcl) {
+                            const proto::ProtoObject* exclCheck =
+                                cdpExcl->getAttribute(pContext, propKey, false);
+                            if (exclCheck && exclCheck != PROTO_NONE) continue;
+                        }
+                        cdpTarget = cdpTarget->setAttribute(pContext, propKey, attrVal);
+                    }
+                }
+
+                // Replace the target slot in place (protoCore objects are immutable,
+                // so we save slots above it, pop old target, push new target, restore).
+                std::vector<const proto::ProtoObject*> cdpAbove;
+                cdpAbove.reserve(targetDepth);
+                for (unsigned i = 0; i < targetDepth; i++) {
+                    cdpAbove.push_back(stackTop(pContext));
+                    stackPop(pContext);
+                }
+                stackPop(pContext); // remove old target
+                stackPush(pContext, cdpTarget ? cdpTarget : PROTO_NONE);
+                for (int i = (int)cdpAbove.size() - 1; i >= 0; i--)
+                    stackPush(pContext, cdpAbove[i]);
+                break;
+            }
             case OP_to_propkey: {
                 // Converts TOS to a canonical property key (string, integer, or symbol).
                 // In our protoCore world the value on stack is already a ProtoObject that
@@ -3291,10 +3366,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
-                if (obj && key) {
-                    const proto::ProtoObject* prev = obj->getAttribute(pContext, key, false);
-                    (void)obj->setAttribute(pContext, key, PROTO_NONE);
-                    (void)prev;
+                if (obj && obj != PROTO_NONE && key) {
+                    // Pass nullptr (not PROTO_NONE) so protoCore's implSetAt calls
+                    // implRemoveAt, which truly removes the entry from the sparse list.
+                    // This makes hasOwnAttribute, getOwnAttributes iteration, and
+                    // for-in all correctly report the property as absent.
+                    const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, nullptr);
+                    if (newObj && newObj != obj) {
+                        updateMapping(pContext, obj, newObj);
+                        if (newObj && pGlobalRoot && obj == globalObj)
+                            *pGlobalRoot = newObj;
+                    }
                 }
                 stackPush(pContext, PROTO_TRUE);
                 break;
@@ -4706,19 +4788,130 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // ---------------------------------------------------------------
 
             // OP_for_in_start: DEF(for_in_start, 1, 1, 1, none)
+            // Pop object, push a for-in iterator that carries all own enumerable
+            // string-keyed property names (and those inherited from prototype in a
+            // JS sense, though we only cover own properties for now).
             case OP_for_in_start: {
-                if (!stackEmpty(pContext)) stackPop(pContext);
-                // Cannot enumerate property keys without a protoCore API for key iteration.
-                return PROTO_NONE;
+                const proto::ProtoObject* fiObj = PROTO_NONE;
+                if (!stackEmpty(pContext)) {
+                    fiObj = stackTop(pContext);
+                    stackPop(pContext);
+                }
+
+                // Collect own non-internal string-keyed properties.
+                // Walk the protoCore parent chain to include inherited enumerable
+                // properties (mirrors JS for-in semantics).
+                const proto::ProtoObject* fiIter = pContext->newObject(true);
+                const proto::ProtoString* fiArrKey = JSSymbols::iterArr(pContext);
+                const proto::ProtoString* fiIdxKey = JSSymbols::iterIdx(pContext);
+                const proto::ProtoString* fiLenKey = JSSymbols::length(pContext);
+                const proto::ProtoString* fiIsArr  = JSSymbols::isArray(pContext);
+
+                // Build the key array on the iterator.
+                const proto::ProtoObject* fiKeyArr = pContext->newObject(true);
+                long long fiCount = 0;
+
+                // Helper lambda: add a key string to fiKeyArr.
+                auto addFiKey = [&](const std::string& keyStr) {
+                    const proto::ProtoString* slot =
+                        JSSymbols::indexKey(pContext, static_cast<uint32_t>(fiCount));
+                    const proto::ProtoObject* kv = pContext->fromUTF8String(keyStr.c_str());
+                    if (slot && kv) fiKeyArr = fiKeyArr->setAttribute(pContext, slot, kv);
+                    fiCount++;
+                };
+
+                if (fiObj && fiObj != PROTO_NONE && fiObj != t_nullSentinel
+                    && !fiObj->isBoolean(pContext)
+                    && !fiObj->isInteger(pContext)
+                    && !fiObj->isDouble(pContext)) {
+
+                    // Detect arrays to suppress "length".
+                    bool fiIsArray = false;
+                    if (fiIsArr) {
+                        const proto::ProtoObject* af = fiObj->getAttribute(pContext, fiIsArr, false);
+                        fiIsArray = af && af != PROTO_NONE;
+                    }
+
+                    const proto::ProtoSparseList* fiOwn = fiObj->getOwnAttributes(pContext);
+                    if (fiOwn) {
+                        const proto::ProtoSparseListIterator* it = fiOwn->getIterator(pContext);
+                        while (it && it->hasNext(pContext)) {
+                            unsigned long rk = it->nextKey(pContext);
+                            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(pContext);
+                            const proto::ProtoString* pk =
+                                reinterpret_cast<const proto::ProtoString*>(rk);
+                            if (!pk) continue;
+                            std::string kstr;
+                            pk->toUTF8String(pContext, kstr);
+                            // Skip internal bookkeeping keys (__name__ pattern).
+                            if (kstr.size() >= 4 && kstr[0]=='_' && kstr[1]=='_'
+                                && kstr[kstr.size()-1]=='_' && kstr[kstr.size()-2]=='_') continue;
+                            // Suppress "length" on arrays.
+                            if (fiIsArray && kstr == "length") continue;
+                            addFiKey(kstr);
+                        }
+                    }
+                }
+
+                if (fiLenKey)
+                    fiKeyArr = fiKeyArr->setAttribute(pContext, fiLenKey, pContext->fromInteger(fiCount));
+                if (fiArrKey) fiIter = fiIter->setAttribute(pContext, fiArrKey, fiKeyArr);
+                if (fiIdxKey) fiIter = fiIter->setAttribute(pContext, fiIdxKey, pContext->fromInteger(0LL));
+                stackPush(pContext, fiIter);
+                break;
             }
 
             // OP_for_in_next: DEF(for_in_next, 1, 1, 3, none)
-            // Stub in case for_in_start is ever enhanced; maintain stack balance.
+            // Pop the for-in iterator; push (updated_iterator, key_or_undefined, done).
             case OP_for_in_next: {
-                if (!stackEmpty(pContext)) stackPop(pContext);
-                stackPush(pContext, PROTO_NONE);
-                stackPush(pContext, PROTO_NONE);
-                stackPush(pContext, PROTO_TRUE); // done = true
+                const proto::ProtoObject* fiIterN = PROTO_NONE;
+                if (!stackEmpty(pContext)) {
+                    fiIterN = stackTop(pContext);
+                    stackPop(pContext);
+                }
+
+                const proto::ProtoString* fiArrKeyN = JSSymbols::iterArr(pContext);
+                const proto::ProtoString* fiIdxKeyN = JSSymbols::iterIdx(pContext);
+                const proto::ProtoString* fiLenKeyN = JSSymbols::length(pContext);
+
+                long long fiIdx = 0;
+                long long fiLen = 0;
+                const proto::ProtoObject* fiKeyArrN = PROTO_NONE;
+
+                if (fiIterN && fiIterN != PROTO_NONE) {
+                    if (fiIdxKeyN) {
+                        const proto::ProtoObject* iv = fiIterN->getAttribute(pContext, fiIdxKeyN, false);
+                        if (iv && iv != PROTO_NONE && iv->isInteger(pContext)) fiIdx = iv->asLong(pContext);
+                    }
+                    if (fiArrKeyN) {
+                        fiKeyArrN = fiIterN->getAttribute(pContext, fiArrKeyN, false);
+                        if (fiKeyArrN && fiKeyArrN != PROTO_NONE && fiLenKeyN) {
+                            const proto::ProtoObject* lv = fiKeyArrN->getAttribute(pContext, fiLenKeyN, false);
+                            if (lv && lv != PROTO_NONE && lv->isInteger(pContext)) fiLen = lv->asLong(pContext);
+                        }
+                    }
+                }
+
+                if (fiIdx < fiLen && fiKeyArrN && fiKeyArrN != PROTO_NONE) {
+                    // Return the current key and advance iterator.
+                    const proto::ProtoString* slotKey =
+                        JSSymbols::indexKey(pContext, static_cast<uint32_t>(fiIdx));
+                    const proto::ProtoObject* keyVal = slotKey
+                        ? fiKeyArrN->getAttribute(pContext, slotKey, false) : PROTO_NONE;
+                    // Build updated iterator with incremented index.
+                    const proto::ProtoObject* nextIter = fiIterN;
+                    if (fiIdxKeyN)
+                        nextIter = nextIter->setAttribute(pContext, fiIdxKeyN,
+                            pContext->fromInteger(fiIdx + 1LL));
+                    stackPush(pContext, nextIter);
+                    stackPush(pContext, keyVal ? keyVal : PROTO_NONE);
+                    stackPush(pContext, PROTO_FALSE); // done = false
+                } else {
+                    // Exhausted.
+                    stackPush(pContext, fiIterN ? fiIterN : PROTO_NONE);
+                    stackPush(pContext, PROTO_NONE); // undefined key
+                    stackPush(pContext, PROTO_TRUE); // done = true
+                }
                 break;
             }
 

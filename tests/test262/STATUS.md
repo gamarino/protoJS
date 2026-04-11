@@ -41,6 +41,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 9337 | **6453 (69.1%)** | 177 | 2696 | 0 | +357 genuine (+357 P16-fail→pass), −2143 false-positives removed; see Phase 17 notes |
 | **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 9337 | **6459 (69.2%)** | 177 | 2690 | 0 | +6 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
 | **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 9337 | **7239 (77.5%)** | 177 | 1910 | 0 | +780 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
+| **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 9337 | **7208 (77.2%)** | 176 | 1942 | 0 | −31 apparent (−64 false-positives exposed, +33 genuine); see Phase 20 notes |
 
 ### language/module-code
 
@@ -72,6 +73,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 17: TypeError null/undef + error constructor identity (2026-04-11)** | 11036 | **8315 (75.3%)** | 176 | 2545 | 0 | +261 genuine (+261 P16-fail→pass), −1347 false-positives removed; see Phase 17 notes |
 | **Phase 18: OP_in stack order + OP_put_field net effect (2026-04-11)** | 11036 | **8343 (75.6%)** | 176 | 2517 | 0 | +28 vs Phase 17; fixed OP_in always-true + OP_put_field stack over-push |
 | **Phase 19: methodPrototype = Function.prototype (2026-04-11)** | 11036 | **9125 (82.7%)** | 176 | 2735 | 0 | +782 vs Phase 18; native fn.bind/call/apply now work via methodPrototype |
+| **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11)** | 11036 | **9108 (82.5%)** | 176 | 1752 | 0 | −17 apparent (−64 false-positives exposed, +47 genuine); see Phase 20 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -120,6 +122,13 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > - *Other false positives* — Various tests that called methods on `undefined` results (e.g. from `Object.getOwnPropertyDescriptor` returning `undefined` for unimplemented cases) now throw instead of silently returning `undefined`.
 >
 > **Net assessment:** Phase 17 adds 618 genuine improvements (261 expressions + 357 statements) for tests that correctly verify TypeError behavior for `null.x`, `undefined.x`, `const {} = null`, and error constructor identity. The −3490 false-positive removals represent tests that were never truly passing — they were accepted by the old lax runtime even though the JS semantics were wrong. The next priority should be: (1) implement `Function.prototype.bind` fully on all function instances so `propertyHelper.js` harness works (recovers ~1452 class tests); (2) implement Promise/async so async tests pass for real.
+>
+> **Phase 20: object spread/rest, for-in, delete, Object.keys/values/entries/assign (2026-04-11):**
+> 1. *`OP_copy_data_properties` implemented* — Handles the 3-field mask (bits 0–1 = targetDepth, bits 2–4 = sourceDepth, bits 5–7 = exclDepth; 0 = no exclusion list). Iterates source's own attributes via `getOwnAttributes()`/`ProtoSparseListIterator`, skipping keys present in the exclusion object. Uses a save/pop/push pattern to update the immutable target slot in-place. Enables `{ ...obj }` spreads and `const { a, ...rest }` rest patterns.
+> 2. *`OP_for_in_start` / `OP_for_in_next` implemented* — `OP_for_in_start` collects all own non-internal, non-array-index-length keys from the target object into a `__iter_arr__` list stored inside an iterator ProtoObject (with `__iter_idx__ = 0`); `OP_for_in_next` advances the index and pushes `(updatedIter, key, done)`. Previously both opcodes had stubs that caused any function containing `for...in` (including the `verifyProperty` harness helper) to terminate early. This restores all `verifyProperty` calls that use `enumerable: true`.
+> 3. *`OP_delete` truly removes properties* — Previously `setAttribute(key, PROTO_NONE)` stored a PROTO_NONE entry in the sparse list BST, leaving the key visible to `hasOwnAttribute` and `getOwnAttributes` iteration. Discovered that `setAttribute(key, nullptr)` calls `implRemoveAt` in protoCore, physically removing the BST node. Fixed by passing `nullptr` instead of `PROTO_NONE`. `hasOwnProperty` and `Object.keys` now correctly report deleted properties as absent.
+> 4. *`Object.keys` / `Object.values` / `Object.entries` / `Object.assign` implemented* — All four were empty stubs returning `[]` or `undefined`. Now use `getOwnAttributes()` + `ProtoSparseListIterator` via the shared `collectOwnKeys` helper. The helper filters internal `__name__` keys, array `length` properties, and truly-deleted (null-valued) entries. `Object.assign` copies own non-internal properties from each source to the target.
+> 5. *False-positive exposure (−64 tests vs Phase 19)* — When `OP_copy_data_properties` was unimplemented it returned `PROTO_NONE` from `runBytecode` immediately (exit code 0), causing test assertions to never run. 64 tests silently "passed" in Phase 19 via this vacuous exit. With Phase 20 they execute fully; many fail on genuinely unimplemented features (async/generator patterns). Net apparent: −48 combined, but correctness strictly improved.
 >
 > **Phase 19: `space->methodPrototype = Function.prototype` (2026-04-11):**
 > 1. *Root cause* — `ProtoObject::getPrototype()` for `POINTER_TAG_METHOD` objects returns `context->space->methodPrototype`. This was `nullptr` (never set), so any property lookup on a native function object (e.g. `Array.prototype.join`, `Function.prototype.call`) returned `PROTO_NONE` immediately. This meant `fn.bind`, `fn.call`, `fn.apply`, and `fn.toString` were all `undefined` on any native function.
@@ -187,6 +196,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-04-11 | *(per-category only)* | 14768 / 20373 (72.5%) | Phase 17: −2872 net (618 genuine improvements, 3490 false-positives unmasked). Stricter TypeError checking exposed tests that were silently passing due to absent error propagation. |
 | 2026-04-11 | *(per-category only)* | 14802 / 20373 (72.7%) | Phase 18: +34 net (+28 expressions, +6 statements). Fixed `OP_in` always-true and `OP_put_field` stack over-push. |
 | 2026-04-11 | *(per-category only)* | 16364 / 20373 (80.3%) | Phase 19: +1562 net (+782 expressions, +780 statements). Set `space->methodPrototype = Function.prototype` so all native functions inherit call/bind/apply. |
+| 2026-04-11 | *(per-category only)* | 16316 / 20373 (80.1%) | Phase 20: −48 apparent net (−17 expressions, −31 statements). 64 false-positives exposed by implementing `OP_copy_data_properties`; +80 genuine (spread/rest, for-in, delete, Object.keys/values/entries). |
 
 ---
 
