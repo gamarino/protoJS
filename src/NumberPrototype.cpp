@@ -15,11 +15,17 @@ namespace protojs {
 namespace {
 
 double getNumberValue(proto::ProtoContext* context, const proto::ProtoObject* self) {
-    if (self->isInteger(context)) {
-        return static_cast<double>(self->asLong(context));
-    }
-    if (self->isDouble(context)) {
-        return self->asDouble(context);
+    if (!self || self == PROTO_NONE) return 0.0;
+    if (self->isInteger(context)) return static_cast<double>(self->asLong(context));
+    if (self->isDouble(context) || self->isFloat(context)) return self->asDouble(context);
+    // Number wrapper object: extract from __primitive_value__.
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(context);
+    if (pvKey) {
+        const proto::ProtoObject* pv = self->getAttribute(context, pvKey, false);
+        if (pv && pv != PROTO_NONE) {
+            if (pv->isInteger(context)) return static_cast<double>(pv->asLong(context));
+            if (pv->isDouble(context) || pv->isFloat(context)) return pv->asDouble(context);
+        }
     }
     return 0.0;
 }
@@ -64,7 +70,18 @@ const proto::ProtoObject* numberValueOf(
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
-    return self;
+    // Primitive number: return as-is.
+    if (self->isInteger(context) || self->isDouble(context) || self->isFloat(context))
+        return self;
+    // Number wrapper object: extract and return __primitive_value__.
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(context);
+    if (pvKey) {
+        const proto::ProtoObject* pv = self->getAttribute(context, pvKey, false);
+        if (pv && pv != PROTO_NONE &&
+            (pv->isInteger(context) || pv->isDouble(context) || pv->isFloat(context)))
+            return pv;
+    }
+    return context->fromDouble(0.0); // fallback
 }
 
 const proto::ProtoObject* numberToString(
