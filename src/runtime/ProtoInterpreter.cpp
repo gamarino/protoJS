@@ -5860,6 +5860,10 @@ const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
     return makeError(ctx, errorType, message, t_currentGlobalRoot);
 }
 
+bool hasCallException() {
+    return t_hasCallException;
+}
+
 const proto::ProtoObject* callJSFunction(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,

@@ -748,8 +748,10 @@ static const proto::ProtoObject* arrayForEach(
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
-    for (unsigned long i = 0; i < len; i++)
+    for (unsigned long i = 0; i < len; i++) {
         callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
+    }
     return PROTO_NONE;
 }
 
@@ -772,6 +774,7 @@ static const proto::ProtoObject* arrayMap(
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* mapped =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
         result = arrSet(ctx, result, i, mapped ? mapped : PROTO_NONE);
     }
     return result;
@@ -798,6 +801,7 @@ static const proto::ProtoObject* arrayFilter(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         const proto::ProtoObject* keep =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep))
             result = arrSet(ctx, result, outIdx++, elem);
     }
@@ -823,6 +827,7 @@ static const proto::ProtoObject* arrayFind(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return elem;
     }
     return PROTO_NONE;
@@ -847,6 +852,7 @@ static const proto::ProtoObject* arrayFindIndex(
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return ctx->fromInteger((long long)i);
     }
     return ctx->fromInteger(-1LL);
@@ -871,6 +877,7 @@ static const proto::ProtoObject* arrayFindLast(
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return elem;
     }
     return PROTO_NONE;
@@ -895,6 +902,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return ctx->fromInteger(i);
     }
     return ctx->fromInteger(-1LL);
@@ -918,6 +926,7 @@ static const proto::ProtoObject* arraySome(
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* res =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return PROTO_TRUE;
     }
     return PROTO_FALSE;
@@ -941,6 +950,7 @@ static const proto::ProtoObject* arrayEvery(
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* res =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        if (hasCallException()) return PROTO_NONE;
         if (!isTruthy(ctx, res)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
@@ -980,6 +990,7 @@ static const proto::ProtoObject* arrayReduce(
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
         cbArgs = cbArgs->appendLast(ctx, self);
         acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+        if (hasCallException()) return PROTO_NONE;
     }
     return acc ? acc : PROTO_NONE;
 }
@@ -1018,6 +1029,7 @@ static const proto::ProtoObject* arrayReduceRight(
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
         cbArgs = cbArgs->appendLast(ctx, self);
         acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+        if (hasCallException()) return PROTO_NONE;
     }
     return acc ? acc : PROTO_NONE;
 }

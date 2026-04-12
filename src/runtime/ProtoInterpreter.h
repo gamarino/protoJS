@@ -86,6 +86,15 @@ const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
                                           const char* errorType,
                                           const char* message);
 
+/**
+ * Returns true if a JS callback called via callJSFunction() set a pending
+ * exception that has not yet been consumed.  Native methods that invoke user
+ * callbacks (forEach, map, filter, every, some, …) must call this after each
+ * callJSFunction() and return PROTO_NONE immediately when true, so the
+ * exception is propagated rather than silently discarded.
+ */
+bool hasCallException();
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */
