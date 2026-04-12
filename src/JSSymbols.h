@@ -98,6 +98,7 @@ const proto::ProtoString* stringCtor(proto::ProtoContext* ctx);     // "__string
 const proto::ProtoString* primitiveValue(proto::ProtoContext* ctx); // "__primitive_value__"
 const proto::ProtoString* arrowThis(proto::ProtoContext* ctx);      // "__arrow_this__"
 const proto::ProtoString* closureModule(proto::ProtoContext* ctx);  // "__closure_module__"
+const proto::ProtoString* nativeFn(proto::ProtoContext* ctx);       // "__native_fn__"
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"

@@ -1,5 +1,6 @@
 #include "StringPrototype.h"
 #include "ArrayPrototype.h"
+#include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <algorithm>
@@ -983,17 +984,16 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     proto::ProtoObject* mp = const_cast<proto::ProtoObject*>(sp);
 
     // Helper lambda to register one method with length and name.
+    // Note: BuildStringPrototype is called at space-init time without a globalRoot,
+    // so wrapNativeFunction cannot be used here. The .length is stored directly as
+    // an attribute but will be invisible on raw METHOD cells. String.prototype.X.length
+    // is fixed later by ensureStringConstructor patching strategy; for now, fall back.
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* mObj = ctx->fromMethod(mp, fn);
-            if (mObj && mObj != PROTO_NONE) {
-                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-                if (lenKey) mObj = mObj->setAttribute(ctx, lenKey, ctx->fromInteger(length));
-                if (nameKey) mObj = mObj->setAttribute(ctx, nameKey, ctx->fromUTF8String(name));
-            }
             sp = sp->setAttribute(ctx, key, mObj);
+            (void)length; // length unavailable for raw METHOD cells
         }
     };
 
@@ -1058,14 +1058,9 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
-            const proto::ProtoObject* mObj = ctx->fromMethod(mCtor, fn);
-            if (mObj && mObj != PROTO_NONE) {
-                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-                if (lenKey) mObj = mObj->setAttribute(ctx, lenKey, ctx->fromInteger(length));
-                if (nameKey) mObj = mObj->setAttribute(ctx, nameKey, ctx->fromUTF8String(name));
-            }
-            ctor = ctor->setAttribute(ctx, key, mObj);
+            const proto::ProtoObject* mObj = wrapNativeFunction(ctx, fn, name, length, globalRoot);
+            if (mObj && mObj != PROTO_NONE)
+                ctor = ctor->setAttribute(ctx, key, mObj);
         }
     };
 

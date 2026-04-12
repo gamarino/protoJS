@@ -1,5 +1,6 @@
 #include "ObjectPrototype.h"
 #include "ArrayPrototype.h"
+#include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
@@ -520,7 +521,17 @@ static const proto::ProtoObject* objectDefineProperty(
     if (!ctx || !args || args->getSize(ctx) < 3) return PROTO_NONE;
 
     const proto::ProtoObject* target = args->getAt(ctx, 0);
-    if (!target || target == PROTO_NONE) return PROTO_NONE;
+    // Per ES spec, Object.defineProperty throws TypeError on non-object first argument.
+    {
+        const proto::ProtoObject* nullSentinel = getNullSentinel();
+        bool isNull = (target == nullSentinel);
+        bool isUndefined = (!target || target == PROTO_NONE);
+        if (isNull || isUndefined) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object.defineProperty called on non-object"));
+            return PROTO_NONE;
+        }
+    }
 
     // Get property name string — coerce any JS value per spec (ToPropertyKey).
     const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
@@ -963,30 +974,34 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* ctor = ctx->newObject(false);
     if (!ctor) return;
 
-    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+    auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
+        if (key) {
+            const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
+            if (wrapped && wrapped != PROTO_NONE)
+                ctor = ctor->setAttribute(ctx, key, wrapped);
+        }
     };
 
-    reg("keys",                  objectKeys);
-    reg("values",                objectValues);
-    reg("entries",               objectEntries);
-    reg("assign",                objectAssign);
-    reg("create",                objectCreate);
-    reg("freeze",                objectFreeze);
-    reg("isFrozen",              objectIsFrozen);
-    reg("seal",                  objectSeal);
-    reg("isSealed",              objectIsSealed);
-    reg("preventExtensions",     objectPreventExtensions);
-    reg("isExtensible",          objectIsExtensible);
-    reg("getOwnPropertyNames",   objectGetOwnPropertyNames);
-    reg("getPrototypeOf",        objectGetPrototypeOf);
-    reg("setPrototypeOf",        objectGetPrototypeOf); // stub: same as getPrototypeOf
-    reg("fromEntries",           objectFromEntries);
-    reg("hasOwn",                objectHasOwn);
-    reg("defineProperty",           objectDefineProperty);
-    reg("defineProperties",         objectDefineProperties);
-    reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor);
+    reg("keys",                  objectKeys,                  1);
+    reg("values",                objectValues,                1);
+    reg("entries",               objectEntries,               1);
+    reg("assign",                objectAssign,                2);
+    reg("create",                objectCreate,                1);
+    reg("freeze",                objectFreeze,                1);
+    reg("isFrozen",              objectIsFrozen,              1);
+    reg("seal",                  objectSeal,                  1);
+    reg("isSealed",              objectIsSealed,              1);
+    reg("preventExtensions",     objectPreventExtensions,     1);
+    reg("isExtensible",          objectIsExtensible,          1);
+    reg("getOwnPropertyNames",   objectGetOwnPropertyNames,   1);
+    reg("getPrototypeOf",        objectGetPrototypeOf,        1);
+    reg("setPrototypeOf",        objectGetPrototypeOf,        2); // stub: same as getPrototypeOf
+    reg("fromEntries",           objectFromEntries,           1);
+    reg("hasOwn",                objectHasOwn,                2);
+    reg("defineProperty",           objectDefineProperty,        3);
+    reg("defineProperties",         objectDefineProperties,      2);
+    reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor, 2);
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);

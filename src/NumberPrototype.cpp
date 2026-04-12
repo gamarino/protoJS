@@ -1,4 +1,5 @@
 #include "NumberPrototype.h"
+#include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include <cmath>
@@ -361,18 +362,22 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
     proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
-    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+    auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromMethod(mCtor, fn));
+        if (key) {
+            const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
+            if (wrapped && wrapped != PROTO_NONE)
+                ctor = ctor->setAttribute(ctx, key, wrapped);
+        }
     };
 
     // Static methods
-    reg("isNaN",         numberIsNaN);
-    reg("isFinite",      numberIsFinite);
-    reg("isInteger",     numberIsInteger);
-    reg("isSafeInteger", numberIsSafeInteger);
-    reg("parseInt",      numberParseInt);
-    reg("parseFloat",    numberParseFloat);
+    reg("isNaN",         numberIsNaN,         1);
+    reg("isFinite",      numberIsFinite,       1);
+    reg("isInteger",     numberIsInteger,      1);
+    reg("isSafeInteger", numberIsSafeInteger,  1);
+    reg("parseInt",      numberParseInt,       2);
+    reg("parseFloat",    numberParseFloat,     1);
 
     // Constants
     auto setConst = [&](const char* name, double val) {

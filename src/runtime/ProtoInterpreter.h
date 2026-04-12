@@ -65,6 +65,27 @@ const proto::ProtoObject* getNullSentinel();
  */
 const proto::ProtoObject** getCurrentGlobalRoot();
 
+/**
+ * Signal a pending exception from within a native ProtoMethod function.
+ *
+ * Call this before returning PROTO_NONE from a native method to indicate that
+ * the return represents a thrown exception rather than undefined.  The interpreter
+ * will promote it to a real exception after the native call returns.
+ *
+ * Only one pending exception is stored at a time; calling this twice before the
+ * interpreter checks it will overwrite the first exception.
+ */
+void signalNativeException(const proto::ProtoObject* errorObj);
+
+/**
+ * Create an Error-like ProtoObject of the given type (e.g. "TypeError") with message.
+ * Equivalent to the internal makeError() helper but accessible from native code.
+ * The object inherits from the matching error prototype so `instanceof` works.
+ */
+const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
+                                          const char* errorType,
+                                          const char* message);
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */

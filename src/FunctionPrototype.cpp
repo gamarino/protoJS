@@ -219,4 +219,42 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     }
 }
 
+const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
+                                              proto::ProtoMethod fn,
+                                              const char* name,
+                                              long long length,
+                                              const proto::ProtoObject** globalRoot)
+{
+    if (!ctx || !fn) return PROTO_NONE;
+
+    // Determine parent: prefer Function.prototype so the wrapper inherits
+    // .call / .apply / .bind, exactly matching ES semantics.
+    const proto::ProtoObject* parent = nullptr;
+    if (globalRoot && *globalRoot) {
+        const proto::ProtoString* fpKey = JSSymbols::functionProto(ctx);
+        if (fpKey) {
+            const proto::ProtoObject* fp = (*globalRoot)->getAttribute(ctx, fpKey, false);
+            if (fp && fp != PROTO_NONE) parent = fp;
+        }
+    }
+    if (!parent && ctx->space) parent = ctx->space->methodPrototype;
+
+    const proto::ProtoObject* wrapper = parent
+        ? parent->newChild(ctx, true)
+        : ctx->newObject(true);
+    if (!wrapper) return PROTO_NONE;
+
+    // Store the raw method pointer as a ProtoMethod-tagged pointer under __native_fn__.
+    const proto::ProtoString* nfKey  = JSSymbols::nativeFn(ctx);
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    const proto::ProtoString* nmKey  = JSSymbols::name(ctx);
+
+    const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
+    if (nfKey && rawMethod) wrapper = wrapper->setAttribute(ctx, nfKey, rawMethod);
+    if (lenKey) wrapper = wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(length));
+    if (nmKey)  wrapper = wrapper->setAttribute(ctx, nmKey,  ctx->fromUTF8String(name ? name : ""));
+
+    return wrapper ? wrapper : PROTO_NONE;
+}
+
 } // namespace protojs

@@ -1055,6 +1055,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
 
+    // Register Function.prototype first so that wrapNativeFunction can use it
+    // as the parent for all native function wrappers registered below.
+    ensureFunctionPrototype(pContext, pGlobalRoot);
+
     // Register Array constructor and Array.prototype (idempotent).
     ensureArrayPrototype(pContext, pGlobalRoot);
     // Register ArrayBuffer constructor and ArrayBuffer.prototype (idempotent).
@@ -3668,11 +3672,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else if (v->asString(pContext)) typeStr = "string";
                     else if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
                     else {
-                        // Check for bound function sentinel (__bound_fn__ attribute).
-                        const proto::ProtoString* bfTypeKey = JSSymbols::boundFn(pContext);
-                        const proto::ProtoObject* bfTypeTarget = bfTypeKey
-                            ? v->getAttribute(pContext, bfTypeKey, false) : nullptr;
-                        typeStr = (bfTypeTarget && bfTypeTarget != PROTO_NONE) ? "function" : "object";
+                        // Check for __native_fn__ wrapper (native function with .length/.name).
+                        const proto::ProtoString* nfTypeKey = JSSymbols::nativeFn(pContext);
+                        const proto::ProtoObject* nfTypeTarget = nfTypeKey
+                            ? v->getAttribute(pContext, nfTypeKey, false) : nullptr;
+                        if (nfTypeTarget && nfTypeTarget != PROTO_NONE && nfTypeTarget->isMethod(pContext)) {
+                            typeStr = "function";
+                        } else {
+                            // Check for bound function sentinel (__bound_fn__ attribute).
+                            const proto::ProtoString* bfTypeKey = JSSymbols::boundFn(pContext);
+                            const proto::ProtoObject* bfTypeTarget = bfTypeKey
+                                ? v->getAttribute(pContext, bfTypeKey, false) : nullptr;
+                            typeStr = (bfTypeTarget && bfTypeTarget != PROTO_NONE) ? "function" : "object";
+                        }
                     }
                 }
                 stackPush(pContext, pContext->fromUTF8String(typeStr));
@@ -3774,6 +3786,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackSize(pContext) < argc + 2) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 const proto::ProtoObject* thisVal = stackAt(pContext, argc + 1);
+                // Unwrap native function wrapper: if func has __native_fn__, use the
+                // raw method it contains. This allows .length and .name to be stored
+                // on wrapper objects while still dispatching to the ProtoMethod.
+                {
+                    const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(pContext);
+                    if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)) {
+                        const proto::ProtoObject* rawMethod2 = func->getAttribute(pContext, nfKey2, false);
+                        if (rawMethod2 && rawMethod2 != PROTO_NONE && rawMethod2->isMethod(pContext))
+                            func = rawMethod2;
+                    }
+                }
                 int bcId = getBytecodeId(pContext, func);
                 // Resolve bytecode ID: current module first, then root module.
                 const ProtoBytecodeModule* resolvedMod2 = nullptr;
@@ -3823,6 +3846,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* result = nativeFn
                         ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
                         : PROTO_NONE;
+                    if (t_hasCallException) {
+                        pending_exception  = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException    = nullptr;
+                        break;
+                    }
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
@@ -4216,6 +4246,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
+                // Unwrap native function wrapper (__native_fn__).
+                {
+                    const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(pContext);
+                    if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)) {
+                        const proto::ProtoObject* rawMethod2 = func->getAttribute(pContext, nfKey2, false);
+                        if (rawMethod2 && rawMethod2 != PROTO_NONE && rawMethod2->isMethod(pContext))
+                            func = rawMethod2;
+                    }
+                }
                 int bcId = getBytecodeId(pContext, func);
                 // Resolve the bytecode ID: first try the current module, then the root module.
                 const ProtoBytecodeModule* resolvedModule = nullptr;
@@ -4268,6 +4307,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* result = nativeFn
                         ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
                         : PROTO_NONE;
+                    if (t_hasCallException) {
+                        pending_exception  = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException    = nullptr;
+                        break;
+                    }
                     if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
@@ -4630,10 +4676,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 bool isFunc = (bcId >= 0) ||
                               (val && val != PROTO_NONE && val->isMethod(pContext));
                 if (!isFunc && val && val != PROTO_NONE) {
-                    const proto::ProtoString* bfIsFnKey = JSSymbols::boundFn(pContext);
-                    const proto::ProtoObject* bfIsFnTarget = bfIsFnKey
-                        ? val->getAttribute(pContext, bfIsFnKey, false) : nullptr;
-                    isFunc = (bfIsFnTarget && bfIsFnTarget != PROTO_NONE);
+                    // Check for __native_fn__ wrapper.
+                    const proto::ProtoString* nfIsFnKey = JSSymbols::nativeFn(pContext);
+                    const proto::ProtoObject* nfIsFnTarget = nfIsFnKey
+                        ? val->getAttribute(pContext, nfIsFnKey, false) : nullptr;
+                    if (nfIsFnTarget && nfIsFnTarget != PROTO_NONE && nfIsFnTarget->isMethod(pContext)) {
+                        isFunc = true;
+                    } else {
+                        const proto::ProtoString* bfIsFnKey = JSSymbols::boundFn(pContext);
+                        const proto::ProtoObject* bfIsFnTarget = bfIsFnKey
+                            ? val->getAttribute(pContext, bfIsFnKey, false) : nullptr;
+                        isFunc = (bfIsFnTarget && bfIsFnTarget != PROTO_NONE);
+                    }
                 }
                 stackPush(pContext, isFunc ? PROTO_TRUE : PROTO_FALSE);
                 break;
@@ -5795,6 +5849,17 @@ const proto::ProtoObject** getCurrentGlobalRoot() {
     return t_currentGlobalRoot;
 }
 
+void signalNativeException(const proto::ProtoObject* errorObj) {
+    t_callException    = errorObj;
+    t_hasCallException = true;
+}
+
+const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
+                                          const char* errorType,
+                                          const char* message) {
+    return makeError(ctx, errorType, message, t_currentGlobalRoot);
+}
+
 const proto::ProtoObject* callJSFunction(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,
@@ -5804,6 +5869,16 @@ const proto::ProtoObject* callJSFunction(
     if (!fn || fn == PROTO_NONE || !ctx) return PROTO_NONE;
 
     const proto::ProtoObject** globalRoot = t_currentGlobalRoot;
+
+    // Unwrap native function wrapper (__native_fn__).
+    if (!fn->isMethod(ctx)) {
+        const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(ctx);
+        if (nfKey2) {
+            const proto::ProtoObject* rawMethod2 = fn->getAttribute(ctx, nfKey2, false);
+            if (rawMethod2 && rawMethod2 != PROTO_NONE && rawMethod2->isMethod(ctx))
+                fn = rawMethod2;
+        }
+    }
 
     // Native ProtoMethod: call directly.
     if (fn->isMethod(ctx)) {

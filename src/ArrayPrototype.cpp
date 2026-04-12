@@ -1,4 +1,5 @@
 #include "ArrayPrototype.h"
+#include "FunctionPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
@@ -221,6 +222,27 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// Null/undefined `this` guard for Array prototype methods.
+// Per ECMAScript spec, all Array.prototype methods must throw a TypeError when
+// called on null or undefined (ToObject step).
+// ---------------------------------------------------------------------------
+
+static bool arrayThrowIfNullUndefined(proto::ProtoContext* ctx,
+                                       const proto::ProtoObject* self) {
+    const proto::ProtoObject* nullSentinel = getNullSentinel();
+    bool isNull = (self == nullSentinel);
+    bool isUndefined = (!self || self == PROTO_NONE);
+    if (isNull || isUndefined) {
+        const char* msg = isNull
+            ? "Cannot convert undefined or null to object"
+            : "Cannot convert undefined or null to object";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg));
+        return true;
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------------------
 // Array.prototype methods
 // ---------------------------------------------------------------------------
 
@@ -231,7 +253,7 @@ static const proto::ProtoObject* arrayJoin(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromUTF8String("");
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
 
     std::string sep = ",";
@@ -274,7 +296,7 @@ static const proto::ProtoObject* arrayPush(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
     for (unsigned long i = 0; i < argc; i++) {
@@ -296,7 +318,7 @@ static const proto::ProtoObject* arrayPop(
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (len == 0) return PROTO_NONE;
     unsigned long lastIdx = len - 1;
@@ -319,7 +341,7 @@ static const proto::ProtoObject* arrayShift(
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (len == 0) return PROTO_NONE;
     const proto::ProtoObject* first = arrGet(ctx, self, 0);
@@ -345,7 +367,7 @@ static const proto::ProtoObject* arrayUnshift(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromInteger(static_cast<long long>(len));
@@ -373,7 +395,7 @@ static const proto::ProtoObject* arraySlice(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return createNewArray(ctx, nullptr);
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     long long start = 0, end = len;
 
@@ -415,7 +437,8 @@ static const proto::ProtoObject* arrayIndexOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE || !args || args->getSize(ctx) == 0)
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (!args || args->getSize(ctx) == 0)
         return ctx->fromInteger(-1LL);
     long long len = static_cast<long long>(arrLen(ctx, self));
     const proto::ProtoObject* needle = args->getAt(ctx, 0);
@@ -446,7 +469,8 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE || !args || args->getSize(ctx) == 0)
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (!args || args->getSize(ctx) == 0)
         return ctx->fromInteger(-1LL);
     long long len = static_cast<long long>(arrLen(ctx, self));
     const proto::ProtoObject* needle = args->getAt(ctx, 0);
@@ -478,7 +502,8 @@ static const proto::ProtoObject* arrayIncludes(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE || !args || args->getSize(ctx) == 0)
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (!args || args->getSize(ctx) == 0)
         return PROTO_FALSE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     const proto::ProtoObject* needle = args->getAt(ctx, 0);
@@ -506,7 +531,7 @@ static const proto::ProtoObject* arrayReverse(
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return self ? self : PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len / 2; i++) {
         unsigned long j = len - 1 - i;
@@ -525,6 +550,7 @@ static const proto::ProtoObject* arrayConcat(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     unsigned long outIdx = 0;
 
@@ -575,7 +601,7 @@ static const proto::ProtoObject* arrayFill(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return self ? self : PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     const proto::ProtoObject* value = PROTO_NONE;
     long long start = 0, end = len;
@@ -617,7 +643,8 @@ static const proto::ProtoObject* arrayCopyWithin(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE || !args || args->getSize(ctx) == 0)
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (!args || args->getSize(ctx) == 0)
         return self ? self : PROTO_NONE;
 
     long long len = static_cast<long long>(arrLen(ctx, self));
@@ -716,7 +743,7 @@ static const proto::ProtoObject* arrayForEach(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
@@ -736,7 +763,7 @@ static const proto::ProtoObject* arrayMap(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
@@ -760,7 +787,7 @@ static const proto::ProtoObject* arrayFilter(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
@@ -787,7 +814,7 @@ static const proto::ProtoObject* arrayFind(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
@@ -811,7 +838,7 @@ static const proto::ProtoObject* arrayFindIndex(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(-1LL);
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return ctx->fromInteger(-1LL);
@@ -835,7 +862,7 @@ static const proto::ProtoObject* arrayFindLast(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
@@ -859,7 +886,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(-1LL);
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return ctx->fromInteger(-1LL);
@@ -883,7 +910,7 @@ static const proto::ProtoObject* arraySome(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_FALSE;
@@ -906,7 +933,7 @@ static const proto::ProtoObject* arrayEvery(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_TRUE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_TRUE;
@@ -929,7 +956,7 @@ static const proto::ProtoObject* arrayReduce(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
@@ -967,7 +994,7 @@ static const proto::ProtoObject* arrayReduceRight(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
@@ -1043,7 +1070,7 @@ static const proto::ProtoObject* arraySort(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return self;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     bool hasFn = fn && fn != PROTO_NONE;
 
@@ -1134,7 +1161,7 @@ static const proto::ProtoObject* arrayFlat(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     int depth = 1;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* d = args->getAt(ctx, 0);
@@ -1158,7 +1185,7 @@ static const proto::ProtoObject* arrayFlatMap(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* kw)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // map first
     const proto::ProtoObject* mapped = arrayMap(ctx, self, pl, args, kw);
     if (!mapped || mapped == PROTO_NONE) return PROTO_NONE;
@@ -1178,7 +1205,7 @@ static const proto::ProtoObject* arraySplice(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return createNewArray(ctx, nullptr);
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
 
@@ -1245,7 +1272,7 @@ static const proto::ProtoObject* arrayAt(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     long long idx = 0;
     if (args && args->getSize(ctx) > 0) {
@@ -1550,14 +1577,9 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     for (auto& m : methods) {
         const proto::ProtoString* key = ctx->fromUTF8String(m.name)->asString(ctx);
         if (key) {
-            const proto::ProtoObject* fn = ctx->fromMethod(nullptr, m.fn);
-            if (fn && fn != PROTO_NONE) {
-                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-                if (lenKey) fn = fn->setAttribute(ctx, lenKey, ctx->fromInteger(m.length));
-                if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(m.name));
-            }
-            if (fn) proto = proto->setAttribute(ctx, key, fn);
+            const proto::ProtoObject* fn = wrapNativeFunction(ctx, m.fn, m.name, m.length, globalRoot);
+            if (fn && fn != PROTO_NONE)
+                proto = proto->setAttribute(ctx, key, fn);
         }
     }
 
