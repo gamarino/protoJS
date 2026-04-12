@@ -120,6 +120,7 @@ add_executable(protojs
     src/MathBuiltin.cpp
     src/ObjectPrototype.cpp
     src/FunctionPrototype.cpp
+    src/PromisePrototype.cpp
     src/JSPrototypes.cpp
     src/ProtoArrayAdapter.cpp
     src/ProtoArgumentsAdapter.cpp

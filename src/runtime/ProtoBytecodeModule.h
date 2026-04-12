@@ -57,6 +57,10 @@ struct ProtoBytecodeModule {
     std::string funcName;
     /** True when this function is an arrow function (no own this/arguments). */
     bool isArrow{false};
+    /** True when this function is an async function (func_kind & JS_FUNC_ASYNC). */
+    bool isAsync{false};
+    /** True when this function is a generator (func_kind & JS_FUNC_GENERATOR). */
+    bool isGenerator{false};
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }

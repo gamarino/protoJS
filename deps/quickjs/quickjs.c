@@ -59640,3 +59640,8 @@ int protojs_bytecode_is_arrow(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     return b->is_arrow ? 1 : 0;
 }
+
+int protojs_bytecode_func_kind(void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    return (int)b->func_kind;
+}

@@ -65,6 +65,9 @@ const char* protojs_bytecode_func_name(struct JSContext* ctx, void* bytecode);
 /** Return 1 if the function is an arrow function (no own this/new.target binding), 0 otherwise. */
 int protojs_bytecode_is_arrow(void* bytecode);
 
+/** Return the function kind: 0=normal, 1=generator, 2=async, 3=async-generator. */
+int protojs_bytecode_func_kind(void* bytecode);
+
 #ifdef __cplusplus
 }
 #endif

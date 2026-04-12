@@ -10,6 +10,7 @@
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
 #include "../FunctionPrototype.h"
+#include "../PromisePrototype.h"
 #include "../ArrayBufferPrototype.h"
 #include "../TypedArrayPrototype.h"
 #include "../DataViewPrototype.h"
@@ -1089,7 +1090,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         static const char* kUnimplementedCtors[] = {
             // Unimplemented standard JS built-in constructors.
             // NOTE: "Function" is intentionally omitted — wired via ensureFunctionPrototype.
-            "Boolean", "Promise", "Date", "Map", "Set",
+            "Boolean", "Date", "Map", "Set",
             "BigInt", "AggregateError",
             // Metaprogramming built-in constructors.
             "Symbol", "Proxy", "WeakRef", "WeakMap", "WeakSet",
@@ -1133,6 +1134,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureMathObject(pContext, pGlobalRoot);
     ensureObjectConstructor(pContext, pGlobalRoot);
     ensureFunctionPrototype(pContext, pGlobalRoot);
+    ensurePromiseConstructor(pContext, pGlobalRoot);
     // Bootstrap Symbol well-known symbols as string-valued properties on the Symbol stub.
     // This allows JS code like `obj[Symbol.iterator] = fn` to use the canonical key
     // "Symbol.iterator" that JSSymbols::symbolIterator() also returns.
@@ -4165,6 +4167,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         if (pvKey2 && strVal && strVal != PROTO_NONE)
                                             newObj = newObj->setAttribute(pContext, pvKey2, strVal);
                                         result = newObj;
+                                    } else {
+                                        // Generic: if the constructor carries a __construct__ native method,
+                                        // invoke it directly (e.g. Promise, Map, Set, WeakMap, etc.).
+                                        const proto::ProtoObject* ctorKeyObj2 =
+                                            pContext->fromUTF8String("__construct__");
+                                        const proto::ProtoString* ctorKeySym2 =
+                                            ctorKeyObj2 ? ctorKeyObj2->asString(pContext) : nullptr;
+                                        const proto::ProtoObject* ctorMethod2 =
+                                            (ctorKeySym2 && func && func != PROTO_NONE)
+                                                ? func->getAttribute(pContext, ctorKeySym2, false) : nullptr;
+                                        if (ctorMethod2 && ctorMethod2 != PROTO_NONE
+                                            && ctorMethod2->isMethod(pContext)) {
+                                            proto::ProtoMethod ctorFn2 = ctorMethod2->asMethod(pContext);
+                                            if (ctorFn2)
+                                                result = ctorFn2(pContext, newObj, nullptr, argsList, nullptr);
+                                        }
                                     }
                                 }
                             }
@@ -4444,6 +4462,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             fnInst = fnInst->setAttribute(pContext, JSSymbols::arrowThis(pContext),
                                 thisObj ? thisObj : PROTO_NONE);
                         }
+                        // Mark async functions so callJSFunction can wrap the result in a Promise.
+                        if (nm8.isAsync) {
+                            const proto::ProtoObject* iasKey = pContext->fromUTF8String("__is_async__");
+                            const proto::ProtoString* iasK = iasKey ? iasKey->asString(pContext) : nullptr;
+                            if (iasK) fnInst = fnInst->setAttribute(pContext, iasK, PROTO_TRUE);
+                        }
                         // Closure var capture: publish non-global captured vars to the
                         // global object so the inner function's startup reads the correct
                         // initial values.  Types: 0=LOCAL, 1=ARG, 2=REF (parent closure var).
@@ -4531,6 +4555,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (nm2.isArrow) {
                             fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::arrowThis(pContext),
                                 thisObj ? thisObj : PROTO_NONE);
+                        }
+                        // Mark async functions so callJSFunction can wrap the result in a Promise.
+                        if (nm2.isAsync) {
+                            const proto::ProtoObject* iasKey2 = pContext->fromUTF8String("__is_async__");
+                            const proto::ProtoString* iasK2 = iasKey2 ? iasKey2->asString(pContext) : nullptr;
+                            if (iasK2) fnInst2 = fnInst2->setAttribute(pContext, iasK2, PROTO_TRUE);
                         }
                         // Closure var capture: publish non-global captured vars to global object.
                         if (pGlobalRoot && *pGlobalRoot) {
@@ -5346,11 +5376,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
 
             // OP_initial_yield: DEF(initial_yield, 1, 0, 0, none)
-            // First opcode in every generator function body.
-            // Creates the generator iterator object, saves all current state
-            // as attributes on it, and returns it immediately (generator body
-            // hasn't started yet — it resumes when .next() is called).
+            // First opcode in every generator/async function body.
+            // For pure async functions (async, not async-generator): fall through —
+            // the body continues executing synchronously.
+            // For generators (including async-generators): create the iterator object.
             case OP_initial_yield: {
+                // If this is an async function (but not an async-generator), skip the
+                // generator setup and continue executing the body synchronously.
+                if (mod->isAsync && !mod->isGenerator) {
+                    break; // fall through to next opcode
+                }
+
                 // Build the iterator object.
                 const proto::ProtoObject* iterObj = pContext->newObject(true);
                 if (!iterObj) return PROTO_NONE;
@@ -5534,6 +5570,67 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
 
+            // OP_return_async: DEF(return_async, 1, 1, 0, none)
+            // Used at the end of an async function body in place of OP_return.
+            // Pops the return value and wraps it in a fulfilled Promise.
+            case OP_return_async: {
+                const proto::ProtoObject* retVal = PROTO_NONE;
+                if (!stackEmpty(pContext)) {
+                    retVal = stackTop(pContext);
+                    stackPop(pContext);
+                }
+                if (!retVal) retVal = PROTO_NONE;
+                // Wrap in Promise.resolve(retVal).
+                return makeResolvedPromise(pContext, retVal);
+            }
+
+            // OP_await: DEF(await, 1, 1, 1, none)
+            // Synchronous approximation: if the value is a settled Promise, unwrap it.
+            // For pending Promises and non-Promise values, use the value as-is.
+            case OP_await: {
+                if (stackEmpty(pContext)) { stackPush(pContext, PROTO_NONE); break; }
+                const proto::ProtoObject* awaitVal = stackTop(pContext);
+                stackPop(pContext);
+                if (!awaitVal) awaitVal = PROTO_NONE;
+
+                if (isPromiseObject(pContext, awaitVal)) {
+                    int promSt = getPromiseStatePublic(pContext, awaitVal);
+                    if (promSt == 1) {
+                        // Fulfilled: push the unwrapped value.
+                        awaitVal = getPromiseValuePublic(pContext, awaitVal);
+                        if (!awaitVal) awaitVal = PROTO_NONE;
+                    } else if (promSt == 2) {
+                        // Rejected: throw the rejection reason.
+                        const proto::ProtoObject* reason = getPromiseValuePublic(pContext, awaitVal);
+                        pending_exception = reason ? reason : PROTO_NONE;
+                        has_pending_exception = true;
+                        break;
+                    }
+                    // else pending: use undefined
+                }
+                stackPush(pContext, awaitVal);
+                break;
+            }
+
+            // OP_for_await_of_start: DEF(for_await_of_start, 1, 1, 3, none)
+            // Async iteration setup. Fall through to normal iteration for synchronous
+            // iterables (sync approximation).
+            case OP_for_await_of_start: {
+                // Treat exactly like OP_for_of_start: no-op here; the value stays on stack.
+                // We push two placeholder slots to match the stack delta (1→3: +2 extra).
+                stackPush(pContext, PROTO_NONE);
+                stackPush(pContext, PROTO_NONE);
+                break;
+            }
+
+            // OP_for_await_of_next: DEF(for_await_of_next, 1, 3, 4, none)
+            // Advance the async iterator. Treat as no-op (pending Promise) in sync mode.
+            case OP_for_await_of_next: {
+                // Push undefined result for the iteration step (sync approximation).
+                stackPush(pContext, PROTO_NONE);
+                break;
+            }
+
             default: {
                 // Unknown opcode: log for diagnostics; execution cannot continue safely.
                 std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
@@ -5692,6 +5789,10 @@ static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* getNullSentinel() {
     return t_nullSentinel;
+}
+
+const proto::ProtoObject** getCurrentGlobalRoot() {
+    return t_currentGlobalRoot;
 }
 
 const proto::ProtoObject* callJSFunction(

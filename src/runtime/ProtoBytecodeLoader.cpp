@@ -117,6 +117,12 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->stackSize_ = protojs_bytecode_stack_size(quickjsBytecode);
     out->isStrict = protojs_bytecode_is_strict(quickjsBytecode) != 0;
     out->isArrow  = protojs_bytecode_is_arrow(quickjsBytecode) != 0;
+    {
+        // func_kind: 0=normal, 1=generator, 2=async, 3=async-generator
+        int fk = protojs_bytecode_func_kind(quickjsBytecode);
+        out->isAsync     = (fk & 2) != 0; // JS_FUNC_ASYNC bit
+        out->isGenerator = (fk & 1) != 0; // JS_FUNC_GENERATOR bit
+    }
     const char* funcNameCstr = protojs_bytecode_func_name(ctx, quickjsBytecode);
     out->funcName = funcNameCstr ? funcNameCstr : "";
     if (funcNameCstr) JS_FreeCString(ctx, funcNameCstr);

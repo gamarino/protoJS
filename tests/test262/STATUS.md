@@ -28,8 +28,8 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### language/statements
 
-**Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775962316298.json` (full language+built-ins run; statements extracted: 7356/9337)
+**Date:** `2026-04-12`  
+**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775967903551.json` (full language+built-ins run; statements extracted: 7933/9337)
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -48,6 +48,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 24: strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11)** | 9337 | **7286 (78.0%)** | 176 | 1864 | 0 | +0 vs Phase 23 (gains in expressions only); see Phase 24 notes |
 | **Phase 25: NaN equality, accessor property getter/setter, String.concat toString (2026-04-11)** | 9337 | **7318 (78.4%)** | 176 | — | — | +32 vs Phase 24; see Phase 25 notes |
 | **Phase 26: Object.create prototype chain, Object.getPrototypeOf, GOPD own-only+accessor, Object.defineProperties (2026-04-11)** | 9337 | **7356 (78.8%)** | — | — | — | +38 vs Phase 25; see Phase 26 notes |
+| **Phase 27: Synchronous Promise + async/await opcodes (2026-04-12)** | 9337 | **7933 (84.9%)** | — | — | 1 | +577 vs Phase 26; see Phase 27 notes |
 
 ### language/module-code
 
@@ -60,8 +61,8 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 
 ### language/expressions
 
-**Date:** `2026-04-11`  
-**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775962316298.json` (full language+built-ins run; expressions extracted: 9263/11036)
+**Date:** `2026-04-12`  
+**Most recent snapshot:** `tests/test262/reports/snapshot-language_built-ins-1775967903551.json` (full language+built-ins run; expressions extracted: 9295/11036)
 
 | Run | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Notes |
 |-----|-------|--------|-----------------|--------------------|----------|-------|
@@ -86,6 +87,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 24: strict mode directive placement + TDZ check in OP_get_var_ref0/1/2/3 (2026-04-11)** | 11036 | **9194 (83.3%)** | 176 | 1666 | 0 | +18 vs Phase 23; see Phase 24 notes |
 | **Phase 25: NaN equality, accessor property getter/setter, String.concat toString (2026-04-11)** | 11036 | **9243 (83.8%)** | 176 | — | — | +49 vs Phase 24; see Phase 25 notes |
 | **Phase 26: Object.create prototype chain, Object.getPrototypeOf, GOPD own-only+accessor, Object.defineProperties (2026-04-11)** | 11036 | **9263 (83.9%)** | — | — | — | +20 vs Phase 25; see Phase 26 notes |
+| **Phase 27: Synchronous Promise + async/await opcodes (2026-04-12)** | 11036 | **9295 (84.2%)** | — | — | 0 | +32 vs Phase 26; see Phase 27 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -142,6 +144,17 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 4. *Property name coercion (`coercePropNameToString`)* — `Object.defineProperty` and `Object.getOwnPropertyDescriptor` previously returned early when the key was `undefined`, `null`, a boolean, or a floating-point number. Added `coercePropNameToString` helper (used by both) that converts: `undefined`→"undefined", `null`→"null", `boolean`→"true"/"false", `integer`→decimal string, `double`→decimal string. Enables `Object.defineProperty(obj, undefined, {...})` to create a property named "undefined".
 > 5. *`Object.defineProperties(target, props)` implemented* — Was entirely missing (not registered). Iterates own enumerable properties of `props` and calls `objectDefineProperty` for each. Registered alongside `defineProperty`. Fixes 576+ `Object.defineProperties` failures and enables `Object.create(proto, descriptors)` second-arg support.
 > 6. *Net gain* — +20 expressions, +38 statements, +358 overall vs Phase 25. Snapshot: `tests/test262/reports/snapshot-language_built-ins-1775962316298.json`.
+>
+> **Phase 27: Synchronous Promise + async/await opcodes (2026-04-12):**
+> 1. *Synchronous `Promise` constructor and static methods* — `PromisePrototype.cpp` (new file) implements a fully synchronous Promise model compatible with the immutable protoCore object system. A pending promise is allocated with a unique cell key (`__promise_cell_N__`) stored in the global root. The executor is called synchronously; the resolve/reject callbacks read the current cell key from a thread-local stack (`t_activeCellKeyStack`) and write the settled state (`__promise_state__` = 1 or 2) and value (`__promise_value__`) into the cell. After the executor returns, the cell is read back and the settled promise replaces the pending placeholder. Implements: `new Promise(executor)`, `Promise.resolve(v)`, `Promise.reject(r)`, `Promise.all([...])`, `Promise.allSettled([...])`, `Promise.race([...])`, `Promise.any([...])`, `.then(onFulfilled, onRejected)`, `.catch(onRejected)`, `.finally(onFinally)`.
+> 2. *`func_kind` exposed from QuickJS bytecode* — Added `protojs_bytecode_func_kind()` accessor in `quickjs.c` and `QuickJSBytecodeExport.h`. `ProtoBytecodeLoader.cpp` now populates `ProtoBytecodeModule::isAsync` (func_kind bit 2) and `isGenerator` (func_kind bit 1) from this accessor. `OP_fclosure8` and `OP_fclosure` mark async function closures with `__is_async__ = true`.
+> 3. *`OP_initial_yield` skipped for async non-generators* — Async functions (non-generator) receive `OP_initial_yield` as a function preamble opcode. Previously this opcode returned `PROTO_NONE` (generator stub), terminating async function bodies immediately. Now, if `mod->isAsync && !mod->isGenerator`, the opcode is a no-op (`break`), allowing the function body to continue executing.
+> 4. *`OP_await` implemented (synchronous unwrap)* — Pops the top-of-stack value; if it is a settled Promise with state=1 (fulfilled), replaces it with the fulfillment value; if state=2 (rejected), converts to a pending exception. Non-promise values are pushed back unchanged. This enables `await somePromise` and `await nonPromise` to produce the correct result in synchronous test scenarios.
+> 5. *`OP_return_async` implemented* — Wraps the return value in a resolved Promise via `makeResolvedPromise()`, enabling `async function f() { return 42; }` to return `Promise { 42 }`.
+> 6. *`__construct__` generic dispatch in `OP_call_constructor`* — Added fallback in the constructor dispatch path: if no specific constructor is recognized, looks up `__construct__` on the function object and calls it as a native method. This allows `ensurePromiseConstructor` to register the Promise constructor without adding a special-cased string check in the interpreter.
+> 7. *`getCurrentGlobalRoot()` accessor added to `ProtoInterpreter.h`* — Exposes the thread-local `t_currentGlobalRoot` pointer so `PromisePrototype.cpp` can write settled state back to the global object from within native resolve/reject callbacks.
+> 8. *Promise + async/await test counts (Phase 27 snapshot):* Promise: 461/656 (70.3%), async-function + async-generator: 666/1405 (47.4%), await-expression: 1305/2147 (60.8%). Major blockers for remaining failures: real microtask queue (`.then()` chains that require deferred callbacks), async generators (full generator suspension/resumption needed), and `for-await-of` (requires async iteration protocol).
+> 9. *Net gain* — +32 expressions, +577 statements, +837 overall vs Phase 26. Full-suite pass rate: 28241/46963 (60.1%). Snapshot: `tests/test262/reports/snapshot-language_built-ins-1775967903551.json`.
 >
 > **Phase 25: NaN equality, accessor property getter/setter, String.concat toString (2026-04-11):**
 > 1. *NaN equality fix in `jsAbstractEquals`* — The Abstract Equality Comparison (§7.2.13) was using `x->compare(ctx, y) == 0` for numeric comparisons, which returned 0 (equal) when both sides were NaN because `compare` delegates to the underlying double comparison where `NaN == NaN` is implementation-defined (IEEE 754: false, but protoCore returns 0). Added explicit `std::isnan` checks: if either operand is a NaN double/float, return `false` immediately per spec. Fixes `NaN == NaN → false`, `NaN != NaN → true`, `NaN == 1 → false`, and compound-assignment tests like `x == true` for NaN values.
@@ -249,6 +262,8 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | 2026-04-11 | *(per-category only)* | 16316 / 20373 (80.1%) | Phase 20: −48 apparent net (−17 expressions, −31 statements). 64 false-positives exposed by implementing `OP_copy_data_properties`; +80 genuine (spread/rest, for-in, delete, Object.keys/values/entries). |
 | 2026-04-11 | *(per-category only)* | 16358 / 20373 (80.3%) | Phase 21: +42 net (+21 expressions, +21 statements). TDZ sentinel correctness fix, `OP_append` (array spread `[...x]`) implemented, `instanceof` TypeError per §13.10.2. 4 false-positives exposed (S15.3.5.3_A1_T1–T4). |
 | 2026-04-11 | *(per-category only)* | 16417 / 20373 (80.6%) | Phase 22: +59 net (+30 expressions, +29 statements). `Function.prototype → Object.prototype` chain; `fn.name`/`length`/`prototype` non-enumerable descriptors; enumerable filtering in `for...in`, `Object.keys/values/entries`, and `{...spread}`. |
+| 2026-04-11 | `snapshot-language_built-ins-1775962316298.json` | 27404 / 46963 (58.4%) | Phase 26 full-suite: Phases 8–26 captured. First honest full-suite run on protoCore path. |
+| 2026-04-12 | `snapshot-language_built-ins-1775967903551.json` | **28241 / 46963 (60.1%)** | Phase 27: Synchronous Promise + async/await opcodes. +837 vs Phase 26. Promise: 461/656 (70.3%), async/await: 1305/2147 (60.8%). |
 
 ---
 

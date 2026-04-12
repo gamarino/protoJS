@@ -58,6 +58,13 @@ const proto::ProtoObject* callJSFunction(
  */
 const proto::ProtoObject* getNullSentinel();
 
+/**
+ * Returns a pointer to the thread-local current global root.
+ * Valid only while a runBytecode frame is active on this thread.
+ * Used by native helpers that need to read/write global properties.
+ */
+const proto::ProtoObject** getCurrentGlobalRoot();
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */
