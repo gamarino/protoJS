@@ -888,13 +888,21 @@ static const proto::ProtoObject* objectToString(
 {
     if (!self || self == PROTO_NONE || self->isNone(ctx))
         return ctx->fromUTF8String("[object Undefined]");
+
+    // null sentinel → [object Null]
+    const proto::ProtoObject* nullSentinel = getNullSentinel();
+    if (nullSentinel && self == nullSentinel)
+        return ctx->fromUTF8String("[object Null]");
+
     if (self->isBoolean(ctx))
         return ctx->fromUTF8String("[object Boolean]");
     if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
         return ctx->fromUTF8String("[object Number]");
     if (self->isString(ctx))
         return ctx->fromUTF8String("[object String]");
-    // Function: has __bytecode_id__ (JS closure) or is a native ProtoMethod.
+
+    // Function: JS closure (__bytecode_id__), native ProtoMethod, or wrapped
+    // native function (__native_fn__ holds a ProtoMethod pointer).
     {
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
         if (bcKey) {
@@ -904,7 +912,21 @@ static const proto::ProtoObject* objectToString(
         }
         if (self->isMethod(ctx))
             return ctx->fromUTF8String("[object Function]");
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey) {
+            const proto::ProtoObject* nfVal = self->getAttribute(ctx, nfKey, false);
+            if (nfVal && nfVal != PROTO_NONE && nfVal->isMethod(ctx))
+                return ctx->fromUTF8String("[object Function]");
+        }
+        // Bound function: has __bound_fn__ pointing to the original callable.
+        const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+        if (bfKey) {
+            const proto::ProtoObject* bfVal = self->getAttribute(ctx, bfKey, false);
+            if (bfVal && bfVal != PROTO_NONE)
+                return ctx->fromUTF8String("[object Function]");
+        }
     }
+
     // Array: has __is_array__ in prototype chain (set on Array.prototype).
     {
         const proto::ProtoString* iaKey = JSSymbols::isArray(ctx);
@@ -914,6 +936,21 @@ static const proto::ProtoObject* objectToString(
                 return ctx->fromUTF8String("[object Array]");
         }
     }
+
+    // Symbol.toStringTag / __toStringTag__: check own and inherited.
+    {
+        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+        if (tagKey) {
+            const proto::ProtoObject* tagVal = self->getAttribute(ctx, tagKey, true);
+            if (tagVal && tagVal != PROTO_NONE && tagVal->isString(ctx)) {
+                std::string tag;
+                tagVal->asString(ctx)->toUTF8String(ctx, tag);
+                if (!tag.empty())
+                    return ctx->fromUTF8String(("[object " + tag + "]").c_str());
+            }
+        }
+    }
+
     return ctx->fromUTF8String("[object Object]");
 }
 
