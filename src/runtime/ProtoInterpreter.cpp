@@ -7,6 +7,7 @@
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
 #include "../NumberPrototype.h"
+#include "../BooleanPrototype.h"
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
 #include "../FunctionPrototype.h"
@@ -1094,7 +1095,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         static const char* kUnimplementedCtors[] = {
             // Unimplemented standard JS built-in constructors.
             // NOTE: "Function" is intentionally omitted — wired via ensureFunctionPrototype.
-            "Boolean", "Date", "Map", "Set",
+            "Date", "Map", "Set",
             "BigInt", "AggregateError",
             // Metaprogramming built-in constructors.
             "Symbol", "Proxy", "WeakRef", "WeakMap", "WeakSet",
@@ -1135,6 +1136,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Register Number constructor, Math object, Object constructor, and global utility
     // functions (parseInt, parseFloat, isNaN, isFinite, encodeURI, decodeURI, etc.).
     ensureNumberConstructor(pContext, pGlobalRoot);
+    ensureBooleanConstructor(pContext, pGlobalRoot);
     ensureMathObject(pContext, pGlobalRoot);
     ensureObjectConstructor(pContext, pGlobalRoot);
     ensureFunctionPrototype(pContext, pGlobalRoot);

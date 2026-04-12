@@ -2,6 +2,7 @@
 #include "ObjectPrototype.h"
 #include "NumberPrototype.h"
 #include "StringPrototype.h"
+#include "BooleanPrototype.h"
 #include "RegExpPrototype.h"
 
 namespace protojs {
@@ -26,6 +27,7 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
 
     BuildNumberPrototype(space, ctx, objectProto);
     BuildStringPrototype(space, ctx, objectProto);
+    BuildBooleanPrototype(space, ctx, objectProto);
     out->regexp = BuildRegExpPrototype(space, ctx, out->regexp);
 }
 
