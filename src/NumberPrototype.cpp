@@ -386,6 +386,40 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     space->doublePrototype       = const_cast<proto::ProtoObject*>(numberProto);
 }
 
+// ---------------------------------------------------------------------------
+// Number constructor helper — invoked by OP_call_constructor to initialise
+// the newly-created wrapper object.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* numberConstruct(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE) return self;
+    double val = 0.0;
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a = args->getAt(ctx, 0);
+        if (a && a != PROTO_NONE) {
+            if (a->isInteger(ctx)) val = static_cast<double>(a->asLong(ctx));
+            else if (a->isDouble(ctx) || a->isFloat(ctx)) val = a->asDouble(ctx);
+            else if (a->isString(ctx)) {
+                std::string s;
+                const proto::ProtoString* ps = a->asString(ctx);
+                if (ps) {
+                    ps->toUTF8String(ctx, s);
+                    try { val = std::stod(s); } catch (...) { val = std::numeric_limits<double>::quiet_NaN(); }
+                }
+            }
+        }
+    }
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+    if (pvKey)
+        self = self->setAttribute(ctx, pvKey, ctx->fromDouble(val));
+    return self;
+}
+
 void ensureNumberConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
@@ -395,9 +429,12 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyNumber, false);
     if (existing && existing != PROTO_NONE) return;
 
-    const proto::ProtoObject* ctor = ctx->newObject(true);
+    const proto::ProtoObject* ctorParent =
+        (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* ctor = ctorParent
+        ? ctorParent->newChild(ctx, true)
+        : ctx->newObject(true);
     if (!ctor) return;
-    proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
@@ -432,6 +469,26 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
+
+    // Number.prototype — point to the number prototype already on space.
+    const proto::ProtoString* protoKey2 = JSSymbols::prototype(ctx);
+    const proto::ProtoObject* numProto = ctx->space ? ctx->space->smallIntegerPrototype : nullptr;
+    if (protoKey2 && numProto && numProto != PROTO_NONE)
+        ctor = ctor->setAttribute(ctx, protoKey2, numProto);
+
+    // __number_ctor__ marker for typeof/instanceof checks.
+    const proto::ProtoString* numCtorKey = ctx->fromUTF8String("__number_ctor__")->asString(ctx);
+    if (numCtorKey) ctor = ctor->setAttribute(ctx, numCtorKey, PROTO_TRUE);
+
+    // __construct__ native — invoked by OP_call_constructor for native constructors.
+    // Must be stored as a raw method (isMethod() == true), not a wrapped function object.
+    const proto::ProtoString* ctorMethodKey = ctx->fromUTF8String("__construct__")->asString(ctx);
+    if (ctorMethodKey) {
+        proto::ProtoObject* mCtor2 = const_cast<proto::ProtoObject*>(ctor);
+        const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(mCtor2, numberConstruct);
+        if (ctorMethodObj && ctorMethodObj != PROTO_NONE)
+            ctor = ctor->setAttribute(ctx, ctorMethodKey, ctorMethodObj);
+    }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
 }
