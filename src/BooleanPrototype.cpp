@@ -2,6 +2,7 @@
 #include "JSSymbols.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
+#include <cmath>
 #include <string>
 
 namespace protojs {
@@ -89,7 +90,8 @@ static const proto::ProtoObject* booleanConstruct(
             } else if (a->isInteger(ctx)) {
                 val = a->asLong(ctx) != 0;
             } else if (a->isDouble(ctx) || a->isFloat(ctx)) {
-                val = a->asDouble(ctx) != 0.0;
+                double d = a->asDouble(ctx);
+                val = (d != 0.0) && !std::isnan(d);
             } else if (a->isString(ctx)) {
                 std::string s;
                 const proto::ProtoString* ps = a->asString(ctx);
