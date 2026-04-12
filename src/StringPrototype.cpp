@@ -1103,7 +1103,12 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         (*globalRoot)->getAttribute(ctx, keyString, false);
     if (existing && existing != PROTO_NONE) return;
 
-    const proto::ProtoObject* ctor = ctx->newObject(true);
+    const proto::ProtoObject* ctorParent = nullptr;
+    if (ctx->space && ctx->space->methodPrototype)
+        ctorParent = ctx->space->methodPrototype;
+    const proto::ProtoObject* ctor = ctorParent
+        ? ctorParent->newChild(ctx, true)
+        : ctx->newObject(true);
     if (!ctor) return;
     proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
