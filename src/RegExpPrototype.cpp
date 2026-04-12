@@ -631,6 +631,13 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
     reg("Symbol.split",    regexpSymbolSplit,    2);
     reg("Symbol.matchAll", regexpSymbolMatchAll, 1);
 
+    // Set Symbol.toStringTag so Object.prototype.toString.call(new RegExp()) === "[object RegExp]"
+    {
+        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+        if (tagKey)
+            sp = sp->setAttribute(ctx, tagKey, ctx->fromUTF8String("RegExp"));
+    }
+
     return sp;
 }
 

@@ -269,6 +269,13 @@ void ensureMathObject(proto::ProtoContext* ctx,
     reg("tanh",   mathTanh);
     reg("trunc",  mathTrunc);
 
+    // Set Symbol.toStringTag so Object.prototype.toString.call(Math) === "[object Math]"
+    {
+        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+        if (tagKey)
+            math = math->setAttribute(ctx, tagKey, ctx->fromUTF8String("Math"));
+    }
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyMath, math);
 }
 
