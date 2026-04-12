@@ -3,6 +3,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
+#include "runtime/ProtoInterpreter.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -155,10 +156,30 @@ static std::string utf16ToUTF8(const std::vector<uint16_t>& u,
 // String.prototype method implementations
 // ---------------------------------------------------------------------------
 
+/** Call at the start of every String.prototype instance method.
+ *  Signals TypeError and returns false if `self` is null or undefined.
+ *  Spec reference: ECMA-262 §21.1 RequireObjectCoercible. */
+static bool requireStringThis(proto::ProtoContext* ctx,
+                               const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE || self->isNone(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "String.prototype method called on null or undefined"));
+        return false;
+    }
+    const proto::ProtoObject* nullSentinel = getNullSentinel();
+    if (nullSentinel && self == nullSentinel) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "String.prototype method called on null or undefined"));
+        return false;
+    }
+    return true;
+}
+
 const proto::ProtoObject* stringValueOf(
-    proto::ProtoContext* /*ctx*/, const proto::ProtoObject* self,
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     return self;
 }
 
@@ -166,6 +187,7 @@ const proto::ProtoObject* stringToString(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (self && self != PROTO_NONE && self->isString(ctx)) return self;
     std::string s = objToStr(ctx, self);
     return ctx->fromUTF8String(s.c_str());
@@ -176,6 +198,7 @@ const proto::ProtoObject* stringCharAt(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -190,6 +213,7 @@ const proto::ProtoObject* stringCharCodeAt(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -203,6 +227,7 @@ const proto::ProtoObject* stringCodePointAt(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long idx = getIntArg(ctx, args, 0, 0);
@@ -224,6 +249,7 @@ const proto::ProtoObject* stringAt(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long len = static_cast<long long>(u16.size());
@@ -239,6 +265,7 @@ const proto::ProtoObject* stringConcat(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string result = objToStr(ctx, self);
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
     for (unsigned long i = 0; i < argc; i++)
@@ -251,6 +278,7 @@ const proto::ProtoObject* stringIndexOf(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArg(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -275,6 +303,7 @@ const proto::ProtoObject* stringLastIndexOf(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArg(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -311,6 +340,7 @@ const proto::ProtoObject* stringSlice(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long len = static_cast<long long>(u16.size());
@@ -339,6 +369,7 @@ const proto::ProtoObject* stringSubstring(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long len = static_cast<long long>(u16.size());
@@ -367,6 +398,7 @@ const proto::ProtoObject* stringSubstr(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     long long len = static_cast<long long>(u16.size());
@@ -392,6 +424,7 @@ const proto::ProtoObject* stringToLowerCase(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     std::transform(s.begin(), s.end(), s.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -402,6 +435,7 @@ const proto::ProtoObject* stringToUpperCase(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     std::transform(s.begin(), s.end(), s.begin(),
                    [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
@@ -413,6 +447,7 @@ const proto::ProtoObject* stringRepeat(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     long long count = getIntArg(ctx, args, 0, 0);
     if (count <= 0 || s.empty()) return ctx->fromUTF8String("");
@@ -428,6 +463,7 @@ const proto::ProtoObject* stringLocaleCompare(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string a = objToStr(ctx, self);
     std::string b = getStrArg(ctx, args, 0);
     int cmp = a.compare(b);
@@ -438,6 +474,7 @@ const proto::ProtoObject* stringTrim(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto isWS = [](unsigned char c) {
         return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
@@ -452,6 +489,7 @@ const proto::ProtoObject* stringTrimStart(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto isWS = [](unsigned char c) {
         return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
@@ -465,6 +503,7 @@ const proto::ProtoObject* stringTrimEnd(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto isWS = [](unsigned char c) {
         return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
@@ -479,6 +518,7 @@ const proto::ProtoObject* stringStartsWith(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArg(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -496,6 +536,7 @@ const proto::ProtoObject* stringEndsWith(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArg(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -520,6 +561,7 @@ const proto::ProtoObject* stringIncludes(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArg(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -541,6 +583,7 @@ const proto::ProtoObject* stringIsWellFormed(
     const proto::ParentLink*, const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
     for (size_t i = 0; i < u16.size(); i++) {
@@ -563,6 +606,7 @@ const proto::ProtoObject* stringPadStart(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto su16 = utf8ToUTF16(s);
     long long targetLen = getIntArg(ctx, args, 0, static_cast<long long>(su16.size()));
@@ -588,6 +632,7 @@ const proto::ProtoObject* stringPadEnd(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto su16 = utf8ToUTF16(s);
     long long targetLen = getIntArg(ctx, args, 0, static_cast<long long>(su16.size()));
@@ -652,6 +697,7 @@ const proto::ProtoObject* stringMatch(
     const proto::ParentLink* parent, const proto::ProtoList* args,
     const proto::ProtoSparseList* sparse)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     std::cerr << "[String] match called" << std::endl;
@@ -675,6 +721,7 @@ const proto::ProtoObject* stringSearch(
     const proto::ParentLink* parent, const proto::ProtoList* args,
     const proto::ProtoSparseList* sparse)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (isRegExp(ctx, pattern)) {
@@ -697,6 +744,7 @@ const proto::ProtoObject* stringReplace(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 2) return self;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
@@ -738,6 +786,7 @@ const proto::ProtoObject* stringReplaceAll(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 2) return self;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
@@ -780,6 +829,7 @@ const proto::ProtoObject* stringMatchAll(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     return PROTO_NONE;
 }
 
@@ -789,6 +839,7 @@ const proto::ProtoObject* stringSplit(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     // Result array — use createNewArray so that [] prototype methods (join, forEach, etc.) are inherited.
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
@@ -894,6 +945,7 @@ const proto::ProtoObject* stringNormalize(
     const proto::ParentLink*, const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*)
 {
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
     // Without ICU: return string as-is (identity for NFC on ASCII/Latin-1).
     std::string s = objToStr(ctx, self);
     return ctx->fromUTF8String(s.c_str());
