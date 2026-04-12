@@ -2,6 +2,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
+#include "runtime/ProtoInterpreter.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -23,6 +24,38 @@ double getNumberValue(proto::ProtoContext* context, const proto::ProtoObject* se
     return 0.0;
 }
 
+/** Throws TypeError if this is null, undefined, or not a Number value/wrapper.
+ *  Returns false to abort; caller must return PROTO_NONE. */
+static bool requireNumberThis(proto::ProtoContext* ctx,
+                               const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE || self->isNone(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Number.prototype method called on incompatible receiver"));
+        return false;
+    }
+    const proto::ProtoObject* nullSentinel = getNullSentinel();
+    if (nullSentinel && self == nullSentinel) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Number.prototype method called on incompatible receiver"));
+        return false;
+    }
+    // Valid if self is a numeric primitive.
+    if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
+        return true;
+    // Valid if self is a Number wrapper object (has __primitive_value__ that is numeric).
+    const proto::ProtoObject* pvKey = ctx->fromUTF8String("__primitive_value__");
+    const proto::ProtoString* pvk = pvKey ? pvKey->asString(ctx) : nullptr;
+    if (pvk) {
+        const proto::ProtoObject* pv = self->getAttribute(ctx, pvk, false);
+        if (pv && pv != PROTO_NONE &&
+            (pv->isInteger(ctx) || pv->isDouble(ctx) || pv->isFloat(ctx)))
+            return true;
+    }
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "Number.prototype method called on incompatible receiver"));
+    return false;
+}
+
 const proto::ProtoObject* numberValueOf(
     proto::ProtoContext* context,
     const proto::ProtoObject* self,
@@ -30,7 +63,7 @@ const proto::ProtoObject* numberValueOf(
     const proto::ProtoList* /*positionalParameters*/,
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
-    (void)context;
+    if (!requireNumberThis(context, self)) return PROTO_NONE;
     return self;
 }
 
@@ -41,6 +74,7 @@ const proto::ProtoObject* numberToString(
     const proto::ProtoList* positionalParameters,
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
+    if (!requireNumberThis(context, self)) return PROTO_NONE;
     int radix = 10;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* radixObj = positionalParameters->getAt(context, 0);
@@ -90,6 +124,7 @@ const proto::ProtoObject* numberToFixed(
     const proto::ProtoList* positionalParameters,
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
+    if (!requireNumberThis(context, self)) return PROTO_NONE;
     int fractionDigits = 0;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
@@ -117,6 +152,7 @@ const proto::ProtoObject* numberToExponential(
     const proto::ProtoList* positionalParameters,
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
+    if (!requireNumberThis(context, self)) return PROTO_NONE;
     int fractionDigits = -1;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
@@ -145,6 +181,7 @@ const proto::ProtoObject* numberToPrecision(
     const proto::ProtoList* positionalParameters,
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
+    if (!requireNumberThis(context, self)) return PROTO_NONE;
     if (!positionalParameters || positionalParameters->getSize(context) == 0) {
         return numberToString(context, self, nullptr, nullptr, nullptr);
     }
