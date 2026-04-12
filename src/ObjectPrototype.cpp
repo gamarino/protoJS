@@ -737,9 +737,31 @@ static const proto::ProtoObject* objectDefineProperties(
 {
     if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
-    if (!target || target == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoObject* propsObj = args->getAt(ctx, 1);
-    if (!propsObj || propsObj == PROTO_NONE) return target;
+
+    // Per spec: throw TypeError if first arg (O) is null/undefined or a primitive.
+    {
+        const proto::ProtoObject* nullSentinel = getNullSentinel();
+        bool isNull = (target == nullSentinel);
+        bool isUndefined = (!target || target == PROTO_NONE);
+        if (isNull || isUndefined ||
+            target->isBoolean(ctx) || target->isInteger(ctx) ||
+            target->isDouble(ctx)  || target->isFloat(ctx)   ||
+            target->isString(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object.defineProperties called on non-object"));
+            return PROTO_NONE;
+        }
+    }
+    // Per spec: throw TypeError if Properties arg is null or undefined.
+    {
+        const proto::ProtoObject* nullSentinel = getNullSentinel();
+        if (!propsObj || propsObj == PROTO_NONE || propsObj == nullSentinel) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert undefined or null to object"));
+            return PROTO_NONE;
+        }
+    }
 
     const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
     if (!own) return target;
