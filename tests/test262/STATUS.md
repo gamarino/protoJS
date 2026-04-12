@@ -50,6 +50,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 26: Object.create prototype chain, Object.getPrototypeOf, GOPD own-only+accessor, Object.defineProperties (2026-04-11)** | 9337 | **7356 (78.8%)** | — | — | — | +38 vs Phase 25; see Phase 26 notes |
 | **Phase 27: Synchronous Promise + async/await opcodes (2026-04-12)** | 9337 | **7933 (84.9%)** | — | — | 1 | +577 vs Phase 26; see Phase 27 notes |
 | **Phase 28+28b: Array/Object TypeError propagation + native fn .length/.name + callback exception propagation (2026-04-12)** | 9337 | **TBD** | — | — | — | Full snapshot pending; Phase 28 changes primarily affect built-ins; see Phase 28 notes |
+| **Phase 29: Object.prototype.toString tags + String/Number null guards + defineProperty validation (2026-04-12)** | 9337 | **TBD** | — | — | — | Targeted snapshot for String/Number/Object.defineProperty/Function.prototype areas (3354 tests: 838 passing); see Phase 29 notes |
 
 ### language/module-code
 
@@ -90,6 +91,7 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 | **Phase 26: Object.create prototype chain, Object.getPrototypeOf, GOPD own-only+accessor, Object.defineProperties (2026-04-11)** | 11036 | **9263 (83.9%)** | — | — | — | +20 vs Phase 25; see Phase 26 notes |
 | **Phase 27: Synchronous Promise + async/await opcodes (2026-04-12)** | 11036 | **9295 (84.2%)** | — | — | 0 | +32 vs Phase 26; see Phase 27 notes |
 | **Phase 28+28b: Array/Object TypeError propagation + native fn .length/.name + callback exception propagation (2026-04-12)** | 11036 | **TBD** | — | — | — | Full snapshot pending; see Phase 28 notes |
+| **Phase 29: Object.prototype.toString tags + String/Number null guards + defineProperty validation (2026-04-12)** | 11036 | **TBD** | — | — | — | Targeted snapshot; see Phase 29 notes |
 
 > **Context on the "92.6% baseline"**: The pre-regression number was inflated by false positives. The `assert.sameValue` / `assert.throws` harness helpers used cross-function calls that silently returned `undefined` (due to the root-module lookup bug), so assertion failures were never raised. The 79.8% figure represents **honest** conformance: all assertion logic actually executes.
 >
@@ -157,6 +159,29 @@ TEST262_USE_PROTO_EVAL=1 TEST262_ROOT=../test262 \
 > 7. *`getCurrentGlobalRoot()` accessor added to `ProtoInterpreter.h`* — Exposes the thread-local `t_currentGlobalRoot` pointer so `PromisePrototype.cpp` can write settled state back to the global object from within native resolve/reject callbacks.
 > 8. *Promise + async/await test counts (Phase 27 snapshot):* Promise: 461/656 (70.3%), async-function + async-generator: 666/1405 (47.4%), await-expression: 1305/2147 (60.8%). Major blockers for remaining failures: real microtask queue (`.then()` chains that require deferred callbacks), async generators (full generator suspension/resumption needed), and `for-await-of` (requires async iteration protocol).
 > 9. *Net gain* — +32 expressions, +577 statements, +837 overall vs Phase 26. Full-suite pass rate: 28241/46963 (60.1%). Snapshot: `tests/test262/reports/snapshot-language_built-ins-1775967903551.json`.
+>
+> **Phase 29: Object.prototype.toString tags + String/Number prototype null guards + defineProperty validation (2026-04-12):**
+> 1. *`Object.prototype.toString` null sentinel fix* — `toString.call(null)` now returns `"[object Null]"` instead of `"[object Object]"`. The null sentinel is a unique `ProtoObject*`; `isNone(ctx)` returns false for it (it is a non-None object), so the old code fell through to the default branch. Added explicit `self == getNullSentinel()` check before the type checks.
+> 2. *`Object.prototype.toString` wrapped/bound function fix* — `toString.call(fn.bind({}))` and `toString.call(wrapNativeFunction(...))` now return `"[object Function]"`. Bound functions have `__bound_fn__` but no `__bytecode_id__` and `isMethod()` returns false. Wrapped native functions have `__native_fn__`. Both sentinel keys are now checked in the function branch.
+> 3. *`Symbol.toStringTag` / `__toStringTag__` support in `objectToString`* — After array/function checks, the function looks up `__toStringTag__` via `JSSymbols::toStringTag(ctx)` with prototype chain traversal. If the value is a non-empty string, returns `"[object <tag>]"`. Enables `Object.prototype.toString.call(Math)` → `"[object Math]"`, `toString.call(new RegExp())` → `"[object RegExp]"`, and custom tags via `obj.__toStringTag__ = "Custom"`.
+> 4. *`JSSymbols::toStringTag` added* — New symbol `__toStringTag__` registered in `JSSymbols.h`/`.cpp` with `DEFINE_SYMBOL` and `REGISTER` entries.
+> 5. *`Math.__toStringTag__ = "Math"` set in `ensureMathObject`* — After all method registrations.
+> 6. *`RegExp.prototype.__toStringTag__ = "RegExp"` set in `BuildRegExpPrototype`* — After all method registrations.
+> 7. *`Object.defineProperty` primitive arg TypeError* — The existing null/undefined check was extended to include boolean, integer, double, float, and string primitives. `Object.defineProperty(5, 'x', {})` now throws `TypeError: Object.defineProperty called on non-object` per ES5 §15.2.3.6 step 1.
+> 8. *`Object.defineProperty` accessor/data descriptor conflict TypeError* — After extracting getter/setter, if `isAccessor` is true, checks for `"value"` or `"writable"` keys in the descriptor using own-attribute lookup. If both accessor and data fields are present, throws `TypeError: Invalid property descriptor. Cannot both specify accessors and a value or writable attribute` per ES5 §8.10.5 step 9.
+> 9. *`Object.defineProperties` non-object first arg TypeError* — The existing silent-skip was replaced with a TypeError throw for null, undefined, boolean, integer, double, float, or string first argument. Also throws if the Properties argument (second arg) is null or undefined.
+> 10. *`String.prototype` null/undefined this guards* — All ~33 instance methods now call `requireStringThis()` at entry (helper added at top of `StringPrototype.cpp`, includes `ProtoInterpreter.h`). `String.prototype.trim.call(null)` throws `TypeError: String.prototype method called on null or undefined` per ECMA-262 §21.1 RequireObjectCoercible.
+> 11. *`Number.prototype` null/undefined/non-numeric this guards* — `numberValueOf`, `numberToString`, `numberToFixed`, `numberToExponential`, `numberToPrecision` now call `requireNumberThis()` at entry. Throws TypeError for null, undefined, boolean, string, and plain objects that are not Number wrapper objects. Number wrappers (have `__primitive_value__` that is numeric) are accepted.
+> 12. *Targeted snapshot results (3354 tests: String/Number/Object.defineProperty/defineProperties/Function.prototype/Object.prototype.toString):*
+>     - `built-ins/String/prototype`: 405/1073 (37.7%) vs baseline 356/1073 (33.2%) → **+49**
+>     - `built-ins/Number/prototype`: 17/168 (10.1%) → no change (tests focus on numeric output format, not this-guards)
+>     - `built-ins/Object/defineProperty`: 164/1131 (14.5%) vs baseline 157/1131 (13.9%) → **+7**
+>     - `built-ins/Object/defineProperties`: 106/632 (16.8%) → new area
+>     - `built-ins/Function/prototype`: 137/309 (44.3%) → included for regression check
+>     - `built-ins/Object/prototype/toString`: 9/41 (22.0%) → remaining failures need full Symbol.toStringTag + Date/Map/Set/Promise
+>     - **Total: 838/3354 (25.0%)**
+>     - Snapshot: `tests/test262/reports/snapshot-built-ins-String-prototype_built-ins-Number-prototype_built-ins-Object-definePro-1776000892445.json`
+> 13. *Commits* — feat(phase29): `c027118`. fix toString: `59a934a`. __toStringTag__ on Math/RegExp: `30f194b`. defineProperty validation: `968953f`. defineProperties validation: `2481816`. String.prototype guards: `361da9d`. Number.prototype guards: `cd83c02`.
 >
 > **Phase 28 + 28b: Array/Object TypeError propagation, native fn .length/.name, callback exception fix (2026-04-12):**
 > 1. *Native exception signaling infrastructure* — Added `signalNativeException()` / `makeNativeError()` / `hasCallException()` exported from `ProtoInterpreter.h`. The interpreter now checks `t_hasCallException` after every native-method call in `OP_call_method` and `OP_call`, so exceptions signaled from native code propagate correctly to JS instead of being silently discarded.
