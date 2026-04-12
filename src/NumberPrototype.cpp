@@ -49,8 +49,7 @@ static bool requireNumberThis(proto::ProtoContext* ctx,
     if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
         return true;
     // Valid if self is a Number wrapper object (has __primitive_value__ that is numeric).
-    const proto::ProtoObject* pvKey = ctx->fromUTF8String("__primitive_value__");
-    const proto::ProtoString* pvk = pvKey ? pvKey->asString(ctx) : nullptr;
+    const proto::ProtoString* pvk = JSSymbols::primitiveValue(ctx);
     if (pvk) {
         const proto::ProtoObject* pv = self->getAttribute(ctx, pvk, false);
         if (pv && pv != PROTO_NONE &&
