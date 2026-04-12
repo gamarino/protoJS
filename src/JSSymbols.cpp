@@ -183,6 +183,7 @@ DEFINE_SYMBOL(symbolSearch,  "Symbol.search")
 DEFINE_SYMBOL(symbolSplit,   "Symbol.split")
 DEFINE_SYMBOL(symbolMatchAll,   "Symbol.matchAll")
 DEFINE_SYMBOL(symbolIterator,    "Symbol.iterator")
+DEFINE_SYMBOL(toStringTag,       "__toStringTag__")
 
 #undef DEFINE_SYMBOL
 
@@ -278,6 +279,7 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(symbolSplit,     "Symbol.split")
         REGISTER(symbolMatchAll,  "Symbol.matchAll")
         REGISTER(symbolIterator,  "Symbol.iterator")
+        REGISTER(toStringTag,     "__toStringTag__")
         REGISTER(groups,          "groups")
         REGISTER(hasIndices,      "hasIndices")
         REGISTER(indices,         "indices")
