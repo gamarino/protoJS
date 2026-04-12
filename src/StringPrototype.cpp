@@ -40,6 +40,17 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         return buf;
     }
     if (obj->isBoolean(ctx)) return obj->asBoolean(ctx) ? "true" : "false";
+    // String wrapper object: unwrap __primitive_value__ before falling back.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = obj->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                pv->asString(ctx)->toUTF8String(ctx, r);
+                return r;
+            }
+        }
+    }
     // Object: try toString() from the prototype chain.
     // Only native (ProtoMethod) toString can be called directly here; JS-function toString
     // requires interpreter re-entry (handled separately for template literals).
@@ -180,7 +191,19 @@ const proto::ProtoObject* stringValueOf(
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    return self;
+    // Primitive string: return as-is.
+    if (self->isString(ctx)) return self;
+    // String wrapper object: extract __primitive_value__.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = self->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) return pv;
+        }
+    }
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "String.prototype.valueOf called on incompatible receiver"));
+    return PROTO_NONE;
 }
 
 const proto::ProtoObject* stringToString(
@@ -189,6 +212,14 @@ const proto::ProtoObject* stringToString(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (self && self != PROTO_NONE && self->isString(ctx)) return self;
+    // String wrapper object: extract __primitive_value__ and return it directly.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = self->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) return pv;
+        }
+    }
     std::string s = objToStr(ctx, self);
     return ctx->fromUTF8String(s.c_str());
 }

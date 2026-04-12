@@ -4196,8 +4196,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         const proto::ProtoObject* a0 = (argc > 0) ? argsList->getAt(pContext, 0) : PROTO_NONE;
                                         const proto::ProtoObject* strVal = toString(pContext, a0 ? a0 : PROTO_NONE);
                                         const proto::ProtoString* pvKey2 = JSSymbols::primitiveValue(pContext);
-                                        if (pvKey2 && strVal && strVal != PROTO_NONE)
+                                        if (pvKey2 && strVal && strVal != PROTO_NONE) {
                                             newObj = newObj->setAttribute(pContext, pvKey2, strVal);
+                                            // Set the .length property to the UTF-16 code unit count
+                                            // (matches the ECMAScript string length semantics).
+                                            const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
+                                            if (lenKey2) {
+                                                std::string utf8;
+                                                const proto::ProtoString* ps2 = strVal->asString(pContext);
+                                                if (ps2) ps2->toUTF8String(pContext, utf8);
+                                                // Count UTF-16 code units (surrogate pairs count as 2).
+                                                long long utf16len = 0;
+                                                for (size_t ci = 0; ci < utf8.size(); ) {
+                                                    auto ch = static_cast<unsigned char>(utf8[ci]);
+                                                    int nb;
+                                                    uint32_t cp;
+                                                    if      (ch < 0x80) { cp = ch;        nb = 1; }
+                                                    else if (ch < 0xE0) { cp = ch & 0x1F; nb = 2; }
+                                                    else if (ch < 0xF0) { cp = ch & 0x0F; nb = 3; }
+                                                    else                { cp = ch & 0x07; nb = 4; }
+                                                    for (int ji = 1; ji < nb && ci + ji < utf8.size(); ji++)
+                                                        cp = (cp << 6) | (static_cast<unsigned char>(utf8[ci + ji]) & 0x3F);
+                                                    ci += nb;
+                                                    utf16len += (cp >= 0x10000) ? 2 : 1;
+                                                }
+                                                newObj = newObj->setAttribute(pContext, lenKey2,
+                                                    pContext->fromInteger(utf16len));
+                                            }
+                                        }
                                         result = newObj;
                                     } else {
                                         // Generic: if the constructor carries a __construct__ native method,
