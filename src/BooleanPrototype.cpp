@@ -121,10 +121,10 @@ void BuildBooleanPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* bp = objectProto->newChild(ctx, false);
     proto::ProtoObject* mutableBp = const_cast<proto::ProtoObject*>(bp);
 
-    const proto::ProtoString* keyValueOf  =
-        ctx->fromUTF8String("valueOf") ? ctx->fromUTF8String("valueOf")->asString(ctx) : nullptr;
-    const proto::ProtoString* keyToString =
-        ctx->fromUTF8String("toString") ? ctx->fromUTF8String("toString")->asString(ctx) : nullptr;
+    const proto::ProtoObject* keyValueOfObj  = ctx->fromUTF8String("valueOf");
+    const proto::ProtoString* keyValueOf     = keyValueOfObj ? keyValueOfObj->asString(ctx) : nullptr;
+    const proto::ProtoObject* keyToStringObj = ctx->fromUTF8String("toString");
+    const proto::ProtoString* keyToString    = keyToStringObj ? keyToStringObj->asString(ctx) : nullptr;
 
     if (keyValueOf)
         bp = bp->setAttribute(ctx, keyValueOf,

@@ -561,6 +561,9 @@ static const proto::ProtoObject* objectDefineProperty(
                 const proto::ProtoString* pdek = pdeko ? pdeko->asString(ctx) : nullptr;
                 const proto::ProtoObject* existingBitsObj = pdek
                     ? target->getAttribute(ctx, pdek, false) : nullptr;
+                // If no sidecar exists, the property was created by plain assignment and
+                // has default flags {writable, enumerable, configurable} = true.
+                // Treating it as configurable is correct — no TypeError needed.
                 if (existingBitsObj && existingBitsObj != PROTO_NONE
                     && existingBitsObj->isInteger(ctx)) {
                     long existingBits = existingBitsObj->asLong(ctx);
