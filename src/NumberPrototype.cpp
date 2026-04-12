@@ -404,12 +404,31 @@ static const proto::ProtoObject* numberConstruct(
         if (a && a != PROTO_NONE) {
             if (a->isInteger(ctx)) val = static_cast<double>(a->asLong(ctx));
             else if (a->isDouble(ctx) || a->isFloat(ctx)) val = a->asDouble(ctx);
+            else if (a->isBoolean(ctx)) val = (a == PROTO_TRUE) ? 1.0 : 0.0;
             else if (a->isString(ctx)) {
                 std::string s;
                 const proto::ProtoString* ps = a->asString(ctx);
                 if (ps) {
                     ps->toUTF8String(ctx, s);
-                    try { val = std::stod(s); } catch (...) { val = std::numeric_limits<double>::quiet_NaN(); }
+                    // Trim leading and trailing ASCII whitespace (ES spec ToNumber)
+                    size_t start = s.find_first_not_of(" \t\n\r\f\v");
+                    size_t end   = s.find_last_not_of(" \t\n\r\f\v");
+                    if (start == std::string::npos) {
+                        val = 0.0; // empty or whitespace-only string → 0
+                    } else {
+                        s = s.substr(start, end - start + 1);
+                        if (s == "Infinity" || s == "+Infinity")
+                            val = std::numeric_limits<double>::infinity();
+                        else if (s == "-Infinity")
+                            val = -std::numeric_limits<double>::infinity();
+                        else {
+                            char* endPtr = nullptr;
+                            double parsed = std::strtod(s.c_str(), &endPtr);
+                            val = (endPtr == s.c_str() + s.size())
+                                      ? parsed
+                                      : std::numeric_limits<double>::quiet_NaN();
+                        }
+                    }
                 }
             }
         }
