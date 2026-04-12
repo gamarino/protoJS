@@ -3,6 +3,7 @@
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <unordered_set>
@@ -216,18 +217,71 @@ static const proto::ProtoObject* objectAssign(
     return target;
 }
 
+// Forward declaration — defined below after objectDefineProperty.
+static const proto::ProtoObject* objectDefineProperty(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*);
+
 // ---------------------------------------------------------------------------
-// Object.create(proto) → new mutable empty object
+// Object.create(proto[, propertiesObject]) → new object with [[Prototype]]=proto
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectCreate(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    return ctx->newObject(true);
+    if (!args || args->getSize(ctx) == 0) return ctx->newObject(true);
+
+    const proto::ProtoObject* protoArg = args->getAt(ctx, 0);
+    const proto::ProtoObject* result;
+
+    if (!protoArg || protoArg == PROTO_NONE || protoArg == getNullSentinel()) {
+        // Object.create(null) → plain object with no prototype
+        result = ctx->newObject(true);
+    } else {
+        // Object.create(proto) → child inheriting from proto
+        result = protoArg->newChild(ctx, true);
+    }
+
+    // Second argument: property descriptors object
+    if (args->getSize(ctx) >= 2) {
+        const proto::ProtoObject* propsObj = args->getAt(ctx, 1);
+        if (propsObj && propsObj != PROTO_NONE) {
+            const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
+            if (own) {
+                const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+                while (it && it->hasNext(ctx)) {
+                    unsigned long rawKey = it->nextKey(ctx);
+                    const proto::ProtoObject* descObj = it->nextValue(ctx);
+                    it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                    const proto::ProtoString* propKey =
+                        reinterpret_cast<const proto::ProtoString*>(rawKey);
+                    if (!propKey) continue;
+                    if (isInternalKey(ctx, propKey)) continue;
+                    if (descObj && descObj != PROTO_NONE) {
+                        std::string keyStr;
+                        propKey->toUTF8String(ctx, keyStr);
+                        if (keyStr != "length") {
+                            const proto::ProtoList* dpArgs = ctx->newList();
+                            dpArgs = dpArgs->appendLast(ctx, result);
+                            dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
+                            dpArgs = dpArgs->appendLast(ctx, descObj);
+                            const proto::ProtoObject* nr = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+                            if (nr && nr != PROTO_NONE) result = nr;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -395,18 +449,56 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
 }
 
 // ---------------------------------------------------------------------------
-// Object.getPrototypeOf(obj) → PROTO_NONE (prototype chain not tracked)
+// Object.getPrototypeOf(obj) → the [[Prototype]] of obj, or null
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectGetPrototypeOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    (void)ctx;
-    return PROTO_NONE;
+    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    // JS primitives: wrap them (spec coerces to object in ES6+)
+    // For our purposes, return the prototype of the object.
+    const proto::ProtoObject* proto = obj->getPrototype(ctx);
+    if (!proto || proto == PROTO_NONE) {
+        // No prototype → return JS null sentinel
+        return getNullSentinel();
+    }
+    return proto;
+}
+
+// ---------------------------------------------------------------------------
+// coercePropNameToString — convert any JS value to a property name string
+// per ECMAScript ToPropertyKey (simplified: no Symbol support).
+// ---------------------------------------------------------------------------
+static bool coercePropNameToString(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* nameObj,
+    std::string& out)
+{
+    if (!nameObj || nameObj == PROTO_NONE) { out = "undefined"; return true; }
+    if (nameObj->isString(ctx)) {
+        const proto::ProtoString* ps = nameObj->asString(ctx);
+        if (ps) { ps->toUTF8String(ctx, out); return true; }
+    }
+    if (nameObj->isInteger(ctx)) { out = std::to_string(nameObj->asLong(ctx)); return true; }
+    if (nameObj->isDouble(ctx) || nameObj->isFloat(ctx)) {
+        double d = nameObj->asDouble(ctx);
+        if (d == (long long)d) out = std::to_string((long long)d);
+        else {
+            char buf[64]; snprintf(buf, sizeof(buf), "%g", d);
+            out = buf;
+        }
+        return true;
+    }
+    if (nameObj->isBoolean(ctx)) { out = nameObj->asBoolean(ctx) ? "true" : "false"; return true; }
+    if (nameObj == getNullSentinel()) { out = "null"; return true; }
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -430,15 +522,11 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoObject* target = args->getAt(ctx, 0);
     if (!target || target == PROTO_NONE) return PROTO_NONE;
 
-    // Get property name string.
+    // Get property name string — coerce any JS value per spec (ToPropertyKey).
     const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
-    if (!propNameObj || propNameObj == PROTO_NONE) return target;
     std::string propName;
-    const proto::ProtoString* ps = propNameObj->asString(ctx);
-    if (ps) ps->toUTF8String(ctx, propName);
-    else if (propNameObj->isInteger(ctx))
-        propName = std::to_string(propNameObj->asLong(ctx));
-    if (propName.empty()) return target;
+    if (!coercePropNameToString(ctx, propNameObj, propName) || propName.empty())
+        return target;
 
     // Get descriptor object.
     const proto::ProtoObject* desc = args->getAt(ctx, 2);
@@ -511,8 +599,9 @@ static const proto::ProtoObject* objectDefineProperty(
 }
 
 // ---------------------------------------------------------------------------
-// Object.getOwnPropertyDescriptor(obj, propName) → descriptor object
-// Returns {value, writable, configurable, enumerable} or undefined if absent.
+// Object.getOwnPropertyDescriptor(obj, propName)
+// Returns a data or accessor descriptor for OWN properties only, or
+// undefined (PROTO_NONE) if the property is absent or inherited.
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
@@ -525,41 +614,124 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
     const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
-    if (!target || target == PROTO_NONE || !propNameObj || propNameObj == PROTO_NONE)
-        return PROTO_NONE;
+    if (!target || target == PROTO_NONE) return PROTO_NONE;
 
     std::string propName;
-    const proto::ProtoString* ps = propNameObj->asString(ctx);
-    if (ps) ps->toUTF8String(ctx, propName);
-    else if (propNameObj->isInteger(ctx)) propName = std::to_string(propNameObj->asLong(ctx));
-    if (propName.empty()) return PROTO_NONE;
+    if (!coercePropNameToString(ctx, propNameObj, propName) || propName.empty())
+        return PROTO_NONE;
 
-    // Get the value.
     const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
     const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
-    const proto::ProtoObject* val = pk ? target->getAttribute(ctx, pk, false) : nullptr;
-    if (!val) return PROTO_NONE; // property doesn't exist
+    if (!pk) return PROTO_NONE;
 
-    // Get the descriptor flags.
+    // Helper: build result descriptor object.
+    auto setAttr = [&](const proto::ProtoObject*& r, const char* name, const proto::ProtoObject* v) {
+        const proto::ProtoObject* k = ctx->fromUTF8String(name);
+        const proto::ProtoString* ks = k ? k->asString(ctx) : nullptr;
+        if (ks) r = r->setAttribute(ctx, ks, v);
+    };
+
+    // Check for accessor descriptor first: __get_<prop>__ or __set_<prop>__ as OWN attributes.
+    std::string gkStr = "__get_" + propName + "__";
+    std::string skStr = "__set_" + propName + "__";
+    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+    const proto::ProtoString* sk2 = sko ? sko->asString(ctx) : nullptr;
+
+    const proto::ProtoObject* getter = (gk) ? target->hasOwnAttribute(ctx, gk) : nullptr;
+    const proto::ProtoObject* setter = (sk2) ? target->hasOwnAttribute(ctx, sk2) : nullptr;
+
+    if (getter == PROTO_TRUE || setter == PROTO_TRUE) {
+        // Accessor descriptor.
+        const proto::ProtoObject* getterFn = (gk && getter == PROTO_TRUE)
+            ? target->getAttribute(ctx, gk, false) : PROTO_NONE;
+        const proto::ProtoObject* setterFn = (sk2 && setter == PROTO_TRUE)
+            ? target->getAttribute(ctx, sk2, false) : PROTO_NONE;
+
+        // Get descriptor flags (configurable, enumerable only for accessors).
+        std::string pdKeyStr = "__pd_" + propName + "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+        const proto::ProtoString* pdk  = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoObject* bitsObj = pdk ? target->getAttribute(ctx, pdk, false) : nullptr;
+        uint8_t bits = 0x2; // default for accessors: configurable=true, enumerable=false
+        if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(ctx))
+            bits = static_cast<uint8_t>(bitsObj->asLong(ctx));
+
+        const proto::ProtoObject* result = ctx->newObject(true);
+        setAttr(result, "get",          getterFn ? getterFn : PROTO_NONE);
+        setAttr(result, "set",          setterFn ? setterFn : PROTO_NONE);
+        setAttr(result, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
+        setAttr(result, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
+        return result;
+    }
+
+    // Check if the property is an OWN data property.
+    const proto::ProtoObject* ownFlag = target->hasOwnAttribute(ctx, pk);
+    if (ownFlag != PROTO_TRUE) return PROTO_NONE; // inherited or absent
+
+    const proto::ProtoObject* val = target->getAttribute(ctx, pk, false);
+    if (!val) return PROTO_NONE;
+
+    // Get descriptor flags.
     std::string pdKeyStr = "__pd_" + propName + "__";
     const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdk  = pdko ? pdko->asString(ctx) : nullptr;
     const proto::ProtoObject* bitsObj = pdk ? target->getAttribute(ctx, pdk, false) : nullptr;
-    uint8_t bits = 0x7; // default: all true (writable + configurable + enumerable)
+    uint8_t bits = 0x7; // default: writable=true, configurable=true, enumerable=true
     if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(ctx))
         bits = static_cast<uint8_t>(bitsObj->asLong(ctx));
 
     const proto::ProtoObject* result = ctx->newObject(true);
-    auto setAttr = [&](const char* name, const proto::ProtoObject* v) {
-        const proto::ProtoObject* k = ctx->fromUTF8String(name);
-        const proto::ProtoString* ks = k ? k->asString(ctx) : nullptr;
-        if (ks) result = result->setAttribute(ctx, ks, v);
-    };
-    setAttr("value",        val);
-    setAttr("writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
-    setAttr("configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
-    setAttr("enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr(result, "value",        val);
+    setAttr(result, "writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr(result, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr(result, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// Object.defineProperties(target, props) → apply a map of descriptors
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectDefineProperties(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
+    const proto::ProtoObject* target = args->getAt(ctx, 0);
+    if (!target || target == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* propsObj = args->getAt(ctx, 1);
+    if (!propsObj || propsObj == PROTO_NONE) return target;
+
+    const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
+    if (!own) return target;
+    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+    while (it && it->hasNext(ctx)) {
+        unsigned long rawKey = it->nextKey(ctx);
+        const proto::ProtoObject* descObj = it->nextValue(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        const proto::ProtoString* propKey =
+            reinterpret_cast<const proto::ProtoString*>(rawKey);
+        if (!propKey) continue;
+        if (isInternalKey(ctx, propKey)) continue;
+        if (descObj && descObj != PROTO_NONE) {
+            std::string keyStr;
+            propKey->toUTF8String(ctx, keyStr);
+            if (keyStr != "length") {
+                const proto::ProtoList* dpArgs = ctx->newList();
+                dpArgs = dpArgs->appendLast(ctx, target);
+                dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
+                dpArgs = dpArgs->appendLast(ctx, descObj);
+                const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+                if (newTarget && newTarget != PROTO_NONE) target = newTarget;
+            }
+        }
+    }
+    return target;
 }
 
 // ---------------------------------------------------------------------------
@@ -813,6 +985,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("fromEntries",           objectFromEntries);
     reg("hasOwn",                objectHasOwn);
     reg("defineProperty",           objectDefineProperty);
+    reg("defineProperties",         objectDefineProperties);
     reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor);
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
