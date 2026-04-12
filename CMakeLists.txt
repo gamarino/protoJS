@@ -111,6 +111,7 @@ add_executable(protojs
     src/JSSymbols.cpp
     src/NumberPrototype.cpp
     src/StringPrototype.cpp
+    src/BooleanPrototype.cpp
     src/RegExpPrototype.cpp
     src/RegExpStringIterator.cpp
     src/ArrayPrototype.cpp

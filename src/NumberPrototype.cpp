@@ -15,11 +15,17 @@ namespace protojs {
 namespace {
 
 double getNumberValue(proto::ProtoContext* context, const proto::ProtoObject* self) {
-    if (self->isInteger(context)) {
-        return static_cast<double>(self->asLong(context));
-    }
-    if (self->isDouble(context)) {
-        return self->asDouble(context);
+    if (!self || self == PROTO_NONE) return 0.0;
+    if (self->isInteger(context)) return static_cast<double>(self->asLong(context));
+    if (self->isDouble(context) || self->isFloat(context)) return self->asDouble(context);
+    // Number wrapper object: extract from __primitive_value__.
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(context);
+    if (pvKey) {
+        const proto::ProtoObject* pv = self->getAttribute(context, pvKey, false);
+        if (pv && pv != PROTO_NONE) {
+            if (pv->isInteger(context)) return static_cast<double>(pv->asLong(context));
+            if (pv->isDouble(context) || pv->isFloat(context)) return pv->asDouble(context);
+        }
     }
     return 0.0;
 }
@@ -43,8 +49,7 @@ static bool requireNumberThis(proto::ProtoContext* ctx,
     if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
         return true;
     // Valid if self is a Number wrapper object (has __primitive_value__ that is numeric).
-    const proto::ProtoObject* pvKey = ctx->fromUTF8String("__primitive_value__");
-    const proto::ProtoString* pvk = pvKey ? pvKey->asString(ctx) : nullptr;
+    const proto::ProtoString* pvk = JSSymbols::primitiveValue(ctx);
     if (pvk) {
         const proto::ProtoObject* pv = self->getAttribute(ctx, pvk, false);
         if (pv && pv != PROTO_NONE &&
@@ -64,7 +69,18 @@ const proto::ProtoObject* numberValueOf(
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
-    return self;
+    // Primitive number: return as-is.
+    if (self->isInteger(context) || self->isDouble(context) || self->isFloat(context))
+        return self;
+    // Number wrapper object: extract and return __primitive_value__.
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(context);
+    if (pvKey) {
+        const proto::ProtoObject* pv = self->getAttribute(context, pvKey, false);
+        if (pv && pv != PROTO_NONE &&
+            (pv->isInteger(context) || pv->isDouble(context) || pv->isFloat(context)))
+            return pv;
+    }
+    return context->fromDouble(0.0); // fallback
 }
 
 const proto::ProtoObject* numberToString(
@@ -386,6 +402,59 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     space->doublePrototype       = const_cast<proto::ProtoObject*>(numberProto);
 }
 
+// ---------------------------------------------------------------------------
+// Number constructor helper — invoked by OP_call_constructor to initialise
+// the newly-created wrapper object.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* numberConstruct(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE) return self;
+    double val = 0.0;
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a = args->getAt(ctx, 0);
+        if (a && a != PROTO_NONE) {
+            if (a->isInteger(ctx)) val = static_cast<double>(a->asLong(ctx));
+            else if (a->isDouble(ctx) || a->isFloat(ctx)) val = a->asDouble(ctx);
+            else if (a->isBoolean(ctx)) val = (a == PROTO_TRUE) ? 1.0 : 0.0;
+            else if (a->isString(ctx)) {
+                std::string s;
+                const proto::ProtoString* ps = a->asString(ctx);
+                if (ps) {
+                    ps->toUTF8String(ctx, s);
+                    // Trim leading and trailing ASCII whitespace (ES spec ToNumber)
+                    size_t start = s.find_first_not_of(" \t\n\r\f\v");
+                    size_t end   = s.find_last_not_of(" \t\n\r\f\v");
+                    if (start == std::string::npos) {
+                        val = 0.0; // empty or whitespace-only string → 0
+                    } else {
+                        s = s.substr(start, end - start + 1);
+                        if (s == "Infinity" || s == "+Infinity")
+                            val = std::numeric_limits<double>::infinity();
+                        else if (s == "-Infinity")
+                            val = -std::numeric_limits<double>::infinity();
+                        else {
+                            char* endPtr = nullptr;
+                            double parsed = std::strtod(s.c_str(), &endPtr);
+                            val = (endPtr == s.c_str() + s.size())
+                                      ? parsed
+                                      : std::numeric_limits<double>::quiet_NaN();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+    if (pvKey)
+        self = self->setAttribute(ctx, pvKey, ctx->fromDouble(val));
+    return self;
+}
+
 void ensureNumberConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
@@ -395,9 +464,12 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyNumber, false);
     if (existing && existing != PROTO_NONE) return;
 
-    const proto::ProtoObject* ctor = ctx->newObject(true);
+    const proto::ProtoObject* ctorParent =
+        (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* ctor = ctorParent
+        ? ctorParent->newChild(ctx, true)
+        : ctx->newObject(true);
     if (!ctor) return;
-    proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
@@ -432,6 +504,26 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
+
+    // Number.prototype — point to the number prototype already on space.
+    const proto::ProtoString* protoKey2 = JSSymbols::prototype(ctx);
+    const proto::ProtoObject* numProto = ctx->space ? ctx->space->smallIntegerPrototype : nullptr;
+    if (protoKey2 && numProto && numProto != PROTO_NONE)
+        ctor = ctor->setAttribute(ctx, protoKey2, numProto);
+
+    // __number_ctor__ marker for typeof/instanceof checks.
+    const proto::ProtoString* numCtorKey = ctx->fromUTF8String("__number_ctor__")->asString(ctx);
+    if (numCtorKey) ctor = ctor->setAttribute(ctx, numCtorKey, PROTO_TRUE);
+
+    // __construct__ native — invoked by OP_call_constructor for native constructors.
+    // Must be stored as a raw method (isMethod() == true), not a wrapped function object.
+    const proto::ProtoString* ctorMethodKey = ctx->fromUTF8String("__construct__")->asString(ctx);
+    if (ctorMethodKey) {
+        proto::ProtoObject* mCtor2 = const_cast<proto::ProtoObject*>(ctor);
+        const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(mCtor2, numberConstruct);
+        if (ctorMethodObj && ctorMethodObj != PROTO_NONE)
+            ctor = ctor->setAttribute(ctx, ctorMethodKey, ctorMethodObj);
+    }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
 }

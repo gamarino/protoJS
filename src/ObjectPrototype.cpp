@@ -546,6 +546,39 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoObject* desc = args->getAt(ctx, 2);
     if (!desc || desc == PROTO_NONE) return target;
 
+    // Per ES5 §8.12.9: if the property already exists and is non-configurable,
+    // redefining it must throw a TypeError.
+    // Sidecar bit layout: bit 0 = writable, bit 1 = configurable, bit 2 = enumerable.
+    {
+        const proto::ProtoObject* ko0 = ctx->fromUTF8String(propName.c_str());
+        const proto::ProtoString* pk0 = ko0 ? ko0->asString(ctx) : nullptr;
+        if (pk0) {
+            const proto::ProtoObject* existingVal = target->getAttribute(ctx, pk0, false);
+            if (existingVal != nullptr) {  // property exists (existingVal may be PROTO_NONE = undefined)
+                // Check sidecar for configurable bit.
+                std::string pdExKey = std::string("__pd_") + propName + "__";
+                const proto::ProtoObject* pdeko = ctx->fromUTF8String(pdExKey.c_str());
+                const proto::ProtoString* pdek = pdeko ? pdeko->asString(ctx) : nullptr;
+                const proto::ProtoObject* existingBitsObj = pdek
+                    ? target->getAttribute(ctx, pdek, false) : nullptr;
+                // If no sidecar exists, the property was created by plain assignment and
+                // has default flags {writable, enumerable, configurable} = true.
+                // Treating it as configurable is correct — no TypeError needed.
+                if (existingBitsObj && existingBitsObj != PROTO_NONE
+                    && existingBitsObj->isInteger(ctx)) {
+                    long existingBits = existingBitsObj->asLong(ctx);
+                    // bit 1 (value 0x2) is the configurable flag.
+                    bool isConfigurable = (existingBits & 0x2) != 0;
+                    if (!isConfigurable) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot redefine property: property is non-configurable"));
+                        return PROTO_NONE;
+                    }
+                }
+            }
+        }
+    }
+
     // Extract flags from descriptor.
     // Per ES spec, Object.defineProperty defaults: writable=false, configurable=false, enumerable=false
     // when flags are not explicitly provided.
@@ -608,18 +641,18 @@ static const proto::ProtoObject* objectDefineProperty(
         if (sk) target = target->setAttribute(ctx, sk, setter);
     }
 
-    // Store the value if present in the descriptor (data descriptor only).
+    // Store the value for data descriptors.
+    // Per ES5 §8.6.1: a data property always has a Value; default is undefined.
+    // Must create the property even when "value" is absent so hasOwnProperty returns true.
     if (!isAccessor) {
         const proto::ProtoObject* valueKey = ctx->fromUTF8String("value");
         const proto::ProtoString* vkp = valueKey ? valueKey->asString(ctx) : nullptr;
-        if (vkp) {
-            const proto::ProtoObject* val = desc->getAttribute(ctx, vkp, false);
-            if (val) { // val may be PROTO_NONE (explicit undefined)
-                const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
-                const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
-                if (pk) target = target->setAttribute(ctx, pk, val);
-            }
-        }
+        const proto::ProtoObject* val = (vkp) ? desc->getAttribute(ctx, vkp, false) : nullptr;
+        // val == nullptr means "value" key was absent → default to PROTO_NONE (undefined).
+        const proto::ProtoObject* storedVal = val ? val : PROTO_NONE;
+        const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
+        const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
+        if (pk) target = target->setAttribute(ctx, pk, storedVal);
     }
 
     // Encode descriptor flags and store as sidecar attribute.
