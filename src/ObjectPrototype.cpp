@@ -526,7 +526,10 @@ static const proto::ProtoObject* objectDefineProperty(
         const proto::ProtoObject* nullSentinel = getNullSentinel();
         bool isNull = (target == nullSentinel);
         bool isUndefined = (!target || target == PROTO_NONE);
-        if (isNull || isUndefined) {
+        if (isNull || isUndefined ||
+            target->isBoolean(ctx) || target->isInteger(ctx) ||
+            target->isDouble(ctx)  || target->isFloat(ctx)   ||
+            target->isString(ctx)) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Object.defineProperty called on non-object"));
             return PROTO_NONE;
@@ -571,6 +574,26 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoObject* getter = getFnProp("get");
     const proto::ProtoObject* setter = getFnProp("set");
     bool isAccessor = getter || setter;
+
+    // Per ES5 8.10.5 step 9: it is a TypeError to specify both accessor (get/set)
+    // and data (value/writable) fields in the same descriptor.
+    if (isAccessor) {
+        auto descHasKey = [&](const char* name) -> bool {
+            const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
+            const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
+            if (!k2) return false;
+            // getAttribute(..., false) returns nullptr when property is absent on this object;
+            // returns PROTO_NONE or a real value when the key is present.
+            const proto::ProtoObject* v = desc->getAttribute(ctx, k2, false);
+            return v != nullptr;
+        };
+        if (descHasKey("value") || descHasKey("writable")) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Invalid property descriptor. Cannot both specify accessors "
+                "and a value or writable attribute"));
+            return PROTO_NONE;
+        }
+    }
 
     if (getter) {
         std::string gkStr = "__get_" + propName + "__";
