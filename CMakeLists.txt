@@ -112,6 +112,7 @@ add_executable(protojs
     src/NumberPrototype.cpp
     src/StringPrototype.cpp
     src/BooleanPrototype.cpp
+    src/PrototypeUtils.cpp
     src/MapPrototype.cpp
     src/SetPrototype.cpp
     src/RegExpPrototype.cpp
