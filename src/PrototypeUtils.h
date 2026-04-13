@@ -18,7 +18,7 @@ namespace protojs {
  *
  * Returns the updated proto pointer (must be captured by caller).
  */
-const proto::ProtoObject* installNonEnumerableMethod(
+[[nodiscard]] const proto::ProtoObject* installNonEnumerableMethod(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* proto,
     const char* methodName,

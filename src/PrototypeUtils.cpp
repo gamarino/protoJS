@@ -24,14 +24,13 @@ const proto::ProtoObject* installNonEnumerableMethod(
 
     // Store raw ProtoMethod as __native_fn__ (dispatch checks this).
     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-    if (nfKey) {
-        proto::ProtoObject* mMethodObj = const_cast<proto::ProtoObject*>(methodObj);
-        const proto::ProtoObject* rawMethod = ctx->fromMethod(mMethodObj, fn);
-        if (rawMethod) methodObj = methodObj->setAttribute(ctx, nfKey, rawMethod);
-    }
+    if (!nfKey) return proto;  // Cannot register native fn — skip entire install
+    proto::ProtoObject* mMethodObj = const_cast<proto::ProtoObject*>(methodObj);
+    const proto::ProtoObject* rawMethod = ctx->fromMethod(mMethodObj, fn);
+    if (rawMethod) methodObj = methodObj->setAttribute(ctx, nfKey, rawMethod);
 
     // Set length: {value: argc, writable: false, enumerable: false, configurable: true}
-    // bits = 0x2 (configurable=true, writable=false, enumerable=false)
+    // bits = 0x2 → bit0(writable)=0, bit1(configurable)=1, bit2(enumerable)=0
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {
         methodObj = methodObj->setAttribute(ctx, lenKey,
@@ -51,7 +50,7 @@ const proto::ProtoObject* installNonEnumerableMethod(
     }
 
     // Install on proto: {writable: true, enumerable: false, configurable: true}
-    // bits = 0x3 (configurable=true, writable=true, enumerable=false)
+    // bits = 0x3 → bit0(writable)=1, bit1(configurable)=1, bit2(enumerable)=0
     const proto::ProtoObject* mko = ctx->fromUTF8String(methodName);
     const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
     if (mk) {
