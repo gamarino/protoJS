@@ -18,7 +18,48 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 34 Snapshot — 2026-04-12  ✅ CURRENT
+## Phase 35 Snapshot — 2026-04-13  ✅ CURRENT
+
+> **Phase 35 target:** Complete `Map` and `Set` conformance — guards, property descriptors, -0/SameValueZero correctness, `Symbol.iterator`, `Symbol.toStringTag`, `Map.groupBy`, `Map.prototype.getOrInsert`, `Map.prototype.getOrInsertComputed`, and full `Set` collection methods (`union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`).
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Map-1776059027310.json`
+> - `tests/test262/reports/snapshot-built-ins-Set-1776059052341.json`
+> - `tests/test262/reports/snapshot-language-expressions-1776059524015.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 34 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Map` | 204 | 139 | **68.1%** | 50 (24.5%) | **+89 passes (+43.6 pp)** |
+| `built-ins/Set` | 383 | 259 | **67.6%** | 117 (30.5%) | **+142 passes (+37.1 pp)** |
+| `language/expressions` | 11,036 | 9,416 | **85.3%** | 9,416 (85.3%) | unchanged (no regression) |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `Map` — constructor guards, `length`/`name` descriptors, `Symbol.toStringTag`, SameValueZero (-0) | `src/MapPrototype.cpp` | +~20 |
+| `Map.groupBy` static method | `src/MapPrototype.cpp` | +~10 |
+| `Map.prototype.getOrInsert` / `getOrInsertComputed` | `src/MapPrototype.cpp` | +~5 |
+| `Map` — `Symbol.iterator` (alias of `entries`), iterator kind correctness | `src/MapPrototype.cpp` | +~25 |
+| `Set` — constructor guards, `length`/`name` descriptors, `Symbol.toStringTag`, SameValueZero (-0) | `src/SetPrototype.cpp` | +~30 |
+| `Set` — `Symbol.iterator` (alias of `values`), iterator kind correctness | `src/SetPrototype.cpp` | +~20 |
+| `Set.prototype.union` / `intersection` / `difference` / `symmetricDifference` | `src/SetPrototype.cpp` | +~40 |
+| `Set.prototype.isSubsetOf` / `isSupersetOf` / `isDisjointFrom` | `src/SetPrototype.cpp` | +~30 |
+| `PrototypeUtils` helper (guard macros, descriptor helpers) | `src/PrototypeUtils.h` | shared infrastructure |
+
+### Notes
+
+- `Map`: 139/204 tests pass (68.1%). Remaining 65 failures are concentrated in `new.target` / `Reflect.construct` patterns, `WeakMap`/`WeakRef` coupling, and a handful of advanced iterator-protocol edge cases.
+- `Set`: 259/383 tests pass (67.6%). Remaining 124 failures are similarly dominated by `new.target`, subclass/`@@species`, and iterator-result mutation edge cases.
+- Both `Map` and `Set` now correctly handle -0 keys/values via SameValueZero semantics.
+- `Symbol.toStringTag` returns `"Map"` / `"Set"` on the prototype, satisfying `Object.prototype.toString.call(new Map())` === `"[object Map]"`.
+- `PrototypeUtils.h` introduces `PROTO_GUARD_THIS_MAP` / `PROTO_GUARD_THIS_SET` macros and `defineNativeMethod`/`defineAccessor` helpers, eliminating boilerplate across both implementations.
+- No regression in `language/expressions` (9,416/11,036 = 85.3%, unchanged).
+
+---
+
+## Phase 34 Snapshot — 2026-04-12  (superseded by Phase 35)
 
 > **Phase 33 target:** `Object.getOwnPropertyNames` (include non-enumerable) and `Object.getOwnPropertyDescriptor` (treat undefined value as defined).
 > **Phase 34 target:** `Map` and `Set` built-ins using protoCore ProtoSparseList and ProtoSet backing.
