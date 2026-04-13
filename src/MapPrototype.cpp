@@ -1,6 +1,7 @@
 #include "MapPrototype.h"
 #include "ArrayPrototype.h"
 #include "JSSymbols.h"
+#include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 #include <cmath>
@@ -67,6 +68,42 @@ static bool sameValueZero(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// Normalize -0 to +0 per SameValueZero spec (Map keys treat -0 as +0).
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* normalizeMapKey(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* key)
+{
+    if (key && (key->isDouble(ctx) || key->isFloat(ctx))) {
+        double d = key->asDouble(ctx);
+        if (d == 0.0 && std::signbit(d))
+            return ctx->fromInteger(0LL);
+    }
+    return key;
+}
+
+// Returns true if self is a valid Map receiver (has __map_keys__ slot).
+// Signals TypeError and returns false otherwise.
+static bool requireMapThis(proto::ProtoContext* ctx, const proto::ProtoObject* self)
+{
+    if (!self || self == PROTO_NONE || self == PROTO_TRUE || self == PROTO_FALSE ||
+        self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx) ||
+        self->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Map operation called on non-Map"));
+        return false;
+    }
+    const proto::ProtoObject* ko = ctx->fromUTF8String("__map_keys__");
+    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoObject* v  = ks ? self->getAttribute(ctx, ks, false) : nullptr;
+    if (!v || v == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Map operation called on non-Map"));
+        return false;
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // Retrieve one of the map's hidden ProtoSparseList backing attributes.
 // ---------------------------------------------------------------------------
 static const proto::ProtoSparseList* getMapList(
@@ -121,6 +158,7 @@ static bool mapFind(proto::ProtoContext* ctx,
                     const proto::ProtoObject* key,
                     unsigned long& foundIdx)
 {
+    key = normalizeMapKey(ctx, key);
     const proto::ProtoSparseList* keysList = getMapList(ctx, mapObj, "__map_keys__");
     const proto::ProtoSparseList* hashList = getMapList(ctx, mapObj, "__map_hash__");
     if (!keysList || !hashList) return false;
@@ -156,12 +194,13 @@ static const proto::ProtoObject* mapSet(
     const proto::ParentLink*,
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return self;
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     const proto::ProtoObject* key = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     const proto::ProtoObject* val = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
     if (!val) val = PROTO_NONE;
+    key = normalizeMapKey(ctx, key);
 
     const proto::ProtoSparseList* keysList = getMapList(ctx, self, "__map_keys__");
     const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
@@ -197,7 +236,7 @@ static const proto::ProtoObject* mapGet(
     const proto::ParentLink*,
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
     unsigned long foundIdx = 0;
@@ -216,7 +255,7 @@ static const proto::ProtoObject* mapHas(
     const proto::ParentLink*,
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
     unsigned long foundIdx = 0;
@@ -231,7 +270,7 @@ static const proto::ProtoObject* mapDelete(
     const proto::ParentLink*,
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* key = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
 
@@ -271,7 +310,7 @@ static const proto::ProtoObject* mapClear(
     const proto::ParentLink*,
     const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoSparseList* empty = ctx->newSparseList();
     setMapListInPlace(ctx, self, "__map_keys__", empty);
     setMapListInPlace(ctx, self, "__map_vals__", empty);
@@ -288,7 +327,7 @@ static const proto::ProtoObject* mapSizeGetter(
     const proto::ParentLink*,
     const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return ctx->fromInteger(0LL);
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(getMapSize(ctx, self)));
 }
 
@@ -300,7 +339,7 @@ static const proto::ProtoObject* mapForEach(
     const proto::ParentLink*,
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* callback = args->getAt(ctx, 0);
     if (!callback || callback == PROTO_NONE) return PROTO_NONE;
@@ -442,17 +481,26 @@ static const proto::ProtoObject* makeMapIterator(
 static const proto::ProtoObject* mapKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
-{ return makeMapIterator(ctx, self, "keys"); }
+{
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
+    return makeMapIterator(ctx, self, "keys");
+}
 
 static const proto::ProtoObject* mapValues(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
-{ return makeMapIterator(ctx, self, "values"); }
+{
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
+    return makeMapIterator(ctx, self, "values");
+}
 
 static const proto::ProtoObject* mapEntries(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
-{ return makeMapIterator(ctx, self, "entries"); }
+{
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
+    return makeMapIterator(ctx, self, "entries");
+}
 
 // ---------------------------------------------------------------------------
 // Map constructor: new Map(iterable?)
@@ -538,23 +586,15 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* mapProto = objectProto->newChild(ctx, true); // mutable
     if (!mapProto) return;
 
-    auto installMethod = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
-        if (!ks) return;
-        const proto::ProtoObject* mObj = ctx->fromMethod(nullptr, fn);
-        if (mObj) mapProto = mapProto->setAttribute(ctx, ks, mObj);
-    };
-
-    installMethod("set",     mapSet);
-    installMethod("get",     mapGet);
-    installMethod("has",     mapHas);
-    installMethod("delete",  mapDelete);
-    installMethod("clear",   mapClear);
-    installMethod("forEach", mapForEach);
-    installMethod("keys",    mapKeys);
-    installMethod("values",  mapValues);
-    installMethod("entries", mapEntries);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "set",     mapSet,     2);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "get",     mapGet,     1);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "has",     mapHas,     1);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "delete",  mapDelete,  1);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "clear",   mapClear,   0);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "forEach", mapForEach, 1);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "keys",    mapKeys,    0);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "values",  mapValues,  0);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "entries", mapEntries, 0);
 
     // Install 'size' as a getter via __get_size__ (accessed by OP_get_field accessor protocol).
     {
@@ -563,6 +603,35 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         if (gks) {
             const proto::ProtoObject* getter = ctx->fromMethod(nullptr, mapSizeGetter);
             if (getter) mapProto = mapProto->setAttribute(ctx, gks, getter);
+        }
+    }
+
+    // Symbol.iterator = entries (Map iterates as [key, value] pairs)
+    {
+        const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+        if (symIterKey) {
+            const proto::ProtoObject* entriesKeyObj = ctx->fromUTF8String("entries");
+            const proto::ProtoString* entriesKey = entriesKeyObj ? entriesKeyObj->asString(ctx) : nullptr;
+            const proto::ProtoObject* entriesFn = entriesKey
+                ? mapProto->getAttribute(ctx, entriesKey, false) : nullptr;
+            if (entriesFn && entriesFn != PROTO_NONE) {
+                mapProto = mapProto->setAttribute(ctx, symIterKey, entriesFn);
+                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.iterator__");
+                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
+            }
+        }
+    }
+
+    // Symbol.toStringTag = "Map": {writable:false, enumerable:false, configurable:true}
+    // bit1=configurable=true → bits = 0x2
+    {
+        const proto::ProtoString* tstKey = JSSymbols::toStringTag(ctx);
+        if (tstKey) {
+            mapProto = mapProto->setAttribute(ctx, tstKey, ctx->fromUTF8String("Map"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd___toStringTag____");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
     }
 
