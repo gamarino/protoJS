@@ -1066,8 +1066,10 @@ static const proto::ProtoObject* objectToString(
             tag = tryTagKey(wksKey);
         }
 
-        if (!tag.empty())
-            return ctx->fromUTF8String(("[object " + tag + "]").c_str());
+        if (!tag.empty()) {
+            std::string tagResult = "[object " + tag + "]";
+            return ctx->fromUTF8String(tagResult.c_str());
+        }
     }
 
     return ctx->fromUTF8String("[object Object]");
