@@ -503,6 +503,197 @@ static const proto::ProtoObject* mapEntries(
 }
 
 // ---------------------------------------------------------------------------
+// map.getOrInsert(key, defaultValue) → value
+// Returns existing value for key; if absent, inserts defaultValue and returns it.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* mapGetOrInsert(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    const proto::ProtoObject* key = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* defVal = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key) key = PROTO_NONE;
+    if (!defVal) defVal = PROTO_NONE;
+    key = normalizeMapKey(ctx, key);
+
+    unsigned long foundIdx = 0;
+    if (mapFind(ctx, self, key, foundIdx)) {
+        const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
+        if (!valsList) return PROTO_NONE;
+        const proto::ProtoObject* v = valsList->has(ctx, foundIdx)
+            ? valsList->getAt(ctx, foundIdx) : PROTO_NONE;
+        return v ? v : PROTO_NONE;
+    }
+    // Insert new entry.
+    const proto::ProtoSparseList* kl = getMapList(ctx, self, "__map_keys__");
+    const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
+    const proto::ProtoSparseList* hl = getMapList(ctx, self, "__map_hash__");
+    if (!kl || !vl || !hl) return PROTO_NONE;
+    long sz = getMapSize(ctx, self);
+    unsigned long ni = static_cast<unsigned long>(sz);
+    kl = kl->setAt(ctx, ni, key);
+    vl = vl->setAt(ctx, ni, defVal);
+    unsigned long h = szvHash(ctx, key);
+    if (!hl->has(ctx, h))
+        hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
+    setMapListInPlace(ctx, self, "__map_keys__", kl);
+    setMapListInPlace(ctx, self, "__map_vals__", vl);
+    setMapListInPlace(ctx, self, "__map_hash__", hl);
+    setMapSizeInPlace(ctx, self, sz + 1);
+    return defVal;
+}
+
+// ---------------------------------------------------------------------------
+// map.getOrInsertComputed(key, callbackFn) → value
+// Returns existing value; if absent, calls callbackFn() for the default and inserts it.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* mapGetOrInsertComputed(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!requireMapThis(ctx, self)) return PROTO_NONE;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    const proto::ProtoObject* key = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* callbackFn = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key) key = PROTO_NONE;
+    key = normalizeMapKey(ctx, key);
+
+    unsigned long foundIdx = 0;
+    if (mapFind(ctx, self, key, foundIdx)) {
+        const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
+        if (!valsList) return PROTO_NONE;
+        const proto::ProtoObject* v = valsList->has(ctx, foundIdx)
+            ? valsList->getAt(ctx, foundIdx) : PROTO_NONE;
+        return v ? v : PROTO_NONE;
+    }
+    // Call callback() to compute default value.
+    if (!callbackFn || callbackFn == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoList* cbArgs = ctx->newList();
+    const proto::ProtoObject* defVal = callJSFunction(ctx, callbackFn, PROTO_NONE, cbArgs);
+    if (hasCallException()) return PROTO_NONE;
+    if (!defVal) defVal = PROTO_NONE;
+    // Insert new entry.
+    const proto::ProtoSparseList* kl = getMapList(ctx, self, "__map_keys__");
+    const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
+    const proto::ProtoSparseList* hl = getMapList(ctx, self, "__map_hash__");
+    if (!kl || !vl || !hl) return PROTO_NONE;
+    long sz = getMapSize(ctx, self);
+    unsigned long ni = static_cast<unsigned long>(sz);
+    kl = kl->setAt(ctx, ni, key);
+    vl = vl->setAt(ctx, ni, defVal);
+    unsigned long h = szvHash(ctx, key);
+    if (!hl->has(ctx, h))
+        hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
+    setMapListInPlace(ctx, self, "__map_keys__", kl);
+    setMapListInPlace(ctx, self, "__map_vals__", vl);
+    setMapListInPlace(ctx, self, "__map_hash__", hl);
+    setMapSizeInPlace(ctx, self, sz + 1);
+    return defVal;
+}
+
+// ---------------------------------------------------------------------------
+// Map.groupBy(iterable, keyFn) → Map  (static method on constructor)
+// Groups elements of iterable by keyFn(element, index); returns a Map of arrays.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* mapGroupBy(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* keyFn    = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!iterable) iterable = PROTO_NONE;
+    if (!keyFn)    keyFn    = PROTO_NONE;
+
+    // Create a result Map.
+    const proto::ProtoObject* result = s_mapPrototype
+        ? s_mapPrototype->newChild(ctx, true) : ctx->newObject(true);
+    if (!result) return PROTO_NONE;
+    {
+        const proto::ProtoSparseList* empty = ctx->newSparseList();
+        setMapListInPlace(ctx, result, "__map_keys__", empty);
+        setMapListInPlace(ctx, result, "__map_vals__", empty);
+        setMapListInPlace(ctx, result, "__map_hash__", empty);
+        setMapSizeInPlace(ctx, result, 0L);
+    }
+
+    // Iterate the iterable using array-like length+index protocol.
+    if (iterable == PROTO_NONE) return result;
+    const proto::ProtoString* lenKs = JSSymbols::length(ctx);
+    if (!lenKs) return result;
+    const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
+    if (!lenObj || lenObj == PROTO_NONE || !lenObj->isInteger(ctx)) return result;
+    long len = lenObj->asLong(ctx);
+
+    for (long i = 0; i < len; i++) {
+        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        if (!ik) continue;
+        const proto::ProtoObject* elem = iterable->getAttribute(ctx, ik, true);
+        if (!elem) elem = PROTO_NONE;
+
+        // Call keyFn(element, index).
+        const proto::ProtoList* cbArgs = ctx->newList();
+        cbArgs = cbArgs->appendLast(ctx, elem);
+        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(i)));
+        const proto::ProtoObject* groupKey = callJSFunction(ctx, keyFn, PROTO_NONE, cbArgs);
+        if (hasCallException()) return PROTO_NONE;
+        if (!groupKey) groupKey = PROTO_NONE;
+        groupKey = normalizeMapKey(ctx, groupKey);
+
+        // Find or create the group array for this key.
+        unsigned long foundIdx = 0;
+        if (mapFind(ctx, result, groupKey, foundIdx)) {
+            // Append elem to existing array.
+            const proto::ProtoSparseList* vl = getMapList(ctx, result, "__map_vals__");
+            if (vl && vl->has(ctx, foundIdx)) {
+                const proto::ProtoObject* arr = vl->getAt(ctx, foundIdx);
+                if (arr && arr != PROTO_NONE) {
+                    const proto::ProtoString* lk = JSSymbols::length(ctx);
+                    const proto::ProtoObject* arrLen = lk ? arr->getAttribute(ctx, lk, false) : nullptr;
+                    long al = (arrLen && arrLen->isInteger(ctx)) ? arrLen->asLong(ctx) : 0L;
+                    const proto::ProtoString* newIdx = JSSymbols::indexKey(ctx, static_cast<uint32_t>(al));
+                    if (newIdx) arr = arr->setAttribute(ctx, newIdx, elem);
+                    if (lk) arr = arr->setAttribute(ctx, lk, ctx->fromInteger(al + 1));
+                    setMapListInPlace(ctx, result, "__map_vals__",
+                        vl->setAt(ctx, foundIdx, arr));
+                }
+            }
+        } else {
+            // Create new array [elem] and insert into result map.
+            const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+            const proto::ProtoString* k0  = JSSymbols::indexKey(ctx, 0);
+            const proto::ProtoString* lk  = JSSymbols::length(ctx);
+            const proto::ProtoString* ia  = JSSymbols::isArray(ctx);
+            if (k0) arr = arr->setAttribute(ctx, k0, elem);
+            if (lk) arr = arr->setAttribute(ctx, lk, ctx->fromInteger(1LL));
+            if (ia) arr = arr->setAttribute(ctx, ia, ctx->fromInteger(1LL));
+
+            const proto::ProtoSparseList* kl = getMapList(ctx, result, "__map_keys__");
+            const proto::ProtoSparseList* vl = getMapList(ctx, result, "__map_vals__");
+            const proto::ProtoSparseList* hl = getMapList(ctx, result, "__map_hash__");
+            if (!kl || !vl || !hl) continue;
+            long sz = getMapSize(ctx, result);
+            unsigned long ni = static_cast<unsigned long>(sz);
+            kl = kl->setAt(ctx, ni, groupKey);
+            vl = vl->setAt(ctx, ni, arr);
+            unsigned long h = szvHash(ctx, groupKey);
+            if (!hl->has(ctx, h))
+                hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
+            setMapListInPlace(ctx, result, "__map_keys__", kl);
+            setMapListInPlace(ctx, result, "__map_vals__", vl);
+            setMapListInPlace(ctx, result, "__map_hash__", hl);
+            setMapSizeInPlace(ctx, result, sz + 1);
+        }
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Map constructor: new Map(iterable?)
 // The constructor receives `self` as the newly-allocated Map object.
 // ---------------------------------------------------------------------------
@@ -594,7 +785,9 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     mapProto = installNonEnumerableMethod(ctx, mapProto, "forEach", mapForEach, 1);
     mapProto = installNonEnumerableMethod(ctx, mapProto, "keys",    mapKeys,    0);
     mapProto = installNonEnumerableMethod(ctx, mapProto, "values",  mapValues,  0);
-    mapProto = installNonEnumerableMethod(ctx, mapProto, "entries", mapEntries, 0);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "entries",             mapEntries,             0);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "getOrInsert",         mapGetOrInsert,         2);
+    mapProto = installNonEnumerableMethod(ctx, mapProto, "getOrInsertComputed",  mapGetOrInsertComputed, 2);
 
     // Install 'size' as a getter via __get_size__ (accessed by OP_get_field accessor protocol).
     {
@@ -677,6 +870,37 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     if (constructKs) {
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, mapConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
+    }
+
+    // Map.groupBy static method
+    {
+        const proto::ProtoObject* gbWrapper = ctx->space->methodPrototype
+            ? ctx->space->methodPrototype->newChild(ctx, true)
+            : ctx->newObject(true);
+        const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+        if (nfk) gbWrapper = gbWrapper->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, mapGroupBy));
+        const proto::ProtoString* lenk = JSSymbols::length(ctx);
+        if (lenk) {
+            gbWrapper = gbWrapper->setAttribute(ctx, lenk, ctx->fromInteger(2LL));
+            const proto::ProtoObject* pdl = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdl ? pdl->asString(ctx) : nullptr;
+            if (pdlk) gbWrapper = gbWrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmk = JSSymbols::name(ctx);
+        if (nmk) {
+            gbWrapper = gbWrapper->setAttribute(ctx, nmk, ctx->fromUTF8String("groupBy"));
+            const proto::ProtoObject* pdn = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdn ? pdn->asString(ctx) : nullptr;
+            if (pdnk) gbWrapper = gbWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoObject* gbko = ctx->fromUTF8String("groupBy");
+        const proto::ProtoString* gbks = gbko ? gbko->asString(ctx) : nullptr;
+        if (gbks) {
+            ctor = ctor->setAttribute(ctx, gbks, gbWrapper);
+            const proto::ProtoObject* pdgb = ctx->fromUTF8String("__pd_groupBy__");
+            const proto::ProtoString* pdgbk = pdgb ? pdgb->asString(ctx) : nullptr;
+            if (pdgbk) ctor = ctor->setAttribute(ctx, pdgbk, ctx->fromInteger(0x3LL));
+        }
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
