@@ -502,6 +502,30 @@ static const proto::ProtoObject* mapEntries(
     return makeMapIterator(ctx, self, "entries");
 }
 
+// Insert a new (key, val) entry into mapObj.
+// Assumes key is already normalized and NOT present in the map.
+static void mapInsertEntry(proto::ProtoContext* ctx,
+                            const proto::ProtoObject* mapObj,
+                            const proto::ProtoObject* key,
+                            const proto::ProtoObject* val)
+{
+    const proto::ProtoSparseList* kl = getMapList(ctx, mapObj, "__map_keys__");
+    const proto::ProtoSparseList* vl = getMapList(ctx, mapObj, "__map_vals__");
+    const proto::ProtoSparseList* hl = getMapList(ctx, mapObj, "__map_hash__");
+    if (!kl || !vl || !hl) return;
+    long sz = getMapSize(ctx, mapObj);
+    unsigned long ni = static_cast<unsigned long>(sz);
+    kl = kl->setAt(ctx, ni, key);
+    vl = vl->setAt(ctx, ni, val);
+    unsigned long h = szvHash(ctx, key);
+    if (!hl->has(ctx, h))
+        hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
+    setMapListInPlace(ctx, mapObj, "__map_keys__", kl);
+    setMapListInPlace(ctx, mapObj, "__map_vals__", vl);
+    setMapListInPlace(ctx, mapObj, "__map_hash__", hl);
+    setMapSizeInPlace(ctx, mapObj, sz + 1);
+}
+
 // ---------------------------------------------------------------------------
 // map.getOrInsert(key, defaultValue) → value
 // Returns existing value for key; if absent, inserts defaultValue and returns it.
@@ -527,22 +551,7 @@ static const proto::ProtoObject* mapGetOrInsert(
             ? valsList->getAt(ctx, foundIdx) : PROTO_NONE;
         return v ? v : PROTO_NONE;
     }
-    // Insert new entry.
-    const proto::ProtoSparseList* kl = getMapList(ctx, self, "__map_keys__");
-    const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
-    const proto::ProtoSparseList* hl = getMapList(ctx, self, "__map_hash__");
-    if (!kl || !vl || !hl) return PROTO_NONE;
-    long sz = getMapSize(ctx, self);
-    unsigned long ni = static_cast<unsigned long>(sz);
-    kl = kl->setAt(ctx, ni, key);
-    vl = vl->setAt(ctx, ni, defVal);
-    unsigned long h = szvHash(ctx, key);
-    if (!hl->has(ctx, h))
-        hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
-    setMapListInPlace(ctx, self, "__map_keys__", kl);
-    setMapListInPlace(ctx, self, "__map_vals__", vl);
-    setMapListInPlace(ctx, self, "__map_hash__", hl);
-    setMapSizeInPlace(ctx, self, sz + 1);
+    mapInsertEntry(ctx, self, key, defVal);
     return defVal;
 }
 
@@ -571,27 +580,16 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
         return v ? v : PROTO_NONE;
     }
     // Call callback() to compute default value.
-    if (!callbackFn || callbackFn == PROTO_NONE) return PROTO_NONE;
+    if (!callbackFn || callbackFn == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Map.prototype.getOrInsertComputed: callbackFn is not a function"));
+        return PROTO_NONE;
+    }
     const proto::ProtoList* cbArgs = ctx->newList();
     const proto::ProtoObject* defVal = callJSFunction(ctx, callbackFn, PROTO_NONE, cbArgs);
     if (hasCallException()) return PROTO_NONE;
     if (!defVal) defVal = PROTO_NONE;
-    // Insert new entry.
-    const proto::ProtoSparseList* kl = getMapList(ctx, self, "__map_keys__");
-    const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
-    const proto::ProtoSparseList* hl = getMapList(ctx, self, "__map_hash__");
-    if (!kl || !vl || !hl) return PROTO_NONE;
-    long sz = getMapSize(ctx, self);
-    unsigned long ni = static_cast<unsigned long>(sz);
-    kl = kl->setAt(ctx, ni, key);
-    vl = vl->setAt(ctx, ni, defVal);
-    unsigned long h = szvHash(ctx, key);
-    if (!hl->has(ctx, h))
-        hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
-    setMapListInPlace(ctx, self, "__map_keys__", kl);
-    setMapListInPlace(ctx, self, "__map_vals__", vl);
-    setMapListInPlace(ctx, self, "__map_hash__", hl);
-    setMapSizeInPlace(ctx, self, sz + 1);
+    mapInsertEntry(ctx, self, key, defVal);
     return defVal;
 }
 
