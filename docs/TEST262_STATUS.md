@@ -18,7 +18,39 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 35 Snapshot — 2026-04-13  ✅ CURRENT
+## Phase 36 Snapshot — 2026-04-13  ✅ CURRENT
+
+> **Phase 36 target:** Object conformance — `Symbol.toStringTag` WKS lookup in `Object.prototype.toString`, `for-in` prototype-chain walk (plus `Object.setPrototypeOf`), and `OP_delete` configurable-bit enforcement.
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Object-prototype-toString-*.json`
+> - `tests/test262/reports/snapshot-language-statements-for-in-*.json`
+> - `tests/test262/reports/snapshot-built-ins-Object-defineProperty-*.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 35 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Object/prototype/toString` | 41 | 9 | **22.0%** | 9 (22.0%) | unchanged |
+| `language/statements/for-in` | 115 | 107 | **93.0%** | 104 (90.4%) | **+3 passes (+2.6 pp)** |
+| `built-ins/Object/defineProperty` | 1,131 | 409 | **36.2%** | 342 (30.2%) | **+67 passes (+5.9 pp)** |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `Object.prototype.toString` — read `Symbol.toStringTag` WKS string key in addition to `__toStringTag__` | `src/ObjectPrototype.cpp` | 0 net new (baseline held) |
+| `OP_for_in_start` — walk full `[[Prototype]]` chain to collect enumerable keys; `Object.setPrototypeOf` | `src/Interpreter.cpp`, `src/ObjectPrototype.cpp` | +3 |
+| `OP_delete` — check `__pd_<key>__` configurable bit (0x2) before removing property | `src/Interpreter.cpp` | +67 |
+
+### Notes
+
+- `built-ins/Object/prototype/toString`: 9/41 (22.0%). The `Symbol.toStringTag` string-key lookup fix was applied, but most remaining failures require true `Symbol` object support (well-known symbol property access on instances), which is not yet implemented. The baseline is preserved with no regression.
+- `language/statements/for-in`: 107/115 (93.0%). Three additional tests pass after the prototype-chain walk now collects inherited enumerable properties. The 8 remaining failures involve `for-in` variable binding edge cases and `strict` mode assignments.
+- `built-ins/Object/defineProperty`: 409/1131 (36.2%). The configurable-bit enforcement in `OP_delete` unlocks 67 tests that verify `TypeError` is thrown when deleting non-configurable properties. Remaining failures concentrate on accessor descriptors, writable, and `Reflect`-coupled patterns.
+
+---
+
+## Phase 35 Snapshot — 2026-04-13  (superseded by Phase 36)
 
 > **Phase 35 target:** Complete `Map` and `Set` conformance — guards, property descriptors, -0/SameValueZero correctness, `Symbol.iterator`, `Symbol.toStringTag`, `Map.groupBy`, `Map.prototype.getOrInsert`, `Map.prototype.getOrInsertComputed`, and full `Set` collection methods (`union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`).
 > Snapshot files:
