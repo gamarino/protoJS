@@ -5406,7 +5406,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (fiSeen.count(kstr)) continue;
                                 fiSeen.insert(kstr);
                                 // Respect enumerable descriptor flag (bit 2 of __pd_<key>__).
-                                // Missing __pd__ means default = enumerable; bit 2 = 0 means skip.
+                                // Missing __pd__ means default = enumerable; bit 2 (0x4) clear means non-enumerable — skip.
                                 {
                                     std::string pdks = "__pd_" + kstr + "__";
                                     const proto::ProtoObject* pko =
