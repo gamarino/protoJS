@@ -147,6 +147,7 @@ static bool setContains(proto::ProtoContext* ctx,
                          const proto::ProtoObject* setObj,
                          const proto::ProtoObject* val)
 {
+    val = normalizeSetVal(ctx, val);
     const proto::ProtoSet* core = getSetCore(ctx, setObj);
     if (!core) return false;
     if (core->has(ctx, val) == PROTO_TRUE) return true;
