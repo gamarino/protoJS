@@ -18,7 +18,51 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 32 Snapshot — 2026-04-12  ✅ CURRENT
+## Phase 34 Snapshot — 2026-04-12  ✅ CURRENT
+
+> **Phase 33 target:** `Object.getOwnPropertyNames` (include non-enumerable) and `Object.getOwnPropertyDescriptor` (treat undefined value as defined).
+> **Phase 34 target:** `Map` and `Set` built-ins using protoCore ProtoSparseList and ProtoSet backing.
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Object-getOwnPropertyNames_built-ins-Object-getOwnPropertyDescriptor_b-1776038620445.json`
+> - `tests/test262/reports/snapshot-built-ins-Map-1776039154318.json`
+> - `tests/test262/reports/snapshot-built-ins-Set-1776039183199.json`
+> - `tests/test262/reports/snapshot-language-expressions-1776039852220.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 32 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Object/getOwnPropertyNames` | 45 | 26 | **57.8%** | ~20% | **+~20 pp** |
+| `built-ins/Object/getOwnPropertyDescriptor` | 310 | 72 | **23.2%** | ~33% (est, ~150 tests) | +22 abs |
+| `built-ins/Object/defineProperty` | 1,131 | 342 | **30.2%** | 30.2% | unchanged |
+| `built-ins/Object/defineProperties` | 632 | 192 | **30.4%** | 30.4% | unchanged |
+| `built-ins/Map` | 204 | 50 | **24.5%** | 0% | **+50 passes** |
+| `built-ins/Set` | 383 | 117 | **30.5%** | 0% | **+117 passes** |
+| `language/expressions` | 11,036 | 9,416 | **85.3%** | 85.3% | unchanged (no regression) |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `Object.getOwnPropertyNames` — include non-enumerable properties | `src/ObjectPrototype.cpp` | +~20 |
+| `Object.getOwnPropertyDescriptor` — handle undefined property values | `src/ObjectPrototype.cpp` | +22 |
+| `Map` built-in — set/get/has/delete/clear/forEach/keys/values/entries/size | `src/MapPrototype.cpp/.h` | +50 |
+| `Set` built-in — add/has/delete/clear/forEach/values/keys/entries/size | `src/SetPrototype.cpp/.h` | +117 |
+
+### Notes
+
+- `getOwnPropertyNames` fix: `collectOwnKeys` gained an `includeNonEnumerable` parameter (default false); `objectGetOwnPropertyNames` now passes `true` to include non-enumerable own properties.
+- `getOwnPropertyDescriptor` fix: replaced early return on `!val` (which conflated null C++ pointer with property absence) with treating `!val` as `PROTO_NONE` (undefined value) after `hasOwnAttribute` confirms the property exists.
+- Map backing: `__map_keys__` + `__map_vals__` + `__map_hash__` (ProtoSparseList) + `__map_size__`. Hash index provides O(1) average lookup; linear scan fallback handles collisions. SameValueZero comparison for NaN and numeric keys.
+- Set backing: `__set_core__` (ProtoSet) + `__set_order__` (ProtoSparseList) + `__set_size__`. SameValueZero fallback scan for NaN/double edge cases not handled by ProtoSet interning.
+- Both Map and Set iterators use `__iter_arr__` + `next()` to be recognised as Case A native iterators by `OP_for_of_start`, enabling `for...of` iteration.
+- Map: 50/204 tests pass. Remaining failures involve `instanceof Map`, `new.target`, WeakMap, and iterator protocol edge cases.
+- Set: 117/383 tests pass. Better ratio than Map due to simpler API surface.
+- No regression in `language/expressions` (9,416/11,036 = 85.3%, unchanged).
+
+---
+
+## Phase 32 Snapshot — 2026-04-12  (superseded by Phase 34)
 
 > **Phase 32 target:** String/Number/Boolean prototype methods working on wrapper objects.
 > All three phases (30+31+32) are now complete.
