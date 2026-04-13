@@ -4,6 +4,8 @@
 #include "StringPrototype.h"
 #include "BooleanPrototype.h"
 #include "RegExpPrototype.h"
+#include "MapPrototype.h"
+#include "SetPrototype.h"
 
 namespace protojs {
 
@@ -29,6 +31,8 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
     BuildStringPrototype(space, ctx, objectProto);
     BuildBooleanPrototype(space, ctx, objectProto);
     out->regexp = BuildRegExpPrototype(space, ctx, out->regexp);
+    BuildMapPrototype(space, ctx, objectProto);
+    BuildSetPrototype(space, ctx, objectProto);
 }
 
 } // namespace protojs
