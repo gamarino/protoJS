@@ -3770,6 +3770,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                 if (obj && obj != PROTO_NONE && key) {
+                    // ECMAScript 10.1.10: if the property is non-configurable,
+                    // delete returns false in non-strict mode and must NOT remove
+                    // the property.  The configurable bit is stored in the sidecar
+                    // descriptor key __pd_<name>__ (bit 1 = 0x2).  We only block
+                    // deletion when the sidecar is present AND the configurable bit
+                    // is clear; the absence of a sidecar means the property is
+                    // configurable by default.
+                    {
+                        std::string propNameStr;
+                        key->toUTF8String(pContext, propNameStr);
+                        std::string pdKeyStr = "__pd_" + propNameStr + "__";
+                        const proto::ProtoObject* pdko = pContext->fromUTF8String(pdKeyStr.c_str());
+                        const proto::ProtoString* pdks = pdko ? pdko->asString(pContext) : nullptr;
+                        if (pdks) {
+                            const proto::ProtoObject* pdv = obj->getAttribute(pContext, pdks, false);
+                            if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
+                                uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
+                                if (!(bits & 0x2)) {
+                                    // Non-configurable: silently return false, property is retained.
+                                    stackPush(pContext, PROTO_FALSE);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     // Pass nullptr (not PROTO_NONE) so protoCore's implSetAt calls
                     // implRemoveAt, which truly removes the entry from the sparse list.
                     // This makes hasOwnAttribute, getOwnAttributes iteration, and
