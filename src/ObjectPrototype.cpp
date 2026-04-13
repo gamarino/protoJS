@@ -29,15 +29,19 @@ static bool isInternalKey(proto::ProtoContext* ctx, const proto::ProtoString* ke
 }
 
 // ---------------------------------------------------------------------------
-// collectOwnKeys — fills `keys` and `vals` with the JS-visible own
-// enumerable string properties of `obj`.  Internal (__*__) keys and the
-// "length" property of arrays are excluded.
+// collectOwnKeys — fills `keys` and `vals` with the JS-visible own string
+// properties of `obj`.  Internal (__*__) keys and the "length" property of
+// arrays are always excluded.  When includeNonEnumerable is false (default),
+// only enumerable properties are returned (used by Object.keys).  When true,
+// all own properties are returned regardless of enumerable flag
+// (used by Object.getOwnPropertyNames).
 // ---------------------------------------------------------------------------
 static void collectOwnKeys(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* obj,
     std::vector<std::string>&       keys,
-    std::vector<const proto::ProtoObject*>* vals)
+    std::vector<const proto::ProtoObject*>* vals,
+    bool includeNonEnumerable = false)
 {
     if (!obj || obj == PROTO_NONE) return;
     const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
@@ -67,7 +71,8 @@ static void collectOwnKeys(
         propKey->toUTF8String(ctx, kstr);
         // Respect the enumerable descriptor flag (bit 2 of __pd_<key>__).
         // A missing __pd__ key means default = enumerable (bit 2 = 1).
-        {
+        // Skip non-enumerable properties unless includeNonEnumerable is set.
+        if (!includeNonEnumerable) {
             std::string pdKeyStr = "__pd_" + kstr + "__";
             const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
             const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
@@ -436,17 +441,35 @@ static const proto::ProtoObject* objectIsExtensible(
 }
 
 // ---------------------------------------------------------------------------
-// Object.getOwnPropertyNames(obj) — same stub as keys
+// Object.getOwnPropertyNames(obj) — returns ALL own string-keyed properties,
+// including non-enumerable ones (unlike Object.keys which filters them out).
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectGetOwnPropertyNames(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* self,
-    const proto::ParentLink* pl,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
     const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw)
+    const proto::ProtoSparseList*)
 {
-    return objectKeys(ctx, self, pl, args, kw);
+    const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : nullptr;
+
+    // Pass includeNonEnumerable=true to collect all own string properties.
+    std::vector<std::string> keys;
+    collectOwnKeys(ctx, obj, keys, nullptr, /*includeNonEnumerable=*/true);
+
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoString* lenKey  = JSSymbols::length(ctx);
+    const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    for (size_t i = 0; i < keys.size(); i++) {
+        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
+        if (ik && kv) result = result->setAttribute(ctx, ik, kv);
+    }
+    if (lenKey)   result = result->setAttribute(ctx, lenKey,   ctx->fromInteger(static_cast<long long>(keys.size())));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -738,7 +761,10 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     if (ownFlag != PROTO_TRUE) return PROTO_NONE; // inherited or absent
 
     const proto::ProtoObject* val = target->getAttribute(ctx, pk, false);
-    if (!val) return PROTO_NONE;
+    // val==nullptr means getAttribute returned null at C++ level (e.g. the attribute
+    // stores PROTO_NONE = undefined).  The property DOES exist (ownFlag confirmed above),
+    // so treat !val as PROTO_NONE rather than returning PROTO_NONE (absence).
+    const proto::ProtoObject* storedVal = val ? val : PROTO_NONE;
 
     // Get descriptor flags.
     std::string pdKeyStr = "__pd_" + propName + "__";
@@ -750,7 +776,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
         bits = static_cast<uint8_t>(bitsObj->asLong(ctx));
 
     const proto::ProtoObject* result = ctx->newObject(true);
-    setAttr(result, "value",        val);
+    setAttr(result, "value",        storedVal);
     setAttr(result, "writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
     setAttr(result, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
     setAttr(result, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
