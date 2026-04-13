@@ -30,6 +30,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <unordered_set>
 
 namespace protojs {
 
@@ -3953,9 +3954,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     resolvedMod3 = &t_rootModule->nestedFunctions[bcId];
                 if (resolvedMod3) {
                     // Set newObj.constructor = func so that `thrown.constructor === Ctor` works.
+                    // Per spec, constructor is {writable:true, enumerable:false, configurable:true}
+                    // → bits 0x3 (0x1=writable, 0x2=configurable, 0x4=enumerable).
                     const proto::ProtoString* ctorKeyC = JSSymbols::constructor(pContext);
-                    if (ctorKeyC && func && func != PROTO_NONE)
+                    if (ctorKeyC && func && func != PROTO_NONE) {
                         newObj = newObj->setAttribute(pContext, ctorKeyC, func);
+                        const proto::ProtoObject* ctorPdK =
+                            pContext->fromUTF8String("__pd_constructor__");
+                        const proto::ProtoString* ctorPd =
+                            ctorPdK ? ctorPdK->asString(pContext) : nullptr;
+                        if (ctorPd)
+                            newObj = newObj->setAttribute(pContext, ctorPd,
+                                pContext->fromInteger(0x3LL)); // writable+configurable, not enumerable
+                    }
                     const auto& nf = *resolvedMod3;
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
@@ -5319,9 +5330,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // ---------------------------------------------------------------
 
             // OP_for_in_start: DEF(for_in_start, 1, 1, 1, none)
-            // Pop object, push a for-in iterator that carries all own enumerable
-            // string-keyed property names (and those inherited from prototype in a
-            // JS sense, though we only cover own properties for now).
+            // Pop object, push a for-in iterator that carries all enumerable
+            // string-keyed property names reachable through the full [[Prototype]]
+            // chain (ES2015+ EnumerateObjectProperties semantics).
             case OP_for_in_start: {
                 const proto::ProtoObject* fiObj = PROTO_NONE;
                 if (!stackEmpty(pContext)) {
@@ -5356,46 +5367,72 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     && !fiObj->isInteger(pContext)
                     && !fiObj->isDouble(pContext)) {
 
-                    // Detect arrays to suppress "length".
+                    // Detect arrays to suppress "length" (check on the original object only).
                     bool fiIsArray = false;
                     if (fiIsArr) {
                         const proto::ProtoObject* af = fiObj->getAttribute(pContext, fiIsArr, false);
                         fiIsArray = af && af != PROTO_NONE;
                     }
 
-                    const proto::ProtoSparseList* fiOwn = fiObj->getOwnAttributes(pContext);
-                    if (fiOwn) {
-                        const proto::ProtoSparseListIterator* it = fiOwn->getIterator(pContext);
-                        while (it && it->hasNext(pContext)) {
-                            unsigned long rk = it->nextKey(pContext);
-                            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(pContext);
-                            const proto::ProtoString* pk =
-                                reinterpret_cast<const proto::ProtoString*>(rk);
-                            if (!pk) continue;
-                            std::string kstr;
-                            pk->toUTF8String(pContext, kstr);
-                            // Skip internal bookkeeping keys (__name__ pattern).
-                            if (kstr.size() >= 4 && kstr[0]=='_' && kstr[1]=='_'
-                                && kstr[kstr.size()-1]=='_' && kstr[kstr.size()-2]=='_') continue;
-                            // Suppress "length" on arrays.
-                            if (fiIsArray && kstr == "length") continue;
-                            // Respect enumerable descriptor flag (bit 2 of __pd_<key>__).
-                            // Missing __pd__ means default=enumerable; explicit 0 in bit 2 = skip.
-                            {
-                                std::string pdks = "__pd_" + kstr + "__";
-                                const proto::ProtoObject* pko = pContext->fromUTF8String(pdks.c_str());
-                                const proto::ProtoString* pdkStr = pko ? pko->asString(pContext) : nullptr;
-                                if (pdkStr) {
-                                    const proto::ProtoObject* pdv =
-                                        fiObj->getAttribute(pContext, pdkStr, false);
-                                    if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
-                                        uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
-                                        if (!(bits & 0x4)) continue; // not enumerable
+                    // Walk the full [[Prototype]] chain per ES2015+ EnumerateObjectProperties.
+                    // Keys seen at closer levels shadow the same key from ancestors.
+                    // A visited-pointer set guards against cycles in the C++ parent chain;
+                    // we stop as soon as getPrototype() returns a node we have already processed.
+                    std::unordered_set<std::string> fiSeen;
+                    std::unordered_set<const proto::ProtoObject*> fiVisited;
+                    const proto::ProtoObject* cursor = fiObj;
+
+                    while (cursor && cursor != PROTO_NONE && cursor != t_nullSentinel) {
+                        if (fiVisited.count(cursor)) break;
+                        fiVisited.insert(cursor);
+
+                        const proto::ProtoSparseList* fiOwn = cursor->getOwnAttributes(pContext);
+                        if (fiOwn) {
+                            const proto::ProtoSparseListIterator* it = fiOwn->getIterator(pContext);
+                            while (it && it->hasNext(pContext)) {
+                                unsigned long rk = it->nextKey(pContext);
+                                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(pContext);
+                                const proto::ProtoString* pk =
+                                    reinterpret_cast<const proto::ProtoString*>(rk);
+                                if (!pk) continue;
+                                std::string kstr;
+                                pk->toUTF8String(pContext, kstr);
+                                // Skip internal bookkeeping keys (__name__ pattern).
+                                if (kstr.size() >= 4 && kstr[0]=='_' && kstr[1]=='_'
+                                    && kstr[kstr.size()-1]=='_' && kstr[kstr.size()-2]=='_') continue;
+                                // Suppress "length" on arrays (own object only).
+                                if (fiIsArray && cursor == fiObj && kstr == "length") continue;
+                                // Own-key shadows any inherited key with the same name.
+                                if (fiSeen.count(kstr)) continue;
+                                fiSeen.insert(kstr);
+                                // Respect enumerable descriptor flag (bit 2 of __pd_<key>__).
+                                // Missing __pd__ means default = enumerable; bit 2 = 0 means skip.
+                                {
+                                    std::string pdks = "__pd_" + kstr + "__";
+                                    const proto::ProtoObject* pko =
+                                        pContext->fromUTF8String(pdks.c_str());
+                                    const proto::ProtoString* pdkStr =
+                                        pko ? pko->asString(pContext) : nullptr;
+                                    if (pdkStr) {
+                                        // Check descriptor on the current cursor level only.
+                                        const proto::ProtoObject* pdv =
+                                            cursor->getAttribute(pContext, pdkStr, false);
+                                        if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
+                                            uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
+                                            if (!(bits & 0x4)) continue; // not enumerable — skip
+                                        }
                                     }
                                 }
+                                addFiKey(kstr);
                             }
-                            addFiKey(kstr);
                         }
+                        // Advance to the next prototype level.
+                        // Prefer an explicit JS [[Prototype]] override (set via
+                        // Object.setPrototypeOf) before falling back to the C++ parent chain.
+                        const proto::ProtoObject* next = getJSProtoOverride(cursor);
+                        if (!next) next = cursor->getPrototype(pContext);
+                        if (!next || next == PROTO_NONE || next == t_nullSentinel) break;
+                        cursor = next;
                     }
                 }
 

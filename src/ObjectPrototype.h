@@ -24,6 +24,13 @@ const proto::ProtoObject* installObjectInstanceMethods(
 void ensureObjectConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot);
 
+/**
+ * Return the explicit JS [[Prototype]] override for obj, as set by
+ * Object.setPrototypeOf(). Returns nullptr when no override exists.
+ * Used by the for-in walk in ProtoInterpreter to honour setPrototypeOf.
+ */
+const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj);
+
 } // namespace protojs
 
 #endif // PROTOJS_OBJECTPROTOTYPE_H

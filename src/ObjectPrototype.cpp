@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 namespace protojs {
@@ -307,6 +308,14 @@ static thread_local std::unordered_set<const proto::ProtoObject*> t_frozenObject
 static thread_local std::unordered_set<const proto::ProtoObject*> t_sealedObjects;
 static thread_local std::unordered_set<const proto::ProtoObject*> t_nonExtensibleObjects;
 
+// Map from a JS object to its explicitly-overridden [[Prototype]], set by
+// Object.setPrototypeOf(). protoCore objects are immutable so we cannot change
+// the C++ parent pointer; we track the override out-of-band instead.
+// Objects in this map are always reachable (the map itself holds the reference),
+// so the GC will not reclaim them while the override is active.
+static thread_local std::unordered_map<const proto::ProtoObject*,
+                                       const proto::ProtoObject*> t_jsProtoMap;
+
 // Returns true if obj is a JS primitive (not a plain object or array).
 // JS null is represented as t_nullSentinel (a real ProtoObject cell), so we
 // must check it explicitly.
@@ -486,14 +495,47 @@ static const proto::ProtoObject* objectGetPrototypeOf(
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
-    // JS primitives: wrap them (spec coerces to object in ES6+)
-    // For our purposes, return the prototype of the object.
+    // Check for an explicit JS prototype override first.
+    {
+        auto it = t_jsProtoMap.find(obj);
+        if (it != t_jsProtoMap.end()) return it->second;
+    }
+    // Fall back to the C++ (protoCore) parent chain.
     const proto::ProtoObject* proto = obj->getPrototype(ctx);
     if (!proto || proto == PROTO_NONE) {
         // No prototype → return JS null sentinel
         return getNullSentinel();
     }
     return proto;
+}
+
+// ---------------------------------------------------------------------------
+// Object.setPrototypeOf(obj, proto) — ES2015 §19.1.2.20
+// Changes the [[Prototype]] of obj to proto.
+// protoCore objects are immutable, so we track the override in a thread-local
+// map rather than modifying the C++ parent pointer.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectSetPrototypeOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) < 2) return PROTO_NONE;
+    const proto::ProtoObject* obj   = args->getAt(ctx, 0);
+    const proto::ProtoObject* proto = args->getAt(ctx, 1);
+    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    // Per spec, non-extensible objects throw TypeError — skip that check for now.
+    if (!proto || proto == PROTO_NONE || proto == getNullSentinel()) {
+        // Setting proto to null removes any override.
+        t_jsProtoMap.erase(obj);
+    } else {
+        t_jsProtoMap[obj] = proto;
+    }
+    // Spec: returns the modified object.
+    return obj;
 }
 
 // ---------------------------------------------------------------------------
@@ -1096,9 +1138,20 @@ const proto::ProtoObject* installObjectInstanceMethods(
     const proto::ProtoObject* base)
 {
     if (!ctx || !base) return base;
+    // Register a built-in method and mark it as {writable:true, configurable:true,
+    // enumerable:false} per ECMAScript — bits 0x3 (0x1=writable, 0x2=configurable).
     auto reg = [&](const char* name, proto::ProtoMethod fn) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr;
-        if (key) base = base->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* key =
+            ctx->fromUTF8String(name) ? ctx->fromUTF8String(name)->asString(ctx) : nullptr;
+        if (key) {
+            base = base->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
+            std::string pdKeyStr = std::string("__pd_") + name + "__";
+            const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
+            const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+            if (pdk)
+                base = base->setAttribute(ctx, pdk,
+                    ctx->fromInteger(0x3LL)); // writable+configurable, not enumerable
+        }
     };
     reg("hasOwnProperty",       objectHasOwnProperty);
     reg("propertyIsEnumerable", objectPropertyIsEnumerable);
@@ -1154,7 +1207,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("isExtensible",          objectIsExtensible,          1);
     reg("getOwnPropertyNames",   objectGetOwnPropertyNames,   1);
     reg("getPrototypeOf",        objectGetPrototypeOf,        1);
-    reg("setPrototypeOf",        objectGetPrototypeOf,        2); // stub: same as getPrototypeOf
+    reg("setPrototypeOf",        objectSetPrototypeOf,        2);
     reg("fromEntries",           objectFromEntries,           1);
     reg("hasOwn",                objectHasOwn,                2);
     reg("defineProperty",           objectDefineProperty,        3);
@@ -1167,6 +1220,13 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyObject, ctor);
+}
+
+const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj)
+{
+    if (!obj) return nullptr;
+    auto it = t_jsProtoMap.find(obj);
+    return (it != t_jsProtoMap.end()) ? it->second : nullptr;
 }
 
 } // namespace protojs
