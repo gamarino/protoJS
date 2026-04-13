@@ -1041,18 +1041,33 @@ static const proto::ProtoObject* objectToString(
         }
     }
 
-    // Symbol.toStringTag / __toStringTag__: check own and inherited.
+    // Symbol.toStringTag lookup: check both the internal sidecar key "__toStringTag__"
+    // (used by built-in class prototypes) and the WKS string key "Symbol.toStringTag"
+    // (used by user code writing `obj[Symbol.toStringTag] = 'tag'`, because
+    // Symbol.toStringTag evaluates to the string "Symbol.toStringTag" in this runtime).
     {
-        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
-        if (tagKey) {
-            const proto::ProtoObject* tagVal = self->getAttribute(ctx, tagKey, true);
-            if (tagVal && tagVal != PROTO_NONE && tagVal->isString(ctx)) {
-                std::string tag;
-                tagVal->asString(ctx)->toUTF8String(ctx, tag);
-                if (!tag.empty())
-                    return ctx->fromUTF8String(("[object " + tag + "]").c_str());
-            }
+        // Helper lambda: extract a string tag value from a protoCore attribute lookup.
+        auto tryTagKey = [&](const proto::ProtoString* key) -> std::string {
+            if (!key) return {};
+            const proto::ProtoObject* val = self->getAttribute(ctx, key, true);
+            if (!val || val == PROTO_NONE || !val->isString(ctx)) return {};
+            std::string tag;
+            val->asString(ctx)->toUTF8String(ctx, tag);
+            return tag;
+        };
+
+        // 1. Try internal sidecar key used by built-in prototypes.
+        std::string tag = tryTagKey(JSSymbols::toStringTag(ctx));
+
+        // 2. If not found, try the WKS string key "Symbol.toStringTag".
+        if (tag.empty()) {
+            const proto::ProtoObject* wksKeyObj = ctx->fromUTF8String("Symbol.toStringTag");
+            const proto::ProtoString* wksKey = wksKeyObj ? wksKeyObj->asString(ctx) : nullptr;
+            tag = tryTagKey(wksKey);
         }
+
+        if (!tag.empty())
+            return ctx->fromUTF8String(("[object " + tag + "]").c_str());
     }
 
     return ctx->fromUTF8String("[object Object]");
