@@ -1080,9 +1080,11 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         const proto::ProtoObject* wrapper = ctx->newObject(true);
         if (!wrapper) return;
 
-        // __native_fn__ — marks this as a callable native wrapper
+        // __native_fn__ — marks this as a callable native wrapper.
+        // Pass nullptr as receiver (not mp) so the method cell is receiver-agnostic;
+        // `this` is resolved at call time from the call site, matching wrapNativeFunction.
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        const proto::ProtoObject* rawMethod = ctx->fromMethod(mp, fn);
+        const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
         if (nfKey && rawMethod) wrapper = wrapper->setAttribute(ctx, nfKey, rawMethod);
 
         // length: {writable:false, enumerable:false, configurable:true} → 0x2
@@ -1097,7 +1099,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         // name: {writable:false, enumerable:false, configurable:true} → 0x2
         const proto::ProtoString* nmKey = JSSymbols::name(ctx);
         if (nmKey) {
-            wrapper = wrapper->setAttribute(ctx, nmKey, ctx->fromUTF8String(name));
+            wrapper = wrapper->setAttribute(ctx, nmKey, ctx->fromUTF8String(name ? name : ""));
             const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
             const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
             if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
