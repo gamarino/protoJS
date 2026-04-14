@@ -25,6 +25,7 @@ namespace {
 /** Convert any ProtoObject to its string representation. */
 static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE) return "";
+    if (obj == getNullSentinel()) return "null";
     std::string r;
     if (obj->isString(ctx)) {
         obj->asString(ctx)->toUTF8String(ctx, r);
