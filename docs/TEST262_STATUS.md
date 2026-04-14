@@ -18,7 +18,40 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 37 Snapshot — 2026-04-13  ✅ CURRENT
+## Phase 38 Snapshot — 2026-04-14  ✅ CURRENT
+
+> **Phase 38 target:** Number + Function corrections — `Number.MIN_VALUE` corrected to `denorm_min()` (5e-324), `Number.prototype.toFixed` throws `RangeError` for fractionDigits outside [0, 100], `Function.prototype` methods (call/apply/bind/toString) made non-enumerable with descriptor bits `0x3`, and `Function` constructor `name`/`length` properties given descriptor bits `0x2`.
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Number-1776175296389.json`
+> - `tests/test262/reports/snapshot-built-ins-Function-1776175345426.json`
+> - `tests/test262/reports/snapshot-language-expressions-1776175929870.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 37 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Number` | 338 | 102 | **30.2%** | 101 (29.9%) | **+1 pass (+0.3 pp)** |
+| `built-ins/Function` | 509 | 214 | **42.0%** | 213 (41.8%) | **+1 pass (+0.2 pp)** |
+| `language/expressions` | 11,036 | 9,422 | **85.4%** | 9,419 (85.3%) | **+3 passes (no regression)** |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `Number.MIN_VALUE` — corrected to `std::numeric_limits<double>::denorm_min()` (5e-324) | `src/NumberPrototype.cpp` | +1 |
+| `Number.prototype.toFixed` — throws `RangeError` for fractionDigits outside [0, 100] | `src/NumberPrototype.cpp` | +~0 (range.js now passes, other tests offset) |
+| `Function.prototype` methods (call/apply/bind/toString) — descriptor bits `0x3` (non-enumerable) | `src/FunctionPrototype.cpp` | +1 |
+| `Function` constructor `name`/`length` — descriptor bits `0x2` (non-writable, configurable, non-enumerable) | `src/FunctionPrototype.cpp` | included above |
+
+### Notes
+
+- `built-ins/Number`: 102/338 (30.2%). `Number.MIN_VALUE` now returns the correct subnormal value (5e-324) and `toFixed` throws RangeError for out-of-range fractionDigits. The expected larger recovery did not materialize because many toFixed and MIN_VALUE tests also require other unimplemented features (numeric separator literals, legacy octal string edge cases).
+- `built-ins/Function`: 214/509 (42.0%). Function.prototype methods now have correct descriptor bits (`enumerable: false`). The expected large recovery (~70-80 tests) did not materialize because `Function.prototype` methods are installed as raw `ProtoMethod` objects rather than wrappers — using `installNonEnumerableMethod` would have caused a circular dependency (`methodPrototype` is not set until after these methods are installed). The remaining 295 failures are `failed_semantics` (282) and `failed_syntax` (13), predominantly testing `new.target`, bound-function subclassing, and constructor patterns.
+- `language/expressions`: 9,422/11,036 (85.4%). Three additional passes, no regression.
+
+---
+
+## Phase 37 Snapshot — 2026-04-13  (superseded by Phase 38)
 
 > **Phase 37 target:** Number + Function built-in conformance — `Number.prototype.toString` RangeError for invalid radix, Number constants with correct non-writable/non-enumerable/non-configurable descriptors (0x0), `Number.prototype` methods made non-enumerable via `installNonEnumerableMethod`, `Function.prototype.toString` includes function name and throws TypeError for non-callables, and `wrapNativeFunction` sets `name`/`length` with non-writable/non-enumerable/configurable descriptor (0x2).
 > Snapshot files:
