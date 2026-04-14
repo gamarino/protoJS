@@ -118,7 +118,12 @@ void BuildBooleanPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 {
     if (!space || !ctx || !objectProto) return;
 
-    const proto::ProtoObject* bp = objectProto->newChild(ctx, false);
+    // Must be mutable so JS-level assignments (Boolean.prototype.x = y) modify
+    // the object in-place. An immutable prototype would produce a new snapshot
+    // on every setAttribute, leaving space->booleanPrototype stale and causing
+    // attribute lookups on primitive booleans (PROTO_TRUE/PROTO_FALSE) to miss
+    // the newly assigned properties.
+    const proto::ProtoObject* bp = objectProto->newChild(ctx, true);
     proto::ProtoObject* mutableBp = const_cast<proto::ProtoObject*>(bp);
 
     const proto::ProtoObject* keyValueOfObj  = ctx->fromUTF8String("valueOf");

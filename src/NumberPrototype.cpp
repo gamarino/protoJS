@@ -382,7 +382,10 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                          const proto::ProtoObject* objectProto) {
     if (!space || !ctx || !objectProto) return;
 
-    const proto::ProtoObject* numberProto = objectProto->newChild(ctx, false);
+    // Must be mutable so JS-level assignments (Number.prototype.x = y) modify
+    // the object in-place, keeping space->smallIntegerPrototype consistent and
+    // ensuring attribute lookups on primitive numbers find newly added properties.
+    const proto::ProtoObject* numberProto = objectProto->newChild(ctx, true);
 
     numberProto = installNonEnumerableMethod(ctx, numberProto, "valueOf",       numberValueOf,       0);
     numberProto = installNonEnumerableMethod(ctx, numberProto, "toString",      numberToString,      1);

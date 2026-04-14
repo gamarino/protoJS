@@ -821,6 +821,58 @@ static void updateMapping(proto::ProtoContext* pContext, const proto::ProtoObjec
 }
 
 // ---------------------------------------------------------------------------
+// Per ECMAScript, built-in prototype objects are mutable from JS (e.g.
+// Boolean.prototype.myProp = x). In protoCore, prototype objects are
+// immutable: setAttribute returns a new snapshot. We must update the
+// space->xxxPrototype pointer so that subsequent getAttribute() calls on
+// primitive singletons (PROTO_TRUE, PROTO_FALSE, integer/double singletons,
+// etc.) find the newly added properties via the parent chain.
+// This is called from OP_put_field, OP_define_field, and OP_put_array_el
+// whenever a new snapshot is produced.
+// ---------------------------------------------------------------------------
+static void updateSpacePrototypeIfMatching(proto::ProtoContext* pContext,
+                                           const proto::ProtoObject* oldObj,
+                                           const proto::ProtoObject* newObj) {
+    if (!pContext || !pContext->space || !oldObj || !newObj || oldObj == newObj)
+        return;
+    proto::ProtoSpace* sp = pContext->space;
+    // Boolean.prototype
+    if (sp->booleanPrototype == oldObj) {
+        sp->booleanPrototype = const_cast<proto::ProtoObject*>(newObj);
+        return;
+    }
+    // Number.prototype (integers and doubles share one JS prototype)
+    if (sp->smallIntegerPrototype == oldObj) {
+        sp->smallIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
+        sp->largeIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
+        sp->doublePrototype       = const_cast<proto::ProtoObject*>(newObj);
+        return;
+    }
+    if (sp->largeIntegerPrototype == oldObj) {
+        sp->largeIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
+        sp->smallIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
+        sp->doublePrototype       = const_cast<proto::ProtoObject*>(newObj);
+        return;
+    }
+    if (sp->doublePrototype == oldObj) {
+        sp->doublePrototype       = const_cast<proto::ProtoObject*>(newObj);
+        sp->smallIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
+        sp->largeIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
+        return;
+    }
+    // String.prototype
+    if (sp->stringPrototype == oldObj) {
+        sp->stringPrototype = const_cast<proto::ProtoObject*>(newObj);
+        return;
+    }
+    // Object.prototype (root)
+    if (sp->objectPrototype == oldObj) {
+        sp->objectPrototype = const_cast<proto::ProtoObject*>(newObj);
+        return;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Generator protocol helpers (defined before runBytecode so OP_initial_yield
 // can reference the ProtoMethod function pointers).
 // These functions live in namespace protojs (same as runBytecode).
@@ -2452,6 +2504,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
                     if (newObj != obj) {
                         updateMapping(pContext, obj, newObj);
+                        updateSpacePrototypeIfMatching(pContext, obj, newObj);
                     }
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
@@ -2500,6 +2553,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                     updateMapping(pContext, obj, newObj);
+                    updateSpacePrototypeIfMatching(pContext, obj, newObj);
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
                     stackPush(pContext, newObj ? newObj : obj);
@@ -3041,6 +3095,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
                     updateMapping(pContext, obj, newObj);
+                    updateSpacePrototypeIfMatching(pContext, obj, newObj);
                     // Update .length if index is a valid array index (non-negative integer).
                     // JS array semantics: assigning x[n] = v updates length to max(length, n+1).
                     if (index && index->isInteger(pContext)) {

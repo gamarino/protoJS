@@ -23,9 +23,10 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
     space->objectPrototype = const_cast<proto::ProtoObject*>(objectProto);
 
     out->object = objectProto;
-    out->array = objectProto->newChild(ctx, false);
-    out->arguments = objectProto->newChild(ctx, false);
-    out->regexp = objectProto->newChild(ctx, false);
+    // Mutable so JS-level mutations (Array.prototype.x = y, etc.) are in-place.
+    out->array = objectProto->newChild(ctx, true);
+    out->arguments = objectProto->newChild(ctx, true);
+    out->regexp = objectProto->newChild(ctx, false); // built by BuildRegExpPrototype below
 
     BuildNumberPrototype(space, ctx, objectProto);
     BuildStringPrototype(space, ctx, objectProto);

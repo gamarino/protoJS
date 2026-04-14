@@ -1557,9 +1557,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     // Parent: objectPrototype (so Object.prototype methods are inherited).
     // ------------------------------------------------------------------
     const proto::ProtoObject* objectProto = ctx->space->objectPrototype;
+    // Must be mutable so JS-level mutations (Array.prototype.x = y) modify the
+    // object in-place.  An immutable prototype would produce a new snapshot on
+    // every setAttribute, causing s_arrayProto to go stale and breaking
+    // Array.prototype extension from user code.
     const proto::ProtoObject* proto = objectProto
-        ? objectProto->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? objectProto->newChild(ctx, true)
+        : ctx->newObject(true);
 
     // Convenience: add each method.
     struct { const char* name; proto::ProtoMethod fn; long long length; } methods[] = {

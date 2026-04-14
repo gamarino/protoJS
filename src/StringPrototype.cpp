@@ -1063,7 +1063,10 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         if (chk && chk != PROTO_NONE) return; // already built
     }
 
-    const proto::ProtoObject* sp = baseProto->newChild(ctx, false);
+    // Must be mutable so JS-level assignments (String.prototype.x = y) modify
+    // the object in-place, keeping space->stringPrototype consistent and
+    // ensuring attribute lookups on primitive strings find newly added properties.
+    const proto::ProtoObject* sp = baseProto->newChild(ctx, true);
     proto::ProtoObject* mp = const_cast<proto::ProtoObject*>(sp);
 
     // Helper lambda to register one method with correct .length and .name descriptors.
