@@ -497,7 +497,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     setConst("MAX_SAFE_INTEGER",   9007199254740991.0);
     setConst("MIN_SAFE_INTEGER",  -9007199254740991.0);
     setConst("MAX_VALUE",          std::numeric_limits<double>::max());
-    setConst("MIN_VALUE",          std::numeric_limits<double>::min());
+    setConst("MIN_VALUE",          std::numeric_limits<double>::denorm_min());
     setConst("POSITIVE_INFINITY",  std::numeric_limits<double>::infinity());
     setConst("NEGATIVE_INFINITY", -std::numeric_limits<double>::infinity());
     setConst("NaN",                std::numeric_limits<double>::quiet_NaN());
