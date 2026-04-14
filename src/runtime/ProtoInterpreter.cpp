@@ -3959,7 +3959,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint32_t argc = get_u16(buf + pc);
                 pc += 2;
                 if (stackSize(pContext) < argc + 2) return PROTO_NONE;
-                
+
                 const proto::ProtoObject* func = stackAt(pContext, argc + 1);
                 const proto::ProtoObject* newTarget = stackAt(pContext, argc);
                 
@@ -4049,7 +4049,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* strK = JSSymbols::stringCtor(pContext);
                     const proto::ProtoString* bFnK = JSSymbols::boundFn(pContext);
 
-                    if (func && func != PROTO_NONE && arrayK && func->getAttribute(pContext, arrayK, false) == PROTO_TRUE) {
+                    // Extract constructor-type marker attributes once.
+                    // NOTE: getAttribute returns nullptr when a key is absent, and PROTO_NONE
+                    // when the key is present but set to undefined. The original checks
+                    // used `!= PROTO_NONE` which incorrectly matched the absent (nullptr) case,
+                    // causing unrelated constructors to enter the wrong branch. Both nullptr and
+                    // PROTO_NONE mean "this marker is not set on this function".
+                    const proto::ProtoObject* arrayAttr = (func && func != PROTO_NONE && arrayK)
+                        ? func->getAttribute(pContext, arrayK, false) : nullptr;
+                    const proto::ProtoObject* errAttr   = (func && func != PROTO_NONE && errK)
+                        ? func->getAttribute(pContext, errK, false) : nullptr;
+                    const proto::ProtoObject* reAttr    = (func && func != PROTO_NONE && reK)
+                        ? func->getAttribute(pContext, reK, false) : nullptr;
+                    const proto::ProtoObject* taAttr    = (func && func != PROTO_NONE && taK)
+                        ? func->getAttribute(pContext, taK, false) : nullptr;
+                    const proto::ProtoObject* strAttr   = (func && func != PROTO_NONE && strK)
+                        ? func->getAttribute(pContext, strK, false) : nullptr;
+
+                    if (arrayAttr == PROTO_TRUE) {
                         const proto::ProtoString* pk = JSSymbols::prototype(pContext);
                         const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
                         const proto::ProtoObject* arr = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
@@ -4061,37 +4078,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(finalArgc)));
                         }
                         result = arr;
-                    } else if (func && func != PROTO_NONE && errK && func->getAttribute(pContext, errK, false) != PROTO_NONE) {
-                        const proto::ProtoObject* tn = func->getAttribute(pContext, errK, false);
+                    } else if (errAttr && errAttr != PROTO_NONE) {
                         std::string msg, type;
                         if (argc > 0) {
                             const proto::ProtoObject* mVal = toString(pContext, argsList->getAt(pContext, 0));
                             if (mVal && mVal->isString(pContext)) mVal->asString(pContext)->toUTF8String(pContext, msg);
                         }
-                        if (tn && tn->isString(pContext)) tn->asString(pContext)->toUTF8String(pContext, type);
+                        if (errAttr->isString(pContext)) errAttr->asString(pContext)->toUTF8String(pContext, type);
                         result = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
-                    } else if (func && func != PROTO_NONE && reK && func->getAttribute(pContext, reK, false) == PROTO_TRUE) {
+                    } else if (reAttr == PROTO_TRUE) {
                         const proto::ProtoString* pk = JSSymbols::prototype(pContext);
                         const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
                         const proto::ProtoObject* re = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
                         result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
-                    } else if (func && func != PROTO_NONE && taK && func->getAttribute(pContext, taK, false) != PROTO_NONE) {
-                        const proto::ProtoObject* tag = func->getAttribute(pContext, taK, false);
-                        if (tag->isString(pContext)) {
-                            std::string name; tag->asString(pContext)->toUTF8String(pContext, name);
+                    } else if (taAttr && taAttr != PROTO_NONE) {
+                        if (taAttr->isString(pContext)) {
+                            std::string name; taAttr->asString(pContext)->toUTF8String(pContext, name);
                             if (name == "ArrayBuffer") {
                                 unsigned long bl = 0;
                                 if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) bl = (unsigned long)std::max(0LL, argsList->getAt(pContext,0)->asLong(pContext));
                                 result = createArrayBuffer(pContext, bl);
                             }
-                        } else if (tag->isInteger(pContext)) {
-                            uint8_t et = (uint8_t)tag->asLong(pContext);
+                        } else if (taAttr->isInteger(pContext)) {
+                            uint8_t et = (uint8_t)taAttr->asLong(pContext);
                             const proto::ProtoObject* pr = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
                             if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) {
                                 result = createTypedArrayFromLength(pContext, pr, et, (uint32_t)argsList->getAt(pContext,0)->asLong(pContext));
                             } else result = createTypedArrayFromLength(pContext, pr, et, 0);
                         }
-                    } else if (func && func != PROTO_NONE && strK && func->getAttribute(pContext, strK, false) == PROTO_TRUE) {
+                    } else if (strAttr == PROTO_TRUE) {
+                        // String wrapper constructor: new String("hello") → object with [[PrimitiveValue]].
                         const proto::ProtoObject* pv = toString(pContext, finalArgc > 0 ? argsList->getAt(pContext, 0) : PROTO_NONE);
                         newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
                         result = newObj;
@@ -4222,14 +4238,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* arrayCtorAttr = JSSymbols::arrayCtor(pContext);
                         const proto::ProtoString* strCtorAttr = JSSymbols::stringCtor(pContext);
 
-                        if (func && func != PROTO_NONE && errCtorAttr && func->getAttribute(pContext, errCtorAttr, false) != PROTO_NONE) {
-                            const proto::ProtoObject* errTN = func->getAttribute(pContext, errCtorAttr, false);
+                        // getAttribute returns nullptr when a key is absent and PROTO_NONE when
+                        // explicitly set to undefined. Check for both to avoid false matches.
+                        const proto::ProtoObject* errAttrVal = (func && func != PROTO_NONE && errCtorAttr)
+                            ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
+                        if (errAttrVal && errAttrVal != PROTO_NONE) {
                             std::string msg, type;
                             if (argc > 0) {
                                 const proto::ProtoObject* msgObj = toString(pContext, stackAt(pContext, argc - 1));
                                 if (msgObj && msgObj->isString(pContext)) msgObj->asString(pContext)->toUTF8String(pContext, msg);
                             }
-                            if (errTN && errTN->isString(pContext)) errTN->asString(pContext)->toUTF8String(pContext, type);
+                            if (errAttrVal->isString(pContext)) errAttrVal->asString(pContext)->toUTF8String(pContext, type);
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             const proto::ProtoObject* err = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
                             if (is_tail_call) return err;
