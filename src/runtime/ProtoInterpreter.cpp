@@ -4047,8 +4047,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* reK = JSSymbols::regexpCtor(pContext);
                     const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
                     const proto::ProtoString* strK = JSSymbols::stringCtor(pContext);
-                    const proto::ProtoString* bFnK = JSSymbols::boundFn(pContext);
-
                     // Extract constructor-type marker attributes once.
                     // NOTE: getAttribute returns nullptr when a key is absent, and PROTO_NONE
                     // when the key is present but set to undefined. The original checks
