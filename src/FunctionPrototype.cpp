@@ -149,12 +149,65 @@ static const proto::ProtoObject* fnBind(
 
 static const proto::ProtoObject* fnToString(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    return ctx->fromUTF8String("function () { [native code] }");
+    // Per ES2019 §19.2.3.5: must be called on a callable; otherwise TypeError.
+    // A callable is: a raw native method, a JS closure (has __bytecode_id__),
+    // a wrapNativeFunction wrapper (has __native_fn__), or a bound function
+    // (has __bound_fn__).
+    bool isCallable = false;
+    if (self && self != PROTO_NONE) {
+        if (self->isMethod(ctx)) {
+            isCallable = true;
+        } else {
+            // JS closure: has __bytecode_id__ integer attribute.
+            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+            if (bcKey) {
+                const proto::ProtoObject* bcVal = self->getAttribute(ctx, bcKey, false);
+                if (bcVal && bcVal != PROTO_NONE && bcVal->isInteger(ctx))
+                    isCallable = true;
+            }
+            // wrapNativeFunction wrapper: has __native_fn__ method attribute.
+            if (!isCallable) {
+                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                if (nfKey) {
+                    const proto::ProtoObject* nfVal = self->getAttribute(ctx, nfKey, false);
+                    if (nfVal && nfVal != PROTO_NONE && nfVal->isMethod(ctx))
+                        isCallable = true;
+                }
+            }
+            // Bound function: has __bound_fn__ attribute.
+            if (!isCallable) {
+                const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+                if (bfKey) {
+                    const proto::ProtoObject* bfVal = self->getAttribute(ctx, bfKey, false);
+                    if (bfVal && bfVal != PROTO_NONE)
+                        isCallable = true;
+                }
+            }
+        }
+    }
+    if (!isCallable) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Function.prototype.toString requires a callable"));
+        return PROTO_NONE;
+    }
+
+    // Extract the function's name attribute.
+    std::string fnName;
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
+    if (nameKey) {
+        const proto::ProtoObject* nameVal = self->getAttribute(ctx, nameKey, true);
+        if (nameVal && nameVal != PROTO_NONE && nameVal->isString(ctx)) {
+            nameVal->asString(ctx)->toUTF8String(ctx, fnName);
+        }
+    }
+
+    std::string result = "function " + fnName + "() { [native code] }";
+    return ctx->fromUTF8String(result.c_str());
 }
 
 } // anonymous namespace

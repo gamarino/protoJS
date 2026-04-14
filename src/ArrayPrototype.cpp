@@ -1629,14 +1629,9 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     for (auto& s : statics) {
         const proto::ProtoString* key = ctx->fromUTF8String(s.name)->asString(ctx);
         if (key) {
-            const proto::ProtoObject* fn = ctx->fromMethod(nullptr, s.fn);
-            if (fn && fn != PROTO_NONE) {
-                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-                const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-                if (lenKey) fn = fn->setAttribute(ctx, lenKey, ctx->fromInteger(s.length));
-                if (nameKey) fn = fn->setAttribute(ctx, nameKey, ctx->fromUTF8String(s.name));
-            }
-            if (fn) ctor = ctor->setAttribute(ctx, key, fn);
+            const proto::ProtoObject* fn = wrapNativeFunction(ctx, s.fn, s.name, s.length, globalRoot);
+            if (fn && fn != PROTO_NONE)
+                ctor = ctor->setAttribute(ctx, key, fn);
         }
     }
 
