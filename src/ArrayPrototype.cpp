@@ -84,10 +84,17 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
     arr = arr->setAttribute(ctx, key, val ? val : PROTO_NONE);
     unsigned long curLen = arrLen(ctx, arr);
     if (idx + 1 > curLen) {
-        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-        if (lenKey)
-            arr = arr->setAttribute(ctx, lenKey,
-                                    ctx->fromInteger(static_cast<long long>(idx + 1)));
+        // Only bump length on real arrays (carrying __is_array__ marker),
+        // not on plain objects used as array-likes — that would shadow prototype getters.
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArrVal = isArrKey
+            ? arr->getAttribute(ctx, isArrKey, true) : nullptr;
+        if (isArrVal == PROTO_TRUE) {
+            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+            if (lenKey)
+                arr = arr->setAttribute(ctx, lenKey,
+                                        ctx->fromInteger(static_cast<long long>(idx + 1)));
+        }
     }
     return arr;
 }
@@ -96,6 +103,13 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* arr,
                                             unsigned long newLen) {
     if (!arr) return PROTO_NONE;
+    // Only bump length on real arrays (carrying __is_array__ marker),
+    // not on plain objects used as array-likes — that would shadow prototype getters.
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    const proto::ProtoObject* isArrVal = isArrKey
+        ? arr->getAttribute(ctx, isArrKey, true) : nullptr;
+    if (isArrVal != PROTO_TRUE) return arr;
+
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return arr;
     return arr->setAttribute(ctx, key,
