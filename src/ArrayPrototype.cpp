@@ -35,7 +35,7 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     if (!arr || arr == PROTO_NONE) return 0;
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return 0;
-    const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, false);
+    const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, true);
     if (!lenObj || lenObj == PROTO_NONE) return 0;
     if (lenObj->isInteger(ctx)) {
         long long v = lenObj->asLong(ctx);
@@ -67,7 +67,7 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     if (!arr || arr == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return PROTO_NONE;
-    const proto::ProtoObject* val = arr->getAttribute(ctx, key, false);
+    const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
     return val ? val : PROTO_NONE;
 }
 
