@@ -3949,348 +3949,150 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 break;
             }
             case OP_call_constructor: {
-                // Stack: ... func, newTarget, arg0, ..., arg(argc-1). Create new object, call func as ctor, return object or result.
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t argc = get_u16(buf + pc);
                 pc += 2;
                 if (stackSize(pContext) < argc + 2) return PROTO_NONE;
+                
                 const proto::ProtoObject* func = stackAt(pContext, argc + 1);
                 const proto::ProtoObject* newTarget = stackAt(pContext, argc);
-                // Use func.prototype as newObj prototype if available (needed for `instanceof` to work).
-                const proto::ProtoString* newObjProtoKey = JSSymbols::prototype(pContext);
-                const proto::ProtoObject* funcProtoForNew = (newObjProtoKey && func && func != PROTO_NONE)
-                    ? func->getAttribute(pContext, newObjProtoKey, false) : nullptr;
-                const proto::ProtoObject* newObj = (funcProtoForNew && funcProtoForNew != PROTO_NONE)
-                    ? funcProtoForNew->newChild(pContext, true)
-                    : pContext->newObject(true);
-                if (!newObj) { for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext); stackPush(pContext, PROTO_NONE); break; }
+                
                 const proto::ProtoList* argsList = pContext->newList();
                 for (uint32_t i = 0; i < argc; i++)
                     argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                
+                // ES spec: Unwrapping bound functions for construct calls.
+                const proto::ProtoString* bfK = JSSymbols::boundFn(pContext);
+                while (func && func != PROTO_NONE && bfK) {
+                    const proto::ProtoObject* target = func->getAttribute(pContext, bfK, false);
+                    if (!target || target == PROTO_NONE) break;
+                    const proto::ProtoObject* bArgs = func->getAttribute(pContext, JSSymbols::boundArgs(pContext), false);
+                    
+                    const proto::ProtoList* merged = pContext->newList();
+                    if (bArgs && bArgs != PROTO_NONE) {
+                        long long blen = 0;
+                        const proto::ProtoObject* lo = bArgs->getAttribute(pContext, JSSymbols::length(pContext), false);
+                        if (lo && lo->isInteger(pContext)) blen = lo->asLong(pContext);
+                        for (long long bi = 0; bi < blen; bi++)
+                            merged = merged->appendLast(pContext, bArgs->getAttribute(pContext, JSSymbols::indexKey(pContext, (uint32_t)bi), false));
+                    }
+                    for (int i = 0; i < argsList->getSize(pContext); i++)
+                        merged = merged->appendLast(pContext, argsList->getAt(pContext, i));
+                    
+                    argsList = merged;
+                    if (newTarget == func) newTarget = target;
+                    func = target;
+                }
+                uint32_t finalArgc = static_cast<uint32_t>(argsList->getSize(pContext));
+
                 for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+
+                // 1. Create the new object instance using the unwrapped func (which has prototype).
+                const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                const proto::ProtoObject* funcProto = (protoKey && func && func != PROTO_NONE)
+                    ? func->getAttribute(pContext, protoKey, false) : nullptr;
+                const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
+                    ? funcProto->newChild(pContext, true)
+                    : pContext->newObject(true);
+                
+                if (!newObj) {
+                    stackPush(pContext, PROTO_NONE);
+                    break;
+                }
+                
                 const proto::ProtoObject* result = PROTO_NONE;
+                
+                // 2. Dispatch.
                 int bcId = getBytecodeId(pContext, func);
-                // Resolve bytecode ID: current module first, then root module.
-                const ProtoBytecodeModule* resolvedMod3 = nullptr;
+                const ProtoBytecodeModule* resolved = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
-                    resolvedMod3 = &nested[bcId];
+                    resolved = &nested[bcId];
                 else if (bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-                    resolvedMod3 = &t_rootModule->nestedFunctions[bcId];
-                if (resolvedMod3) {
-                    // Set newObj.constructor = func so that `thrown.constructor === Ctor` works.
-                    // Per spec, constructor is {writable:true, enumerable:false, configurable:true}
-                    // → bits 0x3 (0x1=writable, 0x2=configurable, 0x4=enumerable).
-                    const proto::ProtoString* ctorKeyC = JSSymbols::constructor(pContext);
-                    if (ctorKeyC && func && func != PROTO_NONE) {
-                        newObj = newObj->setAttribute(pContext, ctorKeyC, func);
-                        const proto::ProtoObject* ctorPdK =
-                            pContext->fromUTF8String("__pd_constructor__");
-                        const proto::ProtoString* ctorPd =
-                            ctorPdK ? ctorPdK->asString(pContext) : nullptr;
-                        if (ctorPd)
-                            newObj = newObj->setAttribute(pContext, ctorPd,
-                                pContext->fromInteger(0x3LL)); // writable+configurable, not enumerable
+                    resolved = &t_rootModule->nestedFunctions[bcId];
+
+                if (resolved) {
+                    const proto::ProtoString* cKey = JSSymbols::constructor(pContext);
+                    if (cKey) {
+                        newObj = newObj->setAttribute(pContext, cKey, func);
+                        setNWCDescriptor(pContext, newObj, "constructor");
                     }
-                    const auto& nf = *resolvedMod3;
+                    
+                    const auto& nf = *resolved;
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
-                    for (uint32_t i = 0; i < argc; i++)
+                    for (uint32_t i = 0; i < finalArgc; i++)
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot, &childEx);
-                    childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
                         break;
                     }
                 } else if (func && func->isMethod(pContext)) {
-                    // Invoke the native constructor directly via asMethod().
                     const proto::ProtoMethod ctorFn = func->asMethod(pContext);
                     result = ctorFn ? ctorFn(pContext, newObj, nullptr, argsList, nullptr) : PROTO_NONE;
                 } else {
-                    // Check for the Array constructor (marked with __array_ctor__).
-                    const proto::ProtoString* arrayCtorAttr =
-                        JSSymbols::arrayCtor(pContext);
-                    const proto::ProtoObject* isArrayCtor =
-                        (func && func != PROTO_NONE && arrayCtorAttr)
-                            ? func->getAttribute(pContext, arrayCtorAttr, false) : nullptr;
-                    if (isArrayCtor && isArrayCtor == PROTO_TRUE) {
-                        // Obtain Array.prototype from the constructor's "prototype" attribute.
-                        const proto::ProtoString* protoAttr =
-                            JSSymbols::prototype(pContext);
-                        const proto::ProtoObject* arrProto = (protoAttr && func)
-                            ? func->getAttribute(pContext, protoAttr, false) : nullptr;
-                        const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
-                            ? arrProto->newChild(pContext, true)
-                            : pContext->newObject(true);
-                        if (argc == 0) {
-                            // new Array() → empty array.
-                            const proto::ProtoString* lk = JSSymbols::length(pContext);
-                            if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(0LL));
-                        } else if (argc == 1) {
-                            const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
-                            bool isNumeric = a0 && (a0->isInteger(pContext) ||
-                                                    a0->isDouble(pContext) || a0->isFloat(pContext));
-                            if (isNumeric) {
-                                // new Array(n) → pre-allocated array of length n.
-                                long long n = a0->isInteger(pContext)
-                                    ? a0->asLong(pContext)
-                                    : static_cast<long long>(a0->asDouble(pContext));
-                                const proto::ProtoString* lk = JSSymbols::length(pContext);
-                                if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(n));
-                            } else {
-                                // new Array(elem) → [elem].
-                                const proto::ProtoString* k0 = JSSymbols::indexKey(pContext, 0);
-                                if (k0) arr = arr->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
-                                const proto::ProtoString* lk = JSSymbols::length(pContext);
-                                if (lk) arr = arr->setAttribute(pContext, lk, pContext->fromInteger(1LL));
-                            }
+                    // Specialized: Array, Error, RegExp, etc.
+                    const proto::ProtoString* arrayK = JSSymbols::arrayCtor(pContext);
+                    const proto::ProtoString* errK = JSSymbols::errorCtor(pContext);
+                    const proto::ProtoString* reK = JSSymbols::regexpCtor(pContext);
+                    const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
+                    const proto::ProtoString* strK = JSSymbols::stringCtor(pContext);
+                    const proto::ProtoString* bFnK = JSSymbols::boundFn(pContext);
+
+                    if (func && func != PROTO_NONE && arrayK && func->getAttribute(pContext, arrayK, false) == PROTO_TRUE) {
+                        const proto::ProtoString* pk = JSSymbols::prototype(pContext);
+                        const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
+                        const proto::ProtoObject* arr = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
+                        if (finalArgc == 1 && argsList->getAt(pContext, 0)->isInteger(pContext)) {
+                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext), argsList->getAt(pContext, 0));
                         } else {
-                            // new Array(a, b, c, …) → [a, b, c, …].
-                            for (uint32_t ai = 0; ai < argc; ai++) {
-                                const proto::ProtoString* ki =
-                                    JSSymbols::indexKey(pContext, static_cast<uint32_t>(ai));
-                                if (ki)
-                                    arr = arr->setAttribute(pContext, ki,
-                                                            argsList->getAt(pContext, static_cast<int>(ai)));
-                            }
-                            const proto::ProtoString* lk = JSSymbols::length(pContext);
-                            if (lk)
-                                arr = arr->setAttribute(pContext, lk,
-                                                        pContext->fromInteger(static_cast<long long>(argc)));
+                            for (uint32_t i = 0; i < finalArgc; i++)
+                                arr = arr->setAttribute(pContext, JSSymbols::indexKey(pContext, i), argsList->getAt(pContext, i));
+                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(finalArgc)));
                         }
                         result = arr;
-                    } else {
-                        // Check for built-in error constructor stub.
-                        const proto::ProtoString* errCtorAttr = JSSymbols::errorCtor(pContext);
-                        const proto::ProtoObject* errTypeName = (func && func != PROTO_NONE && errCtorAttr)
-                            ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
-                        if (errTypeName && errTypeName != PROTO_NONE && errTypeName->isString(pContext)) {
-                            const proto::ProtoObject* msgArg = (argc > 0) ? argsList->getAt(pContext, 0) : PROTO_NONE;
-                            const proto::ProtoObject* msgStr = toString(pContext, msgArg);
-                            std::string msgStr2;
-                            if (msgStr && msgStr != PROTO_NONE && msgStr->isString(pContext))
-                                msgStr->asString(pContext)->toUTF8String(pContext, msgStr2);
-                            std::string errType;
-                            errTypeName->asString(pContext)->toUTF8String(pContext, errType);
-                            result = makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot);
-                            } else {
-                            // Check for RegExp constructor (marked with __regexp_ctor__).
-                            const proto::ProtoString* regexpCtorAttr =
-                                JSSymbols::regexpCtor(pContext);
-                            const proto::ProtoObject* isRegExpCtor =
-                                (func && func != PROTO_NONE && regexpCtorAttr)
-                                    ? func->getAttribute(pContext, regexpCtorAttr, false) : nullptr;
-                            if (isRegExpCtor && isRegExpCtor == PROTO_TRUE) {
-                                // Obtain RegExp.prototype from the constructor's "prototype" attribute.
-                                const proto::ProtoString* protoAttr =
-                                    JSSymbols::prototype(pContext);
-                                const proto::ProtoObject* reProto = (protoAttr && func)
-                                    ? func->getAttribute(pContext, protoAttr, false) : nullptr;
-                                const proto::ProtoObject* re = (reProto && reProto != PROTO_NONE)
-                                    ? reProto->newChild(pContext, true)
-                                    : pContext->newObject(true);
-
-                                // Call the native regexpConstructor logic.
-                                result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
-                            } else {
-                                // Check for __typed_array_ctor__ marker (ArrayBuffer, DataView, TypedArray).
-                                const proto::ProtoString* taCtorAttr = JSSymbols::taCtor(pContext);
-                                const proto::ProtoObject* taCtorTag = (func && func != PROTO_NONE && taCtorAttr)
-                                    ? func->getAttribute(pContext, taCtorAttr, false) : nullptr;
-                                if (taCtorTag && taCtorTag != PROTO_NONE) {
-                                    if (taCtorTag->isString(pContext)) {
-                                        std::string ctorNameStr;
-                                        taCtorTag->asString(pContext)->toUTF8String(pContext, ctorNameStr);
-                                        if (ctorNameStr == "ArrayBuffer") {
-                                            unsigned long byteLen = 0;
-                                            if (argc > 0) {
-                                                const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
-                                                if (a0 && a0 != PROTO_NONE) {
-                                                    if (a0->isInteger(pContext))
-                                                        byteLen = static_cast<unsigned long>(std::max(0LL, a0->asLong(pContext)));
-                                                    else if (a0->isDouble(pContext) || a0->isFloat(pContext))
-                                                        byteLen = static_cast<unsigned long>(std::max(0.0, a0->asDouble(pContext)));
-                                                }
-                                            }
-                                            result = createArrayBuffer(pContext, byteLen);
-                                        } else if (ctorNameStr == "DataView") {
-                                            // new DataView(buffer [, byteOffset [, byteLength]])
-                                            if (argc < 1) { result = PROTO_NONE; break; }
-                                            const proto::ProtoObject* abArg = argsList->getAt(pContext, 0);
-                                            if (!isArrayBuffer(pContext, abArg)) { result = PROTO_NONE; break; }
-
-                                            unsigned long abLen = getArrayBufferByteLength(pContext, abArg);
-                                            long long bo = 0;
-                                            long long bl = static_cast<long long>(abLen);
-                                            if (argc > 1) {
-                                                const proto::ProtoObject* a1 = argsList->getAt(pContext, 1);
-                                                if (a1 && a1 != PROTO_NONE) {
-                                                    if (a1->isInteger(pContext)) bo = a1->asLong(pContext);
-                                                    else if (a1->isDouble(pContext) || a1->isFloat(pContext))
-                                                        bo = static_cast<long long>(a1->asDouble(pContext));
-                                                }
-                                            }
-                                            if (argc > 2) {
-                                                const proto::ProtoObject* a2 = argsList->getAt(pContext, 2);
-                                                if (a2 && a2 != PROTO_NONE) {
-                                                    if (a2->isInteger(pContext)) bl = a2->asLong(pContext);
-                                                    else if (a2->isDouble(pContext) || a2->isFloat(pContext))
-                                                        bl = static_cast<long long>(a2->asDouble(pContext));
-                                                } else {
-                                                    bl = static_cast<long long>(abLen) - bo;
-                                                }
-                                            } else {
-                                                bl = static_cast<long long>(abLen) - bo;
-                                            }
-
-                                            // Validate range.
-                                            if (bo < 0 || bo > static_cast<long long>(abLen) ||
-                                                bl < 0 || bo + bl > static_cast<long long>(abLen)) {
-                                                result = PROTO_NONE; break;
-                                            }
-
-                                            // Build DataView instance from prototype chain.
-                                            const proto::ProtoObject* dvCtorObj =
-                                                (*pGlobalRoot)->getAttribute(pContext, JSSymbols::DataView(pContext), true);
-                                            const proto::ProtoObject* dvProtoObj = dvCtorObj && dvCtorObj != PROTO_NONE
-                                                ? dvCtorObj->getAttribute(pContext, JSSymbols::prototype(pContext), false)
-                                                : nullptr;
-                                            const proto::ProtoObject* dv = (dvProtoObj && dvProtoObj != PROTO_NONE)
-                                                ? dvProtoObj->newChild(pContext, true)
-                                                : pContext->newObject(true);
-                                            dv = dv->setAttribute(pContext, JSSymbols::dvBuffer(pContext), abArg);
-                                            dv = dv->setAttribute(pContext, JSSymbols::dvByteOffset(pContext), pContext->fromInteger(bo));
-                                            dv = dv->setAttribute(pContext, JSSymbols::dvByteLength(pContext), pContext->fromInteger(bl));
-                                            result = dv;
-                                        } // end DataView branch
-                                    } else if (taCtorTag->isInteger(pContext)) {
-                                        // TypedArray constructor: elemType is the integer tag.
-                                        uint8_t elemType = static_cast<uint8_t>(taCtorTag->asLong(pContext));
-                                        const proto::ProtoObject* taProto =
-                                            func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
-
-                                        if (argc == 0) {
-                                            result = createTypedArrayFromLength(pContext, taProto, elemType, 0);
-                                        } else {
-                                            const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
-                                            if (a0 && a0 != PROTO_NONE && isArrayBuffer(pContext, a0)) {
-                                                // new TypedArray(buffer [, byteOffset [, length]])
-                                                long long bo = 0, len = -1;
-                                                if (argc > 1) {
-                                                    const proto::ProtoObject* a1 = argsList->getAt(pContext, 1);
-                                                    if (a1 && a1->isInteger(pContext)) bo = a1->asLong(pContext);
-                                                    else if (a1 && (a1->isDouble(pContext) || a1->isFloat(pContext))) bo = static_cast<long long>(a1->asDouble(pContext));
-                                                }
-                                                if (argc > 2) {
-                                                    const proto::ProtoObject* a2 = argsList->getAt(pContext, 2);
-                                                    if (a2 && a2->isInteger(pContext)) len = a2->asLong(pContext);
-                                                    else if (a2 && (a2->isDouble(pContext) || a2->isFloat(pContext))) len = static_cast<long long>(a2->asDouble(pContext));
-                                                }
-                                                result = createTypedArrayFromBuffer(pContext, taProto, elemType, a0, bo, len);
-                                            } else if (a0 && a0 != PROTO_NONE && isTypedArray(pContext, a0)) {
-                                                // Copy from another TypedArray
-                                                uint32_t srcLen = getTypedArrayLength(pContext, a0);
-                                                uint8_t srcEt = getTypedArrayElementType(pContext, a0);
-                                                result = createTypedArrayFromLength(pContext, taProto, elemType, srcLen);
-                                                if (result && result != PROTO_NONE) {
-                                                    for (uint32_t idx = 0; idx < srcLen; idx++) {
-                                                        const proto::ProtoObject* elem = typedArrayGetElement(pContext, a0, idx, srcEt);
-                                                        typedArraySetElement(pContext, result, idx, elem, elemType);
-                                                    }
-                                                }
-                                            } else if (a0 && a0 != PROTO_NONE &&
-                                                       (a0->isInteger(pContext) || a0->isDouble(pContext) || a0->isFloat(pContext))) {
-                                                // new TypedArray(length)
-                                                long long lenVal = a0->isInteger(pContext) ? a0->asLong(pContext) : static_cast<long long>(a0->asDouble(pContext));
-                                                uint32_t length = lenVal > 0 ? static_cast<uint32_t>(lenVal) : 0;
-                                                result = createTypedArrayFromLength(pContext, taProto, elemType, length);
-                                            } else if (a0 && a0 != PROTO_NONE) {
-                                                // Array-like or iterable: get .length and numeric indices
-                                                const proto::ProtoObject* lenObj2 = a0->getAttribute(pContext, JSSymbols::length(pContext), true);
-                                                uint32_t srcLen = 0;
-                                                if (lenObj2 && lenObj2 != PROTO_NONE && lenObj2->isInteger(pContext))
-                                                    srcLen = static_cast<uint32_t>(std::max(0LL, lenObj2->asLong(pContext)));
-                                                result = createTypedArrayFromLength(pContext, taProto, elemType, srcLen);
-                                                if (result && result != PROTO_NONE) {
-                                                    for (uint32_t idx = 0; idx < srcLen; idx++) {
-                                                        const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, idx);
-                                                        const proto::ProtoObject* elem = a0->getAttribute(pContext, idxKey, false);
-                                                        if (elem && elem != PROTO_NONE)
-                                                            typedArraySetElement(pContext, result, idx, elem, elemType);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // Check for String wrapper constructor (__string_ctor__).
-                                    const proto::ProtoString* strCtorAttr2 = JSSymbols::stringCtor(pContext);
-                                    const proto::ProtoObject* isStrCtor2 =
-                                        (func && func != PROTO_NONE && strCtorAttr2)
-                                            ? func->getAttribute(pContext, strCtorAttr2, false) : nullptr;
-                                    if (isStrCtor2 && isStrCtor2 == PROTO_TRUE) {
-                                        // new String(arg) — store primitive value on wrapper object.
-                                        const proto::ProtoObject* a0 = (argc > 0) ? argsList->getAt(pContext, 0) : PROTO_NONE;
-                                        const proto::ProtoObject* strVal = toString(pContext, a0 ? a0 : PROTO_NONE);
-                                        const proto::ProtoString* pvKey2 = JSSymbols::primitiveValue(pContext);
-                                        if (pvKey2 && strVal && strVal != PROTO_NONE) {
-                                            newObj = newObj->setAttribute(pContext, pvKey2, strVal);
-                                            // Set the .length property to the UTF-16 code unit count
-                                            // (matches the ECMAScript string length semantics).
-                                            const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
-                                            if (lenKey2) {
-                                                std::string utf8;
-                                                const proto::ProtoString* ps2 = strVal->asString(pContext);
-                                                if (ps2) ps2->toUTF8String(pContext, utf8);
-                                                // Count UTF-16 code units (surrogate pairs count as 2).
-                                                long long utf16len = 0;
-                                                for (size_t ci = 0; ci < utf8.size(); ) {
-                                                    auto ch = static_cast<unsigned char>(utf8[ci]);
-                                                    int nb;
-                                                    uint32_t cp;
-                                                    if      (ch < 0x80) { cp = ch;        nb = 1; }
-                                                    else if (ch < 0xE0) { cp = ch & 0x1F; nb = 2; }
-                                                    else if (ch < 0xF0) { cp = ch & 0x0F; nb = 3; }
-                                                    else                { cp = ch & 0x07; nb = 4; }
-                                                    for (int ji = 1; ji < nb && ci + ji < utf8.size(); ji++)
-                                                        cp = (cp << 6) | (static_cast<unsigned char>(utf8[ci + ji]) & 0x3F);
-                                                    ci += nb;
-                                                    utf16len += (cp >= 0x10000) ? 2 : 1;
-                                                }
-                                                newObj = newObj->setAttribute(pContext, lenKey2,
-                                                    pContext->fromInteger(utf16len));
-                                            }
-                                        }
-                                        result = newObj;
-                                    } else {
-                                        // Generic: if the constructor carries a __construct__ native method,
-                                        // invoke it directly (e.g. Promise, Map, Set, WeakMap, etc.).
-                                        const proto::ProtoObject* ctorKeyObj2 =
-                                            pContext->fromUTF8String("__construct__");
-                                        const proto::ProtoString* ctorKeySym2 =
-                                            ctorKeyObj2 ? ctorKeyObj2->asString(pContext) : nullptr;
-                                        const proto::ProtoObject* ctorMethod2 =
-                                            (ctorKeySym2 && func && func != PROTO_NONE)
-                                                ? func->getAttribute(pContext, ctorKeySym2, false) : nullptr;
-                                        if (ctorMethod2 && ctorMethod2 != PROTO_NONE
-                                            && ctorMethod2->isMethod(pContext)) {
-                                            proto::ProtoMethod ctorFn2 = ctorMethod2->asMethod(pContext);
-                                            if (ctorFn2)
-                                                result = ctorFn2(pContext, newObj, nullptr, argsList, nullptr);
-                                        }
-                                    }
-                                }
+                    } else if (func && func != PROTO_NONE && errK && func->getAttribute(pContext, errK, false) != PROTO_NONE) {
+                        const proto::ProtoObject* tn = func->getAttribute(pContext, errK, false);
+                        std::string msg, type;
+                        if (argc > 0) {
+                            const proto::ProtoObject* mVal = toString(pContext, argsList->getAt(pContext, 0));
+                            if (mVal && mVal->isString(pContext)) mVal->asString(pContext)->toUTF8String(pContext, msg);
+                        }
+                        if (tn && tn->isString(pContext)) tn->asString(pContext)->toUTF8String(pContext, type);
+                        result = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
+                    } else if (func && func != PROTO_NONE && reK && func->getAttribute(pContext, reK, false) == PROTO_TRUE) {
+                        const proto::ProtoString* pk = JSSymbols::prototype(pContext);
+                        const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
+                        const proto::ProtoObject* re = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
+                        result = regexpConstructor(pContext, re, nullptr, argsList, nullptr);
+                    } else if (func && func != PROTO_NONE && taK && func->getAttribute(pContext, taK, false) != PROTO_NONE) {
+                        const proto::ProtoObject* tag = func->getAttribute(pContext, taK, false);
+                        if (tag->isString(pContext)) {
+                            std::string name; tag->asString(pContext)->toUTF8String(pContext, name);
+                            if (name == "ArrayBuffer") {
+                                unsigned long bl = 0;
+                                if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) bl = (unsigned long)std::max(0LL, argsList->getAt(pContext,0)->asLong(pContext));
+                                result = createArrayBuffer(pContext, bl);
                             }
-                            }
-                            }
-
+                        } else if (tag->isInteger(pContext)) {
+                            uint8_t et = (uint8_t)tag->asLong(pContext);
+                            const proto::ProtoObject* pr = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
+                            if (finalArgc > 0 && argsList->getAt(pContext,0)->isInteger(pContext)) {
+                                result = createTypedArrayFromLength(pContext, pr, et, (uint32_t)argsList->getAt(pContext,0)->asLong(pContext));
+                            } else result = createTypedArrayFromLength(pContext, pr, et, 0);
+                        }
+                    } else if (func && func != PROTO_NONE && strK && func->getAttribute(pContext, strK, false) == PROTO_TRUE) {
+                        const proto::ProtoObject* pv = toString(pContext, finalArgc > 0 ? argsList->getAt(pContext, 0) : PROTO_NONE);
+                        newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
+                        result = newObj;
+                    }
                 }
-                bool resultIsObject = result && result != PROTO_NONE
-                    && !result->isInteger(pContext) && !result->isDouble(pContext)
-                    && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
+
+                bool resultIsObject = result && result != PROTO_NONE && !result->isInteger(pContext) && !result->isDouble(pContext) && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
                 stackPush(pContext, resultIsObject ? result : newObj);
                 break;
             }
@@ -4301,8 +4103,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             case OP_call2:
             case OP_call3:
             case OP_call: {
-                // is_tail_call: when true, the result should be returned immediately instead of
-                // pushed to the value stack (mirrors QuickJS's tail-call frame reuse).
                 bool is_tail_call = (opcode == OP_tail_call);
                 uint32_t argc;
                 if (opcode >= OP_call0 && opcode <= OP_call3) {
@@ -4314,7 +4114,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
-                // Unwrap native function wrapper (__native_fn__).
+                int bcId = getBytecodeId(pContext, func);
+
+                // 1. Unwrap native function wrapper (__native_fn__).
                 {
                     const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(pContext);
                     if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)) {
@@ -4323,21 +4125,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             func = rawMethod2;
                     }
                 }
-                int bcId = getBytecodeId(pContext, func);
-                // Resolve the bytecode ID: first try the current module, then the root module.
+
+                // 2. Dispatch.
+                bcId = getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolvedModule = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
                     resolvedModule = &nested[bcId];
                 else if (bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
                     resolvedModule = &t_rootModule->nestedFunctions[bcId];
+
                 if (resolvedModule) {
                     const auto& nf = *resolvedModule;
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                    // OP_call has no `this` slot on the stack; spec mandates undefined.
-                    // Arrow functions override this with the lexical this captured at closure time.
+                    
                     const proto::ProtoObject* callThisVal = PROTO_NONE;
                     if (nf.isArrow) {
                         const proto::ProtoObject* captured =
@@ -4364,13 +4167,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (func && func->isMethod(pContext)) {
-                    // OP_call: no `this` on the stack; pass undefined as receiver.
                     const proto::ProtoObject* thisVal = PROTO_NONE;
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                    // Invoke the native function directly via asMethod().
+
                     const proto::ProtoMethod nativeFn = func->asMethod(pContext);
                     const proto::ProtoObject* result = nativeFn
                         ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
@@ -4385,146 +4187,75 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
-                    // Check if this is a built-in error constructor stub (registered by
-                    // ensureBuiltinErrorConstructors). If so, call makeError with the first arg.
-                    const proto::ProtoString* errCtorAttr = JSSymbols::errorCtor(pContext);
-                    const proto::ProtoObject* errTypeName = (func && func != PROTO_NONE && errCtorAttr)
-                        ? func->getAttribute(pContext, errCtorAttr, false) : nullptr;
-                    if (errTypeName && errTypeName != PROTO_NONE && errTypeName->isString(pContext)) {
-                        const proto::ProtoObject* msgArg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
-                        const proto::ProtoObject* msgStr = toString(pContext, msgArg);
-                        std::string msgStr2;
-                        if (msgStr && msgStr != PROTO_NONE && msgStr->isString(pContext))
-                            msgStr->asString(pContext)->toUTF8String(pContext, msgStr2);
-                        std::string errType;
-                        errTypeName->asString(pContext)->toUTF8String(pContext, errType);
+                    // Check for specialized callables (BoundFn, Error, Array, String).
+                    // We check BoundFn first because it can wrap any other callable.
+                    const proto::ProtoString* boundFnAttr = JSSymbols::boundFn(pContext);
+                    const proto::ProtoObject* target = (func && func != PROTO_NONE && boundFnAttr) 
+                        ? func->getAttribute(pContext, boundFnAttr, false) : PROTO_NONE;
+
+                    if (target && target != PROTO_NONE) {
+                        const proto::ProtoObject* bThis = func->getAttribute(pContext, JSSymbols::boundThis(pContext), false);
+                        const proto::ProtoObject* bArgs = func->getAttribute(pContext, JSSymbols::boundArgs(pContext), false);
+                        
+                        const proto::ProtoList* merged = pContext->newList();
+                        if (bArgs && bArgs != PROTO_NONE) {
+                            long long blen = 0;
+                            const proto::ProtoObject* lo = bArgs->getAttribute(pContext, JSSymbols::length(pContext), false);
+                            if (lo && lo->isInteger(pContext)) blen = lo->asLong(pContext);
+                            for (long long bi = 0; bi < blen; bi++) {
+                                merged = merged->appendLast(pContext, bArgs->getAttribute(pContext, JSSymbols::indexKey(pContext, (uint32_t)bi), false));
+                            }
+                        }
+                        for (uint32_t i = 0; i < argc; i++) merged = merged->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                        { const proto::ProtoObject* _r = makeError(pContext, errType.c_str(), msgStr2.c_str(), pGlobalRoot);
-                          if (is_tail_call) return _r ? _r : PROTO_NONE;
-                          stackPush(pContext, _r); }
+                        const proto::ProtoObject* res = callJSFunction(pContext, target, bThis ? bThis : PROTO_NONE, merged);
+                        if (is_tail_call) return res;
+                        stackPush(pContext, res);
                     } else {
-                        // Check if this is the Array constructor called without `new`.
-                        // Per spec, Array(...) is equivalent to new Array(...).
-                        const proto::ProtoString* arrayCtorAttr2 =
-                            JSSymbols::arrayCtor(pContext);
-                        const proto::ProtoObject* isArrayCtor2 =
-                            (func && func != PROTO_NONE && arrayCtorAttr2)
-                                ? func->getAttribute(pContext, arrayCtorAttr2, false) : nullptr;
-                        if (isArrayCtor2 && isArrayCtor2 == PROTO_TRUE) {
-                            const proto::ProtoList* argsList = pContext->newList();
-                            for (uint32_t i = 0; i < argc; i++)
-                                argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                        const proto::ProtoString* errCtorAttr = JSSymbols::errorCtor(pContext);
+                        const proto::ProtoString* arrayCtorAttr = JSSymbols::arrayCtor(pContext);
+                        const proto::ProtoString* strCtorAttr = JSSymbols::stringCtor(pContext);
+
+                        if (func && func != PROTO_NONE && errCtorAttr && func->getAttribute(pContext, errCtorAttr, false) != PROTO_NONE) {
+                            const proto::ProtoObject* errTN = func->getAttribute(pContext, errCtorAttr, false);
+                            std::string msg, type;
+                            if (argc > 0) {
+                                const proto::ProtoObject* msgObj = toString(pContext, stackAt(pContext, argc - 1));
+                                if (msgObj && msgObj->isString(pContext)) msgObj->asString(pContext)->toUTF8String(pContext, msg);
+                            }
+                            if (errTN && errTN->isString(pContext)) errTN->asString(pContext)->toUTF8String(pContext, type);
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                            // Reuse the Array constructor logic from OP_call_constructor.
-                            const proto::ProtoString* protoAttr3 =
-                                JSSymbols::prototype(pContext);
-                            const proto::ProtoObject* arrProto3 = (protoAttr3 && func)
-                                ? func->getAttribute(pContext, protoAttr3, false) : nullptr;
-                            const proto::ProtoObject* arr3 = (arrProto3 && arrProto3 != PROTO_NONE)
-                                ? arrProto3->newChild(pContext, true)
-                                : pContext->newObject(true);
-                            if (argc == 0) {
-                                const proto::ProtoString* lk = JSSymbols::length(pContext);
-                                if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(0LL));
-                            } else if (argc == 1) {
-                                const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
-                                bool isNum = a0 && (a0->isInteger(pContext) || a0->isDouble(pContext));
-                                if (isNum) {
-                                    long long n = a0->isInteger(pContext)
-                                        ? a0->asLong(pContext)
-                                        : static_cast<long long>(a0->asDouble(pContext));
-                                    const proto::ProtoString* lk = JSSymbols::length(pContext);
-                                    if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(n));
-                                } else {
-                                    const proto::ProtoString* k0 = JSSymbols::indexKey(pContext, 0);
-                                    if (k0) arr3 = arr3->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
-                                    const proto::ProtoString* lk = JSSymbols::length(pContext);
-                                    if (lk) arr3 = arr3->setAttribute(pContext, lk, pContext->fromInteger(1LL));
-                                }
-                            } else {
-                                for (uint32_t ai = 0; ai < argc; ai++) {
-                                    const proto::ProtoString* ki =
-                                        JSSymbols::indexKey(pContext, ai);
-                                    if (ki) arr3 = arr3->setAttribute(pContext, ki,
-                                        argsList->getAt(pContext, static_cast<int>(ai)));
-                                }
-                                const proto::ProtoString* lk = JSSymbols::length(pContext);
-                                if (lk) arr3 = arr3->setAttribute(pContext, lk,
-                                    pContext->fromInteger(static_cast<long long>(argc)));
-                            }
-                            if (is_tail_call) return arr3 ? arr3 : PROTO_NONE;
-                            stackPush(pContext, arr3 ? arr3 : PROTO_NONE);
+                            const proto::ProtoObject* err = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
+                            if (is_tail_call) return err;
+                            stackPush(pContext, err);
+                        } else if (func && func != PROTO_NONE && arrayCtorAttr && func->getAttribute(pContext, arrayCtorAttr, false) == PROTO_TRUE) {
+                            // Array(...) -> new Array(...)
+                            const proto::ProtoList* argsList = pContext->newList();
+                            for (uint32_t i = 0; i < argc; i++) argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            const proto::ProtoString* protK = JSSymbols::prototype(pContext);
+                            const proto::ProtoObject* prot = func->getAttribute(pContext, protK, false);
+                            const proto::ProtoObject* arr = (prot && prot != PROTO_NONE) ? prot->newChild(pContext, true) : pContext->newObject(true);
+                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(argc)));
+                            if (is_tail_call) return arr;
+                            stackPush(pContext, arr);
+                        } else if (func && func != PROTO_NONE && strCtorAttr && func->getAttribute(pContext, strCtorAttr, false) == PROTO_TRUE) {
+                            const proto::ProtoObject* arg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
+                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            const proto::ProtoObject* s = toString(pContext, arg);
+                            if (is_tail_call) return s;
+                            stackPush(pContext, s);
                         } else {
-                            // Check for String() conversion (marked with __string_ctor__).
-                            const proto::ProtoString* strCtorAttr = JSSymbols::stringCtor(pContext);
-                            const proto::ProtoObject* isStringCtor =
-                                (func && func != PROTO_NONE && strCtorAttr)
-                                    ? func->getAttribute(pContext, strCtorAttr, false) : nullptr;
-                            if (isStringCtor && isStringCtor == PROTO_TRUE) {
-                                const proto::ProtoObject* arg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
-                                for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                                { const proto::ProtoObject* _r = toString(pContext, arg);
-                                  if (is_tail_call) return _r ? _r : PROTO_NONE;
-                                  stackPush(pContext, _r); }
-                            } else {
-                                // Check for bound function sentinel (__bound_fn__ attribute).
-                                const proto::ProtoString* bfCallKey = JSSymbols::boundFn(pContext);
-                                const proto::ProtoObject* bfCallTarget = (func && func != PROTO_NONE && bfCallKey)
-                                    ? func->getAttribute(pContext, bfCallKey, false) : nullptr;
-                                if (bfCallTarget && bfCallTarget != PROTO_NONE) {
-                                    const proto::ProtoString* btCallKey = JSSymbols::boundThis(pContext);
-                                    const proto::ProtoString* baCallKey = JSSymbols::boundArgs(pContext);
-                                    const proto::ProtoObject* boundThisCall =
-                                        (btCallKey) ? func->getAttribute(pContext, btCallKey, false) : PROTO_NONE;
-                                    if (!boundThisCall) boundThisCall = PROTO_NONE;
-                                    const proto::ProtoObject* boundArgsCall =
-                                        (baCallKey) ? func->getAttribute(pContext, baCallKey, false) : nullptr;
-
-                                    // Collect call-site args before popping stack.
-                                    const proto::ProtoList* callSiteArgs = pContext->newList();
-                                    for (uint32_t i = 0; i < argc; i++)
-                                        callSiteArgs = callSiteArgs->appendLast(pContext,
-                                            stackAt(pContext, argc - 1 - i));
-                                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-
-                                    // Prepend pre-bound args to call-site args.
-                                    const proto::ProtoList* mergedCallArgs = pContext->newList();
-                                    if (boundArgsCall && boundArgsCall != PROTO_NONE) {
-                                        const proto::ProtoString* lenKeyCall = JSSymbols::length(pContext);
-                                        long long blenCall = 0;
-                                        if (lenKeyCall) {
-                                            const proto::ProtoObject* lo = boundArgsCall->getAttribute(pContext, lenKeyCall, false);
-                                            if (lo && lo != PROTO_NONE) {
-                                                if (lo->isInteger(pContext))     blenCall = lo->asLong(pContext);
-                                                else if (lo->isDouble(pContext)) blenCall = static_cast<long long>(lo->asDouble(pContext));
-                                            }
-                                        }
-                                        for (long long bi = 0; bi < blenCall; bi++) {
-                                            const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(bi));
-                                            const proto::ProtoObject* av = ik ? boundArgsCall->getAttribute(pContext, ik, false) : PROTO_NONE;
-                                            mergedCallArgs = mergedCallArgs->appendLast(pContext, av ? av : PROTO_NONE);
-                                        }
-                                    }
-                                    int csArgc = callSiteArgs ? callSiteArgs->getSize(pContext) : 0;
-                                    for (int ci = 0; ci < csArgc; ci++)
-                                        mergedCallArgs = mergedCallArgs->appendLast(pContext,
-                                            callSiteArgs->getAt(pContext, ci));
-                                    const proto::ProtoObject* result = callJSFunction(pContext, bfCallTarget, boundThisCall, mergedCallArgs);
-                                    if (is_tail_call) return result ? result : PROTO_NONE;
-                                    stackPush(pContext, result ? result : PROTO_NONE);
-                                } else {
-                                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                                    /* Function not yet converted to ProtoMethod; push PROTO_NONE. */
-                                    if (is_tail_call) return PROTO_NONE;
-                                    stackPush(pContext, PROTO_NONE);
-                                }
-                            }
+                            if (getenv("PROTO_DEBUG_BIND")) printf("[DEBUG] OP_call: no match found, pushing none\n");
+                            for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                            if (is_tail_call) return PROTO_NONE;
+                            stackPush(pContext, PROTO_NONE);
                         }
                     }
                 }
                 break;
             }
-            case OP_fclosure8: {
+    case OP_fclosure8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t idx = buf[pc++];
                 const proto::ProtoObject* rawFn = (idx < cpool.size()) ? cpool[idx] : PROTO_NONE;
@@ -6011,6 +5742,9 @@ const proto::ProtoObject* callJSFunction(
         for (unsigned i = 0; i < argc; i++)
             setSlot(&childCtx, i, args->getAt(&childCtx, static_cast<int>(i)));
         const proto::ProtoObject* childEx = PROTO_NONE;
+        if (getenv("PROTO_DEBUG_BIND")) {
+            printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
+        }
         const proto::ProtoObject* result =
             runBytecode(&childCtx, &nf, effectiveThis, args, globalRoot, &childEx);
         childCtx.returnValue = result;
@@ -6059,6 +5793,9 @@ const proto::ProtoObject* callJSFunction(
             for (int i = 0; i < callArgc; i++) {
                 const proto::ProtoObject* a = args->getAt(ctx, i);
                 mergedArgs = mergedArgs->appendLast(ctx, a ? a : PROTO_NONE);
+            }
+            if (getenv("PROTO_DEBUG_BIND")) {
+                printf("[DEBUG] callJSFunction (bound): target=%p this=%p argc=%d\n", target, effectiveBoundThis, (int)mergedArgs->getSize(ctx));
             }
             return callJSFunction(ctx, target, effectiveBoundThis, mergedArgs);
         }
