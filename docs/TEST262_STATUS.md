@@ -18,7 +18,41 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 36 Snapshot — 2026-04-13  ✅ CURRENT
+## Phase 37 Snapshot — 2026-04-13  ✅ CURRENT
+
+> **Phase 37 target:** Number + Function built-in conformance — `Number.prototype.toString` RangeError for invalid radix, Number constants with correct non-writable/non-enumerable/non-configurable descriptors (0x0), `Number.prototype` methods made non-enumerable via `installNonEnumerableMethod`, `Function.prototype.toString` includes function name and throws TypeError for non-callables, and `wrapNativeFunction` sets `name`/`length` with non-writable/non-enumerable/configurable descriptor (0x2).
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Number-1776132390728.json`
+> - `tests/test262/reports/snapshot-built-ins-Function-1776132434247.json`
+> - `tests/test262/reports/snapshot-language-expressions-1776132542389.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 36 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Number` | 338 | 101 | **29.9%** | 68 (20.1%) | **+33 passes (+9.8 pp)** |
+| `built-ins/Function` | 509 | 213 | **41.8%** | 209 (41.1%) | **+4 passes (+0.7 pp)** |
+| `language/expressions` | 11,036 | 9,419 | **85.3%** | 9,418 (85.3%) | **+1 pass (no regression)** |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `Number.prototype.toString` — throws `RangeError` for radix outside 2–36 | `src/NumberPrototype.cpp` | +~15 |
+| Number constants (`EPSILON`, `MAX_VALUE`, `MIN_VALUE`, `MAX_SAFE_INTEGER`, `MIN_SAFE_INTEGER`, `NaN`, `POSITIVE_INFINITY`, `NEGATIVE_INFINITY`) — descriptor bits 0x0 (non-writable, non-enumerable, non-configurable) | `src/NumberPrototype.cpp` | +~10 |
+| `Number.prototype` methods — non-enumerable via `installNonEnumerableMethod` | `src/NumberPrototype.cpp` | +~5 |
+| `Function.prototype.toString` — result includes function name; throws `TypeError` for non-callable receiver | `src/FunctionPrototype.cpp` | +4 |
+| `wrapNativeFunction` — `name` and `length` properties set with descriptor bits 0x2 (non-writable, non-enumerable, configurable) | `src/FunctionPrototype.cpp` | shared infrastructure |
+
+### Notes
+
+- `built-ins/Number`: 101/338 (29.9%). The 33 new passes come from RangeError enforcement in `toString`, correct descriptor attributes on constants, and non-enumerable method installation. Remaining 237 failures are concentrated in numeric-separator literals (not yet supported) and legacy octal string conversion edge cases.
+- `built-ins/Function`: 213/509 (41.8%). Four additional tests pass after `Function.prototype.toString` was updated to include function names and the TypeError guard for non-callables was added. The remaining 296 failures are split between `failed_syntax` (13, parser-level) and `failed_semantics` (283, mostly `new.target`, bound-function, and subclass patterns).
+- `language/expressions`: 9,419/11,036 (85.3%). One additional test passes; no regression introduced.
+
+---
+
+## Phase 36 Snapshot — 2026-04-13  (superseded by Phase 37)
 
 > **Phase 36 target:** Object conformance — `Symbol.toStringTag` WKS lookup in `Object.prototype.toString`, `for-in` prototype-chain walk (plus `Object.setPrototypeOf`), and `OP_delete` configurable-bit enforcement.
 > Snapshot files:
