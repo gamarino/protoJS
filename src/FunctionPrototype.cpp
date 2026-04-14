@@ -200,7 +200,7 @@ static const proto::ProtoObject* fnToString(
     std::string fnName;
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
-        const proto::ProtoObject* nameVal = self->getAttribute(ctx, nameKey, true);
+        const proto::ProtoObject* nameVal = self->getAttribute(ctx, nameKey, false);
         if (nameVal && nameVal != PROTO_NONE && nameVal->isString(ctx)) {
             nameVal->asString(ctx)->toUTF8String(ctx, fnName);
         }
