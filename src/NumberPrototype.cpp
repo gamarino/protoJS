@@ -1,6 +1,7 @@
 #include "NumberPrototype.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
+#include "PrototypeUtils.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cmath>
@@ -382,22 +383,11 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* numberProto = objectProto->newChild(ctx, false);
     proto::ProtoObject* mutableProto = const_cast<proto::ProtoObject*>(numberProto);
 
-    const proto::ProtoString* keyValueOf      = JSSymbols::valueOf(ctx);
-    const proto::ProtoString* keyToString     = JSSymbols::toString(ctx);
-    const proto::ProtoString* keyToFixed      = JSSymbols::toFixed(ctx);
-    const proto::ProtoString* keyToExponential= JSSymbols::toExponential(ctx);
-    const proto::ProtoString* keyToPrecision  = JSSymbols::toPrecision(ctx);
-
-    numberProto = numberProto->setAttribute(ctx, keyValueOf,
-        ctx->fromMethod(mutableProto, numberValueOf));
-    numberProto = numberProto->setAttribute(ctx, keyToString,
-        ctx->fromMethod(mutableProto, numberToString));
-    numberProto = numberProto->setAttribute(ctx, keyToFixed,
-        ctx->fromMethod(mutableProto, numberToFixed));
-    numberProto = numberProto->setAttribute(ctx, keyToExponential,
-        ctx->fromMethod(mutableProto, numberToExponential));
-    numberProto = numberProto->setAttribute(ctx, keyToPrecision,
-        ctx->fromMethod(mutableProto, numberToPrecision));
+    numberProto = installNonEnumerableMethod(ctx, numberProto, "valueOf",       numberValueOf,       0);
+    numberProto = installNonEnumerableMethod(ctx, numberProto, "toString",      numberToString,      1);
+    numberProto = installNonEnumerableMethod(ctx, numberProto, "toFixed",       numberToFixed,       1);
+    numberProto = installNonEnumerableMethod(ctx, numberProto, "toExponential", numberToExponential, 1);
+    numberProto = installNonEnumerableMethod(ctx, numberProto, "toPrecision",   numberToPrecision,   1);
 
     space->smallIntegerPrototype = const_cast<proto::ProtoObject*>(numberProto);
     space->largeIntegerPrototype = const_cast<proto::ProtoObject*>(numberProto);
