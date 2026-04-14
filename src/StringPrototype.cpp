@@ -925,9 +925,8 @@ const proto::ProtoObject* stringSplit(
         }
     }
 
-    // Non-string separator (e.g., regex): return PROTO_NONE to preserve vacuous-pass
-    if (!sepArg->isString(ctx)) return PROTO_NONE;
-
+    // Non-regexp separator: coerce to string via ToString (ECMAScript step 8).
+    // objToStr handles null→"null", numbers, booleans, etc.
     std::string sep = objToStr(ctx, sepArg);
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(sep);
@@ -1066,18 +1065,44 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     const proto::ProtoObject* sp = baseProto->newChild(ctx, false);
     proto::ProtoObject* mp = const_cast<proto::ProtoObject*>(sp);
 
-    // Helper lambda to register one method with length and name.
-    // Note: BuildStringPrototype is called at space-init time without a globalRoot,
-    // so wrapNativeFunction cannot be used here. The .length is stored directly as
-    // an attribute but will be invisible on raw METHOD cells. String.prototype.X.length
-    // is fixed later by ensureStringConstructor patching strategy; for now, fall back.
+    // Helper lambda to register one method with correct .length and .name descriptors.
+    // Mirrors wrapNativeFunction but without requiring globalRoot, which is unavailable
+    // at space-init time. Each method is wrapped in a plain object carrying:
+    //   __native_fn__  — the raw callable METHOD cell
+    //   length         — arity with descriptor {writable:false, enumerable:false, configurable:true}
+    //   name           — method name with the same non-writable, configurable descriptor
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) {
-            const proto::ProtoObject* mObj = ctx->fromMethod(mp, fn);
-            sp = sp->setAttribute(ctx, key, mObj);
-            (void)length; // length unavailable for raw METHOD cells
+        if (!key) return;
+
+        // Build a wrapper object carrying __native_fn__, length, name.
+        const proto::ProtoObject* wrapper = ctx->newObject(true);
+        if (!wrapper) return;
+
+        // __native_fn__ — marks this as a callable native wrapper
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        const proto::ProtoObject* rawMethod = ctx->fromMethod(mp, fn);
+        if (nfKey && rawMethod) wrapper = wrapper->setAttribute(ctx, nfKey, rawMethod);
+
+        // length: {writable:false, enumerable:false, configurable:true} → 0x2
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            wrapper = wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(length));
+            const proto::ProtoObject* pdlko = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlko ? pdlko->asString(ctx) : nullptr;
+            if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2));
         }
+
+        // name: {writable:false, enumerable:false, configurable:true} → 0x2
+        const proto::ProtoString* nmKey = JSSymbols::name(ctx);
+        if (nmKey) {
+            wrapper = wrapper->setAttribute(ctx, nmKey, ctx->fromUTF8String(name));
+            const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+            if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
+        }
+
+        sp = sp->setAttribute(ctx, key, wrapper);
     };
 
     reg("valueOf",           stringValueOf,       0);
