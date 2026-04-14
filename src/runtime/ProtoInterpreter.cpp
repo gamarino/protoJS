@@ -4164,6 +4164,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* pv = toString(pContext, finalArgc > 0 ? argsList->getAt(pContext, 0) : PROTO_NONE);
                         newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
                         result = newObj;
+                    } else {
+                        // Generic: if the constructor carries a __construct__ native method,
+                        // invoke it directly (Boolean, Number, Map, Set, Promise, WeakMap, etc.).
+                        // This fallback was present before commit 9056944 and must be retained.
+                        const proto::ProtoObject* ctorKeyObj = pContext->fromUTF8String("__construct__");
+                        const proto::ProtoString* ctorKey = ctorKeyObj ? ctorKeyObj->asString(pContext) : nullptr;
+                        const proto::ProtoObject* ctorMethod = (ctorKey && func && func != PROTO_NONE)
+                            ? func->getAttribute(pContext, ctorKey, false) : nullptr;
+                        if (ctorMethod && ctorMethod != PROTO_NONE && ctorMethod->isMethod(pContext)) {
+                            proto::ProtoMethod ctorFn = ctorMethod->asMethod(pContext);
+                            if (ctorFn)
+                                result = ctorFn(pContext, newObj, nullptr, argsList, nullptr);
+                        }
                     }
                 }
 
