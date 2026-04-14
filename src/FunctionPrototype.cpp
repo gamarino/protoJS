@@ -304,8 +304,22 @@ const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
 
     const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
     if (nfKey && rawMethod) wrapper = wrapper->setAttribute(ctx, nfKey, rawMethod);
-    if (lenKey) wrapper = wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(length));
-    if (nmKey)  wrapper = wrapper->setAttribute(ctx, nmKey,  ctx->fromUTF8String(name ? name : ""));
+
+    if (lenKey) {
+        wrapper = wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(length));
+        // length: {writable: false, enumerable: false, configurable: true} → bits = 0x2
+        const proto::ProtoObject* pdlko = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdlk = pdlko ? pdlko->asString(ctx) : nullptr;
+        if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2));
+    }
+
+    if (nmKey) {
+        wrapper = wrapper->setAttribute(ctx, nmKey, ctx->fromUTF8String(name ? name : ""));
+        // name: {writable: false, enumerable: false, configurable: true} → bits = 0x2
+        const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+        if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
+    }
 
     return wrapper ? wrapper : PROTO_NONE;
 }
