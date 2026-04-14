@@ -1495,6 +1495,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
                     if (lenKey2 && argsObj)
                         argsObj = argsObj->setAttribute(pContext, lenKey2, pContext->fromInteger(static_cast<long long>(argc2)));
+                    // Set Symbol.toStringTag so Object.prototype.toString.call(arguments) === "[object Arguments]"
+                    {
+                        const proto::ProtoString* tagKey = JSSymbols::toStringTag(pContext);
+                        if (tagKey && argsObj)
+                            argsObj = argsObj->setAttribute(pContext, tagKey, pContext->fromUTF8String("Arguments"));
+                    }
                     stackPush(pContext, argsObj ? argsObj : PROTO_NONE);
                 } else {
                     // kind 2 = THIS_FUNC, kind 3 = NEW_TARGET — not yet implemented.
