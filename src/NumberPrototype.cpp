@@ -381,7 +381,6 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     if (!space || !ctx || !objectProto) return;
 
     const proto::ProtoObject* numberProto = objectProto->newChild(ctx, false);
-    proto::ProtoObject* mutableProto = const_cast<proto::ProtoObject*>(numberProto);
 
     numberProto = installNonEnumerableMethod(ctx, numberProto, "valueOf",       numberValueOf,       0);
     numberProto = installNonEnumerableMethod(ctx, numberProto, "toString",      numberToString,      1);
