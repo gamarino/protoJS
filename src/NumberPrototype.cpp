@@ -492,8 +492,17 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     // Constants
     auto setConst = [&](const char* name, double val) {
-        const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) ctor = ctor->setAttribute(ctx, key, ctx->fromDouble(val));
+        const proto::ProtoObject* keyObj = ctx->fromUTF8String(name);
+        const proto::ProtoString* key = keyObj ? keyObj->asString(ctx) : nullptr;
+        if (!key) return;
+        ctor = ctor->setAttribute(ctx, key, ctx->fromDouble(val));
+        // Constants: {writable: false, enumerable: false, configurable: false} → bits = 0x0
+        std::string pdKeyStr = "__pd_";
+        pdKeyStr += name;
+        pdKeyStr += "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x0));
     };
     setConst("EPSILON",            std::numeric_limits<double>::epsilon());
     setConst("MAX_SAFE_INTEGER",   9007199254740991.0);
