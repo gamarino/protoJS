@@ -156,7 +156,9 @@ const proto::ProtoObject* numberToFixed(
         }
     }
     if (fractionDigits < 0 || fractionDigits > 100) {
-        fractionDigits = 0;
+        signalNativeException(makeNativeError(context, "RangeError",
+            "Number.prototype.toFixed() fractionDigits must be between 0 and 100"));
+        return PROTO_NONE;
     }
     double value = getNumberValue(context, self);
     char buf[256];
