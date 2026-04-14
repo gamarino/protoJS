@@ -103,7 +103,9 @@ const proto::ProtoObject* numberToString(
         }
     }
     if (radix < 2 || radix > 36) {
-        radix = 10;
+        signalNativeException(makeNativeError(context, "RangeError",
+            "Number.prototype.toString() radix must be between 2 and 36"));
+        return PROTO_NONE;
     }
     double value = getNumberValue(context, self);
     std::string result;
