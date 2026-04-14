@@ -18,7 +18,43 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 38 Snapshot — 2026-04-14  ✅ CURRENT
+## Phase 39 Snapshot — 2026-04-14  ✅ CURRENT
+
+> **Phase 39 target:** Array + String prototype repair — seven root-cause fixes across `ArrayPrototype.cpp`, `StringPrototype.cpp`, and `ProtoInterpreter.cpp`. Track 1 (Array): `arrSet` length guard for non-arrays, `arguments` `@@toStringTag`, built-in prototype mutability for JS-level extension. Track 2 (String): `String.prototype` method `.length` and `.name` via `__native_fn__` wrappers, `stringSplit` null-sentinel coercion, `String` wrapper constructor dispatch, `Boolean`/`Number`/`Map`/`Set` `__construct__` fallback restored.
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Array-1776191910905.json`
+> - `tests/test262/reports/snapshot-built-ins-String-1776191699667.json`
+> - `tests/test262/reports/snapshot-language-expressions-1776192145232.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 38 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Array` | 3,081 | 1,565 | **50.8%** | 1,543 (50.1%) | **+22 passes (+0.7 pp)** |
+| `built-ins/String` | 1,223 | 555 | **45.4%** | 514 (42.0%) | **+41 passes (+3.4 pp)** |
+| `language/expressions` | 11,036 | 9,423 | **85.4%** | 9,422 (85.4%) | **+1 pass (no regression)** |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `arrSet`/`arrSetLen` only bump `length` on real arrays (`__is_array__` guard) | `src/ArrayPrototype.cpp` | included in +22 |
+| `arguments` object gets `@@toStringTag = "Arguments"` | `src/runtime/ProtoInterpreter.cpp` | included in +1 |
+| Built-in prototypes mutable: `Boolean/Number/String/Array.prototype` with `newChild(ctx, true)` | `src/BooleanPrototype.cpp`, `src/NumberPrototype.cpp`, `src/StringPrototype.cpp`, `src/ArrayPrototype.cpp` | included in +22/+41 |
+| `String.prototype` methods get correct `.length` and `.name` via `__native_fn__` wrappers | `src/StringPrototype.cpp` | included in +41 |
+| `stringSplit` coerces non-string/null separator via `objToStr` (null sentinel fix) | `src/StringPrototype.cpp` | included in +41 |
+| `new String("hello")` constructor dispatch fixed — broken `errK != PROTO_NONE` check replaced | `src/runtime/ProtoInterpreter.cpp` | included in +41/+22 |
+| Generic `__construct__` fallback restored for `Boolean`, `Number`, `Map`, `Set`, `Promise` constructors | `src/runtime/ProtoInterpreter.cpp` | restores 234 expressions tests broken by the prior fix |
+
+### Notes
+
+- `built-ins/Array`: 1,565/3,081 (50.8%). `arrSet` now correctly skips `length` update for non-array objects (array-like plain objects). The expected larger recovery from `arrLen`/`arrGet` prototype-chain changes did not materialize because `protoCore`'s `getAttribute` always walks the chain regardless of the bool parameter. Built-in prototype mutability enables `Boolean.prototype[0] = true; Array.prototype.reduce.call(false, ...)` to work correctly.
+- `built-ins/String`: 555/1,223 (45.4%). `String.prototype` methods now expose `.length` (arity) and `.name` (method name) with `__pd_length__`/`__pd_name__` = `0x2` descriptors. `stringSplit` correctly coerces null/number/boolean separators via `ToString`. `new String("hello")` constructor dispatch is fixed. Note: method wrappers don't yet inherit from `Function.prototype` (timing limitation: `methodPrototype` is not available when `BuildStringPrototype` runs).
+- `language/expressions`: 9,423/11,036 (85.4%). +1 pass, no regression. A critical mid-phase regression (−227 from broken `new Boolean(true)`) was fully recovered by restoring the generic `__construct__` fallback handler that commit `9056944` had accidentally removed.
+
+---
+
+## Phase 38 Snapshot — 2026-04-14  (superseded by Phase 39)
 
 > **Phase 38 target:** Number + Function corrections — `Number.MIN_VALUE` corrected to `denorm_min()` (5e-324), `Number.prototype.toFixed` throws `RangeError` for fractionDigits outside [0, 100], `Function.prototype` methods (call/apply/bind/toString) made non-enumerable with descriptor bits `0x3`, and `Function` constructor `name`/`length` properties given descriptor bits `0x2`.
 > Snapshot files:
