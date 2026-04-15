@@ -1258,6 +1258,17 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     regStatic("fromCharCode",  stringFromCharCode,  1);
     regStatic("fromCodePoint", stringFromCodePoint, 1);
 
+    // Set String.prototype.constructor = String (required by ECMAScript).
+    if (ctx->space && ctx->space->stringPrototype) {
+        const proto::ProtoObject* sp =
+            reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype);
+        const proto::ProtoString* ctorKey2 = JSSymbols::constructor(ctx);
+        if (ctorKey2) {
+            sp = sp->setAttribute(ctx, ctorKey2, ctor);
+            ctx->space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
+        }
+    }
+
     // name property
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));

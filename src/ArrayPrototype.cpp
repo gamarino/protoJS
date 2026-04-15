@@ -1775,6 +1775,15 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         }
     }
 
+    // Set Array.prototype.constructor = Array (required by ECMAScript).
+    {
+        const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
+        if (ctorKey) {
+            proto = proto->setAttribute(ctx, ctorKey, ctor);
+            s_arrayProto = proto;
+        }
+    }
+
     // ------------------------------------------------------------------
     // Register on global root.
     // ------------------------------------------------------------------
