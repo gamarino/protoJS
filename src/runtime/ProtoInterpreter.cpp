@@ -1153,7 +1153,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             "Date",
             "BigInt", "AggregateError",
             // Metaprogramming built-in constructors.
-            "Symbol", "Proxy", "WeakRef", "WeakMap", "WeakSet",
+            "Symbol", "Proxy", "WeakRef", "WeakSet",
             "FinalizationRegistry", "Iterator", "Generator", "GeneratorFunction",
             "AsyncFunction", "AsyncGenerator", "AsyncGeneratorFunction",
             "SharedArrayBuffer",
@@ -1214,6 +1214,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureBooleanConstructor(pContext, pGlobalRoot);
     ensureMapConstructor(pContext, pGlobalRoot);
     ensureSetConstructor(pContext, pGlobalRoot);
+    ensureWeakMapConstructor(pContext, pGlobalRoot);
     ensureMathObject(pContext, pGlobalRoot);
     ensureObjectConstructor(pContext, pGlobalRoot);
     ensureFunctionPrototype(pContext, pGlobalRoot);

@@ -20,6 +20,13 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
 void ensureMapConstructor(proto::ProtoContext* ctx,
                           const proto::ProtoObject** globalRoot);
 
+/**
+ * Register the WeakMap constructor in the global root.
+ * Idempotent — no-op when "WeakMap" is already present.
+ */
+void ensureWeakMapConstructor(proto::ProtoContext* ctx,
+                               const proto::ProtoObject** globalRoot);
+
 } // namespace protojs
 
 #endif // PROTOJS_MAPPROTOTYPE_H

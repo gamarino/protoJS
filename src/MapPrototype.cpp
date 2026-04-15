@@ -904,4 +904,227 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
 }
 
+// ---------------------------------------------------------------------------
+// WeakMap — minimal conformant implementation (linear-scan, O(n)).
+//
+// Entries are stored as mutable object attributes named __wm_N_key__ and
+// __wm_N_val__, with __wm_n__ holding the entry count. Keys are compared by
+// object identity (pointer equality), matching ECMAScript WeakMap semantics.
+// ---------------------------------------------------------------------------
+
+static long long wmGetCount(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
+    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
+    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    if (!nKey) return 0;
+    const proto::ProtoObject* nv = self->getAttribute(ctx, nKey, false);
+    if (nv && nv != PROTO_NONE && nv->isInteger(ctx)) return nv->asLong(ctx);
+    return 0;
+}
+
+static const proto::ProtoObject* weakMapSet(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    if (!args || args->getSize(ctx) < 1) return const_cast<proto::ProtoObject*>(self);
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    const proto::ProtoObject* val = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key || key == PROTO_NONE) return const_cast<proto::ProtoObject*>(self);
+
+    long long n = wmGetCount(ctx, self);
+    // Search for existing key (identity comparison).
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) {
+            std::string vstr = "__wm_" + std::to_string(i) + "_val__";
+            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+            if (vs) self = self->setAttribute(ctx, vs, val ? val : PROTO_NONE);
+            return const_cast<proto::ProtoObject*>(self);
+        }
+    }
+    // New entry.
+    std::string kstr = "__wm_" + std::to_string(n) + "_key__";
+    std::string vstr = "__wm_" + std::to_string(n) + "_val__";
+    const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+    const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+    if (ks) self = self->setAttribute(ctx, ks, key);
+    if (vs) self = self->setAttribute(ctx, vs, val ? val : PROTO_NONE);
+    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
+    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n + 1));
+    return const_cast<proto::ProtoObject*>(self);
+}
+
+static const proto::ProtoObject* weakMapGet(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE || !args || args->getSize(ctx) < 1) return PROTO_NONE;
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key || key == PROTO_NONE) return PROTO_NONE;
+    long long n = wmGetCount(ctx, self);
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) {
+            std::string vstr = "__wm_" + std::to_string(i) + "_val__";
+            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+            return vs ? self->getAttribute(ctx, vs, false) : PROTO_NONE;
+        }
+    }
+    return PROTO_NONE;
+}
+
+static const proto::ProtoObject* weakMapHas(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE || !args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key || key == PROTO_NONE) return PROTO_FALSE;
+    long long n = wmGetCount(ctx, self);
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
+}
+
+static const proto::ProtoObject* weakMapDelete(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE || !args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key || key == PROTO_NONE) return PROTO_FALSE;
+    long long n = wmGetCount(ctx, self);
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) {
+            // Swap with last entry to fill the gap (O(1) removal).
+            long long last = n - 1;
+            if (i != last) {
+                std::string lkStr = "__wm_" + std::to_string(last) + "_key__";
+                std::string lvStr = "__wm_" + std::to_string(last) + "_val__";
+                std::string ivStr = "__wm_" + std::to_string(i) + "_val__";
+                const proto::ProtoObject* lko = ctx->fromUTF8String(lkStr.c_str());
+                const proto::ProtoObject* lvo = ctx->fromUTF8String(lvStr.c_str());
+                const proto::ProtoObject* ivo = ctx->fromUTF8String(ivStr.c_str());
+                const proto::ProtoString* lks = lko ? lko->asString(ctx) : nullptr;
+                const proto::ProtoString* lvs = lvo ? lvo->asString(ctx) : nullptr;
+                const proto::ProtoString* ivs = ivo ? ivo->asString(ctx) : nullptr;
+                const proto::ProtoObject* lkv = lks ? self->getAttribute(ctx, lks, false) : PROTO_NONE;
+                const proto::ProtoObject* lvv = lvs ? self->getAttribute(ctx, lvs, false) : PROTO_NONE;
+                if (ks && lkv) self = self->setAttribute(ctx, ks, lkv);
+                if (ivs && lvv) self = self->setAttribute(ctx, ivs, lvv);
+                if (lks) self = self->setAttribute(ctx, lks, PROTO_NONE);
+                if (lvs) self = self->setAttribute(ctx, lvs, PROTO_NONE);
+            } else {
+                std::string vstr = "__wm_" + std::to_string(i) + "_val__";
+                const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+                const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+                self = self->setAttribute(ctx, ks, PROTO_NONE);
+                if (vs) self = self->setAttribute(ctx, vs, PROTO_NONE);
+            }
+            const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
+            const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+            if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n - 1));
+            return PROTO_TRUE;
+        }
+    }
+    return PROTO_FALSE;
+}
+
+static const proto::ProtoObject* weakMapConstruct(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*)
+{
+    if (!self) return PROTO_NONE;
+    // Initialize the entry count to 0; entries are stored lazily.
+    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
+    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(0LL));
+    return const_cast<proto::ProtoObject*>(self);
+}
+
+void ensureWeakMapConstructor(proto::ProtoContext* ctx,
+                               const proto::ProtoObject** globalRoot)
+{
+    if (!ctx || !globalRoot || !*globalRoot) return;
+
+    const proto::ProtoObject* keyObj = ctx->fromUTF8String("WeakMap");
+    const proto::ProtoString* key = keyObj ? keyObj->asString(ctx) : nullptr;
+    if (!key) return;
+
+    const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, key, false);
+    if (existing && existing != PROTO_NONE) return;
+
+    // Build the WeakMap prototype with set/get/has/delete methods.
+    const proto::ProtoObject* proto = ctx->newObject(true);
+    struct Method { const char* name; proto::ProtoMethod fn; int argc; };
+    static const Method kMethods[] = {
+        { "set",    weakMapSet,    2 },
+        { "get",    weakMapGet,    1 },
+        { "has",    weakMapHas,    1 },
+        { "delete", weakMapDelete, 1 },
+        { nullptr,  nullptr,       0 }
+    };
+    for (int i = 0; kMethods[i].name; i++)
+        proto = installNonEnumerableMethod(ctx, proto, kMethods[i].name,
+                                           kMethods[i].fn, kMethods[i].argc);
+
+    // Symbol.toStringTag = "WeakMap"
+    const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+    if (tagKey) proto = proto->setAttribute(ctx, tagKey, ctx->fromUTF8String("WeakMap"));
+
+    // Build the constructor object.
+    const proto::ProtoObject* ctor =
+        (ctx->space && ctx->space->methodPrototype)
+        ? ctx->space->methodPrototype->newChild(ctx, true)
+        : ctx->newObject(true);
+    if (!ctor) return;
+
+    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
+    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("WeakMap"));
+
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
+
+    // __construct__ native handler (called by OP_call_constructor generic fallback).
+    const proto::ProtoObject* constructKeyObj = ctx->fromUTF8String("__construct__");
+    const proto::ProtoString* constructKs = constructKeyObj ? constructKeyObj->asString(ctx) : nullptr;
+    if (constructKs) {
+        const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, weakMapConstruct);
+        if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
+    }
+
+    // Set prototype.constructor = ctor (non-enumerable via property descriptor).
+    {
+        const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
+        if (ctorKey) proto = proto->setAttribute(ctx, ctorKey, ctor);
+    }
+
+    *globalRoot = (*globalRoot)->setAttribute(ctx, key, ctor);
+}
+
 } // namespace protojs
