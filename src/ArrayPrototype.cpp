@@ -13,6 +13,76 @@
 namespace protojs {
 
 // ---------------------------------------------------------------------------
+// Internal: compute UTF-16 code unit count from a UTF-8 std::string.
+// ---------------------------------------------------------------------------
+static size_t utf8ToUTF16Len(const std::string& s) {
+    size_t count = 0;
+    for (size_t i = 0; i < s.size(); ) {
+        auto c = static_cast<unsigned char>(s[i]);
+        int n;
+        if      (c < 0x80) { n = 1; }
+        else if (c < 0xE0) { n = 2; }
+        else if (c < 0xF0) { n = 3; }
+        else               { n = 4; }
+        count += (n == 4) ? 2 : 1;
+        i += static_cast<size_t>(n);
+    }
+    return count;
+}
+
+// Internal: return the idx-th UTF-16 code unit of a UTF-8 string as a
+// UTF-8-encoded string of that single code unit, or "" if out of range.
+static std::string utf16CharAt(const std::string& s, size_t idx) {
+    size_t pos = 0;
+    for (size_t i = 0; i < s.size(); ) {
+        auto c = static_cast<unsigned char>(s[i]);
+        int n;
+        uint32_t cp = 0;
+        if      (c < 0x80) { cp = c;        n = 1; }
+        else if (c < 0xE0) { cp = c & 0x1F; n = 2; }
+        else if (c < 0xF0) { cp = c & 0x0F; n = 3; }
+        else               { cp = c & 0x07; n = 4; }
+        for (int j = 1; j < n && i + (size_t)j < s.size(); j++)
+            cp = (cp << 6) | (static_cast<unsigned char>(s[i + (size_t)j]) & 0x3F);
+        i += static_cast<size_t>(n);
+        if (cp < 0x10000) {
+            if (pos == idx) {
+                std::string r;
+                if (cp < 0x80)       r += static_cast<char>(cp);
+                else if (cp < 0x800) { r += static_cast<char>(0xC0 | (cp >> 6));
+                                        r += static_cast<char>(0x80 | (cp & 0x3F)); }
+                else                 { r += static_cast<char>(0xE0 | (cp >> 12));
+                                        r += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+                                        r += static_cast<char>(0x80 | (cp & 0x3F)); }
+                return r;
+            }
+            pos++;
+        } else {
+            cp -= 0x10000;
+            uint16_t hi = static_cast<uint16_t>(0xD800 + (cp >> 10));
+            uint16_t lo = static_cast<uint16_t>(0xDC00 + (cp & 0x3FF));
+            if (pos == idx) {
+                std::string r;
+                r += static_cast<char>(0xE0 | (hi >> 12));
+                r += static_cast<char>(0x80 | ((hi >> 6) & 0x3F));
+                r += static_cast<char>(0x80 | (hi & 0x3F));
+                return r;
+            }
+            pos++;
+            if (pos == idx) {
+                std::string r;
+                r += static_cast<char>(0xE0 | (lo >> 12));
+                r += static_cast<char>(0x80 | ((lo >> 6) & 0x3F));
+                r += static_cast<char>(0x80 | (lo & 0x3F));
+                return r;
+            }
+            pos++;
+        }
+    }
+    return "";
+}
+
+// ---------------------------------------------------------------------------
 // Module-level array prototype pointer (set once during ensureArrayPrototype).
 // Safe because protoJS runs JS on a single logical context per process.
 // ---------------------------------------------------------------------------
@@ -33,6 +103,29 @@ static inline const proto::ProtoObject* getArrayProto() {
 static unsigned long arrLen(proto::ProtoContext* ctx,
                              const proto::ProtoObject* arr) {
     if (!arr || arr == PROTO_NONE) return 0;
+    // Handle primitive string — length = UTF-16 code unit count.
+    if (arr->isString(ctx)) {
+        const proto::ProtoString* s = arr->asString(ctx);
+        if (!s) return 0;
+        std::string sv;
+        s->toUTF8String(ctx, sv);
+        return static_cast<unsigned long>(utf8ToUTF16Len(sv));
+    }
+    // Handle String wrapper object — extract __primitive_value__.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = arr->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                const proto::ProtoString* s = pv->asString(ctx);
+                if (s) {
+                    std::string sv;
+                    s->toUTF8String(ctx, sv);
+                    return static_cast<unsigned long>(utf8ToUTF16Len(sv));
+                }
+            }
+        }
+    }
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return 0;
     const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, true);
@@ -46,14 +139,16 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
         if (d <= 0 || std::isnan(d) || std::isinf(d)) return 0;
         return static_cast<unsigned long>(d);
     }
-    // String-encoded length (e.g., "-4294967294") — try parsing as integer, clamp to 0.
+    // String-encoded length — try parsing, handle hex (e.g. "0x0002").
     if (lenObj->isString(ctx)) {
         const proto::ProtoString* s = lenObj->asString(ctx);
         if (s) {
             std::string sv;
             s->toUTF8String(ctx, sv);
             try {
-                long long v = std::stoll(sv);
+                long long v = (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'x' || sv[1] == 'X'))
+                    ? std::stoll(sv, nullptr, 16)
+                    : std::stoll(sv);
                 return (v > 0) ? static_cast<unsigned long>(v) : 0;
             } catch (...) {}
         }
@@ -65,6 +160,33 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* arr,
                                          unsigned long idx) {
     if (!arr || arr == PROTO_NONE) return PROTO_NONE;
+    // Handle primitive string — return the character at the UTF-16 index.
+    if (arr->isString(ctx)) {
+        const proto::ProtoString* s = arr->asString(ctx);
+        if (!s) return PROTO_NONE;
+        std::string sv;
+        s->toUTF8String(ctx, sv);
+        std::string ch = utf16CharAt(sv, idx);
+        if (ch.empty()) return PROTO_NONE;
+        return ctx->fromUTF8String(ch.c_str());
+    }
+    // Handle String wrapper object — extract __primitive_value__ then index it.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = arr->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                const proto::ProtoString* s = pv->asString(ctx);
+                if (s) {
+                    std::string sv;
+                    s->toUTF8String(ctx, sv);
+                    std::string ch = utf16CharAt(sv, idx);
+                    if (ch.empty()) return PROTO_NONE;
+                    return ctx->fromUTF8String(ch.c_str());
+                }
+            }
+        }
+    }
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return PROTO_NONE;
     const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
