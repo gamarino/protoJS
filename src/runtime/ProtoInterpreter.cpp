@@ -1178,7 +1178,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
         // Non-constructor globals stubbed as PROTO_NONE to prevent ReferenceError.
         static const char* kUnimplementedGlobals[] = {
-            "JSON", "eval", "Reflect", "Atomics",
+            "eval", "Reflect", "Atomics",
             "globalThis", "arguments",
             // Test262 harness globals.
             "$DONE", "$262", "print",
@@ -1186,6 +1186,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         };
         for (int gi = 0; kUnimplementedGlobals[gi]; ++gi)
             ensureGlobalConst(kUnimplementedGlobals[gi], PROTO_NONE);
+    }
+
+    // Build a JSON namespace object with Symbol.toStringTag = "JSON".
+    // JSON.parse and JSON.stringify are provided by QuickJS's native implementation.
+    {
+        const proto::ProtoObject* jsonKeyObj = pContext->fromUTF8String("JSON");
+        const proto::ProtoString* jsonKey = jsonKeyObj ? jsonKeyObj->asString(pContext) : nullptr;
+        if (jsonKey && pGlobalRoot && *pGlobalRoot) {
+            const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, jsonKey, false);
+            if (!existing || existing == PROTO_NONE) {
+                const proto::ProtoObject* jsonObj = pContext->newObject(false);
+                if (jsonObj) {
+                    const proto::ProtoString* tagKey = JSSymbols::toStringTag(pContext);
+                    if (tagKey)
+                        jsonObj = jsonObj->setAttribute(pContext, tagKey,
+                                                        pContext->fromUTF8String("JSON"));
+                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, jsonKey, jsonObj);
+                }
+            }
+        }
     }
 
     // Register Number constructor, Math object, Object constructor, and global utility
