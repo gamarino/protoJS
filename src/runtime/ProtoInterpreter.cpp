@@ -3110,9 +3110,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                     curLenVal->isInteger(pContext))
                                     ? curLenVal->asLong(pContext) : 0LL;
                                 if (idx + 1 > curLen) {
-                                    const proto::ProtoObject* updatedObj = newObj->setAttribute(pContext, lenKey,
-                                        pContext->fromInteger(idx + 1));
-                                    updateMapping(pContext, newObj, updatedObj);
+                                    // Only bump length on real arrays (carrying __is_array__),
+                                    // not on plain objects used as array-likes.
+                                    const proto::ProtoString* isArrKey2 = JSSymbols::isArray(pContext);
+                                    const proto::ProtoObject* isArrVal2 = isArrKey2
+                                        ? newObj->getAttribute(pContext, isArrKey2, true) : nullptr;
+                                    if (isArrVal2 == PROTO_TRUE) {
+                                        const proto::ProtoObject* updatedObj = newObj->setAttribute(pContext, lenKey,
+                                            pContext->fromInteger(idx + 1));
+                                        updateMapping(pContext, newObj, updatedObj);
+                                    }
                                 }
                             }
                         }
