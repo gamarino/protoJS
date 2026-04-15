@@ -1039,6 +1039,61 @@ const proto::ProtoObject* stringFromCodePoint(
 // Sentinel key used to mark that the prototype has been built.
 static const char kBuiltSentinel[] = "__string_proto_built__";
 
+// String.raw(template, ...substitutions)
+// Template tag that returns the raw string form without processing escape sequences.
+// template.raw[i] contains the raw source text of each string segment.
+const proto::ProtoObject* stringRaw(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !args || args->getSize(ctx) < 1) return ctx->fromUTF8String("");
+    const proto::ProtoObject* tpl = args->getAt(ctx, 0);
+    if (!tpl || tpl == PROTO_NONE) return ctx->fromUTF8String("");
+
+    // Get template.raw
+    const proto::ProtoObject* rawKeyObj = ctx->fromUTF8String("raw");
+    const proto::ProtoString* rawKey = rawKeyObj ? rawKeyObj->asString(ctx) : nullptr;
+    const proto::ProtoObject* rawArr = rawKey
+        ? tpl->getAttribute(ctx, rawKey, true) : PROTO_NONE;
+    if (!rawArr || rawArr == PROTO_NONE) return ctx->fromUTF8String("");
+
+    // Get raw.length
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    long long rawLen = 0;
+    if (lenKey) {
+        const proto::ProtoObject* lv = rawArr->getAttribute(ctx, lenKey, true);
+        if (lv && lv != PROTO_NONE && lv->isInteger(ctx))
+            rawLen = lv->asLong(ctx);
+        else if (lv && lv != PROTO_NONE && lv->isDouble(ctx))
+            rawLen = static_cast<long long>(lv->asDouble(ctx));
+    }
+
+    // Build result: raw[0] + subs[0] + raw[1] + subs[1] + ... + raw[n-1]
+    std::string result;
+    for (long long i = 0; i < rawLen; i++) {
+        // Append raw[i]
+        const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        if (idxKey) {
+            const proto::ProtoObject* seg = rawArr->getAttribute(ctx, idxKey, true);
+            if (seg && seg != PROTO_NONE) {
+                std::string sv;
+                if (seg->isString(ctx) && seg->asString(ctx))
+                    seg->asString(ctx)->toUTF8String(ctx, sv);
+                else
+                    sv = objToStr(ctx, seg);
+                result += sv;
+            }
+        }
+        // Append substitution args[i+1] if it exists
+        if (i + 1 < (long long)args->getSize(ctx)) {
+            const proto::ProtoObject* sub = args->getAt(ctx, static_cast<int>(i + 1));
+            result += objToStr(ctx, sub);
+        }
+    }
+    return ctx->fromUTF8String(result.c_str());
+}
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -1257,6 +1312,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
 
     regStatic("fromCharCode",  stringFromCharCode,  1);
     regStatic("fromCodePoint", stringFromCodePoint, 1);
+    regStatic("raw",           stringRaw,           1);
 
     // Set String.prototype.constructor = String (required by ECMAScript).
     if (ctx->space && ctx->space->stringPrototype) {
