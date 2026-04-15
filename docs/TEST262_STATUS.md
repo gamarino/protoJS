@@ -18,7 +18,45 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 ---
 
-## Phase 39 Snapshot — 2026-04-14  ✅ CURRENT
+## Phase 40 Snapshot — 2026-04-15  ✅ CURRENT
+
+> **Phase 40 target:** Array + String conformance — nine root-cause fixes across `ArrayPrototype.cpp`, `StringPrototype.cpp`, `MapPrototype.cpp`, and `ProtoInterpreter.cpp`. Track 1 (Array): `OP_put_array_el` length guard for non-arrays, `arrLen`/`arrGet` primitive string support (UTF-16 indexing), `Array.prototype.length` setter element truncation, `Array.prototype.constructor` property. Track 2 (String): `String.prototype` methods reinstalled with `installNonEnumerableMethod` for `.call/.apply/.bind` support, `String.prototype.constructor` property, `String.raw` static. Track 3 (globals): JSON namespace object with `Symbol.toStringTag`, `WeakMap` constructor with `set/get/has/delete`.
+> Snapshot files:
+> - `tests/test262/reports/snapshot-built-ins-Array-1776225017367.json`
+> - `tests/test262/reports/snapshot-built-ins-String-1776225102297.json`
+> - `tests/test262/reports/snapshot-language-expressions-1776225696829.json`
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 39 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Array` | 3,081 | 1,653 | **53.7%** | 1,565 (50.8%) | **+88 passes (+2.9 pp)** |
+| `built-ins/String` | 1,223 | 691 | **56.5%** | 555 (45.4%) | **+136 passes (+11.1 pp)** |
+| `language/expressions` | 11,036 | 9,425 | **85.4%** | 9,423 (85.4%) | **+2 passes (no regression)** |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| `OP_put_array_el` — `__is_array__` guard before length bump | `src/runtime/ProtoInterpreter.cpp` | included in +88 |
+| `arrLen`/`arrGet` — primitive string UTF-16 support + hex length parsing | `src/ArrayPrototype.cpp` | included in +88/+136 |
+| `Array.prototype.length` setter — element truncation on reduce | `src/runtime/ProtoInterpreter.cpp` | included in +88 |
+| `Array.prototype.constructor = Array` | `src/ArrayPrototype.cpp` | included in +88 |
+| `String.prototype` methods reinstalled via `installNonEnumerableMethod` for `.call/.apply/.bind` | `src/StringPrototype.cpp` | included in +136 |
+| `String.prototype.constructor = String` | `src/StringPrototype.cpp` | included in +136 |
+| `String.raw` static method | `src/StringPrototype.cpp` | included in +136 |
+| `JSON` namespace object with `Symbol.toStringTag = "JSON"` | `src/runtime/ProtoInterpreter.cpp` | included in +88/+136 |
+| `WeakMap` constructor with `set/get/has/delete` | `src/MapPrototype.cpp` | included in +88/+136 |
+
+### Notes
+
+- `built-ins/Array`: 1,653/3,081 (53.7%). `OP_put_array_el` now correctly skips length updates for non-array objects. `arrLen`/`arrGet` now handle primitive strings (UTF-16 indexing), enabling `Array.prototype.X.call("abc", ...)` patterns. `Array.prototype.length` setter truncates elements at indices >= new length. `Array.prototype.constructor` identity checks now pass.
+- `built-ins/String`: 691/1,223 (56.5%). The biggest gain: all 36 `String.prototype` methods are reinstalled after `ensureFunctionPrototype` sets `methodPrototype`, so every method now inherits `.call/.apply/.bind`. `String.prototype.constructor` identity checks pass. `String.raw` template tag implemented. The remaining ~530 failures are predominantly tests for features not yet implemented (iterator protocol on strings, advanced `Symbol.toPrimitive` coercions, property descriptor checks).
+- `language/expressions`: 9,425/11,036 (85.4%). +2 passes, no regression. Phase 40 changes are surgical and do not affect expression evaluation paths.
+
+---
+
+## Phase 39 Snapshot — 2026-04-14  (superseded by Phase 40)
 
 > **Phase 39 target:** Array + String prototype repair — seven root-cause fixes across `ArrayPrototype.cpp`, `StringPrototype.cpp`, and `ProtoInterpreter.cpp`. Track 1 (Array): `arrSet` length guard for non-arrays, `arguments` `@@toStringTag`, built-in prototype mutability for JS-level extension. Track 2 (String): `String.prototype` method `.length` and `.name` via `__native_fn__` wrappers, `stringSplit` null-sentinel coercion, `String` wrapper constructor dispatch, `Boolean`/`Number`/`Map`/`Set` `__construct__` fallback restored.
 > Snapshot files:
