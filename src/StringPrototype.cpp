@@ -2,6 +2,7 @@
 #include "ArrayPrototype.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
+#include "PrototypeUtils.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <algorithm>
@@ -1154,6 +1155,73 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
 }
 
+void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
+    if (!ctx || !ctx->space || !ctx->space->stringPrototype) return;
+    // Only reinstall if methodPrototype is now available.
+    if (!ctx->space->methodPrototype) return;
+
+    const proto::ProtoObject* sp =
+        reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype);
+    // Idempotency: check for a reinstall sentinel.
+    const proto::ProtoObject* sentinelObj = ctx->fromUTF8String("__string_methods_reinstalled__");
+    const proto::ProtoString* sentinelKey = sentinelObj ? sentinelObj->asString(ctx) : nullptr;
+    if (sentinelKey) {
+        const proto::ProtoObject* chk = sp->getAttribute(ctx, sentinelKey, false);
+        if (chk && chk != PROTO_NONE) return; // Already done.
+    }
+
+    struct Entry { const char* name; proto::ProtoMethod fn; int argc; };
+    static const Entry kMethods[] = {
+        { "valueOf",           stringValueOf,       0 },
+        { "toString",          stringToString,      0 },
+        { "charAt",            stringCharAt,        1 },
+        { "charCodeAt",        stringCharCodeAt,    1 },
+        { "codePointAt",       stringCodePointAt,   1 },
+        { "at",                stringAt,            1 },
+        { "concat",            stringConcat,        1 },
+        { "indexOf",           stringIndexOf,       1 },
+        { "lastIndexOf",       stringLastIndexOf,   1 },
+        { "slice",             stringSlice,         2 },
+        { "substring",         stringSubstring,     2 },
+        { "substr",            stringSubstr,        2 },
+        { "toLowerCase",       stringToLowerCase,   0 },
+        { "toUpperCase",       stringToUpperCase,   0 },
+        { "toLocaleLowerCase", stringToLowerCase,   0 },
+        { "toLocaleUpperCase", stringToUpperCase,   0 },
+        { "repeat",            stringRepeat,        1 },
+        { "localeCompare",     stringLocaleCompare, 1 },
+        { "trim",              stringTrim,          0 },
+        { "trimStart",         stringTrimStart,     0 },
+        { "trimLeft",          stringTrimStart,     0 },
+        { "trimEnd",           stringTrimEnd,       0 },
+        { "trimRight",         stringTrimEnd,       0 },
+        { "startsWith",        stringStartsWith,    1 },
+        { "endsWith",          stringEndsWith,      1 },
+        { "includes",          stringIncludes,      1 },
+        { "padStart",          stringPadStart,      1 },
+        { "padEnd",            stringPadEnd,        1 },
+        { "match",             stringMatch,         1 },
+        { "search",            stringSearch,        1 },
+        { "replace",           stringReplace,       2 },
+        { "replaceAll",        stringReplaceAll,    2 },
+        { "split",             stringSplit,         2 },
+        { "normalize",         stringNormalize,     0 },
+        { "isWellFormed",      stringIsWellFormed,  0 },
+        { "matchAll",          stringMatchAll,      1 },
+        { nullptr, nullptr, 0 }
+    };
+
+    for (int i = 0; kMethods[i].name; i++) {
+        sp = installNonEnumerableMethod(ctx, sp, kMethods[i].name,
+                                        kMethods[i].fn, kMethods[i].argc);
+    }
+
+    // Set reinstall sentinel.
+    if (sentinelKey) sp = sp->setAttribute(ctx, sentinelKey, PROTO_TRUE);
+
+    ctx->space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
+}
+
 void ensureStringConstructor(proto::ProtoContext* ctx,
                               const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
@@ -1164,6 +1232,10 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing =
         (*globalRoot)->getAttribute(ctx, keyString, false);
     if (existing && existing != PROTO_NONE) return;
+
+    // Reinstall String.prototype methods with .call/.apply/.bind support now
+    // that methodPrototype is available (set by ensureFunctionPrototype).
+    ReinstallStringPrototypeMethods(ctx);
 
     const proto::ProtoObject* ctorParent = nullptr;
     if (ctx->space && ctx->space->methodPrototype)

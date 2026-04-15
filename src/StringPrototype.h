@@ -14,6 +14,11 @@ namespace protojs {
 void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                           const proto::ProtoObject* objectProto);
 
+/** Re-installs String.prototype methods using installNonEnumerableMethod so each
+ *  wrapper inherits from methodPrototype and exposes .call/.apply/.bind.
+ *  Must be called AFTER ensureFunctionPrototype() sets ctx->space->methodPrototype. */
+void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx);
+
 /**
  * Ensure the String constructor is registered in the global root.
  * Adds String.fromCharCode and String.fromCodePoint as static methods.
