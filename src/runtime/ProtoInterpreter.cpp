@@ -2526,6 +2526,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         updateMapping(pContext, obj, newObj);
                         updateSpacePrototypeIfMatching(pContext, obj, newObj);
                     }
+                    // Array length truncation: if we just set .length on a real array to a
+                    // smaller value, delete elements at indices >= newLen (ECMAScript 9.4.2.1).
+                    if (keyStr2 == "length") {
+                        const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                        const proto::ProtoObject* isArrVal = isArrKey
+                            ? newObj->getAttribute(pContext, isArrKey, true) : nullptr;
+                        if (isArrVal == PROTO_TRUE && val && val != PROTO_NONE) {
+                            long long newLen = -1;
+                            if (val->isInteger(pContext))
+                                newLen = val->asLong(pContext);
+                            else if (val->isDouble(pContext))
+                                newLen = static_cast<long long>(val->asDouble(pContext));
+                            if (newLen >= 0) {
+                                // Delete elements at indices >= newLen.
+                                // Stop scanning after 8 consecutive missing elements.
+                                int misses = 0;
+                                for (long long i = newLen; i < newLen + 100000LL && misses < 8; i++) {
+                                    const proto::ProtoString* idxKey =
+                                        JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
+                                    if (!idxKey) break;
+                                    const proto::ProtoObject* elem =
+                                        newObj->getAttribute(pContext, idxKey, false);
+                                    if (!elem || elem == PROTO_NONE) {
+                                        misses++;
+                                        continue;
+                                    }
+                                    misses = 0;
+                                    // Delete the element by setting it to PROTO_NONE.
+                                    const proto::ProtoObject* prevObj = newObj;
+                                    newObj = newObj->setAttribute(pContext, idxKey, PROTO_NONE);
+                                    if (newObj != prevObj)
+                                        updateMapping(pContext, prevObj, newObj);
+                                }
+                            }
+                        }
+                    }
                     if (newObj && pGlobalRoot && obj == globalObj)
                         *pGlobalRoot = newObj;
                     // n_push=0: do NOT push anything back
