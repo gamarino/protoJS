@@ -60,9 +60,8 @@ set(QUICKJS_SRCS
 # QuickJS Compiler Flags
 set_source_files_properties(${QUICKJS_SRCS} PROPERTIES COMPILE_FLAGS "-D_GNU_SOURCE -DCONFIG_VERSION=\\\"2024-01-13\\\"")
 
-# Main Executable
-add_executable(protojs
-    src/main.cpp
+# Core static library: all shared sources (reused by both protojs and protojs_tests)
+add_library(protojs_core STATIC
     src/TypeBridge.cpp
     src/JSContext.cpp
     src/GCBridge.cpp
@@ -133,6 +132,7 @@ add_executable(protojs
     src/runtime/ProtoCompileOnly.cpp
     src/runtime/ProtoBytecodeLoader.cpp
     src/runtime/ProtoInterpreter.cpp
+    src/runtime/MicrotaskQueue.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp
@@ -152,10 +152,8 @@ add_executable(protojs
     ${QUICKJS_SRCS}
 )
 
-# Link Libs (protoCore is the official name of the shared library)
-# -rdynamic: export symbols so dlopen'd native addons can resolve QuickJS/protoCore symbols
-target_link_libraries(protojs
-    PRIVATE
+target_link_libraries(protojs_core
+    PUBLIC
     ${PROTOCORE_LIBRARY}
     pthread
     dl
@@ -163,6 +161,13 @@ target_link_libraries(protojs
     ssl
     crypto
 )
+
+# Main Executable (only main.cpp; everything else lives in protojs_core)
+add_executable(protojs src/main.cpp)
+
+# Link Libs (protoCore is the official name of the shared library)
+# -rdynamic: export symbols so dlopen'd native addons can resolve QuickJS/protoCore symbols
+target_link_libraries(protojs PRIVATE protojs_core)
 target_link_options(protojs PRIVATE -rdynamic)
 
 # Build settings for protoCore

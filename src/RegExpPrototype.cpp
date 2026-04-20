@@ -129,7 +129,6 @@ const proto::ProtoObject* regexpExec(
     const proto::ProtoSparseList*)
 {
     if (!ctx || !self) return PROTO_NONE;
-    std::cerr << "[RegExp] exec called" << std::endl;
 
     const proto::ProtoString* bcKey = JSSymbols::reBytecode(ctx);
     const proto::ProtoObject* bcObj = self->getAttribute(ctx, bcKey, false);
@@ -152,7 +151,6 @@ const proto::ProtoObject* regexpExec(
     const proto::ProtoObject* liObj = self->getAttribute(ctx, lastIndexKey, false);
     if (liObj && liObj->isInteger(ctx)) lastIndex = liObj->asLong(ctx);
 
-    std::cerr << "[RegExp] input='" << input << "' len=" << u16.size() << " lastIndex=" << lastIndex << std::endl;
 
     void* opaque = nullptr;
     if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
@@ -161,7 +159,6 @@ const proto::ProtoObject* regexpExec(
                        static_cast<int>(lastIndex), static_cast<int>(u16.size()), 
                        1, opaque);
 
-    std::cerr << "[RegExp] lre_exec ret=" << ret << std::endl;
 
     if (ret == 1) {
         const proto::ProtoObject* result = createNewArray(ctx, nullptr);
@@ -243,7 +240,6 @@ const proto::ProtoObject* regexpToString(
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (!ctx || !self) return ctx->fromUTF8String("/(?:)/");
-    std::cerr << "[RegExp] toString called" << std::endl;
 
     const proto::ProtoString* srcKey = JSSymbols::source(ctx);
     const proto::ProtoString* flgKey = JSSymbols::flags(ctx);
@@ -265,7 +261,6 @@ const proto::ProtoObject* regexpConstructor(
     const proto::ProtoSparseList*)
 {
     if (!ctx) return PROTO_NONE;
-    std::cerr << "[RegExp] constructor called" << std::endl;
 
     std::string pattern = "(?:)";
     std::string flags_str = "";
@@ -669,7 +664,6 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     // Re-set .prototype on constructor because regexpProto was updated!
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
 
-    std::cerr << "[RegExp] ensureRegExpConstructor called" << std::endl;
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyRegExp, ctor);
 }
 

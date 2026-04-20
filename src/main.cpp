@@ -138,7 +138,6 @@ int main(int argc, char** argv) {
 
     // If no file and no -e, start REPL
     if (code.empty() && !executeCode && !syntaxCheck) {
-        std::cerr << "[protojs] CLI: creating JSContextWrapper for REPL" << std::endl;
         protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
 
         // protoCore is the single execution path (compile → load → run).
@@ -187,14 +186,12 @@ int main(int argc, char** argv) {
     }
 
     // Create wrapper with thread pool configuration
-    std::cerr << "[protojs] CLI: creating JSContextWrapper for script" << std::endl;
     protojs::JSContextWrapper wrapper(cpuThreads, ioThreads, ioFactor);
 
     // protoCore is the single execution path (compile → load → run).
     wrapper.setUseProtoEval(true);
 
     if (minimalInit) {
-        std::cerr << "[protojs] CLI: minimal init (Console only)" << std::endl;
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
@@ -216,13 +213,11 @@ int main(int argc, char** argv) {
     }
 
     // Initialize modules
-    std::cerr << "[protojs] CLI: initializing core modules" << std::endl;
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    std::cerr << "[protojs] CLI: Console initialized" << std::endl;
     {
         JSContext* ctx = wrapper.getJSContext();
         JSValue global = JS_GetGlobalObject(ctx);
@@ -230,60 +225,36 @@ int main(int argc, char** argv) {
         JS_FreeValue(ctx, global);
     }
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
-    std::cerr << "[protojs] CLI: Deferred initialized" << std::endl;
     protojs::IOModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: IOModule initialized" << std::endl;
     protojs::ProtoCoreModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: ProtoCoreModule initialized" << std::endl;
     // NOTE: ProcessModule::init currently triggers a hang in the CLI path
     // under the new protoCore runtime wiring. Skip it for now in the basic
     // CLI runner; Node-style process emulation is still available via
     // higher-level test harnesses.
     // protojs::ProcessModule::init(wrapper.getJSContext(), argc, argv);
-    std::cerr << "[protojs] CLI: ProcessModule init skipped in CLI path" << std::endl;
     
     // Initialize Phase 2 modules
     protojs::CommonJSLoader::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: CommonJSLoader initialized" << std::endl;
     // ES Module loader will be used via import statements
     protojs::PathModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: PathModule initialized" << std::endl;
     protojs::FSModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: FSModule initialized" << std::endl;
     protojs::URLModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: URLModule initialized" << std::endl;
     protojs::HTTPModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: HTTPModule initialized" << std::endl;
     protojs::EventsModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: EventsModule initialized" << std::endl;
     protojs::StreamModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: StreamModule initialized" << std::endl;
     protojs::UtilModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: UtilModule initialized" << std::endl;
     protojs::CryptoModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: CryptoModule initialized" << std::endl;
     protojs::BufferModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: BufferModule initialized" << std::endl;
     protojs::NetModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: NetModule initialized" << std::endl;
     protojs::WorkerThreadsModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: WorkerThreadsModule initialized" << std::endl;
     protojs::ClusterModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: ClusterModule initialized" << std::endl;
     protojs::DgramModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: DgramModule initialized" << std::endl;
     protojs::ChildProcessModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: ChildProcessModule initialized" << std::endl;
     protojs::DNSModule::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: DNSModule initialized" << std::endl;
     protojs::MemoryAnalyzer::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: MemoryAnalyzer initialized" << std::endl;
     protojs::Profiler::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: Profiler initialized" << std::endl;
     protojs::VisualProfiler::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: VisualProfiler initialized" << std::endl;
     protojs::IntegratedDebugger::init(wrapper.getJSContext());
-    std::cerr << "[protojs] CLI: IntegratedDebugger initialized" << std::endl;
 
     // Set __filename, __dirname, and setImmediate for main script
     {

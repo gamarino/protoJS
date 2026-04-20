@@ -1034,6 +1034,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     } else {
+        // protoCore 1.1.0+: closureLocals is lazily allocated only when parameterNames is
+        // provided to the ProtoContext constructor.  runBytecode always passes nullptr, so
+        // we must bootstrap the SparseList here before any slot or stack operation.
+        if (!pContext->closureLocals)
+            pContext->closureLocals = pContext->newSparseList();
+
         // Locals and stack live only in ProtoContext::closureLocals (GC-visible). No std::vector.
         initStack(pContext);
         const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
@@ -3815,7 +3821,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* bfTypeKey = JSSymbols::boundFn(pContext);
                             const proto::ProtoObject* bfTypeTarget = bfTypeKey
                                 ? v->getAttribute(pContext, bfTypeKey, false) : nullptr;
-                            typeStr = (bfTypeTarget && bfTypeTarget != PROTO_NONE) ? "function" : "object";
+                            if (bfTypeTarget && bfTypeTarget != PROTO_NONE) {
+                                typeStr = "function";
+                            } else {
+                                // Built-in constructors use special marker attributes instead of
+                                // __native_fn__ for dispatch. Check each one so typeof returns
+                                // "function" as required by the spec.
+                                const proto::ProtoString* acK = JSSymbols::arrayCtor(pContext);
+                                const proto::ProtoString* ecK = JSSymbols::errorCtor(pContext);
+                                const proto::ProtoString* reK = JSSymbols::regexpCtor(pContext);
+                                const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
+                                const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
+                                // __construct__ is used by Object, Number, Boolean, Map, Set, Promise, etc.
+                                const proto::ProtoObject* consObj = pContext->fromUTF8String("__construct__");
+                                const proto::ProtoString* conK = consObj ? consObj->asString(pContext) : nullptr;
+                                bool isCtor = (acK && v->getAttribute(pContext, acK, false) == PROTO_TRUE)
+                                          || (ecK && v->getAttribute(pContext, ecK, false) && v->getAttribute(pContext, ecK, false) != PROTO_NONE)
+                                          || (reK && v->getAttribute(pContext, reK, false) == PROTO_TRUE)
+                                          || (taK && v->getAttribute(pContext, taK, false) && v->getAttribute(pContext, taK, false) != PROTO_NONE)
+                                          || (scK && v->getAttribute(pContext, scK, false) == PROTO_TRUE)
+                                          || (conK && v->getAttribute(pContext, conK, false) && v->getAttribute(pContext, conK, false)->isMethod(pContext));
+                                typeStr = isCtor ? "function" : "object";
+                            }
                         }
                     }
                 }
@@ -3882,7 +3909,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                 // IMPORTANT: hasAttribute returns PROTO_TRUE or PROTO_FALSE (both are non-null
                 // pointers), so must compare against PROTO_TRUE — never cast to bool directly.
+                // Check data key first.
                 const proto::ProtoObject* hasResult = (key) ? obj->hasAttribute(pContext, key) : PROTO_FALSE;
+                // Also check accessor sidecars (__get_<N>__, __set_<N>__) — when a property is
+                // defined via Object.defineProperty as an accessor, there is no data key (it is
+                // removed during definition).  The property still exists and 'in' must return true.
+                if (hasResult != PROTO_TRUE && key) {
+                    std::string keyStr;
+                    key->toUTF8String(pContext, keyStr);
+                    for (const char* prefix : {"__get_", "__set_"}) {
+                        std::string sk = std::string(prefix) + keyStr + "__";
+                        const proto::ProtoObject* sko = pContext->fromUTF8String(sk.c_str());
+                        const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
+                        if (sks && obj->hasAttribute(pContext, sks) == PROTO_TRUE) {
+                            hasResult = PROTO_TRUE;
+                            break;
+                        }
+                    }
+                }
                 stackPush(pContext, hasResult == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
                 break;
             }
@@ -3924,7 +3968,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // implRemoveAt, which truly removes the entry from the sparse list.
                     // This makes hasOwnAttribute, getOwnAttributes iteration, and
                     // for-in all correctly report the property as absent.
+                    std::string propNameStrDel;
+                    key->toUTF8String(pContext, propNameStrDel);
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, nullptr);
+                    // Also remove accessor sidecars (__get_<name>__, __set_<name>__,
+                    // __pd_<name>__) so the property is fully deleted per the spec.
+                    if (newObj) {
+                        for (const std::string& prefix : {"__get_", "__set_", "__pd_"}) {
+                            std::string sk = prefix + propNameStrDel + "__";
+                            const proto::ProtoObject* sko = pContext->fromUTF8String(sk.c_str());
+                            const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
+                            if (sks && newObj) newObj = newObj->setAttribute(pContext, sks, nullptr);
+                        }
+                    }
                     if (newObj && newObj != obj) {
                         updateMapping(pContext, obj, newObj);
                         if (newObj && pGlobalRoot && obj == globalObj)
@@ -4225,7 +4281,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     } else if (strAttr == PROTO_TRUE) {
                         // String wrapper constructor: new String("hello") → object with [[PrimitiveValue]].
-                        const proto::ProtoObject* pv = toString(pContext, finalArgc > 0 ? argsList->getAt(pContext, 0) : PROTO_NONE);
+                        // No args → empty string (spec 22.1.2.1: new String() has value "").
+                        const proto::ProtoObject* pv = finalArgc > 0
+                            ? toString(pContext, argsList->getAt(pContext, 0))
+                            : pContext->fromUTF8String("");
                         newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
                         result = newObj;
                     } else {
@@ -4640,7 +4699,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* bfIsFnKey = JSSymbols::boundFn(pContext);
                         const proto::ProtoObject* bfIsFnTarget = bfIsFnKey
                             ? val->getAttribute(pContext, bfIsFnKey, false) : nullptr;
-                        isFunc = (bfIsFnTarget && bfIsFnTarget != PROTO_NONE);
+                        if (bfIsFnTarget && bfIsFnTarget != PROTO_NONE) {
+                            isFunc = true;
+                        } else {
+                            // Built-in constructors (Array, Object, Error, RegExp, etc.)
+                            const proto::ProtoString* acK = JSSymbols::arrayCtor(pContext);
+                            const proto::ProtoString* ecK = JSSymbols::errorCtor(pContext);
+                            const proto::ProtoString* reK = JSSymbols::regexpCtor(pContext);
+                            const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
+                            const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
+                            const proto::ProtoObject* consO = pContext->fromUTF8String("__construct__");
+                            const proto::ProtoString* conK = consO ? consO->asString(pContext) : nullptr;
+                            isFunc = (acK && val->getAttribute(pContext, acK, false) == PROTO_TRUE)
+                                  || (ecK && val->getAttribute(pContext, ecK, false) && val->getAttribute(pContext, ecK, false) != PROTO_NONE)
+                                  || (reK && val->getAttribute(pContext, reK, false) == PROTO_TRUE)
+                                  || (taK && val->getAttribute(pContext, taK, false) && val->getAttribute(pContext, taK, false) != PROTO_NONE)
+                                  || (scK && val->getAttribute(pContext, scK, false) == PROTO_TRUE)
+                                  || (conK && val->getAttribute(pContext, conK, false) && val->getAttribute(pContext, conK, false)->isMethod(pContext));
+                        }
                     }
                 }
                 stackPush(pContext, isFunc ? PROTO_TRUE : PROTO_FALSE);
@@ -5823,6 +5899,12 @@ static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
 
 const proto::ProtoObject* getNullSentinel() {
     return t_nullSentinel;
+}
+
+void initializeNullSentinel(proto::ProtoContext* ctx) {
+    if (!t_nullSentinel && ctx) {
+        t_nullSentinel = ctx->newObject(false);
+    }
 }
 
 const proto::ProtoObject** getCurrentGlobalRoot() {

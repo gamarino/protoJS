@@ -81,30 +81,28 @@ JSContextWrapper* JSContextWrapper::current() {
 
 // See JSContext.h for semantics.
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
-    std::cerr << "[protojs] JSContextWrapper: creating QuickJS runtime/context" << std::endl;
     rt = JS_NewRuntime();
     ctx = JS_NewContext(rt);
-    std::cerr << "[protojs] JSContextWrapper: QuickJS context ready" << std::endl;
     
     // Initialize protoCore root context
     pContext = pSpace.rootContext;
-    std::cerr << "[protojs] JSContextWrapper: protoCore context ready" << std::endl;
     
     // Bootstrap JS Object and derived prototypes (array, arguments, regexp)
     BootstrapJSPrototypes(&pSpace, pContext, &jsPrototypes_);
-    std::cerr << "[protojs] JSContextWrapper: JS prototypes bootstrapped" << std::endl;
     
     // Initialize GCBridge for this context
     GCBridge::initialize(ctx);
-    std::cerr << "[protojs] JSContextWrapper: GCBridge initialized" << std::endl;
     
     // ExecutionEngine stub: getProtoContext only (no legacy hooks; single protoCore path).
     ExecutionEngine::initialize(ctx, pContext);
-    std::cerr << "[protojs] JSContextWrapper: ExecutionEngine initialized" << std::endl;
+
+    // Eagerly initialize the null sentinel so TypeBridge null round-trips work
+    // before the first script execution. The script bootstrap path also initializes
+    // it (anchored on the global root), but unit tests never reach that path.
+    protojs::initializeNullSentinel(pContext);
     
     // Store pointer to this wrapper in JSContext opaque for GCBridge access
     JS_SetContextOpaque(ctx, this);
-    std::cerr << "[protojs] JSContextWrapper: context opaque set" << std::endl;
     
     // Initialize thread pools
     if (cpuThreads > 0) {
@@ -112,17 +110,14 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     } else {
         CPUThreadPool::initialize(); // Use default (CPU count)
     }
-    std::cerr << "[protojs] JSContextWrapper: CPUThreadPool initialized" << std::endl;
     
     if (ioThreads > 0) {
         IOThreadPool::initialize(ioThreads);
     } else {
         IOThreadPool::initialize(0, ioFactor); // Use default with factor
     }
-    std::cerr << "[protojs] JSContextWrapper: IOThreadPool initialized" << std::endl;
     
     // Event loop is initialized on first access (singleton)
-    std::cerr << "[protojs] JSContextWrapper: constructor done" << std::endl;
 }
 
 const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
@@ -164,7 +159,6 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         IntegratedDebugger::pauseExecution();
     }
 
-    std::cerr << "[protojs] eval start: " << filename << std::endl;
     // Clear any pending exception from earlier so compile sees a clean context.
     if (JS_HasException(ctx)) {
         JSValue stale = JS_GetException(ctx);
@@ -298,7 +292,6 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 hadError = true;
                 val = JS_EXCEPTION;
             } else {
-                std::cerr << "[protojs] about to runBytecode" << std::endl;
                 const proto::ProtoObject* exception = PROTO_NONE;
                 const proto::ProtoObject* result =
                     protojs::runBytecode(&frameCtx, &module, globalObj, nullptr,
@@ -358,7 +351,6 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         }
     }
 
-    std::cerr << "[protojs] eval done: " << filename << std::endl;
     IntegratedDebugger::popFrame();
     pContext->currentFileName = nullptr;
     pContext->currentLineNumber = 0;

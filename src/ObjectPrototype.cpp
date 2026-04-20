@@ -705,7 +705,20 @@ static const proto::ProtoObject* objectDefineProperty(
         const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
         if (sk) target = target->setAttribute(ctx, sk, setter);
     }
-
+    if (isAccessor) {
+        // When converting a data property to an accessor, remove the data key
+        // entirely (nullptr, not PROTO_NONE).  Using nullptr makes setAttribute
+        // call implRemoveAt so the key is absent: hasAttribute returns PROTO_FALSE.
+        // This is essential for two reasons:
+        //   1. arrLen / arrGet no longer see a stale data value instead of invoking
+        //      the getter (or returning undefined for setter-only accessors).
+        //   2. The global environment record's HasBinding returns false after the
+        //      data key is removed, so strict-mode assignment correctly throws
+        //      ReferenceError when the accessor is later deleted.
+        const proto::ProtoObject* dko = ctx->fromUTF8String(propName.c_str());
+        const proto::ProtoString* dk  = dko ? dko->asString(ctx) : nullptr;
+        if (dk) target = target->setAttribute(ctx, dk, nullptr);
+    }
     // Store the value for data descriptors.
     // Per ES5 §8.6.1: a data property always has a Value; default is undefined.
     // Must create the property even when "value" is absent so hasOwnProperty returns true.
@@ -973,7 +986,16 @@ static const proto::ProtoObject* objectHasOwn(
     if (!strKey) return PROTO_FALSE;
     // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
     const proto::ProtoObject* own = obj->hasOwnAttribute(ctx, strKey);
-    return (own == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE;
+    if (own == PROTO_TRUE) return PROTO_TRUE;
+    // Also check accessor sidecars — accessor properties have no data key when
+    // defined via Object.defineProperty (the data key is removed on creation).
+    for (const char* prefix : {"__get_", "__set_"}) {
+        std::string sk = std::string(prefix) + keyStr + "__";
+        const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+        const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+        if (sks && obj->hasOwnAttribute(ctx, sks) == PROTO_TRUE) return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
 }
 
 // ---------------------------------------------------------------------------
@@ -1004,7 +1026,16 @@ static const proto::ProtoObject* objectHasOwnProperty(
     const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
     if (!strKey) return PROTO_FALSE;
     const proto::ProtoObject* own = self->hasOwnAttribute(ctx, strKey);
-    return (own == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE;
+    if (own == PROTO_TRUE) return PROTO_TRUE;
+    // Also check accessor sidecars — accessor properties have no data key when
+    // defined via Object.defineProperty (the data key is removed on creation).
+    for (const char* prefix : {"__get_", "__set_"}) {
+        std::string sk = std::string(prefix) + keyStr + "__";
+        const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+        const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+        if (sks && self->hasOwnAttribute(ctx, sks) == PROTO_TRUE) return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,6 +1249,27 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
+
+    // Mark as callable so OP_typeof / OP_typeof_is_function return "function".
+    // The __construct__ method also handles `new Object(value)` → coerce to object.
+    static const proto::ProtoMethod objectCtorFn = [](
+        proto::ProtoContext* ctx, const proto::ProtoObject* self,
+        const proto::ParentLink*, const proto::ProtoList* args,
+        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        // new Object() → return self (already a plain object child of Object.prototype)
+        // new Object(value) → if value is an object, return it; otherwise return self
+        if (!args || args->getSize(ctx) == 0) return self;
+        const proto::ProtoObject* val = args->getAt(ctx, 0);
+        if (!val || val == PROTO_NONE) return self;
+        if (val->isBoolean(ctx) || val->isInteger(ctx) || val->isDouble(ctx) ||
+            val->isString(ctx)) return self;
+        return val;
+    };
+    const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(nullptr, objectCtorFn);
+    const proto::ProtoString* constructKey =
+        ctx->fromUTF8String("__construct__") ? ctx->fromUTF8String("__construct__")->asString(ctx) : nullptr;
+    if (constructKey && ctorMethodObj)
+        ctor = ctor->setAttribute(ctx, constructKey, ctorMethodObj);
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyObject, ctor);
 }

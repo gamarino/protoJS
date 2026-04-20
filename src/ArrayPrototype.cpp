@@ -128,8 +128,63 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     }
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return 0;
+
+    // Check for an OWN accessor getter for "length" FIRST.  An own getter must shadow
+    // any inherited data property (e.g. child has own getter returning 2, prototype has
+    // data length=3 → child.length must use the getter).  Without this check,
+    // getAttribute("length", true) would find the inherited data and return the wrong value.
+    {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        if (gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
+            const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
+            if (ownGetter && ownGetter != PROTO_NONE) {
+                const proto::ProtoObject* fromGetter = callJSFunction(ctx, ownGetter, arr, ctx->newList());
+                if (hasCallException() || !fromGetter || fromGetter == PROTO_NONE) return 0;
+                // Parse the getter result as a length (fall through to numeric parsing below).
+                if (fromGetter->isInteger(ctx)) {
+                    long long v = fromGetter->asLong(ctx);
+                    return (v > 0) ? static_cast<unsigned long>(v) : 0;
+                }
+                if (fromGetter->isDouble(ctx) || fromGetter->isFloat(ctx)) {
+                    double d = fromGetter->asDouble(ctx);
+                    if (d <= 0 || std::isnan(d) || std::isinf(d)) return 0;
+                    return static_cast<unsigned long>(d);
+                }
+                if (fromGetter->isString(ctx)) {
+                    const proto::ProtoString* s = fromGetter->asString(ctx);
+                    if (s) {
+                        std::string sv;
+                        s->toUTF8String(ctx, sv);
+                        try {
+                            long long v = (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'x' || sv[1] == 'X'))
+                                ? std::stoll(sv, nullptr, 16)
+                                : std::stoll(sv);
+                            return (v > 0) ? static_cast<unsigned long>(v) : 0;
+                        } catch (...) {}
+                    }
+                }
+                return 0;
+            }
+            // Own setter-only "length" accessor — no getter → length is undefined → treat as 0.
+            return 0;
+        }
+    }
+
     const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, true);
-    if (!lenObj || lenObj == PROTO_NONE) return 0;
+    if (!lenObj || lenObj == PROTO_NONE) {
+        // Check for inherited length accessor getter: __get_length__
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = arr->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                lenObj = callJSFunction(ctx, getter, arr, ctx->newList());
+                if (hasCallException() || !lenObj || lenObj == PROTO_NONE) return 0;
+            }
+        }
+        if (!lenObj || lenObj == PROTO_NONE) return 0;
+    }
     if (lenObj->isInteger(ctx)) {
         long long v = lenObj->asLong(ctx);
         return (v > 0) ? static_cast<unsigned long>(v) : 0;
@@ -189,8 +244,48 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     }
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return PROTO_NONE;
+
+    // Build accessor sidecar keys.
+    // NOTE: getAttribute() always walks the prototype chain regardless of the 'callbacks'
+    // flag. Use hasOwnAttribute() to check for OWN accessors specifically.
+    std::string gkStr = "__get_" + std::to_string(idx) + "__";
+    std::string skStr = "__set_" + std::to_string(idx) + "__";
+    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+
+    // Step 1: Check for an OWN accessor (getter or setter-only) before reading data.
+    // This ensures an own accessor-without-getter shadows an inherited getter.
+    // Use hasOwnAttribute to restrict to own property — getAttribute always inherits.
+    bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
+    bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
+
+    if (hasOwnGetter) {
+        // Own getter found — invoke it.
+        const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
+        const proto::ProtoObject* result = callJSFunction(ctx, ownGetter, arr, ctx->newList());
+        return (hasCallException() || !result || result == PROTO_NONE) ? PROTO_NONE : result;
+    }
+    if (hasOwnSetter) {
+        // Setter-only own accessor (no getter) — accessing returns undefined.
+        return PROTO_NONE;
+    }
+
+    // Step 2: Read data value from own or inherited chain.
     const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
-    return val ? val : PROTO_NONE;
+    if (val && val != PROTO_NONE) return val;
+
+    // Step 3: Check for inherited accessor getter (no own accessor found above).
+    if (gk) {
+        const proto::ProtoObject* inheritedGetter = arr->getAttribute(ctx, gk, true);
+        if (inheritedGetter && inheritedGetter != PROTO_NONE) {
+            const proto::ProtoObject* result = callJSFunction(ctx, inheritedGetter, arr, ctx->newList());
+            if (!hasCallException() && result && result != PROTO_NONE) return result;
+        }
+    }
+
+    return PROTO_NONE;
 }
 
 // Set element at idx, also updates "length" if idx+1 > current length.
@@ -1092,6 +1187,59 @@ static const proto::ProtoObject* arrayEvery(
     return PROTO_TRUE;
 }
 
+// Forward declaration (defined in the sort section below).
+static bool arrHas(proto::ProtoContext* ctx, const proto::ProtoObject* arr, unsigned long idx);
+
+// HasProperty check per ECMAScript spec — used by reduce/reduceRight.
+// A property "exists" if:
+//   - The object is a String primitive/wrapper and idx is within its length, OR
+//   - A data key for idx exists anywhere in the prototype chain (includes accessor
+//     properties whose data key is cleared to PROTO_NONE by defineProperty), OR
+//   - A getter or setter sidecar for idx exists anywhere in the prototype chain.
+// This avoids the false-negative of arrGet for setter-only accessors (Get returns
+// undefined / PROTO_NONE, but HasProperty must still return true).
+static bool arrHasProperty(proto::ProtoContext* ctx,
+                            const proto::ProtoObject* arr,
+                            unsigned long idx) {
+    if (!arr || arr == PROTO_NONE) return false;
+
+    // String primitive — every valid UTF-16 index has a character.
+    if (arr->isString(ctx)) {
+        return idx < arrLen(ctx, arr);
+    }
+
+    // String wrapper object — check __primitive_value__ length.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = arr->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                return idx < arrLen(ctx, arr);
+            }
+        }
+    }
+
+    const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    if (!key) return false;
+
+    // Data key (own or inherited) — includes accessor properties that cleared their
+    // data slot to PROTO_NONE via Object.defineProperty.
+    if (arr->hasAttribute(ctx, key) == PROTO_TRUE) return true;
+
+    // Accessor sidecar (getter or setter), own or inherited.
+    std::string gkStr = "__get_" + std::to_string(idx) + "__";
+    std::string skStr = "__set_" + std::to_string(idx) + "__";
+    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+
+    if (gk && arr->hasAttribute(ctx, gk) == PROTO_TRUE) return true;
+    if (sk && arr->hasAttribute(ctx, sk) == PROTO_TRUE) return true;
+
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // reduce(callback[, initialValue])
 // ---------------------------------------------------------------------------
@@ -1114,11 +1262,24 @@ static const proto::ProtoObject* arrayReduce(
         acc   = args->getAt(ctx, 1);
         start = 0;
     } else {
-        if (len == 0) return PROTO_NONE; // TypeError in spec; return PROTO_NONE
-        acc   = arrGet(ctx, self, 0);
-        start = 1;
+        // Find first non-hole element to use as accumulator (spec 23.1.3.26 step 8).
+        start = -1;
+        for (long long k = 0; k < len; k++) {
+            if (arrHasProperty(ctx, self, static_cast<unsigned long>(k))) {
+                acc   = arrGet(ctx, self, static_cast<unsigned long>(k));
+                start = k + 1;
+                break;
+            }
+        }
+        if (start < 0) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Reduce of empty array with no initial value"));
+            return PROTO_NONE;
+        }
     }
     for (long long i = start; i < len; i++) {
+        // Skip holes — use HasProperty (includes prototype chain) per spec.
+        if (!arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
@@ -1153,11 +1314,24 @@ static const proto::ProtoObject* arrayReduceRight(
         acc   = args->getAt(ctx, 1);
         start = len - 1;
     } else {
-        if (len == 0) return PROTO_NONE;
-        acc   = arrGet(ctx, self, (unsigned long)(len - 1));
-        start = len - 2;
+        // Find last non-hole element to use as accumulator (spec 23.1.3.27 step 8).
+        start = len;
+        for (long long k = len - 1; k >= 0; k--) {
+            if (arrHasProperty(ctx, self, static_cast<unsigned long>(k))) {
+                acc   = arrGet(ctx, self, static_cast<unsigned long>(k));
+                start = k - 1;
+                break;
+            }
+        }
+        if (start == len) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Reduce of empty array with no initial value"));
+            return PROTO_NONE;
+        }
     }
     for (long long i = start; i >= 0; i--) {
+        // Skip holes — use HasProperty (includes prototype chain) per spec.
+        if (!arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);

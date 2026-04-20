@@ -19,7 +19,6 @@
 namespace protojs {
 
 void CommonJSLoader::init(JSContext* ctx) {
-    std::cerr << "[CommonJSLoader] init" << std::endl;
     // For QuickJS path
     JSValue requireFunc = JS_NewCFunction(ctx, requireImpl, "require", 1);
     
@@ -64,7 +63,6 @@ JSValue CommonJSLoader::require(
     const std::string& fromPath,
     JSContext* ctx
 ) {
-    std::cerr << "[CommonJSLoader] require: " << specifier << " from " << fromPath << std::endl << std::flush;
     JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
     if (!wrapper) {
         return JS_ThrowTypeError(ctx, "CommonJSLoader: JSContextWrapper not found");
@@ -220,8 +218,7 @@ JSValue CommonJSLoader::require(
     if (moduleProto) {
         const proto::ProtoString* exportsKey = JSSymbols::exports(wrapper->getProtoContext());
         const proto::ProtoObject* exportsProto = moduleProto->getAttribute(wrapper->getProtoContext(), exportsKey, true);
-        std::cerr << "[CommonJSLoader] exportsProto=" << exportsProto 
-                  << " (isCell=" << (exportsProto ? exportsProto->isCell(wrapper->getProtoContext()) : 0) << ")" << std::endl;
+
         exports = TypeBridge::toJS(ctx, exportsProto, wrapper->getProtoContext());
     } else {
         exports = JS_GetPropertyStr(ctx, moduleObj, "exports");
@@ -275,7 +272,6 @@ JSValue CommonJSLoader::requireResolve(
 }
 
 JSValue CommonJSLoader::requireImpl(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    std::cerr << "[CommonJSLoader] requireImpl called" << std::endl;
     if (argc < 1) {
         return JS_ThrowTypeError(ctx, "require expects a module specifier");
     }
@@ -341,7 +337,6 @@ const proto::ProtoObject* CommonJSLoader::requireProtoMethod(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* locals
 ) {
-    std::cerr << "[CommonJSLoader] requireProtoMethod called" << std::endl << std::flush;
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;
     JSContext* ctx = wrapper->getJSContext();
