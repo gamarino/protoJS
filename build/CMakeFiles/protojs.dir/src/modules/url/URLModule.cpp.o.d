@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/url/URLModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/url/URLModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \

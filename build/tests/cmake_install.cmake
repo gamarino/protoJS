@@ -1,4 +1,4 @@
-# Install script for directory: /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests
+# Install script for directory: /home/gamarino/Documentos/proyectos/protoJS/tests
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/CommonJSLoader.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/CommonJSLoader.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -170,36 +170,8 @@ CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: \
  /usr/include/c++/13/ext/atomicity.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/atomic_word.h \
  /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ModuleResolver.h \
- /usr/include/c++/13/vector /usr/include/c++/13/bits/stl_uninitialized.h \
- /usr/include/c++/13/bits/stl_vector.h \
- /usr/include/c++/13/bits/stl_bvector.h \
- /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ModuleCache.h \
- /usr/include/c++/13/memory /usr/include/c++/13/bits/stl_tempbuf.h \
- /usr/include/c++/13/bits/stl_raw_storage_iter.h \
- /usr/include/c++/13/bits/align.h /usr/include/c++/13/bits/unique_ptr.h \
- /usr/include/c++/13/ostream /usr/include/c++/13/ios \
- /usr/include/c++/13/bits/ios_base.h \
- /usr/include/c++/13/bits/locale_classes.h \
- /usr/include/c++/13/bits/locale_classes.tcc \
- /usr/include/c++/13/system_error /usr/include/c++/13/stdexcept \
- /usr/include/c++/13/streambuf /usr/include/c++/13/bits/streambuf.tcc \
- /usr/include/c++/13/bits/basic_ios.h \
- /usr/include/c++/13/bits/locale_facets.h /usr/include/c++/13/cwctype \
- /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_base.h \
- /usr/include/c++/13/bits/streambuf_iterator.h \
- /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h \
- /usr/include/c++/13/bits/locale_facets.tcc \
- /usr/include/c++/13/bits/basic_ios.tcc \
- /usr/include/c++/13/bits/ostream.tcc \
- /usr/include/c++/13/bits/shared_ptr.h \
- /usr/include/c++/13/bits/shared_ptr_base.h \
- /usr/include/c++/13/bits/allocated_ptr.h \
- /usr/include/c++/13/ext/concurrence.h \
- /usr/include/c++/13/bits/shared_ptr_atomic.h \
- /usr/include/c++/13/bits/atomic_base.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
  /usr/include/c++/13/bits/atomic_wait.h /usr/include/c++/13/climits \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h \
@@ -223,13 +195,48 @@ CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: \
  /usr/include/x86_64-linux-gnu/asm/unistd.h \
  /usr/include/x86_64-linux-gnu/asm/unistd_64.h \
  /usr/include/x86_64-linux-gnu/bits/syscall.h \
+ /usr/include/c++/13/condition_variable \
+ /usr/include/c++/13/bits/shared_ptr.h \
+ /usr/include/c++/13/bits/shared_ptr_base.h \
+ /usr/include/c++/13/bits/allocated_ptr.h \
+ /usr/include/c++/13/bits/unique_ptr.h /usr/include/c++/13/ostream \
+ /usr/include/c++/13/ios /usr/include/c++/13/bits/ios_base.h \
+ /usr/include/c++/13/bits/locale_classes.h \
+ /usr/include/c++/13/bits/locale_classes.tcc \
+ /usr/include/c++/13/system_error /usr/include/c++/13/stdexcept \
+ /usr/include/c++/13/streambuf /usr/include/c++/13/bits/streambuf.tcc \
+ /usr/include/c++/13/bits/basic_ios.h \
+ /usr/include/c++/13/bits/locale_facets.h /usr/include/c++/13/cwctype \
+ /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_base.h \
+ /usr/include/c++/13/bits/streambuf_iterator.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/ctype_inline.h \
+ /usr/include/c++/13/bits/locale_facets.tcc \
+ /usr/include/c++/13/bits/basic_ios.tcc \
+ /usr/include/c++/13/bits/ostream.tcc \
+ /usr/include/c++/13/ext/concurrence.h /usr/include/c++/13/bits/align.h \
+ /usr/include/c++/13/bits/stl_uninitialized.h \
+ /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
+ /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
+ /usr/include/c++/13/bits/atomic_timed_wait.h \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
+ /usr/include/x86_64-linux-gnu/bits/semaphore.h \
+ /usr/include/c++/13/memory /usr/include/c++/13/bits/stl_tempbuf.h \
+ /usr/include/c++/13/bits/stl_raw_storage_iter.h \
+ /usr/include/c++/13/bits/shared_ptr_atomic.h \
  /usr/include/c++/13/backward/auto_ptr.h \
  /usr/include/c++/13/bits/ranges_uninitialized.h \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
- /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/chrono \
- /usr/include/c++/13/sstream /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/vector /usr/include/c++/13/bits/stl_vector.h \
+ /usr/include/c++/13/bits/stl_bvector.h \
+ /usr/include/c++/13/bits/vector.tcc \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.h \
+ /usr/include/c++/13/chrono /usr/include/c++/13/sstream \
+ /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
  /usr/include/c++/13/bits/sstream.tcc /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/stl_heap.h \
@@ -247,30 +254,22 @@ CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o: \
  /usr/include/c++/13/optional \
  /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/span /usr/include/c++/13/variant \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
- /usr/include/c++/13/atomic /usr/include/c++/13/condition_variable \
- /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
- /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
- /usr/include/c++/13/bits/atomic_timed_wait.h \
- /usr/include/c++/13/bits/this_thread_sleep.h \
- /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
- /usr/include/x86_64-linux-gnu/bits/semaphore.h \
- /usr/include/c++/13/thread \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../JSPrototypes.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../TypeBridge.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../ProtoJSStringCache.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoCompileOnly.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoBytecodeModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../GCBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSPrototypes.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSSymbols.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoCompileOnly.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
  /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoInterpreter.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoBytecodeModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../native/DynamicLibraryLoader.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../native/NativeModuleABI.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoInterpreter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../native/DynamicLibraryLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../native/NativeModuleABI.h \
  /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
- /usr/include/c++/13/bits/fstream.tcc
+ /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/iostream

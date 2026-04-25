@@ -1,7 +1,7 @@
 CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/PackageResolver.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/PackageResolver.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/npm/PackageResolver.h \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -136,8 +136,8 @@ CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o: \
  /usr/include/c++/13/bits/stl_map.h \
  /usr/include/c++/13/bits/stl_multimap.h \
  /usr/include/c++/13/bits/erase_if.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/npm/../modules/ModuleResolver.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/npm/../modules/ModuleResolver.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h /usr/include/string.h \

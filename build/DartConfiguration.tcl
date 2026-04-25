@@ -4,8 +4,8 @@
 
 
 # Configuration directories and files
-SourceDirectory: /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins
-BuildDirectory: /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build
+SourceDirectory: /home/gamarino/Documentos/proyectos/protoJS
+BuildDirectory: /home/gamarino/Documentos/proyectos/protoJS/build
 
 # Where to place the cost data store
 CostDataFile: 
@@ -27,7 +27,7 @@ SubmitInactivityTimeout:
 NightlyStartTime: 00:00:00 EDT
 
 # Commands for the build/test/submit cycle
-ConfigureCommand: "/usr/bin/cmake" "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins"
+ConfigureCommand: "/usr/bin/cmake" "/home/gamarino/Documentos/proyectos/protoJS"
 MakeCommand: /usr/bin/cmake --build . --config "${CTEST_CONFIGURATION_TYPE}"
 DefaultCTestConfigurationType: Release
 

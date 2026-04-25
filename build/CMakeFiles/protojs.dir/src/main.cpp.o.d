@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/main.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/main.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/main.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -40,7 +40,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/strings.h \
  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -228,10 +228,15 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/JSPrototypes.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/Deferred.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/CPUThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h \
+ /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
+ /usr/include/c++/13/bits/node_handle.h \
+ /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h \
+ /usr/include/c++/13/bits/erase_if.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
  /usr/include/c++/13/queue /usr/include/c++/13/deque \
  /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
  /usr/include/c++/13/bits/stl_heap.h /usr/include/c++/13/bits/stl_queue.h \
@@ -242,40 +247,35 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
  /usr/include/c++/13/bits/enable_special_members.h \
- /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/array \
- /usr/include/c++/13/bits/stl_algo.h \
+ /usr/include/c++/13/array /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/uniform_int_dist.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
  /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/console.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/IOModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../ThreadPoolExecutor.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../EventLoop.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ProtoCoreModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ProcessModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/CommonJSLoader.h \
- /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
- /usr/include/c++/13/bits/stl_map.h \
- /usr/include/c++/13/bits/stl_multimap.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/path/PathModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/FSModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/url/URLModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/http/HTTPModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/events/EventsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/stream/StreamModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/util/UtilModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/crypto/CryptoModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/buffer/BufferModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/net/NetModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/WorkerThreadsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/cluster/ClusterModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dgram/DgramModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/child_process/ChildProcessModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dns/DNSModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/Profiler.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/console.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProtoCoreModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/CommonJSLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/url/URLModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/stream/StreamModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/crypto/CryptoModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/ClusterModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dgram/DgramModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/DNSModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.h \
  /usr/include/c++/13/chrono /usr/include/c++/13/sstream \
  /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
  /usr/include/c++/13/bits/sstream.tcc \
@@ -290,11 +290,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
  /usr/include/c++/13/charconv /usr/include/c++/13/optional \
  /usr/include/c++/13/span /usr/include/c++/13/variant \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/VisualProfiler.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/Profiler.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/memory/MemoryAnalyzer.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/debugging/IntegratedDebugger.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/repl/REPL.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/VisualProfiler.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/memory/MemoryAnalyzer.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/repl/REPL.h \
  /usr/include/c++/13/iostream /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \

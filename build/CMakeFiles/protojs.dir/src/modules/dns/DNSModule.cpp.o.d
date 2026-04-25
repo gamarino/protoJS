@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dns/DNSModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/DNSModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dns/DNSModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/DNSModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -138,8 +138,8 @@ CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.o: \
  /usr/include/c++/13/bits/uses_allocator.h \
  /usr/include/c++/13/bits/uses_allocator_args.h /usr/include/c++/13/tuple \
  /usr/include/c++/13/bits/ranges_util.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dns/../../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dns/../../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/../../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/../../ThreadPoolExecutor.h \
  /usr/include/c++/13/thread /usr/include/c++/13/stop_token \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
@@ -246,7 +246,7 @@ CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/dns/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/../../EventLoop.h \
  /usr/include/netdb.h /usr/include/netinet/in.h \
  /usr/include/x86_64-linux-gnu/sys/socket.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \

@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/WorkerThreadsModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/WorkerThreadsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -217,8 +217,8 @@ CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o: \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/bits/stl_heap.h \
  /usr/include/c++/13/bits/stl_queue.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/../events/EventsModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../events/EventsModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../EventLoop.h \
  /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
  /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \
@@ -237,8 +237,8 @@ CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o: \
  /usr/include/c++/13/bits/shared_ptr_base.h \
  /usr/include/c++/13/bits/allocated_ptr.h \
  /usr/include/c++/13/ext/concurrence.h /usr/include/c++/13/bits/align.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/../../CPUThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/../../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../CPUThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../ThreadPoolExecutor.h \
  /usr/include/c++/13/future /usr/include/c++/13/bits/atomic_futex.h \
  /usr/include/c++/13/memory \
  /usr/include/c++/13/bits/stl_raw_storage_iter.h \
@@ -248,11 +248,14 @@ CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/../../JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/worker_threads/../../JSPrototypes.h \
- /usr/include/c++/13/fstream /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc /usr/include/c++/13/bits/codecvt.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/../../JSPrototypes.h \
+ /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
+ /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h /usr/include/c++/13/fstream \
+ /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/bits/codecvt.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
  /usr/include/c++/13/bits/fstream.tcc /usr/include/c++/13/sstream \

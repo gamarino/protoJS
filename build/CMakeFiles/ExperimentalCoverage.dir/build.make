@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins
+CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build
+CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/build
 
 # Utility rule file for ExperimentalCoverage.
 
@@ -82,6 +82,6 @@ CMakeFiles/ExperimentalCoverage.dir/clean:
 .PHONY : CMakeFiles/ExperimentalCoverage.dir/clean
 
 CMakeFiles/ExperimentalCoverage.dir/depend:
-	cd /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles/ExperimentalCoverage.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/gamarino/Documentos/proyectos/protoJS /home/gamarino/Documentos/proyectos/protoJS /home/gamarino/Documentos/proyectos/protoJS/build /home/gamarino/Documentos/proyectos/protoJS/build /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles/ExperimentalCoverage.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/ExperimentalCoverage.dir/depend
 

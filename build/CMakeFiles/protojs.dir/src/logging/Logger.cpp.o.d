@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/logging/Logger.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/logging/Logger.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/logging/Logger.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/logging/Logger.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \

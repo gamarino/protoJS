@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins
+CMAKE_SOURCE_DIR = /home/gamarino/Documentos/proyectos/protoJS
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build
+CMAKE_BINARY_DIR = /home/gamarino/Documentos/proyectos/protoJS/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -142,9 +142,9 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles /home/gamarino/Documentos/proyectos/protoJS/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -170,6 +170,19 @@ preinstall/fast:
 depend:
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
+
+#=============================================================================
+# Target rules for targets named protojs_core
+
+# Build rule for target.
+protojs_core: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 protojs_core
+.PHONY : protojs_core
+
+# fast build rule for target.
+protojs_core/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/build
+.PHONY : protojs_core/fast
 
 #=============================================================================
 # Target rules for targets named protojs
@@ -618,7 +631,7 @@ deps/quickjs/cutils.o: deps/quickjs/cutils.c.o
 
 # target to build an object file
 deps/quickjs/cutils.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/cutils.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/cutils.c.o
 .PHONY : deps/quickjs/cutils.c.o
 
 deps/quickjs/cutils.i: deps/quickjs/cutils.c.i
@@ -626,7 +639,7 @@ deps/quickjs/cutils.i: deps/quickjs/cutils.c.i
 
 # target to preprocess a source file
 deps/quickjs/cutils.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/cutils.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/cutils.c.i
 .PHONY : deps/quickjs/cutils.c.i
 
 deps/quickjs/cutils.s: deps/quickjs/cutils.c.s
@@ -634,7 +647,7 @@ deps/quickjs/cutils.s: deps/quickjs/cutils.c.s
 
 # target to generate assembly for a file
 deps/quickjs/cutils.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/cutils.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/cutils.c.s
 .PHONY : deps/quickjs/cutils.c.s
 
 deps/quickjs/dtoa.o: deps/quickjs/dtoa.c.o
@@ -642,7 +655,7 @@ deps/quickjs/dtoa.o: deps/quickjs/dtoa.c.o
 
 # target to build an object file
 deps/quickjs/dtoa.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/dtoa.c.o
 .PHONY : deps/quickjs/dtoa.c.o
 
 deps/quickjs/dtoa.i: deps/quickjs/dtoa.c.i
@@ -650,7 +663,7 @@ deps/quickjs/dtoa.i: deps/quickjs/dtoa.c.i
 
 # target to preprocess a source file
 deps/quickjs/dtoa.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/dtoa.c.i
 .PHONY : deps/quickjs/dtoa.c.i
 
 deps/quickjs/dtoa.s: deps/quickjs/dtoa.c.s
@@ -658,7 +671,7 @@ deps/quickjs/dtoa.s: deps/quickjs/dtoa.c.s
 
 # target to generate assembly for a file
 deps/quickjs/dtoa.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/dtoa.c.s
 .PHONY : deps/quickjs/dtoa.c.s
 
 deps/quickjs/libregexp.o: deps/quickjs/libregexp.c.o
@@ -666,7 +679,7 @@ deps/quickjs/libregexp.o: deps/quickjs/libregexp.c.o
 
 # target to build an object file
 deps/quickjs/libregexp.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/libregexp.c.o
 .PHONY : deps/quickjs/libregexp.c.o
 
 deps/quickjs/libregexp.i: deps/quickjs/libregexp.c.i
@@ -674,7 +687,7 @@ deps/quickjs/libregexp.i: deps/quickjs/libregexp.c.i
 
 # target to preprocess a source file
 deps/quickjs/libregexp.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/libregexp.c.i
 .PHONY : deps/quickjs/libregexp.c.i
 
 deps/quickjs/libregexp.s: deps/quickjs/libregexp.c.s
@@ -682,7 +695,7 @@ deps/quickjs/libregexp.s: deps/quickjs/libregexp.c.s
 
 # target to generate assembly for a file
 deps/quickjs/libregexp.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/libregexp.c.s
 .PHONY : deps/quickjs/libregexp.c.s
 
 deps/quickjs/libunicode.o: deps/quickjs/libunicode.c.o
@@ -690,7 +703,7 @@ deps/quickjs/libunicode.o: deps/quickjs/libunicode.c.o
 
 # target to build an object file
 deps/quickjs/libunicode.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/libunicode.c.o
 .PHONY : deps/quickjs/libunicode.c.o
 
 deps/quickjs/libunicode.i: deps/quickjs/libunicode.c.i
@@ -698,7 +711,7 @@ deps/quickjs/libunicode.i: deps/quickjs/libunicode.c.i
 
 # target to preprocess a source file
 deps/quickjs/libunicode.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/libunicode.c.i
 .PHONY : deps/quickjs/libunicode.c.i
 
 deps/quickjs/libunicode.s: deps/quickjs/libunicode.c.s
@@ -706,7 +719,7 @@ deps/quickjs/libunicode.s: deps/quickjs/libunicode.c.s
 
 # target to generate assembly for a file
 deps/quickjs/libunicode.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/libunicode.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/libunicode.c.s
 .PHONY : deps/quickjs/libunicode.c.s
 
 deps/quickjs/quickjs.o: deps/quickjs/quickjs.c.o
@@ -714,7 +727,7 @@ deps/quickjs/quickjs.o: deps/quickjs/quickjs.c.o
 
 # target to build an object file
 deps/quickjs/quickjs.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/quickjs.c.o
 .PHONY : deps/quickjs/quickjs.c.o
 
 deps/quickjs/quickjs.i: deps/quickjs/quickjs.c.i
@@ -722,7 +735,7 @@ deps/quickjs/quickjs.i: deps/quickjs/quickjs.c.i
 
 # target to preprocess a source file
 deps/quickjs/quickjs.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/quickjs.c.i
 .PHONY : deps/quickjs/quickjs.c.i
 
 deps/quickjs/quickjs.s: deps/quickjs/quickjs.c.s
@@ -730,15 +743,39 @@ deps/quickjs/quickjs.s: deps/quickjs/quickjs.c.s
 
 # target to generate assembly for a file
 deps/quickjs/quickjs.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/deps/quickjs/quickjs.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/deps/quickjs/quickjs.c.s
 .PHONY : deps/quickjs/quickjs.c.s
+
+src/ArrayBufferPrototype.o: src/ArrayBufferPrototype.cpp.o
+.PHONY : src/ArrayBufferPrototype.o
+
+# target to build an object file
+src/ArrayBufferPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ArrayBufferPrototype.cpp.o
+.PHONY : src/ArrayBufferPrototype.cpp.o
+
+src/ArrayBufferPrototype.i: src/ArrayBufferPrototype.cpp.i
+.PHONY : src/ArrayBufferPrototype.i
+
+# target to preprocess a source file
+src/ArrayBufferPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ArrayBufferPrototype.cpp.i
+.PHONY : src/ArrayBufferPrototype.cpp.i
+
+src/ArrayBufferPrototype.s: src/ArrayBufferPrototype.cpp.s
+.PHONY : src/ArrayBufferPrototype.s
+
+# target to generate assembly for a file
+src/ArrayBufferPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ArrayBufferPrototype.cpp.s
+.PHONY : src/ArrayBufferPrototype.cpp.s
 
 src/ArrayPrototype.o: src/ArrayPrototype.cpp.o
 .PHONY : src/ArrayPrototype.o
 
 # target to build an object file
 src/ArrayPrototype.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ArrayPrototype.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ArrayPrototype.cpp.o
 .PHONY : src/ArrayPrototype.cpp.o
 
 src/ArrayPrototype.i: src/ArrayPrototype.cpp.i
@@ -746,7 +783,7 @@ src/ArrayPrototype.i: src/ArrayPrototype.cpp.i
 
 # target to preprocess a source file
 src/ArrayPrototype.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ArrayPrototype.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ArrayPrototype.cpp.i
 .PHONY : src/ArrayPrototype.cpp.i
 
 src/ArrayPrototype.s: src/ArrayPrototype.cpp.s
@@ -754,15 +791,39 @@ src/ArrayPrototype.s: src/ArrayPrototype.cpp.s
 
 # target to generate assembly for a file
 src/ArrayPrototype.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ArrayPrototype.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ArrayPrototype.cpp.s
 .PHONY : src/ArrayPrototype.cpp.s
+
+src/BooleanPrototype.o: src/BooleanPrototype.cpp.o
+.PHONY : src/BooleanPrototype.o
+
+# target to build an object file
+src/BooleanPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/BooleanPrototype.cpp.o
+.PHONY : src/BooleanPrototype.cpp.o
+
+src/BooleanPrototype.i: src/BooleanPrototype.cpp.i
+.PHONY : src/BooleanPrototype.i
+
+# target to preprocess a source file
+src/BooleanPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/BooleanPrototype.cpp.i
+.PHONY : src/BooleanPrototype.cpp.i
+
+src/BooleanPrototype.s: src/BooleanPrototype.cpp.s
+.PHONY : src/BooleanPrototype.s
+
+# target to generate assembly for a file
+src/BooleanPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/BooleanPrototype.cpp.s
+.PHONY : src/BooleanPrototype.cpp.s
 
 src/CPUThreadPool.o: src/CPUThreadPool.cpp.o
 .PHONY : src/CPUThreadPool.o
 
 # target to build an object file
 src/CPUThreadPool.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/CPUThreadPool.cpp.o
 .PHONY : src/CPUThreadPool.cpp.o
 
 src/CPUThreadPool.i: src/CPUThreadPool.cpp.i
@@ -770,7 +831,7 @@ src/CPUThreadPool.i: src/CPUThreadPool.cpp.i
 
 # target to preprocess a source file
 src/CPUThreadPool.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/CPUThreadPool.cpp.i
 .PHONY : src/CPUThreadPool.cpp.i
 
 src/CPUThreadPool.s: src/CPUThreadPool.cpp.s
@@ -778,15 +839,39 @@ src/CPUThreadPool.s: src/CPUThreadPool.cpp.s
 
 # target to generate assembly for a file
 src/CPUThreadPool.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/CPUThreadPool.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/CPUThreadPool.cpp.s
 .PHONY : src/CPUThreadPool.cpp.s
+
+src/DataViewPrototype.o: src/DataViewPrototype.cpp.o
+.PHONY : src/DataViewPrototype.o
+
+# target to build an object file
+src/DataViewPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/DataViewPrototype.cpp.o
+.PHONY : src/DataViewPrototype.cpp.o
+
+src/DataViewPrototype.i: src/DataViewPrototype.cpp.i
+.PHONY : src/DataViewPrototype.i
+
+# target to preprocess a source file
+src/DataViewPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/DataViewPrototype.cpp.i
+.PHONY : src/DataViewPrototype.cpp.i
+
+src/DataViewPrototype.s: src/DataViewPrototype.cpp.s
+.PHONY : src/DataViewPrototype.s
+
+# target to generate assembly for a file
+src/DataViewPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/DataViewPrototype.cpp.s
+.PHONY : src/DataViewPrototype.cpp.s
 
 src/Deferred.o: src/Deferred.cpp.o
 .PHONY : src/Deferred.o
 
 # target to build an object file
 src/Deferred.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/Deferred.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/Deferred.cpp.o
 .PHONY : src/Deferred.cpp.o
 
 src/Deferred.i: src/Deferred.cpp.i
@@ -794,7 +879,7 @@ src/Deferred.i: src/Deferred.cpp.i
 
 # target to preprocess a source file
 src/Deferred.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/Deferred.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/Deferred.cpp.i
 .PHONY : src/Deferred.cpp.i
 
 src/Deferred.s: src/Deferred.cpp.s
@@ -802,7 +887,7 @@ src/Deferred.s: src/Deferred.cpp.s
 
 # target to generate assembly for a file
 src/Deferred.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/Deferred.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/Deferred.cpp.s
 .PHONY : src/Deferred.cpp.s
 
 src/ErrorHandler.o: src/ErrorHandler.cpp.o
@@ -810,7 +895,7 @@ src/ErrorHandler.o: src/ErrorHandler.cpp.o
 
 # target to build an object file
 src/ErrorHandler.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ErrorHandler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ErrorHandler.cpp.o
 .PHONY : src/ErrorHandler.cpp.o
 
 src/ErrorHandler.i: src/ErrorHandler.cpp.i
@@ -818,7 +903,7 @@ src/ErrorHandler.i: src/ErrorHandler.cpp.i
 
 # target to preprocess a source file
 src/ErrorHandler.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ErrorHandler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ErrorHandler.cpp.i
 .PHONY : src/ErrorHandler.cpp.i
 
 src/ErrorHandler.s: src/ErrorHandler.cpp.s
@@ -826,7 +911,7 @@ src/ErrorHandler.s: src/ErrorHandler.cpp.s
 
 # target to generate assembly for a file
 src/ErrorHandler.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ErrorHandler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ErrorHandler.cpp.s
 .PHONY : src/ErrorHandler.cpp.s
 
 src/EventLoop.o: src/EventLoop.cpp.o
@@ -834,7 +919,7 @@ src/EventLoop.o: src/EventLoop.cpp.o
 
 # target to build an object file
 src/EventLoop.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/EventLoop.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoop.cpp.o
 .PHONY : src/EventLoop.cpp.o
 
 src/EventLoop.i: src/EventLoop.cpp.i
@@ -842,7 +927,7 @@ src/EventLoop.i: src/EventLoop.cpp.i
 
 # target to preprocess a source file
 src/EventLoop.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/EventLoop.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoop.cpp.i
 .PHONY : src/EventLoop.cpp.i
 
 src/EventLoop.s: src/EventLoop.cpp.s
@@ -850,7 +935,7 @@ src/EventLoop.s: src/EventLoop.cpp.s
 
 # target to generate assembly for a file
 src/EventLoop.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/EventLoop.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoop.cpp.s
 .PHONY : src/EventLoop.cpp.s
 
 src/ExecutionEngine.o: src/ExecutionEngine.cpp.o
@@ -858,7 +943,7 @@ src/ExecutionEngine.o: src/ExecutionEngine.cpp.o
 
 # target to build an object file
 src/ExecutionEngine.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ExecutionEngine.cpp.o
 .PHONY : src/ExecutionEngine.cpp.o
 
 src/ExecutionEngine.i: src/ExecutionEngine.cpp.i
@@ -866,7 +951,7 @@ src/ExecutionEngine.i: src/ExecutionEngine.cpp.i
 
 # target to preprocess a source file
 src/ExecutionEngine.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ExecutionEngine.cpp.i
 .PHONY : src/ExecutionEngine.cpp.i
 
 src/ExecutionEngine.s: src/ExecutionEngine.cpp.s
@@ -874,15 +959,39 @@ src/ExecutionEngine.s: src/ExecutionEngine.cpp.s
 
 # target to generate assembly for a file
 src/ExecutionEngine.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ExecutionEngine.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ExecutionEngine.cpp.s
 .PHONY : src/ExecutionEngine.cpp.s
+
+src/FunctionPrototype.o: src/FunctionPrototype.cpp.o
+.PHONY : src/FunctionPrototype.o
+
+# target to build an object file
+src/FunctionPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/FunctionPrototype.cpp.o
+.PHONY : src/FunctionPrototype.cpp.o
+
+src/FunctionPrototype.i: src/FunctionPrototype.cpp.i
+.PHONY : src/FunctionPrototype.i
+
+# target to preprocess a source file
+src/FunctionPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/FunctionPrototype.cpp.i
+.PHONY : src/FunctionPrototype.cpp.i
+
+src/FunctionPrototype.s: src/FunctionPrototype.cpp.s
+.PHONY : src/FunctionPrototype.s
+
+# target to generate assembly for a file
+src/FunctionPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/FunctionPrototype.cpp.s
+.PHONY : src/FunctionPrototype.cpp.s
 
 src/GCBridge.o: src/GCBridge.cpp.o
 .PHONY : src/GCBridge.o
 
 # target to build an object file
 src/GCBridge.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/GCBridge.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/GCBridge.cpp.o
 .PHONY : src/GCBridge.cpp.o
 
 src/GCBridge.i: src/GCBridge.cpp.i
@@ -890,7 +999,7 @@ src/GCBridge.i: src/GCBridge.cpp.i
 
 # target to preprocess a source file
 src/GCBridge.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/GCBridge.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/GCBridge.cpp.i
 .PHONY : src/GCBridge.cpp.i
 
 src/GCBridge.s: src/GCBridge.cpp.s
@@ -898,7 +1007,7 @@ src/GCBridge.s: src/GCBridge.cpp.s
 
 # target to generate assembly for a file
 src/GCBridge.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/GCBridge.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/GCBridge.cpp.s
 .PHONY : src/GCBridge.cpp.s
 
 src/IOThreadPool.o: src/IOThreadPool.cpp.o
@@ -906,7 +1015,7 @@ src/IOThreadPool.o: src/IOThreadPool.cpp.o
 
 # target to build an object file
 src/IOThreadPool.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/IOThreadPool.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/IOThreadPool.cpp.o
 .PHONY : src/IOThreadPool.cpp.o
 
 src/IOThreadPool.i: src/IOThreadPool.cpp.i
@@ -914,7 +1023,7 @@ src/IOThreadPool.i: src/IOThreadPool.cpp.i
 
 # target to preprocess a source file
 src/IOThreadPool.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/IOThreadPool.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/IOThreadPool.cpp.i
 .PHONY : src/IOThreadPool.cpp.i
 
 src/IOThreadPool.s: src/IOThreadPool.cpp.s
@@ -922,7 +1031,7 @@ src/IOThreadPool.s: src/IOThreadPool.cpp.s
 
 # target to generate assembly for a file
 src/IOThreadPool.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/IOThreadPool.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/IOThreadPool.cpp.s
 .PHONY : src/IOThreadPool.cpp.s
 
 src/JSContext.o: src/JSContext.cpp.o
@@ -930,7 +1039,7 @@ src/JSContext.o: src/JSContext.cpp.o
 
 # target to build an object file
 src/JSContext.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSContext.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSContext.cpp.o
 .PHONY : src/JSContext.cpp.o
 
 src/JSContext.i: src/JSContext.cpp.i
@@ -938,7 +1047,7 @@ src/JSContext.i: src/JSContext.cpp.i
 
 # target to preprocess a source file
 src/JSContext.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSContext.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSContext.cpp.i
 .PHONY : src/JSContext.cpp.i
 
 src/JSContext.s: src/JSContext.cpp.s
@@ -946,7 +1055,7 @@ src/JSContext.s: src/JSContext.cpp.s
 
 # target to generate assembly for a file
 src/JSContext.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSContext.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSContext.cpp.s
 .PHONY : src/JSContext.cpp.s
 
 src/JSPrototypes.o: src/JSPrototypes.cpp.o
@@ -954,7 +1063,7 @@ src/JSPrototypes.o: src/JSPrototypes.cpp.o
 
 # target to build an object file
 src/JSPrototypes.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSPrototypes.cpp.o
 .PHONY : src/JSPrototypes.cpp.o
 
 src/JSPrototypes.i: src/JSPrototypes.cpp.i
@@ -962,7 +1071,7 @@ src/JSPrototypes.i: src/JSPrototypes.cpp.i
 
 # target to preprocess a source file
 src/JSPrototypes.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSPrototypes.cpp.i
 .PHONY : src/JSPrototypes.cpp.i
 
 src/JSPrototypes.s: src/JSPrototypes.cpp.s
@@ -970,15 +1079,63 @@ src/JSPrototypes.s: src/JSPrototypes.cpp.s
 
 # target to generate assembly for a file
 src/JSPrototypes.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/JSPrototypes.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSPrototypes.cpp.s
 .PHONY : src/JSPrototypes.cpp.s
+
+src/JSSymbols.o: src/JSSymbols.cpp.o
+.PHONY : src/JSSymbols.o
+
+# target to build an object file
+src/JSSymbols.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSSymbols.cpp.o
+.PHONY : src/JSSymbols.cpp.o
+
+src/JSSymbols.i: src/JSSymbols.cpp.i
+.PHONY : src/JSSymbols.i
+
+# target to preprocess a source file
+src/JSSymbols.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSSymbols.cpp.i
+.PHONY : src/JSSymbols.cpp.i
+
+src/JSSymbols.s: src/JSSymbols.cpp.s
+.PHONY : src/JSSymbols.s
+
+# target to generate assembly for a file
+src/JSSymbols.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSSymbols.cpp.s
+.PHONY : src/JSSymbols.cpp.s
+
+src/MapPrototype.o: src/MapPrototype.cpp.o
+.PHONY : src/MapPrototype.o
+
+# target to build an object file
+src/MapPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/MapPrototype.cpp.o
+.PHONY : src/MapPrototype.cpp.o
+
+src/MapPrototype.i: src/MapPrototype.cpp.i
+.PHONY : src/MapPrototype.i
+
+# target to preprocess a source file
+src/MapPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/MapPrototype.cpp.i
+.PHONY : src/MapPrototype.cpp.i
+
+src/MapPrototype.s: src/MapPrototype.cpp.s
+.PHONY : src/MapPrototype.s
+
+# target to generate assembly for a file
+src/MapPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/MapPrototype.cpp.s
+.PHONY : src/MapPrototype.cpp.s
 
 src/MathBuiltin.o: src/MathBuiltin.cpp.o
 .PHONY : src/MathBuiltin.o
 
 # target to build an object file
 src/MathBuiltin.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/MathBuiltin.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/MathBuiltin.cpp.o
 .PHONY : src/MathBuiltin.cpp.o
 
 src/MathBuiltin.i: src/MathBuiltin.cpp.i
@@ -986,7 +1143,7 @@ src/MathBuiltin.i: src/MathBuiltin.cpp.i
 
 # target to preprocess a source file
 src/MathBuiltin.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/MathBuiltin.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/MathBuiltin.cpp.i
 .PHONY : src/MathBuiltin.cpp.i
 
 src/MathBuiltin.s: src/MathBuiltin.cpp.s
@@ -994,7 +1151,7 @@ src/MathBuiltin.s: src/MathBuiltin.cpp.s
 
 # target to generate assembly for a file
 src/MathBuiltin.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/MathBuiltin.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/MathBuiltin.cpp.s
 .PHONY : src/MathBuiltin.cpp.s
 
 src/NumberPrototype.o: src/NumberPrototype.cpp.o
@@ -1002,7 +1159,7 @@ src/NumberPrototype.o: src/NumberPrototype.cpp.o
 
 # target to build an object file
 src/NumberPrototype.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/NumberPrototype.cpp.o
 .PHONY : src/NumberPrototype.cpp.o
 
 src/NumberPrototype.i: src/NumberPrototype.cpp.i
@@ -1010,7 +1167,7 @@ src/NumberPrototype.i: src/NumberPrototype.cpp.i
 
 # target to preprocess a source file
 src/NumberPrototype.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/NumberPrototype.cpp.i
 .PHONY : src/NumberPrototype.cpp.i
 
 src/NumberPrototype.s: src/NumberPrototype.cpp.s
@@ -1018,7 +1175,7 @@ src/NumberPrototype.s: src/NumberPrototype.cpp.s
 
 # target to generate assembly for a file
 src/NumberPrototype.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/NumberPrototype.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/NumberPrototype.cpp.s
 .PHONY : src/NumberPrototype.cpp.s
 
 src/ObjectPrototype.o: src/ObjectPrototype.cpp.o
@@ -1026,7 +1183,7 @@ src/ObjectPrototype.o: src/ObjectPrototype.cpp.o
 
 # target to build an object file
 src/ObjectPrototype.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ObjectPrototype.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ObjectPrototype.cpp.o
 .PHONY : src/ObjectPrototype.cpp.o
 
 src/ObjectPrototype.i: src/ObjectPrototype.cpp.i
@@ -1034,7 +1191,7 @@ src/ObjectPrototype.i: src/ObjectPrototype.cpp.i
 
 # target to preprocess a source file
 src/ObjectPrototype.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ObjectPrototype.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ObjectPrototype.cpp.i
 .PHONY : src/ObjectPrototype.cpp.i
 
 src/ObjectPrototype.s: src/ObjectPrototype.cpp.s
@@ -1042,15 +1199,39 @@ src/ObjectPrototype.s: src/ObjectPrototype.cpp.s
 
 # target to generate assembly for a file
 src/ObjectPrototype.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ObjectPrototype.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ObjectPrototype.cpp.s
 .PHONY : src/ObjectPrototype.cpp.s
+
+src/PromisePrototype.o: src/PromisePrototype.cpp.o
+.PHONY : src/PromisePrototype.o
+
+# target to build an object file
+src/PromisePrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/PromisePrototype.cpp.o
+.PHONY : src/PromisePrototype.cpp.o
+
+src/PromisePrototype.i: src/PromisePrototype.cpp.i
+.PHONY : src/PromisePrototype.i
+
+# target to preprocess a source file
+src/PromisePrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/PromisePrototype.cpp.i
+.PHONY : src/PromisePrototype.cpp.i
+
+src/PromisePrototype.s: src/PromisePrototype.cpp.s
+.PHONY : src/PromisePrototype.s
+
+# target to generate assembly for a file
+src/PromisePrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/PromisePrototype.cpp.s
+.PHONY : src/PromisePrototype.cpp.s
 
 src/ProtoArgumentsAdapter.o: src/ProtoArgumentsAdapter.cpp.o
 .PHONY : src/ProtoArgumentsAdapter.o
 
 # target to build an object file
 src/ProtoArgumentsAdapter.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArgumentsAdapter.cpp.o
 .PHONY : src/ProtoArgumentsAdapter.cpp.o
 
 src/ProtoArgumentsAdapter.i: src/ProtoArgumentsAdapter.cpp.i
@@ -1058,7 +1239,7 @@ src/ProtoArgumentsAdapter.i: src/ProtoArgumentsAdapter.cpp.i
 
 # target to preprocess a source file
 src/ProtoArgumentsAdapter.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArgumentsAdapter.cpp.i
 .PHONY : src/ProtoArgumentsAdapter.cpp.i
 
 src/ProtoArgumentsAdapter.s: src/ProtoArgumentsAdapter.cpp.s
@@ -1066,7 +1247,7 @@ src/ProtoArgumentsAdapter.s: src/ProtoArgumentsAdapter.cpp.s
 
 # target to generate assembly for a file
 src/ProtoArgumentsAdapter.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArgumentsAdapter.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArgumentsAdapter.cpp.s
 .PHONY : src/ProtoArgumentsAdapter.cpp.s
 
 src/ProtoArrayAdapter.o: src/ProtoArrayAdapter.cpp.o
@@ -1074,7 +1255,7 @@ src/ProtoArrayAdapter.o: src/ProtoArrayAdapter.cpp.o
 
 # target to build an object file
 src/ProtoArrayAdapter.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArrayAdapter.cpp.o
 .PHONY : src/ProtoArrayAdapter.cpp.o
 
 src/ProtoArrayAdapter.i: src/ProtoArrayAdapter.cpp.i
@@ -1082,7 +1263,7 @@ src/ProtoArrayAdapter.i: src/ProtoArrayAdapter.cpp.i
 
 # target to preprocess a source file
 src/ProtoArrayAdapter.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArrayAdapter.cpp.i
 .PHONY : src/ProtoArrayAdapter.cpp.i
 
 src/ProtoArrayAdapter.s: src/ProtoArrayAdapter.cpp.s
@@ -1090,39 +1271,15 @@ src/ProtoArrayAdapter.s: src/ProtoArrayAdapter.cpp.s
 
 # target to generate assembly for a file
 src/ProtoArrayAdapter.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoArrayAdapter.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArrayAdapter.cpp.s
 .PHONY : src/ProtoArrayAdapter.cpp.s
-
-src/ProtoJSStringCache.o: src/ProtoJSStringCache.cpp.o
-.PHONY : src/ProtoJSStringCache.o
-
-# target to build an object file
-src/ProtoJSStringCache.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.o
-.PHONY : src/ProtoJSStringCache.cpp.o
-
-src/ProtoJSStringCache.i: src/ProtoJSStringCache.cpp.i
-.PHONY : src/ProtoJSStringCache.i
-
-# target to preprocess a source file
-src/ProtoJSStringCache.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.i
-.PHONY : src/ProtoJSStringCache.cpp.i
-
-src/ProtoJSStringCache.s: src/ProtoJSStringCache.cpp.s
-.PHONY : src/ProtoJSStringCache.s
-
-# target to generate assembly for a file
-src/ProtoJSStringCache.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoJSStringCache.cpp.s
-.PHONY : src/ProtoJSStringCache.cpp.s
 
 src/ProtoNativeModule.o: src/ProtoNativeModule.cpp.o
 .PHONY : src/ProtoNativeModule.o
 
 # target to build an object file
 src/ProtoNativeModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoNativeModule.cpp.o
 .PHONY : src/ProtoNativeModule.cpp.o
 
 src/ProtoNativeModule.i: src/ProtoNativeModule.cpp.i
@@ -1130,7 +1287,7 @@ src/ProtoNativeModule.i: src/ProtoNativeModule.cpp.i
 
 # target to preprocess a source file
 src/ProtoNativeModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoNativeModule.cpp.i
 .PHONY : src/ProtoNativeModule.cpp.i
 
 src/ProtoNativeModule.s: src/ProtoNativeModule.cpp.s
@@ -1138,15 +1295,39 @@ src/ProtoNativeModule.s: src/ProtoNativeModule.cpp.s
 
 # target to generate assembly for a file
 src/ProtoNativeModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ProtoNativeModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoNativeModule.cpp.s
 .PHONY : src/ProtoNativeModule.cpp.s
+
+src/PrototypeUtils.o: src/PrototypeUtils.cpp.o
+.PHONY : src/PrototypeUtils.o
+
+# target to build an object file
+src/PrototypeUtils.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/PrototypeUtils.cpp.o
+.PHONY : src/PrototypeUtils.cpp.o
+
+src/PrototypeUtils.i: src/PrototypeUtils.cpp.i
+.PHONY : src/PrototypeUtils.i
+
+# target to preprocess a source file
+src/PrototypeUtils.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/PrototypeUtils.cpp.i
+.PHONY : src/PrototypeUtils.cpp.i
+
+src/PrototypeUtils.s: src/PrototypeUtils.cpp.s
+.PHONY : src/PrototypeUtils.s
+
+# target to generate assembly for a file
+src/PrototypeUtils.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/PrototypeUtils.cpp.s
+.PHONY : src/PrototypeUtils.cpp.s
 
 src/QuickJSArrayBridge.o: src/QuickJSArrayBridge.cpp.o
 .PHONY : src/QuickJSArrayBridge.o
 
 # target to build an object file
 src/QuickJSArrayBridge.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/QuickJSArrayBridge.cpp.o
 .PHONY : src/QuickJSArrayBridge.cpp.o
 
 src/QuickJSArrayBridge.i: src/QuickJSArrayBridge.cpp.i
@@ -1154,7 +1335,7 @@ src/QuickJSArrayBridge.i: src/QuickJSArrayBridge.cpp.i
 
 # target to preprocess a source file
 src/QuickJSArrayBridge.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/QuickJSArrayBridge.cpp.i
 .PHONY : src/QuickJSArrayBridge.cpp.i
 
 src/QuickJSArrayBridge.s: src/QuickJSArrayBridge.cpp.s
@@ -1162,15 +1343,87 @@ src/QuickJSArrayBridge.s: src/QuickJSArrayBridge.cpp.s
 
 # target to generate assembly for a file
 src/QuickJSArrayBridge.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/QuickJSArrayBridge.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/QuickJSArrayBridge.cpp.s
 .PHONY : src/QuickJSArrayBridge.cpp.s
+
+src/RegExpPrototype.o: src/RegExpPrototype.cpp.o
+.PHONY : src/RegExpPrototype.o
+
+# target to build an object file
+src/RegExpPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/RegExpPrototype.cpp.o
+.PHONY : src/RegExpPrototype.cpp.o
+
+src/RegExpPrototype.i: src/RegExpPrototype.cpp.i
+.PHONY : src/RegExpPrototype.i
+
+# target to preprocess a source file
+src/RegExpPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/RegExpPrototype.cpp.i
+.PHONY : src/RegExpPrototype.cpp.i
+
+src/RegExpPrototype.s: src/RegExpPrototype.cpp.s
+.PHONY : src/RegExpPrototype.s
+
+# target to generate assembly for a file
+src/RegExpPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/RegExpPrototype.cpp.s
+.PHONY : src/RegExpPrototype.cpp.s
+
+src/RegExpStringIterator.o: src/RegExpStringIterator.cpp.o
+.PHONY : src/RegExpStringIterator.o
+
+# target to build an object file
+src/RegExpStringIterator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/RegExpStringIterator.cpp.o
+.PHONY : src/RegExpStringIterator.cpp.o
+
+src/RegExpStringIterator.i: src/RegExpStringIterator.cpp.i
+.PHONY : src/RegExpStringIterator.i
+
+# target to preprocess a source file
+src/RegExpStringIterator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/RegExpStringIterator.cpp.i
+.PHONY : src/RegExpStringIterator.cpp.i
+
+src/RegExpStringIterator.s: src/RegExpStringIterator.cpp.s
+.PHONY : src/RegExpStringIterator.s
+
+# target to generate assembly for a file
+src/RegExpStringIterator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/RegExpStringIterator.cpp.s
+.PHONY : src/RegExpStringIterator.cpp.s
+
+src/SetPrototype.o: src/SetPrototype.cpp.o
+.PHONY : src/SetPrototype.o
+
+# target to build an object file
+src/SetPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/SetPrototype.cpp.o
+.PHONY : src/SetPrototype.cpp.o
+
+src/SetPrototype.i: src/SetPrototype.cpp.i
+.PHONY : src/SetPrototype.i
+
+# target to preprocess a source file
+src/SetPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/SetPrototype.cpp.i
+.PHONY : src/SetPrototype.cpp.i
+
+src/SetPrototype.s: src/SetPrototype.cpp.s
+.PHONY : src/SetPrototype.s
+
+# target to generate assembly for a file
+src/SetPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/SetPrototype.cpp.s
+.PHONY : src/SetPrototype.cpp.s
 
 src/StringPrototype.o: src/StringPrototype.cpp.o
 .PHONY : src/StringPrototype.o
 
 # target to build an object file
 src/StringPrototype.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/StringPrototype.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/StringPrototype.cpp.o
 .PHONY : src/StringPrototype.cpp.o
 
 src/StringPrototype.i: src/StringPrototype.cpp.i
@@ -1178,7 +1431,7 @@ src/StringPrototype.i: src/StringPrototype.cpp.i
 
 # target to preprocess a source file
 src/StringPrototype.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/StringPrototype.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/StringPrototype.cpp.i
 .PHONY : src/StringPrototype.cpp.i
 
 src/StringPrototype.s: src/StringPrototype.cpp.s
@@ -1186,7 +1439,7 @@ src/StringPrototype.s: src/StringPrototype.cpp.s
 
 # target to generate assembly for a file
 src/StringPrototype.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/StringPrototype.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/StringPrototype.cpp.s
 .PHONY : src/StringPrototype.cpp.s
 
 src/ThreadPoolExecutor.o: src/ThreadPoolExecutor.cpp.o
@@ -1194,7 +1447,7 @@ src/ThreadPoolExecutor.o: src/ThreadPoolExecutor.cpp.o
 
 # target to build an object file
 src/ThreadPoolExecutor.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ThreadPoolExecutor.cpp.o
 .PHONY : src/ThreadPoolExecutor.cpp.o
 
 src/ThreadPoolExecutor.i: src/ThreadPoolExecutor.cpp.i
@@ -1202,7 +1455,7 @@ src/ThreadPoolExecutor.i: src/ThreadPoolExecutor.cpp.i
 
 # target to preprocess a source file
 src/ThreadPoolExecutor.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ThreadPoolExecutor.cpp.i
 .PHONY : src/ThreadPoolExecutor.cpp.i
 
 src/ThreadPoolExecutor.s: src/ThreadPoolExecutor.cpp.s
@@ -1210,7 +1463,7 @@ src/ThreadPoolExecutor.s: src/ThreadPoolExecutor.cpp.s
 
 # target to generate assembly for a file
 src/ThreadPoolExecutor.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/ThreadPoolExecutor.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ThreadPoolExecutor.cpp.s
 .PHONY : src/ThreadPoolExecutor.cpp.s
 
 src/TypeBridge.o: src/TypeBridge.cpp.o
@@ -1218,7 +1471,7 @@ src/TypeBridge.o: src/TypeBridge.cpp.o
 
 # target to build an object file
 src/TypeBridge.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/TypeBridge.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/TypeBridge.cpp.o
 .PHONY : src/TypeBridge.cpp.o
 
 src/TypeBridge.i: src/TypeBridge.cpp.i
@@ -1226,7 +1479,7 @@ src/TypeBridge.i: src/TypeBridge.cpp.i
 
 # target to preprocess a source file
 src/TypeBridge.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/TypeBridge.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/TypeBridge.cpp.i
 .PHONY : src/TypeBridge.cpp.i
 
 src/TypeBridge.s: src/TypeBridge.cpp.s
@@ -1234,15 +1487,39 @@ src/TypeBridge.s: src/TypeBridge.cpp.s
 
 # target to generate assembly for a file
 src/TypeBridge.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/TypeBridge.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/TypeBridge.cpp.s
 .PHONY : src/TypeBridge.cpp.s
+
+src/TypedArrayPrototype.o: src/TypedArrayPrototype.cpp.o
+.PHONY : src/TypedArrayPrototype.o
+
+# target to build an object file
+src/TypedArrayPrototype.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/TypedArrayPrototype.cpp.o
+.PHONY : src/TypedArrayPrototype.cpp.o
+
+src/TypedArrayPrototype.i: src/TypedArrayPrototype.cpp.i
+.PHONY : src/TypedArrayPrototype.i
+
+# target to preprocess a source file
+src/TypedArrayPrototype.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/TypedArrayPrototype.cpp.i
+.PHONY : src/TypedArrayPrototype.cpp.i
+
+src/TypedArrayPrototype.s: src/TypedArrayPrototype.cpp.s
+.PHONY : src/TypedArrayPrototype.s
+
+# target to generate assembly for a file
+src/TypedArrayPrototype.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/TypedArrayPrototype.cpp.s
+.PHONY : src/TypedArrayPrototype.cpp.s
 
 src/benchmarking/BenchmarkRunner.o: src/benchmarking/BenchmarkRunner.cpp.o
 .PHONY : src/benchmarking/BenchmarkRunner.o
 
 # target to build an object file
 src/benchmarking/BenchmarkRunner.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/benchmarking/BenchmarkRunner.cpp.o
 .PHONY : src/benchmarking/BenchmarkRunner.cpp.o
 
 src/benchmarking/BenchmarkRunner.i: src/benchmarking/BenchmarkRunner.cpp.i
@@ -1250,7 +1527,7 @@ src/benchmarking/BenchmarkRunner.i: src/benchmarking/BenchmarkRunner.cpp.i
 
 # target to preprocess a source file
 src/benchmarking/BenchmarkRunner.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/benchmarking/BenchmarkRunner.cpp.i
 .PHONY : src/benchmarking/BenchmarkRunner.cpp.i
 
 src/benchmarking/BenchmarkRunner.s: src/benchmarking/BenchmarkRunner.cpp.s
@@ -1258,7 +1535,7 @@ src/benchmarking/BenchmarkRunner.s: src/benchmarking/BenchmarkRunner.cpp.s
 
 # target to generate assembly for a file
 src/benchmarking/BenchmarkRunner.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/benchmarking/BenchmarkRunner.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/benchmarking/BenchmarkRunner.cpp.s
 .PHONY : src/benchmarking/BenchmarkRunner.cpp.s
 
 src/console.o: src/console.cpp.o
@@ -1266,7 +1543,7 @@ src/console.o: src/console.cpp.o
 
 # target to build an object file
 src/console.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/console.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/console.cpp.o
 .PHONY : src/console.cpp.o
 
 src/console.i: src/console.cpp.i
@@ -1274,7 +1551,7 @@ src/console.i: src/console.cpp.i
 
 # target to preprocess a source file
 src/console.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/console.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/console.cpp.i
 .PHONY : src/console.cpp.i
 
 src/console.s: src/console.cpp.s
@@ -1282,7 +1559,7 @@ src/console.s: src/console.cpp.s
 
 # target to generate assembly for a file
 src/console.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/console.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/console.cpp.s
 .PHONY : src/console.cpp.s
 
 src/debugging/IntegratedDebugger.o: src/debugging/IntegratedDebugger.cpp.o
@@ -1290,7 +1567,7 @@ src/debugging/IntegratedDebugger.o: src/debugging/IntegratedDebugger.cpp.o
 
 # target to build an object file
 src/debugging/IntegratedDebugger.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/debugging/IntegratedDebugger.cpp.o
 .PHONY : src/debugging/IntegratedDebugger.cpp.o
 
 src/debugging/IntegratedDebugger.i: src/debugging/IntegratedDebugger.cpp.i
@@ -1298,7 +1575,7 @@ src/debugging/IntegratedDebugger.i: src/debugging/IntegratedDebugger.cpp.i
 
 # target to preprocess a source file
 src/debugging/IntegratedDebugger.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/debugging/IntegratedDebugger.cpp.i
 .PHONY : src/debugging/IntegratedDebugger.cpp.i
 
 src/debugging/IntegratedDebugger.s: src/debugging/IntegratedDebugger.cpp.s
@@ -1306,7 +1583,7 @@ src/debugging/IntegratedDebugger.s: src/debugging/IntegratedDebugger.cpp.s
 
 # target to generate assembly for a file
 src/debugging/IntegratedDebugger.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/debugging/IntegratedDebugger.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/debugging/IntegratedDebugger.cpp.s
 .PHONY : src/debugging/IntegratedDebugger.cpp.s
 
 src/logging/Logger.o: src/logging/Logger.cpp.o
@@ -1314,7 +1591,7 @@ src/logging/Logger.o: src/logging/Logger.cpp.o
 
 # target to build an object file
 src/logging/Logger.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/logging/Logger.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/logging/Logger.cpp.o
 .PHONY : src/logging/Logger.cpp.o
 
 src/logging/Logger.i: src/logging/Logger.cpp.i
@@ -1322,7 +1599,7 @@ src/logging/Logger.i: src/logging/Logger.cpp.i
 
 # target to preprocess a source file
 src/logging/Logger.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/logging/Logger.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/logging/Logger.cpp.i
 .PHONY : src/logging/Logger.cpp.i
 
 src/logging/Logger.s: src/logging/Logger.cpp.s
@@ -1330,7 +1607,7 @@ src/logging/Logger.s: src/logging/Logger.cpp.s
 
 # target to generate assembly for a file
 src/logging/Logger.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/logging/Logger.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/logging/Logger.cpp.s
 .PHONY : src/logging/Logger.cpp.s
 
 src/main.o: src/main.cpp.o
@@ -1362,7 +1639,7 @@ src/memory/MemoryAnalyzer.o: src/memory/MemoryAnalyzer.cpp.o
 
 # target to build an object file
 src/memory/MemoryAnalyzer.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/memory/MemoryAnalyzer.cpp.o
 .PHONY : src/memory/MemoryAnalyzer.cpp.o
 
 src/memory/MemoryAnalyzer.i: src/memory/MemoryAnalyzer.cpp.i
@@ -1370,7 +1647,7 @@ src/memory/MemoryAnalyzer.i: src/memory/MemoryAnalyzer.cpp.i
 
 # target to preprocess a source file
 src/memory/MemoryAnalyzer.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/memory/MemoryAnalyzer.cpp.i
 .PHONY : src/memory/MemoryAnalyzer.cpp.i
 
 src/memory/MemoryAnalyzer.s: src/memory/MemoryAnalyzer.cpp.s
@@ -1378,7 +1655,7 @@ src/memory/MemoryAnalyzer.s: src/memory/MemoryAnalyzer.cpp.s
 
 # target to generate assembly for a file
 src/memory/MemoryAnalyzer.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/memory/MemoryAnalyzer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/memory/MemoryAnalyzer.cpp.s
 .PHONY : src/memory/MemoryAnalyzer.cpp.s
 
 src/modules/AsyncModuleLoader.o: src/modules/AsyncModuleLoader.cpp.o
@@ -1386,7 +1663,7 @@ src/modules/AsyncModuleLoader.o: src/modules/AsyncModuleLoader.cpp.o
 
 # target to build an object file
 src/modules/AsyncModuleLoader.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/AsyncModuleLoader.cpp.o
 .PHONY : src/modules/AsyncModuleLoader.cpp.o
 
 src/modules/AsyncModuleLoader.i: src/modules/AsyncModuleLoader.cpp.i
@@ -1394,7 +1671,7 @@ src/modules/AsyncModuleLoader.i: src/modules/AsyncModuleLoader.cpp.i
 
 # target to preprocess a source file
 src/modules/AsyncModuleLoader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/AsyncModuleLoader.cpp.i
 .PHONY : src/modules/AsyncModuleLoader.cpp.i
 
 src/modules/AsyncModuleLoader.s: src/modules/AsyncModuleLoader.cpp.s
@@ -1402,7 +1679,7 @@ src/modules/AsyncModuleLoader.s: src/modules/AsyncModuleLoader.cpp.s
 
 # target to generate assembly for a file
 src/modules/AsyncModuleLoader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/AsyncModuleLoader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/AsyncModuleLoader.cpp.s
 .PHONY : src/modules/AsyncModuleLoader.cpp.s
 
 src/modules/CommonJSLoader.o: src/modules/CommonJSLoader.cpp.o
@@ -1410,7 +1687,7 @@ src/modules/CommonJSLoader.o: src/modules/CommonJSLoader.cpp.o
 
 # target to build an object file
 src/modules/CommonJSLoader.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/CommonJSLoader.cpp.o
 .PHONY : src/modules/CommonJSLoader.cpp.o
 
 src/modules/CommonJSLoader.i: src/modules/CommonJSLoader.cpp.i
@@ -1418,7 +1695,7 @@ src/modules/CommonJSLoader.i: src/modules/CommonJSLoader.cpp.i
 
 # target to preprocess a source file
 src/modules/CommonJSLoader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/CommonJSLoader.cpp.i
 .PHONY : src/modules/CommonJSLoader.cpp.i
 
 src/modules/CommonJSLoader.s: src/modules/CommonJSLoader.cpp.s
@@ -1426,7 +1703,7 @@ src/modules/CommonJSLoader.s: src/modules/CommonJSLoader.cpp.s
 
 # target to generate assembly for a file
 src/modules/CommonJSLoader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/CommonJSLoader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/CommonJSLoader.cpp.s
 .PHONY : src/modules/CommonJSLoader.cpp.s
 
 src/modules/ESModuleLoader.o: src/modules/ESModuleLoader.cpp.o
@@ -1434,7 +1711,7 @@ src/modules/ESModuleLoader.o: src/modules/ESModuleLoader.cpp.o
 
 # target to build an object file
 src/modules/ESModuleLoader.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ESModuleLoader.cpp.o
 .PHONY : src/modules/ESModuleLoader.cpp.o
 
 src/modules/ESModuleLoader.i: src/modules/ESModuleLoader.cpp.i
@@ -1442,7 +1719,7 @@ src/modules/ESModuleLoader.i: src/modules/ESModuleLoader.cpp.i
 
 # target to preprocess a source file
 src/modules/ESModuleLoader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ESModuleLoader.cpp.i
 .PHONY : src/modules/ESModuleLoader.cpp.i
 
 src/modules/ESModuleLoader.s: src/modules/ESModuleLoader.cpp.s
@@ -1450,7 +1727,7 @@ src/modules/ESModuleLoader.s: src/modules/ESModuleLoader.cpp.s
 
 # target to generate assembly for a file
 src/modules/ESModuleLoader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ESModuleLoader.cpp.s
 .PHONY : src/modules/ESModuleLoader.cpp.s
 
 src/modules/IOModule.o: src/modules/IOModule.cpp.o
@@ -1458,7 +1735,7 @@ src/modules/IOModule.o: src/modules/IOModule.cpp.o
 
 # target to build an object file
 src/modules/IOModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/IOModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/IOModule.cpp.o
 .PHONY : src/modules/IOModule.cpp.o
 
 src/modules/IOModule.i: src/modules/IOModule.cpp.i
@@ -1466,7 +1743,7 @@ src/modules/IOModule.i: src/modules/IOModule.cpp.i
 
 # target to preprocess a source file
 src/modules/IOModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/IOModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/IOModule.cpp.i
 .PHONY : src/modules/IOModule.cpp.i
 
 src/modules/IOModule.s: src/modules/IOModule.cpp.s
@@ -1474,7 +1751,7 @@ src/modules/IOModule.s: src/modules/IOModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/IOModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/IOModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/IOModule.cpp.s
 .PHONY : src/modules/IOModule.cpp.s
 
 src/modules/ModuleCache.o: src/modules/ModuleCache.cpp.o
@@ -1482,7 +1759,7 @@ src/modules/ModuleCache.o: src/modules/ModuleCache.cpp.o
 
 # target to build an object file
 src/modules/ModuleCache.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleCache.cpp.o
 .PHONY : src/modules/ModuleCache.cpp.o
 
 src/modules/ModuleCache.i: src/modules/ModuleCache.cpp.i
@@ -1490,7 +1767,7 @@ src/modules/ModuleCache.i: src/modules/ModuleCache.cpp.i
 
 # target to preprocess a source file
 src/modules/ModuleCache.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleCache.cpp.i
 .PHONY : src/modules/ModuleCache.cpp.i
 
 src/modules/ModuleCache.s: src/modules/ModuleCache.cpp.s
@@ -1498,7 +1775,7 @@ src/modules/ModuleCache.s: src/modules/ModuleCache.cpp.s
 
 # target to generate assembly for a file
 src/modules/ModuleCache.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleCache.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleCache.cpp.s
 .PHONY : src/modules/ModuleCache.cpp.s
 
 src/modules/ModuleInterop.o: src/modules/ModuleInterop.cpp.o
@@ -1506,7 +1783,7 @@ src/modules/ModuleInterop.o: src/modules/ModuleInterop.cpp.o
 
 # target to build an object file
 src/modules/ModuleInterop.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleInterop.cpp.o
 .PHONY : src/modules/ModuleInterop.cpp.o
 
 src/modules/ModuleInterop.i: src/modules/ModuleInterop.cpp.i
@@ -1514,7 +1791,7 @@ src/modules/ModuleInterop.i: src/modules/ModuleInterop.cpp.i
 
 # target to preprocess a source file
 src/modules/ModuleInterop.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleInterop.cpp.i
 .PHONY : src/modules/ModuleInterop.cpp.i
 
 src/modules/ModuleInterop.s: src/modules/ModuleInterop.cpp.s
@@ -1522,7 +1799,7 @@ src/modules/ModuleInterop.s: src/modules/ModuleInterop.cpp.s
 
 # target to generate assembly for a file
 src/modules/ModuleInterop.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleInterop.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleInterop.cpp.s
 .PHONY : src/modules/ModuleInterop.cpp.s
 
 src/modules/ModuleResolver.o: src/modules/ModuleResolver.cpp.o
@@ -1530,7 +1807,7 @@ src/modules/ModuleResolver.o: src/modules/ModuleResolver.cpp.o
 
 # target to build an object file
 src/modules/ModuleResolver.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleResolver.cpp.o
 .PHONY : src/modules/ModuleResolver.cpp.o
 
 src/modules/ModuleResolver.i: src/modules/ModuleResolver.cpp.i
@@ -1538,7 +1815,7 @@ src/modules/ModuleResolver.i: src/modules/ModuleResolver.cpp.i
 
 # target to preprocess a source file
 src/modules/ModuleResolver.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleResolver.cpp.i
 .PHONY : src/modules/ModuleResolver.cpp.i
 
 src/modules/ModuleResolver.s: src/modules/ModuleResolver.cpp.s
@@ -1546,7 +1823,7 @@ src/modules/ModuleResolver.s: src/modules/ModuleResolver.cpp.s
 
 # target to generate assembly for a file
 src/modules/ModuleResolver.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ModuleResolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ModuleResolver.cpp.s
 .PHONY : src/modules/ModuleResolver.cpp.s
 
 src/modules/ProcessModule.o: src/modules/ProcessModule.cpp.o
@@ -1554,7 +1831,7 @@ src/modules/ProcessModule.o: src/modules/ProcessModule.cpp.o
 
 # target to build an object file
 src/modules/ProcessModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ProcessModule.cpp.o
 .PHONY : src/modules/ProcessModule.cpp.o
 
 src/modules/ProcessModule.i: src/modules/ProcessModule.cpp.i
@@ -1562,7 +1839,7 @@ src/modules/ProcessModule.i: src/modules/ProcessModule.cpp.i
 
 # target to preprocess a source file
 src/modules/ProcessModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ProcessModule.cpp.i
 .PHONY : src/modules/ProcessModule.cpp.i
 
 src/modules/ProcessModule.s: src/modules/ProcessModule.cpp.s
@@ -1570,7 +1847,7 @@ src/modules/ProcessModule.s: src/modules/ProcessModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/ProcessModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProcessModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ProcessModule.cpp.s
 .PHONY : src/modules/ProcessModule.cpp.s
 
 src/modules/ProtoCoreModule.o: src/modules/ProtoCoreModule.cpp.o
@@ -1578,7 +1855,7 @@ src/modules/ProtoCoreModule.o: src/modules/ProtoCoreModule.cpp.o
 
 # target to build an object file
 src/modules/ProtoCoreModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ProtoCoreModule.cpp.o
 .PHONY : src/modules/ProtoCoreModule.cpp.o
 
 src/modules/ProtoCoreModule.i: src/modules/ProtoCoreModule.cpp.i
@@ -1586,7 +1863,7 @@ src/modules/ProtoCoreModule.i: src/modules/ProtoCoreModule.cpp.i
 
 # target to preprocess a source file
 src/modules/ProtoCoreModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ProtoCoreModule.cpp.i
 .PHONY : src/modules/ProtoCoreModule.cpp.i
 
 src/modules/ProtoCoreModule.s: src/modules/ProtoCoreModule.cpp.s
@@ -1594,7 +1871,7 @@ src/modules/ProtoCoreModule.s: src/modules/ProtoCoreModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/ProtoCoreModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/ProtoCoreModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/ProtoCoreModule.cpp.s
 .PHONY : src/modules/ProtoCoreModule.cpp.s
 
 src/modules/buffer/BufferModule.o: src/modules/buffer/BufferModule.cpp.o
@@ -1602,7 +1879,7 @@ src/modules/buffer/BufferModule.o: src/modules/buffer/BufferModule.cpp.o
 
 # target to build an object file
 src/modules/buffer/BufferModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/buffer/BufferModule.cpp.o
 .PHONY : src/modules/buffer/BufferModule.cpp.o
 
 src/modules/buffer/BufferModule.i: src/modules/buffer/BufferModule.cpp.i
@@ -1610,7 +1887,7 @@ src/modules/buffer/BufferModule.i: src/modules/buffer/BufferModule.cpp.i
 
 # target to preprocess a source file
 src/modules/buffer/BufferModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/buffer/BufferModule.cpp.i
 .PHONY : src/modules/buffer/BufferModule.cpp.i
 
 src/modules/buffer/BufferModule.s: src/modules/buffer/BufferModule.cpp.s
@@ -1618,7 +1895,7 @@ src/modules/buffer/BufferModule.s: src/modules/buffer/BufferModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/buffer/BufferModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/buffer/BufferModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/buffer/BufferModule.cpp.s
 .PHONY : src/modules/buffer/BufferModule.cpp.s
 
 src/modules/child_process/ChildProcessModule.o: src/modules/child_process/ChildProcessModule.cpp.o
@@ -1626,7 +1903,7 @@ src/modules/child_process/ChildProcessModule.o: src/modules/child_process/ChildP
 
 # target to build an object file
 src/modules/child_process/ChildProcessModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/child_process/ChildProcessModule.cpp.o
 .PHONY : src/modules/child_process/ChildProcessModule.cpp.o
 
 src/modules/child_process/ChildProcessModule.i: src/modules/child_process/ChildProcessModule.cpp.i
@@ -1634,7 +1911,7 @@ src/modules/child_process/ChildProcessModule.i: src/modules/child_process/ChildP
 
 # target to preprocess a source file
 src/modules/child_process/ChildProcessModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/child_process/ChildProcessModule.cpp.i
 .PHONY : src/modules/child_process/ChildProcessModule.cpp.i
 
 src/modules/child_process/ChildProcessModule.s: src/modules/child_process/ChildProcessModule.cpp.s
@@ -1642,7 +1919,7 @@ src/modules/child_process/ChildProcessModule.s: src/modules/child_process/ChildP
 
 # target to generate assembly for a file
 src/modules/child_process/ChildProcessModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/child_process/ChildProcessModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/child_process/ChildProcessModule.cpp.s
 .PHONY : src/modules/child_process/ChildProcessModule.cpp.s
 
 src/modules/cluster/ClusterModule.o: src/modules/cluster/ClusterModule.cpp.o
@@ -1650,7 +1927,7 @@ src/modules/cluster/ClusterModule.o: src/modules/cluster/ClusterModule.cpp.o
 
 # target to build an object file
 src/modules/cluster/ClusterModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/cluster/ClusterModule.cpp.o
 .PHONY : src/modules/cluster/ClusterModule.cpp.o
 
 src/modules/cluster/ClusterModule.i: src/modules/cluster/ClusterModule.cpp.i
@@ -1658,7 +1935,7 @@ src/modules/cluster/ClusterModule.i: src/modules/cluster/ClusterModule.cpp.i
 
 # target to preprocess a source file
 src/modules/cluster/ClusterModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/cluster/ClusterModule.cpp.i
 .PHONY : src/modules/cluster/ClusterModule.cpp.i
 
 src/modules/cluster/ClusterModule.s: src/modules/cluster/ClusterModule.cpp.s
@@ -1666,7 +1943,7 @@ src/modules/cluster/ClusterModule.s: src/modules/cluster/ClusterModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/cluster/ClusterModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/cluster/ClusterModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/cluster/ClusterModule.cpp.s
 .PHONY : src/modules/cluster/ClusterModule.cpp.s
 
 src/modules/crypto/CryptoModule.o: src/modules/crypto/CryptoModule.cpp.o
@@ -1674,7 +1951,7 @@ src/modules/crypto/CryptoModule.o: src/modules/crypto/CryptoModule.cpp.o
 
 # target to build an object file
 src/modules/crypto/CryptoModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/crypto/CryptoModule.cpp.o
 .PHONY : src/modules/crypto/CryptoModule.cpp.o
 
 src/modules/crypto/CryptoModule.i: src/modules/crypto/CryptoModule.cpp.i
@@ -1682,7 +1959,7 @@ src/modules/crypto/CryptoModule.i: src/modules/crypto/CryptoModule.cpp.i
 
 # target to preprocess a source file
 src/modules/crypto/CryptoModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/crypto/CryptoModule.cpp.i
 .PHONY : src/modules/crypto/CryptoModule.cpp.i
 
 src/modules/crypto/CryptoModule.s: src/modules/crypto/CryptoModule.cpp.s
@@ -1690,7 +1967,7 @@ src/modules/crypto/CryptoModule.s: src/modules/crypto/CryptoModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/crypto/CryptoModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/crypto/CryptoModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/crypto/CryptoModule.cpp.s
 .PHONY : src/modules/crypto/CryptoModule.cpp.s
 
 src/modules/dgram/DgramModule.o: src/modules/dgram/DgramModule.cpp.o
@@ -1698,7 +1975,7 @@ src/modules/dgram/DgramModule.o: src/modules/dgram/DgramModule.cpp.o
 
 # target to build an object file
 src/modules/dgram/DgramModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dgram/DgramModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/dgram/DgramModule.cpp.o
 .PHONY : src/modules/dgram/DgramModule.cpp.o
 
 src/modules/dgram/DgramModule.i: src/modules/dgram/DgramModule.cpp.i
@@ -1706,7 +1983,7 @@ src/modules/dgram/DgramModule.i: src/modules/dgram/DgramModule.cpp.i
 
 # target to preprocess a source file
 src/modules/dgram/DgramModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dgram/DgramModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/dgram/DgramModule.cpp.i
 .PHONY : src/modules/dgram/DgramModule.cpp.i
 
 src/modules/dgram/DgramModule.s: src/modules/dgram/DgramModule.cpp.s
@@ -1714,7 +1991,7 @@ src/modules/dgram/DgramModule.s: src/modules/dgram/DgramModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/dgram/DgramModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dgram/DgramModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/dgram/DgramModule.cpp.s
 .PHONY : src/modules/dgram/DgramModule.cpp.s
 
 src/modules/dns/DNSModule.o: src/modules/dns/DNSModule.cpp.o
@@ -1722,7 +1999,7 @@ src/modules/dns/DNSModule.o: src/modules/dns/DNSModule.cpp.o
 
 # target to build an object file
 src/modules/dns/DNSModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/dns/DNSModule.cpp.o
 .PHONY : src/modules/dns/DNSModule.cpp.o
 
 src/modules/dns/DNSModule.i: src/modules/dns/DNSModule.cpp.i
@@ -1730,7 +2007,7 @@ src/modules/dns/DNSModule.i: src/modules/dns/DNSModule.cpp.i
 
 # target to preprocess a source file
 src/modules/dns/DNSModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/dns/DNSModule.cpp.i
 .PHONY : src/modules/dns/DNSModule.cpp.i
 
 src/modules/dns/DNSModule.s: src/modules/dns/DNSModule.cpp.s
@@ -1738,7 +2015,7 @@ src/modules/dns/DNSModule.s: src/modules/dns/DNSModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/dns/DNSModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/dns/DNSModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/dns/DNSModule.cpp.s
 .PHONY : src/modules/dns/DNSModule.cpp.s
 
 src/modules/events/EventsModule.o: src/modules/events/EventsModule.cpp.o
@@ -1746,7 +2023,7 @@ src/modules/events/EventsModule.o: src/modules/events/EventsModule.cpp.o
 
 # target to build an object file
 src/modules/events/EventsModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/events/EventsModule.cpp.o
 .PHONY : src/modules/events/EventsModule.cpp.o
 
 src/modules/events/EventsModule.i: src/modules/events/EventsModule.cpp.i
@@ -1754,7 +2031,7 @@ src/modules/events/EventsModule.i: src/modules/events/EventsModule.cpp.i
 
 # target to preprocess a source file
 src/modules/events/EventsModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/events/EventsModule.cpp.i
 .PHONY : src/modules/events/EventsModule.cpp.i
 
 src/modules/events/EventsModule.s: src/modules/events/EventsModule.cpp.s
@@ -1762,7 +2039,7 @@ src/modules/events/EventsModule.s: src/modules/events/EventsModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/events/EventsModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/events/EventsModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/events/EventsModule.cpp.s
 .PHONY : src/modules/events/EventsModule.cpp.s
 
 src/modules/fs/FSModule.o: src/modules/fs/FSModule.cpp.o
@@ -1770,7 +2047,7 @@ src/modules/fs/FSModule.o: src/modules/fs/FSModule.cpp.o
 
 # target to build an object file
 src/modules/fs/FSModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/fs/FSModule.cpp.o
 .PHONY : src/modules/fs/FSModule.cpp.o
 
 src/modules/fs/FSModule.i: src/modules/fs/FSModule.cpp.i
@@ -1778,7 +2055,7 @@ src/modules/fs/FSModule.i: src/modules/fs/FSModule.cpp.i
 
 # target to preprocess a source file
 src/modules/fs/FSModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/fs/FSModule.cpp.i
 .PHONY : src/modules/fs/FSModule.cpp.i
 
 src/modules/fs/FSModule.s: src/modules/fs/FSModule.cpp.s
@@ -1786,7 +2063,7 @@ src/modules/fs/FSModule.s: src/modules/fs/FSModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/fs/FSModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/fs/FSModule.cpp.s
 .PHONY : src/modules/fs/FSModule.cpp.s
 
 src/modules/http/HTTPModule.o: src/modules/http/HTTPModule.cpp.o
@@ -1794,7 +2071,7 @@ src/modules/http/HTTPModule.o: src/modules/http/HTTPModule.cpp.o
 
 # target to build an object file
 src/modules/http/HTTPModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/http/HTTPModule.cpp.o
 .PHONY : src/modules/http/HTTPModule.cpp.o
 
 src/modules/http/HTTPModule.i: src/modules/http/HTTPModule.cpp.i
@@ -1802,7 +2079,7 @@ src/modules/http/HTTPModule.i: src/modules/http/HTTPModule.cpp.i
 
 # target to preprocess a source file
 src/modules/http/HTTPModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/http/HTTPModule.cpp.i
 .PHONY : src/modules/http/HTTPModule.cpp.i
 
 src/modules/http/HTTPModule.s: src/modules/http/HTTPModule.cpp.s
@@ -1810,7 +2087,7 @@ src/modules/http/HTTPModule.s: src/modules/http/HTTPModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/http/HTTPModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/http/HTTPModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/http/HTTPModule.cpp.s
 .PHONY : src/modules/http/HTTPModule.cpp.s
 
 src/modules/net/NetModule.o: src/modules/net/NetModule.cpp.o
@@ -1818,7 +2095,7 @@ src/modules/net/NetModule.o: src/modules/net/NetModule.cpp.o
 
 # target to build an object file
 src/modules/net/NetModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/net/NetModule.cpp.o
 .PHONY : src/modules/net/NetModule.cpp.o
 
 src/modules/net/NetModule.i: src/modules/net/NetModule.cpp.i
@@ -1826,7 +2103,7 @@ src/modules/net/NetModule.i: src/modules/net/NetModule.cpp.i
 
 # target to preprocess a source file
 src/modules/net/NetModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/net/NetModule.cpp.i
 .PHONY : src/modules/net/NetModule.cpp.i
 
 src/modules/net/NetModule.s: src/modules/net/NetModule.cpp.s
@@ -1834,7 +2111,7 @@ src/modules/net/NetModule.s: src/modules/net/NetModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/net/NetModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/net/NetModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/net/NetModule.cpp.s
 .PHONY : src/modules/net/NetModule.cpp.s
 
 src/modules/path/PathModule.o: src/modules/path/PathModule.cpp.o
@@ -1842,7 +2119,7 @@ src/modules/path/PathModule.o: src/modules/path/PathModule.cpp.o
 
 # target to build an object file
 src/modules/path/PathModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/path/PathModule.cpp.o
 .PHONY : src/modules/path/PathModule.cpp.o
 
 src/modules/path/PathModule.i: src/modules/path/PathModule.cpp.i
@@ -1850,7 +2127,7 @@ src/modules/path/PathModule.i: src/modules/path/PathModule.cpp.i
 
 # target to preprocess a source file
 src/modules/path/PathModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/path/PathModule.cpp.i
 .PHONY : src/modules/path/PathModule.cpp.i
 
 src/modules/path/PathModule.s: src/modules/path/PathModule.cpp.s
@@ -1858,7 +2135,7 @@ src/modules/path/PathModule.s: src/modules/path/PathModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/path/PathModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/path/PathModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/path/PathModule.cpp.s
 .PHONY : src/modules/path/PathModule.cpp.s
 
 src/modules/stream/StreamModule.o: src/modules/stream/StreamModule.cpp.o
@@ -1866,7 +2143,7 @@ src/modules/stream/StreamModule.o: src/modules/stream/StreamModule.cpp.o
 
 # target to build an object file
 src/modules/stream/StreamModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/stream/StreamModule.cpp.o
 .PHONY : src/modules/stream/StreamModule.cpp.o
 
 src/modules/stream/StreamModule.i: src/modules/stream/StreamModule.cpp.i
@@ -1874,7 +2151,7 @@ src/modules/stream/StreamModule.i: src/modules/stream/StreamModule.cpp.i
 
 # target to preprocess a source file
 src/modules/stream/StreamModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/stream/StreamModule.cpp.i
 .PHONY : src/modules/stream/StreamModule.cpp.i
 
 src/modules/stream/StreamModule.s: src/modules/stream/StreamModule.cpp.s
@@ -1882,7 +2159,7 @@ src/modules/stream/StreamModule.s: src/modules/stream/StreamModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/stream/StreamModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/stream/StreamModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/stream/StreamModule.cpp.s
 .PHONY : src/modules/stream/StreamModule.cpp.s
 
 src/modules/url/URLModule.o: src/modules/url/URLModule.cpp.o
@@ -1890,7 +2167,7 @@ src/modules/url/URLModule.o: src/modules/url/URLModule.cpp.o
 
 # target to build an object file
 src/modules/url/URLModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/url/URLModule.cpp.o
 .PHONY : src/modules/url/URLModule.cpp.o
 
 src/modules/url/URLModule.i: src/modules/url/URLModule.cpp.i
@@ -1898,7 +2175,7 @@ src/modules/url/URLModule.i: src/modules/url/URLModule.cpp.i
 
 # target to preprocess a source file
 src/modules/url/URLModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/url/URLModule.cpp.i
 .PHONY : src/modules/url/URLModule.cpp.i
 
 src/modules/url/URLModule.s: src/modules/url/URLModule.cpp.s
@@ -1906,7 +2183,7 @@ src/modules/url/URLModule.s: src/modules/url/URLModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/url/URLModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/url/URLModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/url/URLModule.cpp.s
 .PHONY : src/modules/url/URLModule.cpp.s
 
 src/modules/util/UtilModule.o: src/modules/util/UtilModule.cpp.o
@@ -1914,7 +2191,7 @@ src/modules/util/UtilModule.o: src/modules/util/UtilModule.cpp.o
 
 # target to build an object file
 src/modules/util/UtilModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/util/UtilModule.cpp.o
 .PHONY : src/modules/util/UtilModule.cpp.o
 
 src/modules/util/UtilModule.i: src/modules/util/UtilModule.cpp.i
@@ -1922,7 +2199,7 @@ src/modules/util/UtilModule.i: src/modules/util/UtilModule.cpp.i
 
 # target to preprocess a source file
 src/modules/util/UtilModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/util/UtilModule.cpp.i
 .PHONY : src/modules/util/UtilModule.cpp.i
 
 src/modules/util/UtilModule.s: src/modules/util/UtilModule.cpp.s
@@ -1930,7 +2207,7 @@ src/modules/util/UtilModule.s: src/modules/util/UtilModule.cpp.s
 
 # target to generate assembly for a file
 src/modules/util/UtilModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/util/UtilModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/util/UtilModule.cpp.s
 .PHONY : src/modules/util/UtilModule.cpp.s
 
 src/modules/worker_threads/WorkerThreadsModule.o: src/modules/worker_threads/WorkerThreadsModule.cpp.o
@@ -1938,7 +2215,7 @@ src/modules/worker_threads/WorkerThreadsModule.o: src/modules/worker_threads/Wor
 
 # target to build an object file
 src/modules/worker_threads/WorkerThreadsModule.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.o
 .PHONY : src/modules/worker_threads/WorkerThreadsModule.cpp.o
 
 src/modules/worker_threads/WorkerThreadsModule.i: src/modules/worker_threads/WorkerThreadsModule.cpp.i
@@ -1946,7 +2223,7 @@ src/modules/worker_threads/WorkerThreadsModule.i: src/modules/worker_threads/Wor
 
 # target to preprocess a source file
 src/modules/worker_threads/WorkerThreadsModule.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.i
 .PHONY : src/modules/worker_threads/WorkerThreadsModule.cpp.i
 
 src/modules/worker_threads/WorkerThreadsModule.s: src/modules/worker_threads/WorkerThreadsModule.cpp.s
@@ -1954,7 +2231,7 @@ src/modules/worker_threads/WorkerThreadsModule.s: src/modules/worker_threads/Wor
 
 # target to generate assembly for a file
 src/modules/worker_threads/WorkerThreadsModule.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/modules/worker_threads/WorkerThreadsModule.cpp.s
 .PHONY : src/modules/worker_threads/WorkerThreadsModule.cpp.s
 
 src/monitoring/Metrics.o: src/monitoring/Metrics.cpp.o
@@ -1962,7 +2239,7 @@ src/monitoring/Metrics.o: src/monitoring/Metrics.cpp.o
 
 # target to build an object file
 src/monitoring/Metrics.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/monitoring/Metrics.cpp.o
 .PHONY : src/monitoring/Metrics.cpp.o
 
 src/monitoring/Metrics.i: src/monitoring/Metrics.cpp.i
@@ -1970,7 +2247,7 @@ src/monitoring/Metrics.i: src/monitoring/Metrics.cpp.i
 
 # target to preprocess a source file
 src/monitoring/Metrics.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/monitoring/Metrics.cpp.i
 .PHONY : src/monitoring/Metrics.cpp.i
 
 src/monitoring/Metrics.s: src/monitoring/Metrics.cpp.s
@@ -1978,7 +2255,7 @@ src/monitoring/Metrics.s: src/monitoring/Metrics.cpp.s
 
 # target to generate assembly for a file
 src/monitoring/Metrics.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/monitoring/Metrics.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/monitoring/Metrics.cpp.s
 .PHONY : src/monitoring/Metrics.cpp.s
 
 src/native/DynamicLibraryLoader.o: src/native/DynamicLibraryLoader.cpp.o
@@ -1986,7 +2263,7 @@ src/native/DynamicLibraryLoader.o: src/native/DynamicLibraryLoader.cpp.o
 
 # target to build an object file
 src/native/DynamicLibraryLoader.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/native/DynamicLibraryLoader.cpp.o
 .PHONY : src/native/DynamicLibraryLoader.cpp.o
 
 src/native/DynamicLibraryLoader.i: src/native/DynamicLibraryLoader.cpp.i
@@ -1994,7 +2271,7 @@ src/native/DynamicLibraryLoader.i: src/native/DynamicLibraryLoader.cpp.i
 
 # target to preprocess a source file
 src/native/DynamicLibraryLoader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/native/DynamicLibraryLoader.cpp.i
 .PHONY : src/native/DynamicLibraryLoader.cpp.i
 
 src/native/DynamicLibraryLoader.s: src/native/DynamicLibraryLoader.cpp.s
@@ -2002,7 +2279,7 @@ src/native/DynamicLibraryLoader.s: src/native/DynamicLibraryLoader.cpp.s
 
 # target to generate assembly for a file
 src/native/DynamicLibraryLoader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/DynamicLibraryLoader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/native/DynamicLibraryLoader.cpp.s
 .PHONY : src/native/DynamicLibraryLoader.cpp.s
 
 src/native/NativeModuleWrapper.o: src/native/NativeModuleWrapper.cpp.o
@@ -2010,7 +2287,7 @@ src/native/NativeModuleWrapper.o: src/native/NativeModuleWrapper.cpp.o
 
 # target to build an object file
 src/native/NativeModuleWrapper.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/native/NativeModuleWrapper.cpp.o
 .PHONY : src/native/NativeModuleWrapper.cpp.o
 
 src/native/NativeModuleWrapper.i: src/native/NativeModuleWrapper.cpp.i
@@ -2018,7 +2295,7 @@ src/native/NativeModuleWrapper.i: src/native/NativeModuleWrapper.cpp.i
 
 # target to preprocess a source file
 src/native/NativeModuleWrapper.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/native/NativeModuleWrapper.cpp.i
 .PHONY : src/native/NativeModuleWrapper.cpp.i
 
 src/native/NativeModuleWrapper.s: src/native/NativeModuleWrapper.cpp.s
@@ -2026,7 +2303,7 @@ src/native/NativeModuleWrapper.s: src/native/NativeModuleWrapper.cpp.s
 
 # target to generate assembly for a file
 src/native/NativeModuleWrapper.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/native/NativeModuleWrapper.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/native/NativeModuleWrapper.cpp.s
 .PHONY : src/native/NativeModuleWrapper.cpp.s
 
 src/npm/JsonParser.o: src/npm/JsonParser.cpp.o
@@ -2034,7 +2311,7 @@ src/npm/JsonParser.o: src/npm/JsonParser.cpp.o
 
 # target to build an object file
 src/npm/JsonParser.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/JsonParser.cpp.o
 .PHONY : src/npm/JsonParser.cpp.o
 
 src/npm/JsonParser.i: src/npm/JsonParser.cpp.i
@@ -2042,7 +2319,7 @@ src/npm/JsonParser.i: src/npm/JsonParser.cpp.i
 
 # target to preprocess a source file
 src/npm/JsonParser.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/JsonParser.cpp.i
 .PHONY : src/npm/JsonParser.cpp.i
 
 src/npm/JsonParser.s: src/npm/JsonParser.cpp.s
@@ -2050,7 +2327,7 @@ src/npm/JsonParser.s: src/npm/JsonParser.cpp.s
 
 # target to generate assembly for a file
 src/npm/JsonParser.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/JsonParser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/JsonParser.cpp.s
 .PHONY : src/npm/JsonParser.cpp.s
 
 src/npm/NPMRegistry.o: src/npm/NPMRegistry.cpp.o
@@ -2058,7 +2335,7 @@ src/npm/NPMRegistry.o: src/npm/NPMRegistry.cpp.o
 
 # target to build an object file
 src/npm/NPMRegistry.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/NPMRegistry.cpp.o
 .PHONY : src/npm/NPMRegistry.cpp.o
 
 src/npm/NPMRegistry.i: src/npm/NPMRegistry.cpp.i
@@ -2066,7 +2343,7 @@ src/npm/NPMRegistry.i: src/npm/NPMRegistry.cpp.i
 
 # target to preprocess a source file
 src/npm/NPMRegistry.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/NPMRegistry.cpp.i
 .PHONY : src/npm/NPMRegistry.cpp.i
 
 src/npm/NPMRegistry.s: src/npm/NPMRegistry.cpp.s
@@ -2074,7 +2351,7 @@ src/npm/NPMRegistry.s: src/npm/NPMRegistry.cpp.s
 
 # target to generate assembly for a file
 src/npm/NPMRegistry.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/NPMRegistry.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/NPMRegistry.cpp.s
 .PHONY : src/npm/NPMRegistry.cpp.s
 
 src/npm/PackageInstaller.o: src/npm/PackageInstaller.cpp.o
@@ -2082,7 +2359,7 @@ src/npm/PackageInstaller.o: src/npm/PackageInstaller.cpp.o
 
 # target to build an object file
 src/npm/PackageInstaller.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/PackageInstaller.cpp.o
 .PHONY : src/npm/PackageInstaller.cpp.o
 
 src/npm/PackageInstaller.i: src/npm/PackageInstaller.cpp.i
@@ -2090,7 +2367,7 @@ src/npm/PackageInstaller.i: src/npm/PackageInstaller.cpp.i
 
 # target to preprocess a source file
 src/npm/PackageInstaller.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/PackageInstaller.cpp.i
 .PHONY : src/npm/PackageInstaller.cpp.i
 
 src/npm/PackageInstaller.s: src/npm/PackageInstaller.cpp.s
@@ -2098,7 +2375,7 @@ src/npm/PackageInstaller.s: src/npm/PackageInstaller.cpp.s
 
 # target to generate assembly for a file
 src/npm/PackageInstaller.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageInstaller.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/PackageInstaller.cpp.s
 .PHONY : src/npm/PackageInstaller.cpp.s
 
 src/npm/PackageResolver.o: src/npm/PackageResolver.cpp.o
@@ -2106,7 +2383,7 @@ src/npm/PackageResolver.o: src/npm/PackageResolver.cpp.o
 
 # target to build an object file
 src/npm/PackageResolver.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/PackageResolver.cpp.o
 .PHONY : src/npm/PackageResolver.cpp.o
 
 src/npm/PackageResolver.i: src/npm/PackageResolver.cpp.i
@@ -2114,7 +2391,7 @@ src/npm/PackageResolver.i: src/npm/PackageResolver.cpp.i
 
 # target to preprocess a source file
 src/npm/PackageResolver.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/PackageResolver.cpp.i
 .PHONY : src/npm/PackageResolver.cpp.i
 
 src/npm/PackageResolver.s: src/npm/PackageResolver.cpp.s
@@ -2122,7 +2399,7 @@ src/npm/PackageResolver.s: src/npm/PackageResolver.cpp.s
 
 # target to generate assembly for a file
 src/npm/PackageResolver.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/PackageResolver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/PackageResolver.cpp.s
 .PHONY : src/npm/PackageResolver.cpp.s
 
 src/npm/ScriptExecutor.o: src/npm/ScriptExecutor.cpp.o
@@ -2130,7 +2407,7 @@ src/npm/ScriptExecutor.o: src/npm/ScriptExecutor.cpp.o
 
 # target to build an object file
 src/npm/ScriptExecutor.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/ScriptExecutor.cpp.o
 .PHONY : src/npm/ScriptExecutor.cpp.o
 
 src/npm/ScriptExecutor.i: src/npm/ScriptExecutor.cpp.i
@@ -2138,7 +2415,7 @@ src/npm/ScriptExecutor.i: src/npm/ScriptExecutor.cpp.i
 
 # target to preprocess a source file
 src/npm/ScriptExecutor.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/ScriptExecutor.cpp.i
 .PHONY : src/npm/ScriptExecutor.cpp.i
 
 src/npm/ScriptExecutor.s: src/npm/ScriptExecutor.cpp.s
@@ -2146,7 +2423,7 @@ src/npm/ScriptExecutor.s: src/npm/ScriptExecutor.cpp.s
 
 # target to generate assembly for a file
 src/npm/ScriptExecutor.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/ScriptExecutor.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/ScriptExecutor.cpp.s
 .PHONY : src/npm/ScriptExecutor.cpp.s
 
 src/npm/Semver.o: src/npm/Semver.cpp.o
@@ -2154,7 +2431,7 @@ src/npm/Semver.o: src/npm/Semver.cpp.o
 
 # target to build an object file
 src/npm/Semver.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/Semver.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/Semver.cpp.o
 .PHONY : src/npm/Semver.cpp.o
 
 src/npm/Semver.i: src/npm/Semver.cpp.i
@@ -2162,7 +2439,7 @@ src/npm/Semver.i: src/npm/Semver.cpp.i
 
 # target to preprocess a source file
 src/npm/Semver.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/Semver.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/Semver.cpp.i
 .PHONY : src/npm/Semver.cpp.i
 
 src/npm/Semver.s: src/npm/Semver.cpp.s
@@ -2170,7 +2447,7 @@ src/npm/Semver.s: src/npm/Semver.cpp.s
 
 # target to generate assembly for a file
 src/npm/Semver.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/npm/Semver.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/npm/Semver.cpp.s
 .PHONY : src/npm/Semver.cpp.s
 
 src/profiling/Profiler.o: src/profiling/Profiler.cpp.o
@@ -2178,7 +2455,7 @@ src/profiling/Profiler.o: src/profiling/Profiler.cpp.o
 
 # target to build an object file
 src/profiling/Profiler.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/profiling/Profiler.cpp.o
 .PHONY : src/profiling/Profiler.cpp.o
 
 src/profiling/Profiler.i: src/profiling/Profiler.cpp.i
@@ -2186,7 +2463,7 @@ src/profiling/Profiler.i: src/profiling/Profiler.cpp.i
 
 # target to preprocess a source file
 src/profiling/Profiler.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/profiling/Profiler.cpp.i
 .PHONY : src/profiling/Profiler.cpp.i
 
 src/profiling/Profiler.s: src/profiling/Profiler.cpp.s
@@ -2194,7 +2471,7 @@ src/profiling/Profiler.s: src/profiling/Profiler.cpp.s
 
 # target to generate assembly for a file
 src/profiling/Profiler.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/profiling/Profiler.cpp.s
 .PHONY : src/profiling/Profiler.cpp.s
 
 src/profiling/VisualProfiler.o: src/profiling/VisualProfiler.cpp.o
@@ -2202,7 +2479,7 @@ src/profiling/VisualProfiler.o: src/profiling/VisualProfiler.cpp.o
 
 # target to build an object file
 src/profiling/VisualProfiler.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/profiling/VisualProfiler.cpp.o
 .PHONY : src/profiling/VisualProfiler.cpp.o
 
 src/profiling/VisualProfiler.i: src/profiling/VisualProfiler.cpp.i
@@ -2210,7 +2487,7 @@ src/profiling/VisualProfiler.i: src/profiling/VisualProfiler.cpp.i
 
 # target to preprocess a source file
 src/profiling/VisualProfiler.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/profiling/VisualProfiler.cpp.i
 .PHONY : src/profiling/VisualProfiler.cpp.i
 
 src/profiling/VisualProfiler.s: src/profiling/VisualProfiler.cpp.s
@@ -2218,7 +2495,7 @@ src/profiling/VisualProfiler.s: src/profiling/VisualProfiler.cpp.s
 
 # target to generate assembly for a file
 src/profiling/VisualProfiler.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/profiling/VisualProfiler.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/profiling/VisualProfiler.cpp.s
 .PHONY : src/profiling/VisualProfiler.cpp.s
 
 src/repl/REPL.o: src/repl/REPL.cpp.o
@@ -2226,7 +2503,7 @@ src/repl/REPL.o: src/repl/REPL.cpp.o
 
 # target to build an object file
 src/repl/REPL.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/repl/REPL.cpp.o
 .PHONY : src/repl/REPL.cpp.o
 
 src/repl/REPL.i: src/repl/REPL.cpp.i
@@ -2234,7 +2511,7 @@ src/repl/REPL.i: src/repl/REPL.cpp.i
 
 # target to preprocess a source file
 src/repl/REPL.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/repl/REPL.cpp.i
 .PHONY : src/repl/REPL.cpp.i
 
 src/repl/REPL.s: src/repl/REPL.cpp.s
@@ -2242,15 +2519,39 @@ src/repl/REPL.s: src/repl/REPL.cpp.s
 
 # target to generate assembly for a file
 src/repl/REPL.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/repl/REPL.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/repl/REPL.cpp.s
 .PHONY : src/repl/REPL.cpp.s
+
+src/runtime/MicrotaskQueue.o: src/runtime/MicrotaskQueue.cpp.o
+.PHONY : src/runtime/MicrotaskQueue.o
+
+# target to build an object file
+src/runtime/MicrotaskQueue.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/MicrotaskQueue.cpp.o
+.PHONY : src/runtime/MicrotaskQueue.cpp.o
+
+src/runtime/MicrotaskQueue.i: src/runtime/MicrotaskQueue.cpp.i
+.PHONY : src/runtime/MicrotaskQueue.i
+
+# target to preprocess a source file
+src/runtime/MicrotaskQueue.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/MicrotaskQueue.cpp.i
+.PHONY : src/runtime/MicrotaskQueue.cpp.i
+
+src/runtime/MicrotaskQueue.s: src/runtime/MicrotaskQueue.cpp.s
+.PHONY : src/runtime/MicrotaskQueue.s
+
+# target to generate assembly for a file
+src/runtime/MicrotaskQueue.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/MicrotaskQueue.cpp.s
+.PHONY : src/runtime/MicrotaskQueue.cpp.s
 
 src/runtime/ProtoBytecodeLoader.o: src/runtime/ProtoBytecodeLoader.cpp.o
 .PHONY : src/runtime/ProtoBytecodeLoader.o
 
 # target to build an object file
 src/runtime/ProtoBytecodeLoader.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoBytecodeLoader.cpp.o
 .PHONY : src/runtime/ProtoBytecodeLoader.cpp.o
 
 src/runtime/ProtoBytecodeLoader.i: src/runtime/ProtoBytecodeLoader.cpp.i
@@ -2258,7 +2559,7 @@ src/runtime/ProtoBytecodeLoader.i: src/runtime/ProtoBytecodeLoader.cpp.i
 
 # target to preprocess a source file
 src/runtime/ProtoBytecodeLoader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoBytecodeLoader.cpp.i
 .PHONY : src/runtime/ProtoBytecodeLoader.cpp.i
 
 src/runtime/ProtoBytecodeLoader.s: src/runtime/ProtoBytecodeLoader.cpp.s
@@ -2266,7 +2567,7 @@ src/runtime/ProtoBytecodeLoader.s: src/runtime/ProtoBytecodeLoader.cpp.s
 
 # target to generate assembly for a file
 src/runtime/ProtoBytecodeLoader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoBytecodeLoader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoBytecodeLoader.cpp.s
 .PHONY : src/runtime/ProtoBytecodeLoader.cpp.s
 
 src/runtime/ProtoCompileOnly.o: src/runtime/ProtoCompileOnly.cpp.o
@@ -2274,7 +2575,7 @@ src/runtime/ProtoCompileOnly.o: src/runtime/ProtoCompileOnly.cpp.o
 
 # target to build an object file
 src/runtime/ProtoCompileOnly.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoCompileOnly.cpp.o
 .PHONY : src/runtime/ProtoCompileOnly.cpp.o
 
 src/runtime/ProtoCompileOnly.i: src/runtime/ProtoCompileOnly.cpp.i
@@ -2282,7 +2583,7 @@ src/runtime/ProtoCompileOnly.i: src/runtime/ProtoCompileOnly.cpp.i
 
 # target to preprocess a source file
 src/runtime/ProtoCompileOnly.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoCompileOnly.cpp.i
 .PHONY : src/runtime/ProtoCompileOnly.cpp.i
 
 src/runtime/ProtoCompileOnly.s: src/runtime/ProtoCompileOnly.cpp.s
@@ -2290,7 +2591,7 @@ src/runtime/ProtoCompileOnly.s: src/runtime/ProtoCompileOnly.cpp.s
 
 # target to generate assembly for a file
 src/runtime/ProtoCompileOnly.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoCompileOnly.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoCompileOnly.cpp.s
 .PHONY : src/runtime/ProtoCompileOnly.cpp.s
 
 src/runtime/ProtoInterpreter.o: src/runtime/ProtoInterpreter.cpp.o
@@ -2298,7 +2599,7 @@ src/runtime/ProtoInterpreter.o: src/runtime/ProtoInterpreter.cpp.o
 
 # target to build an object file
 src/runtime/ProtoInterpreter.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoInterpreter.cpp.o
 .PHONY : src/runtime/ProtoInterpreter.cpp.o
 
 src/runtime/ProtoInterpreter.i: src/runtime/ProtoInterpreter.cpp.i
@@ -2306,7 +2607,7 @@ src/runtime/ProtoInterpreter.i: src/runtime/ProtoInterpreter.cpp.i
 
 # target to preprocess a source file
 src/runtime/ProtoInterpreter.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoInterpreter.cpp.i
 .PHONY : src/runtime/ProtoInterpreter.cpp.i
 
 src/runtime/ProtoInterpreter.s: src/runtime/ProtoInterpreter.cpp.s
@@ -2314,7 +2615,7 @@ src/runtime/ProtoInterpreter.s: src/runtime/ProtoInterpreter.cpp.s
 
 # target to generate assembly for a file
 src/runtime/ProtoInterpreter.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/runtime/ProtoInterpreter.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/ProtoInterpreter.cpp.s
 .PHONY : src/runtime/ProtoInterpreter.cpp.s
 
 src/testing/NodeJSTestRunner.o: src/testing/NodeJSTestRunner.cpp.o
@@ -2322,7 +2623,7 @@ src/testing/NodeJSTestRunner.o: src/testing/NodeJSTestRunner.cpp.o
 
 # target to build an object file
 src/testing/NodeJSTestRunner.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/testing/NodeJSTestRunner.cpp.o
 .PHONY : src/testing/NodeJSTestRunner.cpp.o
 
 src/testing/NodeJSTestRunner.i: src/testing/NodeJSTestRunner.cpp.i
@@ -2330,7 +2631,7 @@ src/testing/NodeJSTestRunner.i: src/testing/NodeJSTestRunner.cpp.i
 
 # target to preprocess a source file
 src/testing/NodeJSTestRunner.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/testing/NodeJSTestRunner.cpp.i
 .PHONY : src/testing/NodeJSTestRunner.cpp.i
 
 src/testing/NodeJSTestRunner.s: src/testing/NodeJSTestRunner.cpp.s
@@ -2338,7 +2639,7 @@ src/testing/NodeJSTestRunner.s: src/testing/NodeJSTestRunner.cpp.s
 
 # target to generate assembly for a file
 src/testing/NodeJSTestRunner.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs.dir/build.make CMakeFiles/protojs.dir/src/testing/NodeJSTestRunner.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/testing/NodeJSTestRunner.cpp.s
 .PHONY : src/testing/NodeJSTestRunner.cpp.s
 
 tests/native_addons/fixture/fixture_addon.o: tests/native_addons/fixture/fixture_addon.cpp.o
@@ -2434,6 +2735,7 @@ help:
 	@echo "... Catch2WithMain"
 	@echo "... fixture_addon"
 	@echo "... protojs"
+	@echo "... protojs_core"
 	@echo "... protojs_tests"
 	@echo "... simple_addon"
 	@echo "... deps/quickjs/cutils.o"
@@ -2451,12 +2753,21 @@ help:
 	@echo "... deps/quickjs/quickjs.o"
 	@echo "... deps/quickjs/quickjs.i"
 	@echo "... deps/quickjs/quickjs.s"
+	@echo "... src/ArrayBufferPrototype.o"
+	@echo "... src/ArrayBufferPrototype.i"
+	@echo "... src/ArrayBufferPrototype.s"
 	@echo "... src/ArrayPrototype.o"
 	@echo "... src/ArrayPrototype.i"
 	@echo "... src/ArrayPrototype.s"
+	@echo "... src/BooleanPrototype.o"
+	@echo "... src/BooleanPrototype.i"
+	@echo "... src/BooleanPrototype.s"
 	@echo "... src/CPUThreadPool.o"
 	@echo "... src/CPUThreadPool.i"
 	@echo "... src/CPUThreadPool.s"
+	@echo "... src/DataViewPrototype.o"
+	@echo "... src/DataViewPrototype.i"
+	@echo "... src/DataViewPrototype.s"
 	@echo "... src/Deferred.o"
 	@echo "... src/Deferred.i"
 	@echo "... src/Deferred.s"
@@ -2469,6 +2780,9 @@ help:
 	@echo "... src/ExecutionEngine.o"
 	@echo "... src/ExecutionEngine.i"
 	@echo "... src/ExecutionEngine.s"
+	@echo "... src/FunctionPrototype.o"
+	@echo "... src/FunctionPrototype.i"
+	@echo "... src/FunctionPrototype.s"
 	@echo "... src/GCBridge.o"
 	@echo "... src/GCBridge.i"
 	@echo "... src/GCBridge.s"
@@ -2481,6 +2795,12 @@ help:
 	@echo "... src/JSPrototypes.o"
 	@echo "... src/JSPrototypes.i"
 	@echo "... src/JSPrototypes.s"
+	@echo "... src/JSSymbols.o"
+	@echo "... src/JSSymbols.i"
+	@echo "... src/JSSymbols.s"
+	@echo "... src/MapPrototype.o"
+	@echo "... src/MapPrototype.i"
+	@echo "... src/MapPrototype.s"
 	@echo "... src/MathBuiltin.o"
 	@echo "... src/MathBuiltin.i"
 	@echo "... src/MathBuiltin.s"
@@ -2490,21 +2810,33 @@ help:
 	@echo "... src/ObjectPrototype.o"
 	@echo "... src/ObjectPrototype.i"
 	@echo "... src/ObjectPrototype.s"
+	@echo "... src/PromisePrototype.o"
+	@echo "... src/PromisePrototype.i"
+	@echo "... src/PromisePrototype.s"
 	@echo "... src/ProtoArgumentsAdapter.o"
 	@echo "... src/ProtoArgumentsAdapter.i"
 	@echo "... src/ProtoArgumentsAdapter.s"
 	@echo "... src/ProtoArrayAdapter.o"
 	@echo "... src/ProtoArrayAdapter.i"
 	@echo "... src/ProtoArrayAdapter.s"
-	@echo "... src/ProtoJSStringCache.o"
-	@echo "... src/ProtoJSStringCache.i"
-	@echo "... src/ProtoJSStringCache.s"
 	@echo "... src/ProtoNativeModule.o"
 	@echo "... src/ProtoNativeModule.i"
 	@echo "... src/ProtoNativeModule.s"
+	@echo "... src/PrototypeUtils.o"
+	@echo "... src/PrototypeUtils.i"
+	@echo "... src/PrototypeUtils.s"
 	@echo "... src/QuickJSArrayBridge.o"
 	@echo "... src/QuickJSArrayBridge.i"
 	@echo "... src/QuickJSArrayBridge.s"
+	@echo "... src/RegExpPrototype.o"
+	@echo "... src/RegExpPrototype.i"
+	@echo "... src/RegExpPrototype.s"
+	@echo "... src/RegExpStringIterator.o"
+	@echo "... src/RegExpStringIterator.i"
+	@echo "... src/RegExpStringIterator.s"
+	@echo "... src/SetPrototype.o"
+	@echo "... src/SetPrototype.i"
+	@echo "... src/SetPrototype.s"
 	@echo "... src/StringPrototype.o"
 	@echo "... src/StringPrototype.i"
 	@echo "... src/StringPrototype.s"
@@ -2514,6 +2846,9 @@ help:
 	@echo "... src/TypeBridge.o"
 	@echo "... src/TypeBridge.i"
 	@echo "... src/TypeBridge.s"
+	@echo "... src/TypedArrayPrototype.o"
+	@echo "... src/TypedArrayPrototype.i"
+	@echo "... src/TypedArrayPrototype.s"
 	@echo "... src/benchmarking/BenchmarkRunner.o"
 	@echo "... src/benchmarking/BenchmarkRunner.i"
 	@echo "... src/benchmarking/BenchmarkRunner.s"
@@ -2640,6 +2975,9 @@ help:
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"
+	@echo "... src/runtime/MicrotaskQueue.o"
+	@echo "... src/runtime/MicrotaskQueue.i"
+	@echo "... src/runtime/MicrotaskQueue.s"
 	@echo "... src/runtime/ProtoBytecodeLoader.o"
 	@echo "... src/runtime/ProtoBytecodeLoader.i"
 	@echo "... src/runtime/ProtoBytecodeLoader.s"

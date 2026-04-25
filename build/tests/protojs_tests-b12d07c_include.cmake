@@ -1,5 +1,5 @@
-if(EXISTS "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/tests/protojs_tests-b12d07c_tests.cmake")
-  include("/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/tests/protojs_tests-b12d07c_tests.cmake")
+if(EXISTS "/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests-b12d07c_tests.cmake")
+  include("/home/gamarino/Documentos/proyectos/protoJS/build/tests/protojs_tests-b12d07c_tests.cmake")
 else()
   add_test(protojs_tests_NOT_BUILT-b12d07c protojs_tests_NOT_BUILT-b12d07c)
 endif()

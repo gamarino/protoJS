@@ -1,5 +1,5 @@
 CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/dtoa.c \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.c \
  /usr/include/stdc-predef.h /usr/include/stdlib.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -79,5 +79,5 @@ CMakeFiles/protojs.dir/deps/quickjs/dtoa.c.o: \
  /usr/include/x86_64-linux-gnu/bits/setjmp.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
  /usr/include/x86_64-linux-gnu/bits/setjmp2.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/cutils.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/dtoa.h
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/dtoa.h

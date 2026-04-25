@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/Profiler.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/Profiler.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/Profiler.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -212,8 +212,8 @@ CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o: \
  /usr/include/c++/13/bits/enable_special_members.h \
  /usr/include/c++/13/span /usr/include/c++/13/variant \
  /usr/include/c++/13/bits/ranges_algobase.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/../JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/bits/atomic_base.h \
  /usr/include/c++/13/bits/atomic_lockfree_defines.h \
  /usr/include/c++/13/bits/atomic_wait.h /usr/include/c++/13/climits \
@@ -255,5 +255,5 @@ CMakeFiles/protojs.dir/src/profiling/Profiler.cpp.o: \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h /usr/include/c++/13/mutex \
  /usr/include/c++/13/thread \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/profiling/../JSPrototypes.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/profiling/../JSPrototypes.h \
  /usr/include/c++/13/iostream

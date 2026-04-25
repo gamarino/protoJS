@@ -1,4 +1,4 @@
-# Install script for directory: /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/build/_deps/catch2-src/src
+# Install script for directory: /home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -1,8 +1,8 @@
 CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/FSModule.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/FSModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -40,9 +40,9 @@ CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: \
  /usr/include/strings.h \
  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../IOModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../ThreadPoolExecutor.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../IOModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../ThreadPoolExecutor.h \
  /usr/include/c++/13/thread /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \
@@ -245,15 +245,18 @@ CMakeFiles/protojs.dir/src/modules/fs/FSModule.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../EventLoop.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../IOThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../EventLoop.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../JSPrototypes.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../Deferred.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../CPUThreadPool.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/fs/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../IOThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../EventLoop.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../JSPrototypes.h \
+ /usr/include/c++/13/map /usr/include/c++/13/bits/stl_tree.h \
+ /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../Deferred.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../CPUThreadPool.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/../../EventLoop.h \
  /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
  /usr/include/c++/13/filesystem /usr/include/c++/13/bits/fs_fwd.h \
  /usr/include/c++/13/bits/fs_path.h /usr/include/c++/13/locale \

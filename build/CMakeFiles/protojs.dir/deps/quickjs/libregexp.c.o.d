@@ -1,5 +1,5 @@
 CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/libregexp.c \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp.c \
  /usr/include/stdc-predef.h /usr/include/stdlib.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -66,7 +66,7 @@ CMakeFiles/protojs.dir/deps/quickjs/libregexp.c.o: \
  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
  /usr/include/assert.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/cutils.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/libregexp.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/libunicode.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/libregexp-opcode.h
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/cutils.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libunicode.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/libregexp-opcode.h

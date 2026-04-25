@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/integration/native_addons/fixture.pdb"
-  "/home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/tests/integration/native_addons/fixture.so"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/integration/native_addons/fixture.pdb"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/integration/native_addons/fixture.so"
   "CMakeFiles/fixture_addon.dir/tests/native_addons/fixture/fixture_addon.cpp.o"
   "CMakeFiles/fixture_addon.dir/tests/native_addons/fixture/fixture_addon.cpp.o.d"
 )

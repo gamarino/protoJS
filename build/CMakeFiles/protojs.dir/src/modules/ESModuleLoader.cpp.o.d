@@ -1,9 +1,9 @@
 CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ESModuleLoader.cpp \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.cpp \
  /usr/include/stdc-predef.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ESModuleLoader.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ModuleResolver.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/deps/quickjs/quickjs.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ESModuleLoader.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleResolver.h \
+ /home/gamarino/Documentos/proyectos/protoJS/deps/quickjs/quickjs.h \
  /usr/include/stdio.h \
  /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -149,7 +149,7 @@ CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/ModuleCache.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/ModuleCache.h \
  /usr/include/c++/13/memory /usr/include/c++/13/bits/stl_tempbuf.h \
  /usr/include/c++/13/bits/stl_raw_storage_iter.h \
  /usr/include/c++/13/bits/align.h /usr/include/c++/13/bits/unique_ptr.h \
@@ -254,8 +254,8 @@ CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../JSContext.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSContext.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
  /usr/include/c++/13/atomic /usr/include/c++/13/condition_variable \
  /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
  /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
@@ -264,12 +264,12 @@ CMakeFiles/protojs.dir/src/modules/ESModuleLoader.cpp.o: \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
  /usr/include/x86_64-linux-gnu/bits/semaphore.h \
  /usr/include/c++/13/thread \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../JSPrototypes.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../TypeBridge.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoCompileOnly.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoBytecodeModule.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoInterpreter.h \
- /home/gamarino/Documentos/proyectos/protoJS/.worktrees/feat-array-string-builtins/src/modules/../runtime/ProtoBytecodeModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../JSPrototypes.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../TypeBridge.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoCompileOnly.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoInterpreter.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/modules/../runtime/ProtoBytecodeModule.h \
  /usr/include/c++/13/fstream \
  /usr/include/x86_64-linux-gnu/c++/13/bits/basic_file.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++io.h \
