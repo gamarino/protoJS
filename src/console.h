@@ -26,6 +26,43 @@ private:
                                           const proto::ParentLink*,
                                           const proto::ProtoList*,
                                           const proto::ProtoSparseList*);
+    static const proto::ProtoObject* time(proto::ProtoContext*, const proto::ProtoObject*,
+                                          const proto::ParentLink*,
+                                          const proto::ProtoList*,
+                                          const proto::ProtoSparseList*);
+    static const proto::ProtoObject* timeEnd(proto::ProtoContext*, const proto::ProtoObject*,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList*,
+                                             const proto::ProtoSparseList*);
+    static const proto::ProtoObject* timeLog(proto::ProtoContext*, const proto::ProtoObject*,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList*,
+                                             const proto::ProtoSparseList*);
+};
+
+/**
+ * Minimal timing-API installer.  Registers `Date.now()` (returns whole
+ * milliseconds since the Unix epoch) and `performance.now()` (returns
+ * monotonic milliseconds with sub-millisecond precision since program
+ * start).  Required by the standard benchmark suites and by any
+ * ES-compliant code that times itself; previously absent in protoJS.
+ *
+ * Updates globalObj in-place.  Safe to call once at startup, after the
+ * Console has been installed.
+ */
+class TimingAPIs {
+public:
+    static void init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj);
+
+private:
+    static const proto::ProtoObject* dateNow(proto::ProtoContext*, const proto::ProtoObject*,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList*,
+                                              const proto::ProtoSparseList*);
+    static const proto::ProtoObject* performanceNow(proto::ProtoContext*, const proto::ProtoObject*,
+                                                     const proto::ParentLink*,
+                                                     const proto::ProtoList*,
+                                                     const proto::ProtoSparseList*);
 };
 
 } // namespace protojs

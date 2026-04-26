@@ -1195,7 +1195,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     }
 
     // Build a JSON namespace object with Symbol.toStringTag = "JSON".
-    // JSON.parse and JSON.stringify are provided by QuickJS's native implementation.
+    // FIXME: the namespace currently exposes no methods.  An older comment
+    // here claimed "JSON.parse and JSON.stringify are provided by
+    // QuickJS's native implementation" — but QuickJS's native JSON is
+    // not plumbed through to the protoCore-side global, so scripts see
+    // `typeof JSON.stringify === "undefined"`.  See main.cpp for a
+    // longer note on why a JS-level polyfill cannot be installed
+    // today (function-argument binding regression).
     {
         const proto::ProtoObject* jsonKeyObj = pContext->fromUTF8String("JSON");
         const proto::ProtoString* jsonKey = jsonKeyObj ? jsonKeyObj->asString(pContext) : nullptr;

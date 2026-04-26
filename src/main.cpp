@@ -147,6 +147,7 @@ int main(int argc, char** argv) {
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
+            protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
         protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
@@ -195,6 +196,7 @@ int main(int argc, char** argv) {
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
+            protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
         {
@@ -216,6 +218,7 @@ int main(int argc, char** argv) {
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
+        protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
     {
@@ -224,6 +227,30 @@ int main(int argc, char** argv) {
         JS_SetPropertyStr(ctx, global, "__protojs__", JS_NewBool(ctx, 1));
         JS_FreeValue(ctx, global);
     }
+    // NOTE on JSON.stringify / JSON.parse:
+    //
+    // ProtoInterpreter (src/runtime/ProtoInterpreter.cpp) installs an
+    // empty `JSON` object on the protoCore-side global; QuickJS's
+    // native JSON.stringify / JSON.parse are not plumbed through to
+    // that global, so scripts running through the protoCore execution
+    // path see `JSON.stringify === undefined`.
+    //
+    // A JS-level polyfill (using a recursive stringify) cannot be
+    // installed today because user-defined function arguments are not
+    // delivered to the callee in the current runtime — `function
+    // f(a,b){return a+b} f(3,4)` returns NaN because `a` and `b` are
+    // both `undefined` inside `f`.  Recursive helpers in any polyfill
+    // therefore segfault or return junk.  Native methods (which take
+    // no JS-bound args, like `Date.now()`) work correctly; that is why
+    // the timing APIs above are installed as native ProtoMethods
+    // rather than via JS source.
+    //
+    // Once the function-arg-binding regression is fixed, drop a JS
+    // polyfill here (or, preferably, plumb QuickJS's native JSON
+    // through to the protoCore global).  Until then, scripts that
+    // rely on JSON.stringify / JSON.parse will need to either use the
+    // QuickJS execution path (without protoCore eval) or supply their
+    // own native binding.
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
     protojs::IOModule::init(wrapper.getJSContext());
     protojs::ProtoCoreModule::init(wrapper.getJSContext());

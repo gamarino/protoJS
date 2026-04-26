@@ -6,6 +6,33 @@ All notable changes to protoJS are documented in this file.
 
 ### Added
 
+- **Restore standard timing APIs** (2026-04-26): The runtime now exposes
+  `Date.now()`, `performance.now()`, and `console.time()` /
+  `console.timeEnd()` / `console.timeLog()` (plus `console.info` and
+  `console.debug` as Node-style aliases of `log`).  Implemented as
+  native ProtoMethod bindings in `src/console.cpp` (new class
+  `protojs::TimingAPIs` alongside `protojs::Console`) and wired in
+  from `src/main.cpp` next to the existing `Console::init` calls.
+  Backends: `std::chrono::system_clock` for `Date.now` (whole-
+  millisecond integer since the Unix epoch); `std::chrono::steady_clock`
+  for `performance.now` (double-precision ms since program start)
+  and for `console.time` (per-label store is process-wide and mutex-
+  guarded to match Node semantics across callbacks).  Closes the
+  regression where every benchmark in `tests/benchmarks/standard/`
+  and the legacy `console.time`-based suite threw `TypeError: is not
+  a function` before reaching its workload.
+
+  Known gap: `JSON.stringify` / `JSON.parse` remain undefined on the
+  protoCore-side global.  A JS-level polyfill cannot be installed
+  today because user-defined function arguments are not delivered
+  to the callee in the current runtime
+  (`function f(a,b){return a+b}; f(3,4)` returns `NaN`); recursive
+  helpers in any polyfill therefore crash or produce junk.  Native
+  methods (which take no JS-bound args) work correctly — that is the
+  pattern used for the timing APIs above.  See the longer note in
+  `src/main.cpp` and `src/runtime/ProtoInterpreter.cpp`; tracking
+  separately.
+
 - **setImmediate in CLI** (2026-03-03): Global `setImmediate(callback)` enqueues to the event loop so scripts can yield between ProtoThread creations and avoid lock contention when creating several threads in quick succession. Used by `parallel_cpu.js` under protoCore.
 
 - **Phase 6: ProtoCore-native global object** (2026-03-03): The global scope is now a ProtoObject built at first eval from the QuickJS global via `JS_GetOwnPropertyNames` and `TypeBridge::fromJS`. No QuickJS heap is used for the global container; conversion only at host boundaries. `runBytecode` accepts `pGlobalRoot` and updates it on `put_field`/`define_field` so top-level `var` assignments persist and subsequent reads see the new object. Directed tests: `proto_eval_smoke.js` (6 cases, including Phase 6 global var) and `tests/test262/tests/phase6_native_global.js`. Docs: ARCHITECTURE.md § 1.4, CONFORMANCE_JS.md Phase 6 table, src/runtime/README.md, TECHNICAL_AUDIT.md.

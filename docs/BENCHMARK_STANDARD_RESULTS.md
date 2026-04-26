@@ -8,12 +8,17 @@ Two comparisons are maintained for the same standard suite:
 **Suite:** `tests/benchmarks/standard/`
 **Last measured:** 2026-02-18
 **Last rebuilt:** 2026-04-26 (protoCore 1.1.0 with `-Wl,-Bsymbolic-functions`; intra-DSO PLT eliminated)
-**Status:** Numbers below reflect the 2026-02-18 measurement.  The 2026-04-26 rebuild against
-the upgraded protoCore is verified at the binary level, but a fresh re-measurement of this
-suite is pending: each script uses `Date.now()` for in-process timing and emits
-`__BENCH_RESULT__<json>` on the last line, but `Date.now` is currently undefined in the JS
-runtime (along with `performance.now` and `console.time`), so the scripts throw and the
-runner reports failures.  Expose those primitives in the runtime to re-measure.
+**Status:** Numbers below reflect the 2026-02-18 measurement.  Re-measurement progress (2026-04-26):
+`Date.now()`, `performance.now()`, and `console.time()` / `console.timeEnd()` were missing
+from the runtime and have now been reinstated as native bindings (see
+`src/console.cpp::TimingAPIs` and the CHANGELOG entry).  However, `JSON.stringify` is still
+undefined on the protoCore-side global — each script in this suite emits
+`__BENCH_RESULT__<json>` via `JSON.stringify(result)` on the last line, so re-measurement is
+still blocked until JSON is wired up.  A JS polyfill is non-trivial because user-defined
+function arguments are not delivered to the callee in the current runtime
+(`function f(a,b){return a+b}; f(3,4)` returns `NaN`), which crashes any recursive helper.
+The cleanest fix is to plumb QuickJS's native `JSON.stringify` / `JSON.parse` through to the
+protoCore global (or to fix the argument-binding regression so a JS polyfill works).
 
 ---
 
