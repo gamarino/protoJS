@@ -300,6 +300,27 @@ static unsigned long stackKey(proto::ProtoContext* ctx) {
     return ps ? static_cast<unsigned long>(ps->getHash(ctx)) : 0;
 }
 
+/**
+ * Lazily allocate closureLocals on first write.
+ *
+ * In protoCore 1.1.0+ ProtoContext::closureLocals is only allocated by
+ * the constructor when parameterNames is non-null.  Every call site in
+ * this interpreter constructs childCtx with parameterNames=nullptr (we
+ * don't use protoCore's name-binding logic — we set raw slots ourselves),
+ * so closureLocals starts null.  Callers must invoke this before any
+ * setSlot/initStack/stackPush, or those helpers would no-op silently.
+ *
+ * runBytecode itself does this at entry; helpers also call it as a
+ * safety net so OP_call setting argument slots before re-entering
+ * runBytecode does not lose the arguments.  (Reentry in runBytecode is
+ * idempotent: it only allocates when null.)
+ */
+static inline void ensureClosureLocals(proto::ProtoContext* ctx) {
+    if (!ctx) return;
+    if (!ctx->closureLocals)
+        ctx->closureLocals = ctx->newSparseList();
+}
+
 static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
     if (!ctx || !ctx->closureLocals) return PROTO_NONE;
     const proto::ProtoObject* v = ctx->closureLocals->getAt(ctx, slotKey(ctx, index));
@@ -307,19 +328,25 @@ static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int 
 }
 
 static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
-    if (!ctx || !ctx->closureLocals) return;
+    if (!ctx) return;
+    ensureClosureLocals(ctx);
+    if (!ctx->closureLocals) return;
     const proto::ProtoObject* val = value ? value : PROTO_NONE;
     ctx->closureLocals = ctx->closureLocals->setAt(ctx, slotKey(ctx, index), val);
 }
 
 static void initStack(proto::ProtoContext* ctx) {
-    if (!ctx || !ctx->closureLocals) return;
+    if (!ctx) return;
+    ensureClosureLocals(ctx);
+    if (!ctx->closureLocals) return;
     const proto::ProtoList* empty = ctx->newList();
     ctx->closureLocals = ctx->closureLocals->setAt(ctx, stackKey(ctx), empty ? empty->asObject(ctx) : PROTO_NONE);
 }
 
 static void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
-    if (!ctx || !ctx->closureLocals) return;
+    if (!ctx) return;
+    ensureClosureLocals(ctx);
+    if (!ctx->closureLocals) return;
     unsigned long sk = stackKey(ctx);
     const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
     const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
@@ -1195,20 +1222,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     }
 
     // Build a JSON namespace object with Symbol.toStringTag = "JSON".
-    // FIXME: the namespace currently exposes no methods.  An older comment
-    // here claimed "JSON.parse and JSON.stringify are provided by
-    // QuickJS's native implementation" — but QuickJS's native JSON is
-    // not plumbed through to the protoCore-side global, so scripts see
-    // `typeof JSON.stringify === "undefined"`.  See main.cpp for a
-    // longer note on why a JS-level polyfill cannot be installed
-    // today (function-argument binding regression).
+    // The namespace is mutable so a JS-level polyfill (installed in
+    // main.cpp via wrapper.eval) can attach `stringify` and `parse`
+    // methods at startup.  An earlier version used newObject(false)
+    // (immutable), which silently dropped property assignments —
+    // `JSON.stringify = …` looked successful but the next read
+    // returned `undefined`.  The actual JSON.stringify / JSON.parse
+    // implementations are not provided by QuickJS at this layer; the
+    // protoCore-side global is separate from QuickJS's globalThis.
     {
         const proto::ProtoObject* jsonKeyObj = pContext->fromUTF8String("JSON");
         const proto::ProtoString* jsonKey = jsonKeyObj ? jsonKeyObj->asString(pContext) : nullptr;
         if (jsonKey && pGlobalRoot && *pGlobalRoot) {
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, jsonKey, false);
             if (!existing || existing == PROTO_NONE) {
-                const proto::ProtoObject* jsonObj = pContext->newObject(false);
+                const proto::ProtoObject* jsonObj = pContext->newObject(true);
                 if (jsonObj) {
                     const proto::ProtoString* tagKey = JSSymbols::toStringTag(pContext);
                     if (tagKey)

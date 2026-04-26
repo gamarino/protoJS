@@ -13,6 +13,13 @@ const RESULTS_DIR = path.join(__dirname, 'results');
 const BENCH_RESULT_PREFIX = '__BENCH_RESULT__';
 
 function findProtojs() {
+    // Allow caller to pin the protojs binary via env var (handy for
+    // running against an experimental build without nuking ../build).
+    if (process.env.PROTOJS_BIN) {
+        if (fs.existsSync(process.env.PROTOJS_BIN)) return process.env.PROTOJS_BIN;
+        console.error(`PROTOJS_BIN=${process.env.PROTOJS_BIN} does not exist`);
+        return null;
+    }
     const candidates = [
         path.join(__dirname, '../../build/protojs'),
         path.join(__dirname, '../build/protojs'),

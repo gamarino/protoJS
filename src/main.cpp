@@ -37,6 +37,82 @@
 #include <chrono>
 #include <vector>
 
+// JSON.stringify / JSON.parse polyfill, prepended to user code in the
+// protoCore eval path.  ProtoInterpreter installs an empty `JSON` stub
+// on the protoCore-side global; QuickJS's native JSON is not plumbed
+// through to it, so scripts would see `JSON.stringify === undefined`
+// without this shim.  Prepended (not eval'd separately) because
+// cross-wrapper.eval function references currently don't work — the
+// function's bytecode is module-relative, so installer-defined
+// helpers go stale once their installer module's tables are released.
+//
+// Expects `this` to be the protoCore-side global at top-level eval,
+// which is true for the standard CLI (full-init) path.
+static const char* kJSONPolyfillPrefix = R"JS(
+if (typeof JSON === 'undefined') { this.JSON = {}; }
+this.__protojs_jsonEscape = function(s) {
+    // Iterate via charAt() rather than .length: in the current
+    // protoCore-eval path, String.prototype.length is reported as
+    // undefined so a `for (i < s.length; i++)` loop runs exactly
+    // once.  charAt(i) returns "" past end, which is a safe sentinel.
+    var out = '"';
+    var i = 0;
+    while (true) {
+        var ch = s.charAt(i);
+        if (ch === '') break;
+        var c = s.charCodeAt(i);
+        if (c === 34) out += '\\"';
+        else if (c === 92) out += '\\\\';
+        else if (c === 10) out += '\\n';
+        else if (c === 13) out += '\\r';
+        else if (c === 9)  out += '\\t';
+        else if (c === 8)  out += '\\b';
+        else if (c === 12) out += '\\f';
+        else if (c < 32) {
+            var hex = c.toString(16);
+            out += '\\u' + ('0000' + hex).slice(-4);
+        } else {
+            out += ch;
+        }
+        i++;
+    }
+    return out + '"';
+};
+this.__protojs_stringify = function(v) {
+    if (v === null || v === undefined) return 'null';
+    var t = typeof v;
+    if (t === 'boolean') return v ? 'true' : 'false';
+    if (t === 'number') return (isFinite(v) ? String(v) : 'null');
+    if (t === 'string') return __protojs_jsonEscape(v);
+    if (Array.isArray(v)) {
+        var parts = [];
+        for (var i = 0; i < v.length; i++) parts.push(__protojs_stringify(v[i]));
+        return '[' + parts.join(',') + ']';
+    }
+    if (t === 'object') {
+        var parts = [];
+        for (var k in v) {
+            if (Object.prototype.hasOwnProperty.call(v, k)) {
+                var sv = __protojs_stringify(v[k]);
+                if (sv !== undefined) parts.push(__protojs_jsonEscape(k) + ':' + sv);
+            }
+        }
+        return '{' + parts.join(',') + '}';
+    }
+    return 'null';
+};
+JSON.stringify = this.__protojs_stringify;
+this.__protojs_parse = function(text) {
+    if (typeof text !== 'string') text = String(text);
+    var t = text.replace(/"(?:\\.|[^"\\])*"/g, '""');
+    if (!/^[\s\d\-\+\.eE\[\]\{\},:tfnurla"]*$/.test(t)) {
+        throw new SyntaxError('JSON.parse: invalid character');
+    }
+    return eval('(' + text + ')');
+};
+JSON.parse = this.__protojs_parse;
+)JS";
+
 static JSValue js_setImmediate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
     (void)this_val;
     if (argc < 1 || !JS_IsFunction(ctx, argv[0])) return JS_UNDEFINED;
@@ -227,30 +303,14 @@ int main(int argc, char** argv) {
         JS_SetPropertyStr(ctx, global, "__protojs__", JS_NewBool(ctx, 1));
         JS_FreeValue(ctx, global);
     }
-    // NOTE on JSON.stringify / JSON.parse:
-    //
-    // ProtoInterpreter (src/runtime/ProtoInterpreter.cpp) installs an
-    // empty `JSON` object on the protoCore-side global; QuickJS's
-    // native JSON.stringify / JSON.parse are not plumbed through to
-    // that global, so scripts running through the protoCore execution
-    // path see `JSON.stringify === undefined`.
-    //
-    // A JS-level polyfill (using a recursive stringify) cannot be
-    // installed today because user-defined function arguments are not
-    // delivered to the callee in the current runtime — `function
-    // f(a,b){return a+b} f(3,4)` returns NaN because `a` and `b` are
-    // both `undefined` inside `f`.  Recursive helpers in any polyfill
-    // therefore segfault or return junk.  Native methods (which take
-    // no JS-bound args, like `Date.now()`) work correctly; that is why
-    // the timing APIs above are installed as native ProtoMethods
-    // rather than via JS source.
-    //
-    // Once the function-arg-binding regression is fixed, drop a JS
-    // polyfill here (or, preferably, plumb QuickJS's native JSON
-    // through to the protoCore global).  Until then, scripts that
-    // rely on JSON.stringify / JSON.parse will need to either use the
-    // QuickJS execution path (without protoCore eval) or supply their
-    // own native binding.
+    // JSON.stringify / JSON.parse polyfill is prepended to the user's
+    // code below (see line ~392) rather than eval'd separately.  In the
+    // current runtime, function references defined in one wrapper.eval
+    // call do not work correctly when called from a later one (the
+    // function's bytecode is keyed by module-relative bcId, which goes
+    // stale once that module's compile-time tables are released).
+    // Prepending keeps the polyfill and user code in the same module
+    // so the references stay valid.
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
     protojs::IOModule::init(wrapper.getJSContext());
     protojs::ProtoCoreModule::init(wrapper.getJSContext());
@@ -333,9 +393,19 @@ int main(int argc, char** argv) {
         JS_FreeValue(wrapper.getJSContext(), pResult);
     }
 
-    // Evaluate code
-    JSValue result = wrapper.eval(code, filename, inputTypeModule);
-    
+    // Evaluate code.  Prepend the JSON.stringify/parse polyfill in
+    // non-module mode so cross-eval function references stay valid
+    // (see kJSONPolyfillPrefix comment).  Module mode is left
+    // untouched: ES modules don't share globalThis the same way and
+    // the polyfill assignment to `this.JSON` would be ill-defined.
+    std::string codeWithPolyfill;
+    if (!inputTypeModule) {
+        codeWithPolyfill = std::string(kJSONPolyfillPrefix) + "\n" + code;
+    } else {
+        codeWithPolyfill = code;
+    }
+    JSValue result = wrapper.eval(codeWithPolyfill, filename, inputTypeModule);
+
     // Print result if -p flag is set
     if (printResult && !JS_IsException(result) && !JS_IsUndefined(result)) {
         const char* resultStr = JS_ToCString(wrapper.getJSContext(), result);

@@ -22,16 +22,46 @@ All notable changes to protoJS are documented in this file.
   and the legacy `console.time`-based suite threw `TypeError: is not
   a function` before reaching its workload.
 
-  Known gap: `JSON.stringify` / `JSON.parse` remain undefined on the
-  protoCore-side global.  A JS-level polyfill cannot be installed
-  today because user-defined function arguments are not delivered
-  to the callee in the current runtime
-  (`function f(a,b){return a+b}; f(3,4)` returns `NaN`); recursive
-  helpers in any polyfill therefore crash or produce junk.  Native
-  methods (which take no JS-bound args) work correctly — that is the
-  pattern used for the timing APIs above.  See the longer note in
-  `src/main.cpp` and `src/runtime/ProtoInterpreter.cpp`; tracking
-  separately.
+- **Fix function-argument binding regression** (2026-04-26): User-defined
+  function arguments were arriving as `undefined` at the callee
+  (`function f(a,b){return a+b}; f(3,4)` returned `NaN`).  Root cause
+  was in `src/runtime/ProtoInterpreter.cpp` — the slot-storage helpers
+  (`setSlot`, `initStack`, `stackPush/Pop/peek`) all silently no-op'd
+  when `ctx->closureLocals` was null, but the OP_call / OP_call_method
+  / OP_call_constructor handlers create a child `ProtoContext` with
+  `parameterNames=nullptr`, which means protoCore's lazy-init in the
+  ProtoContext constructor leaves `closureLocals` null.  The handlers
+  then called `setSlot(&childCtx, i, arg)` to seed argument slots, but
+  every one of those calls dropped on the floor.  When `runBytecode`
+  later bootstrapped `closureLocals` (line 1040), it was too late —
+  the args were gone.
+
+  Fix: added `ensureClosureLocals(ctx)` and called it from every
+  helper that mutates closureLocals.  Idempotent with the existing
+  bootstrap in `runBytecode`.  All call paths now correctly deliver
+  arguments to callees.
+
+- **JSON.stringify / JSON.parse polyfill** (2026-04-26): With the
+  argument-binding fix in place, a JS-level polyfill is now usable.
+  Added `kJSONPolyfillPrefix` in `src/main.cpp` — top-level globals
+  (no IIFE) prepended to user code in non-module mode.  Cross-eval
+  function references in the current runtime are still flaky (a
+  function defined in `wrapper.eval` A is not callable cleanly from
+  `wrapper.eval` B because its bcId is module-relative), so prepending
+  keeps the polyfill and user code in the same module.  Also worked
+  around `String.prototype.length` returning `undefined` in the
+  protoCore eval path by iterating with `charAt(i) === ''` as the
+  end-of-string sentinel.  The protoCore-side `JSON` namespace stub
+  in `ProtoInterpreter.cpp` is now a mutable Object (was immutable,
+  which silently swallowed property assignments).  Verified end-to-end:
+  `JSON.stringify({a:1, b:"x", c:[true,null]})` →
+  `{"ok":true,"name":"numeric_loop","time_ms":42}` style output;
+  `__BENCH_RESULT__<json>` lines now emit correctly.
+
+- **PROTOJS_BIN env var** (2026-04-26): `tests/benchmarks/run_standard_
+  comparison.js` now honours `PROTOJS_BIN` for selecting which
+  protojs binary to test, so an experimental build can be benched
+  without overwriting `../build/protojs`.
 
 - **setImmediate in CLI** (2026-03-03): Global `setImmediate(callback)` enqueues to the event loop so scripts can yield between ProtoThread creations and avoid lock contention when creating several threads in quick succession. Used by `parallel_cpu.js` under protoCore.
 
