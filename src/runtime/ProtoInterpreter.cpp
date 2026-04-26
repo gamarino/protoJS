@@ -1063,12 +1063,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         const unsigned int totalSlots     = slotsForLocals + reservedStack;
         pContext->resizeAutomaticLocals(totalSlots);
 
-        // Closure vars block needs to be initialised lazily — there's no
-        // ProtoSparseList anymore but the code below still uses it for the
-        // hoisted-function bookkeeping (savedLoc snapshots etc.).  Keep
-        // closureLocals as a working-side dictionary only for those paths.
-        if (!pContext->closureLocals)
-            pContext->closureLocals = pContext->newSparseList();
+        // closureLocals is intentionally NOT initialised here — slots and
+        // stack now live in automaticLocals.  The few legacy code paths
+        // (generator save/restore, hoisted-function snapshots) lazily
+        // allocate the sparse list on first use; they are not reached on
+        // call-heavy hot paths.  Removing the eager allocation here
+        // saved one SparseList alloc per runBytecode entry — at 100 K
+        // calls/s that's a major fraction of the per-call cost.
     }
 
     // ------------------------------------------------------------------
@@ -1167,6 +1168,37 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     }
     const proto::ProtoObject* tdzSentinel = t_tdzSentinel ? t_tdzSentinel : PROTO_NONE;
 
+    // Built-in registration runs ONCE per global root, not per call.
+    // The block below registers Function.prototype, Array.prototype,
+    // Number, Math, Map, Set, parseInt, parseFloat, encodeURI, etc.
+    // Each helper is idempotent — if the global already has the
+    // entry, it returns early — but the *check* itself does an
+    // attribute lookup + symbol intern.  At ~30 helpers run per
+    // function call, that became the dominant cost on call-heavy
+    // workloads (function_calls.js: 50 K calls = ~50 s).
+    //
+    // Guard via a sentinel attribute on the global root.  First
+    // entry installs everything and sets `__protojs_globals_init__`.
+    // Subsequent entries find the flag and skip the entire block.
+    bool needsGlobalInit = true;
+    // Cache the flag key as an INTERNED SYMBOL (not a plain ProtoString).
+    // Symbols compare by pointer, so getAttribute below skips the
+    // SymbolTable::lookupByContent (toUTF8String + contentEqual) round-
+    // trip that profiling showed at ~12 % of per-call CPU on 100 K
+    // function calls.  fromUTF8String + asString returns a regular
+    // POINTER_TAG_STRING; use createSymbol to get the canonical
+    // POINTER_TAG_SYMBOL pointer.
+    static thread_local const proto::ProtoString* s_initFlagKey = nullptr;
+    if (!s_initFlagKey) {
+        s_initFlagKey = proto::ProtoString::createSymbol(pContext, "__protojs_globals_init__");
+    }
+    const proto::ProtoString* initFlagKey = s_initFlagKey;
+    if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
+        const proto::ProtoObject* flag =
+            (*pGlobalRoot)->getAttribute(pContext, initFlagKey, false);
+        if (flag == PROTO_TRUE) needsGlobalInit = false;
+    }
+  if (needsGlobalInit) {
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
 
@@ -1345,6 +1377,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         ensureGlobalFn("decodeURI",           globalDecodeURI);
         ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent);
     }
+
+    // Mark the global root as initialised so subsequent runBytecode calls
+    // skip the entire block above.
+    if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
+        *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, initFlagKey, PROTO_TRUE);
+    }
+  }  // end if (needsGlobalInit)
 
     // Hoist var-declared globals to undefined so that Fix1's ReferenceError check does not
     // fire for variables declared with `var x;` but lacking an explicit initializer.
@@ -4421,7 +4460,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
 
-                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+                    // Pre-size automaticLocals to match the callee's needs:
+                    // args + vars + closure-vars + stack + safety margin.
+                    // This lets the ProtoContext constructor allocate the
+                    // exact slot region in one shot — no resize, no
+                    // double-allocation when runBytecode then asks for the
+                    // same size.  Stack-buffer SBO for typical functions:
+                    // 64 slots cover most call frames without heap alloc.
+                    constexpr size_t kSBOSlots = 64;
+                    const size_t totalSlots =
+                        nf.argCount() + nf.varCount() +
+                        nf.closureVarNames.size() + nf.stackSize() + 16;
+                    alignas(void*) const proto::ProtoObject* sboBuf_call[kSBOSlots];
+                    const proto::ProtoObject** ext = nullptr;
+                    if (totalSlots <= kSBOSlots) {
+                        for (size_t s = 0; s < totalSlots; ++s) sboBuf_call[s] = PROTO_NONE;
+                        ext = sboBuf_call;
+                    }
+                    proto::ProtoContext childCtx(pContext->space, pContext,
+                                                 nullptr, nullptr, nullptr, nullptr,
+                                                 totalSlots, ext);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     for (uint32_t i = 0; i < argc; i++)
