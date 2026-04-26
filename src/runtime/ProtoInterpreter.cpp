@@ -285,105 +285,102 @@ static const proto::ProtoObject* globalDecodeURI(
     return globalDecodeURIComponent(ctx, nullptr, nullptr, args, nullptr);
 }
 
-static unsigned long slotKey(proto::ProtoContext* ctx, unsigned int index) {
-    if (!ctx) return 0;
-    std::string s = std::to_string(index);
-    const proto::ProtoObject* o = ctx->fromUTF8String(s.c_str());
-    const proto::ProtoString* ps = o ? o->asString(ctx) : nullptr;
-    return ps ? static_cast<unsigned long>(ps->getHash(ctx)) : 0;
-}
+// =====================================================================
+// Slot + value-stack storage — flat-array implementation
+// =====================================================================
+//
+// Up to 2026-04-26 the interpreter stored both the call frame's local
+// variables and its operand stack inside ProtoContext::closureLocals
+// (a persistent ProtoSparseList).  Every push/pop/setLoc allocated
+// O(log N) AVL cells; profiling a tight integer loop showed ~38 % of
+// CPU spent in the GC scanning the resulting cells, with the loop
+// itself running ~1000× slower than Node.
+//
+// Storage now lives in ProtoContext::automaticLocals (a flat
+// `const ProtoObject*[]`), which protoCore already scans as a GC
+// root — so semantics are preserved (no value can be collected
+// while reachable from the interpreter) but each helper is O(1)
+// with zero allocation on the hot path.
+//
+// Layout per frame:
+//   [0 .. argCount-1]                            args
+//   [argCount .. argCount+varCount-1]            local vars
+//   [argCount+varCount .. stackBase-1]           closure vars
+//   [stackBase .. stackBase + stackTop - 1]      pushed operand stack
+//   [stackBase + stackTop .. automaticCount-1]   reserved (PROTO_NONE)
+//
+// `stackBase` and `stackTop` are tracked in a thread_local stack of
+// frames (one entry per nested runBytecode invocation).  RAII-pushed
+// at runBytecode entry, popped at exit.
+struct InterpFrame {
+    proto::ProtoContext* ctx;
+    unsigned int stackBase;
+    unsigned int stackTop;
+    unsigned int stackCap;
+};
+static thread_local std::vector<InterpFrame> t_interpFrames;
 
-static unsigned long stackKey(proto::ProtoContext* ctx) {
-    if (!ctx) return 0;
-    const proto::ProtoObject* o = ctx->fromUTF8String("__stack__");
-    const proto::ProtoString* ps = o ? o->asString(ctx) : nullptr;
-    return ps ? static_cast<unsigned long>(ps->getHash(ctx)) : 0;
-}
-
-/**
- * Lazily allocate closureLocals on first write.
- *
- * In protoCore 1.1.0+ ProtoContext::closureLocals is only allocated by
- * the constructor when parameterNames is non-null.  Every call site in
- * this interpreter constructs childCtx with parameterNames=nullptr (we
- * don't use protoCore's name-binding logic — we set raw slots ourselves),
- * so closureLocals starts null.  Callers must invoke this before any
- * setSlot/initStack/stackPush, or those helpers would no-op silently.
- *
- * runBytecode itself does this at entry; helpers also call it as a
- * safety net so OP_call setting argument slots before re-entering
- * runBytecode does not lose the arguments.  (Reentry in runBytecode is
- * idempotent: it only allocates when null.)
- */
-static inline void ensureClosureLocals(proto::ProtoContext* ctx) {
-    if (!ctx) return;
-    if (!ctx->closureLocals)
-        ctx->closureLocals = ctx->newSparseList();
+static inline InterpFrame* currentFrame(proto::ProtoContext* ctx) {
+    if (t_interpFrames.empty()) return nullptr;
+    InterpFrame* f = &t_interpFrames.back();
+    return (f->ctx == ctx) ? f : nullptr;
 }
 
 static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
-    if (!ctx || !ctx->closureLocals) return PROTO_NONE;
-    const proto::ProtoObject* v = ctx->closureLocals->getAt(ctx, slotKey(ctx, index));
+    if (!ctx) return PROTO_NONE;
+    if (index >= ctx->getAutomaticLocalsCount()) return PROTO_NONE;
+    const proto::ProtoObject* v = ctx->getAutomaticLocals()[index];
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
 }
 
 static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
     if (!ctx) return;
-    ensureClosureLocals(ctx);
-    if (!ctx->closureLocals) return;
-    const proto::ProtoObject* val = value ? value : PROTO_NONE;
-    ctx->closureLocals = ctx->closureLocals->setAt(ctx, slotKey(ctx, index), val);
+    if (index >= ctx->getAutomaticLocalsCount())
+        ctx->resizeAutomaticLocals(index + 1);
+    const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[index] =
+        value ? value : PROTO_NONE;
 }
 
 static void initStack(proto::ProtoContext* ctx) {
-    if (!ctx) return;
-    ensureClosureLocals(ctx);
-    if (!ctx->closureLocals) return;
-    const proto::ProtoList* empty = ctx->newList();
-    ctx->closureLocals = ctx->closureLocals->setAt(ctx, stackKey(ctx), empty ? empty->asObject(ctx) : PROTO_NONE);
+    InterpFrame* f = currentFrame(ctx);
+    if (f) f->stackTop = 0;
 }
 
 static void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
     if (!ctx) return;
-    ensureClosureLocals(ctx);
-    if (!ctx->closureLocals) return;
-    unsigned long sk = stackKey(ctx);
-    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
-    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
-    if (!list) list = ctx->newList();
-    const proto::ProtoList* next = list->appendLast(ctx, value ? value : PROTO_NONE);
-    ctx->closureLocals = ctx->closureLocals->setAt(ctx, sk, next ? next->asObject(ctx) : (list ? list->asObject(ctx) : PROTO_NONE));
+    InterpFrame* f = currentFrame(ctx);
+    if (!f) return;
+    unsigned int idx = f->stackBase + f->stackTop;
+    if (idx >= ctx->getAutomaticLocalsCount()) {
+        // Stack overflowed the pre-reserved region; grow.  This is rare —
+        // bytecode normally declares its max stack size up-front.
+        unsigned int newCap = (idx + 1) * 2;
+        ctx->resizeAutomaticLocals(newCap);
+    }
+    const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[idx] =
+        value ? value : PROTO_NONE;
+    f->stackTop++;
 }
 
 static void stackPop(proto::ProtoContext* ctx) {
-    if (!ctx || !ctx->closureLocals) return;
-    unsigned long sk = stackKey(ctx);
-    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
-    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
-    if (!list) return;
-    unsigned long n = list->getSize(ctx);
-    if (n == 0) return;
-    const proto::ProtoList* next = list->getSlice(ctx, 0, static_cast<int>(n - 1));
-    ctx->closureLocals = ctx->closureLocals->setAt(ctx, sk, next ? next->asObject(ctx) : ctx->newList()->asObject(ctx));
+    InterpFrame* f = currentFrame(ctx);
+    if (!f || f->stackTop == 0) return;
+    f->stackTop--;
+    // Clear so the GC doesn't keep the value alive past pop.
+    unsigned int idx = f->stackBase + f->stackTop;
+    if (idx < ctx->getAutomaticLocalsCount())
+        const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[idx] = PROTO_NONE;
 }
 
 static const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
-    if (!ctx || !ctx->closureLocals) return PROTO_NONE;
-    unsigned long sk = stackKey(ctx);
-    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
-    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
-    if (!list) return PROTO_NONE;
-    unsigned long n = list->getSize(ctx);
-    if (n == 0) return PROTO_NONE;
-    return list->getAt(ctx, static_cast<int>(n - 1));
+    InterpFrame* f = currentFrame(ctx);
+    if (!f || f->stackTop == 0) return PROTO_NONE;
+    return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1];
 }
 
 static unsigned long stackSize(proto::ProtoContext* ctx) {
-    if (!ctx || !ctx->closureLocals) return 0;
-    unsigned long sk = stackKey(ctx);
-    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
-    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
-    return list ? list->getSize(ctx) : 0;
+    InterpFrame* f = currentFrame(ctx);
+    return f ? f->stackTop : 0;
 }
 
 static bool stackEmpty(proto::ProtoContext* ctx) {
@@ -392,14 +389,9 @@ static bool stackEmpty(proto::ProtoContext* ctx) {
 
 /** Get stack element by 0-based index from top (0 = top, 1 = next, ...). */
 static const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, unsigned long fromTop) {
-    if (!ctx || !ctx->closureLocals) return PROTO_NONE;
-    unsigned long sk = stackKey(ctx);
-    const proto::ProtoObject* obj = ctx->closureLocals->getAt(ctx, sk);
-    const proto::ProtoList* list = obj && obj != PROTO_NONE ? obj->asList(ctx) : nullptr;
-    if (!list) return PROTO_NONE;
-    unsigned long n = list->getSize(ctx);
-    if (fromTop >= n) return PROTO_NONE;
-    return list->getAt(ctx, static_cast<int>(n - 1 - fromTop));
+    InterpFrame* f = currentFrame(ctx);
+    if (!f || fromTop >= f->stackTop) return PROTO_NONE;
+    return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1 - fromTop];
 }
 
 static inline uint32_t get_u32(const uint8_t* p) {
@@ -1061,13 +1053,47 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     } else {
-        // protoCore 1.1.0+: closureLocals is lazily allocated only when parameterNames is
-        // provided to the ProtoContext constructor.  runBytecode always passes nullptr, so
-        // we must bootstrap the SparseList here before any slot or stack operation.
+        // Slot/stack storage lives in ProtoContext::automaticLocals (a flat
+        // GC-visible array).  The InterpFrame for this call is pushed
+        // OUTSIDE this else block (after the if/else) so its RAII pop
+        // covers the entire body of runBytecode, not just this branch.
+        const unsigned int closureCount = static_cast<unsigned int>(closureVarNames.size());
+        const unsigned int slotsForLocals = argCount + varCount + closureCount;
+        const unsigned int reservedStack  = module->stackSize() + 16;  // small safety margin
+        const unsigned int totalSlots     = slotsForLocals + reservedStack;
+        pContext->resizeAutomaticLocals(totalSlots);
+
+        // Closure vars block needs to be initialised lazily — there's no
+        // ProtoSparseList anymore but the code below still uses it for the
+        // hoisted-function bookkeeping (savedLoc snapshots etc.).  Keep
+        // closureLocals as a working-side dictionary only for those paths.
         if (!pContext->closureLocals)
             pContext->closureLocals = pContext->newSparseList();
+    }
 
-        // Locals and stack live only in ProtoContext::closureLocals (GC-visible). No std::vector.
+    // ------------------------------------------------------------------
+    // Push the InterpFrame for this call.  Both the generator-resume and
+    // fresh-entry paths above must end with a frame on t_interpFrames so
+    // every stackPush/Pop/getSlot/setSlot below operates correctly.  A
+    // RAII guard at this scope ensures we always pop on exit, regardless
+    // of which return statement fires inside the dispatch loop.
+    // ------------------------------------------------------------------
+    {
+        const unsigned int closureCount = static_cast<unsigned int>(closureVarNames.size());
+        const unsigned int slotsForLocals = argCount + varCount + closureCount;
+        unsigned int reservedStack  = module->stackSize() + 16;
+        unsigned int totalSlots     = slotsForLocals + reservedStack;
+        if (pContext->getAutomaticLocalsCount() < totalSlots)
+            pContext->resizeAutomaticLocals(totalSlots);
+        t_interpFrames.push_back(InterpFrame{ pContext, slotsForLocals, 0, reservedStack });
+    }
+    struct InterpFramePopOnExit {
+        ~InterpFramePopOnExit() {
+            if (!t_interpFrames.empty()) t_interpFrames.pop_back();
+        }
+    } _interpFramePopOnExit;
+
+    if (t_genResumePc < 0) {
         initStack(pContext);
         const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
         /* Pre-load closure vars from the global object into their dedicated slots.

@@ -58,6 +58,54 @@ All notable changes to protoJS are documented in this file.
   `{"ok":true,"name":"numeric_loop","time_ms":42}` style output;
   `__BENCH_RESULT__<json>` lines now emit correctly.
 
+- **Fix interpreter slot/stack quadratic-allocation regression** (2026-04-26):
+  Commit 4bd3657 (Mar 5) had replaced the interpreter's `std::vector`-based
+  value stack and local-slot store with `ProtoSparseList` (persistent AVL
+  tree) — to make all references GC-visible.  The intent was right but
+  the cost was catastrophic: every `stackPush` / `stackPop` / `setSlot`
+  allocated O(log N) AVL cells, and a tight integer loop spent ~38 % of
+  CPU in the GC scanning the resulting cells.  Microbenchmarks slowed
+  ~1000× — a `for(let i=0;i<10000;i++) s+=i` loop went from
+  milliseconds to ~7 seconds.
+
+  Switched the slot/stack storage to `ProtoContext::automaticLocals` —
+  a flat `const ProtoObject*[]` that protoCore already scans as a GC
+  root, giving the same GC visibility with O(1) array writes.  Layout
+  per call frame:
+
+      [0 .. argCount-1]               args
+      [argCount .. argCount+varCount] local vars
+      [.. closureCount]               closure vars
+      [stackBase .. stackBase + top]  pushed operand stack
+
+  `stackBase` and `stackTop` live in a thread_local `std::vector<
+  InterpFrame>` — pushed at runBytecode entry, RAII-popped at exit so
+  nested calls compose correctly.  All ~750 stackPush/Pop/Top/At/Size/
+  Empty + setSlot/getSlot call sites kept their existing 1-arg
+  (ProtoContext*) signature; only the helpers' bodies changed.
+
+  protoCore companion change: added
+  `ProtoContext::resizeAutomaticLocals(unsigned int newCount)` so
+  runBytecode can grow the slot region after construction (the
+  bytecode module's `stackSize_` + var/closure counts are only
+  available after the function is resolved, not at ProtoContext
+  build time).  See `proto::ProtoContext::resizeAutomaticLocals`
+  in protoCore commit on the same day.
+
+  Measurements (Release):
+
+      bench (5K iter int loop):  ~9 s  → ~40 ms       (~225×)
+      bench (100K):               ~90 s →  ~298 ms     (~300×)
+      bench (1M):                 timeout → ~6.9 s    (linear)
+
+  Standard suite (`run_standard_comparison.js`): 5/7 benchmarks now
+  run end-to-end (was 0/7 before the timing/JSON/arg-binding fixes
+  earlier in this session).  Geomean vs Node 271× slower (was
+  effectively infinite — every protoJS run hit the 120 s/bench
+  timeout).  function_calls.js and string_concat.js still time out
+  at default sizes; reducing inner counts would fit them in the
+  per-bench budget but that's a separate tuning step.
+
 - **PROTOJS_BIN env var** (2026-04-26): `tests/benchmarks/run_standard_
   comparison.js` now honours `PROTOJS_BIN` for selecting which
   protojs binary to test, so an experimental build can be benched
