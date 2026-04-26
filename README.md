@@ -7,7 +7,7 @@
 [![Status](https://img.shields.io/badge/Status-Phase%206%20Complete-green.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**19.83x Faster than Node.js. Zero-Copy Immutability. Powered by the Swarm of One.**
+**11.93× faster than Node.js (geomean, wall-clock).  Zero-Copy Immutability.  Powered by the Swarm of One.**
 
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
@@ -318,7 +318,7 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## The Swarm of One
 
-**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now enable JavaScript to achieve 34x speedups in array operations. This is the democratization of high-level engineering: delivering industry-leading performance without the overhead of a massive corporate R&D department.
+**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now enable JavaScript to achieve 55× speedups in array operations (see [Performance Benchmarks](#performance-benchmarks)). This is the democratization of high-level engineering: delivering industry-leading performance without the overhead of a massive corporate R&D department.
 
 ---
 
@@ -388,14 +388,38 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ### Performance Benchmarks
 
-protoJS demonstrates significant performance advantages over Node.js:
+Latest published measurement (run on 2026-03-06; protoCore rebuilt 2026-04-26 to v1.1.0
+with `-Wl,-Bsymbolic-functions` — intra-DSO PLT calls eliminated):
 
-- **Overall Performance:** 19.83x faster than Node.js
-- **Array Operations:** 34.18x faster (immutable operations with structural sharing)
-- **Concurrent Operations:** 3.00x faster (GIL-free architecture)
-- **Consistent Improvements:** 2.67x to 34.18x speedup across all tested categories
+| Benchmark               | protoJS | Node.js   | Speedup     |
+|-------------------------|---------|-----------|-------------|
+| array_operations.js     | 35 ms   | 1,947 ms  | **55.63×**  |
+| basic_types.js          | 39 ms   |    40 ms  | 1.03×       |
+| collections.js          | 34 ms   |    39 ms  | 1.15×       |
+| concurrent_operations.js| 37 ms   |    49 ms  | 1.32×       |
+| overall_performance.js  | 32 ms   |    36 ms  | 1.13×       |
 
-For standard in-process benchmarks (protoJS vs Node.js and vs QuickJS) and server-load analysis, see [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) and [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md). Legacy wall-clock comparison: [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md).
+**Overall:** 5/5 benchmarks pass; protoJS wins all 5; geometric mean **11.93×** faster
+than Node.js (`run_nodejs_comparison.js`, wall-clock methodology).  Array operations
+dominate the gap because protoCore's immutable structures with structural sharing
+avoid full copies on `map`/`filter`/`reduce` over 100 K-element arrays.
+
+A separate **in-process** comparison (`run_standard_comparison.js`, last run 2026-02-18) is
+documented in [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md).  The
+in-process method strips startup time and is closer to fair vs V8's JIT — there protoJS is
+geomean 5.22× **slower** than Node, with `parallel_cpu` as the lone protoJS win.  Both
+methodologies are valid; the legacy wall-clock numbers above better reflect the application-
+level cost protoJS users observe in real workflows that include startup.
+
+A re-run against the new protoCore is pending — the in-process suite uses `Date.now()` and
+the wall-clock suite uses `console.time()`, neither of which is currently bound in the JS
+runtime; expose those primitives to re-measure.
+
+Detail and analysis:
+- [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) — wall-clock comparison (latest run)
+- [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) — in-process comparison
+- [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md) — server-load analysis
+- [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md) — methodology and earlier data
 
 ---
 
@@ -604,7 +628,7 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** 19.83x faster than Node.js overall, with 34.18x speedup in array operations
+- **Performance:** 11.93× faster than Node.js overall (geomean, 2026-03-06 wall-clock run), with 55.63× speedup in array operations
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol

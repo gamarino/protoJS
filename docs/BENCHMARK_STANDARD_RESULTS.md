@@ -5,8 +5,15 @@ Two comparisons are maintained for the same standard suite:
 - **protoJS vs Node.js** — interpreter vs V8 (JIT); run with `run_standard_comparison.js`.
 - **protoJS vs QuickJS** — interpreter vs interpreter; run with `run_standard_comparison_quickjs.js`.
 
-**Suite:** `tests/benchmarks/standard/`  
-**Last run:** 2026-02-18
+**Suite:** `tests/benchmarks/standard/`
+**Last measured:** 2026-02-18
+**Last rebuilt:** 2026-04-26 (protoCore 1.1.0 with `-Wl,-Bsymbolic-functions`; intra-DSO PLT eliminated)
+**Status:** Numbers below reflect the 2026-02-18 measurement.  The 2026-04-26 rebuild against
+the upgraded protoCore is verified at the binary level, but a fresh re-measurement of this
+suite is pending: each script uses `Date.now()` for in-process timing and emits
+`__BENCH_RESULT__<json>` on the last line, but `Date.now` is currently undefined in the JS
+runtime (along with `performance.now` and `console.time`), so the scripts throw and the
+runner reports failures.  Expose those primitives in the runtime to re-measure.
 
 ---
 

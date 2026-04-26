@@ -1,9 +1,13 @@
 # ProtoJS Performance Test Report
 
-**Generated:** January 24, 2026  
-**Last updated:** 2026-03-06 (Node.js comparison run)  
-**Test Suite Version:** 1.0  
-**Status:** Sample Report Generated
+**Last measured:** 2026-03-06 (Node.js comparison run)
+**Last rebuilt:** 2026-04-26 (protoCore 1.1.0 with `-Wl,-Bsymbolic-functions`; intra-DSO PLT eliminated)
+**Test Suite Version:** 1.0
+**Status:** Numbers below reflect the 2026-03-06 measurement.  A 2026-04-26 rebuild against the
+upgraded protoCore was completed and binary integrity was verified, but a fresh in-process
+re-measurement is pending: the standard suite uses `Date.now()` / `performance.now()` /
+`console.time()` for inner timing, none of which are currently bound in the JS runtime — those
+need to be wired up before the in-process suite can emit `__BENCH_RESULT__` again.
 
 ## Overview
 
@@ -11,7 +15,7 @@ This document contains the performance test results for protoJS. The full intera
 
 ### Latest Node.js comparison (2026-03-06)
 
-The Node.js comparison suite (`run_nodejs_comparison.js`) was run on 2026-03-06: **5/5 benchmarks passed**. protoJS wins all 5. Overall speedup **11.93x** (protoJS avg 35.4 ms vs Node 422.2 ms). Array operations: **55.63x** faster. See [PERFORMANCE_RUN_2026-02-07.md](PERFORMANCE_RUN_2026-02-07.md) for the full run report and latest results table.
+The Node.js comparison suite (`run_nodejs_comparison.js`) was run on 2026-03-06: **5/5 benchmarks passed**. protoJS wins all 5. Overall speedup **11.93x** (protoJS avg 35.4 ms vs Node 422.2 ms). Array operations: **55.63x** faster.  Per-benchmark breakdown is in the table below.
 
 ### Full performance analysis (2026-03-06)
 
