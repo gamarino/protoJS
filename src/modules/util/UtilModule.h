@@ -1,24 +1,24 @@
 #ifndef PROTOJS_UTILMODULE_H
 #define PROTOJS_UTILMODULE_H
 
-#include "quickjs.h"
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `util` module — type predicates, simple stringify
+ *        helpers.  Migrated to protoCore-native (no QuickJS bridge);
+ *        see docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
+ */
 class UtilModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    static JSValue promisify(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue typesIsArray(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue typesIsString(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue typesIsNumber(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue typesIsObject(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue typesIsFunction(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue typesIsDate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue inspect(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue format(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    /**
+     * @brief Build the `util` module object and register it on the
+     *        protoCore-native global.  Returns the updated global.
+     */
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

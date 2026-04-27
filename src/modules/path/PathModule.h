@@ -1,23 +1,24 @@
 #ifndef PROTOJS_PATHMODULE_H
 #define PROTOJS_PATHMODULE_H
 
-#include "quickjs.h"
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `path` module — string-only path manipulation,
+ *        no filesystem access.  Migrated to protoCore-native (no
+ *        QuickJS bridge); see docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
+ */
 class PathModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    static JSValue join(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue resolve(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue normalize(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue dirname(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue basename(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue extname(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue isAbsolute(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue relative(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    /**
+     * @brief Build the `path` module object and register it on the
+     *        protoCore-native global.  Returns the updated global.
+     */
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

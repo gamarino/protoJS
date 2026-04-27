@@ -252,15 +252,29 @@ int main(int argc, char** argv) {
         protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
         protojs::IOModule::init(wrapper.getJSContext());
         protojs::ProtoCoreModule::init(wrapper.getJSContext());
-        protojs::ProcessModule::init(wrapper.getJSContext(), argc, argv);
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::ProcessModule::init(
+                wrapper.getProtoContext(), nativeGlobal, argc, argv);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         protojs::CommonJSLoader::init(wrapper.getJSContext());
-        protojs::PathModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::PathModule::init(
+                wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         protojs::FSModule::init(wrapper.getJSContext());
         protojs::URLModule::init(wrapper.getJSContext());
         protojs::HTTPModule::init(wrapper.getJSContext());
         protojs::EventsModule::init(wrapper.getJSContext());
         protojs::StreamModule::init(wrapper.getJSContext());
-        protojs::UtilModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         protojs::CryptoModule::init(wrapper.getJSContext());
         protojs::BufferModule::init(wrapper.getJSContext());
         protojs::NetModule::init(wrapper.getJSContext());
@@ -331,22 +345,35 @@ int main(int argc, char** argv) {
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
     protojs::IOModule::init(wrapper.getJSContext());
     protojs::ProtoCoreModule::init(wrapper.getJSContext());
-    // NOTE: ProcessModule::init currently triggers a hang in the CLI path
-    // under the new protoCore runtime wiring. Skip it for now in the basic
-    // CLI runner; Node-style process emulation is still available via
-    // higher-level test harnesses.
-    // protojs::ProcessModule::init(wrapper.getJSContext(), argc, argv);
+    // ProcessModule registers `process` directly on the protoCore-native
+    // global (no QuickJS bridge).  The hang that affected the previous
+    // QuickJS-side install path is gone with the migration.
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::ProcessModule::init(
+            wrapper.getProtoContext(), nativeGlobal, argc, argv);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     
     // Initialize Phase 2 modules
     protojs::CommonJSLoader::init(wrapper.getJSContext());
     // ES Module loader will be used via import statements
-    protojs::PathModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::PathModule::init(
+            wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     protojs::FSModule::init(wrapper.getJSContext());
     protojs::URLModule::init(wrapper.getJSContext());
     protojs::HTTPModule::init(wrapper.getJSContext());
     protojs::EventsModule::init(wrapper.getJSContext());
     protojs::StreamModule::init(wrapper.getJSContext());
-    protojs::UtilModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     protojs::CryptoModule::init(wrapper.getJSContext());
     protojs::BufferModule::init(wrapper.getJSContext());
     protojs::NetModule::init(wrapper.getJSContext());

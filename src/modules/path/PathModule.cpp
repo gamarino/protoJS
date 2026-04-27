@@ -1,4 +1,5 @@
 #include "PathModule.h"
+#include "../../ProtoNativeModule.h"
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -6,178 +7,173 @@
 namespace protojs {
 namespace fs = std::filesystem;
 
-void PathModule::init(JSContext* ctx) {
-    JSValue pathModule = JS_NewObject(ctx);
-    
-    JS_SetPropertyStr(ctx, pathModule, "join", JS_NewCFunction(ctx, join, "join", 1));
-    JS_SetPropertyStr(ctx, pathModule, "resolve", JS_NewCFunction(ctx, resolve, "resolve", 1));
-    JS_SetPropertyStr(ctx, pathModule, "normalize", JS_NewCFunction(ctx, normalize, "normalize", 1));
-    JS_SetPropertyStr(ctx, pathModule, "dirname", JS_NewCFunction(ctx, dirname, "dirname", 1));
-    JS_SetPropertyStr(ctx, pathModule, "basename", JS_NewCFunction(ctx, basename, "basename", 1));
-    JS_SetPropertyStr(ctx, pathModule, "extname", JS_NewCFunction(ctx, extname, "extname", 1));
-    JS_SetPropertyStr(ctx, pathModule, "isAbsolute", JS_NewCFunction(ctx, isAbsolute, "isAbsolute", 1));
-    JS_SetPropertyStr(ctx, pathModule, "relative", JS_NewCFunction(ctx, relative, "relative", 2));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "path", pathModule);
-    JS_FreeValue(ctx, global_obj);
+namespace {
+
+// Helpers ----------------------------------------------------------------
+
+// Read argument N as a UTF-8 std::string, or return an empty optional
+// when the slot is missing or non-string.  Throwing TypeError for
+// missing args matches the QuickJS-side behaviour we replaced.
+struct ArgString {
+    bool ok;
+    std::string value;
+};
+
+ArgString arg(proto::ProtoContext* ctx, const proto::ProtoList* args,
+              int idx) {
+    if (!ctx || !args) return {false, ""};
+    if (idx >= static_cast<int>(args->getSize(ctx))) return {false, ""};
+    const proto::ProtoObject* a = args->getAt(ctx, idx);
+    if (!a || a == PROTO_NONE) return {false, ""};
+    if (!a->isString(ctx)) return {false, ""};
+    std::string out;
+    a->asString(ctx)->toUTF8String(ctx, out);
+    return {true, out};
 }
 
-JSValue PathModule::join(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    std::vector<std::string> parts;
-    for (int i = 0; i < argc; i++) {
-        const char* part = JS_ToCString(ctx, argv[i]);
-        if (part) {
-            parts.push_back(part);
-            JS_FreeCString(ctx, part);
-        }
-    }
-    
-    if (parts.empty()) {
-        return JS_NewString(ctx, ".");
-    }
-    
+const proto::ProtoObject* str(proto::ProtoContext* ctx,
+                               const std::string& s) {
+    return ctx->fromUTF8String(s.c_str());
+}
+
+// ProtoMethods ------------------------------------------------------------
+
+const proto::ProtoObject* pathJoin(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args) return ctx ? ctx->fromUTF8String(".") : PROTO_NONE;
     fs::path result;
-    for (const auto& part : parts) {
-        if (!part.empty()) {
-            result /= part;
-        }
+    bool any = false;
+    long long n = static_cast<long long>(args->getSize(ctx));
+    for (long long i = 0; i < n; ++i) {
+        ArgString a = arg(ctx, args, static_cast<int>(i));
+        if (!a.ok || a.value.empty()) continue;
+        result /= a.value;
+        any = true;
     }
-    
-    std::string resultStr = result.string();
-    return JS_NewString(ctx, resultStr.c_str());
+    if (!any) return ctx->fromUTF8String(".");
+    return str(ctx, result.string());
 }
 
-JSValue PathModule::resolve(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
+const proto::ProtoObject* pathResolve(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
     fs::path result = fs::current_path();
-    
-    for (int i = 0; i < argc; i++) {
-        const char* part = JS_ToCString(ctx, argv[i]);
-        if (part) {
-            result /= part;
-            JS_FreeCString(ctx, part);
+    if (args) {
+        long long n = static_cast<long long>(args->getSize(ctx));
+        for (long long i = 0; i < n; ++i) {
+            ArgString a = arg(ctx, args, static_cast<int>(i));
+            if (!a.ok) continue;
+            result /= a.value;
         }
     }
-    
     try {
         result = fs::canonical(result);
     } catch (...) {
-        // If canonical fails, use absolute
         result = fs::absolute(result);
     }
-    
-    return JS_NewString(ctx, result.string().c_str());
+    return str(ctx, result.string());
 }
 
-JSValue PathModule::normalize(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "normalize expects a path");
-    }
-    
-    const char* pathStr = JS_ToCString(ctx, argv[0]);
-    if (!pathStr) {
-        return JS_EXCEPTION;
-    }
-    
-    fs::path p(pathStr);
-    JS_FreeCString(ctx, pathStr);
-    
-    // Normalize the path
-    std::string normalized = p.lexically_normal().string();
-    return JS_NewString(ctx, normalized.c_str());
+const proto::ProtoObject* pathNormalize(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    ArgString a = arg(ctx, args, 0);
+    if (!a.ok) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    return str(ctx, fs::path(a.value).lexically_normal().string());
 }
 
-JSValue PathModule::dirname(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "dirname expects a path");
-    }
-    
-    const char* pathStr = JS_ToCString(ctx, argv[0]);
-    if (!pathStr) {
-        return JS_EXCEPTION;
-    }
-    
-    fs::path p(pathStr);
-    JS_FreeCString(ctx, pathStr);
-    
-    return JS_NewString(ctx, p.parent_path().string().c_str());
+const proto::ProtoObject* pathDirname(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    ArgString a = arg(ctx, args, 0);
+    if (!a.ok) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    return str(ctx, fs::path(a.value).parent_path().string());
 }
 
-JSValue PathModule::basename(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "basename expects a path");
-    }
-    
-    const char* pathStr = JS_ToCString(ctx, argv[0]);
-    if (!pathStr) {
-        return JS_EXCEPTION;
-    }
-    
-    fs::path p(pathStr);
-    JS_FreeCString(ctx, pathStr);
-    
-    std::string basename = p.filename().string();
-    return JS_NewString(ctx, basename.c_str());
+const proto::ProtoObject* pathBasename(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    ArgString a = arg(ctx, args, 0);
+    if (!a.ok) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    return str(ctx, fs::path(a.value).filename().string());
 }
 
-JSValue PathModule::extname(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "extname expects a path");
-    }
-    
-    const char* pathStr = JS_ToCString(ctx, argv[0]);
-    if (!pathStr) {
-        return JS_EXCEPTION;
-    }
-    
-    fs::path p(pathStr);
-    JS_FreeCString(ctx, pathStr);
-    
-    std::string ext = p.extension().string();
-    return JS_NewString(ctx, ext.c_str());
+const proto::ProtoObject* pathExtname(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    ArgString a = arg(ctx, args, 0);
+    if (!a.ok) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    return str(ctx, fs::path(a.value).extension().string());
 }
 
-JSValue PathModule::isAbsolute(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "isAbsolute expects a path");
-    }
-    
-    const char* pathStr = JS_ToCString(ctx, argv[0]);
-    if (!pathStr) {
-        return JS_EXCEPTION;
-    }
-    
-    fs::path p(pathStr);
-    JS_FreeCString(ctx, pathStr);
-    
-    bool absolute = p.is_absolute();
-    return JS_NewBool(ctx, absolute);
+const proto::ProtoObject* pathIsAbsolute(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    ArgString a = arg(ctx, args, 0);
+    if (!a.ok) return PROTO_FALSE;
+    return fs::path(a.value).is_absolute() ? PROTO_TRUE : PROTO_FALSE;
 }
 
-JSValue PathModule::relative(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 2) {
-        return JS_ThrowTypeError(ctx, "relative expects two paths");
-    }
-    
-    const char* fromStr = JS_ToCString(ctx, argv[0]);
-    const char* toStr = JS_ToCString(ctx, argv[1]);
-    if (!fromStr || !toStr) {
-        if (fromStr) JS_FreeCString(ctx, fromStr);
-        if (toStr) JS_FreeCString(ctx, toStr);
-        return JS_EXCEPTION;
-    }
-    
-    fs::path from(fromStr);
-    fs::path to(toStr);
-    JS_FreeCString(ctx, fromStr);
-    JS_FreeCString(ctx, toStr);
-    
+const proto::ProtoObject* pathRelative(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    ArgString from = arg(ctx, args, 0);
+    ArgString to   = arg(ctx, args, 1);
+    if (!from.ok || !to.ok) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     try {
-        fs::path rel = fs::relative(to, from);
-        return JS_NewString(ctx, rel.string().c_str());
+        return str(ctx, fs::relative(fs::path(to.value), fs::path(from.value)).string());
     } catch (...) {
-        return JS_NewString(ctx, "");
+        return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     }
+}
+
+}  // namespace
+
+const proto::ProtoObject* PathModule::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+    static const NativeEntry entries[] = {
+        {"join",       pathJoin},
+        {"resolve",    pathResolve},
+        {"normalize",  pathNormalize},
+        {"dirname",    pathDirname},
+        {"basename",   pathBasename},
+        {"extname",    pathExtname},
+        {"isAbsolute", pathIsAbsolute},
+        {"relative",   pathRelative},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* mod =
+        ProtoNativeModule::buildModule(ctx, entries, 8);
+    if (!mod) return globalObj;
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "path", mod);
 }
 
 } // namespace protojs

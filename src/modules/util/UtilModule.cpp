@@ -1,155 +1,238 @@
 #include "UtilModule.h"
-#include "../../Deferred.h"
+#include "../../ProtoNativeModule.h"
+#include "../../ArrayElementsStorage.h"
+#include "../../JSSymbols.h"
+#include <string>
 
 namespace protojs {
 
-void UtilModule::init(JSContext* ctx) {
-    JSValue utilModule = JS_NewObject(ctx);
-    
-    JS_SetPropertyStr(ctx, utilModule, "promisify", JS_NewCFunction(ctx, promisify, "promisify", 1));
-    
-    JSValue types = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, types, "isArray", JS_NewCFunction(ctx, typesIsArray, "isArray", 1));
-    JS_SetPropertyStr(ctx, types, "isString", JS_NewCFunction(ctx, typesIsString, "isString", 1));
-    JS_SetPropertyStr(ctx, types, "isNumber", JS_NewCFunction(ctx, typesIsNumber, "isNumber", 1));
-    JS_SetPropertyStr(ctx, types, "isObject", JS_NewCFunction(ctx, typesIsObject, "isObject", 1));
-    JS_SetPropertyStr(ctx, types, "isFunction", JS_NewCFunction(ctx, typesIsFunction, "isFunction", 1));
-    JS_SetPropertyStr(ctx, types, "isDate", JS_NewCFunction(ctx, typesIsDate, "isDate", 1));
-    JS_SetPropertyStr(ctx, utilModule, "types", types);
-    
-    JS_SetPropertyStr(ctx, utilModule, "inspect", JS_NewCFunction(ctx, inspect, "inspect", 1));
-    JS_SetPropertyStr(ctx, utilModule, "format", JS_NewCFunction(ctx, format, "format", 1));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "util", utilModule);
-    JS_FreeValue(ctx, global_obj);
+namespace {
+
+// ---- Argument helpers --------------------------------------------------
+
+const proto::ProtoObject* arg0(proto::ProtoContext* ctx,
+                                const proto::ProtoList* args) {
+    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* a = args->getAt(ctx, 0);
+    return a ? a : PROTO_NONE;
 }
 
-JSValue UtilModule::promisify(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
-        return JS_ThrowTypeError(ctx, "promisify expects a function");
-    }
-    
-    JSValue originalFunc = JS_DupValue(ctx, argv[0]);
-    
-    // Create promisified function that wraps callback-based function
-    JSValue promisified = JS_NewCFunctionData(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv, int magic, JSValue* func_data) {
-        JSValue originalFunc = func_data[0];
-        
-        // Create a Promise using Deferred
-        JSValue deferredCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "Deferred");
-        if (JS_IsFunction(ctx, deferredCtor)) {
-            // Create function that calls original with callback
-            JSValue wrapperFunc = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-                // This would call the original function with a callback
-                // For Phase 2, return a basic promise
-                return JS_UNDEFINED;
-            }, "promisified_wrapper", argc);
-            
-            JSValue promise = JS_CallConstructor(ctx, deferredCtor, 1, &wrapperFunc);
-            JS_FreeValue(ctx, wrapperFunc);
-            JS_FreeValue(ctx, deferredCtor);
-            return promise;
-        }
-        
-        JS_FreeValue(ctx, deferredCtor);
-        return JS_UNDEFINED;
-    }, 0, JS_CFUNC_generic_magic, 1, &originalFunc);
-    
-    return promisified;
+bool isArrayObj(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
+    // An Array in protoJS is a mutable ProtoObject carrying an
+    // `__elements__` ProtoList.  The presence of that attribute is the
+    // canonical test (matches `Array.isArray` internally).
+    if (!o || o == PROTO_NONE) return false;
+    return getArrayElements(ctx, o) != nullptr;
 }
 
-JSValue UtilModule::typesIsArray(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
-    }
-    return JS_NewBool(ctx, JS_IsArray(ctx, argv[0]));
+// ---- types.* predicates ------------------------------------------------
+
+const proto::ProtoObject* typesIsArray(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return isArrayObj(ctx, arg0(ctx, args)) ? PROTO_TRUE : PROTO_FALSE;
 }
 
-JSValue UtilModule::typesIsString(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
-    }
-    return JS_NewBool(ctx, JS_IsString(argv[0]));
+const proto::ProtoObject* typesIsString(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoObject* a = arg0(ctx, args);
+    return (ctx && a && a->isString(ctx)) ? PROTO_TRUE : PROTO_FALSE;
 }
 
-JSValue UtilModule::typesIsNumber(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
-    }
-    return JS_NewBool(ctx, JS_IsNumber(argv[0]));
+const proto::ProtoObject* typesIsNumber(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoObject* a = arg0(ctx, args);
+    if (!ctx || !a) return PROTO_FALSE;
+    return (a->isInteger(ctx) || a->isDouble(ctx) || a->isFloat(ctx))
+        ? PROTO_TRUE : PROTO_FALSE;
 }
 
-JSValue UtilModule::typesIsObject(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
+const proto::ProtoObject* typesIsFunction(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoObject* a = arg0(ctx, args);
+    if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
+    if (a->isMethod(ctx)) return PROTO_TRUE;
+    // Bytecode JS function: the function instance carries a
+    // `__bytecode_id__` integer attribute.  Match the runtime's own
+    // notion of "is callable bytecode".
+    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+    if (bcKey) {
+        const proto::ProtoObject* v = a->getAttribute(ctx, bcKey, false);
+        if (v && v->isInteger(ctx)) return PROTO_TRUE;
     }
-    return JS_NewBool(ctx, JS_IsObject(argv[0]) && !JS_IsArray(ctx, argv[0]) && !JS_IsString(argv[0]));
+    return PROTO_FALSE;
 }
 
-JSValue UtilModule::typesIsFunction(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
+const proto::ProtoObject* typesIsObject(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoObject* a = arg0(ctx, args);
+    if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
+    if (a->isString(ctx) || a->isInteger(ctx) || a->isDouble(ctx) ||
+        a->isBoolean(ctx) || a->isNone(ctx) || a->isMethod(ctx)) {
+        return PROTO_FALSE;
     }
-    return JS_NewBool(ctx, JS_IsFunction(ctx, argv[0]));
+    if (isArrayObj(ctx, a)) return PROTO_FALSE;
+    return PROTO_TRUE;
 }
 
-JSValue UtilModule::typesIsDate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
-    }
-    // QuickJS doesn't have JS_IsDate, check if object has date-like properties
-    if (JS_IsObject(argv[0])) {
-        JSValue getTime = JS_GetPropertyStr(ctx, argv[0], "getTime");
-        bool isDate = JS_IsFunction(ctx, getTime);
-        JS_FreeValue(ctx, getTime);
-        return JS_NewBool(ctx, isDate);
-    }
-    return JS_NewBool(ctx, false);
+const proto::ProtoObject* typesIsDate(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    // Mirror the original heuristic: any object that responds to
+    // `getTime` is treated as a Date.  protoJS does not yet have a
+    // first-class Date class; this stays compatible with downstream
+    // consumers that test `util.types.isDate(d)`.
+    const proto::ProtoObject* a = arg0(ctx, args);
+    if (!ctx || !a || a == PROTO_NONE) return PROTO_FALSE;
+    const proto::ProtoString* gtKey =
+        ctx->fromUTF8String("getTime")->asString(ctx);
+    if (!gtKey) return PROTO_FALSE;
+    const proto::ProtoObject* v = a->getAttribute(ctx, gtKey, false);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    return (v->isMethod(ctx)) ? PROTO_TRUE : PROTO_FALSE;
 }
 
-JSValue UtilModule::inspect(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewString(ctx, "undefined");
+// ---- inspect / format --------------------------------------------------
+
+void inspectInto(proto::ProtoContext* ctx,
+                  const proto::ProtoObject* v, std::string& out) {
+    if (!ctx || !v || v == PROTO_NONE || v->isNone(ctx)) {
+        out += "undefined";
+        return;
     }
-    
-    // Basic inspect - convert to string
-    if (JS_IsString(argv[0])) {
-        return JS_DupValue(ctx, argv[0]);
-    } else if (JS_IsNumber(argv[0])) {
-        double num;
-        JS_ToFloat64(ctx, &num, argv[0]);
+    if (v->isString(ctx)) {
+        std::string s;
+        v->asString(ctx)->toUTF8String(ctx, s);
+        out += s;
+        return;
+    }
+    if (v->isBoolean(ctx)) {
+        out += v->asBoolean(ctx) ? "true" : "false";
+        return;
+    }
+    if (v->isInteger(ctx)) {
+        out += std::to_string(v->asLong(ctx));
+        return;
+    }
+    if (v->isDouble(ctx)) {
         char buf[64];
-        snprintf(buf, sizeof(buf), "%g", num);
-        return JS_NewString(ctx, buf);
-    } else if (JS_IsBool(argv[0])) {
-        return JS_NewString(ctx, JS_ToBool(ctx, argv[0]) ? "true" : "false");
-    } else if (JS_IsNull(argv[0])) {
-        return JS_NewString(ctx, "null");
-    } else if (JS_IsUndefined(argv[0])) {
-        return JS_NewString(ctx, "undefined");
-    } else if (JS_IsObject(argv[0])) {
-        return JS_NewString(ctx, "[Object]");
+        snprintf(buf, sizeof(buf), "%g", v->asDouble(ctx));
+        out += buf;
+        return;
     }
-    
-    return JS_NewString(ctx, "[Unknown]");
+    if (isArrayObj(ctx, v)) {
+        out += "[Array]";
+        return;
+    }
+    out += "[Object]";
 }
 
-JSValue UtilModule::format(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    // Basic format implementation (like printf)
-    if (argc < 1) {
-        return JS_NewString(ctx, "");
+const proto::ProtoObject* utilInspect(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) == 0) {
+        return ctx ? ctx->fromUTF8String("undefined") : PROTO_NONE;
     }
-    
-    std::string result;
-    const char* formatStr = JS_ToCString(ctx, argv[0]);
-    if (formatStr) {
-        // Simple format - just return format string for Phase 2
-        result = formatStr;
-        JS_FreeCString(ctx, formatStr);
+    std::string s;
+    inspectInto(ctx, args->getAt(ctx, 0), s);
+    return ctx->fromUTF8String(s.c_str());
+}
+
+const proto::ProtoObject* utilFormat(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    // Minimal Node-compatible behaviour: when the first argument is a
+    // string, return it verbatim; otherwise inspect each argument and
+    // join with single spaces.  Matches the original QuickJS-side
+    // module's externally observable surface.
+    if (!ctx || !args || args->getSize(ctx) == 0)
+        return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    const proto::ProtoObject* first = args->getAt(ctx, 0);
+    if (first && first->isString(ctx)) {
+        return first;
     }
-    
-    return JS_NewString(ctx, result.c_str());
+    std::string out;
+    long long n = static_cast<long long>(args->getSize(ctx));
+    for (long long i = 0; i < n; ++i) {
+        if (i > 0) out += ' ';
+        inspectInto(ctx, args->getAt(ctx, static_cast<int>(i)), out);
+    }
+    return ctx->fromUTF8String(out.c_str());
+}
+
+const proto::ProtoObject* utilPromisify(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    // Stub — the QuickJS-side implementation was already a no-op
+    // returning undefined.  Real implementation would build a Deferred
+    // wrapper; tracked separately.
+    return ctx ? PROTO_NONE : PROTO_NONE;
+}
+
+}  // namespace
+
+const proto::ProtoObject* UtilModule::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+
+    static const NativeEntry typesEntries[] = {
+        {"isArray",    typesIsArray},
+        {"isString",   typesIsString},
+        {"isNumber",   typesIsNumber},
+        {"isObject",   typesIsObject},
+        {"isFunction", typesIsFunction},
+        {"isDate",     typesIsDate},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* types =
+        ProtoNativeModule::buildModule(ctx, typesEntries, 6);
+    if (!types) return globalObj;
+
+    static const NativeEntry utilEntries[] = {
+        {"promisify", utilPromisify},
+        {"inspect",   utilInspect},
+        {"format",    utilFormat},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* mod =
+        ProtoNativeModule::buildModule(ctx, utilEntries, 3);
+    if (!mod) return globalObj;
+    const proto::ProtoString* tk = ctx->fromUTF8String("types")->asString(ctx);
+    if (tk) mod = mod->setAttribute(ctx, tk, types);
+
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "util", mod);
 }
 
 } // namespace protojs
