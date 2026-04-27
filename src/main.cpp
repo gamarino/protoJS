@@ -250,7 +250,11 @@ int main(int argc, char** argv) {
             wrapper.updateNativeGlobal(nativeGlobal);
         }
         protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
-        protojs::IOModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::IOModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         protojs::ProtoCoreModule::init(wrapper.getJSContext());
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
@@ -371,7 +375,11 @@ int main(int argc, char** argv) {
     // Prepending keeps the polyfill and user code in the same module
     // so the references stay valid.
     protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
-    protojs::IOModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::IOModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     protojs::ProtoCoreModule::init(wrapper.getJSContext());
     // ProcessModule registers `process` directly on the protoCore-native
     // global (no QuickJS bridge).  The hang that affected the previous

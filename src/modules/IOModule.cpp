@@ -1,246 +1,194 @@
 #include "IOModule.h"
-#include "../Deferred.h"
+#include "../ProtoNativeModule.h"
 #include "../JSContext.h"
+#include "../ProtoDeferred.h"
 #include <fstream>
 #include <sstream>
 #include <future>
+#include <stdexcept>
 
 namespace protojs {
 
-void IOModule::init(JSContext* ctx) {
-    JSValue ioModule = JS_NewObject(ctx);
-    
-    // Register I/O functions
-    JS_SetPropertyStr(ctx, ioModule, "readFile", 
-                     JS_NewCFunction(ctx, readFile, "readFile", 1));
-    JS_SetPropertyStr(ctx, ioModule, "writeFile", 
-                     JS_NewCFunction(ctx, writeFile, "writeFile", 2));
-    JS_SetPropertyStr(ctx, ioModule, "readFileAsync", 
-                     JS_NewCFunction(ctx, readFileAsync, "readFileAsync", 1));
-    JS_SetPropertyStr(ctx, ioModule, "writeFileAsync", 
-                     JS_NewCFunction(ctx, writeFileAsync, "writeFileAsync", 2));
-    
-    // Add to global scope
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "io", ioModule);
-    JS_FreeValue(ctx, global_obj);
+namespace {
+
+bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+                int idx, std::string& out) {
+    if (!ctx || !args) return false;
+    if (idx >= static_cast<int>(args->getSize(ctx))) return false;
+    const proto::ProtoObject* a = args->getAt(ctx, idx);
+    if (!a || !a->isString(ctx)) return false;
+    a->asString(ctx)->toUTF8String(ctx, out);
+    return true;
 }
 
-JSValue IOModule::readFile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "readFile expects a file path");
-    }
-    
-    const char* path = JS_ToCString(ctx, argv[0]);
-    if (!path) {
-        return JS_EXCEPTION;
-    }
-    
-    std::string filePath(path);
-    JS_FreeCString(ctx, path);
-    
-    // Submit to I/O thread pool
-    auto& ioPool = IOThreadPool::getInstance();
-    auto future = ioPool.getExecutor().submit([filePath]() {
-        return readFileSync(filePath);
-    });
-    
-    // Wait for result (in a full implementation, this would be async with Promise)
-    // For now, we'll block - in Phase 2 this should return a Promise
+const proto::ProtoObject* ioReadFile(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string path;
+    if (!argString(ctx, args, 0, path)) return PROTO_NONE;
+    auto& pool = IOThreadPool::getInstance();
+    auto future = pool.getExecutor().submit(
+        [path]() { return IOModule::readFileSync(path); });
     try {
         std::string content = future.get();
-        return JS_NewString(ctx, content.c_str());
-    } catch (const std::exception& e) {
-        std::string errorMsg = "readFile error: " + std::string(e.what());
-        return JS_ThrowTypeError(ctx, "%s", errorMsg.c_str());
+        return ctx->fromUTF8String(content.c_str());
+    } catch (...) {
+        return PROTO_NONE;
     }
 }
 
-JSValue IOModule::writeFile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 2) {
-        return JS_ThrowTypeError(ctx, "writeFile expects a file path and content");
-    }
-    
-    const char* path = JS_ToCString(ctx, argv[0]);
-    if (!path) {
-        return JS_EXCEPTION;
-    }
-    
-    const char* content = JS_ToCString(ctx, argv[1]);
-    if (!content) {
-        JS_FreeCString(ctx, path);
-        return JS_EXCEPTION;
-    }
-    
-    std::string filePath(path);
-    std::string fileContent(content);
-    
-    JS_FreeCString(ctx, path);
-    JS_FreeCString(ctx, content);
-    
-    // Submit to I/O thread pool
-    auto& ioPool = IOThreadPool::getInstance();
-    auto future = ioPool.getExecutor().submit([filePath, fileContent]() {
-        return writeFileSync(filePath, fileContent);
-    });
-    
-    // Wait for result
+const proto::ProtoObject* ioWriteFile(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string path, content;
+    if (!argString(ctx, args, 0, path) ||
+        !argString(ctx, args, 1, content)) return PROTO_FALSE;
+    auto& pool = IOThreadPool::getInstance();
+    auto future = pool.getExecutor().submit(
+        [path, content]() { return IOModule::writeFileSync(path, content); });
     try {
-        bool success = future.get();
-        return JS_NewBool(ctx, success);
-    } catch (const std::exception& e) {
-        std::string errorMsg = "writeFile error: " + std::string(e.what());
-        return JS_ThrowTypeError(ctx, "%s", errorMsg.c_str());
+        return future.get() ? PROTO_TRUE : PROTO_FALSE;
+    } catch (...) {
+        return PROTO_FALSE;
     }
 }
+
+// Async paths now produce a real ProtoDeferred — `io.readFileAsync(p)`
+// returns an object supporting `.then(cb)` / `.catch(cb)`.  This
+// replaces the old QuickJS-side stubs whose resolve/reject were
+// no-op JS_NewCFunctions.
+const proto::ProtoObject* ioReadFileAsync(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string path;
+    if (!argString(ctx, args, 0, path)) return PROTO_NONE;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return PROTO_NONE;
+
+    const proto::ProtoObject* deferred = ProtoDeferred::createPending(ctx);
+    if (!deferred) return PROTO_NONE;
+    proto::ProtoRootSet* rs = wrapper->getRootSet();
+    proto::ProtoRootSet::Handle pin = rs ? rs->add(deferred)
+                                          : proto::ProtoRootSet::kNullHandle;
+
+    IOThreadPool::getInstance().getExecutor().submit([path, wrapper, pin]() {
+        std::string err;
+        std::string content;
+        try { content = IOModule::readFileSync(path); }
+        catch (const std::exception& e) { err = e.what(); }
+        EventLoop::getInstance().enqueueCallback([wrapper, pin, content, err]() {
+            if (!wrapper) return;
+            JSContextWrapper::CurrentScope ws(wrapper);
+            proto::ProtoContext* c = wrapper->getProtoContext();
+            if (!c) return;
+            proto::ProtoRootSet* rs = wrapper->getRootSet();
+            const proto::ProtoObject* d = rs ? rs->resolve(pin) : nullptr;
+            if (rs) rs->remove(pin);
+            if (!d) return;
+            if (!err.empty()) {
+                ProtoDeferred::rejectFromAsync(c, d,
+                    c->fromUTF8String(err.c_str()), wrapper);
+            } else {
+                ProtoDeferred::resolveFromAsync(c, d,
+                    c->fromUTF8String(content.c_str()), wrapper);
+            }
+        });
+    });
+    return deferred;
+}
+
+const proto::ProtoObject* ioWriteFileAsync(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string path, content;
+    if (!argString(ctx, args, 0, path) ||
+        !argString(ctx, args, 1, content)) return PROTO_NONE;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return PROTO_NONE;
+
+    const proto::ProtoObject* deferred = ProtoDeferred::createPending(ctx);
+    if (!deferred) return PROTO_NONE;
+    proto::ProtoRootSet* rs = wrapper->getRootSet();
+    proto::ProtoRootSet::Handle pin = rs ? rs->add(deferred)
+                                          : proto::ProtoRootSet::kNullHandle;
+
+    IOThreadPool::getInstance().getExecutor().submit(
+        [path, content, wrapper, pin]() {
+        std::string err;
+        bool ok = false;
+        try { ok = IOModule::writeFileSync(path, content); }
+        catch (const std::exception& e) { err = e.what(); }
+        EventLoop::getInstance().enqueueCallback([wrapper, pin, ok, err]() {
+            if (!wrapper) return;
+            JSContextWrapper::CurrentScope ws(wrapper);
+            proto::ProtoContext* c = wrapper->getProtoContext();
+            if (!c) return;
+            proto::ProtoRootSet* rs = wrapper->getRootSet();
+            const proto::ProtoObject* d = rs ? rs->resolve(pin) : nullptr;
+            if (rs) rs->remove(pin);
+            if (!d) return;
+            if (!err.empty()) {
+                ProtoDeferred::rejectFromAsync(c, d,
+                    c->fromUTF8String(err.c_str()), wrapper);
+            } else {
+                ProtoDeferred::resolveFromAsync(c, d,
+                    ok ? PROTO_TRUE : PROTO_FALSE, wrapper);
+            }
+        });
+    });
+    return deferred;
+}
+
+}  // namespace
 
 std::string IOModule::readFileSync(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
         throw std::runtime_error("Could not open file: " + path);
     }
-    
     std::stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
 }
 
-bool IOModule::writeFileSync(const std::string& path, const std::string& content) {
+bool IOModule::writeFileSync(const std::string& path,
+                              const std::string& content) {
     std::ofstream file(path);
     if (!file.is_open()) {
         throw std::runtime_error("Could not open file for writing: " + path);
     }
-    
     file << content;
     file.close();
     return file.good();
 }
 
-JSValue IOModule::readFileAsync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "readFileAsync expects a file path");
-    }
-    
-    const char* path = JS_ToCString(ctx, argv[0]);
-    if (!path) {
-        return JS_EXCEPTION;
-    }
-    
-    std::string filePath(path);
-    JS_FreeCString(ctx, path);
-    
-    // Get JSContextWrapper for Deferred
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    // Create Deferred that executes in IOThreadPool
-    JSValue deferredObj = JS_NewObject(ctx);
-    
-    // Create resolve/reject functions
-    JSValue resolve = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-        return JS_UNDEFINED;
-    }, "resolve", 1);
-    
-    JSValue reject = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-        return JS_UNDEFINED;
-    }, "reject", 1);
-    
-    // Submit to IO thread pool
-    auto& ioPool = IOThreadPool::getInstance();
-    auto future = ioPool.getExecutor().submit([filePath]() {
-        try {
-            return readFileSync(filePath);
-        } catch (const std::exception& e) {
-            throw;
-        }
-    });
-    
-    // Schedule callback when future completes
-    // Use shared_ptr to manage future lifetime properly
-    auto futurePtr = std::make_shared<std::future<std::string>>(std::move(future));
-    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, reject, ctx, filePath]() {
-        try {
-            std::string content = futurePtr->get();
-            JSValue contentVal = JS_NewString(ctx, content.c_str());
-            JSValue args[] = { contentVal };
-            JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
-            JS_FreeValue(ctx, result);
-            JS_FreeValue(ctx, contentVal);
-        } catch (const std::exception& e) {
-            JSValue error = JS_NewString(ctx, e.what());
-            JSValue args[] = { error };
-            JSValue result = JS_Call(ctx, reject, JS_UNDEFINED, 1, args);
-            JS_FreeValue(ctx, result);
-            JS_FreeValue(ctx, error);
-        }
-        JS_FreeValue(ctx, resolve);
-        JS_FreeValue(ctx, reject);
-    });
-    
-    // Return a Promise-like object (simplified - would use Deferred)
-    // For now, return the deferred object
-    return deferredObj;
-}
-
-JSValue IOModule::writeFileAsync(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 2) {
-        return JS_ThrowTypeError(ctx, "writeFileAsync expects a file path and content");
-    }
-    
-    const char* path = JS_ToCString(ctx, argv[0]);
-    const char* content = JS_ToCString(ctx, argv[1]);
-    if (!path || !content) {
-        if (path) JS_FreeCString(ctx, path);
-        if (content) JS_FreeCString(ctx, content);
-        return JS_EXCEPTION;
-    }
-    
-    std::string filePath(path);
-    std::string fileContent(content);
-    
-    JS_FreeCString(ctx, path);
-    JS_FreeCString(ctx, content);
-    
-    // Submit to IO thread pool
-    auto& ioPool = IOThreadPool::getInstance();
-    auto future = ioPool.getExecutor().submit([filePath, fileContent]() {
-        return writeFileSync(filePath, fileContent);
-    });
-    
-    // Create Promise-like object
-    JSValue deferredObj = JS_NewObject(ctx);
-    JSValue resolve = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-        return JS_UNDEFINED;
-    }, "resolve", 1);
-    
-    JSValue reject = JS_NewCFunction(ctx, [](JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-        return JS_UNDEFINED;
-    }, "reject", 1);
-    
-    // Schedule callback
-    auto futurePtr = std::make_shared<std::future<bool>>(std::move(future));
-    EventLoop::getInstance().enqueueCallback([futurePtr, resolve, reject, ctx]() {
-        try {
-            bool success = futurePtr->get();
-            JSValue resultVal = JS_NewBool(ctx, success);
-            JSValue args[] = { resultVal };
-            JSValue result = JS_Call(ctx, resolve, JS_UNDEFINED, 1, args);
-            JS_FreeValue(ctx, result);
-            JS_FreeValue(ctx, resultVal);
-        } catch (const std::exception& e) {
-            JSValue error = JS_NewString(ctx, e.what());
-            JSValue args[] = { error };
-            JSValue result = JS_Call(ctx, reject, JS_UNDEFINED, 1, args);
-            JS_FreeValue(ctx, result);
-            JS_FreeValue(ctx, error);
-        }
-        JS_FreeValue(ctx, resolve);
-        JS_FreeValue(ctx, reject);
-    });
-    
-    return deferredObj;
+const proto::ProtoObject* IOModule::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+    static const NativeEntry entries[] = {
+        {"readFile",       ioReadFile},
+        {"writeFile",      ioWriteFile},
+        {"readFileAsync",  ioReadFileAsync},
+        {"writeFileAsync", ioWriteFileAsync},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* mod =
+        ProtoNativeModule::buildModule(ctx, entries, 4);
+    if (!mod) return globalObj;
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "io", mod);
 }
 
 } // namespace protojs
