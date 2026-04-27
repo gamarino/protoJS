@@ -2,6 +2,7 @@
 #include "headers/protoCore.h"
 #include "Deferred.h"
 #include "ProtoDeferred.h"
+#include "ProtoCoreNativeBindings.h"
 #include "EventLoop.h"
 #include "EventLoopBindings.h"
 #include "console.h"
@@ -296,6 +297,7 @@ int main(int argc, char** argv) {
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
             protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
             nativeGlobal = protojs::ProtoDeferred::init(wrapper.getProtoContext(), nativeGlobal);
+            nativeGlobal = protojs::ProtoCoreNativeBindings::init(wrapper.getProtoContext(), nativeGlobal);
             nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
@@ -311,6 +313,7 @@ int main(int argc, char** argv) {
         protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
         nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
         nativeGlobal = protojs::ProtoDeferred::init(wrapper.getProtoContext(), nativeGlobal);
+        nativeGlobal = protojs::ProtoCoreNativeBindings::init(wrapper.getProtoContext(), nativeGlobal);
         nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
         wrapper.updateNativeGlobal(nativeGlobal);
     }

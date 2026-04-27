@@ -141,6 +141,10 @@ const proto::ProtoObject* deferredConstruct(
 
     if (workerFn && workerFn != PROTO_NONE) {
         JSContextWrapper* wrapper = JSContextWrapper::current();
+        // createPending already incremented the active counter; the
+        // worker invocation runs as part of that pending resolution
+        // and resolveFromAsync's drainQueue does the matching
+        // decrement.
         EventLoop::getInstance().enqueueCallback([wrapper, inst, workerFn]() {
             if (!wrapper) return;
             JSContextWrapper::CurrentScope wscope(wrapper);
@@ -154,9 +158,6 @@ const proto::ProtoObject* deferredConstruct(
                                          wrapper->getNativeGlobalRootPtr());
             ProtoDeferred::resolveFromAsync(c, inst, result, wrapper);
         });
-        // Account for the pending event-loop completion so main.cpp's
-        // drain loop waits for us.
-        g_activeCount.fetch_add(1, std::memory_order_acq_rel);
     }
 
     return inst;
@@ -283,6 +284,9 @@ const proto::ProtoObject* ProtoDeferred::createPending(proto::ProtoContext* ctx)
     inst->setAttribute(ctx, k.value,    PROTO_NONE);
     inst->setAttribute(ctx, k.thenList, ctx->newList()->asObject(ctx));
     inst->setAttribute(ctx, k.catchList,ctx->newList()->asObject(ctx));
+    // Account for the pending resolution.  Decremented once when the
+    // Deferred is settled (resolveFromAsync / rejectFromAsync drain).
+    g_activeCount.fetch_add(1, std::memory_order_acq_rel);
     return inst;
 }
 
