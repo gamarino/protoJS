@@ -120,6 +120,30 @@ JSON.parse = this.__protojs_parse;
 // did not propagate to the protoCore-native global; user code observed
 // `typeof setImmediate === 'undefined'`.
 
+// Install the per-script primitive globals (__filename, __dirname,
+// __protojs__) on the protoCore-native global.  Returns the (possibly
+// new) global pointer; caller persists it via wrapper.updateNativeGlobal.
+static const proto::ProtoObject* installScriptGlobals(
+    proto::ProtoContext* pCtx,
+    const proto::ProtoObject* g,
+    const std::string& filename) {
+    if (!pCtx || !g) return g;
+    auto setStr = [&](const char* name, const std::string& value) {
+        const proto::ProtoString* k = pCtx->fromUTF8String(name)
+            ? pCtx->fromUTF8String(name)->asString(pCtx) : nullptr;
+        if (!k) return;
+        g = g->setAttribute(pCtx, k, pCtx->fromUTF8String(value.c_str()));
+    };
+    setStr("__filename", filename);
+    size_t lastSlash = filename.find_last_of("/\\");
+    setStr("__dirname",
+           (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".");
+    const proto::ProtoString* pjKey = pCtx->fromUTF8String("__protojs__")
+        ? pCtx->fromUTF8String("__protojs__")->asString(pCtx) : nullptr;
+    if (pjKey) g = g->setAttribute(pCtx, pjKey, PROTO_TRUE);
+    return g;
+}
+
 void printUsage(const char* programName) {
     std::cerr << "Usage: " << programName << " [options] <filename.js> or " << programName << " -e \"code\"" << std::endl;
     std::cerr << "Options:" << std::endl;
@@ -270,17 +294,8 @@ int main(int argc, char** argv) {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
             protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
+            nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
             wrapper.updateNativeGlobal(nativeGlobal);
-        }
-        {
-            JSContext* ctx = wrapper.getJSContext();
-            JSValue global = JS_GetGlobalObject(ctx);
-            JS_SetPropertyStr(ctx, global, "__protojs__", JS_NewBool(ctx, 1));
-            JS_SetPropertyStr(ctx, global, "__filename", JS_NewString(ctx, filename.c_str()));
-            size_t lastSlash = filename.find_last_of("/\\");
-            std::string dirname = (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".";
-            JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
-            JS_FreeValue(ctx, global);
         }
         JSValue result = wrapper.eval(code, filename, inputTypeModule);
         JS_FreeValue(wrapper.getJSContext(), result);
@@ -293,14 +308,12 @@ int main(int argc, char** argv) {
         protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
         protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
         nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
+        nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    {
-        JSContext* ctx = wrapper.getJSContext();
-        JSValue global = JS_GetGlobalObject(ctx);
-        JS_SetPropertyStr(ctx, global, "__protojs__", JS_NewBool(ctx, 1));
-        JS_FreeValue(ctx, global);
-    }
+    // (__protojs__ is now set by installScriptGlobals above on the
+    // protoCore-native global.)
+
     // JSON.stringify / JSON.parse polyfill is prepended to the user's
     // code below (see line ~392) rather than eval'd separately.  In the
     // current runtime, function references defined in one wrapper.eval
@@ -341,20 +354,8 @@ int main(int argc, char** argv) {
     protojs::VisualProfiler::init(wrapper.getJSContext());
     protojs::IntegratedDebugger::init(wrapper.getJSContext());
 
-    // Set __filename, __dirname for main script.
-    // setImmediate has migrated to the protoCore-native global (see
-    // EventLoopBindings::init above); this block only handles the still-
-    // QuickJS-side __filename/__dirname for compatibility with code paths
-    // that read them through QuickJS (Step 2 will migrate these too).
-    {
-        JSContext* ctx = wrapper.getJSContext();
-        JSValue global = JS_GetGlobalObject(ctx);
-        JS_SetPropertyStr(ctx, global, "__filename", JS_NewString(ctx, filename.c_str()));
-        size_t lastSlash = filename.find_last_of("/\\");
-        std::string dirname = (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".";
-        JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
-        JS_FreeValue(ctx, global);
-    }
+    // __filename / __dirname / __protojs__ are now set by installScriptGlobals
+    // earlier on the protoCore-native global.  No QuickJS-side install here.
 
     // Handle syntax check
     if (syntaxCheck) {
