@@ -4138,8 +4138,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             func = rawMethod2;
                     }
                 }
-                int bcId = getBytecodeId(pContext, func);
-                // Resolve bytecode ID: current module first, then root module.
+                // Native ProtoMethod fast-path detection: isMethod() is a
+                // pointer-tag check (constant time, no attribute lookup),
+                // while getBytecodeId() does a full getAttribute on
+                // __bytecode_id__.  For tight loops over native methods
+                // (e.g. `arr.push(i)` 100 K times) the per-call attribute
+                // lookup was a measurable fraction of dispatch cost, even
+                // though it always returned -1.  Skip it when we can.
+                const bool funcIsNative = func && func->isMethod(pContext);
+                int bcId = funcIsNative ? -1 : getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolvedMod2 = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
                     resolvedMod2 = &nested[bcId];
@@ -4176,7 +4183,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
-                } else if (func && func->isMethod(pContext)) {
+                } else if (funcIsNative) {
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
