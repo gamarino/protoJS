@@ -1,6 +1,7 @@
 #include "JSContext.h"
 #include "headers/protoCore.h"
 #include "Deferred.h"
+#include "ProtoDeferred.h"
 #include "EventLoop.h"
 #include "EventLoopBindings.h"
 #include "console.h"
@@ -294,6 +295,7 @@ int main(int argc, char** argv) {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
             protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
+            nativeGlobal = protojs::ProtoDeferred::init(wrapper.getProtoContext(), nativeGlobal);
             nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
@@ -308,6 +310,7 @@ int main(int argc, char** argv) {
         protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
         protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
         nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
+        nativeGlobal = protojs::ProtoDeferred::init(wrapper.getProtoContext(), nativeGlobal);
         nativeGlobal = installScriptGlobals(wrapper.getProtoContext(), nativeGlobal, filename);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
@@ -422,7 +425,8 @@ int main(int argc, char** argv) {
 
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
-           protojs::Deferred::getActiveDeferredCount() > 0) {
+           protojs::Deferred::getActiveDeferredCount() > 0 ||
+           protojs::ProtoDeferred::getActiveCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

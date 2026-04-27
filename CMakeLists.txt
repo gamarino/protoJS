@@ -70,6 +70,7 @@ add_library(protojs_core STATIC
     src/logging/Logger.cpp
     src/monitoring/Metrics.cpp
     src/Deferred.cpp
+    src/ProtoDeferred.cpp
     src/console.cpp
     src/ProtoNativeModule.cpp
     src/ThreadPoolExecutor.cpp
