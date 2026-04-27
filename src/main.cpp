@@ -307,15 +307,31 @@ int main(int argc, char** argv) {
         protojs::BufferModule::init(wrapper.getJSContext());
         protojs::NetModule::init(wrapper.getJSContext());
         protojs::WorkerThreadsModule::init(wrapper.getJSContext());
-        protojs::ClusterModule::init(wrapper.getJSContext());
-        protojs::DgramModule::init(wrapper.getJSContext());
-        protojs::ChildProcessModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::ClusterModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::DgramModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::ChildProcessModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::DNSModule::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    protojs::ChildProcessModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::ChildProcessModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::MemoryAnalyzer::init(wrapper.getProtoContext(), nativeGlobal);
@@ -454,9 +470,21 @@ int main(int argc, char** argv) {
     protojs::BufferModule::init(wrapper.getJSContext());
     protojs::NetModule::init(wrapper.getJSContext());
     protojs::WorkerThreadsModule::init(wrapper.getJSContext());
-    protojs::ClusterModule::init(wrapper.getJSContext());
-    protojs::DgramModule::init(wrapper.getJSContext());
-    protojs::ChildProcessModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::ClusterModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::DgramModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::ChildProcessModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::DNSModule::init(wrapper.getProtoContext(), nativeGlobal);

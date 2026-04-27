@@ -1,34 +1,21 @@
 #ifndef PROTOJS_CLUSTERMODULE_H
 #define PROTOJS_CLUSTERMODULE_H
 
-#include "quickjs.h"
-#include <string>
-#include <vector>
-#include <map>
-#include <sys/types.h>
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `cluster` module — fork()-based worker
+ *        management.  Migrated to protoCore-native: per-worker state
+ *        (pid, IPC fds, id) lives as ProtoObject attributes; no
+ *        JS_SetOpaque struct.  See docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
+ */
 class ClusterModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    // Cluster methods
-    static JSValue setupMaster(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue fork(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue isMasterGetter(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue isWorkerGetter(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    
-    // Worker methods
-    static JSValue workerSend(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue workerDisconnect(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue workerKill(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void WorkerFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Helper functions
-    static void workerProcessExecution(JSContext* mainCtx, JSValue workerObj, int workerId, int ipcFd);
-    static void sendMessageToWorker(JSContext* mainCtx, JSValue workerObj, JSValue message);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

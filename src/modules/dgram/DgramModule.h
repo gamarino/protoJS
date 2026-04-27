@@ -1,29 +1,20 @@
 #ifndef PROTOJS_DGRAMMODULE_H
 #define PROTOJS_DGRAMMODULE_H
 
-#include "quickjs.h"
-#include <string>
-#include <vector>
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `dgram` module — UDP sockets via createSocket.
+ *        Migrated to protoCore-native: per-socket fd lives as an
+ *        attribute on the ProtoObject; no JS_SetOpaque struct.
+ */
 class DgramModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    // Socket methods
-    static JSValue createSocket(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketBind(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketSend(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketClose(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketAddMembership(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketSetBroadcast(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketAddress(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void SocketFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Helper functions
-    static std::vector<uint8_t> getDataFromJSValue(JSContext* ctx, JSValueConst val);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs
