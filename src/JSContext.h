@@ -139,6 +139,16 @@ public:
     void setRootModule(const void* m) { rootModule_ = m; }
 
     /**
+     * @brief Returns the protoCore root set used by protojs to pin
+     *        async-callback receivers (Deferred .then handlers,
+     *        setImmediate callbacks, runInThread deferreds, etc.).
+     *        The set is created lazily on first call and lives for the
+     *        lifetime of the wrapper.  Owned by the protoCore space —
+     *        the wrapper destructor calls destroyRootSet on shutdown.
+     */
+    proto::ProtoRootSet* getRootSet();
+
+    /**
      * @brief Get the per-context CommonJS module cache.
      */
     std::map<std::string, JSValue>& getCJSCache() { return cjsCache_; }
@@ -158,6 +168,9 @@ private:
     const void* rootModule_{nullptr};
     /** Owning storage for the same module so it survives past eval(). */
     std::unique_ptr<protojs::ProtoBytecodeModule> rootModuleStorage_;
+    /** ProtoCore-side root set for pinning async-callback receivers
+     *  across event-loop hops; lazy-init, destroyed on wrapper destruction. */
+    proto::ProtoRootSet* rootSet_{nullptr};
     JSRuntime* rt;
     JSContext* ctx;
     proto::ProtoSpace pSpace;

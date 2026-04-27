@@ -137,7 +137,21 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     return nativeGlobalRoot_;
 }
 
+proto::ProtoRootSet* JSContextWrapper::getRootSet() {
+    if (rootSet_) return rootSet_;
+    rootSet_ = pSpace.createRootSet("protojs-async");
+    return rootSet_;
+}
+
 JSContextWrapper::~JSContextWrapper() {
+    // Release the async-callback root set before tearing down the
+    // protoCore space (the space owns the set and will free orphans
+    // in its destructor, but explicit cleanup is cheaper and clearer).
+    if (rootSet_) {
+        pSpace.destroyRootSet(rootSet_);
+        rootSet_ = nullptr;
+    }
+
     // Cleanup CommonJS module cache
     for (auto& pair : cjsCache_) {
         JS_FreeValue(ctx, pair.second);
