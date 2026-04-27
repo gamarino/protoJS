@@ -99,6 +99,7 @@ DEFINE_SYMBOL(primitiveValue,   "__primitive_value__")
 DEFINE_SYMBOL(arrowThis,        "__arrow_this__")
 DEFINE_SYMBOL(closureModule,    "__closure_module__")
 DEFINE_SYMBOL(nativeFn,         "__native_fn__")
+DEFINE_SYMBOL(arrayElements,    "__elements__")
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 DEFINE_SYMBOL(abData,        "__ab_data__")

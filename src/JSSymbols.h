@@ -99,6 +99,7 @@ const proto::ProtoString* primitiveValue(proto::ProtoContext* ctx); // "__primit
 const proto::ProtoString* arrowThis(proto::ProtoContext* ctx);      // "__arrow_this__"
 const proto::ProtoString* closureModule(proto::ProtoContext* ctx);  // "__closure_module__"
 const proto::ProtoString* nativeFn(proto::ProtoContext* ctx);       // "__native_fn__"
+const proto::ProtoString* arrayElements(proto::ProtoContext* ctx);  // "__elements__" — ProtoList storage for dense arrays
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"

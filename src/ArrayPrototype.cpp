@@ -1,4 +1,5 @@
 #include "ArrayPrototype.h"
+#include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSSymbols.h"
@@ -126,6 +127,13 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
             }
         }
     }
+    // FAST PATH: native ProtoList-backed dense array.  Length is the list
+    // size; no separate `length` attribute is consulted (or maintained)
+    // when native storage is in use.
+    if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
+        return static_cast<unsigned long>(els->getSize(ctx));
+    }
+
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return 0;
 
@@ -242,6 +250,14 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
             }
         }
     }
+    // FAST PATH: native ProtoList storage.  In-range read returns the
+    // element; out-of-range returns PROTO_NONE (= JS undefined for a
+    // real array, which never inherits indexed properties from any
+    // built-in prototype anyway).
+    if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
+        return fastVal;
+    }
+
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return PROTO_NONE;
 
@@ -296,17 +312,34 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
                                          unsigned long idx,
                                          const proto::ProtoObject* val) {
     if (!arr) return PROTO_NONE;
+
+    // Determine real-array status first — needed for both the native
+    // fast path and the legacy length-bump branch below.
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    const proto::ProtoObject* isArrVal = isArrKey
+        ? arr->getAttribute(ctx, isArrKey, true) : nullptr;
+    const bool isRealArr = (isArrVal == PROTO_TRUE);
+
+    // FAST PATH: real arrays always use native ProtoList storage.
+    // Lazy-initialise an empty list if this is the array's first set.
+    if (isRealArr) {
+        if (!getArrayElements(ctx, arr)) {
+            const proto::ProtoList* empty = ctx->newList();
+            if (empty) setArrayElements(ctx, arr, empty);
+        }
+        if (arrayTryFastSet(ctx, arr, idx, val)) {
+            return arr;
+        }
+        // Sparse-overflow (idx - size > kSparseFallbackThreshold).
+        // Falls through to the legacy string-keyed path.
+    }
+
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return arr;
     arr = arr->setAttribute(ctx, key, val ? val : PROTO_NONE);
     unsigned long curLen = arrLen(ctx, arr);
     if (idx + 1 > curLen) {
-        // Only bump length on real arrays (carrying __is_array__ marker),
-        // not on plain objects used as array-likes — that would shadow prototype getters.
-        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
-        const proto::ProtoObject* isArrVal = isArrKey
-            ? arr->getAttribute(ctx, isArrKey, true) : nullptr;
-        if (isArrVal == PROTO_TRUE) {
+        if (isRealArr) {
             const proto::ProtoString* lenKey = JSSymbols::length(ctx);
             if (lenKey)
                 arr = arr->setAttribute(ctx, lenKey,
@@ -346,6 +379,32 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     const proto::ProtoObject* isArrVal = isArrKey
         ? arr->getAttribute(ctx, isArrKey, true) : nullptr;
     if (isArrVal != PROTO_TRUE) return arr;
+
+    // FAST PATH: native ProtoList storage — truncate or pad in place.
+    if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
+        unsigned long size = static_cast<unsigned long>(els->getSize(ctx));
+        if (newLen < size) {
+            const proto::ProtoList* truncated = els->splitFirst(ctx, static_cast<int>(newLen));
+            if (truncated) setArrayElements(ctx, arr, truncated);
+        } else if (newLen > size) {
+            // Pad with PROTO_NONE up to the new length.  Bounded by the
+            // sparse threshold to avoid runaway pads from `arr.length = 2**32`.
+            if (newLen - size > kSparseFallbackThreshold) {
+                // Fall through to legacy length-attribute set so that semantics
+                // are preserved (length set, elements untouched).
+            } else {
+                const proto::ProtoList* padded = els;
+                for (unsigned long i = size; i < newLen; ++i) {
+                    padded = padded->appendLast(ctx, PROTO_NONE);
+                }
+                setArrayElements(ctx, arr, padded);
+                return arr;
+            }
+        } else {
+            return arr;  // size unchanged
+        }
+        return arr;
+    }
 
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return arr;
@@ -548,41 +607,51 @@ static const proto::ProtoObject* arrayPush(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
 
-    // Hot path: single-arg push on a real Array (`__is_array__` true).
-    // Resolve the array-marker once before the loop and use the
-    // unchecked setter inside it — that drops the per-element
-    // `arrLen + __is_array__ probe + length setAttribute` triplet
-    // (3 mutable-CAS round-trips per push) and replaces it with a
-    // single bump after the loop.  At 100 K pushes this is the
-    // difference between thousands of seconds and ~tens of ms.
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     const proto::ProtoObject* isArrVal = isArrKey
         ? self->getAttribute(ctx, isArrKey, true) : nullptr;
     const bool isRealArray = (isArrVal == PROTO_TRUE);
 
     if (isRealArray) {
+        // Native ProtoList path: build the new list in a local pointer
+        // (each appendLast is O(log N) and produces a fresh AVL node),
+        // then publish via a single setAttribute(__elements__, …).  This
+        // is the lazy-publish pattern from the microbench (~3 us/op vs
+        // ~5 us/op for per-element setAttribute on a string-keyed tree).
+        const proto::ProtoList* list = getArrayElements(ctx, self);
+        if (!list) list = ctx->newList();
         for (unsigned long i = 0; i < argc; i++) {
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            arrSetUnchecked(ctx, self, len + i, item);
+            list = list->appendLast(ctx, item ? item : PROTO_NONE);
         }
-    } else {
-        // Plain object used as an array-like — fall back to the safe path.
-        for (unsigned long i = 0; i < argc; i++) {
-            const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            arrSet(ctx, self, len + i, item);
-        }
+        setArrayElements(ctx, self, list);
+        return ctx->fromInteger(static_cast<long long>(list->getSize(ctx)));
     }
 
-    unsigned long newLen = len + argc;
-    if (isRealArray) {
-        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-        if (lenKey)
-            self->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(newLen)));
+    // Plain object used as an array-like — keep legacy semantics (write
+    // string-keyed indices and bump `length` once).  This path is rare;
+    // it only fires for `Array.prototype.push.call(plainObj, ...)`.
+    unsigned long len = arrLen(ctx, self);
+    for (unsigned long i = 0; i < argc; i++) {
+        const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
+        arrSet(ctx, self, len + i, item);
     }
-    return ctx->fromInteger(static_cast<long long>(newLen));
+    return ctx->fromInteger(static_cast<long long>(len + argc));
+}
+
+// Helper: detect "real array" with native ProtoList storage in one shot.
+// Returns the underlying list (non-null) when both __is_array__ is true
+// and __elements__ is present; nullptr otherwise.  Avoids two separate
+// getAttribute calls for the common case in pop/shift/unshift fast paths.
+static const proto::ProtoList* nativeArrayList(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self) {
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    const proto::ProtoObject* isArrVal = isArrKey
+        ? self->getAttribute(ctx, isArrKey, true) : nullptr;
+    if (isArrVal != PROTO_TRUE) return nullptr;
+    return getArrayElements(ctx, self);
 }
 
 static const proto::ProtoObject* arrayPop(
@@ -593,11 +662,22 @@ static const proto::ProtoObject* arrayPop(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+
+    // Native ProtoList path.
+    if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
+        unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
+        if (size == 0) return PROTO_NONE;
+        const proto::ProtoObject* removed = list->getAt(ctx, static_cast<int>(size - 1));
+        const proto::ProtoList* shrunk = list->removeLast(ctx);
+        if (shrunk) setArrayElements(ctx, self, shrunk);
+        return removed ? removed : PROTO_NONE;
+    }
+
+    // Legacy string-keyed path (array-likes only).
     unsigned long len = arrLen(ctx, self);
     if (len == 0) return PROTO_NONE;
     unsigned long lastIdx = len - 1;
     const proto::ProtoObject* removed = arrGet(ctx, self, lastIdx);
-    // Clear the element and shrink length.
     const proto::ProtoString* idxKey =
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(lastIdx));
     if (idxKey) self->setAttribute(ctx, idxKey, PROTO_NONE);
@@ -616,14 +696,25 @@ static const proto::ProtoObject* arrayShift(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+
+    // Native ProtoList path: removeFirst is O(log N) and preserves all
+    // remaining elements without the manual shift loop.
+    if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
+        unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
+        if (size == 0) return PROTO_NONE;
+        const proto::ProtoObject* first = list->getAt(ctx, 0);
+        const proto::ProtoList* shrunk = list->removeFirst(ctx);
+        if (shrunk) setArrayElements(ctx, self, shrunk);
+        return first ? first : PROTO_NONE;
+    }
+
+    // Legacy string-keyed path.
     unsigned long len = arrLen(ctx, self);
     if (len == 0) return PROTO_NONE;
     const proto::ProtoObject* first = arrGet(ctx, self, 0);
-    // Shift elements down by 1.
     for (unsigned long i = 1; i < len; i++) {
         arrSet(ctx, self, i - 1, arrGet(ctx, self, i));
     }
-    // Clear last slot and update length.
     const proto::ProtoString* lastKey =
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(len - 1));
     if (lastKey) self->setAttribute(ctx, lastKey, PROTO_NONE);
@@ -642,15 +733,31 @@ static const proto::ProtoObject* arrayUnshift(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
+
+    // Native ProtoList path: appendFirst inserts at index 0 in O(log N)
+    // per element, no manual right-shift loop needed.
+    if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
+        unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
+        if (argc == 0) return ctx->fromInteger(static_cast<long long>(size));
+        const proto::ProtoList* newList = list;
+        // Insert args in reverse so that args[0] ends up at index 0
+        // (each appendFirst pushes the previous head right).
+        for (long long i = static_cast<long long>(argc) - 1; i >= 0; --i) {
+            const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
+            newList = newList->appendFirst(ctx, item ? item : PROTO_NONE);
+        }
+        setArrayElements(ctx, self, newList);
+        return ctx->fromInteger(static_cast<long long>(newList->getSize(ctx)));
+    }
+
+    // Legacy string-keyed path.
+    unsigned long len = arrLen(ctx, self);
     if (argc == 0) return ctx->fromInteger(static_cast<long long>(len));
-    // Shift existing elements right by argc positions (iterate right-to-left).
     for (long long i = static_cast<long long>(len) - 1; i >= 0; i--) {
         arrSet(ctx, self, static_cast<unsigned long>(i) + argc,
                arrGet(ctx, self, static_cast<unsigned long>(i)));
     }
-    // Insert new items at beginning.
     for (unsigned long i = 0; i < argc; i++) {
         arrSet(ctx, self, i, args->getAt(ctx, static_cast<int>(i)));
     }
@@ -1262,6 +1369,15 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
         }
     }
 
+    // Native ProtoList storage: in-range index always has a value (PROTO_NONE
+    // for padded slots, real value otherwise) — never a "hole" in the spec
+    // sense.  Out-of-range falls through to the legacy attribute path
+    // because user code may still write `arr[1000] = x` and we then drop
+    // out of fast-path; see arrayTryFastSet's sparse-overflow branch.
+    if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
+        if (idx < static_cast<unsigned long>(els->getSize(ctx))) return true;
+    }
+
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return false;
 
@@ -1396,6 +1512,12 @@ static bool arrHas(proto::ProtoContext* ctx,
                    const proto::ProtoObject* arr,
                    unsigned long idx) {
     if (!arr || arr == PROTO_NONE) return false;
+    // Native ProtoList storage: every in-range index is "present" (PROTO_NONE
+    // padded slots count as undefined-but-present, matching how arrays produced
+    // by `[]` + push behave for sort/forEach/etc. — there are no real holes).
+    if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
+        if (idx < static_cast<unsigned long>(els->getSize(ctx))) return true;
+    }
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return false;
     const proto::ProtoObject* result = arr->hasOwnAttribute(ctx, key);

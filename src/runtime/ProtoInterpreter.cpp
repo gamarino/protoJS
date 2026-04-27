@@ -3,6 +3,7 @@
 #include "QuickJSBytecodeExport.h"
 #include "GeneratorFrame.h"
 #include "../JSSymbols.h"
+#include "../ArrayElementsStorage.h"
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
@@ -3109,11 +3110,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     break;
                 }
-                const proto::ProtoObject* val;
+                const proto::ProtoObject* val = nullptr;
                 uint8_t taType = getTypedArrayElementType(pContext, obj);
-                if (taType != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
-                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), taType);
-                } else {
+                long long arrIdxFast = numericArrayIndexOrNeg(pContext, index);
+                if (taType != 0xFF && arrIdxFast >= 0) {
+                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(arrIdxFast), taType);
+                } else if (arrIdxFast >= 0) {
+                    val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast));
+                }
+                if (!val) {
                     const proto::ProtoObject* keyObj = toString(pContext, index);
                     const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
@@ -3142,11 +3147,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     break;
                 }
-                const proto::ProtoObject* val;
+                const proto::ProtoObject* val = nullptr;
                 uint8_t taType2 = getTypedArrayElementType(pContext, obj);
-                if (taType2 != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
-                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), taType2);
-                } else {
+                long long arrIdxFast2 = numericArrayIndexOrNeg(pContext, index);
+                if (taType2 != 0xFF && arrIdxFast2 >= 0) {
+                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(arrIdxFast2), taType2);
+                } else if (arrIdxFast2 >= 0) {
+                    val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast2));
+                }
+                if (!val) {
                     const proto::ProtoObject* keyObj = toString(pContext, index);
                     const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
@@ -3175,11 +3184,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     break;
                 }
-                const proto::ProtoObject* val;
+                const proto::ProtoObject* val = nullptr;
                 uint8_t taType3 = getTypedArrayElementType(pContext, obj);
-                if (taType3 != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
-                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), taType3);
-                } else {
+                long long arrIdxFast3 = numericArrayIndexOrNeg(pContext, index);
+                if (taType3 != 0xFF && arrIdxFast3 >= 0) {
+                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(arrIdxFast3), taType3);
+                } else if (arrIdxFast3 >= 0) {
+                    val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast3));
+                }
+                if (!val) {
                     const proto::ProtoObject* keyObj = toString(pContext, index);
                     const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
@@ -3212,6 +3225,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     stackPush(pContext, updatedTA ? updatedTA : obj);
                     break;
+                }
+                // Native ProtoList fast path: integer-valued idx >= 0 on an
+                // array with `__elements__`.  arrayTryFastSet returns false
+                // when the array has no native storage or when the sparse
+                // threshold would be exceeded — in that case fall through
+                // to the legacy branch (which handles frozen / non-writable
+                // / __pd_ descriptors).
+                {
+                    long long idxFast = numericArrayIndexOrNeg(pContext, index);
+                    if (obj && idxFast >= 0 &&
+                        arrayTryFastSet(pContext, obj,
+                                         static_cast<unsigned long>(idxFast),
+                                         value)) {
+                        stackPush(pContext, obj);
+                        break;
+                    }
                 }
                 const proto::ProtoObject* keyObj = toString(pContext, index);
                 const proto::ProtoString* key =
@@ -4860,17 +4889,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? arrProto->newChild(pContext, true)   // mutable, inherits Array.prototype
                     : pContext->newObject(true);            // fallback: mutable plain object
                 if (!arr) { stackPush(pContext, PROTO_NONE); break; }
-                // Read elements bottom-first (stack order: elem[0] deepest, elem[count-1] at TOS).
+                // Build the elements ProtoList (native storage) and publish it
+                // via a single setAttribute(__elements__, …) at the end.  This
+                // is the lazy-publish pattern: appendLast per element is
+                // O(log N) inside the list, but only one mutable-CAS round-
+                // trip on the array itself.
+                const proto::ProtoList* list = pContext->newList();
                 for (uint16_t i = 0; i < count; i++) {
-                    const proto::ProtoObject* elem = stackAt(pContext, static_cast<unsigned long>(count - 1 - i));
-                    const proto::ProtoString* idxKey =
-                        JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
-                    if (idxKey) arr = arr->setAttribute(pContext, idxKey, elem ? elem : PROTO_NONE);
+                    const proto::ProtoObject* elem =
+                        stackAt(pContext, static_cast<unsigned long>(count - 1 - i));
+                    list = list->appendLast(pContext, elem ? elem : PROTO_NONE);
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
-                // Set .length
-                const proto::ProtoString* lenKey = JSSymbols::length(pContext);
-                if (lenKey) arr = arr->setAttribute(pContext, lenKey, pContext->fromInteger(static_cast<long long>(count)));
+                if (list) protojs::setArrayElements(pContext, arr, list);
                 stackPush(pContext, arr ? arr : PROTO_NONE);
                 break;
             }
