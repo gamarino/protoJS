@@ -76,6 +76,7 @@ add_library(protojs_core STATIC
     src/CPUThreadPool.cpp
     src/IOThreadPool.cpp
     src/EventLoop.cpp
+    src/EventLoopBindings.cpp
     # Module system
     src/modules/ModuleResolver.cpp
     src/modules/ModuleCache.cpp

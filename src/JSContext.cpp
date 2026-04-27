@@ -79,6 +79,15 @@ JSContextWrapper* JSContextWrapper::current() {
     return t_currentWrapper;
 }
 
+JSContextWrapper::CurrentScope::CurrentScope(JSContextWrapper* w)
+    : prev_(t_currentWrapper) {
+    t_currentWrapper = w;
+}
+
+JSContextWrapper::CurrentScope::~CurrentScope() {
+    t_currentWrapper = prev_;
+}
+
 // See JSContext.h for semantics.
 JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double ioFactor) : pSpace() {
     rt = JS_NewRuntime();
@@ -280,8 +289,15 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         }
     }
     if (bytecode && bytecode != reinterpret_cast<void*>(1)) {
-        protojs::ProtoBytecodeModule module;
-        if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, &module)) {
+        // Heap-allocate the bytecode module and keep it alive on the
+        // wrapper so async callbacks (setImmediate, Deferred .then,
+        // worker completion) can still resolve bcIds against it after
+        // eval has returned.  The previous version made `module` a
+        // stack local; once eval popped, callbacks dispatched through
+        // the event loop had no way to look up bytecode functions.
+        auto modulePtr = std::make_unique<protojs::ProtoBytecodeModule>();
+        protojs::ProtoBytecodeModule* modPtr = modulePtr.get();
+        if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, modPtr)) {
             std::cerr << "[protojs] loadBytecode failed" << std::endl;
             hadError = true;
             val = JS_EXCEPTION;
@@ -292,9 +308,12 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 hadError = true;
                 val = JS_EXCEPTION;
             } else {
+                rootModule_ = modPtr;
+                rootModuleStorage_ = std::move(modulePtr);
                 const proto::ProtoObject* exception = PROTO_NONE;
                 const proto::ProtoObject* result =
-                    protojs::runBytecode(&frameCtx, &module, globalObj, nullptr,
+                    protojs::runBytecode(&frameCtx, modPtr,
+                                         globalObj, nullptr,
                                          &nativeGlobalRoot_, &exception);
                 frameCtx.returnValue = result;
 

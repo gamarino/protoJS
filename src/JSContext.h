@@ -4,11 +4,15 @@
 #include "quickjs.h"
 #include "headers/protoCore.h"
 #include "JSPrototypes.h"
+#include <memory>
 #include <string>
 #include <map>
 #include <mutex>
 
 namespace protojs {
+
+struct ProtoBytecodeModule;  // forward — owned via unique_ptr below
+
 
 class JSContextWrapper {
 public:
@@ -89,6 +93,22 @@ public:
     static JSContextWrapper* current();
 
     /**
+     * @brief RAII guard that publishes a wrapper as `current()` for the
+     * lifetime of the guard.  Used by the event loop / async callback paths
+     * to temporarily restore the wrapper context — `current()` is otherwise
+     * only set during eval().
+     */
+    class CurrentScope {
+    public:
+        explicit CurrentScope(JSContextWrapper* w);
+        ~CurrentScope();
+        CurrentScope(const CurrentScope&) = delete;
+        CurrentScope& operator=(const CurrentScope&) = delete;
+    private:
+        JSContextWrapper* prev_;
+    };
+
+    /**
      * @brief Returns the ProtoCore-native global object.
      * Built on first use as a blank object; converted modules register their
      * exports on it via their new init() signatures.
@@ -99,6 +119,24 @@ public:
      * @brief Update the native global (called after module init mutates it).
      */
     void updateNativeGlobal(const proto::ProtoObject* g) { nativeGlobalRoot_ = g; }
+
+    /**
+     * @brief Pointer to a pointer of the native global, suitable for passing
+     * as `pGlobalRoot` to runBytecode / callBytecodeFromEventLoop.  The
+     * inner pointer can be re-bound by the interpreter when top-level
+     * `var` writes to the global.
+     */
+    const proto::ProtoObject** getNativeGlobalRootPtr() { return &nativeGlobalRoot_; }
+
+    /**
+     * @brief The bytecode module used by the most recent top-level eval.
+     * Async callbacks scheduled during eval (setImmediate, Deferred .then,
+     * worker-thread completion) need to look up bytecode functions
+     * relative to this module after eval has returned.  Set by eval()
+     * before running, never cleared (each new eval replaces it).
+     */
+    const void* getRootModule() const { return rootModule_; }
+    void setRootModule(const void* m) { rootModule_ = m; }
 
     /**
      * @brief Get the per-context CommonJS module cache.
@@ -113,6 +151,13 @@ private:
 
     /** Phase 6: ProtoCore-native global root; built lazily, updated when interpreter mutates global. */
     mutable const proto::ProtoObject* nativeGlobalRoot_{nullptr};
+    /** Most-recent top-level bytecode module — used by async callbacks
+     * (setImmediate, Deferred, worker-thread completion) to look up
+     * function bcIds after eval has returned.  Type-erased to keep the
+     * runtime/ headers out of the public JSContext API. */
+    const void* rootModule_{nullptr};
+    /** Owning storage for the same module so it survives past eval(). */
+    std::unique_ptr<protojs::ProtoBytecodeModule> rootModuleStorage_;
     JSRuntime* rt;
     JSContext* ctx;
     proto::ProtoSpace pSpace;

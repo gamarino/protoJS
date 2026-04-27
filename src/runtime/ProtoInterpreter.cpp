@@ -6332,6 +6332,34 @@ bool hasCallException() {
     return t_hasCallException;
 }
 
+const proto::ProtoObject* callJSFunctionFromAsync(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoList* args,
+    const ProtoBytecodeModule* module,
+    const proto::ProtoObject** globalRoot)
+{
+    if (!fn || fn == PROTO_NONE || !ctx) return PROTO_NONE;
+    // Restore the thread-local module / global pointers that callJSFunction
+    // relies on.  Without this, bcId resolution against t_currentModule /
+    // t_rootModule would fail (both are null between eval calls), and any
+    // bytecode callback scheduled by setImmediate / Deferred would silently
+    // no-op.  RAII restore on exit so re-entrant async calls don't clobber
+    // each other.
+    const ProtoBytecodeModule* prevCurrent = t_currentModule;
+    const ProtoBytecodeModule* prevRoot    = t_rootModule;
+    const proto::ProtoObject** prevGR      = t_currentGlobalRoot;
+    t_currentModule    = module;
+    t_rootModule       = module;
+    t_currentGlobalRoot = globalRoot;
+    const proto::ProtoObject* result = callJSFunction(ctx, fn, thisVal, args);
+    t_currentModule     = prevCurrent;
+    t_rootModule        = prevRoot;
+    t_currentGlobalRoot = prevGR;
+    return result;
+}
+
 const proto::ProtoObject* callJSFunction(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* fn,

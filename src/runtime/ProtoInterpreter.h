@@ -59,6 +59,27 @@ const proto::ProtoObject* callJSFunction(
 const proto::ProtoObject* getNullSentinel();
 
 /**
+ * Invoke a protoCore-callable (bytecode function or ProtoMethod) from
+ * outside an active runBytecode call — e.g. from an event-loop callback,
+ * a worker-thread completion handler, or a Deferred resolution.  Restores
+ * the thread-local module and global-root pointers from the supplied
+ * pointers, then delegates to callJSFunction, then restores the previous
+ * thread-local state.
+ *
+ * `module` and `globalRoot` should typically come from the wrapper
+ * (`wrapper.getRootModule()` / `wrapper.getNativeGlobalRootPtr()`).
+ *
+ * Returns the callee's result, or PROTO_NONE on error.
+ */
+const proto::ProtoObject* callJSFunctionFromAsync(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisVal,
+    const proto::ProtoList* args,
+    const ProtoBytecodeModule* module,
+    const proto::ProtoObject** globalRoot);
+
+/**
  * Eagerly initializes the thread-local null sentinel using @p ctx.
  * Safe to call multiple times; a no-op if the sentinel is already set.
  * Intended for use by JSContextWrapper so TypeBridge null round-trips work

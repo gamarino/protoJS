@@ -2,6 +2,7 @@
 #include "headers/protoCore.h"
 #include "Deferred.h"
 #include "EventLoop.h"
+#include "EventLoopBindings.h"
 #include "console.h"
 #include "modules/IOModule.h"
 #include "modules/ProtoCoreModule.h"
@@ -113,16 +114,11 @@ this.__protojs_parse = function(text) {
 JSON.parse = this.__protojs_parse;
 )JS";
 
-static JSValue js_setImmediate(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    (void)this_val;
-    if (argc < 1 || !JS_IsFunction(ctx, argv[0])) return JS_UNDEFINED;
-    JSValue cb = JS_DupValue(ctx, argv[0]);
-    protojs::EventLoop::getInstance().enqueueCallback([ctx, cb]() {
-        JS_Call(ctx, cb, JS_UNDEFINED, 0, nullptr);
-        JS_FreeValue(ctx, cb);
-    });
-    return JS_UNDEFINED;
-}
+// setImmediate now lives entirely on the protoCore side (see
+// src/EventLoopBindings.cpp).  The QuickJS-side js_setImmediate that used
+// to live here installed via JS_SetPropertyStr on the QuickJS global, which
+// did not propagate to the protoCore-native global; user code observed
+// `typeof setImmediate === 'undefined'`.
 
 void printUsage(const char* programName) {
     std::cerr << "Usage: " << programName << " [options] <filename.js> or " << programName << " -e \"code\"" << std::endl;
@@ -224,6 +220,7 @@ int main(int argc, char** argv) {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
             protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
+            nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
         protojs::Deferred::init(wrapper.getJSContext(), &wrapper);
@@ -295,6 +292,7 @@ int main(int argc, char** argv) {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         protojs::Console::init(wrapper.getProtoContext(), nativeGlobal);
         protojs::TimingAPIs::init(wrapper.getProtoContext(), nativeGlobal);
+        nativeGlobal = protojs::EventLoopBindings::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
     {
@@ -343,7 +341,11 @@ int main(int argc, char** argv) {
     protojs::VisualProfiler::init(wrapper.getJSContext());
     protojs::IntegratedDebugger::init(wrapper.getJSContext());
 
-    // Set __filename, __dirname, and setImmediate for main script
+    // Set __filename, __dirname for main script.
+    // setImmediate has migrated to the protoCore-native global (see
+    // EventLoopBindings::init above); this block only handles the still-
+    // QuickJS-side __filename/__dirname for compatibility with code paths
+    // that read them through QuickJS (Step 2 will migrate these too).
     {
         JSContext* ctx = wrapper.getJSContext();
         JSValue global = JS_GetGlobalObject(ctx);
@@ -351,8 +353,6 @@ int main(int argc, char** argv) {
         size_t lastSlash = filename.find_last_of("/\\");
         std::string dirname = (lastSlash != std::string::npos) ? filename.substr(0, lastSlash) : ".";
         JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirname.c_str()));
-        JSValue setImmediateFn = JS_NewCFunction(ctx, js_setImmediate, "setImmediate", 1);
-        JS_SetPropertyStr(ctx, global, "setImmediate", setImmediateFn);
         JS_FreeValue(ctx, global);
     }
 
