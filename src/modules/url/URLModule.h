@@ -1,13 +1,18 @@
 #ifndef PROTOJS_URLMODULE_H
 #define PROTOJS_URLMODULE_H
-#include "quickjs.h"
+#include "headers/protoCore.h"
 namespace protojs {
+
+/**
+ * @brief Node-style `url` module — exposes the URL constructor.
+ *        Migrated to protoCore-native (no QuickJS bridge); see
+ *        docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
+ */
 class URLModule {
 public:
-    static void init(JSContext* ctx);
-private:
-    static JSValue URLConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
-    static JSValue URLToString(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 } // namespace protojs
 #endif

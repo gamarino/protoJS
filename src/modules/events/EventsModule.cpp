@@ -212,6 +212,17 @@ const proto::ProtoObject* EventsModule::init(
     //    `new` machinery uses our methods for the new instance.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) eeCtor = eeCtor->setAttribute(ctx, protoKey, eeProto);
+    // OP_call_constructor's default-dispatch branch invokes any
+    // `__construct__` method on the constructor.  EventEmitter's
+    // body is a no-op (state is built lazily by .on()), but
+    // installing the hook makes the dispatch consistent across
+    // ProtoCore-native modules.
+    {
+        const proto::ProtoString* ck =
+            ctx->fromUTF8String("__construct__")->asString(ctx);
+        if (ck) eeCtor = eeCtor->setAttribute(ctx, ck,
+            ctx->fromMethod(nullptr, eeConstructor));
+    }
 
     // 4. Build the `events` module object exposing the constructor.
     const proto::ProtoObject* mod = ctx->newObject(/*mutable=*/true);
