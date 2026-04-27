@@ -273,7 +273,11 @@ int main(int argc, char** argv) {
                 wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
-        protojs::FSModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::FSModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             nativeGlobal = protojs::URLModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -285,7 +289,11 @@ int main(int argc, char** argv) {
             nativeGlobal = protojs::EventsModule::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
-        protojs::StreamModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::StreamModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -408,7 +416,11 @@ int main(int argc, char** argv) {
             wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    protojs::FSModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::FSModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::URLModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -420,7 +432,11 @@ int main(int argc, char** argv) {
         nativeGlobal = protojs::EventsModule::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    protojs::StreamModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::StreamModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);

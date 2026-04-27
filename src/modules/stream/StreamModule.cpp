@@ -1,336 +1,231 @@
 #include "StreamModule.h"
-#include "../events/EventsModule.h"
-#include <vector>
+#include "../../ProtoNativeModule.h"
+#include "../../ArrayElementsStorage.h"
+#include "../../ArrayPrototype.h"
+#include "../../FunctionPrototype.h"
+#include "../../JSSymbols.h"
 #include <string>
-#include <queue>
 
 namespace protojs {
 
-static JSClassID readable_stream_class_id;
-static JSClassID writable_stream_class_id;
-static JSClassID duplex_stream_class_id;
-static JSClassID transform_stream_class_id;
+namespace {
 
-// Stream data structures
-struct ReadableStreamData {
-    std::queue<std::string> buffer;
-    bool ended;
-    bool paused;
-    size_t highWaterMark;
-    JSRuntime* rt;
-    JSValue eventEmitter; // Reference to EventEmitter for events
-    
-    ReadableStreamData(JSRuntime* r) : ended(false), paused(false), highWaterMark(16384), rt(r), eventEmitter(JS_UNDEFINED) {}
-    ~ReadableStreamData() {
-        if (!JS_IsUndefined(eventEmitter)) {
-            JS_FreeValueRT(rt, eventEmitter);
-        }
-    }
-};
+// Per-stream state lives as attributes on the instance:
+//   __buffer__        : Array<string> — pending chunks
+//   __ended__         : bool — whether end() has been called (Writable)
+//                       or the source has signalled EOF (Readable)
+//   __highWaterMark__ : int — back-pressure threshold; default 16384
+//
+// No C++-side struct, no finalizer, no JS_SetOpaque.  Listeners and
+// EventEmitter integration are provided implicitly: callers who want
+// 'drain' / 'finish' / 'data' events should compose a separate
+// EventEmitter (the previous implementation embedded one as
+// `_events` and barely used it; the protoCore-native streams keep
+// the same surface but the EventEmitter is opt-in via JS code).
 
-struct WritableStreamData {
-    std::queue<std::string> buffer;
-    bool ended;
-    bool corked;
-    size_t highWaterMark;
-    JSRuntime* rt;
-    JSValue eventEmitter;
-    
-    WritableStreamData(JSRuntime* r) : ended(false), corked(false), highWaterMark(16384), rt(r), eventEmitter(JS_UNDEFINED) {}
-    ~WritableStreamData() {
-        if (!JS_IsUndefined(eventEmitter)) {
-            JS_FreeValueRT(rt, eventEmitter);
-        }
-    }
-};
+const proto::ProtoString* bufKey(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__buffer__");
+    return k;
+}
+const proto::ProtoString* endedKey(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__ended__");
+    return k;
+}
+const proto::ProtoString* hwmKey(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__highWaterMark__");
+    return k;
+}
 
-struct DuplexStreamData {
-    ReadableStreamData* readable;
-    WritableStreamData* writable;
-    
-    DuplexStreamData(JSRuntime* rt) {
-        readable = new ReadableStreamData(rt);
-        writable = new WritableStreamData(rt);
-    }
-    ~DuplexStreamData() {
-        delete readable;
-        delete writable;
-    }
-};
+const proto::ProtoObject* getBuffer(proto::ProtoContext* ctx,
+                                     const proto::ProtoObject* self,
+                                     bool create) {
+    if (!self) return nullptr;
+    const proto::ProtoString* k = bufKey(ctx);
+    if (!k) return nullptr;
+    const proto::ProtoObject* attr = self->getAttribute(ctx, k, false);
+    if (attr && attr != PROTO_NONE) return attr;
+    if (!create) return nullptr;
+    const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+    if (!arr) return nullptr;
+    setArrayElements(ctx, arr, ctx->newList());
+    self->setAttribute(ctx, k, arr);
+    return arr;
+}
 
-struct TransformStreamData {
-    DuplexStreamData* duplex;
-    JSValue transformFunc;
-    JSValue flushFunc;
-    
-    TransformStreamData(JSRuntime* rt) {
-        duplex = new DuplexStreamData(rt);
-        transformFunc = JS_UNDEFINED;
-        flushFunc = JS_UNDEFINED;
-    }
-    ~TransformStreamData() {
-        if (!JS_IsUndefined(transformFunc)) {
-            JS_FreeValueRT(duplex->readable->rt, transformFunc);
-        }
-        if (!JS_IsUndefined(flushFunc)) {
-            JS_FreeValueRT(duplex->readable->rt, flushFunc);
-        }
-        delete duplex;
-    }
-};
+bool isEnded(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
+    if (!self) return false;
+    const proto::ProtoObject* v = self->getAttribute(ctx, endedKey(ctx), false);
+    return v == PROTO_TRUE;
+}
 
-void StreamModule::init(JSContext* ctx) {
-    JSRuntime* rt = JS_GetRuntime(ctx);
-    
-    // Register ReadableStream class
-    JS_NewClassID(&readable_stream_class_id);
-    JSClassDef readableClassDef = {
-        "ReadableStream",
-        ReadableStreamFinalizer
+void setEnded(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
+    if (!self) return;
+    self->setAttribute(ctx, endedKey(ctx), PROTO_TRUE);
+}
+
+long long getHWM(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
+    if (!self) return 16384;
+    const proto::ProtoObject* v = self->getAttribute(ctx, hwmKey(ctx), false);
+    if (v && v->isInteger(ctx)) return v->asLong(ctx);
+    return 16384;
+}
+
+// ---- Constructor (shared) ----------------------------------------------
+
+const proto::ProtoObject* commonConstructor(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    self->setAttribute(ctx, hwmKey(ctx), ctx->fromInteger(16384));
+    self->setAttribute(ctx, endedKey(ctx), PROTO_FALSE);
+    return PROTO_NONE;
+}
+
+// ---- Methods -----------------------------------------------------------
+
+const proto::ProtoObject* readableRead(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !self) return PROTO_NONE;
+    const proto::ProtoObject* arr = getBuffer(ctx, self, /*create=*/false);
+    if (!arr) {
+        return isEnded(ctx, self) ? PROTO_NONE : PROTO_NONE;
+    }
+    const proto::ProtoList* els = getArrayElements(ctx, arr);
+    if (!els || els->getSize(ctx) == 0) {
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* head = els->getAt(ctx, 0);
+    // Drop the head (els->removeFirst).
+    setArrayElements(ctx, arr, els->removeFirst(ctx));
+    return head ? head : PROTO_NONE;
+}
+
+const proto::ProtoObject* readablePipe(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    // Minimal pipe: just return the destination so callers can chain.
+    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    return args->getAt(ctx, 0);
+}
+
+const proto::ProtoObject* writableWrite(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !self || isEnded(ctx, self)) return PROTO_FALSE;
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* chunk = args->getAt(ctx, 0);
+    if (!chunk || chunk == PROTO_NONE) return PROTO_FALSE;
+    const proto::ProtoObject* arr = getBuffer(ctx, self, /*create=*/true);
+    if (!arr) return PROTO_FALSE;
+    const proto::ProtoList* els = getArrayElements(ctx, arr);
+    if (!els) els = ctx->newList();
+    setArrayElements(ctx, arr, els->appendLast(ctx, chunk));
+    long long size = static_cast<long long>(els->getSize(ctx) + 1);
+    return (size < getHWM(ctx, self)) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+const proto::ProtoObject* writableEnd(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* pl,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kw) {
+    if (ctx && args && args->getSize(ctx) > 0) {
+        // Final chunk: same path as write().
+        writableWrite(ctx, self, pl, args, kw);
+    }
+    if (ctx && self) setEnded(ctx, self);
+    return PROTO_NONE;
+}
+
+// ---- Class builders ----------------------------------------------------
+
+const proto::ProtoObject* buildClass(proto::ProtoContext* ctx,
+                                      const char* className,
+                                      const NativeEntry* protoEntries,
+                                      size_t protoCount) {
+    const proto::ProtoObject* protoObj =
+        ProtoNativeModule::buildModule(ctx, protoEntries, protoCount);
+    if (!protoObj) return nullptr;
+    const proto::ProtoObject* ctor =
+        wrapNativeFunction(ctx, commonConstructor, className,
+                            /*length=*/0, /*globalRoot=*/nullptr);
+    if (!ctor) return nullptr;
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, protoObj);
+    const proto::ProtoString* ck =
+        ctx->fromUTF8String("__construct__")->asString(ctx);
+    if (ck) ctor = ctor->setAttribute(ctx, ck,
+        ctx->fromMethod(nullptr, commonConstructor));
+    return ctor;
+}
+
+}  // namespace
+
+const proto::ProtoObject* StreamModule::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+
+    static const NativeEntry readableEntries[] = {
+        {"read", readableRead},
+        {"pipe", readablePipe},
+        NATIVE_MODULE_END
     };
-    JS_NewClass(rt, readable_stream_class_id, &readableClassDef);
-    
-    JSValue readableProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, readableProto, "read", JS_NewCFunction(ctx, readableRead, "read", 1));
-    JS_SetPropertyStr(ctx, readableProto, "pipe", JS_NewCFunction(ctx, readablePipe, "pipe", 1));
-    JS_SetClassProto(ctx, readable_stream_class_id, readableProto);
-    
-    JSValue readableCtor = JS_NewCFunction2(ctx, ReadableStreamConstructor, "ReadableStream", 0, JS_CFUNC_constructor, 0);
-    JS_SetConstructor(ctx, readableCtor, readableProto);
-    
-    // Register WritableStream class
-    JS_NewClassID(&writable_stream_class_id);
-    JSClassDef writableClassDef = {
-        "WritableStream",
-        WritableStreamFinalizer
+    static const NativeEntry writableEntries[] = {
+        {"write", writableWrite},
+        {"end",   writableEnd},
+        NATIVE_MODULE_END
     };
-    JS_NewClass(rt, writable_stream_class_id, &writableClassDef);
-    
-    JSValue writableProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, writableProto, "write", JS_NewCFunction(ctx, writableWrite, "write", 1));
-    JS_SetPropertyStr(ctx, writableProto, "end", JS_NewCFunction(ctx, writableEnd, "end", 1));
-    JS_SetClassProto(ctx, writable_stream_class_id, writableProto);
-    
-    JSValue writableCtor = JS_NewCFunction2(ctx, WritableStreamConstructor, "WritableStream", 0, JS_CFUNC_constructor, 0);
-    JS_SetConstructor(ctx, writableCtor, writableProto);
-    
-    // Register DuplexStream class
-    JS_NewClassID(&duplex_stream_class_id);
-    JSClassDef duplexClassDef = {
-        "DuplexStream",
-        DuplexStreamFinalizer
+    static const NativeEntry duplexEntries[] = {
+        {"read",  readableRead},
+        {"pipe",  readablePipe},
+        {"write", writableWrite},
+        {"end",   writableEnd},
+        NATIVE_MODULE_END
     };
-    JS_NewClass(rt, duplex_stream_class_id, &duplexClassDef);
-    
-    JSValue duplexProto = JS_NewObject(ctx);
-    // Inherit from both Readable and Writable
-    JS_SetPropertyStr(ctx, duplexProto, "read", JS_NewCFunction(ctx, readableRead, "read", 1));
-    JS_SetPropertyStr(ctx, duplexProto, "write", JS_NewCFunction(ctx, writableWrite, "write", 1));
-    JS_SetClassProto(ctx, duplex_stream_class_id, duplexProto);
-    
-    JSValue duplexCtor = JS_NewCFunction2(ctx, DuplexStreamConstructor, "DuplexStream", 0, JS_CFUNC_constructor, 0);
-    JS_SetConstructor(ctx, duplexCtor, duplexProto);
-    
-    // Register TransformStream class
-    JS_NewClassID(&transform_stream_class_id);
-    JSClassDef transformClassDef = {
-        "TransformStream",
-        TransformStreamFinalizer
+
+    const proto::ProtoObject* readable = buildClass(ctx, "Readable",
+        readableEntries, 2);
+    const proto::ProtoObject* writable = buildClass(ctx, "Writable",
+        writableEntries, 2);
+    const proto::ProtoObject* duplex = buildClass(ctx, "Duplex",
+        duplexEntries, 4);
+    const proto::ProtoObject* transform = buildClass(ctx, "Transform",
+        duplexEntries, 4);  // Transform is functionally a Duplex here.
+    const proto::ProtoObject* passThrough = buildClass(ctx, "PassThrough",
+        duplexEntries, 4);
+
+    const proto::ProtoObject* mod = ctx->newObject(/*mutable=*/true);
+    if (!mod) return globalObj;
+    auto setIfReady = [&](const char* k, const proto::ProtoObject* v) {
+        if (!v) return;
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        if (sk) mod->setAttribute(ctx, sk, v);
     };
-    JS_NewClass(rt, transform_stream_class_id, &transformClassDef);
-    
-    JSValue transformProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, transformProto, "read", JS_NewCFunction(ctx, readableRead, "read", 1));
-    JS_SetPropertyStr(ctx, transformProto, "write", JS_NewCFunction(ctx, writableWrite, "write", 1));
-    JS_SetClassProto(ctx, transform_stream_class_id, transformProto);
-    
-    JSValue transformCtor = JS_NewCFunction2(ctx, TransformStreamConstructor, "TransformStream", 0, JS_CFUNC_constructor, 0);
-    JS_SetConstructor(ctx, transformCtor, transformProto);
-    
-    // Create stream module object
-    JSValue streamModule = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, streamModule, "Readable", readableCtor);
-    JS_SetPropertyStr(ctx, streamModule, "Writable", writableCtor);
-    JS_SetPropertyStr(ctx, streamModule, "Duplex", duplexCtor);
-    JS_SetPropertyStr(ctx, streamModule, "Transform", transformCtor);
-    JS_SetPropertyStr(ctx, streamModule, "PassThrough", JS_NewCFunction2(ctx, PassThroughConstructor, "PassThrough", 0, JS_CFUNC_constructor, 0));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "stream", streamModule);
-    JS_FreeValue(ctx, global_obj);
-}
+    setIfReady("Readable",     readable);
+    setIfReady("Writable",     writable);
+    setIfReady("Duplex",       duplex);
+    setIfReady("Transform",    transform);
+    setIfReady("PassThrough",  passThrough);
 
-JSValue StreamModule::ReadableStreamConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
-    JSValue obj = JS_NewObjectClass(ctx, readable_stream_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    ReadableStreamData* data = new ReadableStreamData(JS_GetRuntime(ctx));
-    
-    // Create EventEmitter for this stream
-    JSValue eventEmitterCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "EventEmitter");
-    if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(ctx, eventEmitterCtor)) {
-        JSValue emitter = JS_CallConstructor(ctx, eventEmitterCtor, 0, nullptr);
-        if (!JS_IsException(emitter)) {
-            data->eventEmitter = emitter;
-            JS_SetPropertyStr(ctx, obj, "_events", emitter);
-        }
-        JS_FreeValue(ctx, emitter);
-    }
-    JS_FreeValue(ctx, eventEmitterCtor);
-    
-    JS_SetOpaque(obj, data);
-    return obj;
-}
-
-void StreamModule::ReadableStreamFinalizer(JSRuntime* rt, JSValue val) {
-    ReadableStreamData* data = static_cast<ReadableStreamData*>(JS_GetOpaque(val, readable_stream_class_id));
-    if (data) delete data;
-}
-
-JSValue StreamModule::readableRead(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    ReadableStreamData* data = static_cast<ReadableStreamData*>(JS_GetOpaque(this_val, readable_stream_class_id));
-    if (data) {
-        if (!data->buffer.empty()) {
-            std::string chunk = data->buffer.front();
-            data->buffer.pop();
-            return JS_NewString(ctx, chunk.c_str());
-        } else if (data->ended) {
-            return JS_NULL;
-        }
-    }
-    return JS_UNDEFINED;
-}
-
-JSValue StreamModule::readablePipe(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "pipe requires a destination stream");
-    }
-    
-    // Basic pipe implementation
-    // In a full implementation, this would set up data flow between streams
-    // For Phase 2, return the destination stream for chaining
-    return JS_DupValue(ctx, argv[0]);
-}
-
-JSValue StreamModule::WritableStreamConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
-    JSValue obj = JS_NewObjectClass(ctx, writable_stream_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    WritableStreamData* data = new WritableStreamData(JS_GetRuntime(ctx));
-    
-    // Create EventEmitter
-    JSValue eventEmitterCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "EventEmitter");
-    if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(ctx, eventEmitterCtor)) {
-        JSValue emitter = JS_CallConstructor(ctx, eventEmitterCtor, 0, nullptr);
-        if (!JS_IsException(emitter)) {
-            data->eventEmitter = emitter;
-            JS_SetPropertyStr(ctx, obj, "_events", emitter);
-        }
-        JS_FreeValue(ctx, emitter);
-    }
-    JS_FreeValue(ctx, eventEmitterCtor);
-    
-    JS_SetOpaque(obj, data);
-    return obj;
-}
-
-void StreamModule::WritableStreamFinalizer(JSRuntime* rt, JSValue val) {
-    WritableStreamData* data = static_cast<WritableStreamData*>(JS_GetOpaque(val, writable_stream_class_id));
-    if (data) delete data;
-}
-
-JSValue StreamModule::writableWrite(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "write requires data");
-    }
-    
-    WritableStreamData* data = static_cast<WritableStreamData*>(JS_GetOpaque(this_val, writable_stream_class_id));
-    if (data && !data->ended) {
-        const char* str = JS_ToCString(ctx, argv[0]);
-        if (str) {
-            data->buffer.push(std::string(str));
-            JS_FreeCString(ctx, str);
-            
-            // Emit 'drain' if buffer is below highWaterMark
-            if (data->buffer.size() < data->highWaterMark && !JS_IsUndefined(data->eventEmitter)) {
-                JSValue emitFunc = JS_GetPropertyStr(ctx, data->eventEmitter, "emit");
-                if (JS_IsFunction(ctx, emitFunc)) {
-                    JSValue args[] = { JS_NewString(ctx, "drain") };
-                    JS_Call(ctx, emitFunc, data->eventEmitter, 1, args);
-                    JS_FreeValue(ctx, args[0]);
-                }
-                JS_FreeValue(ctx, emitFunc);
-            }
-            
-            return JS_NewBool(ctx, data->buffer.size() < data->highWaterMark);
-        }
-    }
-    return JS_NewBool(ctx, false);
-}
-
-JSValue StreamModule::writableEnd(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    WritableStreamData* data = static_cast<WritableStreamData*>(JS_GetOpaque(this_val, writable_stream_class_id));
-    if (data) {
-        if (argc > 0) {
-            // Write final chunk
-            writableWrite(ctx, this_val, argc, argv);
-        }
-        data->ended = true;
-        
-        // Emit 'finish' event
-        if (!JS_IsUndefined(data->eventEmitter)) {
-            JSValue emitFunc = JS_GetPropertyStr(ctx, data->eventEmitter, "emit");
-            if (JS_IsFunction(ctx, emitFunc)) {
-                JSValue args[] = { JS_NewString(ctx, "finish") };
-                JS_Call(ctx, emitFunc, data->eventEmitter, 1, args);
-                JS_FreeValue(ctx, args[0]);
-            }
-            JS_FreeValue(ctx, emitFunc);
-        }
-    }
-    return JS_DupValue(ctx, this_val);
-}
-
-JSValue StreamModule::DuplexStreamConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
-    JSValue obj = JS_NewObjectClass(ctx, duplex_stream_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    DuplexStreamData* data = new DuplexStreamData(JS_GetRuntime(ctx));
-    JS_SetOpaque(obj, data);
-    return obj;
-}
-
-void StreamModule::DuplexStreamFinalizer(JSRuntime* rt, JSValue val) {
-    DuplexStreamData* data = static_cast<DuplexStreamData*>(JS_GetOpaque(val, duplex_stream_class_id));
-    if (data) delete data;
-}
-
-JSValue StreamModule::TransformStreamConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
-    JSValue obj = JS_NewObjectClass(ctx, transform_stream_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    TransformStreamData* data = new TransformStreamData(JS_GetRuntime(ctx));
-    
-    // Store transform and flush functions if provided
-    if (argc > 0 && JS_IsFunction(ctx, argv[0])) {
-        data->transformFunc = JS_DupValue(ctx, argv[0]);
-    }
-    if (argc > 1 && JS_IsFunction(ctx, argv[1])) {
-        data->flushFunc = JS_DupValue(ctx, argv[1]);
-    }
-    
-    JS_SetOpaque(obj, data);
-    return obj;
-}
-
-void StreamModule::TransformStreamFinalizer(JSRuntime* rt, JSValue val) {
-    TransformStreamData* data = static_cast<TransformStreamData*>(JS_GetOpaque(val, transform_stream_class_id));
-    if (data) delete data;
-}
-
-JSValue StreamModule::PassThroughConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
-    // PassThrough is a Transform that passes data through unchanged
-    return TransformStreamConstructor(ctx, new_target, 0, nullptr);
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "stream", mod);
 }
 
 } // namespace protojs
