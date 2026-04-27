@@ -1582,72 +1582,308 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         return true;
     };
 
-    while (pc >= 0 && pc < len) {
-        const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
-        int opcode = buf[pc++];
-        switch (opcode) {
+    // ----- Threaded dispatch (computed-goto) -----
+    //
+    // Each opcode case becomes a label `L_OP_X`.  At end of every case we
+    // `DISPATCH()` instead of falling out to the top of a switch — that
+    // gives the CPU's indirect-branch predictor PER-OPCODE history (in a
+    // switch-based dispatch the predictor sees a single hot indirect jump
+    // and can't disambiguate).  Typical 1.2-1.7x speed-up on tight loops
+    // over the bytecode.
+    //
+    // The table is filled at function entry — `&&label` is not a constant
+    // expression so we can't use designated initialisers in C++20.  Cost
+    // is ~256 pointer writes per runBytecode call (≈ amortised noise).
+    const void* dispatch_table[256];
+    for (int i = 0; i < 256; ++i) dispatch_table[i] = nullptr;
+    dispatch_table[OP_add] = &&L_OP_add;
+    dispatch_table[OP_add_loc] = &&L_OP_add_loc;
+    dispatch_table[OP_and] = &&L_OP_and;
+    dispatch_table[OP_append] = &&L_OP_append;
+    dispatch_table[OP_array_from] = &&L_OP_array_from;
+    dispatch_table[OP_await] = &&L_OP_await;
+    dispatch_table[OP_call] = &&L_OP_call;
+    dispatch_table[OP_call0] = &&L_OP_call0;
+    dispatch_table[OP_call1] = &&L_OP_call1;
+    dispatch_table[OP_call2] = &&L_OP_call2;
+    dispatch_table[OP_call3] = &&L_OP_call3;
+    dispatch_table[OP_call_constructor] = &&L_OP_call_constructor;
+    dispatch_table[OP_call_method] = &&L_OP_call_method;
+    dispatch_table[OP_catch] = &&L_OP_catch;
+    dispatch_table[OP_close_loc] = &&L_OP_close_loc;
+    dispatch_table[OP_copy_data_properties] = &&L_OP_copy_data_properties;
+    dispatch_table[OP_dec] = &&L_OP_dec;
+    dispatch_table[OP_dec_loc] = &&L_OP_dec_loc;
+    dispatch_table[OP_define_array_el] = &&L_OP_define_array_el;
+    dispatch_table[OP_define_field] = &&L_OP_define_field;
+    dispatch_table[OP_define_method_computed] = &&L_OP_define_method_computed;
+    dispatch_table[OP_delete] = &&L_OP_delete;
+    dispatch_table[OP_div] = &&L_OP_div;
+    dispatch_table[OP_drop] = &&L_OP_drop;
+    dispatch_table[OP_dup] = &&L_OP_dup;
+    dispatch_table[OP_dup1] = &&L_OP_dup1;
+    dispatch_table[OP_dup2] = &&L_OP_dup2;
+    dispatch_table[OP_dup3] = &&L_OP_dup3;
+    dispatch_table[OP_eq] = &&L_OP_eq;
+    dispatch_table[OP_fclosure] = &&L_OP_fclosure;
+    dispatch_table[OP_fclosure8] = &&L_OP_fclosure8;
+    dispatch_table[OP_for_await_of_next] = &&L_OP_for_await_of_next;
+    dispatch_table[OP_for_await_of_start] = &&L_OP_for_await_of_start;
+    dispatch_table[OP_for_in_next] = &&L_OP_for_in_next;
+    dispatch_table[OP_for_in_start] = &&L_OP_for_in_start;
+    dispatch_table[OP_for_of_next] = &&L_OP_for_of_next;
+    dispatch_table[OP_for_of_start] = &&L_OP_for_of_start;
+    dispatch_table[OP_get_arg] = &&L_OP_get_arg;
+    dispatch_table[OP_get_arg0] = &&L_OP_get_arg0;
+    dispatch_table[OP_get_arg1] = &&L_OP_get_arg1;
+    dispatch_table[OP_get_arg2] = &&L_OP_get_arg2;
+    dispatch_table[OP_get_arg3] = &&L_OP_get_arg3;
+    dispatch_table[OP_get_array_el] = &&L_OP_get_array_el;
+    dispatch_table[OP_get_array_el2] = &&L_OP_get_array_el2;
+    dispatch_table[OP_get_array_el3] = &&L_OP_get_array_el3;
+    dispatch_table[OP_get_field] = &&L_OP_get_field;
+    dispatch_table[OP_get_field2] = &&L_OP_get_field2;
+    dispatch_table[OP_get_length] = &&L_OP_get_length;
+    dispatch_table[OP_get_loc] = &&L_OP_get_loc;
+    dispatch_table[OP_get_loc0] = &&L_OP_get_loc0;
+    dispatch_table[OP_get_loc1] = &&L_OP_get_loc1;
+    dispatch_table[OP_get_loc2] = &&L_OP_get_loc2;
+    dispatch_table[OP_get_loc3] = &&L_OP_get_loc3;
+    dispatch_table[OP_get_loc8] = &&L_OP_get_loc8;
+    dispatch_table[OP_get_loc_check] = &&L_OP_get_loc_check;
+    dispatch_table[OP_get_loc_checkthis] = &&L_OP_get_loc_checkthis;
+    dispatch_table[OP_get_var] = &&L_OP_get_var;
+    dispatch_table[OP_get_var_ref] = &&L_OP_get_var_ref;
+    dispatch_table[OP_get_var_ref0] = &&L_OP_get_var_ref0;
+    dispatch_table[OP_get_var_ref1] = &&L_OP_get_var_ref1;
+    dispatch_table[OP_get_var_ref2] = &&L_OP_get_var_ref2;
+    dispatch_table[OP_get_var_ref3] = &&L_OP_get_var_ref3;
+    dispatch_table[OP_get_var_ref_check] = &&L_OP_get_var_ref_check;
+    dispatch_table[OP_get_var_undef] = &&L_OP_get_var_undef;
+    dispatch_table[OP_gosub] = &&L_OP_gosub;
+    dispatch_table[OP_goto] = &&L_OP_goto;
+    dispatch_table[OP_goto16] = &&L_OP_goto16;
+    dispatch_table[OP_goto8] = &&L_OP_goto8;
+    dispatch_table[OP_gt] = &&L_OP_gt;
+    dispatch_table[OP_gte] = &&L_OP_gte;
+    dispatch_table[OP_if_false] = &&L_OP_if_false;
+    dispatch_table[OP_if_false8] = &&L_OP_if_false8;
+    dispatch_table[OP_if_true] = &&L_OP_if_true;
+    dispatch_table[OP_if_true8] = &&L_OP_if_true8;
+    dispatch_table[OP_in] = &&L_OP_in;
+    dispatch_table[OP_inc] = &&L_OP_inc;
+    dispatch_table[OP_inc_loc] = &&L_OP_inc_loc;
+    dispatch_table[OP_initial_yield] = &&L_OP_initial_yield;
+    dispatch_table[OP_insert2] = &&L_OP_insert2;
+    dispatch_table[OP_insert3] = &&L_OP_insert3;
+    dispatch_table[OP_insert4] = &&L_OP_insert4;
+    dispatch_table[OP_instanceof] = &&L_OP_instanceof;
+    dispatch_table[OP_is_null] = &&L_OP_is_null;
+    dispatch_table[OP_is_undefined] = &&L_OP_is_undefined;
+    dispatch_table[OP_is_undefined_or_null] = &&L_OP_is_undefined_or_null;
+    dispatch_table[OP_iterator_call] = &&L_OP_iterator_call;
+    dispatch_table[OP_iterator_check_object] = &&L_OP_iterator_check_object;
+    dispatch_table[OP_iterator_close] = &&L_OP_iterator_close;
+    dispatch_table[OP_iterator_get_value_done] = &&L_OP_iterator_get_value_done;
+    dispatch_table[OP_iterator_next] = &&L_OP_iterator_next;
+    dispatch_table[OP_lnot] = &&L_OP_lnot;
+    dispatch_table[OP_lt] = &&L_OP_lt;
+    dispatch_table[OP_lte] = &&L_OP_lte;
+    dispatch_table[OP_mod] = &&L_OP_mod;
+    dispatch_table[OP_mul] = &&L_OP_mul;
+    dispatch_table[OP_neg] = &&L_OP_neg;
+    dispatch_table[OP_neq] = &&L_OP_neq;
+    dispatch_table[OP_nip] = &&L_OP_nip;
+    dispatch_table[OP_nip1] = &&L_OP_nip1;
+    dispatch_table[OP_nip_catch] = &&L_OP_nip_catch;
+    dispatch_table[OP_nop] = &&L_OP_nop;
+    dispatch_table[OP_not] = &&L_OP_not;
+    dispatch_table[OP_null] = &&L_OP_null;
+    dispatch_table[OP_object] = &&L_OP_object;
+    dispatch_table[OP_or] = &&L_OP_or;
+    dispatch_table[OP_perm3] = &&L_OP_perm3;
+    dispatch_table[OP_perm4] = &&L_OP_perm4;
+    dispatch_table[OP_perm5] = &&L_OP_perm5;
+    dispatch_table[OP_plus] = &&L_OP_plus;
+    dispatch_table[OP_post_dec] = &&L_OP_post_dec;
+    dispatch_table[OP_post_inc] = &&L_OP_post_inc;
+    dispatch_table[OP_pow] = &&L_OP_pow;
+    dispatch_table[OP_push_0] = &&L_OP_push_0;
+    dispatch_table[OP_push_1] = &&L_OP_push_1;
+    dispatch_table[OP_push_2] = &&L_OP_push_2;
+    dispatch_table[OP_push_3] = &&L_OP_push_3;
+    dispatch_table[OP_push_4] = &&L_OP_push_4;
+    dispatch_table[OP_push_5] = &&L_OP_push_5;
+    dispatch_table[OP_push_6] = &&L_OP_push_6;
+    dispatch_table[OP_push_7] = &&L_OP_push_7;
+    dispatch_table[OP_push_atom_value] = &&L_OP_push_atom_value;
+    dispatch_table[OP_push_const] = &&L_OP_push_const;
+    dispatch_table[OP_push_const8] = &&L_OP_push_const8;
+    dispatch_table[OP_push_empty_string] = &&L_OP_push_empty_string;
+    dispatch_table[OP_push_false] = &&L_OP_push_false;
+    dispatch_table[OP_push_i16] = &&L_OP_push_i16;
+    dispatch_table[OP_push_i32] = &&L_OP_push_i32;
+    dispatch_table[OP_push_i8] = &&L_OP_push_i8;
+    dispatch_table[OP_push_minus1] = &&L_OP_push_minus1;
+    dispatch_table[OP_push_this] = &&L_OP_push_this;
+    dispatch_table[OP_push_true] = &&L_OP_push_true;
+    dispatch_table[OP_put_arg] = &&L_OP_put_arg;
+    dispatch_table[OP_put_arg0] = &&L_OP_put_arg0;
+    dispatch_table[OP_put_arg1] = &&L_OP_put_arg1;
+    dispatch_table[OP_put_arg2] = &&L_OP_put_arg2;
+    dispatch_table[OP_put_arg3] = &&L_OP_put_arg3;
+    dispatch_table[OP_put_array_el] = &&L_OP_put_array_el;
+    dispatch_table[OP_put_field] = &&L_OP_put_field;
+    dispatch_table[OP_put_loc] = &&L_OP_put_loc;
+    dispatch_table[OP_put_loc0] = &&L_OP_put_loc0;
+    dispatch_table[OP_put_loc1] = &&L_OP_put_loc1;
+    dispatch_table[OP_put_loc2] = &&L_OP_put_loc2;
+    dispatch_table[OP_put_loc3] = &&L_OP_put_loc3;
+    dispatch_table[OP_put_loc8] = &&L_OP_put_loc8;
+    dispatch_table[OP_put_loc_check] = &&L_OP_put_loc_check;
+    dispatch_table[OP_put_loc_check_init] = &&L_OP_put_loc_check_init;
+    dispatch_table[OP_put_var] = &&L_OP_put_var;
+    dispatch_table[OP_put_var_init] = &&L_OP_put_var_init;
+    dispatch_table[OP_put_var_ref] = &&L_OP_put_var_ref;
+    dispatch_table[OP_put_var_ref0] = &&L_OP_put_var_ref0;
+    dispatch_table[OP_put_var_ref1] = &&L_OP_put_var_ref1;
+    dispatch_table[OP_put_var_ref2] = &&L_OP_put_var_ref2;
+    dispatch_table[OP_put_var_ref3] = &&L_OP_put_var_ref3;
+    dispatch_table[OP_put_var_ref_check] = &&L_OP_put_var_ref_check;
+    dispatch_table[OP_put_var_ref_check_init] = &&L_OP_put_var_ref_check_init;
+    dispatch_table[OP_rest] = &&L_OP_rest;
+    dispatch_table[OP_ret] = &&L_OP_ret;
+    dispatch_table[OP_return] = &&L_OP_return;
+    dispatch_table[OP_return_async] = &&L_OP_return_async;
+    dispatch_table[OP_return_undef] = &&L_OP_return_undef;
+    dispatch_table[OP_rot3l] = &&L_OP_rot3l;
+    dispatch_table[OP_rot3r] = &&L_OP_rot3r;
+    dispatch_table[OP_rot4l] = &&L_OP_rot4l;
+    dispatch_table[OP_rot5l] = &&L_OP_rot5l;
+    dispatch_table[OP_sar] = &&L_OP_sar;
+    dispatch_table[OP_set_arg] = &&L_OP_set_arg;
+    dispatch_table[OP_set_arg0] = &&L_OP_set_arg0;
+    dispatch_table[OP_set_arg1] = &&L_OP_set_arg1;
+    dispatch_table[OP_set_arg2] = &&L_OP_set_arg2;
+    dispatch_table[OP_set_arg3] = &&L_OP_set_arg3;
+    dispatch_table[OP_set_loc] = &&L_OP_set_loc;
+    dispatch_table[OP_set_loc0] = &&L_OP_set_loc0;
+    dispatch_table[OP_set_loc1] = &&L_OP_set_loc1;
+    dispatch_table[OP_set_loc2] = &&L_OP_set_loc2;
+    dispatch_table[OP_set_loc3] = &&L_OP_set_loc3;
+    dispatch_table[OP_set_loc8] = &&L_OP_set_loc8;
+    dispatch_table[OP_set_loc_check] = &&L_OP_set_loc_check;
+    dispatch_table[OP_set_loc_uninitialized] = &&L_OP_set_loc_uninitialized;
+    dispatch_table[OP_set_name] = &&L_OP_set_name;
+    dispatch_table[OP_set_name_computed] = &&L_OP_set_name_computed;
+    dispatch_table[OP_set_var_ref] = &&L_OP_set_var_ref;
+    dispatch_table[OP_set_var_ref0] = &&L_OP_set_var_ref0;
+    dispatch_table[OP_set_var_ref1] = &&L_OP_set_var_ref1;
+    dispatch_table[OP_set_var_ref2] = &&L_OP_set_var_ref2;
+    dispatch_table[OP_set_var_ref3] = &&L_OP_set_var_ref3;
+    dispatch_table[OP_shl] = &&L_OP_shl;
+    dispatch_table[OP_shr] = &&L_OP_shr;
+    dispatch_table[OP_special_object] = &&L_OP_special_object;
+    dispatch_table[OP_strict_eq] = &&L_OP_strict_eq;
+    dispatch_table[OP_strict_neq] = &&L_OP_strict_neq;
+    dispatch_table[OP_sub] = &&L_OP_sub;
+    dispatch_table[OP_swap] = &&L_OP_swap;
+    dispatch_table[OP_swap2] = &&L_OP_swap2;
+    dispatch_table[OP_tail_call] = &&L_OP_tail_call;
+    dispatch_table[OP_tail_call_method] = &&L_OP_tail_call_method;
+    dispatch_table[OP_throw] = &&L_OP_throw;
+    dispatch_table[OP_throw_error] = &&L_OP_throw_error;
+    dispatch_table[OP_to_object] = &&L_OP_to_object;
+    dispatch_table[OP_to_propkey] = &&L_OP_to_propkey;
+    dispatch_table[OP_typeof] = &&L_OP_typeof;
+    dispatch_table[OP_typeof_is_function] = &&L_OP_typeof_is_function;
+    dispatch_table[OP_typeof_is_undefined] = &&L_OP_typeof_is_undefined;
+    dispatch_table[OP_undefined] = &&L_OP_undefined;
+    dispatch_table[OP_xor] = &&L_OP_xor;
+    dispatch_table[OP_yield] = &&L_OP_yield;
+    dispatch_table[OP_yield_star] = &&L_OP_yield_star;
+
+    // globalObj is recomputed on every dispatch because some opcodes
+    // (top-level `var` set, OP_put_field on the global root) re-bind
+    // *pGlobalRoot.  Keep this read in DISPATCH so every case sees the
+    // current value without a per-case re-read.
+    const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
+    int opcode = 0;
+
+    #define DISPATCH() do { \
+        if (__builtin_expect(has_pending_exception, 0)) goto handle_exception_label; \
+        if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch; \
+        globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE; \
+        opcode = (int)(unsigned char)buf[pc++]; \
+        const void* tgt = dispatch_table[opcode]; \
+        if (__builtin_expect(tgt == nullptr, 0)) goto L_default; \
+        goto *tgt; \
+    } while(0)
+
+    DISPATCH();
+    {
             // --- Constant and immediate pushes ---
-            case OP_push_minus1:
+            L_OP_push_minus1: ;
                 stackPush(pContext,pContext->fromInteger(-1));
-                break;
-            case OP_push_0:
+                DISPATCH();
+            L_OP_push_0: ;
                 stackPush(pContext,pContext->fromInteger(0));
-                break;
-            case OP_push_1:
+                DISPATCH();
+            L_OP_push_1: ;
                 stackPush(pContext,pContext->fromInteger(1));
-                break;
-            case OP_push_2:
+                DISPATCH();
+            L_OP_push_2: ;
                 stackPush(pContext,pContext->fromInteger(2));
-                break;
-            case OP_push_3:
+                DISPATCH();
+            L_OP_push_3: ;
                 stackPush(pContext,pContext->fromInteger(3));
-                break;
-            case OP_push_4:
+                DISPATCH();
+            L_OP_push_4: ;
                 stackPush(pContext,pContext->fromInteger(4));
-                break;
-            case OP_push_5:
+                DISPATCH();
+            L_OP_push_5: ;
                 stackPush(pContext,pContext->fromInteger(5));
-                break;
-            case OP_push_6:
+                DISPATCH();
+            L_OP_push_6: ;
                 stackPush(pContext,pContext->fromInteger(6));
-                break;
-            case OP_push_7:
+                DISPATCH();
+            L_OP_push_7: ;
                 stackPush(pContext,pContext->fromInteger(7));
-                break;
-            case OP_push_i8: {
+                DISPATCH();
+            L_OP_push_i8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 int8_t v = static_cast<int8_t>(buf[pc++]);
                 stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
-                break;
+                DISPATCH();
             }
-            case OP_push_i16: {
+            L_OP_push_i16: {
                 if (pc + 2 > len) return PROTO_NONE;
                 int16_t v = static_cast<int16_t>(get_u16(buf + pc));
                 pc += 2;
                 stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
-                break;
+                DISPATCH();
             }
-            case OP_push_i32: {
+            L_OP_push_i32: {
                 // push_i32 encodes a 32-bit signed immediate.
                 if (pc + 4 > len) return PROTO_NONE;
                 int32_t v = (int32_t)get_u32(buf + pc);
                 pc += 4;
                 stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
-                break;
+                DISPATCH();
             }
-            case OP_push_const8: {
+            L_OP_push_const8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t idx = buf[pc++];
                 if (idx < cpool.size())
                     stackPush(pContext,cpool[idx]);
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_push_empty_string:
+            L_OP_push_empty_string: ;
                 stackPush(pContext,pContext->fromUTF8String(""));
-                break;
-            case OP_push_this:
+                DISPATCH();
+            L_OP_push_this: ;
                 // Strict mode: pass thisObj as-is (undefined stays undefined).
                 // Non-strict mode: coerce null/undefined to the global object per spec.
                 if (module->isStrict) {
@@ -1656,8 +1892,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, (thisObj && thisObj != PROTO_NONE) ? thisObj
                                                                            : (globalObj ? globalObj : PROTO_NONE));
                 }
-                break;
-            case OP_special_object: {
+                DISPATCH();
+            L_OP_special_object: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t soKind = buf[pc++];
                 if (soKind == 0 || soKind == 1) {
@@ -1685,31 +1921,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // kind 2 = THIS_FUNC, kind 3 = NEW_TARGET — not yet implemented.
                     stackPush(pContext, PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_rest: {
+            L_OP_rest: {
                 // TODO: Implement rest parameter materialization once call/arg opcodes are wired.
                 if (pc + 2 > len) return PROTO_NONE;
                 pc += 2; // skip u16 argument index
                 stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_return: {
+            L_OP_return: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* result = stackTop(pContext);
                 return result;
             }
-            case OP_return_undef:
+            L_OP_return_undef: ;
                 return PROTO_NONE;
-            case OP_throw: {
+            L_OP_throw: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* exObj = stackTop(pContext);
                 stackPop(pContext);
                 pending_exception = exObj ? exObj : PROTO_NONE;
                 has_pending_exception = true;
-                break;
+                DISPATCH();
             }
-            case OP_drop: {
+            L_OP_drop: {
                 if (!stackEmpty(pContext)) {
                     // Mirror QuickJS value-stack semantics: the OP_catch sentinel occupies a
                     // specific slot in the value stack.  When OP_drop removes that slot, the
@@ -1720,35 +1956,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     stackPop(pContext);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_nip:
+            L_OP_nip: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 { const proto::ProtoObject* top = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, top); }
-                break;
-            case OP_nip1:
+                DISPATCH();
+            L_OP_nip1: ;
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 { const proto::ProtoObject* c = stackTop(pContext); stackPop(pContext); const proto::ProtoObject* b = stackTop(pContext); stackPop(pContext); stackPop(pContext); stackPush(pContext, b); stackPush(pContext, c); }
-                break;
-            case OP_dup:
+                DISPATCH();
+            L_OP_dup: ;
                 if (!stackEmpty(pContext)) stackPush(pContext, stackTop(pContext));
-                break;
-            case OP_dup1:
+                DISPATCH();
+            L_OP_dup1: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 { const proto::ProtoObject* top = stackTop(pContext); const proto::ProtoObject* second = stackAt(pContext, 1); stackPush(pContext, second); stackPush(pContext, top); }
-                break;
-            case OP_dup2:
+                DISPATCH();
+            L_OP_dup2: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 stackPush(pContext, stackAt(pContext, 1));
                 stackPush(pContext, stackAt(pContext, 1));
-                break;
-            case OP_dup3:
+                DISPATCH();
+            L_OP_dup3: ;
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 stackPush(pContext, stackAt(pContext, 2));
                 stackPush(pContext, stackAt(pContext, 2));
                 stackPush(pContext, stackAt(pContext, 2));
-                break;
-            case OP_insert2:
+                DISPATCH();
+            L_OP_insert2: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 // obj a -> a obj a
                 {
@@ -1760,8 +1996,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,obj);
                     stackPush(pContext,a);
                 }
-                break;
-            case OP_insert3:
+                DISPATCH();
+            L_OP_insert3: ;
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 // obj prop a -> a obj prop a
                 {
@@ -1776,8 +2012,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,prop);
                     stackPush(pContext,a);
                 }
-                break;
-            case OP_insert4:
+                DISPATCH();
+            L_OP_insert4: ;
                 if (stackSize(pContext) < 4) return PROTO_NONE;
                 // this obj prop a -> a this obj prop a
                 {
@@ -1795,8 +2031,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,prop);
                     stackPush(pContext,a);
                 }
-                break;
-            case OP_perm3:
+                DISPATCH();
+            L_OP_perm3: ;
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 // obj a b -> a obj b
                 {
@@ -1810,8 +2046,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,obj);
                     stackPush(pContext,b);
                 }
-                break;
-            case OP_perm4:
+                DISPATCH();
+            L_OP_perm4: ;
                 if (stackSize(pContext) < 4) return PROTO_NONE;
                 // obj prop a b -> a obj prop b
                 {
@@ -1828,8 +2064,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,prop);
                     stackPush(pContext,b);
                 }
-                break;
-            case OP_perm5:
+                DISPATCH();
+            L_OP_perm5: ;
                 if (stackSize(pContext) < 5) return PROTO_NONE;
                 // this obj prop a b -> a this obj prop b
                 {
@@ -1849,12 +2085,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,prop);
                     stackPush(pContext,b);
                 }
-                break;
-            case OP_swap:
+                DISPATCH();
+            L_OP_swap: ;
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 { const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext); const proto::ProtoObject* b = stackTop(pContext); stackPop(pContext); stackPush(pContext, a); stackPush(pContext, b); }
-                break;
-            case OP_swap2:
+                DISPATCH();
+            L_OP_swap2: ;
                 if (stackSize(pContext) < 4) return PROTO_NONE;
                 // a b c d -> c d a b
                 {
@@ -1871,8 +2107,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,a);
                     stackPush(pContext,b);
                 }
-                break;
-            case OP_rot3l:
+                DISPATCH();
+            L_OP_rot3l: ;
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 // x a b -> a b x
                 {
@@ -1886,8 +2122,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,b);
                     stackPush(pContext,x);
                 }
-                break;
-            case OP_rot3r:
+                DISPATCH();
+            L_OP_rot3r: ;
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 // a b x -> x a b
                 {
@@ -1901,8 +2137,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,a);
                     stackPush(pContext,b);
                 }
-                break;
-            case OP_rot4l:
+                DISPATCH();
+            L_OP_rot4l: ;
                 if (stackSize(pContext) < 4) return PROTO_NONE;
                 // x a b c -> a b c x
                 {
@@ -1919,8 +2155,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,c);
                     stackPush(pContext,x);
                 }
-                break;
-            case OP_rot5l:
+                DISPATCH();
+            L_OP_rot5l: ;
                 if (stackSize(pContext) < 5) return PROTO_NONE;
                 // x a b c d -> a b c d x
                 {
@@ -1940,8 +2176,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,d);
                     stackPush(pContext,x);
                 }
-                break;
-            case OP_push_const: {
+                DISPATCH();
+            L_OP_push_const: {
                 if (pc + 4 > len) return PROTO_NONE;
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
@@ -1949,9 +2185,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext,cpool[idx]);
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_push_atom_value: {
+            L_OP_push_atom_value: {
                 /* QuickJS semantics: push the atom's string representation as a string literal.
                  * This is JS_AtomToString(ctx, atom) — NOT a variable lookup in globalObj. */
                 if (pc + 4 > len) return PROTO_NONE;
@@ -1960,75 +2196,75 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key) {
                     stackPush(pContext, PROTO_NONE);
-                    break;
+                    DISPATCH();
                 }
                 /* Push the atom as a string value (the atom name IS the string literal). */
                 stackPush(pContext, key->asObject(pContext));
-                break;
+                DISPATCH();
             }
             // Short local/arg accessors (loc8/arg8 and loc0-3/arg0-3)
-            case OP_get_loc8: {
+            L_OP_get_loc8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_loc8: {
+            L_OP_put_loc8: {
                 if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_loc8: {
+            L_OP_set_loc8: {
                 if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_get_arg0:
-            case OP_get_arg1:
-            case OP_get_arg2:
-            case OP_get_arg3: {
+            L_OP_get_arg0: ;
+            L_OP_get_arg1: ;
+            L_OP_get_arg2: ;
+            L_OP_get_arg3: {
                 unsigned idx = static_cast<unsigned>(opcode - OP_get_arg0);
                 if (idx < argCount && idx < (argCount + varCount))
                     stackPush(pContext, getSlot(pContext, idx));
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_arg0:
-            case OP_put_arg1:
-            case OP_put_arg2:
-            case OP_put_arg3: {
+            L_OP_put_arg0: ;
+            L_OP_put_arg1: ;
+            L_OP_put_arg2: ;
+            L_OP_put_arg3: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_arg0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 if (idx < argCount && idx < (argCount + varCount))
                     setSlot(pContext, idx, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_arg0:
-            case OP_set_arg1:
-            case OP_set_arg2:
-            case OP_set_arg3: {
+            L_OP_set_arg0: ;
+            L_OP_set_arg1: ;
+            L_OP_set_arg2: ;
+            L_OP_set_arg3: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_arg0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (idx < argCount && idx < (argCount + varCount))
                     setSlot(pContext, idx, val);
-                break;
+                DISPATCH();
             }
-            case OP_get_var_undef:
-            case OP_get_var: {
+            L_OP_get_var_undef: ;
+            L_OP_get_var: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t idx = get_u16(buf + pc);
                 pc += 2;
@@ -2059,7 +2295,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 msg += "' before initialization";
                                 pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
                                 has_pending_exception = true;
-                                break;
+                                DISPATCH();
                             }
                             val = rawVal;
                         }
@@ -2086,13 +2322,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     pending_exception = makeError(pContext, "ReferenceError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_var_init:
-            case OP_put_var: {
+            L_OP_put_var_init: ;
+            L_OP_put_var: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t idx = get_u16(buf + pc);
                 pc += 2;
@@ -2110,7 +2346,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = makeError(pContext, "SyntaxError",
                                                       "Invalid global lexical declaration", pGlobalRoot);
                         has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
 
                     // Global assignment to `undefined` should throw instead of mutating.
@@ -2118,7 +2354,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = makeError(pContext, "ReferenceError",
                                                       "Cannot assign to read only binding 'undefined'", pGlobalRoot);
                         has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
 
                     if (!name.empty()) {
@@ -2127,12 +2363,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_get_var_ref0:
-            case OP_get_var_ref1:
-            case OP_get_var_ref2:
-            case OP_get_var_ref3: {
+            L_OP_get_var_ref0: ;
+            L_OP_get_var_ref1: ;
+            L_OP_get_var_ref2: ;
+            L_OP_get_var_ref3: {
                 /* Closure vars occupy slots AFTER local vars: slot[argCount + varCount + refIndex].
                  * This separates them from local vars (slot[argCount + localIdx]) so that the
                  * hidden _ret_ eval variable at local slot 0 never collides with closure var 0.
@@ -2144,16 +2380,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (val == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
                         has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                     stackPush(pContext, val ? val : PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_put_var_ref0:
-            case OP_put_var_ref1:
-            case OP_put_var_ref2:
-            case OP_put_var_ref3: {
+            L_OP_put_var_ref0: ;
+            L_OP_put_var_ref1: ;
+            L_OP_put_var_ref2: ;
+            L_OP_put_var_ref3: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_put_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -2172,12 +2408,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_set_var_ref0:
-            case OP_set_var_ref1:
-            case OP_set_var_ref2:
-            case OP_set_var_ref3: {
+            L_OP_set_var_ref0: ;
+            L_OP_set_var_ref1: ;
+            L_OP_set_var_ref2: ;
+            L_OP_set_var_ref3: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_set_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -2192,16 +2428,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_get_var_ref: {
+            L_OP_get_var_ref: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 stackPush(pContext, getSlot(pContext, argCount + varCount + refIndex));
-                break;
+                DISPATCH();
             }
-            case OP_put_var_ref: {
+            L_OP_put_var_ref: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2217,9 +2453,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_set_var_ref: {
+            L_OP_set_var_ref: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2234,9 +2470,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_get_var_ref_check: {
+            L_OP_get_var_ref_check: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2244,14 +2480,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* val = getSlot(pContext, argCount + varCount + refIndex);
                     if (val == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                     stackPush(pContext, val ? val : PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_put_var_ref_check:
-            case OP_put_var_ref_check_init: {
+            L_OP_put_var_ref_check: ;
+            L_OP_put_var_ref_check_init: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2267,52 +2503,52 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_close_loc: {
+            L_OP_close_loc: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, tdzSentinel);
-                break;
+                DISPATCH();
             }
-            case OP_get_loc0:
-            case OP_get_loc1:
-            case OP_get_loc2:
-            case OP_get_loc3: {
+            L_OP_get_loc0: ;
+            L_OP_get_loc1: ;
+            L_OP_get_loc2: ;
+            L_OP_get_loc3: {
                 unsigned idx = static_cast<unsigned>(opcode - OP_get_loc0);
                 if (idx < varCount && (argCount + idx) < (argCount + varCount))
                     stackPush(pContext, getSlot(pContext, argCount + idx));
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_loc0:
-            case OP_put_loc1:
-            case OP_put_loc2:
-            case OP_put_loc3: {
+            L_OP_put_loc0: ;
+            L_OP_put_loc1: ;
+            L_OP_put_loc2: ;
+            L_OP_put_loc3: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_loc0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 if (idx < varCount && (argCount + idx) < (argCount + varCount))
                     setSlot(pContext, argCount + idx, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_loc0:
-            case OP_set_loc1:
-            case OP_set_loc2:
-            case OP_set_loc3: {
+            L_OP_set_loc0: ;
+            L_OP_set_loc1: ;
+            L_OP_set_loc2: ;
+            L_OP_set_loc3: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_loc0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (idx < varCount && (argCount + idx) < (argCount + varCount))
                     setSlot(pContext, argCount + idx, val);
-                break;
+                DISPATCH();
             }
             // --- Locals, arguments, and variable references ---
-            case OP_get_loc: {
+            L_OP_get_loc: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2320,9 +2556,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_loc: {
+            L_OP_put_loc: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2330,18 +2566,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_loc: {
+            L_OP_set_loc: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_get_arg: {
+            L_OP_get_arg: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2349,9 +2585,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, getSlot(pContext, argIndex));
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_arg: {
+            L_OP_put_arg: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2359,26 +2595,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 if (argIndex < argCount && argIndex < (argCount + varCount))
                     setSlot(pContext, argIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_arg: {
+            L_OP_set_arg: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t argIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (argIndex < argCount && argIndex < (argCount + varCount))
                     setSlot(pContext, argIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_loc_uninitialized: {
+            L_OP_set_loc_uninitialized: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, tdzSentinel);
-                break;
+                DISPATCH();
             }
-            case OP_get_loc_check: {
+            L_OP_get_loc_check: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2386,15 +2622,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* val = getSlot(pContext, argCount + locIndex);
                     if (val == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                     stackPush(pContext, val ? val : PROTO_NONE);
                 } else {
                     stackPush(pContext, PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_put_loc_check: {
+            L_OP_put_loc_check: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2402,18 +2638,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_set_loc_check: {
+            L_OP_set_loc_check: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_put_loc_check_init: {
+            L_OP_put_loc_check_init: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2421,9 +2657,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
                     setSlot(pContext, argCount + locIndex, val);
-                break;
+                DISPATCH();
             }
-            case OP_get_loc_checkthis: {
+            L_OP_get_loc_checkthis: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
@@ -2431,16 +2667,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, getSlot(pContext, argCount + locIndex));
                 else
                     stackPush(pContext,PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_get_field: {
+            L_OP_get_field: {
                 if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                if (!key) { stackPush(pContext, PROTO_NONE); break; }
+                if (!key) { stackPush(pContext, PROTO_NONE); DISPATCH(); }
                 // Throw TypeError for null/undefined receiver.
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
                     std::string keyStr;
@@ -2450,7 +2686,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += " (reading '"; msg += keyStr; msg += "')";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoObject* val;
                 uint8_t taTypeF = getTypedArrayElementType(pContext, obj);
@@ -2476,13 +2712,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     std::string keyStr2;
                     key->toUTF8String(pContext, keyStr2);
                     const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStr2);
-                    if (has_pending_exception) break;
+                    if (has_pending_exception) DISPATCH();
                     if (gval && gval != PROTO_NONE) val = gval;
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_get_field2: {
+            L_OP_get_field2: {
                 if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
@@ -2498,7 +2734,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += " (reading '"; msg += keyStr; msg += "')";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoObject* val;
                 uint8_t taTypeF2 = getTypedArrayElementType(pContext, obj);
@@ -2522,13 +2758,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     std::string keyStr2;
                     key->toUTF8String(pContext, keyStr2);
                     const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStr2);
-                    if (has_pending_exception) break;
+                    if (has_pending_exception) DISPATCH();
                     if (gval && gval != PROTO_NONE) val = gval;
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_field: {
+            L_OP_put_field: {
                 // DEF(put_field, 5, 2, 0, atom) — n_pop=2, n_push=0.
                 // Pops obj (second) and val (top), sets obj[key]=val. Pushes NOTHING.
                 // QuickJS peephole-optimizes "insert2 + put_field + drop" → "put_field" so
@@ -2556,7 +2792,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             updateMapping(pContext, obj, updatedTA);
                         }
                         // n_push=0: do NOT push anything back
-                        break;
+                        DISPATCH();
                     }
                 }
                 if (key && obj) {
@@ -2575,7 +2811,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         "Cannot assign to property of frozen object", pGlobalRoot);
                                     has_pending_exception = true;
                                 }
-                                break; // n_push=0: do NOT push anything
+                                DISPATCH(); // n_push=0: do NOT push anything
                             }
                         }
                     }
@@ -2596,7 +2832,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             "Cannot assign to read only property", pGlobalRoot);
                                         has_pending_exception = true;
                                     }
-                                    break; // n_push=0: do NOT push anything
+                                    DISPATCH(); // n_push=0: do NOT push anything
                                 }
                             }
                         }
@@ -2622,7 +2858,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             "Cannot add property to non-extensible object", pGlobalRoot);
                                         has_pending_exception = true;
                                     }
-                                    break; // n_push=0: do NOT push anything
+                                    DISPATCH(); // n_push=0: do NOT push anything
                                 }
                             }
                         }
@@ -2673,9 +2909,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         *pGlobalRoot = newObj;
                     // n_push=0: do NOT push anything back
                 }
-                break;
+                DISPATCH();
             }
-            case OP_define_field: {
+            L_OP_define_field: {
                 if (pc + 4 > len || stackSize(pContext) < 2) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
@@ -2723,17 +2959,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     stackPush(pContext, PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_define_array_el: {
+            L_OP_define_array_el: {
                 // DEF(define_array_el, 1, 3, 2, none)
                 // Stack: [..., array, index, value] → [..., array, index]
                 // Writes array[index] = value and discards the value.
-                if (stackSize(pContext) < 3) break;
+                if (stackSize(pContext) < 3) DISPATCH();
                 const proto::ProtoObject* elemVal2 = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* idxVal   = stackTop(pContext);  // peek — stays on stack
                 const proto::ProtoObject* arrObj2  = stackAt(pContext, 1); // peek — stays
-                if (!arrObj2 || arrObj2 == PROTO_NONE) break;
+                if (!arrObj2 || arrObj2 == PROTO_NONE) DISPATCH();
                 // Convert index to string key.
                 const proto::ProtoString* idxKey2 = nullptr;
                 if (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(pContext)) {
@@ -2743,7 +2979,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (idxVal && idxVal != PROTO_NONE) {
                     idxKey2 = idxVal->asString(pContext);
                 }
-                if (!idxKey2) break;
+                if (!idxKey2) DISPATCH();
                 // Set array[index] = value; update array pointer in slot below index.
                 const proto::ProtoObject* newArr = arrObj2->setAttribute(
                     pContext, idxKey2, elemVal2 ? elemVal2 : PROTO_NONE);
@@ -2769,14 +3005,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);                // pop old array
                 stackPush(pContext, newArr ? newArr : arrObj2);  // push updated array
                 stackPush(pContext, idxVal);        // push index back
-                break;
+                DISPATCH();
             }
-            case OP_append: {
+            L_OP_append: {
                 // DEF(append, 1, 3, 2, none) /* append enumerated object, update length */
                 // Stack: [..., array, index, iterable] → [..., array, new_index]
                 // Used for array spread literals: [...x, ...y].
                 // Iterates the iterable and appends each element to array starting at index.
-                if (stackSize(pContext) < 3) break;
+                if (stackSize(pContext) < 3) DISPATCH();
                 const proto::ProtoObject* apIterable = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* apIdxObj   = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* apArray    = stackTop(pContext); stackPop(pContext);
@@ -2789,7 +3025,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!apArray || apArray == PROTO_NONE) {
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, pContext->fromInteger(apIdx));
-                    break;
+                    DISPATCH();
                 }
                 if (!apIterable || apIterable == PROTO_NONE || apIterable == t_nullSentinel
                     || apIterable->isBoolean(pContext)
@@ -2798,7 +3034,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // null/undefined/primitives are silently skipped in spread context
                     stackPush(pContext, apArray);
                     stackPush(pContext, pContext->fromInteger(apIdx));
-                    break;
+                    DISPATCH();
                 }
 
                 // Case A: array-like with .length — use index-based copy.
@@ -2885,7 +3121,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // Exception already set; push dummy values so the stack stays balanced.
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, pContext->fromInteger(apIdx));
-                    break;
+                    DISPATCH();
                 }
 
                 // Update array.length to cover all inserted elements.
@@ -2901,16 +3137,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 stackPush(pContext, apArray);
                 stackPush(pContext, pContext->fromInteger(apIdx));
-                break;
+                DISPATCH();
             }
-            case OP_copy_data_properties: {
+            L_OP_copy_data_properties: {
                 // DEF(copy_data_properties, 2, 3, 3, u8)
                 // Used for object spread ({...src}) and object rest ({a, ...rest}).
                 // u8 mask: bits 0-1 = target depth from TOS, bits 2-4 = source depth,
                 //          bits 5-7 = exclusion list depth (0 means NO exclusion list,
                 //          matching QuickJS semantics: mask>>5 ? sp[-1-(mask>>5)] : JS_UNDEFINED).
                 // Net-zero stack effect: reads and writes item at targetDepth.
-                if (pc >= len) break;
+                if (pc >= len) DISPATCH();
                 uint8_t cdpMask      = buf[pc++];
                 unsigned targetDepth  = cdpMask & 0x03u;
                 unsigned sourceDepth  = (cdpMask >> 2) & 0x07u;
@@ -2919,7 +3155,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 unsigned maxDepth = targetDepth;
                 if (sourceDepth > maxDepth) maxDepth = sourceDepth;
                 if (exclDepth > 0 && exclDepth > maxDepth) maxDepth = exclDepth;
-                if (stackSize(pContext) <= (int)maxDepth) break;
+                if (stackSize(pContext) <= (int)maxDepth) DISPATCH();
 
                 const proto::ProtoObject* cdpTarget = stackAt(pContext, targetDepth);
                 const proto::ProtoObject* cdpSource = stackAt(pContext, sourceDepth);
@@ -2928,9 +3164,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!cdpSource || cdpSource == PROTO_NONE || cdpSource == t_nullSentinel
                     || cdpSource->isBoolean(pContext)
                     || cdpSource->isInteger(pContext)
-                    || cdpSource->isDouble(pContext)) break;
+                    || cdpSource->isDouble(pContext)) DISPATCH();
                 // Strings: no own enumerable index-keyed props worth spreading here.
-                if (cdpSource->isString(pContext) && !cdpSource->isMethod(pContext)) break;
+                if (cdpSource->isString(pContext) && !cdpSource->isMethod(pContext)) DISPATCH();
 
                 if (!cdpTarget) cdpTarget = PROTO_NONE;
 
@@ -2995,16 +3231,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, cdpTarget ? cdpTarget : PROTO_NONE);
                 for (int i = (int)cdpAbove.size() - 1; i >= 0; i--)
                     stackPush(pContext, cdpAbove[i]);
-                break;
+                DISPATCH();
             }
-            case OP_to_propkey: {
+            L_OP_to_propkey: {
                 // Converts TOS to a canonical property key (string, integer, or symbol).
                 // In our protoCore world the value on stack is already a ProtoObject that
                 // can be used directly as an attribute key via asString(). This is a no-op:
                 // the key remains on the stack unchanged.
-                break;
+                DISPATCH();
             }
-            case OP_define_method_computed: {
+            L_OP_define_method_computed: {
                 // DEF(define_method_computed, 2, 3, 1, u8)
                 // Format: 1 byte op_flags. Stack: [..., obj, key, method] → [..., obj].
                 // Assigns obj[key] = method for computed-property object literals and classes.
@@ -3013,7 +3249,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* keyVal    = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* obj2      = stackTop(pContext);
-                if (!obj2 || obj2 == PROTO_NONE || !keyVal || keyVal == PROTO_NONE) break;
+                if (!obj2 || obj2 == PROTO_NONE || !keyVal || keyVal == PROTO_NONE) DISPATCH();
                 // Convert key to ProtoString (handles string or numeric keys).
                 const proto::ProtoString* keyStr2 = keyVal->asString(pContext);
                 if (!keyStr2 && keyVal->isInteger(pContext)) {
@@ -3021,17 +3257,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (idx >= 0)
                         keyStr2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
                 }
-                if (!keyStr2) break;
+                if (!keyStr2) DISPATCH();
                 const proto::ProtoObject* newObj2 =
                     obj2->setAttribute(pContext, keyStr2, methodVal ? methodVal : PROTO_NONE);
                 stackPop(pContext);
                 stackPush(pContext, newObj2 ? newObj2 : obj2);
-                break;
+                DISPATCH();
             }
-            case OP_set_name_computed: {
+            L_OP_set_name_computed: {
                 // DEF(set_name_computed, 1, 2, 2, none)
                 // Stack: [..., key, function] — sets function.name = String(key), stack unchanged.
-                if (stackSize(pContext) < 2) break;
+                if (stackSize(pContext) < 2) DISPATCH();
                 const proto::ProtoObject* funcSNC = stackTop(pContext);
                 const proto::ProtoObject* keySNC  = stackAt(pContext, 1);
                 if (funcSNC && funcSNC != PROTO_NONE && keySNC && keySNC != PROTO_NONE) {
@@ -3055,9 +3291,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_set_name: {
+            L_OP_set_name: {
                 /* Sets the .name property of TOS (function/value) to the given atom string.
                  * Format: atom (4 bytes). n_pop=1, n_push=1. */
                 if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
@@ -3082,9 +3318,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 stackPush(pContext, func ? func : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_object: {
+            L_OP_object: {
                 // Create a mutable object that inherits from Object.prototype so that
                 // hasOwnProperty, toString, valueOf, etc. are found via prototype lookup.
                 const proto::ProtoObject* objProto =
@@ -3093,10 +3329,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? objProto->newChild(pContext, true)
                     : pContext->newObject(true);
                 stackPush(pContext,newObj);
-                break;
+                DISPATCH();
             }
             // --- Array element helpers (implemented via property semantics) ---
-            case OP_get_array_el: {
+            L_OP_get_array_el: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 stackPop(pContext);
@@ -3108,7 +3344,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoObject* val = nullptr;
                 uint8_t taType = getTypedArrayElementType(pContext, obj);
@@ -3126,14 +3362,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string keyStrGAE;
                         key->toUTF8String(pContext, keyStrGAE);
                         const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE);
-                        if (has_pending_exception) break;
+                        if (has_pending_exception) DISPATCH();
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_get_array_el2: {
+            L_OP_get_array_el2: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 const proto::ProtoObject* obj = stackAt(pContext, 1);
@@ -3145,7 +3381,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoObject* val = nullptr;
                 uint8_t taType2 = getTypedArrayElementType(pContext, obj);
@@ -3163,14 +3399,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string keyStrGAE2;
                         key->toUTF8String(pContext, keyStrGAE2);
                         const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE2);
-                        if (has_pending_exception) break;
+                        if (has_pending_exception) DISPATCH();
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_get_array_el3: {
+            L_OP_get_array_el3: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = stackTop(pContext);
                 const proto::ProtoObject* obj = stackAt(pContext, 1);
@@ -3182,7 +3418,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoObject* val = nullptr;
                 uint8_t taType3 = getTypedArrayElementType(pContext, obj);
@@ -3200,15 +3436,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string keyStrGAE3;
                         key->toUTF8String(pContext, keyStrGAE3);
                         const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE3);
-                        if (has_pending_exception) break;
+                        if (has_pending_exception) DISPATCH();
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
                 stackPush(pContext, index);
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_put_array_el: {
+            L_OP_put_array_el: {
                 if (stackSize(pContext) < 3) return PROTO_NONE;
                 const proto::ProtoObject* value = stackTop(pContext);
                 stackPop(pContext);
@@ -3224,7 +3460,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         updateMapping(pContext, obj, updatedTA);
                     }
                     stackPush(pContext, updatedTA ? updatedTA : obj);
-                    break;
+                    DISPATCH();
                 }
                 // Native ProtoList fast path: integer-valued idx >= 0 on an
                 // array with `__elements__`.  arrayTryFastSet returns false
@@ -3239,7 +3475,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                          static_cast<unsigned long>(idxFast),
                                          value)) {
                         stackPush(pContext, obj);
-                        break;
+                        DISPATCH();
                     }
                 }
                 const proto::ProtoObject* keyObj = toString(pContext, index);
@@ -3258,7 +3494,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                         "Cannot assign to property of frozen object", pGlobalRoot);
                                     has_pending_exception = true;
                                 }
-                                break;
+                                DISPATCH();
                             }
                         }
                     }
@@ -3279,7 +3515,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             "Cannot assign to read only property", pGlobalRoot);
                                         has_pending_exception = true;
                                     }
-                                    break;
+                                    DISPATCH();
                                 }
                             }
                         }
@@ -3316,41 +3552,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_undefined:
+            L_OP_undefined: ;
                 stackPush(pContext,PROTO_NONE);
-                break;
-            case OP_null:
+                DISPATCH();
+            L_OP_null: ;
                 // JS null is the null sentinel, not PROTO_NONE (which is undefined).
                 stackPush(pContext, t_nullSentinel ? t_nullSentinel : PROTO_NONE);
-                break;
-            case OP_push_false:
+                DISPATCH();
+            L_OP_push_false: ;
                 stackPush(pContext,PROTO_FALSE);
-                break;
-            case OP_push_true:
+                DISPATCH();
+            L_OP_push_true: ;
                 stackPush(pContext,PROTO_TRUE);
-                break;
+                DISPATCH();
             // --- Control flow ---
-            case OP_goto: {
+            L_OP_goto: {
                 if (pc + 4 > len) return PROTO_NONE;
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += diff;
-                break;
+                DISPATCH();
             }
-            case OP_goto16: {
+            L_OP_goto16: {
                 if (pc + 2 > len) return PROTO_NONE;
                 int16_t diff = static_cast<int16_t>(get_u16(buf + pc));
                 pc += diff;
-                break;
+                DISPATCH();
             }
-            case OP_goto8: {
+            L_OP_goto8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 int8_t diff = static_cast<int8_t>(buf[pc]);
                 pc += diff;
-                break;
+                DISPATCH();
             }
-            case OP_if_true: {
+            L_OP_if_true: {
                 if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* cond = stackTop(pContext);
                 stackPop(pContext);
@@ -3359,9 +3595,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (toBool(pContext, cond)) {
                     pc += diff - 4;
                 }
-                break;
+                DISPATCH();
             }
-            case OP_if_false: {
+            L_OP_if_false: {
                 if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* cond = stackTop(pContext);
                 stackPop(pContext);
@@ -3370,9 +3606,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!toBool(pContext, cond)) {
                     pc += diff - 4;
                 }
-                break;
+                DISPATCH();
             }
-            case OP_if_true8: {
+            L_OP_if_true8: {
                 if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* cond = stackTop(pContext);
                 stackPop(pContext);
@@ -3382,9 +3618,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     pc += 1;
                 }
-                break;
+                DISPATCH();
             }
-            case OP_if_false8: {
+            L_OP_if_false8: {
                 if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* cond = stackTop(pContext);
                 stackPop(pContext);
@@ -3394,18 +3630,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     pc += 1;
                 }
-                break;
+                DISPATCH();
             }
-            case OP_add: {
+            L_OP_add: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 // ToPrimitive first so that objects with valueOf/toString participate
                 // in string detection and numeric addition correctly.
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 // JS semantics: if either operand is a string, convert both to string and concat.
                 // Otherwise, convert both to number.
                 bool aIsStr = a && a != PROTO_NONE && a->isString(pContext);
@@ -3429,28 +3665,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     res = ra ? ra->add(pContext, rb) : PROTO_NONE;
                 }
                 stackPush(pContext, res ? res : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_mul: {
+            L_OP_mul: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* res = a->multiply(pContext, b);
                 stackPush(pContext,res ? res : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_div: {
+            L_OP_div: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 // JS division always yields double (handles /0 → ±Infinity, 0/0 → NaN, -0 correctly).
                 auto toDoubleVal = [&](const proto::ProtoObject* v) -> double {
                     if (!v || v == PROTO_NONE) return 0.0;
@@ -3461,28 +3697,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 double da = toDoubleVal(a);
                 double db = toDoubleVal(b);
                 stackPush(pContext, pContext->fromDouble(da / db));
-                break;
+                DISPATCH();
             }
-            case OP_sub: {
+            L_OP_sub: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* res = a->subtract(pContext, b);
                 stackPush(pContext,res ? res : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_mod: {
+            L_OP_mod: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 // JS modulo yields double when either operand is double (matches IEEE 754 fmod).
                 // Always use fmod to avoid mixed-type exceptions in protoCore.
                 {
@@ -3504,24 +3740,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         stackPush(pContext, pContext->fromDouble(std::fmod(da, db)));
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_eq:
-            case OP_neq: {
+            L_OP_eq: ;
+            L_OP_neq: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* a = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* pa = toPrimIfObject(a);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* pb = toPrimIfObject(b);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 bool eq = jsAbstractEquals(pContext, pa, pb);
                 stackPush(pContext, (opcode == OP_eq ? eq : !eq) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_strict_eq: {
+            L_OP_strict_eq: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
@@ -3529,9 +3765,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
                 stackPush(pContext, (cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_strict_neq: {
+            L_OP_strict_neq: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
@@ -3539,118 +3775,118 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
                 stackPush(pContext, (cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_lt: {
+            L_OP_lt: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int cmp = (a && b) ? a->compare(pContext, b) : 0;
                 stackPush(pContext, (cmp < 0) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_lte: {
+            L_OP_lte: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int cmp = (a && b) ? a->compare(pContext, b) : 0;
                 stackPush(pContext, (cmp <= 0) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_gt: {
+            L_OP_gt: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int cmp = (a && b) ? a->compare(pContext, b) : 0;
                 stackPush(pContext, (cmp > 0) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_gte: {
+            L_OP_gte: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
                 stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int cmp = (a && b) ? a->compare(pContext, b) : 0;
                 stackPush(pContext, (cmp >= 0) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_and: {
+            L_OP_and: {
                 // Bitwise AND: ToInt32(a) & ToInt32(b)
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) & toInt32Val(pContext, b);
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
-                break;
+                DISPATCH();
             }
-            case OP_or: {
+            L_OP_or: {
                 // Bitwise OR: ToInt32(a) | ToInt32(b)
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) | toInt32Val(pContext, b);
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
-                break;
+                DISPATCH();
             }
-            case OP_xor: {
+            L_OP_xor: {
                 // Bitwise XOR: ToInt32(a) ^ ToInt32(b)
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) ^ toInt32Val(pContext, b);
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
-                break;
+                DISPATCH();
             }
-            case OP_shl: {
+            L_OP_shl: {
                 // Left shift: ToInt32(a) << (ToUint32(b) & 0x1F)
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) << (toUint32Val(pContext, b) & 0x1Fu);
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
-                break;
+                DISPATCH();
             }
-            case OP_sar: {
+            L_OP_sar: {
                 // Arithmetic right shift: ToInt32(a) >> (ToUint32(b) & 0x1F)
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) >> (toUint32Val(pContext, b) & 0x1Fu);
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
-                break;
+                DISPATCH();
             }
-            case OP_shr: {
+            L_OP_shr: {
                 // Unsigned right shift: ToUint32(a) >>> (ToUint32(b) & 0x1F) → Int32 result
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 uint32_t ua = toUint32Val(pContext, a);
                 uint32_t shift = toUint32Val(pContext, b) & 0x1Fu;
                 uint32_t ures = ua >> shift;
@@ -3660,58 +3896,58 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     stackPush(pContext, pContext->fromDouble(static_cast<double>(ures)));
                 }
-                break;
+                DISPATCH();
             }
-            case OP_not: {
+            L_OP_not: {
                 // Bitwise NOT: ~ToInt32(a)
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 int32_t res = ~toInt32Val(pContext, a);
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
-                break;
+                DISPATCH();
             }
-            case OP_neg: {
+            L_OP_neg: {
                 // Unary minus: -ToNumber(a)
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* num = toNumber(pContext, toPrimIfObject(a));
-                if (has_pending_exception) break;
-                if (!num || num == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); break; }
+                if (has_pending_exception) DISPATCH();
+                if (!num || num == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); DISPATCH(); }
                 if (num->isInteger(pContext)) {
                     long long v = num->asLong(pContext);
                     stackPush(pContext, v == 0 ? pContext->fromDouble(-0.0) : pContext->fromInteger(-v));
                 } else {
                     stackPush(pContext, pContext->fromDouble(-num->asDouble(pContext)));
                 }
-                break;
+                DISPATCH();
             }
-            case OP_lnot: {
+            L_OP_lnot: {
                 // Logical NOT: !ToBoolean(a)
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
                 stackPush(pContext, toBool(pContext, a) ? PROTO_FALSE : PROTO_TRUE);
-                break;
+                DISPATCH();
             }
-            case OP_inc: {
+            L_OP_inc: {
                 // Prefix increment: ToNumber(a) + 1
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = toNumber(pContext, stackTop(pContext)); stackPop(pContext);
-                if (!a || a == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); break; }
+                if (!a || a == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); DISPATCH(); }
                 if (a->isInteger(pContext)) stackPush(pContext, pContext->fromInteger(a->asLong(pContext) + 1));
                 else stackPush(pContext, pContext->fromDouble(a->asDouble(pContext) + 1.0));
-                break;
+                DISPATCH();
             }
-            case OP_dec: {
+            L_OP_dec: {
                 // Prefix decrement: ToNumber(a) - 1
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = toNumber(pContext, stackTop(pContext)); stackPop(pContext);
-                if (!a || a == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); break; }
+                if (!a || a == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); DISPATCH(); }
                 if (a->isInteger(pContext)) stackPush(pContext, pContext->fromInteger(a->asLong(pContext) - 1));
                 else stackPush(pContext, pContext->fromDouble(a->asDouble(pContext) - 1.0));
-                break;
+                DISPATCH();
             }
-            case OP_post_inc: {
+            L_OP_post_inc: {
                 // Post-increment: pushes original value then incremented value.
                 // Stack effect: a → a_orig, a+1 (but QuickJS spec: n_pop=1, n_push=2)
                 if (stackEmpty(pContext)) return PROTO_NONE;
@@ -3723,9 +3959,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 else inc = pContext->fromDouble(num->asDouble(pContext) + 1.0);
                 stackPush(pContext, num ? num : PROTO_NONE);
                 stackPush(pContext, inc);
-                break;
+                DISPATCH();
             }
-            case OP_post_dec: {
+            L_OP_post_dec: {
                 // Post-decrement: pushes original value then decremented value.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
@@ -3736,9 +3972,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 else dec = pContext->fromDouble(num->asDouble(pContext) - 1.0);
                 stackPush(pContext, num ? num : PROTO_NONE);
                 stackPush(pContext, dec);
-                break;
+                DISPATCH();
             }
-            case OP_dec_loc: {
+            L_OP_dec_loc: {
                 // Decrement a local variable slot in-place. Format: loc8 (1 byte).
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
@@ -3750,9 +3986,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else nv = pContext->fromDouble(cur->asDouble(pContext) - 1.0);
                     setSlot(pContext, argCount + locIndex, nv);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_inc_loc: {
+            L_OP_inc_loc: {
                 // Increment a local variable slot in-place. Format: loc8 (1 byte).
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
@@ -3764,9 +4000,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     else nv = pContext->fromDouble(cur->asDouble(pContext) + 1.0);
                     setSlot(pContext, argCount + locIndex, nv);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_add_loc: {
+            L_OP_add_loc: {
                 // add_loc loc8: pops TOS and adds it to a local variable. Format: loc8 (1 byte).
                 if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
@@ -3791,15 +4027,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     setSlot(pContext, argCount + locIndex, nv);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_pow: {
+            L_OP_pow: {
                 // Exponentiation: a ** b
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext))); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext))); stackPop(pContext);
-                if (has_pending_exception) break;
+                if (has_pending_exception) DISPATCH();
                 double da = (!a || a == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : a->asDouble(pContext);
                 double db = (!b || b == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : b->asDouble(pContext);
                 double result = std::pow(da, db);
@@ -3807,29 +4043,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, pContext->fromInteger(static_cast<long long>(result)));
                 else
                     stackPush(pContext, pContext->fromDouble(result));
-                break;
+                DISPATCH();
             }
-            case OP_is_undefined_or_null: {
+            L_OP_is_undefined_or_null: {
                 // Pops one value; pushes true if it is undefined (PROTO_NONE) or null (t_nullSentinel).
                 // Used by the ?? operator and ?. optional chaining.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
                 stackPush(pContext, (!val || val == PROTO_NONE || val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_nop:
+            L_OP_nop: ;
                 // No operation.
-                break;
-            case OP_get_length: {
+                DISPATCH();
+            L_OP_get_length: {
                 // Push the .length property of TOS.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* obj = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoString* lk = JSSymbols::length(pContext);
                 const proto::ProtoObject* len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
                 stackPush(pContext, len_val ? len_val : PROTO_NONE);
-                break;
+                DISPATCH();
             }
-            case OP_to_object: {
+            L_OP_to_object: {
                 // ToObject: null and undefined are not object-coercible — throw TypeError.
                 // For any other value, push unchanged (primitives wrap lazily).
                 if (stackEmpty(pContext)) return PROTO_NONE;
@@ -3841,12 +4077,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                : "Cannot convert undefined to object",
                         pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 stackPush(pContext, val);
-                break;
+                DISPATCH();
             }
-            case OP_throw_error: {
+            L_OP_throw_error: {
                 // throw_error atom u8: throw a TypeError/ReferenceError etc. with message from atom.
                 // Format: atom(4), u8(1). n_pop=0, n_push=0 (throws).
                 if (pc + 5 > len) return PROTO_NONE;
@@ -3859,9 +4095,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const char* errName = (errorType == 1) ? "TypeError" :
                                       (errorType == 2) ? "ReferenceError" : "Error";
                 pending_exception = makeError(pContext, errName, msg.c_str(), pGlobalRoot); has_pending_exception = true;
-                break;
+                DISPATCH();
             }
-            case OP_catch: {
+            L_OP_catch: {
                 // catch label(4): record a catch handler and push a sentinel onto the value stack.
                 // The sentinel's stack position IS the "catch frame" marker, mirroring how QuickJS
                 // stores a JS_TAG_CATCH_OFFSET integer on the value stack.
@@ -3873,9 +4109,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 unsigned long placeholder_pos = stackSize(pContext);
                 catch_stack.push_back({handler_pc, placeholder_pos});
                 stackPush(pContext, PROTO_NONE); // sentinel placeholder (undefined-equivalent)
-                break;
+                DISPATCH();
             }
-            case OP_nip_catch: {
+            L_OP_nip_catch: {
                 // nip_catch: pop the catch frame and replace the sentinel (and anything above it
                 // pushed by iterator opcodes) with the current top value.  Mirrors QuickJS:
                 //   ret_val = *--sp;
@@ -3893,9 +4129,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         stackPush(pContext, ret_val);
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_gosub: {
+            L_OP_gosub: {
                 // gosub label(4): call a finally block.
                 // Push the return address (instruction after gosub) as an integer, then jump.
                 if (pc + 4 > len) return PROTO_NONE;
@@ -3903,9 +4139,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 int return_pc = pc + 4;
                 stackPush(pContext, pContext->fromInteger(static_cast<long long>(return_pc)));
                 pc += diff; // jump to finally block (same formula as goto)
-                break;
+                DISPATCH();
             }
-            case OP_ret: {
+            L_OP_ret: {
                 // ret: return from a finally block.
                 // Pop the return address pushed by gosub and jump there.
                 if (stackEmpty(pContext)) return PROTO_NONE;
@@ -3914,18 +4150,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!addr_obj || addr_obj == PROTO_NONE || !addr_obj->isInteger(pContext))
                     return PROTO_NONE;
                 pc = static_cast<int>(addr_obj->asLong(pContext));
-                break;
+                DISPATCH();
             }
-            case OP_plus: {
+            L_OP_plus: {
                 // Unary plus: ToNumber(a)
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
                 { const proto::ProtoObject* pv = toPrimIfObject(a);
-                  if (has_pending_exception) break;
+                  if (has_pending_exception) DISPATCH();
                   stackPush(pContext, toNumber(pContext, pv)); }
-                break;
+                DISPATCH();
             }
-            case OP_typeof: {
+            L_OP_typeof: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* v = stackTop(pContext);
                 stackPop(pContext);
@@ -3975,9 +4211,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 stackPush(pContext, pContext->fromUTF8String(typeStr));
-                break;
+                DISPATCH();
             }
-            case OP_instanceof: {
+            L_OP_instanceof: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* func = stackTop(pContext);
                 stackPop(pContext);
@@ -3991,7 +4227,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pending_exception = makeError(pContext, "TypeError",
                         "Right-hand side of 'instanceof' is not callable", pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                 const proto::ProtoObject* protoObj = func ? func->getAttribute(pContext, protoKey, false) : nullptr;
@@ -4007,15 +4243,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = makeError(pContext, "TypeError",
                             "Function has non-object prototype in instanceof check", pGlobalRoot);
                         has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                 }
                 const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE)
                     ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
                 stackPush(pContext, (res == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_in: {
+            L_OP_in: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 // QuickJS pushes: key first, then object. Stack top = object, second = key.
                 const proto::ProtoObject* obj    = stackTop(pContext);
@@ -4031,7 +4267,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pending_exception = makeError(pContext, "TypeError",
                         "Cannot use 'in' operator to search for property in non-object", pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
@@ -4051,14 +4287,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
                         if (sks && obj->hasAttribute(pContext, sks) == PROTO_TRUE) {
                             hasResult = PROTO_TRUE;
-                            break;
+                            DISPATCH();
                         }
                     }
                 }
                 stackPush(pContext, hasResult == PROTO_TRUE ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_delete: {
+            L_OP_delete: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* keyVal = stackTop(pContext);
                 stackPop(pContext);
@@ -4087,7 +4323,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (!(bits & 0x2)) {
                                     // Non-configurable: silently return false, property is retained.
                                     stackPush(pContext, PROTO_FALSE);
-                                    break;
+                                    DISPATCH();
                                 }
                             }
                         }
@@ -4116,10 +4352,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 stackPush(pContext, PROTO_TRUE);
-                break;
+                DISPATCH();
             }
-            case OP_call_method:
-            case OP_tail_call_method: {
+            L_OP_call_method: ;
+            L_OP_tail_call_method: {
                 // Stack (top = index 0): arg0, ..., arg(n-1), func, this. QuickJS: call_argv = sp - argc, call_argv[-1] = func, call_argv[-2] = this.
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t argc = get_u16(buf + pc);
@@ -4179,7 +4415,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
@@ -4199,7 +4435,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         has_pending_exception = true;
                         t_hasCallException = false;
                         t_callException    = nullptr;
-                        break;
+                        DISPATCH();
                     }
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
@@ -4262,9 +4498,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                break;
+                DISPATCH();
             }
-            case OP_call_constructor: {
+            L_OP_call_constructor: {
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint32_t argc = get_u16(buf + pc);
                 pc += 2;
@@ -4313,7 +4549,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 
                 if (!newObj) {
                     stackPush(pContext, PROTO_NONE);
-                    break;
+                    DISPATCH();
                 }
                 
                 const proto::ProtoObject* result = PROTO_NONE;
@@ -4345,7 +4581,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot, &childEx);
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                 } else if (func && func->isMethod(pContext)) {
                     const proto::ProtoMethod ctorFn = func->asMethod(pContext);
@@ -4440,15 +4676,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 bool resultIsObject = result && result != PROTO_NONE && !result->isInteger(pContext) && !result->isDouble(pContext) && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
                 stackPush(pContext, resultIsObject ? result : newObj);
-                break;
+                DISPATCH();
             }
-            case OP_tail_call: // tail-call: same encoding as OP_call but the result is
+            L_OP_tail_call: // tail-call: same encoding as OP_call but the result is
                                // returned from the current function rather than pushed to stack.
-            case OP_call0:
-            case OP_call1:
-            case OP_call2:
-            case OP_call3:
-            case OP_call: {
+            L_OP_call0: ;
+            L_OP_call1: ;
+            L_OP_call2: ;
+            L_OP_call3: ;
+            L_OP_call: {
                 bool is_tail_call = (opcode == OP_tail_call);
                 uint32_t argc;
                 if (opcode >= OP_call0 && opcode <= OP_call3) {
@@ -4527,7 +4763,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                     if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
@@ -4547,7 +4783,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         has_pending_exception = true;
                         t_hasCallException = false;
                         t_callException    = nullptr;
-                        break;
+                        DISPATCH();
                     }
                     if (is_tail_call) return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
@@ -4621,9 +4857,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                break;
+                DISPATCH();
             }
-    case OP_fclosure8: {
+    L_OP_fclosure8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t idx = buf[pc++];
                 const proto::ProtoObject* rawFn = (idx < cpool.size()) ? cpool[idx] : PROTO_NONE;
@@ -4716,9 +4952,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     stackPush(pContext, rawFn ? rawFn : PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_fclosure: {
+            L_OP_fclosure: {
                 if (pc + 4 > len) return PROTO_NONE;
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
@@ -4808,33 +5044,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     stackPush(pContext, rawFn2 ? rawFn2 : PROTO_NONE);
                 }
-                break;
+                DISPATCH();
             }
-            case OP_is_undefined: {
+            L_OP_is_undefined: {
                 // Pops one value; pushes true if it is undefined (PROTO_NONE in protoCore).
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_is_null: {
+            L_OP_is_null: {
                 // Pops one value; pushes true if it is null (t_nullSentinel only).
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 stackPush(pContext, (val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_typeof_is_undefined: {
+            L_OP_typeof_is_undefined: {
                 // Pops one value; pushes true if typeof is "undefined".
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
-            case OP_typeof_is_function: {
+            L_OP_typeof_is_function: {
                 // Pops one value; pushes true if typeof is "function".
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
@@ -4874,13 +5110,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 stackPush(pContext, isFunc ? PROTO_TRUE : PROTO_FALSE);
-                break;
+                DISPATCH();
             }
             // ---------------------------------------------------------------
             // Step A — OP_array_from
             // DEF(array_from, 3, 0, 1, npop) — 1 opcode + 2-byte element count
             // ---------------------------------------------------------------
-            case OP_array_from: {
+            L_OP_array_from: {
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t count = get_u16(buf + pc);
                 pc += 2;
@@ -4895,7 +5131,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
                     ? arrProto->newChild(pContext, true)   // mutable, inherits Array.prototype
                     : pContext->newObject(true);            // fallback: mutable plain object
-                if (!arr) { stackPush(pContext, PROTO_NONE); break; }
+                if (!arr) { stackPush(pContext, PROTO_NONE); DISPATCH(); }
                 // Build the elements ProtoList (native storage) and publish it
                 // via a single setAttribute(__elements__, …) at the end.  This
                 // is the lazy-publish pattern: appendLast per element is
@@ -4910,7 +5146,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
                 if (list) protojs::setArrayElements(pContext, arr, list);
                 stackPush(pContext, arr ? arr : PROTO_NONE);
-                break;
+                DISPATCH();
             }
 
             // ---------------------------------------------------------------
@@ -4924,7 +5160,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             //       Push the iterator itself and record it as a "next()-based" iterator.
             //   (B) Array/TypedArray with numeric .length — use the slot-based index loop.
             //   Otherwise returns PROTO_NONE (vacuous pass for unsupported iterables).
-            case OP_for_of_start: {
+            L_OP_for_of_start: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* iterable = stackTop(pContext);
                 stackPop(pContext);
@@ -4933,7 +5169,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pending_exception = makeError(pContext, "TypeError",
                         "null is not iterable", pGlobalRoot);
                     has_pending_exception = true;
-                    break;
+                    DISPATCH();
                 }
                 // PROTO_NONE guard: generator iterables return PROTO_NONE from OP_initial_yield
                 // (unsupported). Propagate vacuous-pass so generator-based for-of tests don't regress.
@@ -4963,7 +5199,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         stackPush(pContext, iterObj);
                         stackPush(pContext, PROTO_NONE);
                         stackPush(pContext, pContext->fromInteger(0LL));
-                        break;
+                        DISPATCH();
                     }
                 }
 
@@ -4984,7 +5220,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         has_pending_exception = true;
                         t_hasCallException = false;
                         t_callException    = nullptr;
-                        break;
+                        DISPATCH();
                     }
                     if (!iterator || iterator == PROTO_NONE) return PROTO_NONE;
                     uint32_t baseSlotC = 0x10000u + static_cast<uint32_t>(pc - 1);
@@ -5000,7 +5236,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, iterObjC);
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, pContext->fromInteger(0LL));
-                    break;
+                    DISPATCH();
                 }
                 // Use a PC-based slot pair unique to this for-of loop site.
                 uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
@@ -5015,12 +5251,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, iterObj);           // iterator
                 stackPush(pContext, PROTO_NONE);        // nextMethod placeholder
                 stackPush(pContext, pContext->fromInteger(0LL)); // catch_offset placeholder
-                break;
+                DISPATCH();
             }
 
             // OP_for_of_next: DEF(for_of_next, 2, 3, 5, u8)
             // 1 opcode + 1 u8 rawOffset.  Reads iterator state; pushes [value, done] (net +2).
-            case OP_for_of_next: {
+            L_OP_for_of_next: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t rawOffset = buf[pc++];
                 // iterator object is 2 + rawOffset positions from TOS (QuickJS protocol).
@@ -5028,14 +5264,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!iterObj2 || iterObj2 == PROTO_NONE) {
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
-                    break;
+                    DISPATCH();
                 }
                 const proto::ProtoString* slotKey3 = JSSymbols::iterSlot(pContext);
                 const proto::ProtoObject* slotVal = slotKey3 ? iterObj2->getAttribute(pContext, slotKey3, false) : PROTO_NONE;
                 if (!slotVal || slotVal == PROTO_NONE || !slotVal->isInteger(pContext)) {
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
-                    break;
+                    DISPATCH();
                 }
                 uint32_t bs = static_cast<uint32_t>(slotVal->asLong(pContext));
                 const proto::ProtoObject* arrObj  = getSlot(pContext, bs);
@@ -5043,7 +5279,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!arrObj || arrObj == PROTO_NONE || !idxObj2 || !idxObj2->isInteger(pContext)) {
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
-                    break;
+                    DISPATCH();
                 }
                 long long idx2 = idxObj2->asLong(pContext);
 
@@ -5069,7 +5305,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 has_pending_exception = true;
                                 t_hasCallException = false;
                                 t_callException    = nullptr;
-                                break;
+                                DISPATCH();
                             }
                         }
                     }
@@ -5080,7 +5316,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // Invoke getter if .done is an accessor property.
                     if ((!doneFO || doneFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
                         const proto::ProtoObject* gd = invokeGetterIfPresent(resultFO, "done");
-                        if (has_pending_exception) break;
+                        if (has_pending_exception) DISPATCH();
                         if (gd && gd != PROTO_NONE) doneFO = gd;
                     }
                     const proto::ProtoObject* valueFO = (resultFO && resultFO != PROTO_NONE && valueKeyFO)
@@ -5088,7 +5324,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // Invoke getter if .value is an accessor property.
                     if ((!valueFO || valueFO == PROTO_NONE) && resultFO && resultFO != PROTO_NONE) {
                         const proto::ProtoObject* gv = invokeGetterIfPresent(resultFO, "value");
-                        if (has_pending_exception) break;
+                        if (has_pending_exception) DISPATCH();
                         if (gv && gv != PROTO_NONE) valueFO = gv;
                     }
                     const bool isDone = (!doneFO || doneFO == PROTO_NONE || doneFO == PROTO_TRUE);
@@ -5096,7 +5332,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (isDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
                     stackPush(pContext, valueFO ? valueFO : PROTO_NONE);
                     stackPush(pContext, isDone ? PROTO_TRUE : PROTO_FALSE);
-                    break;
+                    DISPATCH();
                 }
 
                 const proto::ProtoString* lenKey3 = JSSymbols::length(pContext);
@@ -5106,7 +5342,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (idx2 >= arrLen) {
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
-                    break;
+                    DISPATCH();
                 }
                 // Fetch element: TypedArrays use binary storage and require
                 // typedArrayGetElement; plain arrays use string-keyed attributes.
@@ -5125,12 +5361,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 setSlot(pContext, bs + 1, pContext->fromInteger(idx2 + 1LL));
                 stackPush(pContext, elemVal ? elemVal : PROTO_NONE);
                 stackPush(pContext, PROTO_FALSE); // done = false
-                break;
+                DISPATCH();
             }
 
             // OP_iterator_get_value_done: DEF(iterator_get_value_done, 1, 2, 3, none)
             // Stack before: [..., catch_0, result_obj]  → after: [..., new_catch_0, value, done]
-            case OP_iterator_get_value_done: {
+            L_OP_iterator_get_value_done: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
                 const proto::ProtoObject* result_obj = stackTop(pContext); stackPop(pContext);
                 stackPop(pContext); // discard catch_0
@@ -5145,19 +5381,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, pContext->fromInteger(0LL)); // new catch_offset placeholder
                 stackPush(pContext, value ? value : PROTO_NONE);
                 stackPush(pContext, done);
-                break;
+                DISPATCH();
             }
 
             // OP_iterator_check_object: DEF(iterator_check_object, 1, 1, 1, none)
             // Validates iterator result is object-like; protoCore accepts any non-null — no-op.
-            case OP_iterator_check_object:
+            L_OP_iterator_check_object: ;
                 // Leave TOS unchanged; no validation throw in protoCore.
-                break;
+                DISPATCH();
 
             // OP_iterator_close: DEF(iterator_close, 1, 3, 0, none)
             // Pops [iter, nextMethod, catch_0] from stack.
             // For native iterators (sentinel -1) call iterator.return() if present.
-            case OP_iterator_close: {
+            L_OP_iterator_close: {
                 // Pop catch_offset and nextMethod; keep iterObj to inspect.
                 if (!stackEmpty(pContext)) stackPop(pContext); // catch_offset
                 if (!stackEmpty(pContext)) stackPop(pContext); // nextMethod
@@ -5217,7 +5453,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                break;
+                DISPATCH();
             }
 
             // OP_iterator_next: DEF(iterator_next, 1, 4, 4, none)
@@ -5225,7 +5461,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // Stack after:  [iter, nextMethod, catch_offset, result_obj] (4 produced)
             // result_obj is a ProtoObject with "value" and "done" attributes.
             // Used by array/object destructuring patterns: const [a,b] = expr.
-            case OP_iterator_next: {
+            L_OP_iterator_next: {
                 if (stackSize(pContext) < 4) return PROTO_NONE;
                 // Pop all 4; save iter/nextMethod/catch for re-push.
                 stackPop(pContext); // sentinel (undefined or previous value — discarded)
@@ -5271,7 +5507,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     stackPush(pContext, iterObjIN);
                                     stackPush(pContext, nextMethodIN);
                                     stackPush(pContext, catchOffIN ? catchOffIN : pContext->fromInteger(0LL));
-                                    break;
+                                    DISPATCH();
                                 }
                             }
                         }
@@ -5328,7 +5564,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, nextMethodIN);
                 stackPush(pContext, catchOffIN ? catchOffIN : pContext->fromInteger(0LL));
                 stackPush(pContext, resultObjIN ? resultObjIN : PROTO_NONE);
-                break;
+                DISPATCH();
             }
 
             // OP_iterator_call: DEF(iterator_call, 2, 4, 5, u8)
@@ -5336,7 +5572,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // Stack after:  [iter, nextMethod, catch_offset, value, done] (5 produced)
             // flags=1: collect remaining iterator values into a rest array, done=false.
             // flags=0: iterator.return() cleanup path, value=undefined, done=true.
-            case OP_iterator_call: {
+            L_OP_iterator_call: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t icFlags = buf[pc++];
                 if (stackSize(pContext) < 4) {
@@ -5457,7 +5693,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 // If an exception was thrown inside the drain loop, the exception is
                 // already set; skip the push-back and let dispatch handle it.
-                if (icCallException) break;
+                if (icCallException) DISPATCH();
 
                 // Push back [iter, nextMethod, catch_offset, value, done].
                 stackPush(pContext, iterObjIC);
@@ -5465,7 +5701,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext, catchOffIC ? catchOffIC : pContext->fromInteger(0LL));
                 stackPush(pContext, resultValIC  ? resultValIC  : PROTO_NONE);
                 stackPush(pContext, resultDoneIC ? resultDoneIC : PROTO_TRUE);
-                break;
+                DISPATCH();
             }
 
             // ---------------------------------------------------------------
@@ -5476,7 +5712,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // Pop object, push a for-in iterator that carries all enumerable
             // string-keyed property names reachable through the full [[Prototype]]
             // chain (ES2015+ EnumerateObjectProperties semantics).
-            case OP_for_in_start: {
+            L_OP_for_in_start: {
                 const proto::ProtoObject* fiObj = PROTO_NONE;
                 if (!stackEmpty(pContext)) {
                     fiObj = stackTop(pContext);
@@ -5584,12 +5820,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (fiArrKey) fiIter = fiIter->setAttribute(pContext, fiArrKey, fiKeyArr);
                 if (fiIdxKey) fiIter = fiIter->setAttribute(pContext, fiIdxKey, pContext->fromInteger(0LL));
                 stackPush(pContext, fiIter);
-                break;
+                DISPATCH();
             }
 
             // OP_for_in_next: DEF(for_in_next, 1, 1, 3, none)
             // Pop the for-in iterator; push (updated_iterator, key_or_undefined, done).
-            case OP_for_in_next: {
+            L_OP_for_in_next: {
                 const proto::ProtoObject* fiIterN = PROTO_NONE;
                 if (!stackEmpty(pContext)) {
                     fiIterN = stackTop(pContext);
@@ -5638,7 +5874,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, PROTO_NONE); // undefined key
                     stackPush(pContext, PROTO_TRUE); // done = true
                 }
-                break;
+                DISPATCH();
             }
 
             // OP_initial_yield: DEF(initial_yield, 1, 0, 0, none)
@@ -5646,11 +5882,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // For pure async functions (async, not async-generator): fall through —
             // the body continues executing synchronously.
             // For generators (including async-generators): create the iterator object.
-            case OP_initial_yield: {
+            L_OP_initial_yield: {
                 // If this is an async function (but not an async-generator), skip the
                 // generator setup and continue executing the body synchronously.
                 if (mod->isAsync && !mod->isGenerator) {
-                    break; // fall through to next opcode
+                    DISPATCH(); // continue executing async body synchronously
                 }
 
                 // Build the iterator object.
@@ -5715,7 +5951,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
             // OP_yield: DEF(yield, 1, 1, 2, none)
             // Suspends the generator and yields a value to the outer caller.
-            case OP_yield: {
+            L_OP_yield: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* yieldVal = stackTop(pContext);
                 stackPop(pContext);
@@ -5759,13 +5995,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // OP_yield_star: DEF(yield_star, 1, 1, 2, none)
             // Delegates to inner iterable: calls inner.next() repeatedly, yielding each
             // value to the outer caller. When inner is done, pushes the final value.
-            case OP_yield_star: {
+            L_OP_yield_star: {
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* innerIter = stackTop(pContext);
                 stackPop(pContext);
                 if (!innerIter || innerIter == PROTO_NONE) {
                     stackPush(pContext, PROTO_NONE);
-                    break;
+                    DISPATCH();
                 }
 
                 // Get .next method from the inner iterator.
@@ -5774,7 +6010,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? innerIter->getAttribute(pContext, nextKey3, true) : PROTO_NONE;
                 if (!nextFn || nextFn == PROTO_NONE) {
                     stackPush(pContext, PROTO_NONE);
-                    break;
+                    DISPATCH();
                 }
 
                 // Delegate: loop calling inner.next(sentToInner) and yield each value.
@@ -5833,13 +6069,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     t_genResumePc = -2;
                     return makeIterResult(pContext, val2, false);
                 }
-                break;
+                DISPATCH();
             }
 
             // OP_return_async: DEF(return_async, 1, 1, 0, none)
             // Used at the end of an async function body in place of OP_return.
             // Pops the return value and wraps it in a fulfilled Promise.
-            case OP_return_async: {
+            L_OP_return_async: {
                 const proto::ProtoObject* retVal = PROTO_NONE;
                 if (!stackEmpty(pContext)) {
                     retVal = stackTop(pContext);
@@ -5853,8 +6089,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // OP_await: DEF(await, 1, 1, 1, none)
             // Synchronous approximation: if the value is a settled Promise, unwrap it.
             // For pending Promises and non-Promise values, use the value as-is.
-            case OP_await: {
-                if (stackEmpty(pContext)) { stackPush(pContext, PROTO_NONE); break; }
+            L_OP_await: {
+                if (stackEmpty(pContext)) { stackPush(pContext, PROTO_NONE); DISPATCH(); }
                 const proto::ProtoObject* awaitVal = stackTop(pContext);
                 stackPop(pContext);
                 if (!awaitVal) awaitVal = PROTO_NONE;
@@ -5870,65 +6106,79 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* reason = getPromiseValuePublic(pContext, awaitVal);
                         pending_exception = reason ? reason : PROTO_NONE;
                         has_pending_exception = true;
-                        break;
+                        DISPATCH();
                     }
                     // else pending: use undefined
                 }
                 stackPush(pContext, awaitVal);
-                break;
+                DISPATCH();
             }
 
             // OP_for_await_of_start: DEF(for_await_of_start, 1, 1, 3, none)
             // Async iteration setup. Fall through to normal iteration for synchronous
             // iterables (sync approximation).
-            case OP_for_await_of_start: {
+            L_OP_for_await_of_start: {
                 // Treat exactly like OP_for_of_start: no-op here; the value stays on stack.
                 // We push two placeholder slots to match the stack delta (1→3: +2 extra).
                 stackPush(pContext, PROTO_NONE);
                 stackPush(pContext, PROTO_NONE);
-                break;
+                DISPATCH();
             }
 
             // OP_for_await_of_next: DEF(for_await_of_next, 1, 3, 4, none)
             // Advance the async iterator. Treat as no-op (pending Promise) in sync mode.
-            case OP_for_await_of_next: {
+            L_OP_for_await_of_next: {
                 // Push undefined result for the iteration step (sync approximation).
                 stackPush(pContext, PROTO_NONE);
-                break;
+                DISPATCH();
             }
 
-            default: {
+            L_default: {
                 // Unknown opcode: log for diagnostics; execution cannot continue safely.
                 std::fprintf(stderr, "[ProtoInterpreter] unsupported opcode 0x%02x at byte offset %d\n",
                     static_cast<unsigned>(opcode), static_cast<int>(pc - 1));
                 return PROTO_NONE;
             }
-        } // end switch
 
-        // --- Exception dispatch ---
-        // If the switch body raised an exception (has_pending_exception flag),
-        // either jump to the nearest catch handler or propagate to the caller.
-        // Note: pending_exception may be PROTO_NONE (JS `throw undefined`) — use the flag.
-        if (has_pending_exception) {
-            has_pending_exception = false;
-            if (!catch_stack.empty()) {
-                CatchFrame frame = catch_stack.back();
-                catch_stack.pop_back();
-                // Restore value stack: truncate to placeholder_stack_pos (the sentinel slot),
-                // then push the exception.  This replaces the catch sentinel with the caught value,
-                // matching QuickJS's behaviour where the tagged catch-offset integer is replaced
-                // with the exception object at that same stack position.
-                while (stackSize(pContext) > frame.placeholder_stack_pos) stackPop(pContext);
-                stackPush(pContext, pending_exception);
-                pc = frame.handler_pc;
-                pending_exception = nullptr;
-                // Continue executing from the catch handler.
-            } else {
-                if (outException) *outException = pending_exception;
-                return PROTO_NONE;
+            // --- Exception dispatch ---
+            // If a case raised an exception (has_pending_exception flag),
+            // DISPATCH() above noticed and jumped here in lieu of fetching
+            // the next opcode.  Either jump to the nearest catch handler
+            // or propagate to the caller.  pending_exception may itself be
+            // PROTO_NONE (JS `throw undefined`) — use the flag.
+            handle_exception_label: {
+                has_pending_exception = false;
+                if (!catch_stack.empty()) {
+                    CatchFrame frame = catch_stack.back();
+                    catch_stack.pop_back();
+                    // Restore value stack: truncate to placeholder_stack_pos (the sentinel slot),
+                    // then push the exception.  This replaces the catch sentinel with the caught
+                    // value, matching QuickJS's behaviour where the tagged catch-offset integer is
+                    // replaced with the exception object at that same stack position.
+                    while (stackSize(pContext) > frame.placeholder_stack_pos) stackPop(pContext);
+                    stackPush(pContext, pending_exception);
+                    pc = frame.handler_pc;
+                    pending_exception = nullptr;
+                    // Continue executing from the catch handler — re-enter
+                    // the dispatch loop directly (DISPATCH() but bypassing
+                    // the has_pending_exception check we just satisfied).
+                    if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch;
+                    globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
+                    opcode = (int)(unsigned char)buf[pc++];
+                    {
+                        const void* tgt = dispatch_table[opcode];
+                        if (__builtin_expect(tgt == nullptr, 0)) goto L_default;
+                        goto *tgt;
+                    }
+                } else {
+                    if (outException) *outException = pending_exception;
+                    return PROTO_NONE;
+                }
             }
-        }
+
+            exit_dispatch: ;
     }
+    #undef DISPATCH
     return PROTO_NONE;
 }
 
