@@ -163,48 +163,48 @@ remove the "parallel_cpu is not actually parallel" caveat.
 
 ### Step 6+ — Remaining modules
 
-Migrated in the apr 2026 push (16 modules, ~3300 LOC of churn):
+Migrated (22 modules total in the apr 2026 push):
 
 | Module           | LOC | Notes |
 |------------------|-----|-------|
-| `process`        | 119 | ✅ argv as real Array; env from POSIX `environ`; cwd/platform/arch/exit |
-| `path`           | 183 | ✅ All eight string-path helpers (`join`/`resolve`/`normalize`/etc.) |
-| `util`           | 155 | ✅ `types.*` predicates + inspect/format; `promisify` still a stub |
+| `process`        | 119 | ✅ argv as real Array; env from POSIX `environ` |
+| `path`           | 183 | ✅ All eight string-path helpers |
+| `util`           | 155 | ✅ `types.*` predicates + inspect/format |
 | `events`         | 124 | ✅ `EventEmitter` class; state via `__listeners__` attribute |
-| `url`            |  54 | ✅ `URL` constructor + toString — establishes `__construct__` pattern |
+| `url`            |  54 | ✅ `URL` class — establishes `__construct__` pattern |
 | `dns`            | 239 | ✅ sync + async lookups; async pinned through wrapper root set |
 | `Profiler`       | 102 | ✅ start/stop/getProfile + memory variants |
 | `VisualProfiler` | 157 | ✅ exportProfile (Chrome DevTools JSON) + generateHTMLReport |
-| `MemoryAnalyzer` | 272 | ✅ heapSnapshot now reads protoCore's heapSize/freeCellsCount |
+| `MemoryAnalyzer` | 272 | ✅ snapshots from protoCore's heapSize/freeCellsCount |
 | `IntegratedDebugger` | 323 | ✅ CDP server + breakpoint / call-stack bookkeeping |
 | `IOModule`       | 246 | ✅ readFile / writeFile / *Async (now real ProtoDeferred) |
-| `CommonJSLoader` | 468 | ✅ `require()` + `require.resolve` / `require.cache` on protoCore-native global |
+| `CommonJSLoader` | 468 | ✅ `require()` + `require.resolve` / `require.cache` |
+| `fs`             | 626 | ✅ Sync API + `fs.promises` returning real ProtoDeferreds |
+| `stream`         | 336 | ✅ Readable / Writable / Duplex / Transform / PassThrough |
+| `crypto`         | 540 | ✅ Hash class fully working via OpenSSL EVP; Cipher/Sign/Verify stubs preserved |
+| `cluster`        | 295 | ✅ fork-based workers; per-worker state in attributes |
+| `child_process`  | 348 | ✅ spawn / exec / execFile / fork |
+| `dgram`          | 445 | ✅ UDP sockets via createSocket |
 | (already done earlier) | — | console, TimingAPIs, EventLoopBindings, ProtoDeferred, ProtoCoreNativeBindings |
 
-Pending (each defines a JS class with private state — same six-step
-recipe but more surface area):
+Pending (4 modules, all stateful classes — same six-step recipe but
+more surface area; ~2500 LOC):
 
 | Module          | LOC | Notes |
 |-----------------|-----|-------|
-| `stream`        | 336 | Readable / Writable / Duplex / Transform classes |
-| `cluster`       | 295 | Workers via `fork()`; depends on `events` (done) |
-| `child_process` | 348 | spawn / exec; depends on `events` (done) |
-| `dgram`         | 445 | UDP sockets — Socket class with `events` (done) integration |
 | `http`          | 527 | Server / IncomingMessage / ClientRequest, depends on `net` |
-| `worker_threads`| 530 | Worker class; spawns JSContextWrappers — already partially migrated for the EE setup |
-| `crypto`        | 540 | Hash + Cipher classes; can use protoCore Symbol pattern for algorithm constants |
-| `fs`            | 626 | All file IO; sync helpers can reuse `IOModule::{read,write}FileSync` |
+| `worker_threads`| 530 | Worker class; spawns JSContextWrappers |
 | `net`           | 708 | Socket / Server classes |
 | `Buffer`        | 746 | Array-like with byte storage; biggest single migration |
 
-Cleanup (no migration, just deletion):
-  - `src/Deferred.cpp` / `.h` — the original QuickJS-side Deferred,
-    superseded by `ProtoDeferred.cpp`.  No JS-visible binding
-    references it on the protoCore eval path; safe to delete once
-    QuickJS-side init paths in main.cpp are gone (they still call
-    `Deferred::init` but only because of leftover wiring; those
-    sites should be the next target after one more module
-    migration).
+Cleanup (deletion targets, no migration):
+  - `src/Deferred.cpp` / `.h` — original QuickJS-side Deferred,
+    superseded by `ProtoDeferred.cpp`.  Safe to delete once the
+    `Deferred::init` calls in main.cpp are removed (they install on
+    the QuickJS-side global only and are unreachable from the
+    protoCore eval path).
+  - `src/modules/AsyncModuleLoader.cpp` / ESModuleLoader — verify
+    whether these are reachable; if not, drop.
 
 ### Migration recipe
 
