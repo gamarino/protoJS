@@ -163,48 +163,48 @@ remove the "parallel_cpu is not actually parallel" caveat.
 
 ### Step 6+ — Remaining modules
 
-Migrated in this iteration (apr 2026):
+Migrated in the apr 2026 push (16 modules, ~3300 LOC of churn):
 
-| Module        | LOC | Status | Notes |
-|---------------|-----|--------|-------|
-| `process`     | 119 | ✅ done | argv as real Array; env from POSIX `environ`; cwd/platform/arch/exit |
-| `path`        | 183 | ✅ done | All eight string-path helpers (`join`/`resolve`/`normalize`/etc.) |
-| `util`        | 155 | ✅ done | `types.*` predicates + inspect/format; `promisify` still a stub |
-| `events`      | 124 | ✅ done | `EventEmitter` class; instance state via `__listeners__` attribute, no finalizer |
-| `url`         |  54 | ✅ done | `URL` constructor + toString — establishes the `__construct__`-hook pattern |
+| Module           | LOC | Notes |
+|------------------|-----|-------|
+| `process`        | 119 | ✅ argv as real Array; env from POSIX `environ`; cwd/platform/arch/exit |
+| `path`           | 183 | ✅ All eight string-path helpers (`join`/`resolve`/`normalize`/etc.) |
+| `util`           | 155 | ✅ `types.*` predicates + inspect/format; `promisify` still a stub |
+| `events`         | 124 | ✅ `EventEmitter` class; state via `__listeners__` attribute |
+| `url`            |  54 | ✅ `URL` constructor + toString — establishes `__construct__` pattern |
+| `dns`            | 239 | ✅ sync + async lookups; async pinned through wrapper root set |
+| `Profiler`       | 102 | ✅ start/stop/getProfile + memory variants |
+| `VisualProfiler` | 157 | ✅ exportProfile (Chrome DevTools JSON) + generateHTMLReport |
+| `MemoryAnalyzer` | 272 | ✅ heapSnapshot now reads protoCore's heapSize/freeCellsCount |
+| `IntegratedDebugger` | 323 | ✅ CDP server + breakpoint / call-stack bookkeeping |
+| `IOModule`       | 246 | ✅ readFile / writeFile / *Async (now real ProtoDeferred) |
+| `CommonJSLoader` | 468 | ✅ `require()` + `require.resolve` / `require.cache` on protoCore-native global |
+| (already done earlier) | — | console, TimingAPIs, EventLoopBindings, ProtoDeferred, ProtoCoreNativeBindings |
 
-Pending (same mechanical pattern; remaining files in `src/modules/`):
+Pending (each defines a JS class with private state — same six-step
+recipe but more surface area):
 
-  Critical-for-CommonJS:
-  - `require` / `CommonJSLoader` (468 LOC) — the module loader.  Until
-    it is migrated, every `require('fs')` etc. still resolves through
-    the QuickJS-side global, even if the module behind the name has
-    been migrated.  Should come EARLY when work resumes.
+| Module          | LOC | Notes |
+|-----------------|-----|-------|
+| `stream`        | 336 | Readable / Writable / Duplex / Transform classes |
+| `cluster`       | 295 | Workers via `fork()`; depends on `events` (done) |
+| `child_process` | 348 | spawn / exec; depends on `events` (done) |
+| `dgram`         | 445 | UDP sockets — Socket class with `events` (done) integration |
+| `http`          | 527 | Server / IncomingMessage / ClientRequest, depends on `net` |
+| `worker_threads`| 530 | Worker class; spawns JSContextWrappers — already partially migrated for the EE setup |
+| `crypto`        | 540 | Hash + Cipher classes; can use protoCore Symbol pattern for algorithm constants |
+| `fs`            | 626 | All file IO; sync helpers can reuse `IOModule::{read,write}FileSync` |
+| `net`           | 708 | Socket / Server classes |
+| `Buffer`        | 746 | Array-like with byte storage; biggest single migration |
 
-  Stateful classes (each defines a JS class with private state):
-  - `Buffer` (746 LOC) — array-like with byte storage; biggest single
-    migration.
-  - `fs` (626 LOC) — file IO; depends on `path` (already migrated).
-  - `crypto` (540 LOC) — hash + cipher classes.
-  - `stream` (336 LOC) — Readable / Writable / Duplex / Transform.
-  - `http` (527 LOC) — Server / IncomingMessage / ClientRequest.
-  - `net` (708 LOC) — Server / Socket.
-  - `worker_threads` (530 LOC) — Worker class; itself spawns
-    JSContextWrappers, must coordinate with the protoCore-native
-    install of EventsModule on each worker (already partially done).
-
-  Smaller / specialized:
-  - `cluster` (295 LOC), `dgram` (445 LOC), `child_process` (348 LOC),
-    `dns` (239 LOC), `IOModule` (246 LOC).
-
-  Tooling globals:
-  - `Profiler` (102 LOC), `VisualProfiler` (157 LOC), `MemoryAnalyzer`
-    (272 LOC), `IntegratedDebugger` (323 LOC).
-
-  Legacy:
-  - `Deferred.cpp` (the original QuickJS-side Deferred, replaced by
-    ProtoDeferred.cpp at runtime; dead code we can remove once no
-    test references the old class).
+Cleanup (no migration, just deletion):
+  - `src/Deferred.cpp` / `.h` — the original QuickJS-side Deferred,
+    superseded by `ProtoDeferred.cpp`.  No JS-visible binding
+    references it on the protoCore eval path; safe to delete once
+    QuickJS-side init paths in main.cpp are gone (they still call
+    `Deferred::init` but only because of leftover wiring; those
+    sites should be the next target after one more module
+    migration).
 
 ### Migration recipe
 
