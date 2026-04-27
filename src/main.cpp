@@ -299,7 +299,11 @@ int main(int argc, char** argv) {
             nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
-        protojs::CryptoModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::CryptoModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         protojs::BufferModule::init(wrapper.getJSContext());
         protojs::NetModule::init(wrapper.getJSContext());
         protojs::WorkerThreadsModule::init(wrapper.getJSContext());
@@ -442,7 +446,11 @@ int main(int argc, char** argv) {
         nativeGlobal = protojs::UtilModule::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    protojs::CryptoModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::CryptoModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     protojs::BufferModule::init(wrapper.getJSContext());
     protojs::NetModule::init(wrapper.getJSContext());
     protojs::WorkerThreadsModule::init(wrapper.getJSContext());
