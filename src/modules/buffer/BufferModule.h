@@ -1,36 +1,28 @@
 #ifndef PROTOJS_BUFFERMODULE_H
 #define PROTOJS_BUFFERMODULE_H
 
-#include "quickjs.h"
 #include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `Buffer` global — protoCore-native.
+ *
+ * Replaces the original QuickJS-side implementation: each Buffer
+ * instance is a ProtoObject whose `__byte_buffer__` attribute is the
+ * `ProtoByteBuffer::asObject()` handle, traced naturally by protoCore's
+ * GC.  No JS_NewClassID / JS_SetOpaque is used.
+ *
+ * The constructor (`new Buffer(size|string|array)`) and the static
+ * factories (`Buffer.from`, `Buffer.alloc`, `Buffer.concat`,
+ * `Buffer.isBuffer`) live on the same `Buffer` callable, which is
+ * installed on the protoCore-native global.
+ */
 class BufferModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    // Static methods
-    static JSValue bufferFrom(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferAlloc(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferConcat(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferIsBuffer(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    
-    // Constructor
-    static JSValue BufferConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
-    static void BufferFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Instance methods
-    static JSValue bufferToString(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferSlice(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferCopy(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferFill(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferIndexOf(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue bufferIncludes(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    
-    // Helper functions
-    static const proto::ProtoByteBuffer* getBufferData(JSContext* ctx, JSValueConst val);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

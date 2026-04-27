@@ -1,35 +1,29 @@
 #ifndef PROTOJS_NETMODULE_H
 #define PROTOJS_NETMODULE_H
 
-#include "quickjs.h"
-#include <vector>
-#include <string>
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `net` module — protoCore-native.
+ *
+ * Replaces the original QuickJS-side implementation: Server / Socket
+ * are protoCore prototypes whose per-instance state lives behind
+ * ProtoExternalPointer attributes (std::thread, atomic flags, fds).
+ * Cross-thread emit goes through EventLoop::enqueueCallback +
+ * callJSFunctionFromAsync against the wrapper that owns the instance.
+ */
 class NetModule {
 public:
-    static void init(JSContext* ctx);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 
-private:
-    // Server methods
-    static JSValue createServer(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue serverListen(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue serverClose(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue serverAddress(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void ServerFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Socket methods
-    static JSValue createConnection(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketConnect(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketWrite(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketEnd(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketDestroy(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue socketAddress(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void SocketFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Helper functions
-    static std::vector<uint8_t> getDataFromJSValue(JSContext* ctx, JSValueConst val, const char* encoding = "utf8");
+    /** Number of net.Server / net.Socket objects with active background
+     *  threads (accept loops, read loops).  main.cpp's drain loop uses
+     *  this to keep the process alive while at least one is running. */
+    static int getActiveCount();
 };
 
 } // namespace protojs

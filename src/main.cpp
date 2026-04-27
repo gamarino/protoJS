@@ -308,8 +308,16 @@ int main(int argc, char** argv) {
             nativeGlobal = protojs::CryptoModule::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
-        protojs::BufferModule::init(wrapper.getJSContext());
-        protojs::NetModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::BufferModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::NetModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             nativeGlobal = protojs::WorkerThreadsModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -479,8 +487,16 @@ int main(int argc, char** argv) {
         nativeGlobal = protojs::CryptoModule::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    protojs::BufferModule::init(wrapper.getJSContext());
-    protojs::NetModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::BufferModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::NetModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::WorkerThreadsModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -597,7 +613,8 @@ int main(int argc, char** argv) {
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
            protojs::Deferred::getActiveDeferredCount() > 0 ||
            protojs::ProtoDeferred::getActiveCount() > 0 ||
-           protojs::HTTPModule::getActiveServerCount() > 0) {
+           protojs::HTTPModule::getActiveServerCount() > 0 ||
+           protojs::NetModule::getActiveCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

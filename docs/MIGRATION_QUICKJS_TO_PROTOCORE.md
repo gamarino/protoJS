@@ -187,14 +187,16 @@ Migrated (22 modules total in the apr 2026 push):
 | `dgram`          | 445 | ✅ UDP sockets via createSocket |
 | `http`           | 527 | ✅ createServer/listen/close + IncomingMessage (getHeader) + ServerResponse (writeHead/write/end); accept loop on std::thread captured via ExternalPointer; request listener pinned in ProtoRootSet; activeServer counter keeps event loop alive while bound |
 | `worker_threads` | 542 | ✅ Worker class via prototype + ExternalPointer-backed `WorkerState` (std::thread + owned JSContextWrapper); on/emit/postMessage/terminate; cross-wrapper messaging via in-module C++ JSON serialise/parse + ProtoRootSet pin for the Worker instance; events.EventEmitter mixin via __events__ delegate; isMainThread / parentPort / workerData global accessors |
+| `Buffer`         | 746 | ✅ Each Buffer is a ProtoObject carrying `__byte_buffer__` (a `ProtoByteBuffer::asObject()` handle traced naturally by the GC) plus `__is_buffer__` marker; toString / slice / copy / fill / indexOf / includes on the prototype; from / alloc / concat / isBuffer on the constructor; supports utf8/hex/ascii/latin1/base64 |
+| `net`            | 708 | ✅ Server / Socket via prototype + ExternalPointer-backed state; accept and read loops on std::thread captured in `ServerState` / `SocketState`; on/emit forwarders to events.EventEmitter delegate; cross-thread emit via EventLoop::enqueueCallback + callJSFunctionFromAsync; data events deliver real Buffer instances; activeCount feeds main.cpp's drain loop |
 | (already done earlier) | — | console, TimingAPIs, EventLoopBindings, ProtoDeferred, ProtoCoreNativeBindings |
 
-Pending (2 modules, both stateful classes; ~1450 LOC):
-
-| Module          | LOC | Notes |
-|-----------------|-----|-------|
-| `net`           | 708 | Socket / Server classes |
-| `Buffer`        | 746 | Array-like with byte storage; biggest single migration |
+Migration complete — every user-facing module now lives on the
+protoCore-native side.  No `JS_NewClassID`, `JS_SetOpaque`, or
+QuickJS-side per-instance struct remains in the registered modules.
+QuickJS continues to provide parsing / compilation only; the runtime
+contract (objects, GC, threading, I/O) is owned end-to-end by
+protoCore.
 
 Bug fix bundled with this batch
   - `EventsModule::listenersKey` was caching the `__listeners__`

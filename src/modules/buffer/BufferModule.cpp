@@ -1,746 +1,590 @@
 #include "BufferModule.h"
-#include "../../JSContext.h"
-#include "../../TypeBridge.h"
-#include "../../GCBridge.h"
-#include <vector>
-#include <string>
-#include <cstring>
+#include "../../ProtoNativeModule.h"
+#include "../../ArrayElementsStorage.h"
+#include "../../ArrayPrototype.h"
+#include "../../FunctionPrototype.h"
+#include "../../JSSymbols.h"
 #include <algorithm>
-#include <sstream>
+#include <cstring>
 #include <iomanip>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace protojs {
 
-static JSClassID buffer_class_id;
+namespace {
 
-struct BufferData {
-    const proto::ProtoObject* bufferObj;  // Store ProtoObject instead
-    proto::ProtoContext* pContext;
-    JSRuntime* rt;
-    
-    BufferData(const proto::ProtoObject* buf, proto::ProtoContext* ctx, JSRuntime* r)
-        : bufferObj(buf), pContext(ctx), rt(r) {}
-    
-    // Helper to get buffer pointer (workaround for asByteBuffer)
-    const proto::ProtoByteBuffer* getByteBuffer() const {
-        // Since ProtoByteBuffer::asObject returns ProtoObject*, we can reverse-cast
-        // This is a workaround - in production, protoCore should expose asByteBuffer
-        return reinterpret_cast<const proto::ProtoByteBuffer*>(bufferObj);
-    }
-    
-    unsigned long getSize() const {
-        const proto::ProtoByteBuffer* buf = getByteBuffer();
-        return buf ? buf->getSize(pContext) : 0;
-    }
-    
-    const char* getBufferPtr() const {
-        const proto::ProtoByteBuffer* buf = getByteBuffer();
-        return buf ? buf->getBuffer(pContext) : nullptr;
-    }
-    
-    // Explicitly disable copy constructor to avoid ambiguity
-    BufferData(const BufferData&) = delete;
-    BufferData& operator=(const BufferData&) = delete;
-};
-
-void BufferModule::init(JSContext* ctx) {
-    JSRuntime* rt = JS_GetRuntime(ctx);
-    
-    // Register Buffer class
-    JS_NewClassID(&buffer_class_id);
-    JSClassDef bufferClassDef = {
-        "Buffer",
-        BufferFinalizer
-    };
-    JS_NewClass(rt, buffer_class_id, &bufferClassDef);
-    
-    JSValue bufferProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, bufferProto, "toString", JS_NewCFunction(ctx, bufferToString, "toString", 3));
-    JS_SetPropertyStr(ctx, bufferProto, "slice", JS_NewCFunction(ctx, bufferSlice, "slice", 2));
-    JS_SetPropertyStr(ctx, bufferProto, "copy", JS_NewCFunction(ctx, bufferCopy, "copy", 4));
-    JS_SetPropertyStr(ctx, bufferProto, "fill", JS_NewCFunction(ctx, bufferFill, "fill", 4));
-    JS_SetPropertyStr(ctx, bufferProto, "indexOf", JS_NewCFunction(ctx, bufferIndexOf, "indexOf", 3));
-    JS_SetPropertyStr(ctx, bufferProto, "includes", JS_NewCFunction(ctx, bufferIncludes, "includes", 2));
-    JS_SetClassProto(ctx, buffer_class_id, bufferProto);
-    
-    JSValue bufferCtor = JS_NewCFunction2(ctx, BufferConstructor, "Buffer", 2, JS_CFUNC_constructor, 0);
-    JS_SetPropertyStr(ctx, bufferCtor, "from", JS_NewCFunction(ctx, bufferFrom, "from", 2));
-    JS_SetPropertyStr(ctx, bufferCtor, "alloc", JS_NewCFunction(ctx, bufferAlloc, "alloc", 3));
-    JS_SetPropertyStr(ctx, bufferCtor, "concat", JS_NewCFunction(ctx, bufferConcat, "concat", 2));
-    JS_SetPropertyStr(ctx, bufferCtor, "isBuffer", JS_NewCFunction(ctx, bufferIsBuffer, "isBuffer", 1));
-    JS_SetConstructor(ctx, bufferCtor, bufferProto);
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "Buffer", bufferCtor);
-    JS_FreeValue(ctx, global_obj);
+const proto::ProtoString* keyByteBuffer(proto::ProtoContext* ctx) {
+    return proto::ProtoString::createSymbol(ctx, "__byte_buffer__");
+}
+const proto::ProtoString* keyIsBufferMark(proto::ProtoContext* ctx) {
+    return proto::ProtoString::createSymbol(ctx, "__is_buffer__");
 }
 
-JSValue BufferModule::BufferConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv) {
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "Buffer constructor requires at least one argument");
-    }
-    
-    const proto::ProtoObject* bufferObj = nullptr;
-    
-    if (JS_IsNumber(argv[0])) {
-        // Buffer(size)
-        int32_t size;
-        if (JS_ToInt32(ctx, &size, argv[0]) < 0) {
-            return JS_EXCEPTION;
+// ---- Argument helpers --------------------------------------------------
+
+bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+             int idx, long long& out) {
+    if (!ctx || !args) return false;
+    if (idx >= static_cast<int>(args->getSize(ctx))) return false;
+    const proto::ProtoObject* a = args->getAt(ctx, idx);
+    if (!a || !a->isInteger(ctx)) return false;
+    out = a->asLong(ctx);
+    return true;
+}
+
+bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+                int idx, std::string& out) {
+    if (!ctx || !args) return false;
+    if (idx >= static_cast<int>(args->getSize(ctx))) return false;
+    const proto::ProtoObject* a = args->getAt(ctx, idx);
+    if (!a || !a->isString(ctx)) return false;
+    a->asString(ctx)->toUTF8String(ctx, out);
+    return true;
+}
+
+// ---- Encoding helpers --------------------------------------------------
+
+std::vector<uint8_t> decodeString(const std::string& str,
+                                    const std::string& encoding) {
+    std::vector<uint8_t> out;
+    if (encoding == "utf8" || encoding == "utf-8" ||
+        encoding == "ascii" || encoding == "latin1") {
+        out.assign(str.begin(), str.end());
+    } else if (encoding == "hex") {
+        for (size_t i = 0; i + 1 < str.size(); i += 2) {
+            char hex[3] = {str[i], str[i + 1], '\0'};
+            out.push_back(static_cast<uint8_t>(std::strtoul(hex, nullptr, 16)));
         }
-        if (size < 0) {
-            return JS_ThrowTypeError(ctx, "Buffer size must be non-negative");
-        }
-        bufferObj = pContext->newBuffer(size);
-    } else if (JS_IsString(argv[0])) {
-        // Buffer(string, encoding)
-        const char* str = JS_ToCString(ctx, argv[0]);
-        if (!str) return JS_EXCEPTION;
-        
-        const char* encoding = "utf8";
-        if (argc > 1 && JS_IsString(argv[1])) {
-            encoding = JS_ToCString(ctx, argv[1]);
-        }
-        
-        // Use helper function from anonymous namespace
-        auto decodeHelper = [](const char* s, size_t l, const char* enc) -> std::vector<uint8_t> {
-            std::vector<uint8_t> result;
-            if (strcmp(enc, "utf8") == 0 || strcmp(enc, "utf-8") == 0) {
-                result.assign(reinterpret_cast<const uint8_t*>(s), reinterpret_cast<const uint8_t*>(s) + l);
-            } else if (strcmp(enc, "hex") == 0) {
-                for (size_t i = 0; i < l; i += 2) {
-                    if (i + 1 < l) {
-                        char hex[3] = {s[i], s[i + 1], '\0'};
-                        result.push_back(static_cast<uint8_t>(strtoul(hex, nullptr, 16)));
-                    }
-                }
-            } else {
-                result.assign(reinterpret_cast<const uint8_t*>(s), reinterpret_cast<const uint8_t*>(s) + l);
+    } else if (encoding == "base64") {
+        static const char b64[] =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        for (size_t i = 0; i < str.size(); i += 4) {
+            uint32_t v = 0;
+            int n = 0;
+            for (int j = 0; j < 4 && i + j < str.size(); ++j) {
+                if (str[i + j] == '=') break;
+                const char* p = std::strchr(b64, str[i + j]);
+                if (!p) continue;
+                v = (v << 6) | static_cast<uint32_t>(p - b64);
+                ++n;
             }
-            return result;
-        };
-        std::vector<uint8_t> bytes;
-        if (strcmp(encoding, "utf8") == 0 || strcmp(encoding, "utf-8") == 0) {
-            bytes.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + strlen(str));
-        } else if (strcmp(encoding, "hex") == 0) {
-            for (size_t i = 0; i < strlen(str); i += 2) {
-                if (i + 1 < strlen(str)) {
-                    char hex[3] = {str[i], str[i + 1], '\0'};
-                    bytes.push_back(static_cast<uint8_t>(strtoul(hex, nullptr, 16)));
-                }
-            }
-        } else {
-            bytes.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + strlen(str));
-        }
-        if (encoding != "utf8") {
-            JS_FreeCString(ctx, encoding);
-        }
-        JS_FreeCString(ctx, str);
-        
-        bufferObj = pContext->newBuffer(bytes.size());
-        if (bufferObj && !bytes.empty()) {
-            const proto::ProtoByteBuffer* byteBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bufferObj);
-            char* buffer = const_cast<char*>(byteBuffer->getBuffer(pContext));
-            memcpy(buffer, bytes.data(), bytes.size());
-        }
-    } else if (JS_IsArray(ctx, argv[0])) {
-        // Buffer(array)
-        JSValue lenVal = JS_GetPropertyStr(ctx, argv[0], "length");
-        uint32_t len;
-        JS_ToUint32(ctx, &len, lenVal);
-        JS_FreeValue(ctx, lenVal);
-        
-        bufferObj = pContext->newBuffer(len);
-        if (bufferObj) {
-            const proto::ProtoByteBuffer* byteBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bufferObj);
-            char* buffer = const_cast<char*>(byteBuffer->getBuffer(pContext));
-            for (uint32_t i = 0; i < len; i++) {
-                JSValue item = JS_GetPropertyUint32(ctx, argv[0], i);
-                int32_t byte;
-                if (JS_ToInt32(ctx, &byte, item) >= 0) {
-                    buffer[i] = static_cast<char>(byte & 0xFF);
-                }
-                JS_FreeValue(ctx, item);
-            }
+            v <<= (4 - n) * 6;
+            if (n >= 2) out.push_back((v >> 16) & 0xFF);
+            if (n >= 3) out.push_back((v >> 8)  & 0xFF);
+            if (n >= 4) out.push_back(v         & 0xFF);
         }
     } else {
-        return JS_ThrowTypeError(ctx, "Buffer constructor: invalid argument type");
+        out.assign(str.begin(), str.end());
     }
-    
-    if (!bufferObj) {
-        return JS_ThrowTypeError(ctx, "Failed to create Buffer");
-    }
-    
-    JSValue obj = JS_NewObjectClass(ctx, buffer_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    BufferData* data = new BufferData(bufferObj, pContext, JS_GetRuntime(ctx));
-    JS_SetOpaque(obj, data);
-    
-    // Set length property
-    unsigned long size = data->getSize();
-    JS_SetPropertyStr(ctx, obj, "length", JS_NewInt64(ctx, size));
-    JS_SetPropertyStr(ctx, obj, "byteLength", JS_NewInt64(ctx, size));
-    
-    return obj;
+    return out;
 }
 
-void BufferModule::BufferFinalizer(JSRuntime* rt, JSValue val) {
-    BufferData* data = static_cast<BufferData*>(JS_GetOpaque(val, buffer_class_id));
-    if (data) {
-        delete data;
+std::string encodeBytes(const char* data, size_t len,
+                         const std::string& encoding) {
+    if (encoding == "utf8" || encoding == "utf-8" ||
+        encoding == "latin1" || encoding == "ascii") {
+        std::string s(data, len);
+        if (encoding == "ascii") {
+            for (auto& c : s) c = static_cast<char>(c & 0x7F);
+        }
+        return s;
     }
+    if (encoding == "hex") {
+        std::ostringstream os;
+        for (size_t i = 0; i < len; ++i) {
+            os << std::hex << std::setw(2) << std::setfill('0')
+               << (static_cast<unsigned>(data[i]) & 0xFF);
+        }
+        return os.str();
+    }
+    if (encoding == "base64") {
+        static const char b64[] =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::string out;
+        for (size_t i = 0; i < len; i += 3) {
+            uint32_t v = static_cast<uint8_t>(data[i]) << 16;
+            if (i + 1 < len) v |= static_cast<uint8_t>(data[i + 1]) << 8;
+            if (i + 2 < len) v |= static_cast<uint8_t>(data[i + 2]);
+            out += b64[(v >> 18) & 63];
+            out += b64[(v >> 12) & 63];
+            out += (i + 1 < len) ? b64[(v >> 6) & 63] : '=';
+            out += (i + 2 < len) ? b64[v & 63]        : '=';
+        }
+        return out;
+    }
+    return std::string(data, len);
 }
 
-const proto::ProtoByteBuffer* BufferModule::getBufferData(JSContext* ctx, JSValueConst val) {
-    BufferData* data = static_cast<BufferData*>(JS_GetOpaque(val, buffer_class_id));
-    if (data) {
-        return data->getByteBuffer();
+// ---- ProtoByteBuffer access through the instance -----------------------
+
+const proto::ProtoByteBuffer* getByteBuffer(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self) {
+    if (!ctx || !self) return nullptr;
+    const proto::ProtoObject* attr =
+        self->getAttribute(ctx, keyByteBuffer(ctx), false);
+    if (!attr || attr == PROTO_NONE) return nullptr;
+    return attr->asByteBuffer(ctx);
+}
+
+bool isBufferInstance(proto::ProtoContext* ctx,
+                       const proto::ProtoObject* val) {
+    if (!ctx || !val || val == PROTO_NONE) return false;
+    const proto::ProtoObject* mark =
+        val->getAttribute(ctx, keyIsBufferMark(ctx), false);
+    return mark == PROTO_TRUE;
+}
+
+const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx);
+
+const proto::ProtoObject* makeBufferInstance(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* byteBufferObj,
+        long long size) {
+    const proto::ProtoObject* proto = getBufferProto(ctx);
+    const proto::ProtoObject* inst = proto
+        ? proto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    if (!inst) return PROTO_NONE;
+    inst->setAttribute(ctx, keyByteBuffer(ctx), byteBufferObj);
+    inst->setAttribute(ctx, keyIsBufferMark(ctx), PROTO_TRUE);
+    const proto::ProtoString* lk = JSSymbols::length(ctx);
+    if (lk) inst->setAttribute(ctx, lk, ctx->fromInteger(size));
+    const proto::ProtoString* blk =
+        ctx->fromUTF8String("byteLength")->asString(ctx);
+    if (blk) inst->setAttribute(ctx, blk, ctx->fromInteger(size));
+    return inst;
+}
+
+// Allocate a fresh ProtoByteBuffer and copy `bytes` into it.
+const proto::ProtoObject* makeFromBytes(proto::ProtoContext* ctx,
+                                          const std::vector<uint8_t>& bytes) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* bufObj = ctx->newBuffer(bytes.size());
+    if (!bufObj) return PROTO_NONE;
+    const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
+    if (bb && !bytes.empty()) {
+        char* dst = bb->getBuffer(ctx);
+        if (dst) std::memcpy(dst, bytes.data(), bytes.size());
+    }
+    return makeBufferInstance(ctx, bufObj,
+                                static_cast<long long>(bytes.size()));
+}
+
+// ---- Buffer constructor (handles size | string | array | Buffer) ------
+
+const proto::ProtoObject* extractBytes(proto::ProtoContext* ctx,
+                                         const proto::ProtoObject* val,
+                                         const std::string& encoding,
+                                         std::vector<uint8_t>& out);
+
+const proto::ProtoObject* bufferConstructor(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+    if (!a0) return PROTO_NONE;
+
+    if (a0->isInteger(ctx)) {
+        long long size = a0->asLong(ctx);
+        if (size < 0) return PROTO_NONE;
+        const proto::ProtoObject* bufObj = ctx->newBuffer(size);
+        if (!bufObj) return PROTO_NONE;
+        // Zero-fill to match Buffer.alloc behavior (the original QuickJS
+        // version left the buffer uninitialised; this is the safer
+        // default and matches Node's `new Buffer(size)` behaviour).
+        const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
+        if (bb && size > 0) std::memset(bb->getBuffer(ctx), 0, size);
+        return makeBufferInstance(ctx, bufObj, size);
+    }
+
+    std::string encoding = "utf8";
+    if (args->getSize(ctx) > 1) argString(ctx, args, 1, encoding);
+
+    std::vector<uint8_t> bytes;
+    if (extractBytes(ctx, a0, encoding, bytes)) {
+        return makeFromBytes(ctx, bytes);
+    }
+    return PROTO_NONE;
+}
+
+// Coerce a value into a byte vector.  Accepts: existing Buffer, string,
+// or Array of integers.  Returns the input value (a non-null marker)
+// if a coercion succeeded; nullptr otherwise.  `out` holds the bytes.
+const proto::ProtoObject* extractBytes(proto::ProtoContext* ctx,
+                                         const proto::ProtoObject* val,
+                                         const std::string& encoding,
+                                         std::vector<uint8_t>& out) {
+    if (!ctx || !val || val == PROTO_NONE) return nullptr;
+    if (val->isString(ctx)) {
+        std::string s;
+        val->asString(ctx)->toUTF8String(ctx, s);
+        out = decodeString(s, encoding);
+        return val;
+    }
+    if (isBufferInstance(ctx, val)) {
+        const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, val);
+        if (!bb) return nullptr;
+        unsigned long n = bb->getSize(ctx);
+        const char* src = bb->getBuffer(ctx);
+        out.assign(src, src + n);
+        return val;
+    }
+    // Array of integers.
+    const proto::ProtoList* els = getArrayElements(ctx, val);
+    if (els) {
+        long long n = static_cast<long long>(els->getSize(ctx));
+        out.reserve(static_cast<size_t>(n));
+        for (long long i = 0; i < n; ++i) {
+            const proto::ProtoObject* e =
+                els->getAt(ctx, static_cast<int>(i));
+            if (e && e->isInteger(ctx)) {
+                out.push_back(static_cast<uint8_t>(e->asLong(ctx) & 0xFF));
+            } else {
+                out.push_back(0);
+            }
+        }
+        return val;
     }
     return nullptr;
 }
 
-JSValue BufferModule::bufferFrom(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    return BufferConstructor(ctx, this_val, argc, argv);
+// ---- Static factories: from / alloc / concat / isBuffer ----------------
+
+const proto::ProtoObject* bufferFromImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* pl,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kw) {
+    return bufferConstructor(ctx, self, pl, args, kw);
 }
 
-JSValue BufferModule::bufferAlloc(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "Buffer.alloc requires size");
-    }
-    
-    int32_t size;
-    if (JS_ToInt32(ctx, &size, argv[0]) < 0) {
-        return JS_EXCEPTION;
-    }
-    if (size < 0) {
-        return JS_ThrowTypeError(ctx, "Buffer size must be non-negative");
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    const proto::ProtoObject* bufObj = pContext->newBuffer(size);
-    const proto::ProtoByteBuffer* byteBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bufObj);
-    
-    // Fill with value if provided
-    if (argc > 1 && bufObj && byteBuffer) {
-        char* buffer = const_cast<char*>(byteBuffer->getBuffer(pContext));
+const proto::ProtoObject* bufferAllocImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    long long size = 0;
+    if (!argInt(ctx, args, 0, size) || size < 0) return PROTO_NONE;
+    const proto::ProtoObject* bufObj = ctx->newBuffer(size);
+    if (!bufObj) return PROTO_NONE;
+    const proto::ProtoByteBuffer* bb = bufObj->asByteBuffer(ctx);
+    if (bb && size > 0) {
         char fill = 0;
-        
-        if (JS_IsNumber(argv[1])) {
-            int32_t fillVal;
-            JS_ToInt32(ctx, &fillVal, argv[1]);
-            fill = static_cast<char>(fillVal & 0xFF);
-        } else if (JS_IsString(argv[1])) {
-            const char* fillStr = JS_ToCString(ctx, argv[1]);
-            if (fillStr && strlen(fillStr) > 0) {
-                fill = fillStr[0];
+        if (args && args->getSize(ctx) > 1) {
+            const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+            if (a1 && a1->isInteger(ctx)) {
+                fill = static_cast<char>(a1->asLong(ctx) & 0xFF);
+            } else if (a1 && a1->isString(ctx)) {
+                std::string s;
+                a1->asString(ctx)->toUTF8String(ctx, s);
+                if (!s.empty()) fill = s[0];
             }
-            JS_FreeCString(ctx, fillStr);
         }
-        
-        memset(buffer, fill, size);
-    } else if (bufObj && byteBuffer) {
-        char* buffer = const_cast<char*>(byteBuffer->getBuffer(pContext));
-        memset(buffer, 0, size);
+        std::memset(bb->getBuffer(ctx), fill, size);
     }
-    
-    JSValue obj = JS_NewObjectClass(ctx, buffer_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    BufferData* data = new BufferData(bufObj, pContext, JS_GetRuntime(ctx));
-    JS_SetOpaque(obj, data);
-    
-    unsigned long bufSize = data->getSize();
-    JS_SetPropertyStr(ctx, obj, "length", JS_NewInt64(ctx, bufSize));
-    JS_SetPropertyStr(ctx, obj, "byteLength", JS_NewInt64(ctx, bufSize));
-    
-    return obj;
+    return makeBufferInstance(ctx, bufObj, size);
 }
 
-JSValue BufferModule::bufferConcat(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1 || !JS_IsArray(ctx, argv[0])) {
-        return JS_ThrowTypeError(ctx, "Buffer.concat requires array of buffers");
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    
-    JSValue lenVal = JS_GetPropertyStr(ctx, argv[0], "length");
-    uint32_t len;
-    JS_ToUint32(ctx, &len, lenVal);
-    JS_FreeValue(ctx, lenVal);
-    
-    // Calculate total length
-    size_t totalLen = 0;
-    std::vector<const proto::ProtoByteBuffer*> buffers;
-    
-    for (uint32_t i = 0; i < len; i++) {
-        JSValue buf = JS_GetPropertyUint32(ctx, argv[0], i);
-        const proto::ProtoByteBuffer* byteBuffer = getBufferData(ctx, buf);
-        if (byteBuffer) {
-            buffers.push_back(byteBuffer);
-            totalLen += byteBuffer->getSize(pContext);
-        }
-        JS_FreeValue(ctx, buf);
-    }
-    
-    // Create new buffer
-    const proto::ProtoObject* bufObj = pContext->newBuffer(totalLen);
-    const proto::ProtoByteBuffer* resultBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bufObj);
-    
-    if (resultBuffer) {
-        char* result = const_cast<char*>(resultBuffer->getBuffer(pContext));
-        size_t offset = 0;
-        
-        for (const auto* buf : buffers) {
-            size_t bufSize = buf->getSize(pContext);
-            const char* src = buf->getBuffer(pContext);
-            memcpy(result + offset, src, bufSize);
-            offset += bufSize;
+const proto::ProtoObject* bufferConcatImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* arr = args->getAt(ctx, 0);
+    const proto::ProtoList* els = arr ? getArrayElements(ctx, arr) : nullptr;
+    if (!els) return PROTO_NONE;
+    long long n = static_cast<long long>(els->getSize(ctx));
+    size_t total = 0;
+    std::vector<const proto::ProtoByteBuffer*> bufs;
+    bufs.reserve(static_cast<size_t>(n));
+    for (long long i = 0; i < n; ++i) {
+        const proto::ProtoObject* e = els->getAt(ctx, static_cast<int>(i));
+        const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, e);
+        if (bb) {
+            bufs.push_back(bb);
+            total += bb->getSize(ctx);
         }
     }
-    
-    JSValue obj = JS_NewObjectClass(ctx, buffer_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    BufferData* data = new BufferData(bufObj, pContext, JS_GetRuntime(ctx));
-    JS_SetOpaque(obj, data);
-    
-    JS_SetPropertyStr(ctx, obj, "length", JS_NewInt64(ctx, totalLen));
-    JS_SetPropertyStr(ctx, obj, "byteLength", JS_NewInt64(ctx, totalLen));
-    
-    return obj;
+    // Optional explicit total length (Buffer.concat(arr, totalLength)).
+    if (args->getSize(ctx) > 1) {
+        long long t = 0;
+        if (argInt(ctx, args, 1, t) && t >= 0) total = static_cast<size_t>(t);
+    }
+    const proto::ProtoObject* bufObj = ctx->newBuffer(total);
+    if (!bufObj) return PROTO_NONE;
+    const proto::ProtoByteBuffer* out = bufObj->asByteBuffer(ctx);
+    if (out && total) {
+        char* dst = out->getBuffer(ctx);
+        size_t off = 0;
+        for (auto* b : bufs) {
+            size_t sz = b->getSize(ctx);
+            if (off + sz > total) sz = total - off;
+            std::memcpy(dst + off, b->getBuffer(ctx), sz);
+            off += sz;
+            if (off >= total) break;
+        }
+        if (off < total) std::memset(dst + off, 0, total - off);
+    }
+    return makeBufferInstance(ctx, bufObj, static_cast<long long>(total));
 }
 
-JSValue BufferModule::bufferIsBuffer(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_NewBool(ctx, false);
-    }
-    
-    const proto::ProtoByteBuffer* buf = getBufferData(ctx, argv[0]);
-    return JS_NewBool(ctx, buf != nullptr);
+const proto::ProtoObject* bufferIsBufferImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    return isBufferInstance(ctx, args->getAt(ctx, 0))
+        ? PROTO_TRUE : PROTO_FALSE;
 }
 
-JSValue BufferModule::bufferToString(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    const proto::ProtoByteBuffer* byteBuffer = getBufferData(ctx, this_val);
-    if (!byteBuffer) {
-        return JS_ThrowTypeError(ctx, "Not a Buffer");
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    const char* encoding = "utf8";
-    
-    if (argc > 0 && JS_IsString(argv[0])) {
-        encoding = JS_ToCString(ctx, argv[0]);
-    }
-    
-    unsigned long size = byteBuffer->getSize(pContext);
-    const char* buffer = byteBuffer->getBuffer(pContext);
-    
-    int start = 0;
-    int end = size;
-    
-    if (argc > 1 && JS_IsNumber(argv[1])) {
-        JS_ToInt32(ctx, &start, argv[1]);
-    }
-    if (argc > 2 && JS_IsNumber(argv[2])) {
-        JS_ToInt32(ctx, &end, argv[2]);
-    }
-    
+// ---- Instance methods -------------------------------------------------
+
+const proto::ProtoObject* bufferToString(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
+    if (!bb) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    unsigned long size = bb->getSize(ctx);
+    const char* src = bb->getBuffer(ctx);
+
+    std::string encoding = "utf8";
+    if (args && args->getSize(ctx) > 0) argString(ctx, args, 0, encoding);
+
+    long long start = 0, end = static_cast<long long>(size);
+    if (args && args->getSize(ctx) > 1) argInt(ctx, args, 1, start);
+    if (args && args->getSize(ctx) > 2) argInt(ctx, args, 2, end);
     if (start < 0) start = 0;
-    if (end > static_cast<int>(size)) end = size;
+    if (end > static_cast<long long>(size)) end = size;
     if (start > end) start = end;
-    
-    // Encode string
-    std::string result;
-    if (strcmp(encoding, "utf8") == 0 || strcmp(encoding, "utf-8") == 0) {
-        result = std::string(buffer + start, end - start);
-    } else if (strcmp(encoding, "hex") == 0) {
-        std::ostringstream oss;
-        for (int i = start; i < end; i++) {
-            oss << std::hex << std::setw(2) << std::setfill('0') << (static_cast<unsigned>(buffer[i]) & 0xFF);
-        }
-        result = oss.str();
-    } else {
-        result = std::string(buffer + start, end - start);
-    }
-    
-    if (encoding != "utf8") {
-        JS_FreeCString(ctx, encoding);
-    }
-    
-    return JS_NewString(ctx, result.c_str());
+
+    std::string out = encodeBytes(src + start,
+                                    static_cast<size_t>(end - start),
+                                    encoding);
+    return ctx->fromUTF8String(out.c_str());
 }
 
-JSValue BufferModule::bufferSlice(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    const proto::ProtoByteBuffer* byteBuffer = getBufferData(ctx, this_val);
-    if (!byteBuffer) {
-        return JS_ThrowTypeError(ctx, "Not a Buffer");
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    unsigned long size = byteBuffer->getSize(pContext);
-    
-    int start = 0;
-    int end = size;
-    
-    if (argc > 0 && JS_IsNumber(argv[0])) {
-        JS_ToInt32(ctx, &start, argv[0]);
-    }
-    if (argc > 1 && JS_IsNumber(argv[1])) {
-        JS_ToInt32(ctx, &end, argv[1]);
-    }
-    
+const proto::ProtoObject* bufferSlice(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
+    if (!bb) return PROTO_NONE;
+    long long size = static_cast<long long>(bb->getSize(ctx));
+
+    long long start = 0, end = size;
+    if (args && args->getSize(ctx) > 0) argInt(ctx, args, 0, start);
+    if (args && args->getSize(ctx) > 1) argInt(ctx, args, 1, end);
     if (start < 0) start += size;
     if (end < 0) end += size;
     if (start < 0) start = 0;
-    if (end > static_cast<int>(size)) end = size;
+    if (end > size) end = size;
     if (start > end) start = end;
-    
-    // Create new buffer with slice
-    size_t sliceLen = end - start;
-    const proto::ProtoObject* bufObj = pContext->newBuffer(sliceLen);
-    const proto::ProtoByteBuffer* sliceBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bufObj);
-    
-    if (bufObj && sliceBuffer) {
-        char* slice = const_cast<char*>(sliceBuffer->getBuffer(pContext));
-        const char* src = byteBuffer->getBuffer(pContext);
-        memcpy(slice, src + start, sliceLen);
+
+    long long len = end - start;
+    const proto::ProtoObject* outObj = ctx->newBuffer(len);
+    if (!outObj) return PROTO_NONE;
+    const proto::ProtoByteBuffer* ob = outObj->asByteBuffer(ctx);
+    if (ob && len > 0) {
+        std::memcpy(ob->getBuffer(ctx), bb->getBuffer(ctx) + start, len);
     }
-    
-    JSValue obj = JS_NewObjectClass(ctx, buffer_class_id);
-    if (JS_IsException(obj)) return obj;
-    
-    BufferData* data = new BufferData(bufObj, pContext, JS_GetRuntime(ctx));
-    JS_SetOpaque(obj, data);
-    
-    JS_SetPropertyStr(ctx, obj, "length", JS_NewInt64(ctx, sliceLen));
-    JS_SetPropertyStr(ctx, obj, "byteLength", JS_NewInt64(ctx, sliceLen));
-    
-    return obj;
+    return makeBufferInstance(ctx, outObj, len);
 }
 
-JSValue BufferModule::bufferCopy(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    const proto::ProtoByteBuffer* srcBuffer = getBufferData(ctx, this_val);
-    if (!srcBuffer) {
-        return JS_ThrowTypeError(ctx, "Not a Buffer");
+const proto::ProtoObject* bufferCopy(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoByteBuffer* src = getByteBuffer(ctx, self);
+    if (!src || !args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
+    const proto::ProtoObject* tgtObj = args->getAt(ctx, 0);
+    const proto::ProtoByteBuffer* tgt = getByteBuffer(ctx, tgtObj);
+    if (!tgt) return ctx->fromInteger(0);
+
+    long long srcSize = static_cast<long long>(src->getSize(ctx));
+    long long tgtSize = static_cast<long long>(tgt->getSize(ctx));
+    long long tgtStart = 0, srcStart = 0, srcEnd = srcSize;
+    if (args->getSize(ctx) > 1) argInt(ctx, args, 1, tgtStart);
+    if (args->getSize(ctx) > 2) argInt(ctx, args, 2, srcStart);
+    if (args->getSize(ctx) > 3) argInt(ctx, args, 3, srcEnd);
+    if (tgtStart < 0 || srcStart < 0 || srcEnd < 0) return ctx->fromInteger(0);
+    if (srcStart > srcSize) srcStart = srcSize;
+    if (srcEnd > srcSize) srcEnd = srcSize;
+    if (srcStart > srcEnd) srcStart = srcEnd;
+
+    long long n = std::min(srcEnd - srcStart, tgtSize - tgtStart);
+    if (n > 0) {
+        std::memcpy(tgt->getBuffer(ctx) + tgtStart,
+                     src->getBuffer(ctx) + srcStart, n);
     }
-    
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "copy requires target buffer");
-    }
-    
-    const proto::ProtoByteBuffer* targetBuffer = getBufferData(ctx, argv[0]);
-    if (!targetBuffer) {
-        return JS_ThrowTypeError(ctx, "target must be a Buffer");
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    
-    unsigned long srcSize = srcBuffer->getSize(pContext);
-    unsigned long targetSize = targetBuffer->getSize(pContext);
-    
-    int targetStart = 0;
-    int sourceStart = 0;
-    int sourceEnd = srcSize;
-    
-    if (argc > 1 && JS_IsNumber(argv[1])) {
-        JS_ToInt32(ctx, &targetStart, argv[1]);
-    }
-    if (argc > 2 && JS_IsNumber(argv[2])) {
-        JS_ToInt32(ctx, &sourceStart, argv[2]);
-    }
-    if (argc > 3 && JS_IsNumber(argv[3])) {
-        JS_ToInt32(ctx, &sourceEnd, argv[3]);
-    }
-    
-    if (targetStart < 0 || sourceStart < 0 || sourceEnd < 0) {
-        return JS_NewInt32(ctx, 0);
-    }
-    
-    if (sourceStart > static_cast<int>(srcSize)) sourceStart = srcSize;
-    if (sourceEnd > static_cast<int>(srcSize)) sourceEnd = srcSize;
-    if (sourceStart > sourceEnd) sourceStart = sourceEnd;
-    
-    size_t copyLen = std::min(static_cast<size_t>(sourceEnd - sourceStart),
-                              static_cast<size_t>(targetSize - targetStart));
-    
-    if (copyLen > 0) {
-        char* target = const_cast<char*>(targetBuffer->getBuffer(pContext));
-        const char* src = srcBuffer->getBuffer(pContext);
-        memcpy(target + targetStart, src + sourceStart, copyLen);
-    }
-    
-    return JS_NewInt32(ctx, copyLen);
+    return ctx->fromInteger(n < 0 ? 0 : n);
 }
 
-JSValue BufferModule::bufferFill(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    const proto::ProtoByteBuffer* byteBuffer = getBufferData(ctx, this_val);
-    if (!byteBuffer) {
-        return JS_ThrowTypeError(ctx, "Not a Buffer");
-    }
-    
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "fill requires a value");
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    unsigned long size = byteBuffer->getSize(pContext);
-    
+const proto::ProtoObject* bufferFill(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
+    if (!bb || !args || args->getSize(ctx) == 0) return self ? self : PROTO_NONE;
+    long long size = static_cast<long long>(bb->getSize(ctx));
     char fill = 0;
-    if (JS_IsNumber(argv[0])) {
-        int32_t fillVal;
-        JS_ToInt32(ctx, &fillVal, argv[0]);
-        fill = static_cast<char>(fillVal & 0xFF);
-    } else if (JS_IsString(argv[0])) {
-        const char* fillStr = JS_ToCString(ctx, argv[0]);
-        if (fillStr && strlen(fillStr) > 0) {
-            fill = fillStr[0];
-        }
-        JS_FreeCString(ctx, fillStr);
+    const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+    if (a0 && a0->isInteger(ctx)) fill = static_cast<char>(a0->asLong(ctx) & 0xFF);
+    else if (a0 && a0->isString(ctx)) {
+        std::string s;
+        a0->asString(ctx)->toUTF8String(ctx, s);
+        if (!s.empty()) fill = s[0];
     }
-    
-    int offset = 0;
-    int end = size;
-    
-    if (argc > 1 && JS_IsNumber(argv[1])) {
-        JS_ToInt32(ctx, &offset, argv[1]);
-    }
-    if (argc > 2 && JS_IsNumber(argv[2])) {
-        JS_ToInt32(ctx, &end, argv[2]);
-    }
-    
-    if (offset < 0) offset = 0;
-    if (end > static_cast<int>(size)) end = size;
-    if (offset > end) offset = end;
-    
-    char* buffer = const_cast<char*>(byteBuffer->getBuffer(pContext));
-    memset(buffer + offset, fill, end - offset);
-    
-    return JS_DupValue(ctx, this_val);
+    long long off = 0, end = size;
+    if (args->getSize(ctx) > 1) argInt(ctx, args, 1, off);
+    if (args->getSize(ctx) > 2) argInt(ctx, args, 2, end);
+    if (off < 0) off = 0;
+    if (end > size) end = size;
+    if (off > end) off = end;
+    std::memset(bb->getBuffer(ctx) + off, fill,
+                  static_cast<size_t>(end - off));
+    return self;
 }
 
-JSValue BufferModule::bufferIndexOf(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    const proto::ProtoByteBuffer* byteBuffer = getBufferData(ctx, this_val);
-    if (!byteBuffer) {
-        return JS_ThrowTypeError(ctx, "Not a Buffer");
-    }
-    
-    if (argc < 1) {
-        return JS_NewInt32(ctx, -1);
-    }
-    
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (!wrapper) {
-        return JS_ThrowTypeError(ctx, "JSContextWrapper not found");
-    }
-    
-    proto::ProtoContext* pContext = wrapper->getProtoContext();
-    unsigned long size = byteBuffer->getSize(pContext);
-    const char* buffer = byteBuffer->getBuffer(pContext);
-    
-    // Get search value
-    std::vector<uint8_t> searchBytes;
-    if (JS_IsNumber(argv[0])) {
-        int32_t val;
-        JS_ToInt32(ctx, &val, argv[0]);
-        searchBytes.push_back(static_cast<uint8_t>(val & 0xFF));
-    } else if (JS_IsString(argv[0])) {
-        const char* str = JS_ToCString(ctx, argv[0]);
-        const char* encoding = "utf8";
-        if (argc > 2 && JS_IsString(argv[2])) {
-            encoding = JS_ToCString(ctx, argv[2]);
+const proto::ProtoObject* bufferIndexOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    const proto::ProtoByteBuffer* bb = getByteBuffer(ctx, self);
+    if (!bb || !args || args->getSize(ctx) == 0) return ctx->fromInteger(-1);
+    long long size = static_cast<long long>(bb->getSize(ctx));
+    const char* buf = bb->getBuffer(ctx);
+
+    std::vector<uint8_t> needle;
+    const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+    if (a0 && a0->isInteger(ctx)) {
+        needle.push_back(static_cast<uint8_t>(a0->asLong(ctx) & 0xFF));
+    } else if (a0 && a0->isString(ctx)) {
+        std::string s;
+        a0->asString(ctx)->toUTF8String(ctx, s);
+        std::string enc = "utf8";
+        if (args->getSize(ctx) > 2) argString(ctx, args, 2, enc);
+        needle = decodeString(s, enc);
+    } else if (a0 && isBufferInstance(ctx, a0)) {
+        const proto::ProtoByteBuffer* sb = getByteBuffer(ctx, a0);
+        if (sb) {
+            unsigned long n = sb->getSize(ctx);
+            const char* sd = sb->getBuffer(ctx);
+            needle.assign(sd, sd + n);
         }
-        // Decode search string
-        if (strcmp(encoding, "utf8") == 0 || strcmp(encoding, "utf-8") == 0) {
-            searchBytes.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + strlen(str));
-        } else if (strcmp(encoding, "hex") == 0) {
-            for (size_t i = 0; i < strlen(str); i += 2) {
-                if (i + 1 < strlen(str)) {
-                    char hex[3] = {str[i], str[i + 1], '\0'};
-                    searchBytes.push_back(static_cast<uint8_t>(strtoul(hex, nullptr, 16)));
-                }
-            }
-        } else {
-            searchBytes.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + strlen(str));
-        }
-        JS_FreeCString(ctx, str);
-        if (encoding != "utf8") {
-            JS_FreeCString(ctx, encoding);
-        }
-    } else if (getBufferData(ctx, argv[0])) {
-        const proto::ProtoByteBuffer* searchBuf = getBufferData(ctx, argv[0]);
-        unsigned long searchSize = searchBuf->getSize(pContext);
-        const char* searchData = searchBuf->getBuffer(pContext);
-        searchBytes.assign(searchData, searchData + searchSize);
     }
-    
-    if (searchBytes.empty()) {
-        return JS_NewInt32(ctx, -1);
-    }
-    
-    int byteOffset = 0;
-    if (argc > 1 && JS_IsNumber(argv[1])) {
-        JS_ToInt32(ctx, &byteOffset, argv[1]);
-    }
-    
-    if (byteOffset < 0) byteOffset += size;
-    if (byteOffset < 0) byteOffset = 0;
-    if (byteOffset >= static_cast<int>(size)) {
-        return JS_NewInt32(ctx, -1);
-    }
-    
-    // Search for pattern
-    for (int i = byteOffset; i <= static_cast<int>(size) - static_cast<int>(searchBytes.size()); i++) {
+    if (needle.empty()) return ctx->fromInteger(-1);
+    long long off = 0;
+    if (args->getSize(ctx) > 1) argInt(ctx, args, 1, off);
+    if (off < 0) off += size;
+    if (off < 0) off = 0;
+    if (off >= size) return ctx->fromInteger(-1);
+
+    long long limit = size - static_cast<long long>(needle.size());
+    for (long long i = off; i <= limit; ++i) {
         bool match = true;
-        for (size_t j = 0; j < searchBytes.size(); j++) {
-            if (buffer[i + j] != static_cast<char>(searchBytes[j])) {
-                match = false;
-                break;
+        for (size_t j = 0; j < needle.size(); ++j) {
+            if (static_cast<uint8_t>(buf[i + j]) != needle[j]) {
+                match = false; break;
             }
         }
-        if (match) {
-            return JS_NewInt32(ctx, i);
-        }
+        if (match) return ctx->fromInteger(i);
     }
-    
-    return JS_NewInt32(ctx, -1);
+    return ctx->fromInteger(-1);
 }
 
-JSValue BufferModule::bufferIncludes(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    JSValue indexOfResult = bufferIndexOf(ctx, this_val, argc, argv);
-    if (JS_IsException(indexOfResult)) {
-        return indexOfResult;
-    }
-    
-    int32_t index;
-    if (JS_ToInt32(ctx, &index, indexOfResult) >= 0) {
-        JS_FreeValue(ctx, indexOfResult);
-        return JS_NewBool(ctx, index >= 0);
-    }
-    
-    JS_FreeValue(ctx, indexOfResult);
-    return JS_NewBool(ctx, false);
+const proto::ProtoObject* bufferIncludes(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* pl,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kw) {
+    const proto::ProtoObject* idx =
+        bufferIndexOf(ctx, self, pl, args, kw);
+    if (!idx || !idx->isInteger(ctx)) return PROTO_FALSE;
+    return (idx->asLong(ctx) >= 0) ? PROTO_TRUE : PROTO_FALSE;
 }
 
-// Helper function implementations (in anonymous namespace for internal use)
-namespace {
-std::string encodeStringHelper(const char* data, size_t len, const char* encoding) {
-    if (strcmp(encoding, "utf8") == 0 || strcmp(encoding, "utf-8") == 0) {
-        return std::string(data, len);
-    } else if (strcmp(encoding, "hex") == 0) {
-        std::ostringstream oss;
-        for (size_t i = 0; i < len; i++) {
-            oss << std::hex << std::setw(2) << std::setfill('0') << (static_cast<unsigned>(data[i]) & 0xFF);
-        }
-        return oss.str();
-    } else if (strcmp(encoding, "base64") == 0) {
-        // Basic base64 encoding (simplified)
-        const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        std::string result;
-        for (size_t i = 0; i < len; i += 3) {
-            uint32_t val = (static_cast<unsigned char>(data[i]) << 16);
-            if (i + 1 < len) val |= (static_cast<unsigned char>(data[i + 1]) << 8);
-            if (i + 2 < len) val |= static_cast<unsigned char>(data[i + 2]);
-            
-            result += base64_chars[(val >> 18) & 63];
-            result += base64_chars[(val >> 12) & 63];
-            result += (i + 1 < len) ? base64_chars[(val >> 6) & 63] : '=';
-            result += (i + 2 < len) ? base64_chars[val & 63] : '=';
-        }
-        return result;
-    } else if (strcmp(encoding, "ascii") == 0) {
-        std::string result;
-        for (size_t i = 0; i < len; i++) {
-            result += static_cast<char>(static_cast<unsigned char>(data[i]) & 0x7F);
-        }
-        return result;
-    } else if (strcmp(encoding, "latin1") == 0) {
-        return std::string(data, len);
-    }
-    
-    // Default to utf8
-    return std::string(data, len);
+const proto::ProtoObject* getBufferProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* proto = nullptr;
+    if (proto) return proto;
+    static const NativeEntry entries[] = {
+        {"toString", bufferToString},
+        {"slice",    bufferSlice},
+        {"copy",     bufferCopy},
+        {"fill",     bufferFill},
+        {"indexOf",  bufferIndexOf},
+        {"includes", bufferIncludes},
+        NATIVE_MODULE_END
+    };
+    proto = ProtoNativeModule::buildModule(ctx, entries, 6);
+    return proto;
 }
 
-std::vector<uint8_t> decodeStringHelper(const char* str, size_t len, const char* encoding) {
-    std::vector<uint8_t> result;
-    
-    if (strcmp(encoding, "utf8") == 0 || strcmp(encoding, "utf-8") == 0) {
-        result.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + len);
-    } else if (strcmp(encoding, "hex") == 0) {
-        for (size_t i = 0; i < len; i += 2) {
-            if (i + 1 < len) {
-                char hex[3] = {str[i], str[i + 1], '\0'};
-                result.push_back(static_cast<uint8_t>(strtoul(hex, nullptr, 16)));
-            }
-        }
-    } else if (strcmp(encoding, "base64") == 0) {
-        // Basic base64 decoding (simplified)
-        const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        for (size_t i = 0; i < len; i += 4) {
-            uint32_t val = 0;
-            for (int j = 0; j < 4 && i + j < len; j++) {
-                const char* pos = strchr(base64_chars, str[i + j]);
-                if (pos) {
-                    val = (val << 6) | (pos - base64_chars);
-                }
-            }
-            result.push_back((val >> 16) & 0xFF);
-            if (i + 2 < len && str[i + 2] != '=') {
-                result.push_back((val >> 8) & 0xFF);
-            }
-            if (i + 3 < len && str[i + 3] != '=') {
-                result.push_back(val & 0xFF);
-            }
-        }
-    } else if (strcmp(encoding, "ascii") == 0) {
-        result.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + len);
-    } else if (strcmp(encoding, "latin1") == 0) {
-        result.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + len);
-    } else {
-        // Default to utf8
-        result.assign(reinterpret_cast<const uint8_t*>(str), reinterpret_cast<const uint8_t*>(str) + len);
+}  // namespace
+
+const proto::ProtoObject* BufferModule::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+
+    const proto::ProtoObject* bufferProto = getBufferProto(ctx);
+
+    // Build the Buffer constructor (callable for `new Buffer(...)`).
+    const proto::ProtoObject* bufferCtor =
+        wrapNativeFunction(ctx, bufferConstructor, "Buffer",
+                            /*length=*/2, /*globalRoot=*/nullptr);
+    if (!bufferCtor) return globalObj;
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (protoKey)
+        bufferCtor = bufferCtor->setAttribute(ctx, protoKey, bufferProto);
+    {
+        const proto::ProtoString* ck =
+            ctx->fromUTF8String("__construct__")->asString(ctx);
+        if (ck) bufferCtor = bufferCtor->setAttribute(ctx, ck,
+            ctx->fromMethod(nullptr, bufferConstructor));
     }
-    
-    return result;
+    // Static factory methods on the constructor.
+    auto installStatic = [&](const char* name, proto::ProtoMethod fn) {
+        const proto::ProtoString* k =
+            ctx->fromUTF8String(name)->asString(ctx);
+        if (!k) return;
+        bufferCtor = bufferCtor->setAttribute(ctx, k,
+            ctx->fromMethod(nullptr, fn));
+    };
+    installStatic("from",     bufferFromImpl);
+    installStatic("alloc",    bufferAllocImpl);
+    installStatic("concat",   bufferConcatImpl);
+    installStatic("isBuffer", bufferIsBufferImpl);
+
+    // Install on the protoCore-native global (keyed by "Buffer", as a
+    // top-level global rather than as a `buffer` module — this matches
+    // both the original module's behaviour and Node's.)
+    const proto::ProtoString* nameKey =
+        ctx->fromUTF8String("Buffer")->asString(ctx);
+    if (!nameKey) return globalObj;
+    return globalObj->setAttribute(ctx, nameKey, bufferCtor);
 }
-} // anonymous namespace
 
 } // namespace protojs
