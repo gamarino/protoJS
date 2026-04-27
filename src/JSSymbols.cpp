@@ -188,8 +188,15 @@ DEFINE_SYMBOL(toStringTag,       "__toStringTag__")
 #undef DEFINE_SYMBOL
 
 // ---- Numeric index symbols ----------------------------------------------
+//
+// Cache size 4096 covers most practical array workloads (push/index loops,
+// JSON arrays).  The benchmark suite pushes 100 K elements; without a
+// large-enough cache, 99 % of pushes per iteration construct a std::string
+// and go through SymbolTable::lookupByContent on every call.  4096 strikes
+// a balance: 32 KB of pointer storage, no measurable startup cost from
+// std::once_flag init (lazy per slot).
 namespace {
-    constexpr uint32_t kIndexCacheSize = 256;
+    constexpr uint32_t kIndexCacheSize = 4096;
     std::array<const proto::ProtoString*, kIndexCacheSize> s_indexCache{};
     std::array<std::once_flag, kIndexCacheSize> s_indexFlags{};
 }
