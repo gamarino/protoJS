@@ -12,9 +12,15 @@ namespace protojs {
 class CommonJSLoader {
 public:
     /**
-     * @brief Initialize CommonJS loader, expose require() function globally
+     * @brief Initialize CommonJS loader, expose require() function on
+     *        the protoCore-native global.  Returns the updated global.
+     *        Migrated; previous JS_SetPropertyStr-on-QuickJS-global
+     *        install has been removed (it was unreachable from user
+     *        code under the protoCore eval path).
      */
-    static void init(JSContext* ctx);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 
     /**
      * @brief Load and execute a CommonJS module
@@ -30,6 +36,12 @@ public:
         JSContext* ctx
     );
 
+    static JSValue requireResolve(
+        const std::string& specifier,
+        const std::string& fromPath,
+        JSContext* ctx
+    );
+
 private:
     // C callback for require()
     static JSValue requireImpl(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
@@ -38,7 +50,6 @@ private:
     static JSValue requireResolveImpl(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
     
     // Helper methods
-    static JSValue requireResolve(const std::string& specifier, const std::string& fromPath, JSContext* ctx);
     static JSValue createModuleObject(const std::string& filePath, JSContext* ctx);
     static JSValue executeModule(
         const std::string& source,

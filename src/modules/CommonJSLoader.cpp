@@ -5,6 +5,7 @@
 #include "../JSContext.h"
 #include "../TypeBridge.h"
 #include "../JSSymbols.h"
+#include "../FunctionPrototype.h"
 #include "../runtime/ProtoCompileOnly.h"
 #include "../runtime/ProtoBytecodeModule.h"
 #include "../runtime/ProtoInterpreter.h"
@@ -18,34 +19,67 @@
 
 namespace protojs {
 
-void CommonJSLoader::init(JSContext* ctx) {
-    // For QuickJS path
-    JSValue requireFunc = JS_NewCFunction(ctx, requireImpl, "require", 1);
-    
-    // Add require.resolve
-    JS_SetPropertyStr(ctx, requireFunc, "resolve", 
-                     JS_NewCFunction(ctx, requireResolveImpl, "resolve", 1));
-    
-    // Add require.cache
-    JSValue cacheObj = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, requireFunc, "cache", cacheObj);
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "require", requireFunc);
-    JS_FreeValue(ctx, global_obj);
-
-    // For protoCore interpreter path
-    JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
-    if (wrapper) {
-        proto::ProtoContext* pCtx = wrapper->getProtoContext();
-        const proto::ProtoObject* nativeGlobal = wrapper->getNativeGlobal();
-        if (pCtx && nativeGlobal) {
-            const proto::ProtoString* requireKey = JSSymbols::require(pCtx);
-            const proto::ProtoObject* requireMethod = pCtx->fromMethod(const_cast<proto::ProtoObject*>(nativeGlobal), requireProtoMethod);
-            const proto::ProtoObject* updatedGlobal = nativeGlobal->setAttribute(pCtx, requireKey, requireMethod);
-            wrapper->updateNativeGlobal(updatedGlobal);
-        }
+// ProtoMethod wrapper for `require.resolve` — same dispatch as the
+// QuickJS-side requireResolveImpl, exposed on the protoCore-native
+// global.  Returns the resolved file path as a ProtoString.
+static const proto::ProtoObject* requireResolveProtoMethod(
+        proto::ProtoContext* pCtx,
+        const proto::ProtoObject* /*self*/,
+        const proto::ParentLink*,
+        const proto::ProtoList* args,
+        const proto::ProtoSparseList*) {
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper || !pCtx || !args || args->getSize(pCtx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* a = args->getAt(pCtx, 0);
+    if (!a || !a->isString(pCtx)) return PROTO_NONE;
+    std::string specifier;
+    a->asString(pCtx)->toUTF8String(pCtx, specifier);
+    std::string fromPath = pCtx->currentFileName ? pCtx->currentFileName : ".";
+    JSContext* ctx = wrapper->getJSContext();
+    JSValue r = CommonJSLoader::requireResolve(specifier, fromPath, ctx);
+    if (JS_IsException(r)) {
+        JS_FreeValue(ctx, r);
+        return PROTO_NONE;
     }
+    const char* s = JS_ToCString(ctx, r);
+    const proto::ProtoObject* out = pCtx->fromUTF8String(s ? s : "");
+    if (s) JS_FreeCString(ctx, s);
+    JS_FreeValue(ctx, r);
+    return out;
+}
+
+const proto::ProtoObject* CommonJSLoader::init(
+        proto::ProtoContext* pCtx,
+        const proto::ProtoObject* globalObj) {
+    if (!pCtx || !globalObj) return globalObj;
+
+    // wrapNativeFunction returns a callable ProtoObject (carries
+    // `__native_fn__`) that supports attribute attachment — necessary
+    // for require.resolve / require.cache.  A bare fromMethod()
+    // tagged pointer does not.
+    const proto::ProtoObject* requireFn =
+        wrapNativeFunction(pCtx, requireProtoMethod, "require",
+                            /*length=*/1, /*globalRoot=*/nullptr);
+    if (!requireFn) return globalObj;
+
+    const proto::ProtoString* resolveKey =
+        pCtx->fromUTF8String("resolve")->asString(pCtx);
+    if (resolveKey) {
+        const proto::ProtoObject* resolveFn =
+            wrapNativeFunction(pCtx, requireResolveProtoMethod, "resolve",
+                                /*length=*/1, /*globalRoot=*/nullptr);
+        if (resolveFn) requireFn = requireFn->setAttribute(pCtx, resolveKey, resolveFn);
+    }
+    const proto::ProtoString* cacheKey =
+        pCtx->fromUTF8String("cache")->asString(pCtx);
+    if (cacheKey) {
+        requireFn = requireFn->setAttribute(pCtx, cacheKey,
+            pCtx->newObject(/*mutable=*/true));
+    }
+
+    const proto::ProtoString* requireKey = JSSymbols::require(pCtx);
+    if (!requireKey) return globalObj;
+    return globalObj->setAttribute(pCtx, requireKey, requireFn);
 }
 
 static bool isBareSpecifier(const std::string& specifier) {

@@ -262,7 +262,11 @@ int main(int argc, char** argv) {
                 wrapper.getProtoContext(), nativeGlobal, argc, argv);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
-        protojs::CommonJSLoader::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::CommonJSLoader::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             nativeGlobal = protojs::PathModule::init(
@@ -392,7 +396,11 @@ int main(int argc, char** argv) {
     }
     
     // Initialize Phase 2 modules
-    protojs::CommonJSLoader::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::CommonJSLoader::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     // ES Module loader will be used via import statements
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
