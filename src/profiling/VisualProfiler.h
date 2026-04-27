@@ -1,24 +1,24 @@
 #ifndef PROTOJS_VISUALPROFILER_H
 #define PROTOJS_VISUALPROFILER_H
 
-#include "quickjs.h"
+#include "headers/protoCore.h"
 #include "Profiler.h"
 #include <string>
 #include <vector>
 
 namespace protojs {
 
+/**
+ * @brief Visualization extensions for the `profiler` module —
+ *        exportProfile (Chrome DevTools JSON) and generateHTMLReport.
+ *        Migrated to protoCore-native; attaches to the existing
+ *        protojs::Profiler module on the global.
+ */
 class VisualProfiler {
 public:
-    static void init(JSContext* ctx);
-    
-    // Visualization methods
-    static JSValue exportProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue generateHTMLReport(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-
-private:
-    static std::string generateChromeDevToolsFormat(const Profiler::ProfileEntry& entry);
-    static std::string generateHTMLReportContent(const std::vector<Profiler::ProfileEntry>& entries);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

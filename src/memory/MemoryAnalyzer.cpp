@@ -1,10 +1,11 @@
 #include "MemoryAnalyzer.h"
-#include "../modules/fs/FSModule.h"
-#include <sstream>
-#include <iomanip>
-#include <ctime>
+#include "../ProtoNativeModule.h"
+#include "../ArrayElementsStorage.h"
+#include "../ArrayPrototype.h"
+#include "../JSContext.h"
 #include <fstream>
-#include <sys/resource.h>
+#include <sstream>
+#include <ctime>
 
 namespace protojs {
 
@@ -12,261 +13,270 @@ std::vector<MemoryAnalyzer::HeapSnapshot> MemoryAnalyzer::snapshots;
 bool MemoryAnalyzer::trackingAllocations = false;
 MemoryAnalyzer::HeapSnapshot MemoryAnalyzer::trackingStartSnapshot;
 
-void MemoryAnalyzer::init(JSContext* ctx) {
-    JSValue memAnalyzer = JS_NewObject(ctx);
-    
-    JS_SetPropertyStr(ctx, memAnalyzer, "takeHeapSnapshot", JS_NewCFunction(ctx, takeHeapSnapshot, "takeHeapSnapshot", 0));
-    JS_SetPropertyStr(ctx, memAnalyzer, "detectLeaks", JS_NewCFunction(ctx, detectLeaks, "detectLeaks", 2));
-    JS_SetPropertyStr(ctx, memAnalyzer, "exportSnapshot", JS_NewCFunction(ctx, exportSnapshot, "exportSnapshot", 2));
-    JS_SetPropertyStr(ctx, memAnalyzer, "getMemoryUsage", JS_NewCFunction(ctx, getMemoryUsage, "getMemoryUsage", 0));
-    JS_SetPropertyStr(ctx, memAnalyzer, "startAllocationTracking", JS_NewCFunction(ctx, startAllocationTracking, "startAllocationTracking", 0));
-    JS_SetPropertyStr(ctx, memAnalyzer, "stopAllocationTracking", JS_NewCFunction(ctx, stopAllocationTracking, "stopAllocationTracking", 0));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "memory", memAnalyzer);
-    JS_FreeValue(ctx, global_obj);
+namespace {
+
+MemoryAnalyzer::HeapSnapshot captureSnapshot(proto::ProtoSpace* space) {
+    MemoryAnalyzer::HeapSnapshot s;
+    s.timestamp = std::time(nullptr);
+    if (!space) {
+        s.totalSize = 0;
+        return s;
+    }
+    // protoCore tracks `heapSize` (total cells allocated from the OS,
+    // in 64-byte blocks) and `freeCellsCount` (cells currently on the
+    // global free list).  We expose the byte equivalents — they are
+    // the closest analogue to Node.js's heapTotal / heapUsed.
+    size_t heapBytes = static_cast<size_t>(space->heapSize) * 64u;
+    size_t freeBytes = static_cast<size_t>(space->freeCellsCount) * 64u;
+    size_t usedBytes = (heapBytes > freeBytes) ? (heapBytes - freeBytes) : 0;
+    s.totalSize = heapBytes;
+    s.memoryUsage["heapTotal"] = heapBytes;
+    s.memoryUsage["heapUsed"]  = usedBytes;
+    s.memoryUsage["heapFree"]  = freeBytes;
+    s.objectCounts["cells"] = static_cast<size_t>(space->heapSize);
+    s.objectCounts["freeCells"] = static_cast<size_t>(space->freeCellsCount);
+    s.objectCounts["runningThreads"] =
+        static_cast<size_t>(space->runningThreads.load());
+    return s;
 }
 
-MemoryAnalyzer::HeapSnapshot MemoryAnalyzer::captureSnapshot(JSContext* ctx) {
-    HeapSnapshot snapshot;
-    snapshot.timestamp = std::time(nullptr);
-    snapshot.totalSize = 0;
-    
-    // Get memory usage from QuickJS runtime
-    JSRuntime* rt = JS_GetRuntime(ctx);
-    JS_ComputeMemoryUsage(rt, &snapshot.jsMemoryUsage);
-    
-    // Extract detailed statistics
-    snapshot.totalSize = snapshot.jsMemoryUsage.malloc_size;
-    snapshot.memoryUsage["malloc"] = snapshot.jsMemoryUsage.malloc_size;
-    snapshot.memoryUsage["memory_used"] = snapshot.jsMemoryUsage.memory_used_size;
-    snapshot.memoryUsage["atoms"] = snapshot.jsMemoryUsage.atom_size;
-    snapshot.memoryUsage["strings"] = snapshot.jsMemoryUsage.str_size;
-    snapshot.memoryUsage["objects"] = snapshot.jsMemoryUsage.obj_size;
-    snapshot.memoryUsage["properties"] = snapshot.jsMemoryUsage.prop_size;
-    snapshot.memoryUsage["shapes"] = snapshot.jsMemoryUsage.shape_size;
-    snapshot.memoryUsage["js_functions"] = snapshot.jsMemoryUsage.js_func_size;
-    snapshot.memoryUsage["js_func_code"] = snapshot.jsMemoryUsage.js_func_code_size;
-    snapshot.memoryUsage["binary_objects"] = snapshot.jsMemoryUsage.binary_object_size;
-    
-    // Object counts
-    snapshot.objectCounts["objects"] = snapshot.jsMemoryUsage.obj_count;
-    snapshot.objectCounts["arrays"] = snapshot.jsMemoryUsage.array_count;
-    snapshot.objectCounts["fast_arrays"] = snapshot.jsMemoryUsage.fast_array_count;
-    snapshot.objectCounts["functions"] = snapshot.jsMemoryUsage.js_func_count;
-    snapshot.objectCounts["c_functions"] = snapshot.jsMemoryUsage.c_func_count;
-    snapshot.objectCounts["strings"] = snapshot.jsMemoryUsage.str_count;
-    snapshot.objectCounts["atoms"] = snapshot.jsMemoryUsage.atom_count;
-    snapshot.objectCounts["properties"] = snapshot.jsMemoryUsage.prop_count;
-    snapshot.objectCounts["shapes"] = snapshot.jsMemoryUsage.shape_count;
-    snapshot.objectCounts["binary_objects"] = snapshot.jsMemoryUsage.binary_object_count;
-    
-    return snapshot;
+const proto::ProtoObject* snapshotToObject(proto::ProtoContext* ctx,
+                                            const MemoryAnalyzer::HeapSnapshot& s) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
+    auto setLong = [&](const char* k, long long v) {
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        if (sk) obj->setAttribute(ctx, sk, ctx->fromInteger(v));
+    };
+    auto setObj = [&](const char* k, const proto::ProtoObject* v) {
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        if (sk) obj->setAttribute(ctx, sk, v);
+    };
+    setLong("timestamp", static_cast<long long>(s.timestamp));
+    setLong("totalSize", static_cast<long long>(s.totalSize));
+
+    const proto::ProtoObject* counts = ctx->newObject(/*mutable=*/true);
+    for (const auto& kv : s.objectCounts) {
+        const proto::ProtoString* k =
+            ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
+        if (k) counts->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
+    }
+    setObj("objectCounts", counts);
+
+    const proto::ProtoObject* mem = ctx->newObject(/*mutable=*/true);
+    for (const auto& kv : s.memoryUsage) {
+        const proto::ProtoString* k =
+            ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
+        if (k) mem->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
+    }
+    setObj("memoryUsage", mem);
+    return obj;
 }
 
-JSValue MemoryAnalyzer::takeHeapSnapshot(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    HeapSnapshot snapshot = captureSnapshot(ctx);
-    snapshots.push_back(snapshot);
-    
-    return snapshotToJSObject(ctx, snapshot);
-}
-
-JSValue MemoryAnalyzer::detectLeaks(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 2) {
-        return JS_ThrowTypeError(ctx, "detectLeaks expects two snapshots");
-    }
-    
-    // Get snapshot indices from arguments
-    int64_t beforeIdx, afterIdx;
-    if (JS_ToInt64(ctx, &beforeIdx, argv[0]) < 0 || JS_ToInt64(ctx, &afterIdx, argv[1]) < 0) {
-        return JS_ThrowTypeError(ctx, "detectLeaks expects two snapshot indices");
-    }
-    
-    if (beforeIdx < 0 || beforeIdx >= static_cast<int64_t>(snapshots.size()) ||
-        afterIdx < 0 || afterIdx >= static_cast<int64_t>(snapshots.size())) {
-        return JS_ThrowTypeError(ctx, "Invalid snapshot index");
-    }
-    
-    const HeapSnapshot& before = snapshots[beforeIdx];
-    const HeapSnapshot& after = snapshots[afterIdx];
-    
-    LeakReport report = compareSnapshots(before, after);
-    
-    return leakReportToJSObject(ctx, report);
-}
-
-JSValue MemoryAnalyzer::exportSnapshot(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 2) {
-        return JS_ThrowTypeError(ctx, "exportSnapshot expects snapshot index and filename");
-    }
-    
-    int64_t snapshotIdx;
-    if (JS_ToInt64(ctx, &snapshotIdx, argv[0]) < 0) {
-        return JS_ThrowTypeError(ctx, "exportSnapshot expects snapshot index");
-    }
-    
-    if (snapshotIdx < 0 || snapshotIdx >= static_cast<int64_t>(snapshots.size())) {
-        return JS_ThrowTypeError(ctx, "Invalid snapshot index");
-    }
-    
-    const char* filename = JS_ToCString(ctx, argv[1]);
-    if (!filename) return JS_EXCEPTION;
-    
-    const HeapSnapshot& snapshot = snapshots[snapshotIdx];
-    std::string json = generateChromeDevToolsFormat(snapshot);
-    
-    // Write to file using FS module
-    std::ofstream file(filename);
-    if (file.is_open()) {
-        file << json;
-        file.close();
-        JS_FreeCString(ctx, filename);
-        return JS_NewBool(ctx, true);
-    } else {
-        JS_FreeCString(ctx, filename);
-        return JS_ThrowTypeError(ctx, "Failed to write snapshot file");
-    }
-}
-
-JSValue MemoryAnalyzer::getMemoryUsage(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    JSValue usage = JS_NewObject(ctx);
-    
-    // Get memory usage from QuickJS runtime
-    JSRuntime* rt = JS_GetRuntime(ctx);
-    JSMemoryUsage memUsage;
-    JS_ComputeMemoryUsage(rt, &memUsage);
-    
-    JS_SetPropertyStr(ctx, usage, "rss", JS_NewInt64(ctx, memUsage.malloc_size));
-    JS_SetPropertyStr(ctx, usage, "heapTotal", JS_NewInt64(ctx, memUsage.malloc_size));
-    JS_SetPropertyStr(ctx, usage, "heapUsed", JS_NewInt64(ctx, memUsage.memory_used_size));
-    JS_SetPropertyStr(ctx, usage, "external", JS_NewInt64(ctx, memUsage.binary_object_size));
-    
-    return usage;
-}
-
-JSValue MemoryAnalyzer::startAllocationTracking(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (trackingAllocations) {
-        return JS_NewBool(ctx, false);
-    }
-    
-    trackingAllocations = true;
-    trackingStartSnapshot = captureSnapshot(ctx);
-    
-    return JS_NewBool(ctx, true);
-}
-
-JSValue MemoryAnalyzer::stopAllocationTracking(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (!trackingAllocations) {
-        return JS_NewBool(ctx, false);
-    }
-    
-    trackingAllocations = false;
-    HeapSnapshot endSnapshot = captureSnapshot(ctx);
-    
-    LeakReport report = compareSnapshots(trackingStartSnapshot, endSnapshot);
-    
-    return leakReportToJSObject(ctx, report);
-}
-
-MemoryAnalyzer::LeakReport MemoryAnalyzer::compareSnapshots(const HeapSnapshot& before, const HeapSnapshot& after) {
-    LeakReport report;
-    report.totalLeakedSize = 0;
-    
-    // Compare object counts
-    for (const auto& pair : after.objectCounts) {
-        size_t beforeCount = before.objectCounts.count(pair.first) ? before.objectCounts.at(pair.first) : 0;
-        size_t afterCount = pair.second;
-        
-        if (afterCount > beforeCount) {
-            report.leakedTypes.push_back(pair.first);
-            report.leakCounts[pair.first] = afterCount - beforeCount;
+MemoryAnalyzer::LeakReport compareSnapshots(
+        const MemoryAnalyzer::HeapSnapshot& before,
+        const MemoryAnalyzer::HeapSnapshot& after) {
+    MemoryAnalyzer::LeakReport r;
+    r.totalLeakedSize = 0;
+    for (const auto& kv : after.objectCounts) {
+        size_t b = before.objectCounts.count(kv.first)
+            ? before.objectCounts.at(kv.first) : 0;
+        if (kv.second > b) {
+            r.leakedTypes.push_back(kv.first);
+            r.leakCounts[kv.first] = kv.second - b;
         }
     }
-    
-    // Compare memory usage
-    for (const auto& pair : after.memoryUsage) {
-        size_t beforeSize = before.memoryUsage.count(pair.first) ? before.memoryUsage.at(pair.first) : 0;
-        size_t afterSize = pair.second;
-        
-        if (afterSize > beforeSize) {
-            report.leakSizes[pair.first] = afterSize - beforeSize;
-            report.totalLeakedSize += (afterSize - beforeSize);
+    for (const auto& kv : after.memoryUsage) {
+        size_t b = before.memoryUsage.count(kv.first)
+            ? before.memoryUsage.at(kv.first) : 0;
+        if (kv.second > b) {
+            r.leakSizes[kv.first] = kv.second - b;
+            r.totalLeakedSize += (kv.second - b);
         }
     }
-    
-    return report;
+    return r;
 }
 
-std::string MemoryAnalyzer::generateChromeDevToolsFormat(const HeapSnapshot& snapshot) {
+const proto::ProtoObject* leakReportToObject(proto::ProtoContext* ctx,
+                                              const MemoryAnalyzer::LeakReport& r) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
+    auto setLong = [&](const char* k, long long v) {
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        if (sk) obj->setAttribute(ctx, sk, ctx->fromInteger(v));
+    };
+    auto setObj = [&](const char* k, const proto::ProtoObject* v) {
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        if (sk) obj->setAttribute(ctx, sk, v);
+    };
+    setLong("totalLeakedSize", static_cast<long long>(r.totalLeakedSize));
+
+    const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+    const proto::ProtoList* els = ctx->newList();
+    for (const auto& s : r.leakedTypes) els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+    setArrayElements(ctx, arr, els);
+    setObj("leakedTypes", arr);
+
+    const proto::ProtoObject* counts = ctx->newObject(/*mutable=*/true);
+    for (const auto& kv : r.leakCounts) {
+        const proto::ProtoString* k = ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
+        if (k) counts->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
+    }
+    setObj("leakCounts", counts);
+
+    const proto::ProtoObject* sizes = ctx->newObject(/*mutable=*/true);
+    for (const auto& kv : r.leakSizes) {
+        const proto::ProtoString* k = ctx->fromUTF8String(kv.first.c_str())->asString(ctx);
+        if (k) sizes->setAttribute(ctx, k, ctx->fromInteger(static_cast<long long>(kv.second)));
+    }
+    setObj("leakSizes", sizes);
+    return obj;
+}
+
+std::string generateChromeJson(const MemoryAnalyzer::HeapSnapshot& s) {
     std::stringstream ss;
-    ss << "{\n";
-    ss << "  \"snapshot\": {\n";
-    ss << "    \"meta\": {\n";
-    ss << "      \"node_fields\": [\"type\", \"name\", \"id\", \"self_size\", \"edge_count\", \"trace_node_id\"],\n";
-    ss << "      \"node_types\": [[\"hidden\", \"array\", \"string\", \"object\", \"code\", \"closure\", \"regexp\", \"number\", \"native\", \"synthetic\"]],\n";
-    ss << "      \"edge_fields\": [\"type\", \"name_or_index\", \"to_node\"],\n";
-    ss << "      \"edge_types\": [[\"context\", \"element\", \"property\", \"internal\", \"hidden\", \"shortcut\", \"weak\"]],\n";
-    ss << "      \"trace_function_info_fields\": [\"function_name\", \"script_name\", \"script_id\", \"line\", \"column\"],\n";
-    ss << "      \"trace_node_fields\": [\"id\", \"function_info_index\", \"count\", \"size\", \"children\"]\n";
-    ss << "    },\n";
-    ss << "    \"node_count\": " << snapshot.objectCounts.size() << ",\n";
-    ss << "    \"edge_count\": 0\n";
-    ss << "  },\n";
-    ss << "  \"nodes\": [],\n";
-    ss << "  \"edges\": [],\n";
-    ss << "  \"strings\": [],\n";
-    ss << "  \"trace_function_infos\": [],\n";
-    ss << "  \"trace_tree\": null\n";
-    ss << "}";
-    
+    ss << "{\n  \"snapshot\": {\n"
+          "    \"meta\": {\n"
+          "      \"node_fields\": [\"type\", \"name\", \"id\", \"self_size\", \"edge_count\", \"trace_node_id\"],\n"
+          "      \"node_types\": [[\"hidden\", \"array\", \"string\", \"object\", \"code\", \"closure\", \"regexp\", \"number\", \"native\", \"synthetic\"]],\n"
+          "      \"edge_fields\": [\"type\", \"name_or_index\", \"to_node\"],\n"
+          "      \"edge_types\": [[\"context\", \"element\", \"property\", \"internal\", \"hidden\", \"shortcut\", \"weak\"]],\n"
+          "      \"trace_function_info_fields\": [\"function_name\", \"script_name\", \"script_id\", \"line\", \"column\"],\n"
+          "      \"trace_node_fields\": [\"id\", \"function_info_index\", \"count\", \"size\", \"children\"]\n"
+          "    },\n"
+          "    \"node_count\": " << s.objectCounts.size() << ",\n"
+          "    \"edge_count\": 0\n"
+          "  },\n"
+          "  \"nodes\": [],\n"
+          "  \"edges\": [],\n"
+          "  \"strings\": [],\n"
+          "  \"trace_function_infos\": [],\n"
+          "  \"trace_tree\": null\n"
+          "}";
     return ss.str();
 }
 
-JSValue MemoryAnalyzer::snapshotToJSObject(JSContext* ctx, const HeapSnapshot& snapshot) {
-    JSValue obj = JS_NewObject(ctx);
-    
-    JS_SetPropertyStr(ctx, obj, "timestamp", JS_NewInt64(ctx, snapshot.timestamp));
-    JS_SetPropertyStr(ctx, obj, "totalSize", JS_NewInt64(ctx, snapshot.totalSize));
-    
-    JSValue objectCounts = JS_NewObject(ctx);
-    for (const auto& pair : snapshot.objectCounts) {
-        JS_SetPropertyStr(ctx, objectCounts, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
-    }
-    JS_SetPropertyStr(ctx, obj, "objectCounts", objectCounts);
-    
-    JSValue memoryUsage = JS_NewObject(ctx);
-    for (const auto& pair : snapshot.memoryUsage) {
-        JS_SetPropertyStr(ctx, memoryUsage, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
-    }
-    JS_SetPropertyStr(ctx, obj, "memoryUsage", memoryUsage);
-    
-    return obj;
+proto::ProtoSpace* spaceForCtx(proto::ProtoContext* ctx) {
+    return ctx ? ctx->space : nullptr;
 }
 
-JSValue MemoryAnalyzer::leakReportToJSObject(JSContext* ctx, const LeakReport& report) {
-    JSValue obj = JS_NewObject(ctx);
-    
-    JS_SetPropertyStr(ctx, obj, "totalLeakedSize", JS_NewInt64(ctx, report.totalLeakedSize));
-    
-    JSValue leakedTypes = JS_NewArray(ctx);
-    for (size_t i = 0; i < report.leakedTypes.size(); i++) {
-        JS_SetPropertyUint32(ctx, leakedTypes, i, JS_NewString(ctx, report.leakedTypes[i].c_str()));
-    }
-    JS_SetPropertyStr(ctx, obj, "leakedTypes", leakedTypes);
-    
-    JSValue leakCounts = JS_NewObject(ctx);
-    for (const auto& pair : report.leakCounts) {
-        JS_SetPropertyStr(ctx, leakCounts, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
-    }
-    JS_SetPropertyStr(ctx, obj, "leakCounts", leakCounts);
-    
-    JSValue leakSizes = JS_NewObject(ctx);
-    for (const auto& pair : report.leakSizes) {
-        JS_SetPropertyStr(ctx, leakSizes, pair.first.c_str(), JS_NewInt64(ctx, pair.second));
-    }
-    JS_SetPropertyStr(ctx, obj, "leakSizes", leakSizes);
-    
-    return obj;
+const proto::ProtoObject* takeHeapSnapshotImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    auto s = captureSnapshot(spaceForCtx(ctx));
+    MemoryAnalyzer::snapshots.push_back(s);
+    return snapshotToObject(ctx, s);
+}
+
+const proto::ProtoObject* detectLeaksImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
+    const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+    const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+    if (!a0 || !a1 || !a0->isInteger(ctx) || !a1->isInteger(ctx)) return PROTO_NONE;
+    long long b = a0->asLong(ctx);
+    long long a = a1->asLong(ctx);
+    auto& sn = MemoryAnalyzer::snapshots;
+    if (b < 0 || b >= (long long)sn.size() || a < 0 || a >= (long long)sn.size())
+        return PROTO_NONE;
+    return leakReportToObject(ctx, compareSnapshots(sn[b], sn[a]));
+}
+
+const proto::ProtoObject* exportSnapshotImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_FALSE;
+    const proto::ProtoObject* a0 = args->getAt(ctx, 0);
+    const proto::ProtoObject* a1 = args->getAt(ctx, 1);
+    if (!a0 || !a1 || !a0->isInteger(ctx) || !a1->isString(ctx)) return PROTO_FALSE;
+    long long idx = a0->asLong(ctx);
+    auto& sn = MemoryAnalyzer::snapshots;
+    if (idx < 0 || idx >= (long long)sn.size()) return PROTO_FALSE;
+    std::string filename;
+    a1->asString(ctx)->toUTF8String(ctx, filename);
+    std::ofstream f(filename);
+    if (!f.is_open()) return PROTO_FALSE;
+    f << generateChromeJson(sn[idx]);
+    f.close();
+    return PROTO_TRUE;
+}
+
+const proto::ProtoObject* getMemoryUsageImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    auto s = captureSnapshot(spaceForCtx(ctx));
+    const proto::ProtoObject* usage = ctx->newObject(/*mutable=*/true);
+    auto setLong = [&](const char* k, long long v) {
+        const proto::ProtoString* sk = ctx->fromUTF8String(k)->asString(ctx);
+        if (sk) usage->setAttribute(ctx, sk, ctx->fromInteger(v));
+    };
+    // Node.js-ish field names mapped to protoCore equivalents.
+    setLong("rss",       static_cast<long long>(s.totalSize));
+    setLong("heapTotal", static_cast<long long>(s.totalSize));
+    setLong("heapUsed",  static_cast<long long>(s.memoryUsage["heapUsed"]));
+    setLong("external",  0);
+    return usage;
+}
+
+const proto::ProtoObject* startAllocationTrackingImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (MemoryAnalyzer::trackingAllocations) return PROTO_FALSE;
+    MemoryAnalyzer::trackingAllocations = true;
+    MemoryAnalyzer::trackingStartSnapshot = captureSnapshot(spaceForCtx(ctx));
+    return PROTO_TRUE;
+}
+
+const proto::ProtoObject* stopAllocationTrackingImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!MemoryAnalyzer::trackingAllocations) return PROTO_FALSE;
+    MemoryAnalyzer::trackingAllocations = false;
+    auto end = captureSnapshot(spaceForCtx(ctx));
+    return leakReportToObject(ctx,
+        compareSnapshots(MemoryAnalyzer::trackingStartSnapshot, end));
+}
+
+}  // namespace
+
+const proto::ProtoObject* MemoryAnalyzer::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+    static const NativeEntry entries[] = {
+        {"takeHeapSnapshot",        takeHeapSnapshotImpl},
+        {"detectLeaks",             detectLeaksImpl},
+        {"exportSnapshot",          exportSnapshotImpl},
+        {"getMemoryUsage",          getMemoryUsageImpl},
+        {"startAllocationTracking", startAllocationTrackingImpl},
+        {"stopAllocationTracking",  stopAllocationTrackingImpl},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* mod =
+        ProtoNativeModule::buildModule(ctx, entries, 6);
+    if (!mod) return globalObj;
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "memory", mod);
 }
 
 } // namespace protojs

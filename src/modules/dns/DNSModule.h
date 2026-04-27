@@ -1,26 +1,21 @@
 #ifndef PROTOJS_DNSMODULE_H
 #define PROTOJS_DNSMODULE_H
 
-#include "quickjs.h"
-#include <string>
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `dns` module — name resolution, reverse lookup,
+ *        async lookup callbacks via the IO thread pool.  Migrated to
+ *        protoCore-native (no QuickJS bridge); see
+ *        docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
+ */
 class DNSModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    // DNS lookup methods
-    static JSValue lookup(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue resolve(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue resolve4(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue resolve6(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue reverse(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue lookupService(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    
-    // Helper functions
-    static void lookupAsync(JSContext* ctx, const std::string& hostname, int family, JSValue callback);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

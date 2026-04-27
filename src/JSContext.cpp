@@ -177,7 +177,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     pContext->currentFileName = currentScript_.empty() ? nullptr : &currentScript_[0];
     pContext->currentLineNumber = 1;
 
-    IntegratedDebugger::pushFrame(ctx);
+    IntegratedDebugger::pushFrame(pContext);
     if (IntegratedDebugger::checkBreakpoint(filename, 1)) {
         IntegratedDebugger::pauseExecution();
     }

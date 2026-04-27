@@ -1,33 +1,28 @@
 #ifndef PROTOJS_PROFILER_H
 #define PROTOJS_PROFILER_H
 
-#include "quickjs.h"
+#include "headers/protoCore.h"
 #include <string>
-#include <map>
 #include <chrono>
 #include <vector>
 
 namespace protojs {
 
 /**
- * @brief Performance profiler for protoJS
- * 
- * Provides CPU and memory profiling capabilities.
+ * @brief Performance profiler for protoJS — CPU + memory snapshots,
+ *        all read-only.  Migrated to protoCore-native (no QuickJS
+ *        bridge); see docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
  */
 class Profiler {
 public:
-    static void init(JSContext* ctx);
-    
-    // Profiling control
-    static JSValue startProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue stopProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue getProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    
-    // Memory profiling
-    static JSValue startMemoryProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue stopMemoryProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue getMemoryProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 
+    // Public state model — kept on the class for binary-compat with
+    // any internal code that wants to record entries without going
+    // through JS (currently none, but the original module exposed
+    // these as public).
     struct ProfileEntry {
         std::string name;
         double startTime;
@@ -36,12 +31,10 @@ public:
         uint64_t memoryBefore;
         uint64_t memoryAfter;
     };
-
-private:
     static std::vector<ProfileEntry> profileEntries;
     static bool profiling;
     static std::chrono::high_resolution_clock::time_point profileStart;
-    
+
     static uint64_t getMemoryUsage();
 };
 

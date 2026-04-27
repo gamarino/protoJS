@@ -1,157 +1,117 @@
 #include "VisualProfiler.h"
-#include "../modules/fs/FSModule.h"
-#include <sstream>
+#include "../ProtoNativeModule.h"
 #include <fstream>
-#include <iomanip>
-#include <ctime>
+#include <sstream>
 
 namespace protojs {
 
-void VisualProfiler::init(JSContext* ctx) {
-    // Extend profiler module with visualization
-    JSValue profiler = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "profiler");
-    if (!JS_IsUndefined(profiler)) {
-        JS_SetPropertyStr(ctx, profiler, "exportProfile", JS_NewCFunction(ctx, exportProfile, "exportProfile", 1));
-        JS_SetPropertyStr(ctx, profiler, "generateHTMLReport", JS_NewCFunction(ctx, generateHTMLReport, "generateHTMLReport", 1));
+namespace {
+
+// Build a Chrome DevTools-compatible CPU profile from the entries
+// recorded by the Profiler module.  Output mirrors the previous
+// QuickJS-side stringifier exactly (same field set, same ordering).
+std::string buildChromeDevToolsJson() {
+    std::stringstream ss;
+    ss << "{\n";
+    ss << "  \"type\": \"CPUProfile\",\n";
+    ss << "  \"startTime\": 0,\n";
+    ss << "  \"endTime\": 0,\n";
+    ss << "  \"nodes\": [\n";
+    bool first = true;
+    int id = 0;
+    for (const auto& e : Profiler::profileEntries) {
+        if (!first) ss << ",\n";
+        first = false;
+        ss << "    {\"id\":" << id++ << ",\"callFrame\":{\"functionName\":\""
+           << e.name << "\"},\"hitCount\":1}";
     }
-    JS_FreeValue(ctx, profiler);
+    ss << "\n  ],\n";
+    ss << "  \"samples\": [],\n";
+    ss << "  \"timeDeltas\": []\n";
+    ss << "}";
+    return ss.str();
 }
 
-JSValue VisualProfiler::exportProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "exportProfile expects filename");
-    }
-    
-    const char* filename = JS_ToCString(ctx, argv[0]);
-    if (!filename) return JS_EXCEPTION;
-    
-    // Get profile from profiler
-    JSValue profiler = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "profiler");
-    std::string json = "{\"type\":\"CPUProfile\",\"startTime\":0,\"endTime\":0,\"nodes\":[],\"samples\":[],\"timeDeltas\":[]}";
-    
-    if (!JS_IsUndefined(profiler)) {
-        JSValue getProfileFunc = JS_GetPropertyStr(ctx, profiler, "getProfile");
-        if (JS_IsFunction(ctx, getProfileFunc)) {
-            JSValue profile = JS_Call(ctx, getProfileFunc, profiler, 0, nullptr);
-            
-            if (!JS_IsException(profile)) {
-                // Build Chrome DevTools format
-                std::stringstream ss;
-                ss << "{\n";
-                ss << "  \"type\": \"CPUProfile\",\n";
-                ss << "  \"startTime\": 0,\n";
-                ss << "  \"endTime\": 0,\n";
-                ss << "  \"nodes\": [\n";
-                
-                JSValue entries = JS_GetPropertyStr(ctx, profile, "entries");
-                if (!JS_IsUndefined(entries) && JS_IsArray(ctx, entries)) {
-                    uint32_t len;
-                    JS_ToUint32(ctx, &len, JS_GetPropertyStr(ctx, entries, "length"));
-                    
-                    bool first = true;
-                    for (uint32_t i = 0; i < len; i++) {
-                        JSValue entry = JS_GetPropertyUint32(ctx, entries, i);
-                        if (!JS_IsUndefined(entry)) {
-                            if (!first) ss << ",\n";
-                            first = false;
-                            
-                            JSValue nameVal = JS_GetPropertyStr(ctx, entry, "name");
-                            JSValue durationVal = JS_GetPropertyStr(ctx, entry, "duration");
-                            
-                            const char* name = JS_ToCString(ctx, nameVal);
-                            double duration = 0;
-                            JS_ToFloat64(ctx, &duration, durationVal);
-                            
-                            ss << "    {\"id\":" << i << ",\"callFrame\":{\"functionName\":\"" 
-                               << (name ? name : "unknown") << "\"},\"hitCount\":1}";
-                            
-                            if (name) JS_FreeCString(ctx, name);
-                            JS_FreeValue(ctx, nameVal);
-                            JS_FreeValue(ctx, durationVal);
-                            JS_FreeValue(ctx, entry);
-                        }
-                    }
-                }
-                
-                ss << "\n  ],\n";
-                ss << "  \"samples\": [],\n";
-                ss << "  \"timeDeltas\": []\n";
-                ss << "}";
-                
-                json = ss.str();
-                JS_FreeValue(ctx, entries);
-            }
-            
-            JS_FreeValue(ctx, profile);
-            JS_FreeValue(ctx, getProfileFunc);
-        }
-    }
-    JS_FreeValue(ctx, profiler);
-    
-    // Write to file
+bool argFilename(proto::ProtoContext* ctx, const proto::ProtoList* args,
+                  std::string& out) {
+    if (!ctx || !args || args->getSize(ctx) == 0) return false;
+    const proto::ProtoObject* a = args->getAt(ctx, 0);
+    if (!a || !a->isString(ctx)) return false;
+    a->asString(ctx)->toUTF8String(ctx, out);
+    return true;
+}
+
+const proto::ProtoObject* exportProfileImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string filename;
+    if (!argFilename(ctx, args, filename)) return PROTO_FALSE;
     std::ofstream file(filename);
-    if (file.is_open()) {
-        file << json;
-        file.close();
-        JS_FreeCString(ctx, filename);
-        return JS_NewBool(ctx, true);
-    } else {
-        JS_FreeCString(ctx, filename);
-        return JS_ThrowTypeError(ctx, "Failed to write profile file");
-    }
+    if (!file.is_open()) return PROTO_FALSE;
+    file << buildChromeDevToolsJson();
+    file.close();
+    return PROTO_TRUE;
 }
 
-std::string VisualProfiler::generateChromeDevToolsFormat(const Profiler::ProfileEntry& entry) {
+const proto::ProtoObject* generateHTMLReportImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string filename;
+    if (!argFilename(ctx, args, filename)) return PROTO_FALSE;
     std::stringstream ss;
-    ss << "{\"functionName\":\"" << entry.name << "\","
-       << "\"duration\":" << entry.duration << ","
-       << "\"startTime\":" << entry.startTime << ","
-       << "\"endTime\":" << entry.endTime << "}";
-    return ss.str();
+    ss << "<!DOCTYPE html>\n<html>\n<head>\n"
+          "    <title>protoJS Performance Profile</title>\n"
+          "    <style>\n"
+          "        body { font-family: Arial, sans-serif; margin: 20px; }\n"
+          "        .entry { margin: 5px 0; padding: 5px; background: #f0f0f0; }\n"
+          "    </style>\n"
+          "</head>\n<body>\n"
+          "    <h1>Performance Profile</h1>\n"
+          "    <div class='timeline'>\n";
+    for (const auto& e : Profiler::profileEntries) {
+        ss << "        <div class='entry'>" << e.name << ": "
+           << e.duration << "ms</div>\n";
+    }
+    ss << "    </div>\n</body>\n</html>";
+    std::ofstream file(filename);
+    if (!file.is_open()) return PROTO_FALSE;
+    file << ss.str();
+    file.close();
+    return PROTO_TRUE;
 }
 
-JSValue VisualProfiler::generateHTMLReport(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "generateHTMLReport expects filename");
-    }
-    
-    const char* filename = JS_ToCString(ctx, argv[0]);
-    if (!filename) return JS_EXCEPTION;
-    
-    // Generate HTML report
-    std::string html = R"(<!DOCTYPE html>
-<html>
-<head>
-    <title>protoJS Performance Profile</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .timeline { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
-        .entry { margin: 5px 0; padding: 5px; background: #f0f0f0; }
-    </style>
-</head>
-<body>
-    <h1>Performance Profile</h1>
-    <div class="timeline">
-        <h2>Timeline</h2>
-        <p>Profile data would be displayed here</p>
-    </div>
-</body>
-</html>)";
-    
-    // Write to file (simplified - would use FS module)
-    JS_FreeCString(ctx, filename);
-    
-    return JS_NewBool(ctx, true);
-}
+}  // namespace
 
-std::string VisualProfiler::generateHTMLReportContent(const std::vector<Profiler::ProfileEntry>& entries) {
-    std::stringstream ss;
-    ss << "<!DOCTYPE html><html><head><title>Profile</title></head><body>";
-    for (const auto& entry : entries) {
-        ss << "<div class='entry'>" << entry.name << ": " << entry.duration << "ms</div>";
+const proto::ProtoObject* VisualProfiler::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+    const proto::ProtoString* profKey =
+        ctx->fromUTF8String("profiler")->asString(ctx);
+    if (!profKey) return globalObj;
+    const proto::ProtoObject* profilerObj = globalObj->getAttribute(ctx, profKey, false);
+    if (!profilerObj || profilerObj == PROTO_NONE) return globalObj;
+
+    // Add the two visualisation methods directly onto the existing
+    // profiler module object via the standard helper.
+    const proto::ProtoObject* updated =
+        ProtoNativeModule::addMethod(ctx, profilerObj, "exportProfile",
+                                      exportProfileImpl);
+    updated = ProtoNativeModule::addMethod(ctx, updated, "generateHTMLReport",
+                                            generateHTMLReportImpl);
+    if (updated && updated != profilerObj) {
+        // Re-bind on the global if the profiler object was immutable
+        // (the buildModule path returns a non-mutable proto, so
+        // addMethod returns a fresh updated object that we must re-pin).
+        globalObj = globalObj->setAttribute(ctx, profKey, updated);
     }
-    ss << "</body></html>";
-    return ss.str();
+    return globalObj;
 }
 
 } // namespace protojs

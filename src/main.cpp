@@ -290,12 +290,32 @@ int main(int argc, char** argv) {
         protojs::ClusterModule::init(wrapper.getJSContext());
         protojs::DgramModule::init(wrapper.getJSContext());
         protojs::ChildProcessModule::init(wrapper.getJSContext());
-    protojs::DNSModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::DNSModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     protojs::ChildProcessModule::init(wrapper.getJSContext());
-    protojs::MemoryAnalyzer::init(wrapper.getJSContext());
-    protojs::Profiler::init(wrapper.getJSContext());
-    protojs::VisualProfiler::init(wrapper.getJSContext());
-    protojs::IntegratedDebugger::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::MemoryAnalyzer::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::Profiler::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::VisualProfiler::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::IntegratedDebugger::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
         
         protojs::REPL::start(wrapper.getJSContext());
         return 0;
@@ -397,11 +417,31 @@ int main(int argc, char** argv) {
     protojs::ClusterModule::init(wrapper.getJSContext());
     protojs::DgramModule::init(wrapper.getJSContext());
     protojs::ChildProcessModule::init(wrapper.getJSContext());
-    protojs::DNSModule::init(wrapper.getJSContext());
-    protojs::MemoryAnalyzer::init(wrapper.getJSContext());
-    protojs::Profiler::init(wrapper.getJSContext());
-    protojs::VisualProfiler::init(wrapper.getJSContext());
-    protojs::IntegratedDebugger::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::DNSModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::MemoryAnalyzer::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::Profiler::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::VisualProfiler::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::IntegratedDebugger::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
 
     // __filename / __dirname / __protojs__ are now set by installScriptGlobals
     // earlier on the protoCore-native global.  No QuickJS-side install here.

@@ -1,5 +1,7 @@
 #include "Profiler.h"
-#include "../JSContext.h"
+#include "../ProtoNativeModule.h"
+#include "../ArrayElementsStorage.h"
+#include "../ArrayPrototype.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -10,93 +12,120 @@ std::vector<Profiler::ProfileEntry> Profiler::profileEntries;
 bool Profiler::profiling = false;
 std::chrono::high_resolution_clock::time_point Profiler::profileStart;
 
-void Profiler::init(JSContext* ctx) {
-    JSValue profilerModule = JS_NewObject(ctx);
-    
-    JS_SetPropertyStr(ctx, profilerModule, "startProfiling", JS_NewCFunction(ctx, startProfiling, "startProfiling", 0));
-    JS_SetPropertyStr(ctx, profilerModule, "stopProfiling", JS_NewCFunction(ctx, stopProfiling, "stopProfiling", 0));
-    JS_SetPropertyStr(ctx, profilerModule, "getProfile", JS_NewCFunction(ctx, getProfile, "getProfile", 0));
-    JS_SetPropertyStr(ctx, profilerModule, "startMemoryProfiling", JS_NewCFunction(ctx, startMemoryProfiling, "startMemoryProfiling", 0));
-    JS_SetPropertyStr(ctx, profilerModule, "stopMemoryProfiling", JS_NewCFunction(ctx, stopMemoryProfiling, "stopMemoryProfiling", 0));
-    JS_SetPropertyStr(ctx, profilerModule, "getMemoryProfile", JS_NewCFunction(ctx, getMemoryProfile, "getMemoryProfile", 0));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "profiler", profilerModule);
-    JS_FreeValue(ctx, global_obj);
-}
-
-JSValue Profiler::startProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (profiling) {
-        return JS_NewBool(ctx, false);
-    }
-    
-    profiling = true;
-    profileStart = std::chrono::high_resolution_clock::now();
-    profileEntries.clear();
-    
-    return JS_NewBool(ctx, true);
-}
-
-JSValue Profiler::stopProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (!profiling) {
-        return JS_NewBool(ctx, false);
-    }
-    
-    profiling = false;
-    auto endTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - profileStart).count();
-    
-    return JS_NewFloat64(ctx, duration / 1000.0); // Return duration in milliseconds
-}
-
-JSValue Profiler::getProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    JSValue profile = JS_NewObject(ctx);
-    
-    JSValue entries = JS_NewArray(ctx);
-    for (size_t i = 0; i < profileEntries.size(); i++) {
-        JSValue entry = JS_NewObject(ctx);
-        JS_SetPropertyStr(ctx, entry, "name", JS_NewString(ctx, profileEntries[i].name.c_str()));
-        JS_SetPropertyStr(ctx, entry, "duration", JS_NewFloat64(ctx, profileEntries[i].duration));
-        JS_SetPropertyStr(ctx, entry, "memoryDelta", JS_NewInt64(ctx, 
-            static_cast<int64_t>(profileEntries[i].memoryAfter) - static_cast<int64_t>(profileEntries[i].memoryBefore)));
-        JS_SetPropertyUint32(ctx, entries, i, entry);
-    }
-    JS_SetPropertyStr(ctx, profile, "entries", entries);
-    JS_SetPropertyStr(ctx, profile, "profiling", JS_NewBool(ctx, profiling));
-    
-    return profile;
-}
-
-JSValue Profiler::startMemoryProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    return startProfiling(ctx, this_val, argc, argv);
-}
-
-JSValue Profiler::stopMemoryProfiling(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    return stopProfiling(ctx, this_val, argc, argv);
-}
-
-JSValue Profiler::getMemoryProfile(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    JSValue profile = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, profile, "current", JS_NewInt64(ctx, getMemoryUsage()));
-    
-    if (!profileEntries.empty()) {
-        uint64_t minMem = profileEntries[0].memoryBefore;
-        uint64_t maxMem = profileEntries[0].memoryBefore;
-        for (const auto& entry : profileEntries) {
-            if (entry.memoryBefore < minMem) minMem = entry.memoryBefore;
-            if (entry.memoryAfter > maxMem) maxMem = entry.memoryAfter;
-        }
-        JS_SetPropertyStr(ctx, profile, "min", JS_NewInt64(ctx, minMem));
-        JS_SetPropertyStr(ctx, profile, "max", JS_NewInt64(ctx, maxMem));
-    }
-    
-    return profile;
-}
-
 uint64_t Profiler::getMemoryUsage() {
-    // Basic memory usage estimation
-    // In a real implementation, would query system memory or QuickJS memory stats
-    return 0; // Placeholder
+    // Placeholder — original module returned 0 here too; a real
+    // implementation would query the protoCore heapSize counter or
+    // /proc/self/status.  Kept signature-stable.
+    return 0;
+}
+
+namespace {
+
+const proto::ProtoObject* startProfilingImpl(
+    proto::ProtoContext* /*ctx*/,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (Profiler::profiling) return PROTO_FALSE;
+    Profiler::profiling = true;
+    Profiler::profileStart = std::chrono::high_resolution_clock::now();
+    Profiler::profileEntries.clear();
+    return PROTO_TRUE;
+}
+
+const proto::ProtoObject* stopProfilingImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!Profiler::profiling) return PROTO_FALSE;
+    Profiler::profiling = false;
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        endTime - Profiler::profileStart).count();
+    return ctx ? ctx->fromDouble(static_cast<double>(duration) / 1000.0)
+               : PROTO_NONE;
+}
+
+const proto::ProtoObject* getProfileImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* profile = ctx->newObject(/*mutable=*/true);
+    const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+    const proto::ProtoList* els = ctx->newList();
+    for (const auto& e : Profiler::profileEntries) {
+        const proto::ProtoObject* entry = ctx->newObject(/*mutable=*/true);
+        const proto::ProtoString* nk = ctx->fromUTF8String("name")->asString(ctx);
+        const proto::ProtoString* dk = ctx->fromUTF8String("duration")->asString(ctx);
+        const proto::ProtoString* mk = ctx->fromUTF8String("memoryDelta")->asString(ctx);
+        if (nk) entry->setAttribute(ctx, nk, ctx->fromUTF8String(e.name.c_str()));
+        if (dk) entry->setAttribute(ctx, dk, ctx->fromDouble(e.duration));
+        if (mk) entry->setAttribute(ctx, mk, ctx->fromInteger(
+            static_cast<long long>(e.memoryAfter) - static_cast<long long>(e.memoryBefore)));
+        els = els->appendLast(ctx, entry);
+    }
+    setArrayElements(ctx, arr, els);
+    const proto::ProtoString* ek = ctx->fromUTF8String("entries")->asString(ctx);
+    const proto::ProtoString* pk = ctx->fromUTF8String("profiling")->asString(ctx);
+    if (ek) profile->setAttribute(ctx, ek, arr);
+    if (pk) profile->setAttribute(ctx, pk,
+        Profiler::profiling ? PROTO_TRUE : PROTO_FALSE);
+    return profile;
+}
+
+const proto::ProtoObject* getMemoryProfileImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* profile = ctx->newObject(/*mutable=*/true);
+    const proto::ProtoString* ck = ctx->fromUTF8String("current")->asString(ctx);
+    if (ck) profile->setAttribute(ctx, ck,
+        ctx->fromInteger(static_cast<long long>(Profiler::getMemoryUsage())));
+    if (!Profiler::profileEntries.empty()) {
+        uint64_t minMem = Profiler::profileEntries[0].memoryBefore;
+        uint64_t maxMem = Profiler::profileEntries[0].memoryBefore;
+        for (const auto& e : Profiler::profileEntries) {
+            if (e.memoryBefore < minMem) minMem = e.memoryBefore;
+            if (e.memoryAfter > maxMem)  maxMem = e.memoryAfter;
+        }
+        const proto::ProtoString* nk = ctx->fromUTF8String("min")->asString(ctx);
+        const proto::ProtoString* xk = ctx->fromUTF8String("max")->asString(ctx);
+        if (nk) profile->setAttribute(ctx, nk,
+            ctx->fromInteger(static_cast<long long>(minMem)));
+        if (xk) profile->setAttribute(ctx, xk,
+            ctx->fromInteger(static_cast<long long>(maxMem)));
+    }
+    return profile;
+}
+
+}  // namespace
+
+const proto::ProtoObject* Profiler::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+    static const NativeEntry entries[] = {
+        {"startProfiling",       startProfilingImpl},
+        {"stopProfiling",        stopProfilingImpl},
+        {"getProfile",           getProfileImpl},
+        {"startMemoryProfiling", startProfilingImpl},   // alias
+        {"stopMemoryProfiling",  stopProfilingImpl},    // alias
+        {"getMemoryProfile",     getMemoryProfileImpl},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* mod =
+        ProtoNativeModule::buildModule(ctx, entries, 6);
+    if (!mod) return globalObj;
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "profiler", mod);
 }
 
 } // namespace protojs
