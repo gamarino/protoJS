@@ -1,22 +1,25 @@
 #ifndef PROTOJS_EVENTSMODULE_H
 #define PROTOJS_EVENTSMODULE_H
 
-#include "quickjs.h"
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `events` module — exposes the EventEmitter class.
+ *        Migrated to protoCore-native (no QuickJS bridge); see
+ *        docs/MIGRATION_QUICKJS_TO_PROTOCORE.md.
+ */
 class EventsModule {
 public:
-    static void init(JSContext* ctx);
-
-private:
-    // EventEmitter class methods
-    static JSValue EventEmitterConstructor(JSContext* ctx, JSValueConst new_target, int argc, JSValueConst* argv);
-    static JSValue on(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue once(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue emit(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue removeListener(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void EventEmitterFinalizer(JSRuntime* rt, JSValue val);
+    /**
+     * @brief Build the `events` module object (containing the
+     *        EventEmitter constructor) and register it on the
+     *        protoCore-native global.  Returns the updated global.
+     */
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 };
 
 } // namespace protojs

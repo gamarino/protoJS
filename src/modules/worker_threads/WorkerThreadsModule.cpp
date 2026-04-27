@@ -269,8 +269,20 @@ void WorkerThreadsModule::workerThreadExecution(JSContext* mainCtx, const std::s
 
     JSContext* workerCtx = data->workerContext;
 
-    // EventsModule required for parentPort (EventEmitter)
-    EventsModule::init(workerCtx);
+    // EventsModule required for parentPort (EventEmitter).
+    // EventsModule was migrated to register on the protoCore-native
+    // global; the JS_GetPropertyStr lookup below still hits a
+    // QuickJS-side global, so for now we install on BOTH globals to
+    // keep this worker thread initialiser working until the worker's
+    // setup is itself migrated (tracked separately as part of the
+    // WorkerThreadsModule migration in MIGRATION_QUICKJS_TO_PROTOCORE.md).
+    {
+        const proto::ProtoObject* nativeGlobal =
+            data->workerWrapper->getNativeGlobal();
+        nativeGlobal = EventsModule::init(
+            data->workerWrapper->getProtoContext(), nativeGlobal);
+        data->workerWrapper->updateNativeGlobal(nativeGlobal);
+    }
 
     // Create parentPort object (EventEmitter-like)
     JSValue parentPort = JS_NewObject(workerCtx);
