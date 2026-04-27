@@ -68,16 +68,26 @@ void runOneImmediate(JSContextWrapper* wrapper) {
     const proto::ProtoList* queue = readQueue(ctx, global);
     if (!queue || queue->getSize(ctx) == 0) return;
 
+    // Hold callback through a transient on-global root.  Between
+    // removeFirst and callJSFunctionFromAsync we allocate (newList,
+    // ProtoContext etc.) — any of those can trigger GC, and at that
+    // point `callback` is only on the C++ stack.  Pinning it under a
+    // unique global attribute keeps it reachable across the gap.
     const proto::ProtoObject* callback = queue->getFirst(ctx);
     const proto::ProtoList* rest = queue->removeFirst(ctx);
     if (rest) writeQueue(ctx, global, rest);
+    if (!callback || callback == PROTO_NONE) return;
 
-    if (callback && callback != PROTO_NONE) {
-        const ProtoBytecodeModule* mod =
-            static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-        callJSFunctionFromAsync(ctx, callback, PROTO_NONE, ctx->newList(),
-                                mod, wrapper->getNativeGlobalRootPtr());
-    }
+    const proto::ProtoString* pinKey =
+        proto::ProtoString::createSymbol(ctx, "__protojs_immediate_inflight__");
+    if (pinKey) global->setAttribute(ctx, pinKey, callback);
+
+    const ProtoBytecodeModule* mod =
+        static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
+    callJSFunctionFromAsync(ctx, callback, PROTO_NONE, ctx->newList(),
+                            mod, wrapper->getNativeGlobalRootPtr());
+
+    if (pinKey) global->setAttribute(ctx, pinKey, PROTO_NONE);
 }
 
 }  // namespace

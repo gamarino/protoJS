@@ -175,29 +175,65 @@ const proto::ProtoObject* runInThreadNative(
             wrapper);
         return deferred;
     }
-    // Root workerArgs on the deferred so the GC keeps it (and the
-    // ProtoExternalPointer it contains) alive until JS reads the
-    // result.  The thread itself probably retains workerArgs while it
-    // runs, but the JS-side resolution callback then no longer has a
-    // path to it; rooting via deferred makes this explicit.
+    // Root workerArgs on the deferred (keeps the ExternalPointer
+    // wrapping the result struct alive while the worker runs).  Then
+    // root the DEFERRED itself in a global pending-deferreds list on
+    // the JS global object, indexed by ProtoThread pointer.  The
+    // resolve lambda below holds `deferred` only as a C++-captured
+    // raw pointer; without an explicit GC anchor the JS-side `var d`
+    // can go out of scope between scheduleNext returning and the
+    // worker finishing, after which a GC cycle would reclaim the
+    // deferred and the lambda would resolve stale memory.
     {
         const proto::ProtoString* ak =
             proto::ProtoString::createSymbol(ctx, "__rt_workerargs__");
         if (ak) deferred->setAttribute(ctx, ak, workerArgs->asObject(ctx));
     }
+    {
+        const proto::ProtoString* rk =
+            proto::ProtoString::createSymbol(ctx, "__rt_pending__");
+        if (rk) {
+            const proto::ProtoObject* attr = ctx->space
+                ? wrapper->getNativeGlobal()->getAttribute(ctx, rk, false)
+                : nullptr;
+            const proto::ProtoSparseList* reg =
+                (attr && attr != PROTO_NONE) ? attr->asSparseList(ctx)
+                                             : ctx->newSparseList();
+            unsigned long key = reinterpret_cast<uintptr_t>(thread);
+            reg = reg->setAt(ctx, key, deferred);
+            wrapper->getNativeGlobal()->setAttribute(ctx, rk, reg->asObject(ctx));
+        }
+    }
 
     CPUThreadPool::getInstance().getExecutor().submit(
-        [thread, result, deferred, wrapper, space]() {
+        [thread, result, wrapper, space]() {
             proto::ProtoContext joinCtx(space, nullptr, nullptr,
                                          nullptr, nullptr, nullptr);
             const_cast<proto::ProtoThread*>(thread)->join(&joinCtx);
-            EventLoop::getInstance().enqueueCallback([result, deferred, wrapper]() {
+            EventLoop::getInstance().enqueueCallback([thread, result, wrapper]() {
                 long long v = result->value.load(std::memory_order_acquire);
                 delete result;
                 if (!wrapper) return;
                 JSContextWrapper::CurrentScope wscope(wrapper);
                 proto::ProtoContext* c = wrapper->getProtoContext();
                 if (!c) return;
+                // Look up and remove the deferred from the GC-rooted
+                // pending-deferreds registry on the global.
+                const proto::ProtoString* rk =
+                    proto::ProtoString::createSymbol(c, "__rt_pending__");
+                if (!rk) return;
+                const proto::ProtoObject* global = wrapper->getNativeGlobal();
+                if (!global) return;
+                const proto::ProtoObject* attr =
+                    global->getAttribute(c, rk, false);
+                if (!attr || attr == PROTO_NONE) return;
+                const proto::ProtoSparseList* reg = attr->asSparseList(c);
+                if (!reg) return;
+                unsigned long key = reinterpret_cast<uintptr_t>(thread);
+                const proto::ProtoObject* deferred = reg->getAt(c, key);
+                if (!deferred || deferred == PROTO_NONE) return;
+                reg = reg->removeAt(c, key);
+                global->setAttribute(c, rk, reg->asObject(c));
                 ProtoDeferred::resolveFromAsync(c, deferred,
                     c->fromLong(v), wrapper);
             });

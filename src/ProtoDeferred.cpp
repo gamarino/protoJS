@@ -43,6 +43,80 @@ DeferredKeys& keys(proto::ProtoContext* ctx) {
 // decremented when scheduling its own resolve callback.
 std::atomic<int> g_activeCount{0};
 
+// ---- GC-rooted async invocation registry ---------------------------------
+//
+// When drainQueue enqueues an EventLoop callback, it captures `cb` and
+// `val` (raw ProtoObject*) into a C++ lambda.  Those captures are
+// invisible to protoCore's tracing GC: a GC cycle that runs between the
+// enqueue and the lambda's execution will reclaim cb and/or val if
+// they're no longer reachable through the JS object graph.  In a
+// staggered setImmediate scenario (each deferred is built, .then-ed,
+// then immediately dropped from JS scope), this happens often enough
+// to corrupt observable behaviour — e.g. `completed` reading back as a
+// stale 14-digit pointer-shaped integer.
+//
+// The fix: pin (cb, val) as a 2-tuple under a per-invocation id in a
+// ProtoSparseList that lives on the JS global object.  The global is
+// always GC-rooted, so the registry — and through it the cb and val
+// — stay alive until the lambda fires and explicitly removes the
+// entry.
+constexpr const char* kPendingRegistryAttr = "__protojs_pending_async__";
+std::atomic<unsigned long> g_pendingId{0};
+
+const proto::ProtoString* pendingRegistryKey(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, kPendingRegistryAttr);
+    return k;
+}
+
+unsigned long pinPendingInvocation(proto::ProtoContext* ctx,
+                                    JSContextWrapper* wrapper,
+                                    const proto::ProtoObject* cb,
+                                    const proto::ProtoObject* val) {
+    if (!wrapper || !ctx) return 0;
+    const proto::ProtoObject* global = wrapper->getNativeGlobal();
+    if (!global) return 0;
+    const proto::ProtoString* key = pendingRegistryKey(ctx);
+    if (!key) return 0;
+    const proto::ProtoObject* attr = global->getAttribute(ctx, key, false);
+    const proto::ProtoSparseList* reg =
+        (attr && attr != PROTO_NONE) ? attr->asSparseList(ctx)
+                                     : ctx->newSparseList();
+    unsigned long id = g_pendingId.fetch_add(1, std::memory_order_acq_rel) + 1;
+    const proto::ProtoList* tuple = ctx->newList()
+        ->appendLast(ctx, cb ? cb : PROTO_NONE)
+        ->appendLast(ctx, val ? val : PROTO_NONE);
+    reg = reg->setAt(ctx, id, tuple->asObject(ctx));
+    global->setAttribute(ctx, key, reg->asObject(ctx));
+    return id;
+}
+
+void takePendingInvocation(proto::ProtoContext* ctx,
+                            JSContextWrapper* wrapper,
+                            unsigned long id,
+                            const proto::ProtoObject*& outCb,
+                            const proto::ProtoObject*& outVal) {
+    outCb = nullptr;
+    outVal = nullptr;
+    if (!wrapper || !ctx || id == 0) return;
+    const proto::ProtoObject* global = wrapper->getNativeGlobal();
+    if (!global) return;
+    const proto::ProtoString* key = pendingRegistryKey(ctx);
+    if (!key) return;
+    const proto::ProtoObject* attr = global->getAttribute(ctx, key, false);
+    if (!attr || attr == PROTO_NONE) return;
+    const proto::ProtoSparseList* reg = attr->asSparseList(ctx);
+    if (!reg) return;
+    const proto::ProtoObject* tupleObj = reg->getAt(ctx, id);
+    if (!tupleObj || tupleObj == PROTO_NONE) return;
+    const proto::ProtoList* tuple = tupleObj->asList(ctx);
+    if (!tuple || tuple->getSize(ctx) < 2) return;
+    outCb = tuple->getAt(ctx, 0);
+    outVal = tuple->getAt(ctx, 1);
+    reg = reg->removeAt(ctx, id);
+    global->setAttribute(ctx, key, reg->asObject(ctx));
+}
+
 // Forward decl.
 const proto::ProtoObject* deferredPrototypeObject(
     proto::ProtoContext* ctx);
@@ -99,18 +173,24 @@ void drainQueue(proto::ProtoContext* ctx,
         for (int i = 0; i < callCount; ++i) {
             const proto::ProtoObject* cb = queue->getAt(ctx, i);
             if (!cb || cb == PROTO_NONE) continue;
-            // Capture by value into the lambda; cb is reachable through
-            // the global → instance → queue chain until we drain.
             const proto::ProtoObject* val = value ? value : PROTO_NONE;
-            EventLoop::getInstance().enqueueCallback([wrapper, cb, val]() {
+            // Pin (cb, val) in the GC-rooted registry — see comment on
+            // pinPendingInvocation for the reachability bug this fixes.
+            unsigned long id = pinPendingInvocation(ctx, wrapper, cb, val);
+            EventLoop::getInstance().enqueueCallback([wrapper, id]() {
                 if (!wrapper) return;
                 JSContextWrapper::CurrentScope wscope(wrapper);
                 proto::ProtoContext* c = wrapper->getProtoContext();
                 if (!c) return;
+                const proto::ProtoObject* cbR = nullptr;
+                const proto::ProtoObject* valR = nullptr;
+                takePendingInvocation(c, wrapper, id, cbR, valR);
+                if (!cbR || cbR == PROTO_NONE) return;
                 const ProtoBytecodeModule* mod =
                     static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-                const proto::ProtoList* args = c->newList()->appendLast(c, val);
-                callJSFunctionFromAsync(c, cb, PROTO_NONE, args, mod,
+                const proto::ProtoList* args = c->newList()
+                    ->appendLast(c, valR ? valR : PROTO_NONE);
+                callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
                                         wrapper->getNativeGlobalRootPtr());
             });
         }
@@ -144,19 +224,26 @@ const proto::ProtoObject* deferredConstruct(
         // createPending already incremented the active counter; the
         // worker invocation runs as part of that pending resolution
         // and resolveFromAsync's drainQueue does the matching
-        // decrement.
-        EventLoop::getInstance().enqueueCallback([wrapper, inst, workerFn]() {
+        // decrement.  Pin (workerFn, inst) in the GC-rooted registry
+        // so they survive any GC cycle that runs before the lambda
+        // fires — see pinPendingInvocation comment.
+        unsigned long id = pinPendingInvocation(ctx, wrapper, workerFn, inst);
+        EventLoop::getInstance().enqueueCallback([wrapper, id]() {
             if (!wrapper) return;
             JSContextWrapper::CurrentScope wscope(wrapper);
             proto::ProtoContext* c = wrapper->getProtoContext();
             if (!c) return;
+            const proto::ProtoObject* workerFnR = nullptr;
+            const proto::ProtoObject* instR = nullptr;
+            takePendingInvocation(c, wrapper, id, workerFnR, instR);
+            if (!workerFnR || workerFnR == PROTO_NONE) return;
             const ProtoBytecodeModule* mod =
                 static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
             const proto::ProtoObject* result =
-                callJSFunctionFromAsync(c, workerFn, PROTO_NONE,
+                callJSFunctionFromAsync(c, workerFnR, PROTO_NONE,
                                          c->newList(), mod,
                                          wrapper->getNativeGlobalRootPtr());
-            ProtoDeferred::resolveFromAsync(c, inst, result, wrapper);
+            ProtoDeferred::resolveFromAsync(c, instR, result, wrapper);
         });
     }
 
@@ -184,18 +271,30 @@ const proto::ProtoObject* deferredThen(
             self->getAttribute(ctx, k.value, false);
         if (!value) value = PROTO_NONE;
         JSContextWrapper* wrapper = JSContextWrapper::current();
-        const proto::ProtoObject* val = value;
         g_activeCount.fetch_add(1, std::memory_order_acq_rel);
-        EventLoop::getInstance().enqueueCallback([wrapper, cb, val]() {
-            if (!wrapper) return;
+        unsigned long id = pinPendingInvocation(ctx, wrapper, cb, value);
+        EventLoop::getInstance().enqueueCallback([wrapper, id]() {
+            if (!wrapper) {
+                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+                return;
+            }
             JSContextWrapper::CurrentScope wscope(wrapper);
             proto::ProtoContext* c = wrapper->getProtoContext();
-            if (!c) return;
-            const ProtoBytecodeModule* mod =
-                static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-            const proto::ProtoList* args = c->newList()->appendLast(c, val);
-            callJSFunctionFromAsync(c, cb, PROTO_NONE, args, mod,
-                                    wrapper->getNativeGlobalRootPtr());
+            if (!c) {
+                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+                return;
+            }
+            const proto::ProtoObject* cbR = nullptr;
+            const proto::ProtoObject* valR = nullptr;
+            takePendingInvocation(c, wrapper, id, cbR, valR);
+            if (cbR && cbR != PROTO_NONE) {
+                const ProtoBytecodeModule* mod =
+                    static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
+                const proto::ProtoList* args = c->newList()
+                    ->appendLast(c, valR ? valR : PROTO_NONE);
+                callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
+                                        wrapper->getNativeGlobalRootPtr());
+            }
             g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
         });
     } else if (state == kStatePending) {
@@ -227,18 +326,30 @@ const proto::ProtoObject* deferredCatch(
             self->getAttribute(ctx, k.value, false);
         if (!reason) reason = PROTO_NONE;
         JSContextWrapper* wrapper = JSContextWrapper::current();
-        const proto::ProtoObject* val = reason;
         g_activeCount.fetch_add(1, std::memory_order_acq_rel);
-        EventLoop::getInstance().enqueueCallback([wrapper, cb, val]() {
-            if (!wrapper) return;
+        unsigned long id = pinPendingInvocation(ctx, wrapper, cb, reason);
+        EventLoop::getInstance().enqueueCallback([wrapper, id]() {
+            if (!wrapper) {
+                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+                return;
+            }
             JSContextWrapper::CurrentScope wscope(wrapper);
             proto::ProtoContext* c = wrapper->getProtoContext();
-            if (!c) return;
-            const ProtoBytecodeModule* mod =
-                static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
-            const proto::ProtoList* args = c->newList()->appendLast(c, val);
-            callJSFunctionFromAsync(c, cb, PROTO_NONE, args, mod,
-                                    wrapper->getNativeGlobalRootPtr());
+            if (!c) {
+                g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
+                return;
+            }
+            const proto::ProtoObject* cbR = nullptr;
+            const proto::ProtoObject* valR = nullptr;
+            takePendingInvocation(c, wrapper, id, cbR, valR);
+            if (cbR && cbR != PROTO_NONE) {
+                const ProtoBytecodeModule* mod =
+                    static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
+                const proto::ProtoList* args = c->newList()
+                    ->appendLast(c, valR ? valR : PROTO_NONE);
+                callJSFunctionFromAsync(c, cbR, PROTO_NONE, args, mod,
+                                        wrapper->getNativeGlobalRootPtr());
+            }
             g_activeCount.fetch_sub(1, std::memory_order_acq_rel);
         });
     } else if (state == kStatePending) {
