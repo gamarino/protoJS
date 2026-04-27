@@ -1,42 +1,35 @@
 #ifndef PROTOJS_HTTPMODULE_H
 #define PROTOJS_HTTPMODULE_H
 
-#include "quickjs.h"
-#include <string>
-#include <map>
+#include "headers/protoCore.h"
 
 namespace protojs {
 
+/**
+ * @brief Node-style `http` module — protoCore-native.
+ *
+ * Replaces the original QuickJS-side implementation: every per-instance
+ * piece of state (socket fds, port, listening flag, parsed request
+ * fields, response status / body / headers, etc.) lives as ProtoObject
+ * attributes on the instance itself.  No JS_NewClassID / JS_SetOpaque
+ * is used.  The accept loop runs on a std::thread whose handle is
+ * carried by an ExternalPointer attached to the server instance, so the
+ * thread is joined automatically when the server is GC'd.
+ *
+ * Callbacks (the server's request listener) are pinned in the
+ * wrapper's ProtoRootSet across the IO-thread / event-loop hop, then
+ * dispatched back into the interpreter via callJSFunctionFromAsync.
+ */
 class HTTPModule {
 public:
-    static void init(JSContext* ctx);
+    static const proto::ProtoObject* init(
+        proto::ProtoContext* ctx,
+        const proto::ProtoObject* globalObj);
 
-private:
-    // Server methods
-    static JSValue createServer(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue serverListen(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue serverClose(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void ServerFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Request methods
-    static JSValue request(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue requestWrite(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue requestEnd(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void RequestFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Response methods
-    static JSValue responseWriteHead(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue responseWrite(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static JSValue responseEnd(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void ResponseFinalizer(JSRuntime* rt, JSValue val);
-    
-    // IncomingMessage methods
-    static JSValue incomingMessageGetHeader(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv);
-    static void IncomingMessageFinalizer(JSRuntime* rt, JSValue val);
-    
-    // Helper functions
-    static void parseHeaders(const std::string& headerStr, std::map<std::string, std::string>& headers);
-    static std::string formatHeaders(const std::map<std::string, std::string>& headers);
+    // Number of HTTP servers currently bound and listening.  The main
+    // event-loop drainer in main.cpp uses this to keep the process
+    // alive while at least one server is active.
+    static int getActiveServerCount();
 };
 
 } // namespace protojs

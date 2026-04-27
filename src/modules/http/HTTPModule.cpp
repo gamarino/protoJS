@@ -1,527 +1,682 @@
 #include "HTTPModule.h"
-#include "../events/EventsModule.h"
-#include "../stream/StreamModule.h"
+#include "../../ProtoNativeModule.h"
+#include "../../FunctionPrototype.h"
+#include "../../JSSymbols.h"
+#include "../../JSContext.h"
+#include "../../EventLoop.h"
+#include "../../runtime/ProtoInterpreter.h"
+#include "../../runtime/ProtoBytecodeModule.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <atomic>
 #include <thread>
 #include <sstream>
-#include <map>
 #include <string>
+#include <vector>
+#include <map>
 
 namespace protojs {
 
-static JSClassID http_server_class_id;
-static JSClassID http_request_class_id;
-static JSClassID http_response_class_id;
-static JSClassID http_incoming_message_class_id;
+namespace {
 
-struct HTTPServerData {
-    int socketFd;
-    int port;
-    bool listening;
-    JSValue requestListener;
-    JSRuntime* rt;
-    std::thread serverThread;
-    
-    HTTPServerData(JSRuntime* r) : socketFd(-1), port(0), listening(false), requestListener(JS_UNDEFINED), rt(r) {}
-    ~HTTPServerData() {
-        if (socketFd >= 0) {
-            close(socketFd);
-        }
-        if (!JS_IsUndefined(requestListener)) {
-            JS_FreeValueRT(rt, requestListener);
-        }
-        if (serverThread.joinable()) {
-            listening = false;
-            serverThread.join();
-        }
-    }
+// ---- Attribute keys ----------------------------------------------------
+//
+// Each instance carries its mutable state under these symbol keys.  They
+// are interned strongly via createSymbol so the keys are perpetual and
+// pointer-stable across GC cycles.
+
+const proto::ProtoString* keyFD(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__fd__");
+    return k;
+}
+const proto::ProtoString* keyPort(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__port__");
+    return k;
+}
+const proto::ProtoString* keyServerState(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__server_state__");
+    return k;
+}
+const proto::ProtoString* keyMethod(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__method__");
+    return k;
+}
+const proto::ProtoString* keyURL(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__url__");
+    return k;
+}
+const proto::ProtoString* keyHeaders(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__headers__");
+    return k;
+}
+const proto::ProtoString* keyBody(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__body__");
+    return k;
+}
+const proto::ProtoString* keyStatus(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__status__");
+    return k;
+}
+const proto::ProtoString* keyClientFD(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__client_fd__");
+    return k;
+}
+const proto::ProtoString* keyHeadersSent(proto::ProtoContext* ctx) {
+    static thread_local const proto::ProtoString* k = nullptr;
+    if (!k) k = proto::ProtoString::createSymbol(ctx, "__headers_sent__");
+    return k;
+}
+
+// ---- Argument helpers --------------------------------------------------
+
+bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
+                int idx, std::string& out) {
+    if (!ctx || !args) return false;
+    if (idx >= static_cast<int>(args->getSize(ctx))) return false;
+    const proto::ProtoObject* a = args->getAt(ctx, idx);
+    if (!a || !a->isString(ctx)) return false;
+    a->asString(ctx)->toUTF8String(ctx, out);
+    return true;
+}
+
+bool argInt(proto::ProtoContext* ctx, const proto::ProtoList* args,
+             int idx, long long& out) {
+    if (!ctx || !args) return false;
+    if (idx >= static_cast<int>(args->getSize(ctx))) return false;
+    const proto::ProtoObject* a = args->getAt(ctx, idx);
+    if (!a || !a->isInteger(ctx)) return false;
+    out = a->asLong(ctx);
+    return true;
+}
+
+int getIntAttr(proto::ProtoContext* ctx, const proto::ProtoObject* self,
+                const proto::ProtoString* k, int defv = -1) {
+    if (!self || !k) return defv;
+    const proto::ProtoObject* v = self->getAttribute(ctx, k, false);
+    if (!v || !v->isInteger(ctx)) return defv;
+    return static_cast<int>(v->asLong(ctx));
+}
+
+// ---- ServerState (carried via ExternalPointer) -------------------------
+//
+// Holds the cross-thread bits that the GC cannot rebuild: the std::thread
+// running the accept loop, the atomic stop flag, and the pin handle for
+// the request listener.  Lifetime: freed by `freeServerState` when the
+// owning Server instance is collected.
+
+struct ServerState {
+    std::atomic<bool> listening{false};
+    int socketFd{-1};
+    std::thread thread;
+    JSContextWrapper* wrapper{nullptr};
+    proto::ProtoRootSet::Handle listenerPin{proto::ProtoRootSet::kNullHandle};
 };
 
-struct HTTPRequestData {
+// Counts servers whose accept loop is active.  Decremented from
+// serverClose / freeServerState.  main.cpp's drain loop keeps spinning
+// while this is non-zero so the process doesn't exit before the user
+// has had a chance to call .close().
+std::atomic<int> g_activeServers{0};
+
+void freeServerState(void* p) {
+    auto* s = static_cast<ServerState*>(p);
+    if (!s) return;
+    bool wasListening = s->listening.exchange(false);
+    if (s->socketFd >= 0) {
+        ::shutdown(s->socketFd, SHUT_RDWR);
+        ::close(s->socketFd);
+        s->socketFd = -1;
+    }
+    if (s->thread.joinable()) {
+        s->thread.join();
+    }
+    if (wasListening) g_activeServers.fetch_sub(1);
+    if (s->wrapper && s->listenerPin != proto::ProtoRootSet::kNullHandle) {
+        proto::ProtoRootSet* rs = s->wrapper->getRootSet();
+        if (rs) rs->remove(s->listenerPin);
+    }
+    delete s;
+}
+
+ServerState* getServerState(proto::ProtoContext* ctx,
+                              const proto::ProtoObject* self) {
+    if (!ctx || !self) return nullptr;
+    const proto::ProtoObject* attr =
+        self->getAttribute(ctx, keyServerState(ctx), false);
+    if (!attr || attr == PROTO_NONE) return nullptr;
+    const proto::ProtoExternalPointer* ext = attr->asExternalPointer(ctx);
+    return ext ? static_cast<ServerState*>(ext->getPointer(ctx)) : nullptr;
+}
+
+// ---- IncomingMessage / ServerResponse / ClientRequest builders ---------
+
+const proto::ProtoObject* getIncomingProto(proto::ProtoContext* ctx);
+const proto::ProtoObject* getResponseProto(proto::ProtoContext* ctx);
+const proto::ProtoObject* getRequestProto(proto::ProtoContext* ctx);
+const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx);
+
+// Build a fresh `headers` object from a flat key→value map.  Headers are
+// kept on the Response side too so that responseEnd can serialise them.
+const proto::ProtoObject* makeHeadersObject(
+        proto::ProtoContext* ctx,
+        const std::map<std::string, std::string>& headers) {
+    const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
+    if (!obj) return PROTO_NONE;
+    for (const auto& [k, v] : headers) {
+        const proto::ProtoString* sk =
+            ctx->fromUTF8String(k.c_str())->asString(ctx);
+        if (sk) obj->setAttribute(ctx, sk,
+                                   ctx->fromUTF8String(v.c_str()));
+    }
+    return obj;
+}
+
+// ---- IncomingMessage methods -------------------------------------------
+
+const proto::ProtoObject* incomingGetHeader(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    std::string name;
+    if (!argString(ctx, args, 0, name) || !self) return PROTO_NONE;
+    const proto::ProtoObject* hdrs =
+        self->getAttribute(ctx, keyHeaders(ctx), false);
+    if (!hdrs || hdrs == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoString* nk =
+        ctx->fromUTF8String(name.c_str())->asString(ctx);
+    if (!nk) return PROTO_NONE;
+    const proto::ProtoObject* v = hdrs->getAttribute(ctx, nk, false);
+    return (v && v != PROTO_NONE) ? v : PROTO_NONE;
+}
+
+const proto::ProtoObject* getIncomingProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* proto = nullptr;
+    if (proto) return proto;
+    static const NativeEntry entries[] = {
+        {"getHeader", incomingGetHeader},
+        NATIVE_MODULE_END
+    };
+    proto = ProtoNativeModule::buildModule(ctx, entries, 1);
+    return proto;
+}
+
+// ---- ServerResponse methods --------------------------------------------
+
+const proto::ProtoObject* responseWriteHead(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!self || !ctx) return self ? self : PROTO_NONE;
+    const proto::ProtoObject* sentVal =
+        self->getAttribute(ctx, keyHeadersSent(ctx), false);
+    bool sent = (sentVal == PROTO_TRUE);
+    if (sent) return self;
+
+    long long status = 200;
+    argInt(ctx, args, 0, status);
+    self->setAttribute(ctx, keyStatus(ctx), ctx->fromInteger(status));
+
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* hdrsArg = args->getAt(ctx, 1);
+        if (hdrsArg && hdrsArg != PROTO_NONE) {
+            // Replace any existing __headers__ object with the caller's
+            // map.  The original implementation merged into a
+            // std::map, but storing the raw object works the same for
+            // attribute lookup at end() time.
+            self->setAttribute(ctx, keyHeaders(ctx), hdrsArg);
+        }
+    }
+    return self;
+}
+
+const proto::ProtoObject* responseWrite(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!self || !ctx || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    std::string chunk;
+    if (!argString(ctx, args, 0, chunk)) return PROTO_FALSE;
+    const proto::ProtoObject* prev =
+        self->getAttribute(ctx, keyBody(ctx), false);
+    std::string body;
+    if (prev && prev->isString(ctx)) {
+        prev->asString(ctx)->toUTF8String(ctx, body);
+    }
+    body += chunk;
+    self->setAttribute(ctx, keyBody(ctx),
+                        ctx->fromUTF8String(body.c_str()));
+    return PROTO_TRUE;
+}
+
+void appendHeadersFromObject(proto::ProtoContext* ctx,
+                              const proto::ProtoObject* hdrsObj,
+                              std::ostringstream& out,
+                              bool& haveContentType) {
+    if (!hdrsObj || hdrsObj == PROTO_NONE) return;
+    const proto::ProtoSparseList* own = hdrsObj->getOwnAttributes(ctx);
+    if (!own) return;
+    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+    while (it && it->hasNext(ctx)) {
+        unsigned long rawKey = it->nextKey(ctx);
+        const proto::ProtoObject* v = it->nextValue(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        const proto::ProtoString* k =
+            reinterpret_cast<const proto::ProtoString*>(rawKey);
+        if (!k || !v) continue;
+        std::string keyStr;
+        k->toUTF8String(ctx, keyStr);
+        // Skip our internal markers (none expected here, but defensive).
+        if (keyStr.size() >= 2 && keyStr[0] == '_' && keyStr[1] == '_') continue;
+        std::string valStr;
+        if (v->isString(ctx)) {
+            v->asString(ctx)->toUTF8String(ctx, valStr);
+        } else if (v->isInteger(ctx)) {
+            valStr = std::to_string(v->asLong(ctx));
+        } else {
+            continue;
+        }
+        if (keyStr == "Content-Type" || keyStr == "content-type")
+            haveContentType = true;
+        out << keyStr << ": " << valStr << "\r\n";
+    }
+}
+
+const proto::ProtoObject* responseEnd(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* pl,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kw) {
+    if (!self || !ctx) return self ? self : PROTO_NONE;
+    if (args && args->getSize(ctx) > 0) {
+        responseWrite(ctx, self, pl, args, kw);
+    }
+    int clientFd = getIntAttr(ctx, self, keyClientFD(ctx));
+    if (clientFd < 0) return self;
+
+    long long status = 200;
+    const proto::ProtoObject* sv =
+        self->getAttribute(ctx, keyStatus(ctx), false);
+    if (sv && sv->isInteger(ctx)) status = sv->asLong(ctx);
+
+    std::string body;
+    const proto::ProtoObject* bv =
+        self->getAttribute(ctx, keyBody(ctx), false);
+    if (bv && bv->isString(ctx)) {
+        bv->asString(ctx)->toUTF8String(ctx, body);
+    }
+
+    std::ostringstream resp;
+    resp << "HTTP/1.1 " << status << " OK\r\n";
+    bool haveContentType = false;
+    appendHeadersFromObject(ctx,
+        self->getAttribute(ctx, keyHeaders(ctx), false),
+        resp, haveContentType);
+    if (!haveContentType) resp << "Content-Type: text/plain\r\n";
+    resp << "Content-Length: " << body.size() << "\r\n\r\n" << body;
+
+    std::string out = resp.str();
+    ssize_t wn = ::write(clientFd, out.data(), out.size());
+    (void)wn;
+    self->setAttribute(ctx, keyHeadersSent(ctx), PROTO_TRUE);
+    ::close(clientFd);
+    self->setAttribute(ctx, keyClientFD(ctx), ctx->fromInteger(-1));
+    return self;
+}
+
+const proto::ProtoObject* getResponseProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* proto = nullptr;
+    if (proto) return proto;
+    static const NativeEntry entries[] = {
+        {"writeHead", responseWriteHead},
+        {"write",     responseWrite},
+        {"end",       responseEnd},
+        NATIVE_MODULE_END
+    };
+    proto = ProtoNativeModule::buildModule(ctx, entries, 3);
+    return proto;
+}
+
+// ---- ClientRequest methods (preserving original stub semantics) -------
+
+const proto::ProtoObject* requestWrite(
+    proto::ProtoContext* /*ctx*/,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    return PROTO_TRUE;
+}
+
+const proto::ProtoObject* requestEnd(
+    proto::ProtoContext* /*ctx*/,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    return self ? self : PROTO_NONE;
+}
+
+const proto::ProtoObject* getRequestProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* proto = nullptr;
+    if (proto) return proto;
+    static const NativeEntry entries[] = {
+        {"write", requestWrite},
+        {"end",   requestEnd},
+        NATIVE_MODULE_END
+    };
+    proto = ProtoNativeModule::buildModule(ctx, entries, 2);
+    return proto;
+}
+
+// ---- HTTP wire parsing (used by accept loop) ---------------------------
+
+struct ParsedRequest {
     std::string method;
     std::string url;
     std::string version;
     std::map<std::string, std::string> headers;
     std::string body;
-    JSRuntime* rt;
-    JSValue eventEmitter;
-    
-    HTTPRequestData(JSRuntime* r) : rt(r), eventEmitter(JS_UNDEFINED) {}
-    ~HTTPRequestData() {
-        if (!JS_IsUndefined(eventEmitter)) {
-            JS_FreeValueRT(rt, eventEmitter);
-        }
-    }
 };
 
-struct HTTPResponseData {
-    int statusCode;
-    std::map<std::string, std::string> headers;
-    bool headersSent;
-    std::string body;
-    JSRuntime* rt;
-    JSValue eventEmitter;
-    int clientFd;
-    
-    HTTPResponseData(JSRuntime* r, int fd) : statusCode(200), headersSent(false), rt(r), eventEmitter(JS_UNDEFINED), clientFd(fd) {}
-    ~HTTPResponseData() {
-        if (!JS_IsUndefined(eventEmitter)) {
-            JS_FreeValueRT(rt, eventEmitter);
+ParsedRequest parseRequest(const std::string& raw) {
+    ParsedRequest p;
+    std::istringstream iss(raw);
+    iss >> p.method >> p.url >> p.version;
+    std::string line;
+    // discard rest of request line
+    std::getline(iss, line);
+    while (std::getline(iss, line) && line != "\r" && !line.empty()) {
+        size_t colon = line.find(':');
+        if (colon == std::string::npos) continue;
+        std::string key = line.substr(0, colon);
+        std::string value = line.substr(colon + 1);
+        while (!value.empty() && (value.front() == ' ' || value.front() == '\r')) {
+            value.erase(0, 1);
         }
-        if (clientFd >= 0) {
-            close(clientFd);
+        while (!value.empty() && (value.back() == '\r' || value.back() == '\n')) {
+            value.pop_back();
         }
+        p.headers[key] = value;
     }
-};
-
-void HTTPModule::init(JSContext* ctx) {
-    JSRuntime* rt = JS_GetRuntime(ctx);
-    
-    // Register Server class
-    JS_NewClassID(&http_server_class_id);
-    JSClassDef serverClassDef = {
-        "HTTPServer",
-        ServerFinalizer
-    };
-    JS_NewClass(rt, http_server_class_id, &serverClassDef);
-    
-    JSValue serverProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, serverProto, "listen", JS_NewCFunction(ctx, serverListen, "listen", 1));
-    JS_SetPropertyStr(ctx, serverProto, "close", JS_NewCFunction(ctx, serverClose, "close", 0));
-    JS_SetClassProto(ctx, http_server_class_id, serverProto);
-    
-    // Register IncomingMessage class
-    JS_NewClassID(&http_incoming_message_class_id);
-    JSClassDef incomingClassDef = {
-        "IncomingMessage",
-        IncomingMessageFinalizer
-    };
-    JS_NewClass(rt, http_incoming_message_class_id, &incomingClassDef);
-    
-    JSValue incomingProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, incomingProto, "getHeader", JS_NewCFunction(ctx, incomingMessageGetHeader, "getHeader", 1));
-    JS_SetClassProto(ctx, http_incoming_message_class_id, incomingProto);
-    
-    // Register ServerResponse class
-    JS_NewClassID(&http_response_class_id);
-    JSClassDef responseClassDef = {
-        "ServerResponse",
-        ResponseFinalizer
-    };
-    JS_NewClass(rt, http_response_class_id, &responseClassDef);
-    
-    JSValue responseProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, responseProto, "writeHead", JS_NewCFunction(ctx, responseWriteHead, "writeHead", 2));
-    JS_SetPropertyStr(ctx, responseProto, "write", JS_NewCFunction(ctx, responseWrite, "write", 1));
-    JS_SetPropertyStr(ctx, responseProto, "end", JS_NewCFunction(ctx, responseEnd, "end", 1));
-    JS_SetClassProto(ctx, http_response_class_id, responseProto);
-    
-    // Register ClientRequest class
-    JS_NewClassID(&http_request_class_id);
-    JSClassDef requestClassDef = {
-        "ClientRequest",
-        RequestFinalizer
-    };
-    JS_NewClass(rt, http_request_class_id, &requestClassDef);
-    
-    JSValue requestProto = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, requestProto, "write", JS_NewCFunction(ctx, requestWrite, "write", 1));
-    JS_SetPropertyStr(ctx, requestProto, "end", JS_NewCFunction(ctx, requestEnd, "end", 1));
-    JS_SetClassProto(ctx, http_request_class_id, requestProto);
-    
-    // Create http module
-    JSValue httpModule = JS_NewObject(ctx);
-    JS_SetPropertyStr(ctx, httpModule, "createServer", JS_NewCFunction(ctx, createServer, "createServer", 1));
-    JS_SetPropertyStr(ctx, httpModule, "request", JS_NewCFunction(ctx, request, "request", 1));
-    
-    JSValue global_obj = JS_GetGlobalObject(ctx);
-    JS_SetPropertyStr(ctx, global_obj, "http", httpModule);
-    JS_FreeValue(ctx, global_obj);
+    return p;
 }
 
-JSValue HTTPModule::createServer(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    JSValue server = JS_NewObjectClass(ctx, http_server_class_id);
-    if (JS_IsException(server)) return server;
-    
-    HTTPServerData* data = new HTTPServerData(JS_GetRuntime(ctx));
-    
-    // Create EventEmitter for server
-    JSValue eventEmitterCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "EventEmitter");
-    if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(ctx, eventEmitterCtor)) {
-        JSValue emitter = JS_CallConstructor(ctx, eventEmitterCtor, 0, nullptr);
-        if (!JS_IsException(emitter)) {
-            JS_SetPropertyStr(ctx, server, "_events", emitter);
+// Build the IncomingMessage and ServerResponse for a single accepted
+// connection — runs on the JS thread (inside an EventLoop callback).
+void dispatchRequest(JSContextWrapper* wrapper,
+                      proto::ProtoRootSet::Handle pin,
+                      ParsedRequest req,
+                      int clientFd) {
+    if (!wrapper) {
+        if (clientFd >= 0) ::close(clientFd);
+        return;
+    }
+    JSContextWrapper::CurrentScope ws(wrapper);
+    proto::ProtoContext* ctx = wrapper->getProtoContext();
+    if (!ctx) {
+        if (clientFd >= 0) ::close(clientFd);
+        return;
+    }
+    proto::ProtoRootSet* rs = wrapper->getRootSet();
+    const proto::ProtoObject* listener = rs ? rs->resolve(pin) : nullptr;
+    // Note: do NOT remove the pin — listener is reused for every
+    // request the server handles.  The pin is freed by freeServerState
+    // when the server itself is collected.
+
+    // Build IncomingMessage
+    const proto::ProtoObject* incomingProto = getIncomingProto(ctx);
+    const proto::ProtoObject* incoming = incomingProto
+        ? incomingProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    incoming->setAttribute(ctx, keyMethod(ctx),
+        ctx->fromUTF8String(req.method.c_str()));
+    incoming->setAttribute(ctx, keyURL(ctx),
+        ctx->fromUTF8String(req.url.c_str()));
+    incoming->setAttribute(ctx, keyHeaders(ctx),
+        makeHeadersObject(ctx, req.headers));
+    incoming->setAttribute(ctx, keyBody(ctx),
+        ctx->fromUTF8String(req.body.c_str()));
+    // Public fields the original exposed.
+    incoming->setAttribute(ctx,
+        ctx->fromUTF8String("method")->asString(ctx),
+        ctx->fromUTF8String(req.method.c_str()));
+    incoming->setAttribute(ctx,
+        ctx->fromUTF8String("url")->asString(ctx),
+        ctx->fromUTF8String(req.url.c_str()));
+
+    // Build ServerResponse
+    const proto::ProtoObject* responseProto = getResponseProto(ctx);
+    const proto::ProtoObject* response = responseProto
+        ? responseProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    response->setAttribute(ctx, keyStatus(ctx), ctx->fromInteger(200));
+    response->setAttribute(ctx, keyClientFD(ctx),
+        ctx->fromInteger(clientFd));
+    response->setAttribute(ctx, keyHeadersSent(ctx), PROTO_FALSE);
+    response->setAttribute(ctx, keyHeaders(ctx),
+        ctx->newObject(/*mutable=*/true));
+    response->setAttribute(ctx, keyBody(ctx),
+        ctx->fromUTF8String(""));
+
+    if (!listener || listener == PROTO_NONE) {
+        // No request listener — close the connection.
+        if (clientFd >= 0) ::close(clientFd);
+        return;
+    }
+    const proto::ProtoList* cbArgs = ctx->newList()
+        ->appendLast(ctx, incoming)
+        ->appendLast(ctx, response);
+    const ProtoBytecodeModule* mod =
+        static_cast<const ProtoBytecodeModule*>(wrapper->getRootModule());
+    callJSFunctionFromAsync(ctx, listener, PROTO_NONE, cbArgs, mod,
+                             wrapper->getNativeGlobalRootPtr());
+    // The user is expected to call response.end() — the response
+    // object will close clientFd at that point.
+}
+
+// ---- server.listen / server.close --------------------------------------
+
+const proto::ProtoObject* serverListen(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!self || !ctx) return self ? self : PROTO_NONE;
+    long long port = 0;
+    if (!argInt(ctx, args, 0, port)) return PROTO_NONE;
+
+    ServerState* state = getServerState(ctx, self);
+    if (!state) return PROTO_NONE;
+    if (state->listening.load()) return self;
+
+    int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) return PROTO_NONE;
+    int opt = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(static_cast<uint16_t>(port));
+    if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        ::close(fd);
+        return PROTO_NONE;
+    }
+    if (::listen(fd, 16) < 0) {
+        ::close(fd);
+        return PROTO_NONE;
+    }
+
+    state->socketFd = fd;
+    self->setAttribute(ctx, keyFD(ctx), ctx->fromInteger(fd));
+    self->setAttribute(ctx, keyPort(ctx), ctx->fromInteger(port));
+    state->listening.store(true);
+    g_activeServers.fetch_add(1);
+
+    // Capture into the worker thread.  The wrapper pointer is stable
+    // for the remainder of the process; the listener is held alive by
+    // ProtoRootSet via state->listenerPin (set by createServer).
+    JSContextWrapper* wrapper = state->wrapper;
+    proto::ProtoRootSet::Handle pin = state->listenerPin;
+    state->thread = std::thread([state, wrapper, pin]() {
+        while (state->listening.load()) {
+            sockaddr_in client{};
+            socklen_t cl = sizeof(client);
+            int cfd = ::accept(state->socketFd,
+                                reinterpret_cast<sockaddr*>(&client), &cl);
+            if (cfd < 0) {
+                if (!state->listening.load()) break;
+                continue;
+            }
+            char buf[4096];
+            ssize_t n = ::read(cfd, buf, sizeof(buf) - 1);
+            if (n <= 0) {
+                ::close(cfd);
+                continue;
+            }
+            buf[n] = '\0';
+            ParsedRequest req = parseRequest(std::string(buf, n));
+            EventLoop::getInstance().enqueueCallback(
+                [wrapper, pin, req = std::move(req), cfd]() mutable {
+                    dispatchRequest(wrapper, pin, std::move(req), cfd);
+                });
         }
-        JS_FreeValue(ctx, emitter);
+    });
+
+    // Optional success callback (server.listen(port, callback)).
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* cb = args->getAt(ctx, 1);
+        if (cb && cb != PROTO_NONE) {
+            callJSFunction(ctx, cb, self, ctx->newList());
+        }
     }
-    JS_FreeValue(ctx, eventEmitterCtor);
-    
-    // Store request listener if provided
-    if (argc > 0 && JS_IsFunction(ctx, argv[0])) {
-        data->requestListener = JS_DupValue(ctx, argv[0]);
-        JS_SetPropertyStr(ctx, server, "on", JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "on"));
+    return self;
+}
+
+const proto::ProtoObject* serverClose(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    ServerState* state = getServerState(ctx, self);
+    if (!state) return PROTO_NONE;
+    bool wasListening = state->listening.exchange(false);
+    if (state->socketFd >= 0) {
+        ::shutdown(state->socketFd, SHUT_RDWR);
+        ::close(state->socketFd);
+        state->socketFd = -1;
     }
-    
-    JS_SetOpaque(server, data);
+    if (state->thread.joinable()) state->thread.join();
+    if (wasListening) g_activeServers.fetch_sub(1);
+    if (self) self->setAttribute(ctx, keyFD(ctx), ctx->fromInteger(-1));
+    return PROTO_NONE;
+}
+
+const proto::ProtoObject* getServerProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* proto = nullptr;
+    if (proto) return proto;
+    static const NativeEntry entries[] = {
+        {"listen", serverListen},
+        {"close",  serverClose},
+        NATIVE_MODULE_END
+    };
+    proto = ProtoNativeModule::buildModule(ctx, entries, 2);
+    return proto;
+}
+
+// ---- Module-level functions --------------------------------------------
+
+const proto::ProtoObject* createServer(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+
+    const proto::ProtoObject* serverProto = getServerProto(ctx);
+    const proto::ProtoObject* server = serverProto
+        ? serverProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+
+    auto* state = new ServerState{};
+    state->wrapper = JSContextWrapper::current();
+
+    // Pin the request listener (if provided) so it survives across the
+    // accept-loop / event-loop hop without depending on JS-side reach.
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* cb = args->getAt(ctx, 0);
+        if (cb && cb != PROTO_NONE && state->wrapper) {
+            proto::ProtoRootSet* rs = state->wrapper->getRootSet();
+            if (rs) state->listenerPin = rs->add(cb);
+        }
+    }
+
+    const proto::ProtoObject* extPtr =
+        ctx->fromExternalPointer(state, freeServerState);
+    if (!extPtr) {
+        delete state;
+        return PROTO_NONE;
+    }
+    server->setAttribute(ctx, keyServerState(ctx), extPtr);
+    server->setAttribute(ctx, keyFD(ctx), ctx->fromInteger(-1));
+    server->setAttribute(ctx, keyPort(ctx), ctx->fromInteger(0));
     return server;
 }
 
-void HTTPModule::ServerFinalizer(JSRuntime* rt, JSValue val) {
-    HTTPServerData* data = static_cast<HTTPServerData*>(JS_GetOpaque(val, http_server_class_id));
-    if (data) delete data;
+const proto::ProtoObject* clientRequest(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* /*args*/,
+    const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* requestProto = getRequestProto(ctx);
+    return requestProto
+        ? requestProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
 }
 
-JSValue HTTPModule::serverListen(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "listen requires a port number");
-    }
-    
-    int32_t port;
-    if (JS_ToInt32(ctx, &port, argv[0]) < 0) {
-        return JS_EXCEPTION;
-    }
-    
-    HTTPServerData* data = static_cast<HTTPServerData*>(JS_GetOpaque(this_val, http_server_class_id));
-    if (!data) {
-        return JS_ThrowTypeError(ctx, "Invalid HTTP server");
-    }
-    
-    data->port = port;
-    
-    // Create socket
-    data->socketFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (data->socketFd < 0) {
-        return JS_ThrowTypeError(ctx, "Failed to create socket");
-    }
-    
-    int opt = 1;
-    setsockopt(data->socketFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(port);
-    
-    if (bind(data->socketFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        close(data->socketFd);
-        data->socketFd = -1;
-        return JS_ThrowTypeError(ctx, "Failed to bind to port");
-    }
-    
-    if (listen(data->socketFd, 10) < 0) {
-        close(data->socketFd);
-        data->socketFd = -1;
-        return JS_ThrowTypeError(ctx, "Failed to listen on socket");
-    }
-    
-    data->listening = true;
-    
-    // Start server thread
-    data->serverThread = std::thread([data, ctx]() {
-        JSContext* workerCtx = JS_NewContext(JS_GetRuntime(ctx));
-        if (!workerCtx) return;
-        
-        while (data->listening) {
-            struct sockaddr_in clientAddr;
-            socklen_t clientLen = sizeof(clientAddr);
-            int clientFd = accept(data->socketFd, (struct sockaddr*)&clientAddr, &clientLen);
-            
-            if (clientFd < 0) {
-                if (data->listening) continue;
-                break;
-            }
-            
-            // Read request
-            char buffer[4096];
-            ssize_t bytesRead = read(clientFd, buffer, sizeof(buffer) - 1);
-            if (bytesRead > 0) {
-                buffer[bytesRead] = '\0';
-                std::string requestStr(buffer);
-                
-                // Parse request
-                std::istringstream iss(requestStr);
-                std::string method, url, version;
-                iss >> method >> url >> version;
-                
-                // Find headers
-                std::string line;
-                std::map<std::string, std::string> headers;
-                while (std::getline(iss, line) && line != "\r" && !line.empty()) {
-                    size_t colon = line.find(':');
-                    if (colon != std::string::npos) {
-                        std::string key = line.substr(0, colon);
-                        std::string value = line.substr(colon + 1);
-                        // Trim whitespace
-                        while (!value.empty() && (value[0] == ' ' || value[0] == '\r')) {
-                            value.erase(0, 1);
-                        }
-                        headers[key] = value;
-                    }
-                }
-                
-                // Create request and response objects
-                JSValue req = JS_NewObjectClass(workerCtx, http_incoming_message_class_id);
-                HTTPRequestData* reqData = new HTTPRequestData(JS_GetRuntime(workerCtx));
-                reqData->method = method;
-                reqData->url = url;
-                reqData->version = version;
-                reqData->headers = headers;
-                
-                // Create EventEmitter for request
-                JSValue eventEmitterCtor = JS_GetPropertyStr(workerCtx, JS_GetGlobalObject(workerCtx), "EventEmitter");
-                if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(workerCtx, eventEmitterCtor)) {
-                    JSValue emitter = JS_CallConstructor(workerCtx, eventEmitterCtor, 0, nullptr);
-                    if (!JS_IsException(emitter)) {
-                        reqData->eventEmitter = emitter;
-                        JS_SetPropertyStr(workerCtx, req, "_events", emitter);
-                    }
-                    JS_FreeValue(workerCtx, emitter);
-                }
-                JS_FreeValue(workerCtx, eventEmitterCtor);
-                
-                JS_SetPropertyStr(workerCtx, req, "method", JS_NewString(workerCtx, method.c_str()));
-                JS_SetPropertyStr(workerCtx, req, "url", JS_NewString(workerCtx, url.c_str()));
-                JS_SetOpaque(req, reqData);
-                
-                JSValue res = JS_NewObjectClass(workerCtx, http_response_class_id);
-                HTTPResponseData* resData = new HTTPResponseData(JS_GetRuntime(workerCtx), clientFd);
-                
-                // Create EventEmitter for response
-                eventEmitterCtor = JS_GetPropertyStr(workerCtx, JS_GetGlobalObject(workerCtx), "EventEmitter");
-                if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(workerCtx, eventEmitterCtor)) {
-                    JSValue emitter = JS_CallConstructor(workerCtx, eventEmitterCtor, 0, nullptr);
-                    if (!JS_IsException(emitter)) {
-                        resData->eventEmitter = emitter;
-                        JS_SetPropertyStr(workerCtx, res, "_events", emitter);
-                    }
-                    JS_FreeValue(workerCtx, emitter);
-                }
-                JS_FreeValue(workerCtx, eventEmitterCtor);
-                
-                JS_SetOpaque(res, resData);
-                
-                // Call request listener
-                if (!JS_IsUndefined(data->requestListener) && JS_IsFunction(workerCtx, data->requestListener)) {
-                    JSValue args[] = { req, res };
-                    JSValue result = JS_Call(workerCtx, data->requestListener, JS_UNDEFINED, 2, args);
-                    JS_FreeValue(workerCtx, result);
-                }
-                
-                JS_FreeValue(workerCtx, req);
-                JS_FreeValue(workerCtx, res);
-            }
-            
-            close(clientFd);
-        }
-        
-        JS_FreeContext(workerCtx);
-    });
-    
-    // Call callback if provided
-    if (argc > 1 && JS_IsFunction(ctx, argv[1])) {
-        JSValue args[] = { JS_UNDEFINED };
-        JS_Call(ctx, argv[1], JS_UNDEFINED, 0, args);
-    }
-    
-    return JS_DupValue(ctx, this_val);
+}  // namespace
+
+int HTTPModule::getActiveServerCount() {
+    return g_activeServers.load();
 }
 
-JSValue HTTPModule::serverClose(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    HTTPServerData* data = static_cast<HTTPServerData*>(JS_GetOpaque(this_val, http_server_class_id));
-    if (data) {
-        data->listening = false;
-        if (data->socketFd >= 0) {
-            close(data->socketFd);
-            data->socketFd = -1;
-        }
-        if (data->serverThread.joinable()) {
-            data->serverThread.join();
-        }
-    }
-    return JS_UNDEFINED;
-}
-
-JSValue HTTPModule::request(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    // Basic HTTP client request (simplified for Phase 2)
-    JSValue requestObj = JS_NewObjectClass(ctx, http_request_class_id);
-    if (JS_IsException(requestObj)) return requestObj;
-    
-    // Create EventEmitter for request
-    JSValue eventEmitterCtor = JS_GetPropertyStr(ctx, JS_GetGlobalObject(ctx), "EventEmitter");
-    if (!JS_IsUndefined(eventEmitterCtor) && JS_IsFunction(ctx, eventEmitterCtor)) {
-        JSValue emitter = JS_CallConstructor(ctx, eventEmitterCtor, 0, nullptr);
-        if (!JS_IsException(emitter)) {
-            JS_SetPropertyStr(ctx, requestObj, "_events", emitter);
-        }
-        JS_FreeValue(ctx, emitter);
-    }
-    JS_FreeValue(ctx, eventEmitterCtor);
-    
-    return requestObj;
-}
-
-void HTTPModule::RequestFinalizer(JSRuntime* rt, JSValue val) {
-    // Request data cleanup if needed
-}
-
-JSValue HTTPModule::requestWrite(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    // Write request body
-    return JS_NewBool(ctx, true);
-}
-
-JSValue HTTPModule::requestEnd(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    // End request
-    return JS_DupValue(ctx, this_val);
-}
-
-JSValue HTTPModule::responseWriteHead(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "writeHead requires statusCode");
-    }
-    
-    int32_t statusCode;
-    if (JS_ToInt32(ctx, &statusCode, argv[0]) < 0) {
-        return JS_EXCEPTION;
-    }
-    
-    HTTPResponseData* data = static_cast<HTTPResponseData*>(JS_GetOpaque(this_val, http_response_class_id));
-    if (data && !data->headersSent) {
-        data->statusCode = statusCode;
-        
-        if (argc > 1 && JS_IsObject(argv[1])) {
-            // Parse headers object
-            JSPropertyEnum* props;
-            uint32_t propCount;
-            if (JS_GetOwnPropertyNames(ctx, &props, &propCount, argv[1], JS_GPN_STRING_MASK) >= 0) {
-                for (uint32_t i = 0; i < propCount; i++) {
-                    JSValue key = JS_AtomToValue(ctx, props[i].atom);
-                    JSValue value = JS_GetProperty(ctx, argv[1], props[i].atom);
-                    const char* keyStr = JS_ToCString(ctx, key);
-                    const char* valueStr = JS_ToCString(ctx, value);
-                    if (keyStr && valueStr) {
-                        data->headers[keyStr] = valueStr;
-                    }
-                    if (keyStr) JS_FreeCString(ctx, keyStr);
-                    if (valueStr) JS_FreeCString(ctx, valueStr);
-                    JS_FreeValue(ctx, key);
-                    JS_FreeValue(ctx, value);
-                    JS_FreeAtom(ctx, props[i].atom);
-                }
-                js_free(ctx, props);
-            }
-        }
-    }
-    
-    return JS_DupValue(ctx, this_val);
-}
-
-JSValue HTTPModule::responseWrite(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_ThrowTypeError(ctx, "write requires data");
-    }
-    
-    HTTPResponseData* data = static_cast<HTTPResponseData*>(JS_GetOpaque(this_val, http_response_class_id));
-    if (data) {
-        const char* str = JS_ToCString(ctx, argv[0]);
-        if (str) {
-            data->body += std::string(str);
-            JS_FreeCString(ctx, str);
-        }
-    }
-    
-    return JS_NewBool(ctx, true);
-}
-
-JSValue HTTPModule::responseEnd(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    HTTPResponseData* data = static_cast<HTTPResponseData*>(JS_GetOpaque(this_val, http_response_class_id));
-    if (data && data->clientFd >= 0) {
-        // Write final chunk if provided
-        if (argc > 0) {
-            responseWrite(ctx, this_val, argc, argv);
-        }
-        
-        // Send response
-        std::ostringstream response;
-        response << "HTTP/1.1 " << data->statusCode << " OK\r\n";
-        
-        if (data->headers.find("Content-Type") == data->headers.end()) {
-            response << "Content-Type: text/plain\r\n";
-        }
-        
-        for (const auto& [key, value] : data->headers) {
-            response << key << ": " << value << "\r\n";
-        }
-        
-        response << "Content-Length: " << data->body.length() << "\r\n";
-        response << "\r\n";
-        response << data->body;
-        
-        std::string responseStr = response.str();
-        (void)write(data->clientFd, responseStr.c_str(), responseStr.length());
-        
-        data->headersSent = true;
-    }
-    
-    return JS_DupValue(ctx, this_val);
-}
-
-void HTTPModule::ResponseFinalizer(JSRuntime* rt, JSValue val) {
-    HTTPResponseData* data = static_cast<HTTPResponseData*>(JS_GetOpaque(val, http_response_class_id));
-    if (data) delete data;
-}
-
-JSValue HTTPModule::incomingMessageGetHeader(JSContext* ctx, JSValueConst this_val, int argc, JSValueConst* argv) {
-    if (argc < 1) {
-        return JS_UNDEFINED;
-    }
-    
-    const char* name = JS_ToCString(ctx, argv[0]);
-    if (!name) return JS_EXCEPTION;
-    
-    HTTPRequestData* data = static_cast<HTTPRequestData*>(JS_GetOpaque(this_val, http_incoming_message_class_id));
-    if (data) {
-        auto it = data->headers.find(name);
-        if (it != data->headers.end()) {
-            JSValue result = JS_NewString(ctx, it->second.c_str());
-            JS_FreeCString(ctx, name);
-            return result;
-        }
-    }
-    
-    JS_FreeCString(ctx, name);
-    return JS_UNDEFINED;
-}
-
-void HTTPModule::IncomingMessageFinalizer(JSRuntime* rt, JSValue val) {
-    HTTPRequestData* data = static_cast<HTTPRequestData*>(JS_GetOpaque(val, http_incoming_message_class_id));
-    if (data) delete data;
-}
-
-void HTTPModule::parseHeaders(const std::string& headerStr, std::map<std::string, std::string>& headers) {
-    std::istringstream iss(headerStr);
-    std::string line;
-    while (std::getline(iss, line)) {
-        size_t colon = line.find(':');
-        if (colon != std::string::npos) {
-            std::string key = line.substr(0, colon);
-            std::string value = line.substr(colon + 1);
-            while (!value.empty() && (value[0] == ' ' || value[0] == '\r')) {
-                value.erase(0, 1);
-            }
-            headers[key] = value;
-        }
-    }
-}
-
-std::string HTTPModule::formatHeaders(const std::map<std::string, std::string>& headers) {
-    std::ostringstream oss;
-    for (const auto& [key, value] : headers) {
-        oss << key << ": " << value << "\r\n";
-    }
-    return oss.str();
+const proto::ProtoObject* HTTPModule::init(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* globalObj) {
+    if (!ctx || !globalObj) return globalObj;
+    static const NativeEntry entries[] = {
+        {"createServer", createServer},
+        {"request",      clientRequest},
+        NATIVE_MODULE_END
+    };
+    const proto::ProtoObject* mod =
+        ProtoNativeModule::buildModule(ctx, entries, 2);
+    if (!mod) return globalObj;
+    return ProtoNativeModule::registerOnGlobal(ctx, globalObj, "http", mod);
 }
 
 } // namespace protojs

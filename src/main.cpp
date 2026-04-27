@@ -283,7 +283,11 @@ int main(int argc, char** argv) {
             nativeGlobal = protojs::URLModule::init(wrapper.getProtoContext(), nativeGlobal);
             wrapper.updateNativeGlobal(nativeGlobal);
         }
-        protojs::HTTPModule::init(wrapper.getJSContext());
+        {
+            const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+            nativeGlobal = protojs::HTTPModule::init(wrapper.getProtoContext(), nativeGlobal);
+            wrapper.updateNativeGlobal(nativeGlobal);
+        }
         {
             const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
             nativeGlobal = protojs::EventsModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -446,7 +450,11 @@ int main(int argc, char** argv) {
         nativeGlobal = protojs::URLModule::init(wrapper.getProtoContext(), nativeGlobal);
         wrapper.updateNativeGlobal(nativeGlobal);
     }
-    protojs::HTTPModule::init(wrapper.getJSContext());
+    {
+        const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+        nativeGlobal = protojs::HTTPModule::init(wrapper.getProtoContext(), nativeGlobal);
+        wrapper.updateNativeGlobal(nativeGlobal);
+    }
     {
         const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
         nativeGlobal = protojs::EventsModule::init(wrapper.getProtoContext(), nativeGlobal);
@@ -580,7 +588,8 @@ int main(int argc, char** argv) {
     while (protojs::EventLoop::getInstance().hasPendingCallbacks() ||
            protojs::WorkerThreadsModule::getActiveWorkerCount() > 0 ||
            protojs::Deferred::getActiveDeferredCount() > 0 ||
-           protojs::ProtoDeferred::getActiveCount() > 0) {
+           protojs::ProtoDeferred::getActiveCount() > 0 ||
+           protojs::HTTPModule::getActiveServerCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

@@ -185,14 +185,14 @@ Migrated (22 modules total in the apr 2026 push):
 | `cluster`        | 295 | ✅ fork-based workers; per-worker state in attributes |
 | `child_process`  | 348 | ✅ spawn / exec / execFile / fork |
 | `dgram`          | 445 | ✅ UDP sockets via createSocket |
+| `http`           | 527 | ✅ createServer/listen/close + IncomingMessage (getHeader) + ServerResponse (writeHead/write/end); accept loop on std::thread captured via ExternalPointer; request listener pinned in ProtoRootSet; activeServer counter keeps event loop alive while bound |
 | (already done earlier) | — | console, TimingAPIs, EventLoopBindings, ProtoDeferred, ProtoCoreNativeBindings |
 
-Pending (4 modules, all stateful classes — same six-step recipe but
-more surface area; ~2500 LOC):
+Pending (3 modules, all stateful classes — same six-step recipe but
+more surface area; ~2000 LOC):
 
 | Module          | LOC | Notes |
 |-----------------|-----|-------|
-| `http`          | 527 | Server / IncomingMessage / ClientRequest, depends on `net` |
 | `worker_threads`| 530 | Worker class; spawns JSContextWrappers |
 | `net`           | 708 | Socket / Server classes |
 | `Buffer`        | 746 | Array-like with byte storage; biggest single migration |
