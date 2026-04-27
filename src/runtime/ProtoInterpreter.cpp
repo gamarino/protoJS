@@ -37,6 +37,134 @@ namespace protojs {
 
 namespace {
 
+// ----- Closure cells (by-reference capture) -----------------------------
+//
+// A "cell" is a mutable ProtoObject that wraps a single value as the
+// `__cv__` attribute.  Variables captured by inner functions live in
+// cells; parent and all child closures hold the SAME cell pointer in
+// their closure-var slots.  Reads / writes via OP_get_var_ref /
+// OP_put_var_ref dereference the cell, so reassignments in any
+// participant are visible to all the others — matching JS by-reference
+// closure semantics.
+//
+// Identifying cells: every cell inherits from the singleton
+// `g_cellMarker` ProtoObject.  `getFirstParent(cell) == g_cellMarker`
+// is an O(1) tag check.
+//
+// Lifecycle:
+//   - OP_close_loc(idx) allocates a cell wrapping the local at `idx`
+//     and stores it in the matching closure-var slot.
+//   - OP_fclosure passes parent's cells to the child via a private
+//     `__captured_cells__` attribute on the child function instance.
+//   - runBytecode populates the child's closure-var slots from
+//     `__captured_cells__`.
+//
+// Anything that previously published values to the global object as a
+// faux-closure mechanism is removed; cells make that obsolete.
+
+thread_local const proto::ProtoObject* t_cellMarker = nullptr;
+thread_local const proto::ProtoString* t_cellValueKey = nullptr;
+thread_local const proto::ProtoString* t_capturedCellsKey = nullptr;
+
+inline const proto::ProtoString* cellValueKey(proto::ProtoContext* ctx) {
+    if (!t_cellValueKey)
+        t_cellValueKey = proto::ProtoString::createSymbol(ctx, "__cv__");
+    return t_cellValueKey;
+}
+
+inline const proto::ProtoString* capturedCellsKey(proto::ProtoContext* ctx) {
+    if (!t_capturedCellsKey)
+        t_capturedCellsKey = proto::ProtoString::createSymbol(ctx, "__captured_cells__");
+    return t_capturedCellsKey;
+}
+
+inline const proto::ProtoObject* cellMarker(proto::ProtoContext* ctx) {
+    if (!t_cellMarker) {
+        // Immutable singleton — every cell has it as its parent.
+        t_cellMarker = ctx->newObject(/*mutable=*/false);
+    }
+    return t_cellMarker;
+}
+
+inline const proto::ProtoObject* allocCell(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* initialValue) {
+    const proto::ProtoObject* mk = cellMarker(ctx);
+    if (!mk) return nullptr;
+    const proto::ProtoObject* cell = mk->newChild(ctx, /*mutable=*/true);
+    if (!cell) return nullptr;
+    const proto::ProtoString* k = cellValueKey(ctx);
+    if (!k) return nullptr;
+    cell->setAttribute(ctx, k, initialValue ? initialValue : PROTO_NONE);
+    return cell;
+}
+
+inline bool isCell(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
+    if (!o || o == PROTO_NONE) return false;
+    if (!t_cellMarker) return false;  // no cells exist yet on this thread
+    // Reject everything that isn't an addressable mutable object: any
+    // primitive (number, bool, string, none) or built-in collection
+    // returns true for one of these public type predicates and is
+    // therefore not a cell wrapper.  This relies only on protoCore's
+    // public API — no tagged-pointer bit assumptions.
+    if (o->isInteger(ctx) || o->isFloat(ctx) || o->isDouble(ctx) ||
+        o->isBoolean(ctx) || o->isNone(ctx) || o->isString(ctx) ||
+        o->isMethod(ctx) || o->isTuple(ctx) || o->isSet(ctx) ||
+        o->isMultiset(ctx) || o->isByteBuffer(ctx) || o->isDate(ctx) ||
+        o->isTimestamp(ctx) || o->isTimeDelta(ctx)) {
+        return false;
+    }
+    return o->getFirstParent(ctx) == t_cellMarker;
+}
+
+inline const proto::ProtoObject* readCell(proto::ProtoContext* ctx,
+                                           const proto::ProtoObject* cell) {
+    if (!isCell(ctx, cell)) return cell;  // raw value, return as-is
+    const proto::ProtoString* k = cellValueKey(ctx);
+    if (!k) return PROTO_NONE;
+    const proto::ProtoObject* v = cell->getAttribute(ctx, k, false);
+    return v ? v : PROTO_NONE;
+}
+
+inline void writeCell(proto::ProtoContext* ctx,
+                       const proto::ProtoObject* cell,
+                       const proto::ProtoObject* value) {
+    if (!isCell(ctx, cell)) return;  // raw slot — caller writes directly
+    const proto::ProtoString* k = cellValueKey(ctx);
+    if (!k) return;
+    cell->setAttribute(ctx, k, value ? value : PROTO_NONE);
+}
+
+// Forward decl of setSlot (the slot setter is defined later but used by
+// the helper below).
+static void setSlot(proto::ProtoContext* ctx, unsigned int idx, const proto::ProtoObject* val);
+
+// Populate `childCtx`'s closure-var slots from a callable function
+// instance's `__captured_cells__` SparseList (placed there by
+// OP_fclosure).  Called by every site that invokes runBytecode for
+// a user-defined function — it must run BEFORE runBytecode reads the
+// slots, otherwise runBytecode's global-fallback path would see them
+// as still-empty and overwrite with stale globals.
+inline void populateClosureCellsFromInstance(proto::ProtoContext* childCtx,
+                                              const proto::ProtoObject* fnInst,
+                                              const ProtoBytecodeModule& nf) {
+    if (!childCtx || !fnInst || fnInst == PROTO_NONE) return;
+    if (nf.closureVarNames.empty()) return;
+    const proto::ProtoString* ccKey = capturedCellsKey(childCtx);
+    if (!ccKey) return;
+    const proto::ProtoObject* cellsAttr = fnInst->getAttribute(childCtx, ccKey, false);
+    if (!cellsAttr || cellsAttr == PROTO_NONE) return;
+    const proto::ProtoSparseList* cells = cellsAttr->asSparseList(childCtx);
+    if (!cells) return;
+    const unsigned argC = nf.argCount();
+    const unsigned varC = nf.varCount();
+    for (size_t i = 0; i < nf.closureVarNames.size(); ++i) {
+        const proto::ProtoObject* cell = cells->getAt(childCtx, static_cast<unsigned long>(i));
+        if (!cell) continue;
+        if (cell == PROTO_NONE) continue;
+        setSlot(childCtx, argC + varC + static_cast<unsigned>(i), cell);
+    }
+}
+
 /** Slot and stack storage use ProtoContext::closureLocals only (no std::vector); GC sees all references. */
 
 /**
@@ -1117,6 +1245,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     thisObj ? thisObj : PROTO_NONE);
                 continue;
             }
+            // Skip slots already populated by populateClosureCellsFromInstance
+            // (called by OP_call / OP_call_method / OP_call_constructor /
+            // callJSFunction with the function instance's captured cells).
+            // Those slots hold cells (or already-resolved values) — don't
+            // overwrite them with the global-fallback lookup.
+            const proto::ProtoObject* existing =
+                getSlot(pContext, argCount + varCount + static_cast<unsigned>(i));
+            if (existing && existing != PROTO_NONE) continue;
             if (!globalObjInit || globalObjInit == PROTO_NONE) continue;
             const proto::ProtoString* key = (pContext->fromUTF8String(closureVarNames[i].c_str()) ? pContext->fromUTF8String(closureVarNames[i].c_str())->asString(pContext) : nullptr);
             if (key) {
@@ -2206,9 +2342,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_loc8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
-                else
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    stackPush(pContext, readCell(pContext, slotVal));
+                } else
                     stackPush(pContext,PROTO_NONE);
                 DISPATCH();
             }
@@ -2217,16 +2354,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, val);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_set_loc8: {
                 if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, val);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_get_arg0: ;
@@ -2370,18 +2513,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_var_ref2: ;
             L_OP_get_var_ref3: {
                 /* Closure vars occupy slots AFTER local vars: slot[argCount + varCount + refIndex].
-                 * This separates them from local vars (slot[argCount + localIdx]) so that the
-                 * hidden _ret_ eval variable at local slot 0 never collides with closure var 0.
-                 * TDZ check: if the slot still holds the sentinel, the let/const variable has not
-                 * yet been initialised — throw ReferenceError per spec §10.4.2.1. */
+                 * The slot holds either a closure cell (mutable wrapper used for by-reference
+                 * captures — see allocCell / OP_close_loc) or a raw value (for global captures
+                 * which are not closed).  readCell returns the raw value when the slot holds
+                 * one, or dereferences the cell when it holds one.
+                 * TDZ check: if the slot still holds the sentinel, the let/const variable has
+                 * not yet been initialised — throw ReferenceError per spec §10.4.2.1. */
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_get_var_ref0);
                 {
-                    const proto::ProtoObject* val = getSlot(pContext, argCount + varCount + refIndex);
-                    if (val == tdzSentinel) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                    if (slotVal == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
                         has_pending_exception = true;
                         DISPATCH();
                     }
+                    const proto::ProtoObject* val = readCell(pContext, slotVal);
                     stackPush(pContext, val ? val : PROTO_NONE);
                 }
                 DISPATCH();
@@ -2394,18 +2540,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_put_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                /* Write to the dedicated closure-var slot (see OP_get_var_ref0..3 comment). */
-                setSlot(pContext, argCount + varCount + refIndex, val);
-                /* Also write to the global object so that hoisted function declarations in global
-                 * eval are visible to nested functions (which initialise their closure-var slots
-                 * from the global object at startup). */
-                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                    const std::string& name = module->closureVarNames[refIndex];
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
-                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
-                        if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                if (isCell(pContext, slotVal)) {
+                    writeCell(pContext, slotVal, val);
+                } else {
+                    setSlot(pContext, argCount + varCount + refIndex, val);
+                    /* Non-cell slot: this is a hoisted GLOBAL_DECL var
+                     * (top-level `function f` / `var x`).  QuickJS emits
+                     * OP_put_var_ref on these even though they live on
+                     * the global object — keep the global publication
+                     * so `typeof f` / cross-function reads find them. */
+                    if (pGlobalRoot && *pGlobalRoot &&
+                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                        const std::string& name = module->closureVarNames[refIndex];
+                        if (!name.empty()) {
+                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
+                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
+                            if (key)
+                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                        }
                     }
                 }
                 DISPATCH();
@@ -2417,15 +2570,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_set_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
-                /* Write to slot and global (same rationale as OP_put_var_ref). */
-                setSlot(pContext, argCount + varCount + refIndex, val);
-                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                    const std::string& name = module->closureVarNames[refIndex];
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
-                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
-                        if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                if (isCell(pContext, slotVal)) {
+                    writeCell(pContext, slotVal, val);
+                } else {
+                    setSlot(pContext, argCount + varCount + refIndex, val);
+                    if (pGlobalRoot && *pGlobalRoot &&
+                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                        const std::string& name = module->closureVarNames[refIndex];
+                        if (!name.empty()) {
+                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
+                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
+                            if (key)
+                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                        }
                     }
                 }
                 DISPATCH();
@@ -2434,23 +2592,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
-                stackPush(pContext, getSlot(pContext, argCount + varCount + refIndex));
+                const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                stackPush(pContext, readCell(pContext, slotVal));
                 DISPATCH();
             }
             L_OP_put_var_ref: {
+                /* Closure-cell-aware: dereference if the slot holds a
+                 * cell; otherwise update the slot directly AND publish
+                 * to the global (hoisted GLOBAL_DECL / function decl
+                 * path; QuickJS emits OP_put_var_ref on these). */
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                setSlot(pContext, argCount + varCount + refIndex, val);
-                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                    const std::string& name = module->closureVarNames[refIndex];
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
-                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
-                        if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                if (isCell(pContext, slotVal)) {
+                    writeCell(pContext, slotVal, val);
+                } else {
+                    setSlot(pContext, argCount + varCount + refIndex, val);
+                    if (pGlobalRoot && *pGlobalRoot &&
+                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                        const std::string& name = module->closureVarNames[refIndex];
+                        if (!name.empty()) {
+                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
+                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
+                            if (key)
+                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                        }
                     }
                 }
                 DISPATCH();
@@ -2460,14 +2629,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
-                setSlot(pContext, argCount + varCount + refIndex, val);
-                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                    const std::string& name = module->closureVarNames[refIndex];
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
-                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
-                        if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                if (isCell(pContext, slotVal)) {
+                    writeCell(pContext, slotVal, val);
+                } else {
+                    setSlot(pContext, argCount + varCount + refIndex, val);
+                    if (pGlobalRoot && *pGlobalRoot &&
+                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                        const std::string& name = module->closureVarNames[refIndex];
+                        if (!name.empty()) {
+                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
+                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
+                            if (key)
+                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                        }
                     }
                 }
                 DISPATCH();
@@ -2477,11 +2652,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 {
-                    const proto::ProtoObject* val = getSlot(pContext, argCount + varCount + refIndex);
-                    if (val == tdzSentinel) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                    if (slotVal == tdzSentinel) {
                         pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
                         DISPATCH();
                     }
+                    const proto::ProtoObject* val = readCell(pContext, slotVal);
                     stackPush(pContext, val ? val : PROTO_NONE);
                 }
                 DISPATCH();
@@ -2493,24 +2669,63 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                setSlot(pContext, argCount + varCount + refIndex, val);
-                if (pGlobalRoot && *pGlobalRoot && static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
-                    const std::string& name = module->closureVarNames[refIndex];
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str())
-                            ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
-                        if (key)
-                            *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                if (isCell(pContext, slotVal)) {
+                    writeCell(pContext, slotVal, val);
+                } else {
+                    setSlot(pContext, argCount + varCount + refIndex, val);
+                    if (pGlobalRoot && *pGlobalRoot &&
+                        static_cast<size_t>(refIndex) < module->closureVarNames.size()) {
+                        const std::string& name = module->closureVarNames[refIndex];
+                        if (!name.empty()) {
+                            const proto::ProtoString* key = pContext->fromUTF8String(name.c_str())
+                                ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr;
+                            if (key)
+                                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
+                        }
                     }
                 }
                 DISPATCH();
             }
             L_OP_close_loc: {
+                /* Promote a local variable to a closure cell so inner
+                 * functions can capture it by reference.
+                 *
+                 * QuickJS emits OP_close_loc(localIdx) when a local is
+                 * captured by an inner function.  We:
+                 *   1. Find the closure-var slot j whose closureVarTypes[j]
+                 *      is JS_CLOSURE_LOCAL with cvIdx[j] == localIdx.
+                 *   2. Allocate a cell wrapping the current local value.
+                 *   3. Store the cell at our own closure-var slot j.
+                 *
+                 * After this, all parent reads / writes of the variable
+                 * (which QuickJS emits as OP_get_var_ref(j) /
+                 * OP_put_var_ref(j)) dereference the cell.  When an inner
+                 * function captures j with cvType=REF, OP_fclosure passes
+                 * the SAME cell pointer to the inner; both sides share
+                 * the cell, so reassignments propagate. */
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, tdzSentinel);
+                // Find which closure-var slot maps to this local.
+                int closureSlot = -1;
+                for (size_t i = 0; i < module->closureVarTypes.size(); i++) {
+                    if (module->closureVarTypes[i] == 0 /*LOCAL*/ &&
+                        i < module->closureVarIndices.size() &&
+                        module->closureVarIndices[i] == locIndex) {
+                        closureSlot = static_cast<int>(i);
+                        break;
+                    }
+                }
+                if (closureSlot >= 0) {
+                    const proto::ProtoObject* curVal =
+                        getSlot(pContext, argCount + locIndex);
+                    const proto::ProtoObject* cell = allocCell(pContext, curVal);
+                    if (cell) {
+                        setSlot(pContext, argCount + varCount +
+                                static_cast<unsigned>(closureSlot), cell);
+                    }
+                }
                 DISPATCH();
             }
             L_OP_get_loc0: ;
@@ -2518,9 +2733,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_loc2: ;
             L_OP_get_loc3: {
                 unsigned idx = static_cast<unsigned>(opcode - OP_get_loc0);
-                if (idx < varCount && (argCount + idx) < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argCount + idx));
-                else
+                if (idx < varCount && (argCount + idx) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + idx);
+                    stackPush(pContext, readCell(pContext, slotVal));
+                } else
                     stackPush(pContext,PROTO_NONE);
                 DISPATCH();
             }
@@ -2532,8 +2748,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 unsigned idx = static_cast<unsigned>(opcode - OP_put_loc0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (idx < varCount && (argCount + idx) < (argCount + varCount))
-                    setSlot(pContext, argCount + idx, val);
+                if (idx < varCount && (argCount + idx) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + idx);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + idx, val);
+                }
                 DISPATCH();
             }
             L_OP_set_loc0: ;
@@ -2543,8 +2762,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 unsigned idx = static_cast<unsigned>(opcode - OP_set_loc0);
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (idx < varCount && (argCount + idx) < (argCount + varCount))
-                    setSlot(pContext, argCount + idx, val);
+                if (idx < varCount && (argCount + idx) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + idx);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + idx, val);
+                }
                 DISPATCH();
             }
             // --- Locals, arguments, and variable references ---
@@ -2552,9 +2774,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
-                else
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    stackPush(pContext, readCell(pContext, slotVal));
+                } else
                     stackPush(pContext,PROTO_NONE);
                 DISPATCH();
             }
@@ -2564,8 +2787,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, val);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_set_loc: {
@@ -2573,8 +2799,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    setSlot(pContext, argCount + locIndex, val);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* slotVal = getSlot(pContext, argCount + locIndex);
+                    if (isCell(pContext, slotVal)) writeCell(pContext, slotVal, val);
+                    else setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_get_arg: {
@@ -4409,6 +4638,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     for (uint32_t i = 0; i < argc; i++)
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    populateClosureCellsFromInstance(&childCtx, func, nf);
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot, &childEx);
@@ -4576,7 +4806,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     for (uint32_t i = 0; i < finalArgc; i++)
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
-                    
+                    populateClosureCellsFromInstance(&childCtx, func, nf);
+
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     result = runBytecode(&childCtx, &nf, newObj, argsList, pGlobalRoot, &childEx);
                     if (childEx && childEx != PROTO_NONE) {
@@ -4756,6 +4987,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     for (uint32_t i = 0; i < argc; i++)
                         setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
@@ -4917,35 +5149,50 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* iasK = iasKey ? iasKey->asString(pContext) : nullptr;
                             if (iasK) fnInst = fnInst->setAttribute(pContext, iasK, PROTO_TRUE);
                         }
-                        // Closure var capture: publish non-global captured vars to the
-                        // global object so the inner function's startup reads the correct
-                        // initial values.  Types: 0=LOCAL, 1=ARG, 2=REF (parent closure var).
-                        if (pGlobalRoot && *pGlobalRoot) {
+                        // Closure var capture: store cells (or raw values
+                        // for global captures) on the function instance via
+                        // `__captured_cells__`.  See OP_fclosure for the
+                        // detailed semantics — this is the same logic for
+                        // the 8-bit immediate variant.
+                        if (!nm8.closureVarNames.empty()) {
+                            const proto::ProtoSparseList* cells = pContext->newSparseList();
                             for (size_t cvi = 0; cvi < nm8.closureVarNames.size(); ++cvi) {
-                                const std::string& cvName = nm8.closureVarNames[cvi];
-                                if (cvName.empty()) continue;
                                 int cvType = (cvi < nm8.closureVarTypes.size())
                                     ? nm8.closureVarTypes[cvi] : -1;
                                 uint16_t cvIdx = (cvi < nm8.closureVarIndices.size())
                                     ? nm8.closureVarIndices[cvi] : 0;
-                                const proto::ProtoObject* cvVal = PROTO_NONE;
+                                const proto::ProtoObject* captured = PROTO_NONE;
                                 if (cvType == 1 /* ARG */) {
-                                    cvVal = getSlot(pContext, cvIdx);
+                                    const proto::ProtoObject* curVal =
+                                        getSlot(pContext, cvIdx);
+                                    const proto::ProtoObject* cell =
+                                        allocCell(pContext, curVal);
+                                    if (cell) captured = cell;
                                 } else if (cvType == 0 /* LOCAL */) {
-                                    cvVal = getSlot(pContext, argCount + cvIdx);
+                                    const proto::ProtoObject* slotVal =
+                                        getSlot(pContext, argCount + cvIdx);
+                                    if (isCell(pContext, slotVal)) {
+                                        captured = slotVal;
+                                    } else {
+                                        const proto::ProtoObject* cell =
+                                            allocCell(pContext, slotVal);
+                                        if (cell) {
+                                            setSlot(pContext, argCount + cvIdx, cell);
+                                            captured = cell;
+                                        }
+                                    }
                                 } else if (cvType == 2 /* REF */) {
-                                    cvVal = getSlot(pContext, argCount + varCount + cvIdx);
+                                    captured = getSlot(pContext, argCount + varCount + cvIdx);
                                 } else {
-                                    continue; // global/module vars: handled elsewhere
+                                    captured = PROTO_NONE;
                                 }
-                                const proto::ProtoString* cvKey =
-                                    pContext->fromUTF8String(cvName.c_str())
-                                    ? pContext->fromUTF8String(cvName.c_str())->asString(pContext)
-                                    : nullptr;
-                                if (cvKey)
-                                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(
-                                        pContext, cvKey, cvVal ? cvVal : PROTO_NONE);
+                                cells = cells->setAt(pContext, static_cast<unsigned long>(cvi),
+                                                      captured ? captured : PROTO_NONE);
                             }
+                            const proto::ProtoString* ccKey = capturedCellsKey(pContext);
+                            if (ccKey)
+                                fnInst = fnInst->setAttribute(pContext, ccKey,
+                                    cells->asObject(pContext));
                         }
                     }
                     stackPush(pContext, fnInst);
@@ -5011,33 +5258,88 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* iasK2 = iasKey2 ? iasKey2->asString(pContext) : nullptr;
                             if (iasK2) fnInst2 = fnInst2->setAttribute(pContext, iasK2, PROTO_TRUE);
                         }
-                        // Closure var capture: publish non-global captured vars to global object.
-                        if (pGlobalRoot && *pGlobalRoot) {
+                        // Closure var capture: store cells (or raw values for
+                        // global captures) on the function instance via the
+                        // `__captured_cells__` SparseList.  When fnInst2 is
+                        // later called, runBytecode reads the SparseList and
+                        // populates the callee's closure-var slots with the
+                        // SAME cell pointers — so reads/writes from inside
+                        // the inner function go through the cell shared with
+                        // its capturing scope.
+                        if (!nm2.closureVarNames.empty()) {
+                            const proto::ProtoSparseList* cells = pContext->newSparseList();
                             for (size_t cvi2 = 0; cvi2 < nm2.closureVarNames.size(); ++cvi2) {
-                                const std::string& cvName2 = nm2.closureVarNames[cvi2];
-                                if (cvName2.empty()) continue;
                                 int cvType2 = (cvi2 < nm2.closureVarTypes.size())
                                     ? nm2.closureVarTypes[cvi2] : -1;
                                 uint16_t cvIdx2 = (cvi2 < nm2.closureVarIndices.size())
                                     ? nm2.closureVarIndices[cvi2] : 0;
-                                const proto::ProtoObject* cvVal2 = PROTO_NONE;
+                                const proto::ProtoObject* captured = PROTO_NONE;
                                 if (cvType2 == 1 /* ARG */) {
-                                    cvVal2 = getSlot(pContext, cvIdx2);
+                                    // Allocate a cell wrapping the parent's
+                                    // arg slot so the callee can mutate it
+                                    // back into the parent's view.
+                                    const proto::ProtoObject* curVal =
+                                        getSlot(pContext, cvIdx2);
+                                    const proto::ProtoObject* cell =
+                                        allocCell(pContext, curVal);
+                                    if (cell) {
+                                        // Promote the parent's arg slot to
+                                        // hold the cell so subsequent reads
+                                        // / writes via OP_get_arg / OP_set_arg
+                                        // see the cell — caveat: those ops
+                                        // currently don't dereference cells.
+                                        // For now this matches LOCAL behaviour
+                                        // after OP_close_loc.
+                                        captured = cell;
+                                    }
                                 } else if (cvType2 == 0 /* LOCAL */) {
-                                    cvVal2 = getSlot(pContext, argCount + cvIdx2);
+                                    // Read the parent's local slot; if it's
+                                    // not yet a cell, lazily promote it by
+                                    // allocating a cell and writing it back
+                                    // to the parent's local slot.  Subsequent
+                                    // OP_fclosure calls in the same parent
+                                    // scope that capture the SAME local will
+                                    // see isCell(slot) = true and reuse the
+                                    // already-promoted cell.  We must NOT
+                                    // search the parent's closureVars for a
+                                    // matching index — closureVarIndices
+                                    // there refer to the GRANDPARENT's slot
+                                    // numbering (where the parent's CV came
+                                    // from), not the parent's local slots.
+                                    const proto::ProtoObject* slotVal =
+                                        getSlot(pContext, argCount + cvIdx2);
+                                    if (isCell(pContext, slotVal)) {
+                                        captured = slotVal;
+                                    } else {
+                                        const proto::ProtoObject* cell =
+                                            allocCell(pContext, slotVal);
+                                        if (cell) {
+                                            setSlot(pContext, argCount + cvIdx2, cell);
+                                            captured = cell;
+                                        }
+                                    }
                                 } else if (cvType2 == 2 /* REF */) {
-                                    cvVal2 = getSlot(pContext, argCount + varCount + cvIdx2);
+                                    // Parent already has the variable as a
+                                    // closure var — its slot holds the cell
+                                    // (assuming the chain has been built
+                                    // correctly).  Pass the cell pointer
+                                    // through unchanged.
+                                    captured = getSlot(pContext, argCount + varCount + cvIdx2);
                                 } else {
-                                    continue;
+                                    // Global captures: keep raw value.  The
+                                    // callee's runBytecode will fall through
+                                    // to its global-lookup path.  Mark with
+                                    // PROTO_NONE so the SparseList stores it
+                                    // explicitly.
+                                    captured = PROTO_NONE;
                                 }
-                                const proto::ProtoString* cvKey2 =
-                                    pContext->fromUTF8String(cvName2.c_str())
-                                    ? pContext->fromUTF8String(cvName2.c_str())->asString(pContext)
-                                    : nullptr;
-                                if (cvKey2)
-                                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(
-                                        pContext, cvKey2, cvVal2 ? cvVal2 : PROTO_NONE);
+                                cells = cells->setAt(pContext, static_cast<unsigned long>(cvi2),
+                                                      captured ? captured : PROTO_NONE);
                             }
+                            const proto::ProtoString* ccKey = capturedCellsKey(pContext);
+                            if (ccKey)
+                                fnInst2 = fnInst2->setAttribute(pContext, ccKey,
+                                    cells->asObject(pContext));
                         }
                     }
                     stackPush(pContext, fnInst2);
@@ -6412,6 +6714,7 @@ const proto::ProtoObject* callJSFunction(
         unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
         for (unsigned i = 0; i < argc; i++)
             setSlot(&childCtx, i, args->getAt(&childCtx, static_cast<int>(i)));
+        populateClosureCellsFromInstance(&childCtx, fn, nf);
         const proto::ProtoObject* childEx = PROTO_NONE;
         if (getenv("PROTO_DEBUG_BIND")) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
