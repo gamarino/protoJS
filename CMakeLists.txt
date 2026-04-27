@@ -135,7 +135,6 @@ add_library(protojs_core STATIC
     src/runtime/ProtoCompileOnly.cpp
     src/runtime/ProtoBytecodeLoader.cpp
     src/runtime/ProtoInterpreter.cpp
-    src/runtime/MicrotaskQueue.cpp
     # Native modules
     src/native/DynamicLibraryLoader.cpp
     src/native/NativeModuleWrapper.cpp
