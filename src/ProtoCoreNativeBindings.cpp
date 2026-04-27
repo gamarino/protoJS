@@ -7,6 +7,7 @@
 #include "CPUThreadPool.h"
 #include "ThreadPoolExecutor.h"
 #include <atomic>
+#include <mutex>
 #include <unordered_map>
 #include <string>
 #include <cstdint>
@@ -21,6 +22,20 @@ namespace {
 // its init time; we duplicate the registration here so this module is
 // self-contained (no ordering dependency between the two init paths).
 
+// Worker-side result slot: a heap-allocated struct shared between the
+// JS thread (which reads it after join) and the worker thread (which
+// writes it on exit).  The JS side wraps a pointer to one of these
+// in a ProtoExternalPointer so the GC sees a stable address — the
+// raw void* never moves regardless of GC compaction state.
+struct WorkerResult {
+    std::atomic<long long> value{0};
+    WorkerResult() = default;
+};
+
+void freeWorkerResult(void* p) {
+    delete static_cast<WorkerResult*>(p);
+}
+
 const proto::ProtoObject* cpuChunkWorker(
     proto::ProtoContext* context,
     const proto::ProtoObject* /*self*/,
@@ -28,8 +43,16 @@ const proto::ProtoObject* cpuChunkWorker(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
     if (!args || args->getSize(context) < 2) return PROTO_NONE;
-    const proto::ProtoObject* holder = args->getAt(context, 0);
+    const proto::ProtoObject* resultPtrObj = args->getAt(context, 0);
     const proto::ProtoObject* iterObj = args->getAt(context, 1);
+    if (!resultPtrObj || resultPtrObj == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoExternalPointer* extPtr =
+        resultPtrObj->asExternalPointer(context);
+    if (!extPtr) return PROTO_NONE;
+    WorkerResult* result =
+        static_cast<WorkerResult*>(extPtr->getPointer(context));
+    if (!result) return PROTO_NONE;
+
     long long n = iterObj->asLong(context);
     uint32_t state = 1;
     uint64_t sum = 0;
@@ -37,9 +60,7 @@ const proto::ProtoObject* cpuChunkWorker(
         state = static_cast<uint32_t>(static_cast<uint64_t>(state) * 1103515245ULL + 12345ULL);
         sum += state;
     }
-    const proto::ProtoString* key = JSSymbols::value(context);
-    holder->setAttribute(context, key,
-        context->fromLong(static_cast<long long>(sum)));
+    result->value.store(static_cast<long long>(sum), std::memory_order_release);
     return PROTO_NONE;
 }
 
@@ -84,13 +105,24 @@ const proto::ProtoObject* runInThreadNative(
     proto::ProtoMethod worker = it->second;
 
     // Arg 1 (optional) — array-like of worker args.  Our cpuChunk
-    // worker expects [holder, n] where holder is a mutable ProtoObject
-    // that the worker writes its result to.  We construct holder here
-    // and prepend it.
-    const proto::ProtoObject* holder = ctx->newObject(/*mutable=*/true);
-    if (!holder) return PROTO_NONE;
+    // worker expects [resultPtr, n] where resultPtr is an ExternalPointer
+    // wrapping a heap-allocated WorkerResult struct.  Using an external
+    // pointer (raw void* immune to GC compaction) avoids the race where
+    // a regular ProtoObject holder gets moved by GC between newThread
+    // and the worker's setAttribute call — a race that becomes very
+    // visible once allocation pressure rises (e.g. closure cells make
+    // every closure-creating function allocate, raising GC churn).
+    // Heap-allocated result struct — lifetime managed manually by the
+    // resolve callback below, NOT by an ExternalPointer finalizer.  If
+    // we used a finalizer, the wrapper could be GC'd between the
+    // worker reading args[0] and the resolve callback running, freeing
+    // `result` underneath the worker.
+    auto* result = new WorkerResult();
+    const proto::ProtoObject* resultPtrObj =
+        ctx->fromExternalPointer(result, /*finalizer=*/nullptr);
+    if (!resultPtrObj) { delete result; return PROTO_NONE; }
 
-    const proto::ProtoList* workerArgs = ctx->newList()->appendLast(ctx, holder);
+    const proto::ProtoList* workerArgs = ctx->newList()->appendLast(ctx, resultPtrObj);
     if (args->getSize(ctx) >= 2) {
         const proto::ProtoObject* userArgs = args->getAt(ctx, 1);
         // userArgs may be either an Array (with __elements__) or a plain
@@ -122,16 +154,18 @@ const proto::ProtoObject* runInThreadNative(
         }
     }
 
-    // Spawn the thread.  On failure return a rejected Deferred so the
-    // user gets a .catch'able error rather than silent undefined.
     JSContextWrapper* wrapper = JSContextWrapper::current();
     proto::ProtoSpace* space = wrapper ? wrapper->getProtoSpace() : ctx->space;
     if (!space) return PROTO_NONE;
 
-    const proto::ProtoString* threadName = ctx->fromUTF8String(
-        ("runInThread-" + workerName).c_str())->asString(ctx);
+    // Reuse a pre-interned thread-name symbol per worker to avoid
+    // re-allocating a string each call (which would add GC pressure
+    // around the spawn).
+    static thread_local const proto::ProtoString* tlNameRunInThread = nullptr;
+    if (!tlNameRunInThread)
+        tlNameRunInThread = proto::ProtoString::createSymbol(ctx, "runInThread");
     const proto::ProtoThread* thread =
-        space->newThread(ctx, threadName, worker, workerArgs, nullptr);
+        space->newThread(ctx, tlNameRunInThread, worker, workerArgs, nullptr);
 
     const proto::ProtoObject* deferred = ProtoDeferred::createPending(ctx);
     if (!deferred) return PROTO_NONE;
@@ -141,27 +175,31 @@ const proto::ProtoObject* runInThreadNative(
             wrapper);
         return deferred;
     }
+    // Root workerArgs on the deferred so the GC keeps it (and the
+    // ProtoExternalPointer it contains) alive until JS reads the
+    // result.  The thread itself probably retains workerArgs while it
+    // runs, but the JS-side resolution callback then no longer has a
+    // path to it; rooting via deferred makes this explicit.
+    {
+        const proto::ProtoString* ak =
+            proto::ProtoString::createSymbol(ctx, "__rt_workerargs__");
+        if (ak) deferred->setAttribute(ctx, ak, workerArgs->asObject(ctx));
+    }
 
-    // Schedule a join + resolve via the CPU thread pool: the join blocks
-    // until the worker thread finishes, then we hop onto the event loop
-    // (which runs on the JS thread) to read the holder and resolve the
-    // Deferred.  This pattern matches the existing QuickJS-side runInThread.
     CPUThreadPool::getInstance().getExecutor().submit(
-        [thread, holder, deferred, wrapper, space]() {
+        [thread, result, deferred, wrapper, space]() {
             proto::ProtoContext joinCtx(space, nullptr, nullptr,
                                          nullptr, nullptr, nullptr);
             const_cast<proto::ProtoThread*>(thread)->join(&joinCtx);
-            // Marshal back to the event loop for the resolution.
-            EventLoop::getInstance().enqueueCallback([holder, deferred, wrapper]() {
+            EventLoop::getInstance().enqueueCallback([result, deferred, wrapper]() {
+                long long v = result->value.load(std::memory_order_acquire);
+                delete result;
                 if (!wrapper) return;
                 JSContextWrapper::CurrentScope wscope(wrapper);
                 proto::ProtoContext* c = wrapper->getProtoContext();
                 if (!c) return;
-                const proto::ProtoString* k = JSSymbols::value(c);
-                const proto::ProtoObject* result =
-                    holder->getAttribute(c, k, false);
                 ProtoDeferred::resolveFromAsync(c, deferred,
-                    result ? result : PROTO_NONE, wrapper);
+                    c->fromLong(v), wrapper);
             });
         });
 
