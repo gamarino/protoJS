@@ -161,30 +161,87 @@ Re-run the standard suite to update the geomean.  Update
 `docs/PERFORMANCE_RUN_2026-04-26.md` with the new measurement and
 remove the "parallel_cpu is not actually parallel" caveat.
 
-### Step 6+ — Remaining modules (deferred)
+### Step 6+ — Remaining modules
 
-Long tail; same pattern, larger surface.  Grouped roughly by user
-visibility:
+Migrated in this iteration (apr 2026):
+
+| Module        | LOC | Status | Notes |
+|---------------|-----|--------|-------|
+| `process`     | 119 | ✅ done | argv as real Array; env from POSIX `environ`; cwd/platform/arch/exit |
+| `path`        | 183 | ✅ done | All eight string-path helpers (`join`/`resolve`/`normalize`/etc.) |
+| `util`        | 155 | ✅ done | `types.*` predicates + inspect/format; `promisify` still a stub |
+| `events`      | 124 | ✅ done | `EventEmitter` class; instance state via `__listeners__` attribute, no finalizer |
+| `url`         |  54 | ✅ done | `URL` constructor + toString — establishes the `__construct__`-hook pattern |
+
+Pending (same mechanical pattern; remaining files in `src/modules/`):
 
   Critical-for-CommonJS:
-  - `require` — the module loader is the entry point for nearly all
-    third-party `require('fs')` etc. usage.  Migrating `require`
-    while keeping the existing modules QuickJS-side leaves a
-    half-bridged state, so this one should come EARLY in step 6.
+  - `require` / `CommonJSLoader` (468 LOC) — the module loader.  Until
+    it is migrated, every `require('fs')` etc. still resolves through
+    the QuickJS-side global, even if the module behind the name has
+    been migrated.  Should come EARLY when work resumes.
 
-  Standard-library modules (each is `require('name')` plus a global):
-  - path, url, http, events, stream, util, crypto, Buffer, net,
-    worker_threads, cluster, dgram, child_process, dns, process,
-    fs, io.
+  Stateful classes (each defines a JS class with private state):
+  - `Buffer` (746 LOC) — array-like with byte storage; biggest single
+    migration.
+  - `fs` (626 LOC) — file IO; depends on `path` (already migrated).
+  - `crypto` (540 LOC) — hash + cipher classes.
+  - `stream` (336 LOC) — Readable / Writable / Duplex / Transform.
+  - `http` (527 LOC) — Server / IncomingMessage / ClientRequest.
+  - `net` (708 LOC) — Server / Socket.
+  - `worker_threads` (530 LOC) — Worker class; itself spawns
+    JSContextWrappers, must coordinate with the protoCore-native
+    install of EventsModule on each worker (already partially done).
 
-  Tooling globals (less load-bearing):
-  - profiler, memory, debugger.
+  Smaller / specialized:
+  - `cluster` (295 LOC), `dgram` (445 LOC), `child_process` (348 LOC),
+    `dns` (239 LOC), `IOModule` (246 LOC).
 
-For each, the work is mechanical: replace `JS_NewCFunction` with
-ProtoMethod, replace `JS_SetPropertyStr` with `setAttribute`, work
-out the type-conversion replacements (which currently use
-`TypeBridge::fromJS` / `TypeBridge::toJS` to round-trip through
-QuickJS — those calls must turn into direct protoCore operations).
+  Tooling globals:
+  - `Profiler` (102 LOC), `VisualProfiler` (157 LOC), `MemoryAnalyzer`
+    (272 LOC), `IntegratedDebugger` (323 LOC).
+
+  Legacy:
+  - `Deferred.cpp` (the original QuickJS-side Deferred, replaced by
+    ProtoDeferred.cpp at runtime; dead code we can remove once no
+    test references the old class).
+
+### Migration recipe
+
+Each pending module follows the same six-step recipe:
+
+  1. Header — drop `#include "quickjs.h"`, switch the public
+     signature to
+     `static const proto::ProtoObject* init(proto::ProtoContext*, const proto::ProtoObject*);`
+  2. Implementation — replace each
+     `JSValue f(JSContext*, JSValueConst, int, JSValueConst*)`
+     with
+     `const proto::ProtoObject* f(proto::ProtoContext*, const proto::ProtoObject*, const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)`
+     and rewrite the body against `ctx->fromUTF8String / fromInteger`,
+     `arg->isString / asString / toUTF8String`, `obj->setAttribute /
+     getAttribute`, etc.
+  3. Class instances (Buffer, fs.Stats, http.Server, …) — store
+     state as ProtoObject attributes (mutable parent + named fields)
+     instead of `JS_SetOpaque` C++ structs.  No finalizers needed —
+     references stay reachable through the GC graph.
+  4. Constructors — `wrapNativeFunction(ctx, ctorMethod, name, N,
+     nullptr)`, then both `prototype` and `__construct__` attributes.
+     OP_call_constructor's default-dispatch branch invokes
+     `__construct__` with the pre-parented `newObj` as `self`.
+  5. Build — `ProtoNativeModule::buildModule(ctx, entries, N)` then
+     `ProtoNativeModule::registerOnGlobal(ctx, globalObj, "name", mod)`;
+     return the updated `globalObj`.
+  6. main.cpp — at every existing `Module::init(wrapper.getJSContext())`
+     site, switch to:
+
+       const proto::ProtoObject* nativeGlobal = wrapper.getNativeGlobal();
+       nativeGlobal = Module::init(wrapper.getProtoContext(), nativeGlobal);
+       wrapper.updateNativeGlobal(nativeGlobal);
+
+For each, the work is mechanical and the diff size scales linearly
+with the module's surface area; `process` / `path` / `events` /
+`url` together took ~750 LOC of net diff and are the canonical
+references.
 
 ## What stays QuickJS-side
 
