@@ -19,9 +19,14 @@ namespace {
 // the GC graph automatically (via the instance → __listeners__ →
 // array → element chain), so we don't need a finalizer.
 const proto::ProtoString* listenersKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__listeners__");
-    return k;
+    // Re-intern per call rather than caching: when an EE instance is
+    // accessed from a callback running in a wrapper that is not the
+    // one that originally registered the listener (worker_threads
+    // crosses main/worker wrappers in the same thread), a thread_local
+    // cache would return the wrong SymbolTable's "__listeners__"
+    // pointer.  createSymbol is a sharded hash lookup; cost is
+    // negligible.
+    return proto::ProtoString::createSymbol(ctx, "__listeners__");
 }
 
 // Resolve `this` to a writable handle on the EventEmitter instance.

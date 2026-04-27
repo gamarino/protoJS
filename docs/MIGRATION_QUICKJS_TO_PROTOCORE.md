@@ -186,16 +186,26 @@ Migrated (22 modules total in the apr 2026 push):
 | `child_process`  | 348 | ✅ spawn / exec / execFile / fork |
 | `dgram`          | 445 | ✅ UDP sockets via createSocket |
 | `http`           | 527 | ✅ createServer/listen/close + IncomingMessage (getHeader) + ServerResponse (writeHead/write/end); accept loop on std::thread captured via ExternalPointer; request listener pinned in ProtoRootSet; activeServer counter keeps event loop alive while bound |
+| `worker_threads` | 542 | ✅ Worker class via prototype + ExternalPointer-backed `WorkerState` (std::thread + owned JSContextWrapper); on/emit/postMessage/terminate; cross-wrapper messaging via in-module C++ JSON serialise/parse + ProtoRootSet pin for the Worker instance; events.EventEmitter mixin via __events__ delegate; isMainThread / parentPort / workerData global accessors |
 | (already done earlier) | — | console, TimingAPIs, EventLoopBindings, ProtoDeferred, ProtoCoreNativeBindings |
 
-Pending (3 modules, all stateful classes — same six-step recipe but
-more surface area; ~2000 LOC):
+Pending (2 modules, both stateful classes; ~1450 LOC):
 
 | Module          | LOC | Notes |
 |-----------------|-----|-------|
-| `worker_threads`| 530 | Worker class; spawns JSContextWrappers |
 | `net`           | 708 | Socket / Server classes |
 | `Buffer`        | 746 | Array-like with byte storage; biggest single migration |
+
+Bug fix bundled with this batch
+  - `EventsModule::listenersKey` was caching the `__listeners__`
+    symbol via `static thread_local` — but ProtoSpace owns one
+    SymbolTable per wrapper, so a callback running on the main
+    thread that emits on a worker-space EE would look up under the
+    main-space symbol and miss every listener.  Fixed by always
+    re-interning via `createSymbol(ctx, ...)` (sharded hash lookup,
+    cost negligible).  No other module is affected since none of
+    them traffic ProtoObjects across wrappers within a single
+    thread the way worker_threads does.
 
 Cleanup (deletion targets, no migration):
   - `src/Deferred.cpp` / `.h` — original QuickJS-side Deferred,
