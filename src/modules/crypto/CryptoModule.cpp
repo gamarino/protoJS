@@ -4,6 +4,7 @@
 #include "../../JSSymbols.h"
 #include "../../ArrayElementsStorage.h"
 #include "../../ArrayPrototype.h"
+#include "../../runtime/ProtoInterpreter.h"
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #include <openssl/rand.h>
@@ -224,46 +225,26 @@ const proto::ProtoObject* randomBytesImpl(
     return ctx->fromUTF8String(hexOf(buf.data(), buf.size()).c_str());
 }
 
-// ---- Cipher / Sign / Verify (placeholder constructors) ----------------
+// ---- Cipher / Sign / Verify (explicit not-implemented) ----------------
 //
-// Match the original implementation: the constructors return objects
-// with `update` / `final|sign|verify` methods that are no-ops or
-// return empty.  Real OpenSSL wiring would require Buffer first.
+// These constructors used to return objects with no-op `update` and
+// `final / sign / verify` methods that silently produced empty output.
+// Silent stubs hide bugs: a script encrypts data, gets back "", and
+// only fails much later in deserialization with no useful error.
+//
+// Switched to explicit failure: each constructor throws
+// `Error("not implemented")` at the call site so the user sees the
+// gap immediately.  Real OpenSSL wiring is tracked separately and
+// requires the symmetric / asymmetric key handling that protoJS
+// doesn't yet expose.
 
-const proto::ProtoObject* placeholderUpdate(
-    proto::ProtoContext* /*ctx*/,
-    const proto::ProtoObject* self,
-    const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
-    return self ? self : PROTO_NONE;
-}
-
-const proto::ProtoObject* placeholderEmptyString(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
-    return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
-}
-
-const proto::ProtoObject* placeholderFalse(
-    proto::ProtoContext* /*ctx*/,
-    const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
-    return PROTO_FALSE;
-}
-
-const proto::ProtoObject* makeStubInstance(
-        proto::ProtoContext* ctx,
-        const NativeEntry* entries, size_t count) {
-    const proto::ProtoObject* proto =
-        ProtoNativeModule::buildModule(ctx, entries, count);
-    return proto ? proto->newChild(ctx, /*mutable=*/true)
-                 : ctx->newObject(/*mutable=*/true);
+const proto::ProtoObject* notImplemented(
+        proto::ProtoContext* ctx, const char* what) {
+    if (!ctx) return PROTO_NONE;
+    std::string msg = std::string(what) +
+        ": not implemented in protoJS (only crypto.createHash is wired up)";
+    signalNativeException(makeNativeError(ctx, "Error", msg.c_str()));
+    return PROTO_NONE;
 }
 
 const proto::ProtoObject* createCipherImpl(
@@ -272,12 +253,7 @@ const proto::ProtoObject* createCipherImpl(
     const proto::ParentLink*,
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
-    static const NativeEntry e[] = {
-        {"update", placeholderUpdate},
-        {"final",  placeholderEmptyString},
-        NATIVE_MODULE_END
-    };
-    return makeStubInstance(ctx, e, 2);
+    return notImplemented(ctx, "crypto.createCipher");
 }
 
 const proto::ProtoObject* createSignImpl(
@@ -286,12 +262,7 @@ const proto::ProtoObject* createSignImpl(
     const proto::ParentLink*,
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
-    static const NativeEntry e[] = {
-        {"update", placeholderUpdate},
-        {"sign",   placeholderEmptyString},
-        NATIVE_MODULE_END
-    };
-    return makeStubInstance(ctx, e, 2);
+    return notImplemented(ctx, "crypto.createSign");
 }
 
 const proto::ProtoObject* createVerifyImpl(
@@ -300,12 +271,7 @@ const proto::ProtoObject* createVerifyImpl(
     const proto::ParentLink*,
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
-    static const NativeEntry e[] = {
-        {"update", placeholderUpdate},
-        {"verify", placeholderFalse},
-        NATIVE_MODULE_END
-    };
-    return makeStubInstance(ctx, e, 2);
+    return notImplemented(ctx, "crypto.createVerify");
 }
 
 const proto::ProtoObject* generateKeyPairImpl(

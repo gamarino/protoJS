@@ -24,19 +24,13 @@ namespace {
 // the same surface but the EventEmitter is opt-in via JS code).
 
 const proto::ProtoString* bufKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__buffer__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__buffer__");
 }
 const proto::ProtoString* endedKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__ended__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__ended__");
 }
 const proto::ProtoString* hwmKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__highWaterMark__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__highWaterMark__");
 }
 
 const proto::ProtoObject* getBuffer(proto::ProtoContext* ctx,

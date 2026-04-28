@@ -29,54 +29,34 @@ namespace {
 // pointer-stable across GC cycles.
 
 const proto::ProtoString* keyFD(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__fd__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__fd__");
 }
 const proto::ProtoString* keyPort(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__port__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__port__");
 }
 const proto::ProtoString* keyServerState(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__server_state__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__server_state__");
 }
 const proto::ProtoString* keyMethod(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__method__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__method__");
 }
 const proto::ProtoString* keyURL(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__url__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__url__");
 }
 const proto::ProtoString* keyHeaders(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__headers__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__headers__");
 }
 const proto::ProtoString* keyBody(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__body__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__body__");
 }
 const proto::ProtoString* keyStatus(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__status__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__status__");
 }
 const proto::ProtoString* keyClientFD(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__client_fd__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__client_fd__");
 }
 const proto::ProtoString* keyHeadersSent(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__headers_sent__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__headers_sent__");
 }
 
 // ---- Argument helpers --------------------------------------------------
@@ -355,36 +335,23 @@ const proto::ProtoObject* getResponseProto(proto::ProtoContext* ctx) {
     return proto;
 }
 
-// ---- ClientRequest methods (preserving original stub semantics) -------
+// ---- ClientRequest: explicit not-implemented -------------------------
+//
+// The original module returned a prototype-less ClientRequest object with
+// no-op write / end methods, so user scripts could call
+// `http.request(...)` and silently produce no traffic.  Switched to
+// throwing `Error("not implemented")` so the gap surfaces immediately.
 
-const proto::ProtoObject* requestWrite(
-    proto::ProtoContext* /*ctx*/,
+const proto::ProtoObject* requestNotImpl(
+    proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
-    return PROTO_TRUE;
-}
-
-const proto::ProtoObject* requestEnd(
-    proto::ProtoContext* /*ctx*/,
-    const proto::ProtoObject* self,
-    const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
-    return self ? self : PROTO_NONE;
-}
-
-const proto::ProtoObject* getRequestProto(proto::ProtoContext* ctx) {
-    static const proto::ProtoObject* proto = nullptr;
-    if (proto) return proto;
-    static const NativeEntry entries[] = {
-        {"write", requestWrite},
-        {"end",   requestEnd},
-        NATIVE_MODULE_END
-    };
-    proto = ProtoNativeModule::buildModule(ctx, entries, 2);
-    return proto;
+    if (ctx) signalNativeException(makeNativeError(ctx, "Error",
+        "http.request: not implemented in protoJS "
+        "(only http.createServer is wired up)"));
+    return PROTO_NONE;
 }
 
 // ---- HTTP wire parsing (used by accept loop) ---------------------------
@@ -647,15 +614,11 @@ const proto::ProtoObject* createServer(
 
 const proto::ProtoObject* clientRequest(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
-    const proto::ProtoSparseList*) {
-    if (!ctx) return PROTO_NONE;
-    const proto::ProtoObject* requestProto = getRequestProto(ctx);
-    return requestProto
-        ? requestProto->newChild(ctx, /*mutable=*/true)
-        : ctx->newObject(/*mutable=*/true);
+    const proto::ProtoObject* self,
+    const proto::ParentLink* pl,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* kw) {
+    return requestNotImpl(ctx, self, pl, args, kw);
 }
 
 }  // namespace

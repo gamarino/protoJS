@@ -31,19 +31,13 @@ bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
 }
 
 const proto::ProtoString* pidKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__pid__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__pid__");
 }
 const proto::ProtoString* ipcReadKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__ipc_read__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__ipc_read__");
 }
 const proto::ProtoString* ipcWriteKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__ipc_write__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__ipc_write__");
 }
 
 int getIntAttr(proto::ProtoContext* ctx, const proto::ProtoObject* self,

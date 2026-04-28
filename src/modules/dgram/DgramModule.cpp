@@ -2,6 +2,7 @@
 #include "../../ProtoNativeModule.h"
 #include "../../FunctionPrototype.h"
 #include "../../JSSymbols.h"
+#include "../../runtime/ProtoInterpreter.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -14,14 +15,10 @@ namespace protojs {
 namespace {
 
 const proto::ProtoString* fdKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__fd__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__fd__");
 }
 const proto::ProtoString* typeKey(proto::ProtoContext* ctx) {
-    static thread_local const proto::ProtoString* k = nullptr;
-    if (!k) k = proto::ProtoString::createSymbol(ctx, "__type__");
-    return k;
+    return proto::ProtoString::createSymbol(ctx, "__type__");
 }
 
 bool argString(proto::ProtoContext* ctx, const proto::ProtoList* args,
@@ -130,13 +127,52 @@ const proto::ProtoObject* socketCloseImpl(
     return PROTO_NONE;
 }
 
+// addMembership(multicastAddr, interfaceAddr?) — joins the IPv4 multicast
+// group via setsockopt(IP_ADD_MEMBERSHIP).  IPv6 (IPV6_JOIN_GROUP) is not
+// implemented; throws explicitly when called on a udp6 socket so the
+// limitation surfaces immediately instead of silently no-op'ing as the
+// pre-migration stub did.
 const proto::ProtoObject* socketAddMembershipImpl(
-    proto::ProtoContext* /*ctx*/,
-    const proto::ProtoObject* /*self*/,
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
-    return PROTO_NONE;  // stub matches original
+    int fd = getFd(ctx, self);
+    if (fd < 0) return PROTO_FALSE;
+    if (isIPv6Socket(ctx, self)) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "dgram.Socket.addMembership: IPv6 multicast (udp6) not "
+            "implemented in protoJS"));
+        return PROTO_NONE;
+    }
+    std::string mcastAddr;
+    if (!argString(ctx, args, 0, mcastAddr)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "addMembership requires a multicast address string"));
+        return PROTO_NONE;
+    }
+    std::string ifaceAddr;
+    argString(ctx, args, 1, ifaceAddr);  // optional
+
+    ip_mreq mreq{};
+    if (inet_pton(AF_INET, mcastAddr.c_str(), &mreq.imr_multiaddr) <= 0) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "addMembership: invalid multicast address"));
+        return PROTO_NONE;
+    }
+    if (ifaceAddr.empty()) {
+        mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+    } else if (inet_pton(AF_INET, ifaceAddr.c_str(), &mreq.imr_interface) <= 0) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "addMembership: invalid interface address"));
+        return PROTO_NONE;
+    }
+    if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                    &mreq, sizeof(mreq)) != 0) {
+        return PROTO_FALSE;
+    }
+    return PROTO_TRUE;
 }
 
 const proto::ProtoObject* socketSetBroadcastImpl(
