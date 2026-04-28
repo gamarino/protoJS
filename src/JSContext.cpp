@@ -4,6 +4,7 @@
 #include "EventLoop.h"
 #include "GCBridge.h"
 #include "ExecutionEngine.h"
+#include "JSONPolyfill.h"
 #include "debugging/IntegratedDebugger.h"
 #include "JSPrototypes.h"
 #include "TypeBridge.h"
@@ -177,6 +178,27 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     pContext->currentFileName = currentScript_.empty() ? nullptr : &currentScript_[0];
     pContext->currentLineNumber = 1;
 
+    // Auto-prepend the JSON.stringify / JSON.parse polyfill in non-module
+    // mode.  ProtoInterpreter installs an empty JSON stub on the
+    // protoCore-side global; QuickJS's native JSON is not plumbed
+    // through, so user scripts (including worker scripts that hold
+    // their own JSContextWrapper) need this shim.  Module mode is left
+    // untouched: ES modules don't share globalThis the same way and
+    // the polyfill assignment to `this.JSON` would be ill-defined.
+    // Idempotent: callers that prepend manually still work (the second
+    // assignment redefines the same functions).  Detected via the
+    // marker substring `__protojs_stringify` so re-entrant evals
+    // (CommonJSLoader, etc.) don't pay for repeated insertion.
+    std::string codeWithPolyfill;
+    const std::string* effectiveCode = &code;
+    if (!isModule && code.find("__protojs_stringify") == std::string::npos) {
+        codeWithPolyfill.reserve(code.size() + 2048);
+        codeWithPolyfill.assign(kJSONPolyfillPrefix);
+        codeWithPolyfill.push_back('\n');
+        codeWithPolyfill.append(code);
+        effectiveCode = &codeWithPolyfill;
+    }
+
     IntegratedDebugger::pushFrame(pContext);
     if (IntegratedDebugger::checkBreakpoint(filename, 1)) {
         IntegratedDebugger::pauseExecution();
@@ -283,7 +305,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
 
     bool hadError = false;
     const int compileFlags = JS_EVAL_TYPE_GLOBAL;
-    void* bytecode = protojs::compileToBytecodeWithFlags(ctx, code.c_str(), code.size(), filename.c_str(), compileFlags, nullptr);
+    void* bytecode = protojs::compileToBytecodeWithFlags(ctx, effectiveCode->c_str(), effectiveCode->size(), filename.c_str(), compileFlags, nullptr);
     if (!bytecode) {
         val = JS_GetException(ctx);
         const char* noFallback = std::getenv("PROTOJS_NO_FALLBACK");
@@ -293,7 +315,7 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
         } else {
             std::cerr << "[protojs] compile failed, fallback to QuickJS eval" << std::endl;
             JS_FreeValue(ctx, val);
-            JSValue runVal = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(), compileFlags);
+            JSValue runVal = JS_Eval(ctx, effectiveCode->c_str(), effectiveCode->size(), filename.c_str(), compileFlags);
             if (JS_IsException(runVal)) {
                 val = JS_GetException(ctx);
             } else {
