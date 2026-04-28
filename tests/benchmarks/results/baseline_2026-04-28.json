@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-04-28T13:36:17.068Z",
+  "results": [
+    {
+      "benchmark": "array_literal.js",
+      "name": "array_literal",
+      "protojs_time_ms": 1030,
+      "nodejs_time_ms": 3,
+      "speedup": 343.3333333333333,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "control_flow.js",
+      "name": "control_flow",
+      "protojs_time_ms": 735,
+      "nodejs_time_ms": 7,
+      "speedup": 104.99999999999999,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "function_calls.js",
+      "name": "function_calls",
+      "protojs_time_ms": 2090,
+      "nodejs_time_ms": 1,
+      "speedup": 2090,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "numeric_loop.js",
+      "name": "numeric_loop",
+      "protojs_time_ms": 455,
+      "nodejs_time_ms": 1,
+      "speedup": 455,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "object_property.js",
+      "name": "object_property",
+      "protojs_time_ms": 9577,
+      "nodejs_time_ms": 43,
+      "speedup": 222.72093023255815,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "parallel_cpu.js",
+      "name": "parallel_cpu",
+      "protojs_time_ms": 55,
+      "nodejs_time_ms": 49,
+      "speedup": 1.1224489795918369,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "string_concat.js",
+      "protojs_time_ms": null,
+      "nodejs_time_ms": null
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "successful": 6,
+    "failed": 1,
+    "geoMeanNodeOverProto": 0.006990392603030382
+  }
+}

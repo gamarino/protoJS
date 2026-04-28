@@ -321,7 +321,7 @@ La documentación es un punto **fuerte** del proyecto:
 
 - 30+ archivos `.md` bien estructurados en `docs/`
 - `EXECUTIVE_SUMMARY.md` — visión de alto nivel actualizada
-- `BENCHMARK_STANDARD_RESULTS.md` — resultados honestos con análisis
+- README sección "Performance Benchmarks" — baseline honesto vigente (in-process suite)
 - `TESTING_STRATEGY.md` — estrategia definida (pendiente de implementar plenamente)
 - Completion reports por phase (Phase 2-6)
 - `docs/API_REFERENCE.md` — referencia de API

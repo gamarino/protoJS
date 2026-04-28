@@ -7,7 +7,7 @@
 [![Status](https://img.shields.io/badge/Status-Phase%206%20Complete-green.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**11.93× faster than Node.js (geomean, wall-clock).  Zero-Copy Immutability.  Powered by the Swarm of One.**
+**GIL-free protoCore object model on a JavaScript front-end.  Zero-Copy Immutability.  Concurrent GC.  Powered by the Swarm of One.**
 
 Copyright (c) 2026 Gustavo Marino <gamarino@gmail.com>
 
@@ -318,7 +318,7 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## The Swarm of One
 
-**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now enable JavaScript to achieve 55× speedups in array operations (see [Performance Benchmarks](#performance-benchmarks)). This is the democratization of high-level engineering: delivering industry-leading performance without the overhead of a massive corporate R&D department.
+**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now back JavaScript on a GIL-free, structurally-sharing object model. The interpreter itself is currently ~140× behind V8 on pure compute (see [Performance Benchmarks](#performance-benchmarks) for an honest 2026-04-28 baseline) — a JIT is future work — but the runtime contract (immutability, concurrent GC, lock-free threading) opens design space that V8's monolith cannot match. This is the democratization of high-level engineering: delivering a clear architectural alternative without the overhead of a massive corporate R&D department.
 
 ---
 
@@ -355,11 +355,9 @@ Full index: **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** — current sta
 
 ### Performance & Benchmarks
 
-- **[docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md)** - **Standard benchmark results** (protoJS vs Node.js and vs QuickJS, in-process time)
-- **[docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md)** - **Analysis:** server-load impact, memory/GC, shared data (V8 vs ProtoCore)
-- **[docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md)** - Node.js comparison (legacy wall-clock suite)
-- **[docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md)** - Performance benchmarks and results
-- **[docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md)** - Performance testing methodology
+- **[Performance Benchmarks](#performance-benchmarks)** below — current honest baseline (in-process suite, 2026-04-28).
+- **[tests/benchmarks/results/baseline_2026-04-28.json](tests/benchmarks/results/baseline_2026-04-28.json)** — raw JSON for the latest run.
+- **[tests/benchmarks/run_standard_comparison.js](tests/benchmarks/run_standard_comparison.js)** — to reproduce; takes `PROTOJS_BIN` env override.
 
 ---
 
@@ -388,38 +386,49 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ### Performance Benchmarks
 
-Latest published measurement (run on 2026-03-06; protoCore rebuilt 2026-04-26 to v1.1.0
-with `-Wl,-Bsymbolic-functions` — intra-DSO PLT calls eliminated):
+**Honest baseline — 2026-04-28** (in-process median time over 5 iterations,
+`tests/benchmarks/run_standard_comparison.js`, V8/Node 22 vs protojs Release
+build against protoCore 1.1.0).  Pure compute, no startup cost on either
+side.
 
-| Benchmark               | protoJS | Node.js   | Speedup     |
-|-------------------------|---------|-----------|-------------|
-| array_operations.js     | 35 ms   | 1,947 ms  | **55.63×**  |
-| basic_types.js          | 39 ms   |    40 ms  | 1.03×       |
-| collections.js          | 34 ms   |    39 ms  | 1.15×       |
-| concurrent_operations.js| 37 ms   |    49 ms  | 1.32×       |
-| overall_performance.js  | 32 ms   |    36 ms  | 1.13×       |
+| Benchmark        | protoJS  | Node.js | Ratio (Node faster) |
+|------------------|---------:|--------:|--------------------:|
+| parallel_cpu     |    55 ms |   49 ms |             1.12× |
+| control_flow     |   735 ms |    7 ms |              105× |
+| object_property  |  9577 ms |   43 ms |              223× |
+| array_literal    |  1030 ms |    3 ms |              343× |
+| numeric_loop     |   455 ms |    1 ms |              455× |
+| function_calls   |  2090 ms |    1 ms |             2090× |
+| string_concat    |   timeout|       — |                  — |
 
-**Overall:** 5/5 benchmarks pass; protoJS wins all 5; geometric mean **11.93×** faster
-than Node.js (`run_nodejs_comparison.js`, wall-clock methodology).  Array operations
-dominate the gap because protoCore's immutable structures with structural sharing
-avoid full copies on `map`/`filter`/`reduce` over 100 K-element arrays.
+**Geometric mean: Node.js is 143× faster than protoJS** on the in-process
+suite.  V8's JIT (TurboFan + inline caches) dominates pure-compute hot
+loops by orders of magnitude; that's the cost of running protoJS on a
+straightforward bytecode interpreter without a JIT.  `parallel_cpu` is
+the only benchmark within the same order of magnitude — it offloads work
+to native protoCore threads, so protoJS spends most of its time outside
+the interpreter.
 
-A separate **in-process** comparison (`run_standard_comparison.js`, last run 2026-02-18) is
-documented in [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md).  The
-in-process method strips startup time and is closer to fair vs V8's JIT — there protoJS is
-geomean 5.22× **slower** than Node, with `parallel_cpu` as the lone protoJS win.  Both
-methodologies are valid; the legacy wall-clock numbers above better reflect the application-
-level cost protoJS users observe in real workflows that include startup.
+What the numbers do *not* measure
+  - Startup cost.  protoJS starts in roughly the same wall-clock time as
+    Node, so for short scripts the user-observed ratio is much smaller.
+  - Memory and GC pause behaviour.  protoCore's concurrent GC keeps the
+    p99 pause well below Node's stop-the-world cycles; not captured by
+    these benchmarks.
+  - Multi-threaded scaling.  Node's main loop is single-threaded; the
+    `parallel_cpu` benchmark only exercises a small fraction of what
+    protoCore's GIL-free thread model can deliver in real workloads.
 
-A re-run against the new protoCore is pending — the in-process suite uses `Date.now()` and
-the wall-clock suite uses `console.time()`, neither of which is currently bound in the JS
-runtime; expose those primitives to re-measure.
+Raw numbers: [tests/benchmarks/results/baseline_2026-04-28.json](tests/benchmarks/results/baseline_2026-04-28.json)
 
-Detail and analysis:
-- [docs/PERFORMANCE_REPORT.md](docs/PERFORMANCE_REPORT.md) — wall-clock comparison (latest run)
-- [docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md) — in-process comparison
-- [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md) — server-load analysis
-- [docs/BENCHMARK_ANALYSIS.md](docs/BENCHMARK_ANALYSIS.md) — methodology and earlier data
+Methodology
+  - In-process means each benchmark records `Date.now()` deltas around
+    its workload and prints `__BENCH_RESULT__<json>` to stdout; the
+    runner parses that, ignoring process startup and shutdown.
+  - 5 iterations per benchmark per runtime; reported number is the
+    median.  Variance between runs is typically ±5% on a single
+    machine.
+  - To reproduce: `PROTOJS_BIN=$(pwd)/build/protojs node tests/benchmarks/run_standard_comparison.js`
 
 ---
 
@@ -628,12 +637,12 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** 11.93× faster than Node.js overall (geomean, 2026-03-06 wall-clock run), with 55.63× speedup in array operations
+- **Performance:** ~143× slower than Node.js on the in-process compute suite (geomean, 2026-04-28 baseline) — V8's JIT advantage on pure hot loops; `parallel_cpu` is the only benchmark within the same order of magnitude (1.12×)
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
 - npm support: Full registry communication, semver version resolution, package installation
-- Benchmarking: Standard suite (protoJS vs Node.js and QuickJS), analysis and server-load impact ([docs/BENCHMARK_STANDARD_RESULTS.md](docs/BENCHMARK_STANDARD_RESULTS.md), [docs/BENCHMARK_STANDARD_ANALYSIS.md](docs/BENCHMARK_STANDARD_ANALYSIS.md))
+- Benchmarking: Standard in-process suite (`tests/benchmarks/run_standard_comparison.js`); raw 2026-04-28 baseline at `tests/benchmarks/results/baseline_2026-04-28.json`
 - Test compatibility: Node.js test suite compatibility checker
 - Module system working: CommonJS and ES Modules supported
 - CLI tools available: REPL and Node.js-compatible flags
