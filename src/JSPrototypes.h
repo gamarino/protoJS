@@ -21,6 +21,9 @@ struct JSPrototypes {
     const proto::ProtoObject* array{};
     const proto::ProtoObject* arguments{};
     const proto::ProtoObject* regexp{};
+    const proto::ProtoObject* frozenMarker{};
+    const proto::ProtoObject* nonExtensibleMarker{};
+    const proto::ProtoObject* sealedMarker{};
 };
 
 /**

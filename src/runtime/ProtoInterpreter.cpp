@@ -2,6 +2,7 @@
 #include "QuickJSOpcodeEnum.h"
 #include "QuickJSBytecodeExport.h"
 #include "GeneratorFrame.h"
+#include "BehaviorRegistry.h"
 #include "../JSSymbols.h"
 #include "../ArrayElementsStorage.h"
 #include "../ArrayPrototype.h"
@@ -34,6 +35,40 @@
 #include <unordered_set>
 
 namespace protojs {
+
+// ---------------------------------------------------------------------------
+// OOP Dispatch Helpers (noinline to prevent i-cache bloating in the main loop)
+// ---------------------------------------------------------------------------
+__attribute__((noinline))
+static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) {
+    if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
+    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    return behavior->getField(ctx, obj, key);
+}
+
+__attribute__((noinline))
+static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
+    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    const proto::ProtoObject* res = behavior->putField(ctx, obj, key, val);
+    if (res) return res;
+    return obj->setAttribute(ctx, key, val);
+}
+
+__attribute__((noinline))
+static const proto::ProtoObject* resolveElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index) {
+    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    return behavior->getElement(ctx, obj, index);
+}
+
+__attribute__((noinline))
+static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) {
+    if (!obj || obj == PROTO_NONE) return obj;
+    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    const proto::ProtoObject* res = behavior->putElement(ctx, obj, index, val);
+    if (res) return res;
+    return obj->setAttribute(ctx, protojs::JSSymbols::indexKey(ctx, index), val);
+}
 
 namespace {
 
@@ -2998,25 +3033,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     DISPATCH();
                 }
-                const proto::ProtoObject* val;
-                uint8_t taTypeF = getTypedArrayElementType(pContext, obj);
-                if (taTypeF != 0xFF) {
-                    // TODO: optimize: avoid std::string allocation in TypedArray element access
-                    // hot path — use a ProtoString::tryParseUint32() method once available.
-                    std::string keyStr;
-                    key->toUTF8String(pContext, keyStr);
-                    const bool isNumeric = !keyStr.empty() &&
-                        std::all_of(keyStr.begin(), keyStr.end(),
-                                    [](unsigned char c){ return c >= '0' && c <= '9'; });
-                    if (isNumeric) {
-                        uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-                        val = typedArrayGetElement(pContext, obj, idx, taTypeF);
-                    } else {
-                        val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                    }
-                } else {
-                    val = obj ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                
+                // Fast path: ONE direct call to protoCore! (callbacks=false for speed, getters handled manually below)
+                const proto::ProtoObject* val = obj->getAttribute(pContext, key, false);
+                
+                // OOP Dispatch via BehaviorRegistry ONLY if property not found natively
+                if (!val) { // nullptr means absent
+                    val = resolveFieldOOP(pContext, obj, key);
                 }
+                
                 // Invoke getter if no data value but an accessor is defined.
                 if (!val || val == PROTO_NONE) {
                     std::string keyStr2;
@@ -3025,6 +3050,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (has_pending_exception) DISPATCH();
                     if (gval && gval != PROTO_NONE) val = gval;
                 }
+                
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
@@ -3046,23 +3072,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     DISPATCH();
                 }
-                const proto::ProtoObject* val;
-                uint8_t taTypeF2 = getTypedArrayElementType(pContext, obj);
-                if (taTypeF2 != 0xFF && key) {
-                    std::string keyStr;
-                    key->toUTF8String(pContext, keyStr);
-                    const bool isNumeric = !keyStr.empty() &&
-                        std::all_of(keyStr.begin(), keyStr.end(),
-                                    [](unsigned char c){ return c >= '0' && c <= '9'; });
-                    if (isNumeric) {
-                        uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-                        val = typedArrayGetElement(pContext, obj, idx, taTypeF2);
-                    } else {
-                        val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                    }
-                } else {
-                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                
+                // Fast path: ONE direct call to protoCore! (callbacks=false for speed)
+                const proto::ProtoObject* val = key ? obj->getAttribute(pContext, key, false) : PROTO_NONE;
+                
+                // OOP Dispatch via BehaviorRegistry ONLY if property not found natively
+                if (!val && key) {
+                    val = resolveFieldOOP(pContext, obj, key);
                 }
+                
                 // Invoke getter if no data value but an accessor is defined.
                 if ((!val || val == PROTO_NONE) && key) {
                     std::string keyStr2;
@@ -3071,6 +3089,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (has_pending_exception) DISPATCH();
                     if (gval && gval != PROTO_NONE) val = gval;
                 }
+                
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
@@ -3087,138 +3106,58 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                uint8_t taTypePF = getTypedArrayElementType(pContext, obj);
-                if (taTypePF != 0xFF && key) {
-                    std::string keyStr;
-                    key->toUTF8String(pContext, keyStr);
-                    const bool isNumeric = !keyStr.empty() &&
-                        std::all_of(keyStr.begin(), keyStr.end(),
-                                    [](unsigned char c){ return c >= '0' && c <= '9'; });
-                    if (isNumeric) {
-                        uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-                        const proto::ProtoObject* updatedTA =
-                            typedArraySetElement(pContext, obj, idx, val, taTypePF);
-                        if (updatedTA && updatedTA != obj) {
-                            updateMapping(pContext, obj, updatedTA);
+                if (!key || !obj) { DISPATCH(); }
+
+                const proto::ProtoObject* newObj = resolvePutFieldOOP(pContext, obj, key, val);
+                
+                if (hasCallException()) {
+                    pending_exception = t_callException;
+                    has_pending_exception = true;
+                    t_callException = nullptr;
+                    DISPATCH();
+                }
+
+                if (newObj && newObj != obj) {
+                    updateMapping(pContext, obj, newObj);
+                    updateSpacePrototypeIfMatching(pContext, obj, newObj);
+                }
+                
+                std::string keyStr2;
+                key->toUTF8String(pContext, keyStr2);
+                
+                // Array length truncation: if we just set .length on a real array to a
+                // smaller value, delete elements at indices >= newLen (ECMAScript 9.4.2.1).
+                if (keyStr2 == "length") {
+                    const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                    const proto::ProtoObject* isArrVal = isArrKey
+                        ? newObj->getAttribute(pContext, isArrKey, true) : nullptr;
+                    if (isArrVal == PROTO_TRUE && val && val != PROTO_NONE) {
+                        long long newLen = -1;
+                        if (val->isInteger(pContext))
+                            newLen = val->asLong(pContext);
+                        else if (val->isDouble(pContext))
+                            newLen = static_cast<long long>(val->asDouble(pContext));
+                        if (newLen >= 0) {
+                            int misses = 0;
+                            for (long long i = newLen; i < newLen + 100000LL && misses < 8; i++) {
+                                const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
+                                if (!idxKey) break;
+                                const proto::ProtoObject* elem = newObj->getAttribute(pContext, idxKey, false);
+                                if (!elem || elem == PROTO_NONE) {
+                                    misses++;
+                                    continue;
+                                }
+                                misses = 0;
+                                const proto::ProtoObject* prevObj = newObj;
+                                newObj = newObj->setAttribute(pContext, idxKey, PROTO_NONE);
+                                if (newObj != prevObj) updateMapping(pContext, prevObj, newObj);
+                            }
                         }
-                        // n_push=0: do NOT push anything back
-                        DISPATCH();
                     }
                 }
-                if (key && obj) {
-                    std::string keyStr2;
-                    key->toUTF8String(pContext, keyStr2);
-
-                    // Check 1: Object.freeze — frozen objects reject all writes.
-                    {
-                        const proto::ProtoObject* fko = pContext->fromUTF8String("__is_frozen__");
-                        const proto::ProtoString* fk  = fko ? fko->asString(pContext) : nullptr;
-                        if (fk) {
-                            const proto::ProtoObject* fv = obj->getAttribute(pContext, fk, false);
-                            if (fv == PROTO_TRUE) {
-                                if (module->isStrict) {
-                                    pending_exception = makeError(pContext, "TypeError",
-                                        "Cannot assign to property of frozen object", pGlobalRoot);
-                                    has_pending_exception = true;
-                                }
-                                DISPATCH(); // n_push=0: do NOT push anything
-                            }
-                        }
-                    }
-
-                    // Check 2: Non-writable data property (__pd_ sidecar, bit0=writable).
-                    {
-                        std::string pdKeyStr = "__pd_" + keyStr2 + "__";
-                        const proto::ProtoObject* pdko2 = pContext->fromUTF8String(pdKeyStr.c_str());
-                        const proto::ProtoString* pdk2  = pdko2 ? pdko2->asString(pContext) : nullptr;
-                        if (pdk2) {
-                            const proto::ProtoObject* bitsObj2 = obj->getAttribute(pContext, pdk2, false);
-                            if (bitsObj2 && bitsObj2 != PROTO_NONE && bitsObj2->isInteger(pContext)) {
-                                uint8_t bits2 = static_cast<uint8_t>(bitsObj2->asLong(pContext));
-                                bool writable2 = (bits2 & 0x1) != 0;
-                                if (!writable2) {
-                                    if (module->isStrict) {
-                                        pending_exception = makeError(pContext, "TypeError",
-                                            "Cannot assign to read only property", pGlobalRoot);
-                                        has_pending_exception = true;
-                                    }
-                                    DISPATCH(); // n_push=0: do NOT push anything
-                                }
-                            }
-                        }
-                    }
-
-                    // Check 3: Object.preventExtensions — reject adding new own properties.
-                    {
-                        const proto::ProtoObject* eko = pContext->fromUTF8String("__extensible__");
-                        const proto::ProtoString* ek  = eko ? eko->asString(pContext) : nullptr;
-                        if (ek) {
-                            const proto::ProtoObject* ev = obj->getAttribute(pContext, ek, false);
-                            if (ev == PROTO_FALSE) {
-                                const proto::ProtoString* propKey = pContext->fromUTF8String(keyStr2.c_str()) ?
-                                    pContext->fromUTF8String(keyStr2.c_str())->asString(pContext) : nullptr;
-                                bool alreadyOwn = false;
-                                if (propKey) {
-                                    const proto::ProtoObject* own = obj->hasOwnAttribute(pContext, propKey);
-                                    alreadyOwn = (own == PROTO_TRUE);
-                                }
-                                if (!alreadyOwn) {
-                                    if (module->isStrict) {
-                                        pending_exception = makeError(pContext, "TypeError",
-                                            "Cannot add property to non-extensible object", pGlobalRoot);
-                                        has_pending_exception = true;
-                                    }
-                                    DISPATCH(); // n_push=0: do NOT push anything
-                                }
-                            }
-                        }
-                    }
-
-                    const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, val);
-                    if (newObj != obj) {
-                        updateMapping(pContext, obj, newObj);
-                        updateSpacePrototypeIfMatching(pContext, obj, newObj);
-                    }
-                    // Array length truncation: if we just set .length on a real array to a
-                    // smaller value, delete elements at indices >= newLen (ECMAScript 9.4.2.1).
-                    if (keyStr2 == "length") {
-                        const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
-                        const proto::ProtoObject* isArrVal = isArrKey
-                            ? newObj->getAttribute(pContext, isArrKey, true) : nullptr;
-                        if (isArrVal == PROTO_TRUE && val && val != PROTO_NONE) {
-                            long long newLen = -1;
-                            if (val->isInteger(pContext))
-                                newLen = val->asLong(pContext);
-                            else if (val->isDouble(pContext))
-                                newLen = static_cast<long long>(val->asDouble(pContext));
-                            if (newLen >= 0) {
-                                // Delete elements at indices >= newLen.
-                                // Stop scanning after 8 consecutive missing elements.
-                                int misses = 0;
-                                for (long long i = newLen; i < newLen + 100000LL && misses < 8; i++) {
-                                    const proto::ProtoString* idxKey =
-                                        JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
-                                    if (!idxKey) break;
-                                    const proto::ProtoObject* elem =
-                                        newObj->getAttribute(pContext, idxKey, false);
-                                    if (!elem || elem == PROTO_NONE) {
-                                        misses++;
-                                        continue;
-                                    }
-                                    misses = 0;
-                                    // Delete the element by setting it to PROTO_NONE.
-                                    const proto::ProtoObject* prevObj = newObj;
-                                    newObj = newObj->setAttribute(pContext, idxKey, PROTO_NONE);
-                                    if (newObj != prevObj)
-                                        updateMapping(pContext, prevObj, newObj);
-                                }
-                            }
-                        }
-                    }
-                    if (newObj && pGlobalRoot && obj == globalObj)
-                        *pGlobalRoot = newObj;
-                    // n_push=0: do NOT push anything back
-                }
+                if (newObj && pGlobalRoot && obj == globalObj)
+                    *pGlobalRoot = newObj;
+                
                 DISPATCH();
             }
             L_OP_define_field: {
@@ -3657,11 +3596,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 const proto::ProtoObject* val = nullptr;
-                uint8_t taType = getTypedArrayElementType(pContext, obj);
                 long long arrIdxFast = numericArrayIndexOrNeg(pContext, index);
-                if (taType != 0xFF && arrIdxFast >= 0) {
-                    val = typedArrayGetElement(pContext, obj, static_cast<uint32_t>(arrIdxFast), taType);
-                } else if (arrIdxFast >= 0) {
+                if (arrIdxFast >= 0) {
+                    val = resolveElementOOP(pContext, obj, static_cast<uint32_t>(arrIdxFast));
+                }
+                
+                // Fallback to native ProtoList fast path ONLY if behavior didn't find it
+                // (TypedArrays return PROTO_NONE for out-of-bounds, so this works).
+                if (!val && arrIdxFast >= 0) {
                     val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast));
                 }
                 if (!val) {
@@ -3762,106 +3704,76 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
-                uint8_t taTypeW = getTypedArrayElementType(pContext, obj);
-                if (taTypeW != 0xFF && index && index->isInteger(pContext) && index->asLong(pContext) >= 0) {
-                    const proto::ProtoObject* updatedTA = typedArraySetElement(
-                        pContext, obj, static_cast<uint32_t>(index->asLong(pContext)), value, taTypeW);
-                    if (updatedTA && updatedTA != obj) {
-                        updateMapping(pContext, obj, updatedTA);
+
+                long long idxFast = numericArrayIndexOrNeg(pContext, index);
+                const proto::ProtoObject* newObj = nullptr;
+
+                // 1. Polymorphic Dispatch for special objects (TypedArrays, Frozen, etc.)
+                if (idxFast >= 0) {
+                    newObj = resolvePutElementOOP(pContext, obj, static_cast<uint32_t>(idxFast), value);
+                    if (hasCallException()) {
+                        pending_exception = t_callException;
+                        has_pending_exception = true;
+                        t_callException = nullptr;
+                        DISPATCH();
                     }
-                    stackPush(pContext, updatedTA ? updatedTA : obj);
-                    DISPATCH();
-                }
-                // Native ProtoList fast path: integer-valued idx >= 0 on an
-                // array with `__elements__`.  arrayTryFastSet returns false
-                // when the array has no native storage or when the sparse
-                // threshold would be exceeded — in that case fall through
-                // to the legacy branch (which handles frozen / non-writable
-                // / __pd_ descriptors).
-                {
-                    long long idxFast = numericArrayIndexOrNeg(pContext, index);
-                    if (obj && idxFast >= 0 &&
-                        arrayTryFastSet(pContext, obj,
-                                         static_cast<unsigned long>(idxFast),
-                                         value)) {
-                        stackPush(pContext, obj);
+                    if (newObj) {
+                        if (newObj != obj) updateMapping(pContext, obj, newObj);
+                        // TypedArray elements don't affect .length, so we can jump to push.
+                        stackPush(pContext, newObj);
+                        DISPATCH();
+                    }
+                } else {
+                    const proto::ProtoObject* keyObj = toString(pContext, index);
+                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    if (key) {
+                        newObj = resolvePutFieldOOP(pContext, obj, key, value);
+                        if (hasCallException()) {
+                            pending_exception = t_callException;
+                            has_pending_exception = true;
+                            t_callException = nullptr;
+                            DISPATCH();
+                        }
+                        if (newObj && newObj != obj) updateMapping(pContext, obj, newObj);
+                        // Named properties don't affect .length, so we can jump to push.
+                        stackPush(pContext, newObj ? newObj : obj);
                         DISPATCH();
                     }
                 }
-                const proto::ProtoObject* keyObj = toString(pContext, index);
-                const proto::ProtoString* key =
-                    keyObj ? keyObj->asString(pContext) : nullptr;
-                if (obj && key) {
-                    // Check frozen flag
-                    {
-                        const proto::ProtoObject* fko = pContext->fromUTF8String("__is_frozen__");
-                        const proto::ProtoString* fk  = fko ? fko->asString(pContext) : nullptr;
-                        if (fk) {
-                            const proto::ProtoObject* fv = obj->getAttribute(pContext, fk, false);
-                            if (fv == PROTO_TRUE) {
-                                if (module->isStrict) {
-                                    pending_exception = makeError(pContext, "TypeError",
-                                        "Cannot assign to property of frozen object", pGlobalRoot);
-                                    has_pending_exception = true;
-                                }
-                                DISPATCH();
-                            }
-                        }
-                    }
-                    // Check non-writable descriptor (__pd_<key>__ bit0=writable).
-                    {
-                        std::string keyStr;
-                        key->toUTF8String(pContext, keyStr);
-                        std::string pdKeyStr = "__pd_" + keyStr + "__";
-                        const proto::ProtoObject* pdko = pContext->fromUTF8String(pdKeyStr.c_str());
-                        const proto::ProtoString* pdk  = pdko ? pdko->asString(pContext) : nullptr;
-                        if (pdk) {
-                            const proto::ProtoObject* bitsObj = obj->getAttribute(pContext, pdk, false);
-                            if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(pContext)) {
-                                uint8_t bits = static_cast<uint8_t>(bitsObj->asLong(pContext));
-                                if (!(bits & 0x1)) {
-                                    if (module->isStrict) {
-                                        pending_exception = makeError(pContext, "TypeError",
-                                            "Cannot assign to read only property", pGlobalRoot);
-                                        has_pending_exception = true;
-                                    }
-                                    DISPATCH();
-                                }
-                            }
-                        }
-                    }
-                    const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, value);
-                    updateMapping(pContext, obj, newObj);
-                    updateSpacePrototypeIfMatching(pContext, obj, newObj);
-                    // Update .length if index is a valid array index (non-negative integer).
-                    // JS array semantics: assigning x[n] = v updates length to max(length, n+1).
-                    if (index && index->isInteger(pContext)) {
-                        long long idx = index->asLong(pContext);
-                        if (idx >= 0 && idx < (long long)0xFFFFFFFELL) {
-                            const proto::ProtoString* lenKey =
-                                JSSymbols::length(pContext);
-                            if (lenKey) {
-                                const proto::ProtoObject* curLenVal =
-                                    newObj->getAttribute(pContext, lenKey, false);
-                                long long curLen = (curLenVal && curLenVal != PROTO_NONE &&
-                                                    curLenVal->isInteger(pContext))
-                                    ? curLenVal->asLong(pContext) : 0LL;
-                                if (idx + 1 > curLen) {
-                                    // Only bump length on real arrays (carrying __is_array__),
-                                    // not on plain objects used as array-likes.
-                                    const proto::ProtoString* isArrKey2 = JSSymbols::isArray(pContext);
-                                    const proto::ProtoObject* isArrVal2 = isArrKey2
-                                        ? newObj->getAttribute(pContext, isArrKey2, true) : nullptr;
-                                    if (isArrVal2 == PROTO_TRUE) {
-                                        const proto::ProtoObject* updatedObj = newObj->setAttribute(pContext, lenKey,
-                                            pContext->fromInteger(idx + 1));
-                                        updateMapping(pContext, newObj, updatedObj);
-                                    }
+
+                // 2. Native ProtoList fast path
+                if (idxFast >= 0 && arrayTryFastSet(pContext, obj, static_cast<unsigned long>(idxFast), value)) {
+                    newObj = obj;
+                } else if (idxFast >= 0) {
+                    // 3. Fallback to dictionary set for numeric indices
+                    newObj = obj->setAttribute(pContext, protojs::JSSymbols::indexKey(pContext, static_cast<uint32_t>(idxFast)), value);
+                    if (newObj && newObj != obj) updateMapping(pContext, obj, newObj);
+                }
+
+                // Update .length if index is a valid array index (and not a special object handled above).
+                if (newObj && idxFast >= 0 && idxFast < (long long)0xFFFFFFFELL) {
+                    const proto::ProtoString* lenKey = JSSymbols::length(pContext);
+                    if (lenKey) {
+                        const proto::ProtoObject* curLenVal = newObj->getAttribute(pContext, lenKey, false);
+                        long long curLen = (curLenVal && curLenVal != PROTO_NONE && curLenVal->isInteger(pContext))
+                                            ? curLenVal->asLong(pContext) : 0LL;
+                        if (idxFast + 1 > curLen) {
+                            const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                            const proto::ProtoObject* isArrVal = isArrKey
+                                ? newObj->getAttribute(pContext, isArrKey, true) : nullptr;
+                            if (isArrVal == PROTO_TRUE) {
+                                const proto::ProtoObject* updatedObj = newObj->setAttribute(pContext, lenKey,
+                                    pContext->fromInteger(idxFast + 1));
+                                if (updatedObj != newObj) {
+                                    updateMapping(pContext, newObj, updatedObj);
+                                    newObj = updatedObj;
                                 }
                             }
                         }
                     }
                 }
+
+                stackPush(pContext, newObj ? newObj : (obj ? obj : PROTO_NONE));
                 DISPATCH();
             }
             L_OP_undefined: ;

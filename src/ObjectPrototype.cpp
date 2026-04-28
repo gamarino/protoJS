@@ -3,6 +3,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
+#include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cstdio>
 #include <cstring>
@@ -304,9 +305,8 @@ static const proto::ProtoObject* objectCreate(
 // remain referenced (and thus not GC'd) for their entire observable lifetime.
 // ---------------------------------------------------------------------------
 
-static thread_local std::unordered_set<const proto::ProtoObject*> t_frozenObjects;
-static thread_local std::unordered_set<const proto::ProtoObject*> t_sealedObjects;
-static thread_local std::unordered_set<const proto::ProtoObject*> t_nonExtensibleObjects;
+// instead, we use markers added to the inheritance chain.
+// ---------------------------------------------------------------------------
 
 // Map from a JS object to its explicitly-overridden [[Prototype]], set by
 // Object.setPrototypeOf(). protoCore objects are immutable so we cannot change
@@ -345,10 +345,13 @@ static const proto::ProtoObject* objectFreeze(
     if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
-    // Primitives: spec says freeze is a no-op and returns the value unchanged.
     if (isPrimitive(ctx, obj)) return obj;
-    t_frozenObjects.insert(obj);
-    t_nonExtensibleObjects.insert(obj);
+    
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper) {
+        obj->addParent(ctx, wrapper->getFrozenMarker());
+        obj->addParent(ctx, wrapper->getNonExtensibleMarker());
+    }
     return obj;
 }
 
@@ -367,7 +370,12 @@ static const proto::ProtoObject* objectIsFrozen(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_TRUE; // undefined/null are frozen
     if (isPrimitive(ctx, obj)) return PROTO_TRUE; // primitives are frozen
-    return t_frozenObjects.count(obj) ? PROTO_TRUE : PROTO_FALSE;
+
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper && obj->hasParent(ctx, wrapper->getFrozenMarker())) {
+        return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
 }
 
 // ---------------------------------------------------------------------------
@@ -386,8 +394,12 @@ static const proto::ProtoObject* objectSeal(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
-    t_sealedObjects.insert(obj);
-    t_nonExtensibleObjects.insert(obj);
+    
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper) {
+        obj->addParent(ctx, wrapper->getSealedMarker());
+        obj->addParent(ctx, wrapper->getNonExtensibleMarker());
+    }
     return obj;
 }
 
@@ -406,8 +418,12 @@ static const proto::ProtoObject* objectIsSealed(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_TRUE;
     if (isPrimitive(ctx, obj)) return PROTO_TRUE;
-    // Frozen objects are also sealed.
-    if (t_frozenObjects.count(obj) || t_sealedObjects.count(obj)) return PROTO_TRUE;
+
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper) {
+        if (obj->hasParent(ctx, wrapper->getFrozenMarker())) return PROTO_TRUE;
+        if (obj->hasParent(ctx, wrapper->getSealedMarker())) return PROTO_TRUE;
+    }
     return PROTO_FALSE;
 }
 
@@ -427,7 +443,11 @@ static const proto::ProtoObject* objectPreventExtensions(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
-    t_nonExtensibleObjects.insert(obj);
+
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper) {
+        obj->addParent(ctx, wrapper->getNonExtensibleMarker());
+    }
     return obj;
 }
 
@@ -446,7 +466,12 @@ static const proto::ProtoObject* objectIsExtensible(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_FALSE;
     if (isPrimitive(ctx, obj)) return PROTO_FALSE;
-    return t_nonExtensibleObjects.count(obj) ? PROTO_FALSE : PROTO_TRUE;
+
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper && obj->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+        return PROTO_FALSE;
+    }
+    return PROTO_TRUE;
 }
 
 // ---------------------------------------------------------------------------

@@ -86,6 +86,9 @@ public:
      * @brief Returns the JS RegExp prototype.
      */
     const proto::ProtoObject* getJSRegExpPrototype() const { return jsPrototypes_.regexp; }
+    const proto::ProtoObject* getFrozenMarker() const { return jsPrototypes_.frozenMarker; }
+    const proto::ProtoObject* getNonExtensibleMarker() const { return jsPrototypes_.nonExtensibleMarker; }
+    const proto::ProtoObject* getSealedMarker() const { return jsPrototypes_.sealedMarker; }
 
     /**
      * @brief Get the currently executing wrapper on this thread.

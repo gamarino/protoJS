@@ -2,6 +2,7 @@
 #include "ArrayBufferPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
+#include "runtime/BehaviorRegistry.h"
 
 #include <cstring>
 #include <cmath>
@@ -256,17 +257,12 @@ const proto::ProtoObject* typedArraySetElement(proto::ProtoContext* ctx,
 
 bool isTypedArray(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE) return false;
-    const proto::ProtoObject* tag =
-        obj->getAttribute(ctx, JSSymbols::taElementType(ctx), false);
-    return tag && tag != PROTO_NONE && tag->isInteger(ctx);
+    return getTypedArrayElementType(ctx, obj) != 0xFF;
 }
 
 uint8_t getTypedArrayElementType(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE) return 0xFF;
-    const proto::ProtoObject* tag =
-        obj->getAttribute(ctx, JSSymbols::taElementType(ctx), false);
-    if (!tag || tag == PROTO_NONE || !tag->isInteger(ctx)) return 0xFF;
-    return static_cast<uint8_t>(tag->asLong(ctx));
+    return protojs::BehaviorRegistry::instance().resolve(ctx, obj)->getTypedArrayElementType();
 }
 
 uint32_t getTypedArrayLength(proto::ProtoContext* ctx, const proto::ProtoObject* ta) {
@@ -296,8 +292,6 @@ const proto::ProtoObject* createTypedArrayFromLength(proto::ProtoContext* ctx,
         ? proto->newChild(ctx, true)
         : ctx->newObject(true);
 
-    ta = ta->setAttribute(ctx, JSSymbols::taElementType(ctx),
-                          ctx->fromInteger(static_cast<long long>(elemType)));
     ta = ta->setAttribute(ctx, JSSymbols::taBuffer(ctx), ab);
     ta = ta->setAttribute(ctx, JSSymbols::buffer(ctx), ab);
     ta = ta->setAttribute(ctx, JSSymbols::taByteOffset(ctx), ctx->fromInteger(0LL));
@@ -341,8 +335,6 @@ const proto::ProtoObject* createTypedArrayFromBuffer(proto::ProtoContext* ctx,
         ? proto->newChild(ctx, true)
         : ctx->newObject(true);
 
-    ta = ta->setAttribute(ctx, JSSymbols::taElementType(ctx),
-                          ctx->fromInteger(static_cast<long long>(elemType)));
     ta = ta->setAttribute(ctx, JSSymbols::taBuffer(ctx), ab);
     ta = ta->setAttribute(ctx, JSSymbols::buffer(ctx), ab);
     ta = ta->setAttribute(ctx, JSSymbols::taByteOffset(ctx),
@@ -1342,6 +1334,9 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             JSSymbols::BYTES_PER_ELEMENT(ctx),
             ctx->fromInteger(static_cast<long long>(cfg.elemSize)));
         s_taProtos[i] = concreteProto;
+
+        // Register TypedArray OOP behavior for this concrete prototype!
+        protojs::BehaviorRegistry::instance().registerTypedArrayBehavior(concreteProto, cfg.elemType);
 
         // Constructor object (immutable — holds metadata only)
         const proto::ProtoObject* ctor = ctx->newObject(false);

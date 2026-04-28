@@ -393,15 +393,15 @@ side.
 
 | Benchmark        | protoJS  | Node.js | Ratio (Node faster) |
 |------------------|---------:|--------:|--------------------:|
-| parallel_cpu     |    53 ms |   40 ms |             1.32× |
-| control_flow     |   554 ms |    4 ms |           138.50× |
-| object_property  |  5590 ms |   34 ms |           164.41× |
-| array_literal    |   458 ms |    3 ms |           152.67× |
-| numeric_loop     |   336 ms |    1 ms |           336.00× |
-| function_calls   |   679 ms |    1 ms |           679.00× |
+| parallel_cpu     |    53 ms |   57 ms |             0.93× |
+| control_flow     |   786 ms |    4 ms |           196.50× |
+| object_property  |  1567 ms |   46 ms |            34.07× |
+| array_literal    |   655 ms |    2 ms |           327.50× |
+| numeric_loop     |   584 ms |    1 ms |           584.00× |
+| function_calls   |   890 ms |    1 ms |           890.00× |
 | string_concat    |   timeout|       — |                 — |
 
-**Geometric mean: Node.js is 100.83× faster than protoJS** on the in-process
+**Geometric mean: Node.js is 100.97× faster than protoJS** on the in-process
 suite.  V8's JIT (TurboFan + inline caches) dominates pure-compute hot
 loops by orders of magnitude; that's the cost of running protoJS on a
 straightforward bytecode interpreter without a JIT.  `parallel_cpu` is

@@ -6,6 +6,7 @@
 #include "RegExpPrototype.h"
 #include "MapPrototype.h"
 #include "SetPrototype.h"
+#include "runtime/BehaviorRegistry.h"
 
 namespace protojs {
 
@@ -34,6 +35,15 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
     out->regexp = BuildRegExpPrototype(space, ctx, out->regexp);
     BuildMapPrototype(space, ctx, objectProto);
     BuildSetPrototype(space, ctx, objectProto);
+
+    // Initialize markers and behaviors
+    out->frozenMarker = ctx->newObject(false);
+    out->nonExtensibleMarker = ctx->newObject(false);
+    out->sealedMarker = ctx->newObject(false);
+
+    BehaviorRegistry::instance().registerBehavior(out->frozenMarker, std::make_unique<FrozenBehavior>());
+    BehaviorRegistry::instance().registerBehavior(out->nonExtensibleMarker, std::make_unique<NonExtensibleBehavior>());
+    BehaviorRegistry::instance().registerBehavior(out->sealedMarker, std::make_unique<NonExtensibleBehavior>());
 }
 
 } // namespace protojs
