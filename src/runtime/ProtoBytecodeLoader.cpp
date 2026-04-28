@@ -36,8 +36,8 @@ static const uint8_t* getOpSizes() {
 static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
                                 proto::ProtoContext* pContext) {
     if (!ctx || !mod || !pContext) return;
-    const uint8_t* buf = mod->buf();
-    int len = mod->bufLen();
+    const uint8_t* buf = mod->buf(pContext);
+    int len = mod->bufLen(pContext);
     if (!buf || len <= 0) return;
 
     const uint8_t* sizes = getOpSizes();
@@ -111,10 +111,18 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     const uint8_t* buf = protojs_bytecode_buf(quickjsBytecode);
     int len = protojs_bytecode_len(quickjsBytecode);
     if (!buf || len <= 0) return false;
-    out->bytecode.assign(buf, buf + len);
+    
+    // [NEW] Use ProtoByteBuffer for native storage.
+    out->pBytecode = pContext->newByteBuffer(reinterpret_cast<const char*>(buf), static_cast<unsigned long>(len));
+    
     out->argCount_ = protojs_bytecode_arg_count(quickjsBytecode);
     out->varCount_ = protojs_bytecode_var_count(quickjsBytecode);
     out->stackSize_ = protojs_bytecode_stack_size(quickjsBytecode);
+    if (getenv("PROTO_DEBUG_LOAD")) {
+        const char* fname = protojs_bytecode_func_name(ctx, quickjsBytecode);
+        printf("[DEBUG] Loading function '%s': argCount=%u varCount=%u\n", fname ? fname : "<anon>", out->argCount_, out->varCount_);
+        if (fname) JS_FreeCString(ctx, fname);
+    }
     out->isStrict = protojs_bytecode_is_strict(quickjsBytecode) != 0;
     out->isArrow  = protojs_bytecode_is_arrow(quickjsBytecode) != 0;
     {
@@ -123,6 +131,18 @@ static bool loadBytecodeRecursive(JSContext* ctx,
         out->isAsync     = (fk & 2) != 0; // JS_FUNC_ASYNC bit
         out->isGenerator = (fk & 1) != 0; // JS_FUNC_GENERATOR bit
     }
+
+    // [NEW] Create metadata object with interned keys.
+    const proto::ProtoObject* meta = pContext->newObject(true);
+    meta = meta->setAttribute(pContext, JSSymbols::argCount(pContext), pContext->fromInteger(out->argCount_));
+    meta = meta->setAttribute(pContext, JSSymbols::varCount(pContext), pContext->fromInteger(out->varCount_));
+    meta = meta->setAttribute(pContext, JSSymbols::stackSize(pContext), pContext->fromInteger(out->stackSize_));
+    meta = meta->setAttribute(pContext, JSSymbols::isStrict(pContext), out->isStrict ? PROTO_TRUE : PROTO_FALSE);
+    meta = meta->setAttribute(pContext, JSSymbols::isArrow(pContext), out->isArrow ? PROTO_TRUE : PROTO_FALSE);
+    meta = meta->setAttribute(pContext, JSSymbols::isAsync(pContext), out->isAsync ? PROTO_TRUE : PROTO_FALSE);
+    meta = meta->setAttribute(pContext, JSSymbols::isGenerator(pContext), out->isGenerator ? PROTO_TRUE : PROTO_FALSE);
+    out->metadata = meta;
+
     const char* funcNameCstr = protojs_bytecode_func_name(ctx, quickjsBytecode);
     out->funcName = funcNameCstr ? funcNameCstr : "";
     if (funcNameCstr) JS_FreeCString(ctx, funcNameCstr);
@@ -130,6 +150,21 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     const int closureVarCount = protojs_bytecode_closure_var_count(quickjsBytecode);
     out->closureVarNames.clear();
     out->closureVarNames.reserve(static_cast<size_t>(closureVarCount));
+    
+    // [NEW] Interned closure symbols as ProtoList for GC safety.
+    const proto::ProtoList* cSymbols = pContext->newList();
+
+    // [NEW] Build parameter list (first argCount vars in QuickJS).
+    const proto::ProtoList* pNames = pContext->newList();
+    for (uint16_t i = 0; i < out->argCount_; i++) {
+        const char* name = protojs_bytecode_var_name(ctx, quickjsBytecode, i);
+        const std::string nameStr = name ? name : "";
+        const proto::ProtoString* sym = proto::ProtoString::createSymbol(pContext, nameStr);
+        pNames = pNames->appendLast(pContext, sym->asObject(pContext));
+        if (name) JS_FreeCString(ctx, name);
+    }
+    out->parameterNames = pNames;
+
     out->closureVarIsLexical.clear();
     out->closureVarIsLexical.reserve(static_cast<size_t>(closureVarCount));
     out->closureVarIsDeclared.clear();
@@ -140,10 +175,15 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->closureVarIndices.reserve(static_cast<size_t>(closureVarCount));
     for (int i = 0; i < closureVarCount; i++) {
         const char* name = protojs_bytecode_closure_var_name(ctx, quickjsBytecode, static_cast<uint16_t>(i));
-        out->closureVarNames.push_back(name ? name : "");
+        const std::string nameStr = name ? name : "";
+        out->closureVarNames.push_back(nameStr);
+        
+        // [NEW] Pre-intern the name as a symbol for O(1) resolution.
+        const proto::ProtoString* sym = proto::ProtoString::createSymbol(pContext, nameStr);
+        cSymbols = cSymbols->appendLast(pContext, sym->asObject(pContext));
+        
         out->closureVarIsLexical.push_back(
             protojs_bytecode_closure_var_is_lexical(quickjsBytecode, static_cast<uint16_t>(i)) != 0);
-        // JS_CLOSURE_GLOBAL_DECL = 4: var-declared global; must be hoisted to undefined.
         int ctype = protojs_bytecode_closure_var_type(quickjsBytecode, static_cast<uint16_t>(i));
         out->closureVarIsDeclared.push_back(ctype == 4 /* JS_CLOSURE_GLOBAL_DECL */);
         out->closureVarTypes.push_back(ctype);
@@ -151,29 +191,21 @@ static bool loadBytecodeRecursive(JSContext* ctx,
             protojs_bytecode_closure_var_idx(quickjsBytecode, static_cast<uint16_t>(i)));
         if (name) JS_FreeCString(ctx, name);
     }
+    out->closureSymbols = cSymbols;
 
     // Translate constant pool to ProtoObject values and nested functions.
     const int cpoolCount = protojs_bytecode_cpool_count(quickjsBytecode);
     const void* cpoolPtr = protojs_bytecode_cpool(quickjsBytecode);
     if (!cpoolPtr && cpoolCount > 0) return false;
 
-    out->protoCpool.clear();
-    out->protoCpool.reserve(static_cast<size_t>(cpoolCount));
+    const proto::ProtoList* cpList = pContext->newList();
     out->nestedFunctions.clear();
 
     const JSValue* cpool = static_cast<const JSValue*>(cpoolPtr);
     for (int i = 0; i < cpoolCount; i++) {
         JSValue v = cpool[i];
-        /* Use protojs_get_function_bytecode directly: in compile-only mode, nested
-         * functions in the cpool have tag JS_TAG_FUNCTION_BYTECODE (not JS_TAG_OBJECT),
-         * so JS_IsFunction() returns FALSE for them. protojs_get_function_bytecode
-         * handles both JS_TAG_FUNCTION_BYTECODE and JS_TAG_OBJECT (function) cases. */
         void* nestedQuickjsBytecode = protojs_get_function_bytecode(ctx, &v);
         if (nestedQuickjsBytecode) {
-            // Post-order loading: recursively load all descendants into allFunctions
-            // first (they get lower IDs), then assign this function's globally unique ID
-            // and append it.  Loading into a local temp avoids any dangling-pointer
-            // hazard from vector reallocation during the recursive call.
             ProtoBytecodeModule nestedMod;
             if (!loadBytecodeRecursive(ctx, nestedQuickjsBytecode, pContext,
                                        &nestedMod, allFunctions, nextGlobalId))
@@ -181,27 +213,32 @@ static bool loadBytecodeRecursive(JSContext* ctx,
 
             size_t globalId = nextGlobalId++;
             allFunctions.push_back(std::move(nestedMod));
-            // allFunctions[globalId] is now valid (just appended).
 
             const proto::ProtoString* key = JSSymbols::bytecodeId(pContext);
             const proto::ProtoObject* placeholder = pContext->newObject(true);
             placeholder = placeholder->setAttribute(
                 pContext, key, pContext->fromInteger(static_cast<long long>(globalId)));
-            out->protoCpool.push_back(placeholder);
+            cpList = cpList->appendLast(pContext, placeholder);
         } else {
             const proto::ProtoObject* obj = TypeBridge::fromJS(ctx, v, pContext);
-            out->protoCpool.push_back(obj ? obj : PROTO_NONE);
+            cpList = cpList->appendLast(pContext, obj ? obj : PROTO_NONE);
         }
     }
+    out->constantPool = cpList;
+    
+    // Attach cache lists to metadata for persistent rooting.
+    meta = meta->setAttribute(pContext, JSSymbols::constantPool(pContext), cpList->asObject(pContext));
+    meta = meta->setAttribute(pContext, JSSymbols::closureSymbols(pContext), out->closureSymbols->asObject(pContext));
+    meta = meta->setAttribute(pContext, JSSymbols::parameterNames(pContext), out->parameterNames->asObject(pContext));
+    meta = meta->setAttribute(pContext, JSSymbols::bytecode(pContext), out->pBytecode->asObject(pContext));
+    out->metadata = meta;
+
     return true;
 }
 
 bool loadBytecode(JSContext* ctx, void* bytecode, proto::ProtoContext* pContext,
                   ProtoBytecodeModule* out) {
     if (!out) return false;
-    // Pass out->nestedFunctions as the shared flat list.  All functions at every
-    // depth end up there with globally unique IDs, so the interpreter can always
-    // resolve bcId via t_rootModule->nestedFunctions[bcId].
     size_t nextGlobalId = 0;
     if (!loadBytecodeRecursive(ctx, bytecode, pContext, out, out->nestedFunctions, nextGlobalId))
         return false;

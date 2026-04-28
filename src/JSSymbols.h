@@ -98,6 +98,18 @@ const proto::ProtoString* stringCtor(proto::ProtoContext* ctx);     // "__string
 const proto::ProtoString* primitiveValue(proto::ProtoContext* ctx); // "__primitive_value__"
 const proto::ProtoString* arrowThis(proto::ProtoContext* ctx);      // "__arrow_this__"
 const proto::ProtoString* closureModule(proto::ProtoContext* ctx);  // "__closure_module__"
+const proto::ProtoString* argCount(proto::ProtoContext* ctx);       // "__arg_count__"
+const proto::ProtoString* varCount(proto::ProtoContext* ctx);       // "__var_count__"
+const proto::ProtoString* stackSize(proto::ProtoContext* ctx);      // "__stack_size__"
+const proto::ProtoString* isStrict(proto::ProtoContext* ctx);       // "__is_strict__"
+const proto::ProtoString* isArrow(proto::ProtoContext* ctx);        // "__is_arrow__"
+const proto::ProtoString* isAsync(proto::ProtoContext* ctx);        // "__is_async__"
+const proto::ProtoString* isGenerator(proto::ProtoContext* ctx);    // "__is_generator__"
+const proto::ProtoString* constantPool(proto::ProtoContext* ctx);   // "__cpool__"
+const proto::ProtoString* closureSymbols(proto::ProtoContext* ctx); // "__closure_symbols__"
+const proto::ProtoString* parameterNames(proto::ProtoContext* ctx); // "__parameter_names__"
+const proto::ProtoString* bytecode(proto::ProtoContext* ctx);       // "__bytecode__"
+const proto::ProtoString* metadata(proto::ProtoContext* ctx);       // "__metadata__"
 const proto::ProtoString* nativeFn(proto::ProtoContext* ctx);       // "__native_fn__"
 const proto::ProtoString* arrayElements(proto::ProtoContext* ctx);  // "__elements__" — ProtoList storage for dense arrays
 

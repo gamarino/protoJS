@@ -19,54 +19,62 @@ struct ProtoBytecodeModule {
     /** Compile context for atom resolution (JS_AtomToCString). */
     JSContext* jsContext{nullptr};
 
-    /** Copy of the bytecode buffer (no dependency on JSFunctionBytecode lifetime). */
-    std::vector<uint8_t> bytecode;
+    /** Native bytecode storage (GC-managed by protoCore). */
+    const proto::ProtoByteBuffer* pBytecode{nullptr};
 
-    /** Function metadata copied from the frontend. */
+    /** Function metadata object holding all attributes and caching lists. */
+    const proto::ProtoObject* metadata{nullptr};
+
+    /** Pre-built positional parameter names for standard context init. */
+    const proto::ProtoList* parameterNames{nullptr};
+
+    /** Constant pool stored as a native ProtoList for GC safety. */
+    const proto::ProtoList* constantPool{nullptr};
+
+    /** Interned closure variable symbols for O(1) resolution. */
+    const proto::ProtoList* closureSymbols{nullptr};
+
+    /** Cached metadata values for fast interpreter access. */
     uint16_t argCount_{0};
     uint16_t varCount_{0};
     uint16_t stackSize_{0};
 
-    /** Proto constant pool: cpool[i] -> ProtoObject. */
-    std::vector<const proto::ProtoObject*> protoCpool;
-
     /** Nested bytecode functions, fully translated to ProtoBytecodeModule. */
     std::vector<ProtoBytecodeModule> nestedFunctions;
-    /** Lazily filled: atom index -> ProtoString (for get_field etc.). */
+    /** Lazily filled: atom index -> ProtoString (for get_field etc.).
+     *  Note: atomToProto is still a map for O(1) resolution at runtime, 
+     *  but we must ensure these symbols are rooted elsewhere (e.g. in metadata). */
     std::unordered_map<uint32_t, const proto::ProtoString*> atomToProto;
-    /** Closure variable names for OP_get_var / OP_put_var (index -> name). */
+
+    /** Closure variable names for legacy/debugging. */
     std::vector<std::string> closureVarNames;
     /** Whether each closure var is lexical (const/let = true, var = false). */
     std::vector<bool> closureVarIsLexical;
-    /** Whether each closure var is a declared global (var x; hoistable to undefined).
-     *  True when closure_type == JS_CLOSURE_GLOBAL_DECL (4). */
+    /** Whether each closure var is a declared global. */
     std::vector<bool> closureVarIsDeclared;
-    /** Full closure type for each closure var (JSClosureTypeEnum values):
-     *  0=LOCAL (parent local), 1=ARG (parent arg), 2=REF (parent closure var),
-     *  3=GLOBAL_REF, 4=GLOBAL_DECL, 5=GLOBAL, 6=MODULE_DECL, 7=MODULE_IMPORT. */
+    /** Full closure type for each closure var. */
     std::vector<int> closureVarTypes;
-    /** Index into the parent function's corresponding slot array (var_idx field).
-     *  Meaning depends on closureVarTypes[i]:
-     *  type 0 (LOCAL)  → parent local var slot index (relative to argCount)
-     *  type 1 (ARG)    → parent arg slot index (0-based)
-     *  type 2 (REF)    → parent closure var index (relative to argCount+varCount) */
+    /** Index into the parent function's corresponding slot array. */
     std::vector<uint16_t> closureVarIndices;
-    /** True when the function was compiled with "use strict" (JS_MODE_STRICT). */
+
+    /** Boolean flags for quick access. */
     bool isStrict{false};
-    /** The function's declared name (empty for anonymous functions). */
-    std::string funcName;
-    /** True when this function is an arrow function (no own this/arguments). */
     bool isArrow{false};
-    /** True when this function is an async function (func_kind & JS_FUNC_ASYNC). */
     bool isAsync{false};
-    /** True when this function is a generator (func_kind & JS_FUNC_GENERATOR). */
     bool isGenerator{false};
+
+    /** The function's declared name. */
+    std::string funcName;
 
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }
     unsigned stackSize() const { return stackSize_; }
-    const uint8_t* buf() const { return bytecode.empty() ? nullptr : bytecode.data(); }
-    int bufLen() const { return static_cast<int>(bytecode.size()); }
+    const uint8_t* buf(proto::ProtoContext* ctx) const {
+        return pBytecode ? reinterpret_cast<const uint8_t*>(pBytecode->getBuffer(ctx)) : nullptr;
+    }
+    int bufLen(proto::ProtoContext* ctx) const {
+        return pBytecode ? static_cast<int>(pBytecode->getSize(ctx)) : 0;
+    }
 };
 
 /**

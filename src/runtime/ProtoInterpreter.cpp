@@ -512,11 +512,17 @@ static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int 
     if (!ctx) return PROTO_NONE;
     if (index >= ctx->getAutomaticLocalsCount()) return PROTO_NONE;
     const proto::ProtoObject* v = ctx->getAutomaticLocals()[index];
+    if (getenv("PROTO_DEBUG_SLOTS")) {
+        printf("[DEBUG] getSlot(%p, %u) -> %p\n", ctx, index, v);
+    }
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
 }
 
 static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
     if (!ctx) return;
+    if (getenv("PROTO_DEBUG_SLOTS")) {
+        printf("[DEBUG] setSlot(%p, %u, %p)\n", ctx, index, value);
+    }
     if (index >= ctx->getAutomaticLocalsCount())
         ctx->resizeAutomaticLocals(index + 1);
     const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[index] =
@@ -1189,9 +1195,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                       const proto::ProtoList* args,
                                       const proto::ProtoObject** pGlobalRoot,
                                       const proto::ProtoObject** outException) {
-    if (!pContext || !module) return PROTO_NONE;
-    const uint8_t* buf = module->buf();
-    int len = module->bufLen();
+    if (!pContext || !module || !module->pBytecode) return PROTO_NONE;
+    const uint8_t* buf = reinterpret_cast<const uint8_t*>(module->pBytecode->getBuffer(pContext));
+    int len = static_cast<int>(module->pBytecode->getSize(pContext));
     if (!buf || len <= 0) return PROTO_NONE;
 
     // RAII: publish active module + global root so callJSFunction can resolve closures.
@@ -1208,11 +1214,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         ~ModuleScope() { t_currentModule = prevMod; t_currentGlobalRoot = prevGR; t_rootModule = prevRoot; }
     } _mscope(module, pGlobalRoot);
 
-    const std::vector<const proto::ProtoObject*>& cpool = module->protoCpool;
-    const auto& nested = module->nestedFunctions;
-    const std::vector<std::string>& closureVarNames = module->closureVarNames;
+    const proto::ProtoList* cpool = module->constantPool;
+    const proto::ProtoList* closureSymbols = module->closureSymbols;
     unsigned argCount = module->argCount();
     unsigned varCount = module->varCount();
+
 
     // Pending exception (set inside switch, dispatched after switch body).
     // Use a separate flag so that `throw undefined` (PROTO_NONE) is also catchable.
@@ -1302,7 +1308,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // GC-visible array).  The InterpFrame for this call is pushed
         // OUTSIDE this else block (after the if/else) so its RAII pop
         // covers the entire body of runBytecode, not just this branch.
-        const unsigned int closureCount = static_cast<unsigned int>(closureVarNames.size());
+        const unsigned int closureCount = static_cast<unsigned int>(module->closureVarNames.size());
         const unsigned int slotsForLocals = argCount + varCount + closureCount;
         const unsigned int reservedStack  = module->stackSize() + 16;  // small safety margin
         const unsigned int totalSlots     = slotsForLocals + reservedStack;
@@ -1325,12 +1331,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // of which return statement fires inside the dispatch loop.
     // ------------------------------------------------------------------
     {
-        const unsigned int closureCount = static_cast<unsigned int>(closureVarNames.size());
+        const unsigned int closureCount = static_cast<unsigned int>(module->closureVarNames.size());
         const unsigned int slotsForLocals = argCount + varCount + closureCount;
         unsigned int reservedStack  = module->stackSize() + 16;
         unsigned int totalSlots     = slotsForLocals + reservedStack;
         if (pContext->getAutomaticLocalsCount() < totalSlots)
             pContext->resizeAutomaticLocals(totalSlots);
+
+        // [NEW] Root the metadata object in the context slots to ensure GC safety.
+        // We use the very last slot in the reserved region.
+        if (module->metadata && totalSlots > 0) {
+            setSlot(pContext, totalSlots - 1, module->metadata);
+        }
         // For a generator resume, restore the value-stack depth that was
         // active at the moment of suspension; otherwise start with an
         // empty value stack.  kGenStackTop is written by OP_yield /
@@ -1371,10 +1383,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
          * variable named "this" rather than via OP_push_this.  The lexical this is
          * already in `thisObj` (set by every call site that honours isArrow).  Inject
          * it directly so that OP_get_var_ref0 inside the arrow body finds it. */
-        for (size_t i = 0; i < closureVarNames.size(); i++) {
-            if (closureVarNames[i].empty()) continue;
+        for (size_t i = 0; i < module->closureVarNames.size(); i++) {
+            if (module->closureVarNames[i].empty()) continue;
             // Arrow function: the closure var "this" must come from thisObj, not the global.
-            if (module->isArrow && closureVarNames[i] == "this") {
+            if (module->isArrow && module->closureVarNames[i] == "this") {
                 setSlot(pContext, argCount + varCount + static_cast<unsigned>(i),
                     thisObj ? thisObj : PROTO_NONE);
                 continue;
@@ -1388,7 +1400,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 getSlot(pContext, argCount + varCount + static_cast<unsigned>(i));
             if (existing && existing != PROTO_NONE) continue;
             if (!globalObjInit || globalObjInit == PROTO_NONE) continue;
-            const proto::ProtoString* key = (pContext->fromUTF8String(closureVarNames[i].c_str()) ? pContext->fromUTF8String(closureVarNames[i].c_str())->asString(pContext) : nullptr);
+            const proto::ProtoString* key = (pContext->fromUTF8String(module->closureVarNames[i].c_str())
+                ? pContext->fromUTF8String(module->closureVarNames[i].c_str())->asString(pContext)
+                : nullptr);
             if (key) {
                 const proto::ProtoObject* val = globalObjInit->getAttribute(pContext, key, false);
                 if (val && val != PROTO_NONE)
@@ -1689,8 +1703,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (!fn || fn == PROTO_NONE) return PROTO_NONE;
         int bcId = getBytecodeId(pContext, fn);
         const ProtoBytecodeModule* resolvedFn = nullptr;
-        if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
-            resolvedFn = &nested[bcId];
+        if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
+            resolvedFn = &module->nestedFunctions[bcId];
         else if (bcId >= 0 && t_rootModule &&
                  static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
             resolvedFn = &t_rootModule->nestedFunctions[bcId];
@@ -2144,10 +2158,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_push_const8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t idx = buf[pc++];
-                if (idx < cpool.size())
-                    stackPush(pContext,cpool[idx]);
+                if (cpool && idx < cpool->getSize(pContext))
+                    stackPush(pContext, cpool->getAt(pContext, static_cast<int>(idx)));
                 else
-                    stackPush(pContext,PROTO_NONE);
+                    stackPush(pContext, PROTO_NONE);
                 DISPATCH();
             }
             L_OP_push_empty_string: ;
@@ -2451,10 +2465,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 4 > len) return PROTO_NONE;
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
-                if (idx < cpool.size())
-                    stackPush(pContext,cpool[idx]);
+                if (cpool && idx < cpool->getSize(pContext))
+                    stackPush(pContext, cpool->getAt(pContext, static_cast<int>(idx)));
                 else
-                    stackPush(pContext,PROTO_NONE);
+                    stackPush(pContext, PROTO_NONE);
                 DISPATCH();
             }
             L_OP_push_atom_value: {
@@ -2554,16 +2568,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* liveGlobal = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : globalObj;
                 /* rawVal is the direct getAttribute result: nullptr=absent, PROTO_NONE=undefined, other=value. */
                 const proto::ProtoObject* rawVal = nullptr;
-                if (liveGlobal && liveGlobal != PROTO_NONE && static_cast<size_t>(idx) < module->closureVarNames.size()) {
-                    const std::string& name = module->closureVarNames[idx];
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str()) ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
-                        if (key) {
-                            /* getAttribute(key, false) returns:
-                             *   nullptr    → key is completely absent (TDZ or not-yet-stored)
-                             *   PROTO_NONE → key present, value is undefined (initialized)
-                             *   other      → key present, initialized to a real value */
-                            rawVal = liveGlobal->getAttribute(pContext, key, false);
+                if (liveGlobal && liveGlobal != PROTO_NONE && closureSymbols && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
+                    const proto::ProtoString* key = closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
+                    if (key) {
+                        rawVal = liveGlobal->getAttribute(pContext, key, false);
                             /* TDZ check: absent key for a lexical variable means uninitialized. */
                             if (isLexical && !rawVal) {
                                 const std::string& vname = module->closureVarNames[idx];
@@ -2574,8 +2582,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 has_pending_exception = true;
                                 DISPATCH();
                             }
-                            val = rawVal;
-                        }
+                        val = rawVal;
                     }
                 }
                 /* Slot fallback: only when the global key is absent (rawVal==nullptr).
@@ -2634,8 +2641,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
 
-                    if (!name.empty()) {
-                        const proto::ProtoString* key = (pContext->fromUTF8String(name.c_str()) ? pContext->fromUTF8String(name.c_str())->asString(pContext) : nullptr);
+                    if (closureSymbols && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
+                        const proto::ProtoString* key = closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
                         if (key)
                             *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, key, val ? val : PROTO_NONE);
                     }
@@ -4638,8 +4645,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const bool funcIsNative = func && func->isMethod(pContext);
                 int bcId = funcIsNative ? -1 : getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolvedMod2 = nullptr;
-                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
-                    resolvedMod2 = &nested[bcId];
+                if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
+                    resolvedMod2 = &module->nestedFunctions[bcId];
                 else if (bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
                     resolvedMod2 = &t_rootModule->nestedFunctions[bcId];
@@ -4658,11 +4665,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             effectiveThis = captured;
                     }
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
-                    for (uint32_t i = 0; i < argc; i++)
-                        setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
+                    for (uint32_t i = 0; i < bindCount; i++)
+                        setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
                     populateClosureCellsFromInstance(&childCtx, func, nf);
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
@@ -4812,8 +4820,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // 2. Dispatch.
                 int bcId = getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolved = nullptr;
-                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
-                    resolved = &nested[bcId];
+                if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
+                    resolved = &module->nestedFunctions[bcId];
                 else if (bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
                     resolved = &t_rootModule->nestedFunctions[bcId];
@@ -4826,11 +4834,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     
                     const auto& nf = *resolved;
-                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr);
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
-                    for (uint32_t i = 0; i < finalArgc; i++)
-                        setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    uint32_t bindCount = (finalArgc < nf.argCount()) ? finalArgc : nf.argCount();
+                    if (getenv("PROTO_DEBUG_BIND")) {
+                        printf("[DEBUG] OP_call_constructor: finalArgc=%u nf.argCount=%u bindCount=%u\n", finalArgc, nf.argCount(), bindCount);
+                    }
+                    for (uint32_t i = 0; i < bindCount; i++) {
+                        const proto::ProtoObject* arg = argsList->getAt(pContext, static_cast<int>(i));
+                        if (getenv("PROTO_DEBUG_BIND")) {
+                            printf("[DEBUG]   Binding arg %u: %p\n", i, arg);
+                        }
+                        setSlot(&childCtx, i, arg);
+                    }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     const proto::ProtoObject* childEx = PROTO_NONE;
@@ -4967,8 +4984,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // 2. Dispatch.
                 bcId = getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolvedModule = nullptr;
-                if (bcId >= 0 && static_cast<size_t>(bcId) < nested.size())
-                    resolvedModule = &nested[bcId];
+                if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
+                    resolvedModule = &module->nestedFunctions[bcId];
                 else if (bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
                     resolvedModule = &t_rootModule->nestedFunctions[bcId];
@@ -4998,20 +5015,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     constexpr size_t kSBOSlots = 64;
                     const size_t totalSlots =
                         nf.argCount() + nf.varCount() +
-                        nf.closureVarNames.size() + nf.stackSize() + 16;
+                        (nf.closureSymbols ? nf.closureSymbols->getSize(pContext) : 0) +
+                        nf.stackSize() + 16;
                     alignas(void*) const proto::ProtoObject* sboBuf_call[kSBOSlots];
                     const proto::ProtoObject** ext = nullptr;
                     if (totalSlots <= kSBOSlots) {
                         for (size_t s = 0; s < totalSlots; ++s) sboBuf_call[s] = PROTO_NONE;
                         ext = sboBuf_call;
                     }
+                    // Standard protoCore binding: pass parameterNames and argsList to constructor.
                     proto::ProtoContext childCtx(pContext->space, pContext,
                                                  nullptr, nullptr, nullptr, nullptr,
                                                  totalSlots, ext);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
-                    for (uint32_t i = 0; i < argc; i++)
-                        setSlot(&childCtx, i, argsList->getAt(&childCtx, static_cast<int>(i)));
+                    uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
+                    for (uint32_t i = 0; i < bindCount; i++)
+                        setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     const proto::ProtoObject* childEx = PROTO_NONE;
@@ -5119,7 +5139,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     L_OP_fclosure8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t idx = buf[pc++];
-                const proto::ProtoObject* rawFn = (idx < cpool.size()) ? cpool[idx] : PROTO_NONE;
+                const proto::ProtoObject* rawFn = (cpool && idx < cpool->getSize(pContext)) ? cpool->getAt(pContext, static_cast<int>(idx)) : PROTO_NONE;
                 int fnBcId8 = getBytecodeId(pContext, rawFn);
                 if (fnBcId8 >= 0) {
                     // Create fresh function instance inheriting from Function.prototype so
@@ -5230,7 +5250,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 4 > len) return PROTO_NONE;
                 uint32_t idx = get_u32(buf + pc);
                 pc += 4;
-                const proto::ProtoObject* rawFn2 = (idx < cpool.size()) ? cpool[idx] : PROTO_NONE;
+                const proto::ProtoObject* rawFn2 = (cpool && idx < cpool->getSize(pContext)) ? cpool->getAt(pContext, static_cast<int>(idx)) : PROTO_NONE;
                 int fnBcId2 = getBytecodeId(pContext, rawFn2);
                 if (fnBcId2 >= 0) {
                     // Create fresh function instance inheriting from Function.prototype so
@@ -5257,8 +5277,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (fnBcId2 >= 0 && t_rootModule &&
                             static_cast<size_t>(fnBcId2) < t_rootModule->nestedFunctions.size())
                         nm2Ptr = &t_rootModule->nestedFunctions[static_cast<size_t>(fnBcId2)];
+                    
                     if (nm2Ptr) {
                         const ProtoBytecodeModule& nm2 = *nm2Ptr;
+                        // Attach native metadata object for rooting and fast access.
+                        if (nm2.metadata)
+                            fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::metadata(pContext), nm2.metadata);
                         if (!nm2.funcName.empty()) {
                             const proto::ProtoObject* nameVal2 = pContext->fromUTF8String(nm2.funcName.c_str());
                             if (nameVal2)
@@ -6781,13 +6805,22 @@ const proto::ProtoObject* callJSFunction(
             if (captured && captured != PROTO_NONE)
                 effectiveThis = captured;
         }
-        proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr);
+        const size_t totalSlots =
+            nf.argCount() + nf.varCount() +
+            (nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0) +
+            nf.stackSize() + 16;
+        proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, totalSlots, nullptr);
+        uint32_t bCount = 0;
+        if (args) {
+            unsigned int asize = static_cast<unsigned int>(args->getSize(ctx));
+            bCount = (asize < nf.argCount()) ? asize : nf.argCount();
+        }
+        for (uint32_t i = 0; i < bCount; i++)
+            setSlot(&childCtx, i, args->getAt(ctx, static_cast<int>(i)));
         childCtx.currentFileName = ctx->currentFileName;
         childCtx.currentLineNumber = ctx->currentLineNumber;
-        unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
-        for (unsigned i = 0; i < argc; i++)
-            setSlot(&childCtx, i, args->getAt(&childCtx, static_cast<int>(i)));
         populateClosureCellsFromInstance(&childCtx, fn, nf);
+        unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
         const proto::ProtoObject* childEx = PROTO_NONE;
         if (getenv("PROTO_DEBUG_BIND")) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);

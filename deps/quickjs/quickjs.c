@@ -59603,6 +59603,13 @@ const char* protojs_bytecode_closure_var_name(JSContext *ctx, void *bytecode, ui
     return JS_AtomToCString(ctx, b->closure_var[idx].var_name);
 }
 
+const char* protojs_bytecode_var_name(JSContext *ctx, void *bytecode, uint16_t idx) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (idx >= (uint16_t)(b->arg_count + b->var_count))
+        return NULL;
+    return JS_AtomToCString(ctx, b->vardefs[idx].var_name);
+}
+
 int protojs_bytecode_closure_var_is_lexical(void *bytecode, uint16_t idx) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     if (idx >= (uint16_t)b->closure_var_count)

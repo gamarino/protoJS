@@ -6,18 +6,17 @@
 // Benchmark Runner Framework
 // Provides reusable benchmarking infrastructure with statistical analysis
 
-class BenchmarkRunner {
-    constructor(name, iterations = 100, warmup = 10) {
-        this.name = name;
-        this.iterations = iterations;
-        this.warmup = warmup;
-        this.times = [];
-        this.memoryBefore = null;
-        this.memoryAfter = null;
-    }
+function BenchmarkRunner(name, iterations, warmup) {
+    this.name = name;
+    this.iterations = iterations !== undefined ? iterations : 100;
+    this.warmup = warmup !== undefined ? warmup : 10;
+    this.times = [];
+    this.memoryBefore = null;
+    this.memoryAfter = null;
+}
 
     // Get high-resolution timer
-    static getTimer() {
+BenchmarkRunner.getTimer = function() {
         if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
             return () => performance.now();
         } else if (typeof process !== 'undefined' && typeof process.hrtime === 'function') {
@@ -33,7 +32,7 @@ class BenchmarkRunner {
     }
 
     // Get memory usage if available
-    static getMemoryUsage() {
+BenchmarkRunner.getMemoryUsage = function() {
         if (typeof process !== 'undefined' && typeof process.memoryUsage === 'function') {
             const usage = process.memoryUsage();
             return {
@@ -47,7 +46,7 @@ class BenchmarkRunner {
     }
 
     // Run benchmark with warmup and multiple iterations
-    run(fn) {
+BenchmarkRunner.prototype.run = function(fn) {
         this.times = [];
         const timer = BenchmarkRunner.getTimer();
         
@@ -74,7 +73,7 @@ class BenchmarkRunner {
     }
 
     // Calculate statistical measures
-    getStats() {
+BenchmarkRunner.prototype.getStats = function() {
         if (this.times.length === 0) {
             return {
                 name: this.name,
@@ -133,7 +132,7 @@ class BenchmarkRunner {
     }
 
     // Run benchmark with custom work per iteration
-    runWithWork(fn, workPerIteration = 1) {
+BenchmarkRunner.prototype.runWithWork = function(fn, workPerIteration) {
         this.times = [];
         const timer = BenchmarkRunner.getTimer();
         
@@ -158,8 +157,7 @@ class BenchmarkRunner {
         // Calculate operations per second
         stats.opsPerSecond = (workPerIteration * this.iterations) / (stats.total / 1000);
         return stats;
-    }
-}
+    };
 
 // Export for use in other benchmark files
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
