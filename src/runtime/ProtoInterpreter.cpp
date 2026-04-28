@@ -67,8 +67,26 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
     const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
     const proto::ProtoObject* res = behavior->putElement(ctx, obj, index, val);
     if (res) return res;
-    return obj->setAttribute(ctx, protojs::JSSymbols::indexKey(ctx, index), val);
+    return obj->setAttribute(ctx, JSSymbols::indexKey(ctx, index), val);
 }
+
+// ---------------------------------------------------------------------------
+// Property key interning optimization
+// ---------------------------------------------------------------------------
+static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
+    if (!s) return nullptr;
+    // createSymbol is sharded hash lookup; relatively cheap if already exists.
+    // For small strings used as keys, this is a massive win due to pointer-stable hashing in protoCore.
+    std::string utf8;
+    s->toUTF8String(ctx, utf8);
+    return proto::ProtoString::createSymbol(ctx, utf8.c_str());
+}
+
+static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
+    if (!obj || !obj->isString(ctx)) return nullptr;
+    return ensureInterned(ctx, obj->asString(ctx));
+}
+
 
 namespace {
 
@@ -3607,15 +3625,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast));
                 }
                 if (!val) {
-                    const proto::ProtoObject* keyObj = toString(pContext, index);
-                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
-                    val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
-                    if ((!val || val == PROTO_NONE) && key) {
-                        std::string keyStrGAE;
-                        key->toUTF8String(pContext, keyStrGAE);
-                        const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE);
-                        if (has_pending_exception) DISPATCH();
-                        if (gval && gval != PROTO_NONE) val = gval;
+                    const proto::ProtoString* key = ensureInternedOOP(pContext, index);
+                    if (!key) {
+                        const proto::ProtoObject* keyObj = toString(pContext, index);
+                        key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
+                    }
+                    if (obj && key) {
+                        val = resolveFieldOOP(pContext, obj, key);
+                        if (!val || val == PROTO_NONE) {
+                            std::string keyStrGAE;
+                            key->toUTF8String(pContext, keyStrGAE);
+                            const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE);
+                            if (has_pending_exception) DISPATCH();
+                            if (gval && gval != PROTO_NONE) val = gval;
+                        }
                     }
                 }
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
@@ -3705,6 +3728,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
 
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
+
                 long long idxFast = numericArrayIndexOrNeg(pContext, index);
                 const proto::ProtoObject* newObj = nullptr;
 
@@ -3724,8 +3753,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 } else {
-                    const proto::ProtoObject* keyObj = toString(pContext, index);
-                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    const proto::ProtoString* key = ensureInternedOOP(pContext, index);
+                    if (!key) {
+                        const proto::ProtoObject* keyObj = toString(pContext, index);
+                        key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
+                    }
                     if (key) {
                         newObj = resolvePutFieldOOP(pContext, obj, key, value);
                         if (hasCallException()) {
