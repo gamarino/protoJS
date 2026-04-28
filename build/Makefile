@@ -938,6 +938,30 @@ src/EventLoop.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoop.cpp.s
 .PHONY : src/EventLoop.cpp.s
 
+src/EventLoopBindings.o: src/EventLoopBindings.cpp.o
+.PHONY : src/EventLoopBindings.o
+
+# target to build an object file
+src/EventLoopBindings.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoopBindings.cpp.o
+.PHONY : src/EventLoopBindings.cpp.o
+
+src/EventLoopBindings.i: src/EventLoopBindings.cpp.i
+.PHONY : src/EventLoopBindings.i
+
+# target to preprocess a source file
+src/EventLoopBindings.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoopBindings.cpp.i
+.PHONY : src/EventLoopBindings.cpp.i
+
+src/EventLoopBindings.s: src/EventLoopBindings.cpp.s
+.PHONY : src/EventLoopBindings.s
+
+# target to generate assembly for a file
+src/EventLoopBindings.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/EventLoopBindings.cpp.s
+.PHONY : src/EventLoopBindings.cpp.s
+
 src/ExecutionEngine.o: src/ExecutionEngine.cpp.o
 .PHONY : src/ExecutionEngine.o
 
@@ -1273,6 +1297,54 @@ src/ProtoArrayAdapter.s: src/ProtoArrayAdapter.cpp.s
 src/ProtoArrayAdapter.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoArrayAdapter.cpp.s
 .PHONY : src/ProtoArrayAdapter.cpp.s
+
+src/ProtoCoreNativeBindings.o: src/ProtoCoreNativeBindings.cpp.o
+.PHONY : src/ProtoCoreNativeBindings.o
+
+# target to build an object file
+src/ProtoCoreNativeBindings.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoCoreNativeBindings.cpp.o
+.PHONY : src/ProtoCoreNativeBindings.cpp.o
+
+src/ProtoCoreNativeBindings.i: src/ProtoCoreNativeBindings.cpp.i
+.PHONY : src/ProtoCoreNativeBindings.i
+
+# target to preprocess a source file
+src/ProtoCoreNativeBindings.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoCoreNativeBindings.cpp.i
+.PHONY : src/ProtoCoreNativeBindings.cpp.i
+
+src/ProtoCoreNativeBindings.s: src/ProtoCoreNativeBindings.cpp.s
+.PHONY : src/ProtoCoreNativeBindings.s
+
+# target to generate assembly for a file
+src/ProtoCoreNativeBindings.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoCoreNativeBindings.cpp.s
+.PHONY : src/ProtoCoreNativeBindings.cpp.s
+
+src/ProtoDeferred.o: src/ProtoDeferred.cpp.o
+.PHONY : src/ProtoDeferred.o
+
+# target to build an object file
+src/ProtoDeferred.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoDeferred.cpp.o
+.PHONY : src/ProtoDeferred.cpp.o
+
+src/ProtoDeferred.i: src/ProtoDeferred.cpp.i
+.PHONY : src/ProtoDeferred.i
+
+# target to preprocess a source file
+src/ProtoDeferred.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoDeferred.cpp.i
+.PHONY : src/ProtoDeferred.cpp.i
+
+src/ProtoDeferred.s: src/ProtoDeferred.cpp.s
+.PHONY : src/ProtoDeferred.s
+
+# target to generate assembly for a file
+src/ProtoDeferred.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/ProtoDeferred.cpp.s
+.PHONY : src/ProtoDeferred.cpp.s
 
 src/ProtoNativeModule.o: src/ProtoNativeModule.cpp.o
 .PHONY : src/ProtoNativeModule.o
@@ -2522,30 +2594,6 @@ src/repl/REPL.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/repl/REPL.cpp.s
 .PHONY : src/repl/REPL.cpp.s
 
-src/runtime/MicrotaskQueue.o: src/runtime/MicrotaskQueue.cpp.o
-.PHONY : src/runtime/MicrotaskQueue.o
-
-# target to build an object file
-src/runtime/MicrotaskQueue.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/MicrotaskQueue.cpp.o
-.PHONY : src/runtime/MicrotaskQueue.cpp.o
-
-src/runtime/MicrotaskQueue.i: src/runtime/MicrotaskQueue.cpp.i
-.PHONY : src/runtime/MicrotaskQueue.i
-
-# target to preprocess a source file
-src/runtime/MicrotaskQueue.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/MicrotaskQueue.cpp.i
-.PHONY : src/runtime/MicrotaskQueue.cpp.i
-
-src/runtime/MicrotaskQueue.s: src/runtime/MicrotaskQueue.cpp.s
-.PHONY : src/runtime/MicrotaskQueue.s
-
-# target to generate assembly for a file
-src/runtime/MicrotaskQueue.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/MicrotaskQueue.cpp.s
-.PHONY : src/runtime/MicrotaskQueue.cpp.s
-
 src/runtime/ProtoBytecodeLoader.o: src/runtime/ProtoBytecodeLoader.cpp.o
 .PHONY : src/runtime/ProtoBytecodeLoader.o
 
@@ -2777,6 +2825,9 @@ help:
 	@echo "... src/EventLoop.o"
 	@echo "... src/EventLoop.i"
 	@echo "... src/EventLoop.s"
+	@echo "... src/EventLoopBindings.o"
+	@echo "... src/EventLoopBindings.i"
+	@echo "... src/EventLoopBindings.s"
 	@echo "... src/ExecutionEngine.o"
 	@echo "... src/ExecutionEngine.i"
 	@echo "... src/ExecutionEngine.s"
@@ -2819,6 +2870,12 @@ help:
 	@echo "... src/ProtoArrayAdapter.o"
 	@echo "... src/ProtoArrayAdapter.i"
 	@echo "... src/ProtoArrayAdapter.s"
+	@echo "... src/ProtoCoreNativeBindings.o"
+	@echo "... src/ProtoCoreNativeBindings.i"
+	@echo "... src/ProtoCoreNativeBindings.s"
+	@echo "... src/ProtoDeferred.o"
+	@echo "... src/ProtoDeferred.i"
+	@echo "... src/ProtoDeferred.s"
 	@echo "... src/ProtoNativeModule.o"
 	@echo "... src/ProtoNativeModule.i"
 	@echo "... src/ProtoNativeModule.s"
@@ -2975,9 +3032,6 @@ help:
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"
-	@echo "... src/runtime/MicrotaskQueue.o"
-	@echo "... src/runtime/MicrotaskQueue.i"
-	@echo "... src/runtime/MicrotaskQueue.s"
 	@echo "... src/runtime/ProtoBytecodeLoader.o"
 	@echo "... src/runtime/ProtoBytecodeLoader.i"
 	@echo "... src/runtime/ProtoBytecodeLoader.s"

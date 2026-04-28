@@ -1,14 +1,19 @@
-// Standard benchmark: function call overhead (no-op function called many times).
+// Standard benchmark: function call overhead (with state dependency to prevent dead code elimination).
 // Self-contained.
 
 const ITERATIONS = 5;
-const CALLS = 2e6;
+const CALLS = 2e5; // Adjusted to keep protoJS time reasonable
 
-function noop() {}
+let state = 1;
+
+function work(val) {
+    // Simple computation that cannot be entirely optimized away as dead code
+    return (val + 1) | 0;
+}
 
 function runOne() {
     for (let i = 0; i < CALLS; i++) {
-        noop();
+        state = work(state);
     }
 }
 
@@ -20,5 +25,9 @@ for (let k = 0; k < ITERATIONS; k++) {
 }
 times.sort(function (a, b) { return a - b; });
 const median = times[Math.floor(ITERATIONS / 2)];
+
+// Prevent dead code elimination of the final state
+if (state === 0) console.log("State zero");
+
 const result = { name: 'function_calls', time_ms: median, iterations: ITERATIONS, calls: CALLS };
 console.log('__BENCH_RESULT__' + JSON.stringify(result));

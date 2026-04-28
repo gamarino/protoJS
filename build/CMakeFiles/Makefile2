@@ -167,12 +167,12 @@ tests/clean: tests/CMakeFiles/protojs_tests.dir/clean
 CMakeFiles/protojs_core.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93 "Built target protojs_core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94 "Built target protojs_core"
 .PHONY : CMakeFiles/protojs_core.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/protojs_core.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 40
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 41
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/protojs_core.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 0
 .PHONY : CMakeFiles/protojs_core.dir/rule
@@ -198,7 +198,7 @@ CMakeFiles/protojs.dir/all: CMakeFiles/protojs_core.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/protojs.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 41
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 42
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/protojs.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles 0
 .PHONY : CMakeFiles/protojs.dir/rule
@@ -1049,11 +1049,11 @@ _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/clean:
 
 # All Build rule for target.
 tests/CMakeFiles/protojs_tests.dir/all: CMakeFiles/protojs_core.dir/all
-tests/CMakeFiles/protojs_tests.dir/all: _deps/catch2-build/src/CMakeFiles/Catch2.dir/all
 tests/CMakeFiles/protojs_tests.dir/all: _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/all
+tests/CMakeFiles/protojs_tests.dir/all: _deps/catch2-build/src/CMakeFiles/Catch2.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=94,95,96,97,98,99 "Built target protojs_tests"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=95,96,97,98,99 "Built target protojs_tests"
 .PHONY : tests/CMakeFiles/protojs_tests.dir/all
 
 # Build rule for subdir invocation for target.

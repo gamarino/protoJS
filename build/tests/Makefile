@@ -185,77 +185,29 @@ protojs_tests/fast:
 	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/build
 .PHONY : protojs_tests/fast
 
-unit/TypeBridge/test_basic.o: unit/TypeBridge/test_basic.cpp.o
-.PHONY : unit/TypeBridge/test_basic.o
+unit/test_array_storage_microbench.o: unit/test_array_storage_microbench.cpp.o
+.PHONY : unit/test_array_storage_microbench.o
 
 # target to build an object file
-unit/TypeBridge/test_basic.cpp.o:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.o
-.PHONY : unit/TypeBridge/test_basic.cpp.o
+unit/test_array_storage_microbench.cpp.o:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.o
+.PHONY : unit/test_array_storage_microbench.cpp.o
 
-unit/TypeBridge/test_basic.i: unit/TypeBridge/test_basic.cpp.i
-.PHONY : unit/TypeBridge/test_basic.i
-
-# target to preprocess a source file
-unit/TypeBridge/test_basic.cpp.i:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.i
-.PHONY : unit/TypeBridge/test_basic.cpp.i
-
-unit/TypeBridge/test_basic.s: unit/TypeBridge/test_basic.cpp.s
-.PHONY : unit/TypeBridge/test_basic.s
-
-# target to generate assembly for a file
-unit/TypeBridge/test_basic.cpp.s:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.s
-.PHONY : unit/TypeBridge/test_basic.cpp.s
-
-unit/TypeBridge/test_number.o: unit/TypeBridge/test_number.cpp.o
-.PHONY : unit/TypeBridge/test_number.o
-
-# target to build an object file
-unit/TypeBridge/test_number.cpp.o:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.o
-.PHONY : unit/TypeBridge/test_number.cpp.o
-
-unit/TypeBridge/test_number.i: unit/TypeBridge/test_number.cpp.i
-.PHONY : unit/TypeBridge/test_number.i
+unit/test_array_storage_microbench.i: unit/test_array_storage_microbench.cpp.i
+.PHONY : unit/test_array_storage_microbench.i
 
 # target to preprocess a source file
-unit/TypeBridge/test_number.cpp.i:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.i
-.PHONY : unit/TypeBridge/test_number.cpp.i
+unit/test_array_storage_microbench.cpp.i:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.i
+.PHONY : unit/test_array_storage_microbench.cpp.i
 
-unit/TypeBridge/test_number.s: unit/TypeBridge/test_number.cpp.s
-.PHONY : unit/TypeBridge/test_number.s
-
-# target to generate assembly for a file
-unit/TypeBridge/test_number.cpp.s:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.s
-.PHONY : unit/TypeBridge/test_number.cpp.s
-
-unit/TypeBridge/test_string.o: unit/TypeBridge/test_string.cpp.o
-.PHONY : unit/TypeBridge/test_string.o
-
-# target to build an object file
-unit/TypeBridge/test_string.cpp.o:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.o
-.PHONY : unit/TypeBridge/test_string.cpp.o
-
-unit/TypeBridge/test_string.i: unit/TypeBridge/test_string.cpp.i
-.PHONY : unit/TypeBridge/test_string.i
-
-# target to preprocess a source file
-unit/TypeBridge/test_string.cpp.i:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.i
-.PHONY : unit/TypeBridge/test_string.cpp.i
-
-unit/TypeBridge/test_string.s: unit/TypeBridge/test_string.cpp.s
-.PHONY : unit/TypeBridge/test_string.s
+unit/test_array_storage_microbench.s: unit/test_array_storage_microbench.cpp.s
+.PHONY : unit/test_array_storage_microbench.s
 
 # target to generate assembly for a file
-unit/TypeBridge/test_string.cpp.s:
-	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.s
-.PHONY : unit/TypeBridge/test_string.cpp.s
+unit/test_array_storage_microbench.cpp.s:
+	cd /home/gamarino/Documentos/proyectos/protoJS/build && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.s
+.PHONY : unit/test_array_storage_microbench.cpp.s
 
 unit/test_benchmark_runner.o: unit/test_benchmark_runner.cpp.o
 .PHONY : unit/test_benchmark_runner.o
@@ -463,15 +415,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... protojs_tests"
-	@echo "... unit/TypeBridge/test_basic.o"
-	@echo "... unit/TypeBridge/test_basic.i"
-	@echo "... unit/TypeBridge/test_basic.s"
-	@echo "... unit/TypeBridge/test_number.o"
-	@echo "... unit/TypeBridge/test_number.i"
-	@echo "... unit/TypeBridge/test_number.s"
-	@echo "... unit/TypeBridge/test_string.o"
-	@echo "... unit/TypeBridge/test_string.i"
-	@echo "... unit/TypeBridge/test_string.s"
+	@echo "... unit/test_array_storage_microbench.o"
+	@echo "... unit/test_array_storage_microbench.i"
+	@echo "... unit/test_array_storage_microbench.s"
 	@echo "... unit/test_benchmark_runner.o"
 	@echo "... unit/test_benchmark_runner.i"
 	@echo "... unit/test_benchmark_runner.s"

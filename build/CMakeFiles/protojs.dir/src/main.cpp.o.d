@@ -252,6 +252,10 @@ CMakeFiles/protojs.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/uniform_int_dist.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
  /usr/include/c++/13/utility /usr/include/c++/13/bits/stl_relops.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h \
+ /home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers/protoCore.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h \
+ /home/gamarino/Documentos/proyectos/protoJS/src/EventLoopBindings.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/console.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.h \
  /home/gamarino/Documentos/proyectos/protoJS/src/modules/../IOThreadPool.h \

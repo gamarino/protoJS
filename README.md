@@ -318,7 +318,7 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## The Swarm of One
 
-**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now back JavaScript on a GIL-free, structurally-sharing object model. The interpreter itself is currently ~102× behind V8 on pure compute (see [Performance Benchmarks](#performance-benchmarks) for an honest 2026-04-28 baseline) — a JIT is future work — but the runtime contract (immutability, concurrent GC, lock-free threading) opens design space that V8's monolith cannot match. This is the democratization of high-level engineering: delivering a clear architectural alternative without the overhead of a massive corporate R&D department.
+**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now back JavaScript on a GIL-free, structurally-sharing object model. The interpreter itself is currently ~101× behind V8 on pure compute (see [Performance Benchmarks](#performance-benchmarks) for an honest 2026-04-28 baseline) — a JIT is future work — but the runtime contract (immutability, concurrent GC, lock-free threading) opens design space that V8's monolith cannot match. This is the democratization of high-level engineering: delivering a clear architectural alternative without the overhead of a massive corporate R&D department.
 
 ---
 
@@ -394,14 +394,14 @@ side.
 | Benchmark        | protoJS  | Node.js | Ratio (Node faster) |
 |------------------|---------:|--------:|--------------------:|
 | parallel_cpu     |    53 ms |   40 ms |             1.32× |
-| control_flow     |   561 ms |    4 ms |           140.25× |
-| object_property  |  6310 ms |   45 ms |           140.22× |
-| array_literal    |   591 ms |    7 ms |            84.43× |
-| numeric_loop     |   343 ms |    1 ms |           343.00× |
-| function_calls   |  1480 ms |    1 ms |          1480.00× |
+| control_flow     |   554 ms |    4 ms |           138.50× |
+| object_property  |  5590 ms |   34 ms |           164.41× |
+| array_literal    |   458 ms |    3 ms |           152.67× |
+| numeric_loop     |   336 ms |    1 ms |           336.00× |
+| function_calls   |   679 ms |    1 ms |           679.00× |
 | string_concat    |   timeout|       — |                 — |
 
-**Geometric mean: Node.js is 101.86× faster than protoJS** on the in-process
+**Geometric mean: Node.js is 100.83× faster than protoJS** on the in-process
 suite.  V8's JIT (TurboFan + inline caches) dominates pure-compute hot
 loops by orders of magnitude; that's the cost of running protoJS on a
 straightforward bytecode interpreter without a JIT.  `parallel_cpu` is
@@ -637,7 +637,7 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** ~102× slower than Node.js on the in-process compute suite (geomean, 2026-04-28 baseline) — V8's JIT advantage on pure hot loops; `parallel_cpu` is the only benchmark within the same order of magnitude (1.32×)
+- **Performance:** ~101× slower than Node.js on the in-process compute suite (geomean, 2026-04-28 baseline) — V8's JIT advantage on pure hot loops; `parallel_cpu` is the only benchmark within the same order of magnitude (1.32×)
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol

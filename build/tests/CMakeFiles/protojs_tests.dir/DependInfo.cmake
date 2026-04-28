@@ -8,9 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/TypeBridge/test_basic.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.o.d"
-  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/TypeBridge/test_number.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.o.d"
-  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/TypeBridge/test_string.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.o.d"
+  "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_array_storage_microbench.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_benchmark_runner.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_event_loop.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o.d"
   "/home/gamarino/Documentos/proyectos/protoJS/tests/unit/test_io_thread_pool.cpp" "tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o" "gcc" "tests/CMakeFiles/protojs_tests.dir/unit/test_io_thread_pool.cpp.o.d"

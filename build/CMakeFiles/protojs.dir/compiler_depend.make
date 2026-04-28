@@ -7,8 +7,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
   /home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/EventLoopBindings.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/console.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h \
@@ -412,8 +415,6 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/x86_64-linux-gnu/bits/wchar2.h:
 
-/usr/include/x86_64-linux-gnu/bits/waitflags.h:
-
 /usr/include/x86_64-linux-gnu/bits/unistd_ext.h:
 
 /usr/include/x86_64-linux-gnu/bits/unistd.h:
@@ -510,9 +511,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/x86_64-linux-gnu/bits/floatn.h:
 
-/usr/include/c++/13/bits/stl_construct.h:
+/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
 
-/usr/include/c++/13/bits/std_mutex.h:
+/usr/include/x86_64-linux-gnu/bits/environments.h:
+
+/usr/include/x86_64-linux-gnu/bits/endian.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h:
 
@@ -540,7 +543,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/erase_if.h:
 
-/usr/include/c++/13/bits/stl_deque.h:
+/home/gamarino/Documentos/proyectos/protoJS/src/EventLoopBindings.h:
 
 /usr/include/x86_64-linux-gnu/bits/floatn-common.h:
 
@@ -549,6 +552,10 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/cluster/ClusterModule.h:
 
 /usr/include/c++/13/bits/locale_facets.tcc:
+
+/usr/include/c++/13/bits/std_mutex.h:
+
+/usr/include/c++/13/bits/stl_construct.h:
 
 /usr/include/c++/13/bits/range_access.h:
 
@@ -600,15 +607,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/exception_ptr.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h:
-
 /usr/include/c++/13/bits/locale_conv.h:
 
 /usr/include/c++/13/bits/istream.tcc:
 
-/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
-
-/usr/include/c++/13/bits/stl_multimap.h:
+/home/gamarino/Documentos/proyectos/protoJS/src/CPUThreadPool.h:
 
 /usr/include/c++/13/bits/localefwd.h:
 
@@ -633,8 +636,6 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/c++/13/bits/enable_special_members.h:
 
 /usr/include/c++/13/bits/deque.tcc:
-
-/usr/include/x86_64-linux-gnu/bits/endian.h:
 
 /usr/include/c++/13/bits/hashtable_policy.h:
 
@@ -662,19 +663,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/invoke.h:
 
-/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h:
-
-/usr/include/x86_64-linux-gnu/bits/environments.h:
-
 /usr/include/c++/13/bits/uses_allocator_args.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/IOModule.h:
 
 /usr/include/c++/13/bits/stl_relops.h:
-
-/usr/include/c++/13/bits/shared_ptr.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/dns/DNSModule.h:
 
@@ -700,6 +693,10 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/ext/string_conversions.h:
 
+/usr/include/x86_64-linux-gnu/bits/endianness.h:
+
+/usr/include/c++/13/bits/chrono.h:
+
 /usr/include/c++/13/span:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h:
@@ -709,6 +706,54 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/c++/13/bits/atomic_timed_wait.h:
 
 /usr/include/c++/13/bits/ranges_algobase.h:
+
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.h:
+
+/usr/include/c++/13/type_traits:
+
+/usr/include/wchar.h:
+
+/usr/include/c++/13/bits/shared_ptr_base.h:
+
+/usr/include/c++/13/bits/basic_ios.h:
+
+/usr/include/c++/13/bits/cxxabi_forced.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
+
+/usr/include/c++/13/bits/charconv.h:
+
+/usr/include/x86_64-linux-gnu/bits/errno.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.h:
+
+/usr/include/c++/13/bits/stl_pair.h:
+
+/usr/include/c++/13/cstdio:
+
+/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
+
+/usr/include/c++/13/bits/stl_multimap.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h:
+
+/usr/include/x86_64-linux-gnu/sys/time.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.h:
+
+/usr/include/linux/errno.h:
+
+/usr/include/c++/13/debug/debug.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/main.cpp:
 
@@ -734,8 +779,6 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/syscall.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h:
-
 /usr/include/x86_64-linux-gnu/bits/long-double.h:
 
 /usr/include/c++/13/bits/algorithmfwd.h:
@@ -744,59 +787,9 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/concept_check.h:
 
-/usr/include/c++/13/bits/cpp_type_traits.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.h:
-
-/usr/include/c++/13/bits/cxxabi_forced.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
-
-/usr/include/c++/13/bits/charconv.h:
-
-/usr/include/x86_64-linux-gnu/bits/errno.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.h:
-
-/usr/include/c++/13/bits/stl_pair.h:
-
-/usr/include/c++/13/cstdio:
-
-/usr/include/x86_64-linux-gnu/sys/time.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.h:
-
-/usr/include/x86_64-linux-gnu/bits/wchar.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h:
-
-/usr/include/c++/13/debug/debug.h:
-
-/usr/include/linux/errno.h:
-
-/home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.h:
-
-/usr/include/c++/13/type_traits:
-
-/usr/include/c++/13/bits/stl_function.h:
-
-/usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
-
-/usr/include/c++/13/bits/utility.h:
-
 /usr/include/c++/13/bits/move.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/util/UtilModule.h:
-
-/usr/include/wchar.h:
-
-/usr/include/c++/13/bits/shared_ptr_base.h:
-
-/usr/include/c++/13/bits/basic_ios.h:
 
 /usr/include/c++/13/bits/locale_facets.h:
 
@@ -808,11 +801,29 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/dgram/DgramModule.h:
 
+/usr/include/x86_64-linux-gnu/bits/waitflags.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h:
+
+/usr/include/c++/13/bits/hash_bytes.h:
+
+/usr/include/c++/13/array:
+
+/usr/include/c++/13/bits/basic_string.tcc:
+
 /usr/include/c++/13/bits/semaphore_base.h:
 
 /usr/include/c++/13/system_error:
 
 /usr/include/c++/13/compare:
+
+/usr/include/c++/13/bits/cpp_type_traits.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/net/NetModule.h:
+
+/usr/include/c++/13/bits/shared_ptr.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/path/PathModule.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h:
 
@@ -827,12 +838,6 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/linux/close_range.h:
 
 /usr/include/c++/13/debug/assertions.h:
-
-/usr/include/c++/13/bits/basic_string.tcc:
-
-/usr/include/c++/13/bits/hash_bytes.h:
-
-/usr/include/c++/13/array:
 
 /usr/include/c++/13/bits/atomic_lockfree_defines.h:
 
@@ -882,9 +887,13 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/libintl.h:
 
-/usr/include/c++/13/bits/chrono.h:
+/usr/include/c++/13/bits/stl_deque.h:
 
-/usr/include/x86_64-linux-gnu/bits/endianness.h:
+/usr/include/c++/13/bits/stl_function.h:
+
+/usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
+
+/usr/include/c++/13/bits/utility.h:
 
 /usr/include/c++/13/utility:
 

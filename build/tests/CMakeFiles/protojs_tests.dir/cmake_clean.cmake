@@ -1,10 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.o"
-  "CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_basic.cpp.o.d"
-  "CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.o"
-  "CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_number.cpp.o.d"
-  "CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.o"
-  "CMakeFiles/protojs_tests.dir/unit/TypeBridge/test_string.cpp.o.d"
+  "CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.o"
+  "CMakeFiles/protojs_tests.dir/unit/test_array_storage_microbench.cpp.o.d"
   "CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o"
   "CMakeFiles/protojs_tests.dir/unit/test_benchmark_runner.cpp.o.d"
   "CMakeFiles/protojs_tests.dir/unit/test_event_loop.cpp.o"
