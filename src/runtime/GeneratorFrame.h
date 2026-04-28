@@ -24,7 +24,9 @@ struct CatchFrame {
 // All keys start and end with __ to avoid collisions with user properties.
 // ---------------------------------------------------------------------------
 static constexpr const char* kGenPc       = "__gen_pc__";
-static constexpr const char* kGenLocals   = "__gen_locals__";
+static constexpr const char* kGenLocals   = "__gen_locals__";  // closureLocals snapshot (legacy)
+static constexpr const char* kGenSlots    = "__gen_slots__";   // automaticLocals snapshot (post-e2e6eaa)
+static constexpr const char* kGenStackTop = "__gen_stack_top__"; // value-stack depth at suspension
 static constexpr const char* kGenThis     = "__gen_this__";
 static constexpr const char* kGenMod      = "__gen_mod__";
 static constexpr const char* kGenState    = "__gen_state__";   // 0=suspended, 1=completed

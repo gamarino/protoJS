@@ -1058,6 +1058,49 @@ static const proto::ProtoObject* genSetObj(proto::ProtoContext* ctx,
     return (k && iter) ? iter->setAttribute(ctx, k, val ? val : PROTO_NONE) : iter;
 }
 
+/** Snapshot the live region of automaticLocals (locals + closure vars + active
+ *  value stack) into a ProtoList so it can be stashed on the generator iterator
+ *  object and restored on .next().  Pre-e2e6eaa the slot/stack region lived in
+ *  closureLocals (a SparseList) which was saved verbatim; after e2e6eaa it lives
+ *  in the flat automaticLocals array on pContext, which is destroyed when the
+ *  childCtx goes out of scope at runBytecode return — so we have to copy it
+ *  out at yield time.  `slotCount` is the number of slots to capture: the
+ *  caller passes locals + closure + active stack depth. */
+static const proto::ProtoList* snapshotAutomaticLocals(proto::ProtoContext* ctx,
+                                                          unsigned int slotCount) {
+    if (!ctx) return nullptr;
+    const proto::ProtoList* list = ctx->newList();
+    if (!list) return nullptr;
+    const proto::ProtoObject* const* slots = ctx->getAutomaticLocals();
+    unsigned int avail = ctx->getAutomaticLocalsCount();
+    if (slotCount > avail) slotCount = avail;
+    for (unsigned int i = 0; i < slotCount; ++i) {
+        const proto::ProtoObject* v = slots ? slots[i] : nullptr;
+        list = list->appendLast(ctx, v ? v : PROTO_NONE);
+    }
+    return list;
+}
+
+/** Inverse of snapshotAutomaticLocals: copy each element of the saved list back
+ *  into pContext->automaticLocals, growing it as needed.  Used by the
+ *  generator-resume path in runBytecode. */
+static void restoreAutomaticLocals(proto::ProtoContext* ctx,
+                                     const proto::ProtoList* list) {
+    if (!ctx || !list) return;
+    unsigned long n = list->getSize(ctx);
+    if (n == 0) return;
+    if (ctx->getAutomaticLocalsCount() < n) {
+        ctx->resizeAutomaticLocals(static_cast<unsigned int>(n));
+    }
+    const proto::ProtoObject** slots =
+        const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals());
+    if (!slots) return;
+    for (unsigned long i = 0; i < n; ++i) {
+        const proto::ProtoObject* v = list->getAt(ctx, static_cast<int>(i));
+        slots[i] = v ? v : PROTO_NONE;
+    }
+}
+
 /** Build a {value, done} iterator result object. */
 static const proto::ProtoObject* makeIterResult(proto::ProtoContext* ctx,
                                                   const proto::ProtoObject* value,
@@ -1143,11 +1186,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         pc = t_genResumePc;
         t_genResumePc = -1;
 
-        // Restore closureLocals snapshot.
+        // Restore closureLocals snapshot (legacy path; still used for any
+        // by-reference variables captured into the SparseList).
         if (t_genResumeLocals) {
             const proto::ProtoSparseList* sl = t_genResumeLocals->asSparseList(pContext);
             if (sl) pContext->closureLocals = sl;
             t_genResumeLocals = nullptr;
+        }
+
+        // Restore the flat automaticLocals snapshot.  Required since the
+        // 2026-04-26 switch from ProtoSparseList-backed to flat-array
+        // slot storage: the previous yield captured locals + closure vars
+        // + the live value stack as a ProtoList stashed under kGenSlots
+        // on the iterator; without this restore, the resumed body sees
+        // empty slots and arguments default-bound at first invocation
+        // (default params, destructured patterns) come back as undefined.
+        if (t_genIterator) {
+            const proto::ProtoString* sk = pContext->fromUTF8String(kGenSlots)
+                ? pContext->fromUTF8String(kGenSlots)->asString(pContext) : nullptr;
+            if (sk) {
+                const proto::ProtoObject* sv = t_genIterator->getAttribute(pContext, sk, false);
+                if (sv && sv != PROTO_NONE) {
+                    const proto::ProtoList* sl2 = sv->asList(pContext);
+                    if (sl2) restoreAutomaticLocals(pContext, sl2);
+                }
+            }
         }
 
         // Restore catch stack.
@@ -1215,7 +1278,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         unsigned int totalSlots     = slotsForLocals + reservedStack;
         if (pContext->getAutomaticLocalsCount() < totalSlots)
             pContext->resizeAutomaticLocals(totalSlots);
-        t_interpFrames.push_back(InterpFrame{ pContext, slotsForLocals, 0, reservedStack });
+        // For a generator resume, restore the value-stack depth that was
+        // active at the moment of suspension; otherwise start with an
+        // empty value stack.  kGenStackTop is written by OP_yield /
+        // OP_yield_star alongside kGenSlots.
+        unsigned int initialStackTop = 0;
+        if (pc != 0 && t_genIterator) {
+            const proto::ProtoString* tk = pContext->fromUTF8String(kGenStackTop)
+                ? pContext->fromUTF8String(kGenStackTop)->asString(pContext) : nullptr;
+            if (tk) {
+                const proto::ProtoObject* tv =
+                    t_genIterator->getAttribute(pContext, tk, false);
+                if (tv && tv != PROTO_NONE && tv->isInteger(pContext)) {
+                    long long n = tv->asLong(pContext);
+                    if (n >= 0 && n <= static_cast<long long>(reservedStack))
+                        initialStackTop = static_cast<unsigned int>(n);
+                }
+            }
+        }
+        t_interpFrames.push_back(InterpFrame{ pContext, slotsForLocals, initialStackTop, reservedStack });
     }
     struct InterpFramePopOnExit {
         ~InterpFramePopOnExit() {
@@ -6217,6 +6298,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
                 setA(kGenLocals, savedLoc);
 
+                // Save the flat automaticLocals snapshot (post-e2e6eaa: this
+                // is where args, locals, closure vars and the value stack
+                // really live).  Without this, default-bound parameters do
+                // not survive the OP_initial_yield → .next() boundary.
+                {
+                    InterpFrame* f = currentFrame(pContext);
+                    unsigned int snapCount = f
+                        ? f->stackBase + f->stackTop
+                        : pContext->getAutomaticLocalsCount();
+                    const proto::ProtoList* slotList =
+                        snapshotAutomaticLocals(pContext, snapCount);
+                    if (slotList) {
+                        const proto::ProtoString* sk =
+                            pContext->fromUTF8String(kGenSlots)
+                                ? pContext->fromUTF8String(kGenSlots)->asString(pContext)
+                                : nullptr;
+                        if (sk) iterObj = iterObj->setAttribute(
+                            pContext, sk, slotList->asObject(pContext));
+                    }
+                    setI(kGenStackTop, f ? (long long)f->stackTop : 0LL);
+                }
+
                 // Save catch stack.
                 setI(kGenNcc, (long long)catch_stack.size());
                 for (size_t ci = 0; ci < catch_stack.size(); ci++) {
@@ -6270,6 +6373,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* newLoc = pContext->closureLocals
                     ? pContext->closureLocals->asObject(pContext) : PROTO_NONE;
                 updIter = genSetObj(pContext, updIter, kGenLocals, newLoc);
+                // Persist the flat automaticLocals snapshot (see OP_initial_yield).
+                {
+                    InterpFrame* f = currentFrame(pContext);
+                    unsigned int snapCount = f
+                        ? f->stackBase + f->stackTop
+                        : pContext->getAutomaticLocalsCount();
+                    const proto::ProtoList* slotList =
+                        snapshotAutomaticLocals(pContext, snapCount);
+                    if (slotList) updIter = genSetObj(pContext, updIter,
+                        kGenSlots, slotList->asObject(pContext));
+                    updIter = genSetInt(pContext, updIter, kGenStackTop,
+                        f ? (long long)f->stackTop : 0LL);
+                }
                 updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
                 for (size_t ci = 0; ci < catch_stack.size(); ci++) {
                     std::string kpc = "__gen_cc_" + std::to_string(ci) + "_pc__";
@@ -6363,6 +6479,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* updIter = t_genIterator;
                     updIter = genSetInt(pContext, updIter, kGenPc, (long long)(pc - 1));
                     updIter = genSetObj(pContext, updIter, kGenLocals, newLoc2);
+                    // Persist the flat automaticLocals snapshot (see OP_initial_yield).
+                    {
+                        InterpFrame* f = currentFrame(pContext);
+                        unsigned int snapCount = f
+                            ? f->stackBase + f->stackTop
+                            : pContext->getAutomaticLocalsCount();
+                        const proto::ProtoList* slotList =
+                            snapshotAutomaticLocals(pContext, snapCount);
+                        if (slotList) updIter = genSetObj(pContext, updIter,
+                            kGenSlots, slotList->asObject(pContext));
+                        updIter = genSetInt(pContext, updIter, kGenStackTop,
+                            f ? (long long)f->stackTop : 0LL);
+                    }
                     updIter = genSetInt(pContext, updIter, kGenNcc, (long long)catch_stack.size());
                     updIter = genSetInt(pContext, updIter, kGenState, 0LL);
                     if (updIter != t_genIterator)
