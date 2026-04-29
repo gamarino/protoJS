@@ -749,16 +749,73 @@ const proto::ProtoObject* generateKeyPairImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
+
+    std::string keyType;
+    argString(ctx, args, 0, keyType);
+    if (keyType.empty()) keyType = "rsa";
+    if (keyType != "rsa") {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "generateKeyPair: only 'rsa' key type is supported"));
+        return PROTO_NONE;
+    }
+
+    long long bits = 2048;
+    const proto::ProtoObject* optArg = (args && args->getSize(ctx) > 1)
+        ? args->getAt(ctx, 1) : nullptr;
+    if (optArg && optArg != PROTO_NONE) {
+        const proto::ProtoString* mlKey =
+            ctx->fromUTF8String("modulusLength")->asString(ctx);
+        if (mlKey) {
+            const proto::ProtoObject* mlVal =
+                optArg->getAttribute(ctx, mlKey, false);
+            if (mlVal && mlVal->isInteger(ctx))
+                bits = mlVal->asLong(ctx);
+        }
+    }
+    if (bits < 512 || bits > 8192) bits = 2048;
+
+    EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+    if (!pctx) return PROTO_NONE;
+    if (EVP_PKEY_keygen_init(pctx) <= 0 ||
+        EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, static_cast<int>(bits)) <= 0) {
+        EVP_PKEY_CTX_free(pctx);
+        return PROTO_NONE;
+    }
+    EVP_PKEY* pkey = nullptr;
+    if (EVP_PKEY_keygen(pctx, &pkey) <= 0 || !pkey) {
+        EVP_PKEY_CTX_free(pctx);
+        return PROTO_NONE;
+    }
+    EVP_PKEY_CTX_free(pctx);
+
+    // Serialize public key to PEM (PKCS#8 SubjectPublicKeyInfo)
+    BIO* pubBio = BIO_new(BIO_s_mem());
+    PEM_write_bio_PUBKEY(pubBio, pkey);
+    char* pubData = nullptr;
+    long pubLen = BIO_get_mem_data(pubBio, &pubData);
+    std::string pubPem(pubData, static_cast<size_t>(pubLen));
+    BIO_free(pubBio);
+
+    // Serialize private key to PEM (PKCS#8 PrivateKeyInfo)
+    BIO* privBio = BIO_new(BIO_s_mem());
+    PEM_write_bio_PrivateKey(privBio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
+    char* privData = nullptr;
+    long privLen = BIO_get_mem_data(privBio, &privData);
+    std::string privPem(privData, static_cast<size_t>(privLen));
+    BIO_free(privBio);
+
+    EVP_PKEY_free(pkey);
+
     const proto::ProtoObject* obj = ctx->newObject(/*mutable=*/true);
     const proto::ProtoString* pubK =
         ctx->fromUTF8String("publicKey")->asString(ctx);
     const proto::ProtoString* privK =
         ctx->fromUTF8String("privateKey")->asString(ctx);
-    if (pubK)  obj->setAttribute(ctx, pubK,  ctx->fromUTF8String("placeholder"));
-    if (privK) obj->setAttribute(ctx, privK, ctx->fromUTF8String("placeholder"));
+    if (pubK)  obj->setAttribute(ctx, pubK,  ctx->fromUTF8String(pubPem.c_str()));
+    if (privK) obj->setAttribute(ctx, privK, ctx->fromUTF8String(privPem.c_str()));
     return obj;
 }
 
