@@ -725,10 +725,11 @@ struct ClientRequestState {
 void freeClientRequestState(void* p) {
     auto* s = static_cast<ClientRequestState*>(p);
     if (!s) return;
+    // If end() was never called the counter was never incremented; only the
+    // pin (registered in clientRequest) needs releasing here.
     if (s->wrapper && s->cbPin != proto::ProtoRootSet::kNullHandle) {
         proto::ProtoRootSet* rs = s->wrapper->getRootSet();
         if (rs) rs->remove(s->cbPin);
-        g_activeClients.fetch_sub(1);
     }
     delete s;
 }
@@ -771,6 +772,11 @@ const proto::ProtoObject* clientRequestEndImpl(
     if (!s || s->sent) return self ? self : PROTO_NONE;
     s->sent = true;
 
+    // Counter is tied to actual in-flight requests, not to callback presence:
+    // every fetch_add(1) here is paired with exactly one fetch_sub(1) in
+    // dispatchClientResponse or in one of the thread's error callbacks.
+    g_activeClients.fetch_add(1);
+
     // Capture by value for the background thread
     std::string  method   = s->method;
     std::string  hostname = s->hostname;
@@ -793,18 +799,25 @@ const proto::ProtoObject* clientRequestEndImpl(
         addr.sin_family = AF_INET;
         addr.sin_port   = htons(static_cast<uint16_t>(port));
 
+        // Error-path cleanup: release the pin (if any) and decrement the
+        // active-clients counter.  The decrement is unconditional —
+        // every fetch_add(1) in clientRequestEndImpl pairs with exactly
+        // one fetch_sub(1) here or in dispatchClientResponse.
+        auto cleanupOnError = [wrapper, cbPin]() {
+            EventLoop::getInstance().enqueueCallback(
+                [wrapper, cbPin]() mutable {
+                    if (wrapper && cbPin != proto::ProtoRootSet::kNullHandle) {
+                        proto::ProtoRootSet* rs = wrapper->getRootSet();
+                        if (rs) rs->remove(cbPin);
+                    }
+                    g_activeClients.fetch_sub(1);
+                });
+        };
+
         if (inet_pton(AF_INET, hostname.c_str(), &addr.sin_addr) <= 0) {
             struct hostent* he = gethostbyname(hostname.c_str());
             if (!he) {
-                EventLoop::getInstance().enqueueCallback(
-                    [wrapper, cbPin]() mutable {
-                        if (wrapper) {
-                            proto::ProtoRootSet* rs = wrapper->getRootSet();
-                            if (rs && cbPin != proto::ProtoRootSet::kNullHandle)
-                                rs->remove(cbPin);
-                            g_activeClients.fetch_sub(1);
-                        }
-                    });
+                cleanupOnError();
                 return;
             }
             addr.sin_addr = *reinterpret_cast<in_addr*>(he->h_addr_list[0]);
@@ -812,29 +825,13 @@ const proto::ProtoObject* clientRequestEndImpl(
 
         int fd = ::socket(AF_INET, SOCK_STREAM, 0);
         if (fd < 0) {
-            EventLoop::getInstance().enqueueCallback(
-                [wrapper, cbPin]() mutable {
-                    if (wrapper) {
-                        proto::ProtoRootSet* rs = wrapper->getRootSet();
-                        if (rs && cbPin != proto::ProtoRootSet::kNullHandle)
-                            rs->remove(cbPin);
-                        g_activeClients.fetch_sub(1);
-                    }
-                });
+            cleanupOnError();
             return;
         }
 
         if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
             ::close(fd);
-            EventLoop::getInstance().enqueueCallback(
-                [wrapper, cbPin]() mutable {
-                    if (wrapper) {
-                        proto::ProtoRootSet* rs = wrapper->getRootSet();
-                        if (rs && cbPin != proto::ProtoRootSet::kNullHandle)
-                            rs->remove(cbPin);
-                        g_activeClients.fetch_sub(1);
-                    }
-                });
+            cleanupOnError();
             return;
         }
 
@@ -960,10 +957,7 @@ const proto::ProtoObject* clientRequest(
 
     if (cb && cb != PROTO_NONE && state->wrapper) {
         proto::ProtoRootSet* rs = state->wrapper->getRootSet();
-        if (rs) {
-            state->cbPin = rs->add(cb);
-            g_activeClients.fetch_add(1);
-        }
+        if (rs) state->cbPin = rs->add(cb);
     }
 
     const proto::ProtoObject* extPtr =
