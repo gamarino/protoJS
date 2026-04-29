@@ -437,6 +437,23 @@ mean reported). Runs cleanly on both `protojs` and `node`.
   exercises only a fraction of what protoCore's GIL-free thread model can deliver
   in real multi-threaded workloads.
 
+#### Interpreter-to-Interpreter Suite (`run_standard_comparison_quickjs.js`)
+
+Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**.
+
+| Benchmark       | protoJS    | QuickJS  | Ratio (QuickJS faster) |
+|-----------------|------------|----------|-----------------------:|
+| array_literal   |   1198 ms  |   35 ms  |                 34.2×  |
+| control_flow    |   1220 ms  |  337 ms  |                  3.6×  |
+| function_calls  |   1912 ms  |   88 ms  |                 21.7×  |
+| json_transform  |    988 ms  |   26 ms  |                 38.0×  |
+| numeric_loop    |    734 ms  |  213 ms  |                  3.5×  |
+| object_property |   2923 ms  |  339 ms  |                  8.6×  |
+| **parallel_cpu**|  **55 ms** |**3402 ms**|      **protoJS 61.9× faster** |
+
+**Geometric mean: QuickJS is ~3.4× faster overall.**
+Excluding `parallel_cpu` (which QuickJS cannot parallelize), QuickJS is **~8x faster** on pure object/memory operations. This reflects the trade-off between traditional reference counting (QuickJS) and the GIL-free, atomic-backed AVL trees of **protoCore**.
+
 Raw JSON: [tests/benchmarks/results/standard_comparison.json](tests/benchmarks/results/standard_comparison.json)
 
 **To reproduce:**
