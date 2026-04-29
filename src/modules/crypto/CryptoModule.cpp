@@ -225,35 +225,221 @@ const proto::ProtoObject* randomBytesImpl(
     return ctx->fromUTF8String(hexOf(buf.data(), buf.size()).c_str());
 }
 
-// ---- Cipher / Sign / Verify (explicit not-implemented) ----------------
-//
-// These constructors used to return objects with no-op `update` and
-// `final / sign / verify` methods that silently produced empty output.
-// Silent stubs hide bugs: a script encrypts data, gets back "", and
-// only fails much later in deserialization with no useful error.
-//
-// Switched to explicit failure: each constructor throws
-// `Error("not implemented")` at the call site so the user sees the
-// gap immediately.  Real OpenSSL wiring is tracked separately and
-// requires the symmetric / asymmetric key handling that protoJS
-// doesn't yet expose.
+// ---- Cipher state -------------------------------------------------------
 
-const proto::ProtoObject* notImplemented(
-        proto::ProtoContext* ctx, const char* what) {
-    if (!ctx) return PROTO_NONE;
-    std::string msg = std::string(what) +
-        ": not implemented in protoJS (only crypto.createHash is wired up)";
-    signalNativeException(makeNativeError(ctx, "Error", msg.c_str()));
-    return PROTO_NONE;
+struct CipherState {
+    EVP_CIPHER_CTX* ctx  = nullptr;
+    bool            enc  = true;
+    bool            done = false;
+};
+
+void freeCipherState(void* p) {
+    auto* c = static_cast<CipherState*>(p);
+    if (!c) return;
+    if (c->ctx) EVP_CIPHER_CTX_free(c->ctx);
+    delete c;
+}
+
+CipherState* getCipherState(proto::ProtoContext* ctx,
+                             const proto::ProtoObject* self) {
+    if (!ctx || !self) return nullptr;
+    const proto::ProtoString* k =
+        ctx->fromUTF8String("__cipher_ctx__")->asString(ctx);
+    if (!k) return nullptr;
+    const proto::ProtoObject* attr = self->getAttribute(ctx, k, false);
+    if (!attr || attr == PROTO_NONE) return nullptr;
+    const proto::ProtoExternalPointer* ext = attr->asExternalPointer(ctx);
+    return ext ? static_cast<CipherState*>(ext->getPointer(ctx)) : nullptr;
+}
+
+const EVP_CIPHER* cipherFor(const std::string& algo) {
+    if (algo == "aes-128-cbc") return EVP_aes_128_cbc();
+    if (algo == "aes-192-cbc") return EVP_aes_192_cbc();
+    if (algo == "aes-256-cbc") return EVP_aes_256_cbc();
+    if (algo == "aes-128-ecb") return EVP_aes_128_ecb();
+    if (algo == "aes-256-ecb") return EVP_aes_256_ecb();
+    return nullptr;
+}
+
+// Decode a hex string to raw bytes.
+static std::vector<uint8_t> hexToBytes(const std::string& hex) {
+    std::vector<uint8_t> out;
+    out.reserve(hex.size() / 2);
+    for (size_t i = 0; i + 1 < hex.size(); i += 2) {
+        unsigned int b = 0;
+        sscanf(hex.c_str() + i, "%02x", &b);
+        out.push_back(static_cast<uint8_t>(b));
+    }
+    return out;
+}
+
+// cipher.update(data) — feed data, return hex output.
+// For encrypt: data is a plaintext string (UTF-8 bytes).
+// For decrypt: data is a hex string (decoded to cipher bytes first).
+const proto::ProtoObject* cipherUpdateImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    CipherState* c = getCipherState(ctx, self);
+    if (!c || c->done || !c->ctx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    const proto::ProtoObject* arg = args ? args->getAt(ctx, 0) : nullptr;
+    if (!arg || arg == PROTO_NONE) return ctx->fromUTF8String("");
+    std::string inStr;
+    arg->asString(ctx)->toUTF8String(ctx, inStr);
+    std::vector<uint8_t> inBytes;
+    if (c->enc) {
+        inBytes.assign(inStr.begin(), inStr.end());  // plaintext -> raw bytes
+    } else {
+        inBytes = hexToBytes(inStr);                  // hex ciphertext -> raw bytes
+    }
+    if (inBytes.empty()) return ctx->fromUTF8String("");
+    std::vector<unsigned char> out(inBytes.size() + EVP_MAX_BLOCK_LENGTH);
+    int outLen = 0;
+    EVP_CipherUpdate(c->ctx, out.data(), &outLen,
+                     inBytes.data(), static_cast<int>(inBytes.size()));
+    if (c->enc) {
+        // encrypt output -> hex string
+        return ctx->fromUTF8String(hexOf(out.data(), static_cast<size_t>(outLen)).c_str());
+    } else {
+        // decrypt output -> plaintext string
+        return ctx->fromUTF8String(
+            std::string(reinterpret_cast<char*>(out.data()), static_cast<size_t>(outLen)).c_str());
+    }
+}
+
+// cipher.final() — flush padding, return remaining output.
+const proto::ProtoObject* cipherFinalImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*,
+    const proto::ProtoSparseList*) {
+    CipherState* c = getCipherState(ctx, self);
+    if (!c || c->done || !c->ctx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+    unsigned char out[EVP_MAX_BLOCK_LENGTH * 2] = {};
+    int outLen = 0;
+    EVP_CipherFinal_ex(c->ctx, out, &outLen);
+    c->done = true;
+    if (c->enc) {
+        return ctx->fromUTF8String(hexOf(out, static_cast<size_t>(outLen)).c_str());
+    } else {
+        return ctx->fromUTF8String(
+            std::string(reinterpret_cast<char*>(out), static_cast<size_t>(outLen)).c_str());
+    }
+}
+
+const proto::ProtoObject* getCipherProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* proto = nullptr;
+    if (proto) return proto;
+    static const NativeEntry entries[] = {
+        {"update", cipherUpdateImpl},
+        {"final",  cipherFinalImpl},
+        NATIVE_MODULE_END
+    };
+    proto = ProtoNativeModule::buildModule(ctx, entries, 2);
+    return proto;
+}
+
+const proto::ProtoObject* buildCipherInstance(
+    proto::ProtoContext* ctx, EVP_CIPHER_CTX* evpCtx, bool enc) {
+    auto* state = new CipherState{evpCtx, enc, false};
+    const proto::ProtoObject* extPtr =
+        ctx->fromExternalPointer(state, freeCipherState);
+    if (!extPtr) {
+        EVP_CIPHER_CTX_free(evpCtx);
+        delete state;
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* cproto = getCipherProto(ctx);
+    const proto::ProtoObject* inst   = cproto
+        ? cproto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    const proto::ProtoString* k =
+        ctx->fromUTF8String("__cipher_ctx__")->asString(ctx);
+    if (k) inst->setAttribute(ctx, k, extPtr);
+    return inst;
+}
+
+// createCipheriv(algorithm, key, iv) / createDecipheriv — explicit key+IV
+static const proto::ProtoObject* makeCipherIv(
+    proto::ProtoContext* ctx, const proto::ProtoList* args, bool enc) {
+    std::string algo, keyStr, ivStr;
+    if (!argString(ctx, args, 0, algo)) return PROTO_NONE;
+    if (!argString(ctx, args, 1, keyStr)) return PROTO_NONE;
+    argString(ctx, args, 2, ivStr);
+
+    const EVP_CIPHER* cipher = cipherFor(algo);
+    if (!cipher) {
+        std::string msg = "crypto.createCipheriv: unsupported algorithm: " + algo;
+        signalNativeException(makeNativeError(ctx, "Error", msg.c_str()));
+        return PROTO_NONE;
+    }
+    EVP_CIPHER_CTX* evpCtx = EVP_CIPHER_CTX_new();
+    if (!evpCtx) return PROTO_NONE;
+    const auto* key = reinterpret_cast<const unsigned char*>(keyStr.data());
+    const unsigned char* iv = ivStr.empty() ? nullptr
+        : reinterpret_cast<const unsigned char*>(ivStr.data());
+    if (EVP_CipherInit_ex(evpCtx, cipher, nullptr, key, iv, enc ? 1 : 0) != 1) {
+        EVP_CIPHER_CTX_free(evpCtx);
+        return PROTO_NONE;
+    }
+    return buildCipherInstance(ctx, evpCtx, enc);
+}
+
+const proto::ProtoObject* createCipherivEncImpl(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return makeCipherIv(ctx, args, true);
+}
+const proto::ProtoObject* createDecipherivImpl(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return makeCipherIv(ctx, args, false);
+}
+
+// createCipher(algorithm, password) / createDecipher — key+IV derived via EVP_BytesToKey
+static const proto::ProtoObject* makeCipherDerived(
+    proto::ProtoContext* ctx, const proto::ProtoList* args, bool enc) {
+    std::string algo, pass;
+    if (!argString(ctx, args, 0, algo)) return PROTO_NONE;
+    if (!argString(ctx, args, 1, pass)) return PROTO_NONE;
+
+    const EVP_CIPHER* cipher = cipherFor(algo);
+    if (!cipher) {
+        std::string msg = "crypto.createCipher: unsupported algorithm: " + algo;
+        signalNativeException(makeNativeError(ctx, "Error", msg.c_str()));
+        return PROTO_NONE;
+    }
+    unsigned char key[EVP_MAX_KEY_LENGTH] = {};
+    unsigned char iv[EVP_MAX_IV_LENGTH]   = {};
+    EVP_BytesToKey(cipher, EVP_md5(), nullptr,
+                   reinterpret_cast<const unsigned char*>(pass.data()),
+                   static_cast<int>(pass.size()), 1, key, iv);
+
+    EVP_CIPHER_CTX* evpCtx = EVP_CIPHER_CTX_new();
+    if (!evpCtx) return PROTO_NONE;
+    if (EVP_CipherInit_ex(evpCtx, cipher, nullptr, key, iv, enc ? 1 : 0) != 1) {
+        EVP_CIPHER_CTX_free(evpCtx);
+        return PROTO_NONE;
+    }
+    return buildCipherInstance(ctx, evpCtx, enc);
 }
 
 const proto::ProtoObject* createCipherImpl(
-    proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
-    const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
-    return notImplemented(ctx, "crypto.createCipher");
+    return makeCipherDerived(ctx, args, true);
+}
+const proto::ProtoObject* createDecipherImpl(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    return makeCipherDerived(ctx, args, false);
 }
 
 const proto::ProtoObject* createSignImpl(
@@ -262,7 +448,10 @@ const proto::ProtoObject* createSignImpl(
     const proto::ParentLink*,
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
-    return notImplemented(ctx, "crypto.createSign");
+    if (!ctx) return PROTO_NONE;
+    signalNativeException(makeNativeError(ctx, "Error",
+        "crypto.createSign: not implemented in protoJS"));
+    return PROTO_NONE;
 }
 
 const proto::ProtoObject* createVerifyImpl(
@@ -271,7 +460,10 @@ const proto::ProtoObject* createVerifyImpl(
     const proto::ParentLink*,
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
-    return notImplemented(ctx, "crypto.createVerify");
+    if (!ctx) return PROTO_NONE;
+    signalNativeException(makeNativeError(ctx, "Error",
+        "crypto.createVerify: not implemented in protoJS"));
+    return PROTO_NONE;
 }
 
 const proto::ProtoObject* generateKeyPairImpl(
@@ -301,9 +493,9 @@ const proto::ProtoObject* CryptoModule::init(
         {"createHash",       createHash},
         {"randomBytes",      randomBytesImpl},
         {"createCipher",     createCipherImpl},
-        {"createDecipher",   createCipherImpl},   // same shape
-        {"createCipheriv",   createCipherImpl},
-        {"createDecipheriv", createCipherImpl},
+        {"createDecipher",   createDecipherImpl},
+        {"createCipheriv",   createCipherivEncImpl},
+        {"createDecipheriv", createDecipherivImpl},
         {"createSign",       createSignImpl},
         {"createVerify",     createVerifyImpl},
         {"generateKeyPair",  generateKeyPairImpl},
