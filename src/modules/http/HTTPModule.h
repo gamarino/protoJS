@@ -30,6 +30,11 @@ public:
     // event-loop drainer in main.cpp uses this to keep the process
     // alive while at least one server is active.
     static int getActiveServerCount();
+
+    // Number of in-flight http.request client calls (request issued, response
+    // not yet delivered).  The drainer uses this to keep the process alive
+    // while at least one HTTP client request is awaiting a response.
+    static int getActiveClientCount();
 };
 
 } // namespace protojs

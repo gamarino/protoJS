@@ -545,6 +545,7 @@ int main(int argc, char** argv) {
            protojs::Deferred::getActiveDeferredCount() > 0 ||
            protojs::ProtoDeferred::getActiveCount() > 0 ||
            protojs::HTTPModule::getActiveServerCount() > 0 ||
+           protojs::HTTPModule::getActiveClientCount() > 0 ||
            protojs::NetModule::getActiveCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
