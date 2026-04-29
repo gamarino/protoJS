@@ -386,10 +386,33 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-04-28** (in-process median time over 5 iterations,
-`tests/benchmarks/run_standard_comparison.js`, V8/Node 22 vs protojs Release
-build against protoCore 1.1.0).  Pure compute, no startup cost on either
-side.
+**Honest baseline — 2026-04-28** (in-process median time, protoJS Release build
+linked against the latest protoCore vs. Node.js/V8 22). Pure compute; no startup
+cost counted on either side.
+
+#### Standard In-Process Suite (`run_standard_comparison.js`)
+
+Self-contained micro-benchmarks with tight loops; 5 iterations each, median reported.
+
+| Benchmark       | protoJS    | Node.js  | Ratio (Node faster) |
+|-----------------|------------|----------|--------------------:|
+| array_literal   |    915 ms  |    3 ms  |              305.0× |
+| control_flow    |   1997 ms  |    4 ms  |              499.3× |
+| function_calls  |   1515 ms  |    1 ms  |             1515.0× |
+| numeric_loop    |   1876 ms  |    3 ms  |              625.3× |
+| object_property |   4376 ms  |   50 ms  |               87.5× |
+| **parallel_cpu**|  **54 ms** | **40 ms**|           **1.35×** |
+| string_concat   |   timeout  |    —     |                   — |
+
+**Geometric mean (6/7 benchmarks): Node.js is ~160× faster than protoJS.**
+`parallel_cpu` is the standout exception — it offloads computation to native
+protoCore worker threads, running outside the interpreter hot loop. `string_concat`
+times out (50,000 append iterations expose the lack of rope/COW string optimization).
+
+#### Comprehensive Macro Suite (`combined_performance_suite.js`)
+
+41 tests across Basic Types, Collections, and Overall Performance (5 iterations,
+mean reported). Runs cleanly on both `protojs` and `node`.
 
 | Benchmark             | protoJS     | Node.js    | Ratio (Node faster) |
 |-----------------------|------------:|-----------:|--------------------:|
@@ -401,31 +424,29 @@ side.
 | Throughput (Simple)   |   4434.6 ms |     3.0 ms |             1478.0× |
 | Closure Creation      |    123.4 ms |     0.2 ms |              617.0× |
 
-**Geometric mean: Node.js is ~350× faster than protoJS** on the comprehensive
-suite. V8's JIT (TurboFan + inline caches) dominates pure-compute hot
-loops by orders of magnitude; that's the cost of running protoJS on a
-straightforward bytecode interpreter without a JIT.
+**Geometric mean: Node.js is ~350× faster** on this wider suite.
 
-What the numbers do *not* measure
-  - Startup cost.  protoJS starts in roughly the same wall-clock time as
-    Node, so for short scripts the user-observed ratio is much smaller.
-  - Memory and GC pause behaviour.  protoCore's concurrent GC keeps the
-    p99 pause well below Node's stop-the-world cycles; not captured by
-    these benchmarks.
-  - Multi-threaded scaling.  Node's main loop is single-threaded; the
-    `parallel_cpu` benchmark only exercises a small fraction of what
-    protoCore's GIL-free thread model can deliver in real workloads.
+#### What the numbers do *not* measure
 
-Raw numbers: [tests/benchmarks/results/baseline_2026-04-28.json](tests/benchmarks/results/baseline_2026-04-28.json)
+- **Startup cost** — protoJS starts in roughly the same wall-clock time as Node;
+  for short scripts the user-observed gap is much smaller.
+- **Memory & GC pauses** — protoCore's concurrent GC keeps p99 pause well below
+  Node's stop-the-world cycles; not captured here.
+- **Multi-threaded scaling** — Node's event loop is single-threaded; `parallel_cpu`
+  exercises only a fraction of what protoCore's GIL-free thread model can deliver
+  in real multi-threaded workloads.
 
-Methodology
-  - In-process means each benchmark records `Date.now()` deltas around
-    its workload and prints `__BENCH_RESULT__<json>` to stdout; the
-    runner parses that, ignoring process startup and shutdown.
-  - 5 iterations per benchmark per runtime; reported number is the
-    median.  Variance between runs is typically ±5% on a single
-    machine.
-  - To reproduce: `PROTOJS_BIN=$(pwd)/build/protojs node tests/benchmarks/run_standard_comparison.js`
+Raw JSON: [tests/benchmarks/results/standard_comparison.json](tests/benchmarks/results/standard_comparison.json)
+
+**To reproduce:**
+```bash
+# Standard suite
+PROTOJS_BIN=$(pwd)/build/protojs node tests/benchmarks/run_standard_comparison.js
+
+# Comprehensive suite (both engines)
+node tests/benchmarks/combined_performance_suite.js
+./build/protojs tests/benchmarks/combined_performance_suite.js
+```
 
 ---
 
