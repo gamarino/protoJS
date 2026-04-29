@@ -448,28 +448,279 @@ const proto::ProtoObject* createDecipherImpl(
     return makeCipherDerived(ctx, args, false);
 }
 
+// ---- Sign / Verify state -----------------------------------------------
+
+struct SignState {
+    EVP_MD_CTX*          mdCtx   = nullptr;
+    bool                 done    = false;
+    std::vector<uint8_t> dataBuf;  // data buffered until key is known at sign()/verify()
+};
+
+void freeSignState(void* p) {
+    auto* s = static_cast<SignState*>(p);
+    if (!s) return;
+    if (s->mdCtx) EVP_MD_CTX_free(s->mdCtx);
+    delete s;
+}
+
+SignState* getSignState(proto::ProtoContext* ctx,
+                        const proto::ProtoObject* self) {
+    if (!ctx || !self) return nullptr;
+    const proto::ProtoString* k =
+        ctx->fromUTF8String("__sign_ctx__")->asString(ctx);
+    if (!k) return nullptr;
+    const proto::ProtoObject* attr = self->getAttribute(ctx, k, false);
+    if (!attr || attr == PROTO_NONE) return nullptr;
+    const proto::ProtoExternalPointer* ext = attr->asExternalPointer(ctx);
+    return ext ? static_cast<SignState*>(ext->getPointer(ctx)) : nullptr;
+}
+
+const EVP_MD* mdForSign(const std::string& algo) {
+    if (algo == "RSA-SHA1"   || algo == "sha1WithRSAEncryption")   return EVP_sha1();
+    if (algo == "RSA-SHA256" || algo == "sha256WithRSAEncryption") return EVP_sha256();
+    if (algo == "RSA-SHA512" || algo == "sha512WithRSAEncryption") return EVP_sha512();
+    return nullptr;
+}
+
+// sign.update(data) — buffer data for later feeding into the keyed operation
+const proto::ProtoObject* signUpdateImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    SignState* s = getSignState(ctx, self);
+    if (!s || s->done) return self ? self : PROTO_NONE;
+    const proto::ProtoObject* arg = args ? args->getAt(ctx, 0) : nullptr;
+    if (!arg || !arg->isString(ctx)) return self;
+    std::string str;
+    arg->asString(ctx)->toUTF8String(ctx, str);
+    s->dataBuf.insert(s->dataBuf.end(), str.begin(), str.end());
+    return self;
+}
+
+// sign.sign(privateKeyPem) -> hex signature string
+const proto::ProtoObject* signFinalImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    SignState* s = getSignState(ctx, self);
+    if (!s || s->done || !s->mdCtx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
+
+    std::string pemStr;
+    if (!argString(ctx, args, 0, pemStr)) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: privateKey PEM string required"));
+        return PROTO_NONE;
+    }
+    BIO* bio = BIO_new_mem_buf(pemStr.data(), static_cast<int>(pemStr.size()));
+    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    BIO_free(bio);
+    if (!pkey) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: failed to parse private key PEM"));
+        return PROTO_NONE;
+    }
+
+    // Retrieve algorithm from the context before reinit.
+    const EVP_MD* md = EVP_MD_CTX_get0_md(s->mdCtx);
+    if (!md) {
+        EVP_PKEY_free(pkey);
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: could not retrieve digest algorithm from context"));
+        return PROTO_NONE;
+    }
+
+    // Must create a new context for DigestSign (cannot re-initialize an existing one safely)
+    EVP_MD_CTX* signCtx = EVP_MD_CTX_new();
+    if (!signCtx) {
+        EVP_PKEY_free(pkey);
+        return PROTO_NONE;
+    }
+    if (EVP_DigestSignInit(signCtx, nullptr, md, nullptr, pkey) != 1) {
+        EVP_MD_CTX_free(signCtx);
+        EVP_PKEY_free(pkey);
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: EVP_DigestSignInit failed"));
+        return PROTO_NONE;
+    }
+    if (!s->dataBuf.empty()) {
+        EVP_DigestSignUpdate(signCtx, s->dataBuf.data(), s->dataBuf.size());
+    }
+    size_t sigLen = 0;
+    EVP_DigestSignFinal(signCtx, nullptr, &sigLen);
+    std::vector<unsigned char> sig(sigLen);
+    int rc = EVP_DigestSignFinal(signCtx, sig.data(), &sigLen);
+    EVP_MD_CTX_free(signCtx);
+    EVP_PKEY_free(pkey);
+    s->done = true;
+
+    if (rc != 1) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: EVP_DigestSignFinal failed"));
+        return PROTO_NONE;
+    }
+    return ctx->fromUTF8String(hexOf(sig.data(), sigLen).c_str());
+}
+
+// verify.update(data) — buffer data for later feeding into the keyed operation
+const proto::ProtoObject* verifyUpdateImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    // Same as signUpdateImpl — buffers data
+    SignState* s = getSignState(ctx, self);
+    if (!s || s->done) return self ? self : PROTO_NONE;
+    const proto::ProtoObject* arg = args ? args->getAt(ctx, 0) : nullptr;
+    if (!arg || !arg->isString(ctx)) return self;
+    std::string str;
+    arg->asString(ctx)->toUTF8String(ctx, str);
+    s->dataBuf.insert(s->dataBuf.end(), str.begin(), str.end());
+    return self;
+}
+
+// verify.verify(publicKeyPem, hexSig) -> bool
+const proto::ProtoObject* verifyFinalImpl(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*) {
+    SignState* s = getSignState(ctx, self);
+    if (!s || s->done || !s->mdCtx) return PROTO_FALSE;
+
+    std::string pemStr, hexSig;
+    if (!argString(ctx, args, 0, pemStr) || !argString(ctx, args, 1, hexSig))
+        return PROTO_FALSE;
+
+    BIO* bio = BIO_new_mem_buf(pemStr.data(), static_cast<int>(pemStr.size()));
+    EVP_PKEY* pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+    BIO_free(bio);
+    if (!pkey) return PROTO_FALSE;
+
+    const EVP_MD* md = EVP_MD_CTX_get0_md(s->mdCtx);
+    if (!md) {
+        EVP_PKEY_free(pkey);
+        return PROTO_FALSE;
+    }
+
+    EVP_MD_CTX* verCtx = EVP_MD_CTX_new();
+    if (!verCtx) {
+        EVP_PKEY_free(pkey);
+        return PROTO_FALSE;
+    }
+    if (EVP_DigestVerifyInit(verCtx, nullptr, md, nullptr, pkey) != 1) {
+        EVP_MD_CTX_free(verCtx);
+        EVP_PKEY_free(pkey);
+        return PROTO_FALSE;
+    }
+    if (!s->dataBuf.empty()) {
+        EVP_DigestVerifyUpdate(verCtx, s->dataBuf.data(), s->dataBuf.size());
+    }
+
+    // Decode hex signature
+    std::vector<unsigned char> sig;
+    sig.reserve(hexSig.size() / 2);
+    for (size_t i = 0; i + 1 < hexSig.size(); i += 2) {
+        unsigned int byte = 0;
+        sscanf(hexSig.c_str() + i, "%02x", &byte);
+        sig.push_back(static_cast<unsigned char>(byte));
+    }
+
+    int rc = EVP_DigestVerifyFinal(verCtx, sig.data(), sig.size());
+    EVP_MD_CTX_free(verCtx);
+    EVP_PKEY_free(pkey);
+    s->done = true;
+    return (rc == 1) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+const proto::ProtoObject* getSignerProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* sproto = nullptr;
+    if (sproto) return sproto;
+    static const NativeEntry entries[] = {
+        {"update", signUpdateImpl},
+        {"sign",   signFinalImpl},
+        NATIVE_MODULE_END
+    };
+    sproto = ProtoNativeModule::buildModule(ctx, entries, 2);
+    return sproto;
+}
+
+const proto::ProtoObject* getVerifierProto(proto::ProtoContext* ctx) {
+    static const proto::ProtoObject* vproto = nullptr;
+    if (vproto) return vproto;
+    static const NativeEntry entries[] = {
+        {"update", verifyUpdateImpl},
+        {"verify", verifyFinalImpl},
+        NATIVE_MODULE_END
+    };
+    vproto = ProtoNativeModule::buildModule(ctx, entries, 2);
+    return vproto;
+}
+
+const proto::ProtoObject* buildSignInstance(
+    proto::ProtoContext* ctx, const std::string& algo, bool signing) {
+    const EVP_MD* md = mdForSign(algo);
+    if (!md) {
+        std::string msg = std::string(signing ? "createSign" : "createVerify")
+            + ": unsupported algorithm: " + algo;
+        signalNativeException(makeNativeError(ctx, "Error", msg.c_str()));
+        return PROTO_NONE;
+    }
+    // Create a digest context primed with the algorithm, for later retrieval via
+    // EVP_MD_CTX_get0_md() at sign()/verify() time.
+    EVP_MD_CTX* mdCtx = EVP_MD_CTX_new();
+    if (!mdCtx) return PROTO_NONE;
+    if (EVP_DigestInit_ex(mdCtx, md, nullptr) != 1) {
+        EVP_MD_CTX_free(mdCtx);
+        return PROTO_NONE;
+    }
+
+    auto* state = new SignState{mdCtx, false, {}};
+    const proto::ProtoObject* extPtr =
+        ctx->fromExternalPointer(state, freeSignState);
+    if (!extPtr) {
+        EVP_MD_CTX_free(mdCtx);
+        delete state;
+        return PROTO_NONE;
+    }
+
+    const proto::ProtoObject* sProto = signing ? getSignerProto(ctx) : getVerifierProto(ctx);
+    const proto::ProtoObject* inst   = sProto
+        ? sProto->newChild(ctx, /*mutable=*/true)
+        : ctx->newObject(/*mutable=*/true);
+    const proto::ProtoString* k =
+        ctx->fromUTF8String("__sign_ctx__")->asString(ctx);
+    if (k) inst->setAttribute(ctx, k, extPtr);
+    return inst;
+}
+
 const proto::ProtoObject* createSignImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
-    if (!ctx) return PROTO_NONE;
-    signalNativeException(makeNativeError(ctx, "Error",
-        "crypto.createSign: not implemented in protoJS"));
-    return PROTO_NONE;
+    std::string algo;
+    argString(ctx, args, 0, algo);
+    if (algo.empty()) algo = "RSA-SHA256";
+    return buildSignInstance(ctx, algo, true);
 }
 
 const proto::ProtoObject* createVerifyImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
     const proto::ParentLink*,
-    const proto::ProtoList* /*args*/,
+    const proto::ProtoList* args,
     const proto::ProtoSparseList*) {
-    if (!ctx) return PROTO_NONE;
-    signalNativeException(makeNativeError(ctx, "Error",
-        "crypto.createVerify: not implemented in protoJS"));
-    return PROTO_NONE;
+    std::string algo;
+    argString(ctx, args, 0, algo);
+    if (algo.empty()) algo = "RSA-SHA256";
+    return buildSignInstance(ctx, algo, false);
 }
 
 const proto::ProtoObject* generateKeyPairImpl(
