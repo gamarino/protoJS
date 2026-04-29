@@ -794,7 +794,11 @@ const proto::ProtoObject* generateKeyPairImpl(
     // Serialize public key to PEM (PKCS#8 SubjectPublicKeyInfo)
     BIO* pubBio = BIO_new(BIO_s_mem());
     if (!pubBio) { EVP_PKEY_free(pkey); return PROTO_NONE; }
-    PEM_write_bio_PUBKEY(pubBio, pkey);
+    if (PEM_write_bio_PUBKEY(pubBio, pkey) != 1) {
+        BIO_free(pubBio);
+        EVP_PKEY_free(pkey);
+        return PROTO_NONE;
+    }
     char* pubData = nullptr;
     long pubLen = BIO_get_mem_data(pubBio, &pubData);
     std::string pubPem(pubData, static_cast<size_t>(pubLen));
@@ -803,7 +807,11 @@ const proto::ProtoObject* generateKeyPairImpl(
     // Serialize private key to PEM (PKCS#8 PrivateKeyInfo)
     BIO* privBio = BIO_new(BIO_s_mem());
     if (!privBio) { EVP_PKEY_free(pkey); return PROTO_NONE; }
-    PEM_write_bio_PrivateKey(privBio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
+    if (PEM_write_bio_PrivateKey(privBio, pkey, nullptr, nullptr, 0, nullptr, nullptr) != 1) {
+        BIO_free(privBio);
+        EVP_PKEY_free(pkey);
+        return PROTO_NONE;
+    }
     char* privData = nullptr;
     long privLen = BIO_get_mem_data(privBio, &privData);
     std::string privPem(privData, static_cast<size_t>(privLen));
