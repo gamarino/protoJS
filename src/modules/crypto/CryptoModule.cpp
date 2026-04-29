@@ -285,7 +285,7 @@ const proto::ProtoObject* cipherUpdateImpl(
     CipherState* c = getCipherState(ctx, self);
     if (!c || c->done || !c->ctx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     const proto::ProtoObject* arg = args ? args->getAt(ctx, 0) : nullptr;
-    if (!arg || arg == PROTO_NONE) return ctx->fromUTF8String("");
+    if (!arg || arg == PROTO_NONE || !arg->isString(ctx)) return ctx->fromUTF8String("");
     std::string inStr;
     arg->asString(ctx)->toUTF8String(ctx, inStr);
     std::vector<uint8_t> inBytes;
@@ -297,8 +297,9 @@ const proto::ProtoObject* cipherUpdateImpl(
     if (inBytes.empty()) return ctx->fromUTF8String("");
     std::vector<unsigned char> out(inBytes.size() + EVP_MAX_BLOCK_LENGTH);
     int outLen = 0;
-    EVP_CipherUpdate(c->ctx, out.data(), &outLen,
-                     inBytes.data(), static_cast<int>(inBytes.size()));
+    int rc = EVP_CipherUpdate(c->ctx, out.data(), &outLen,
+                              inBytes.data(), static_cast<int>(inBytes.size()));
+    if (rc != 1) return ctx->fromUTF8String("");
     if (c->enc) {
         // encrypt output -> hex string
         return ctx->fromUTF8String(hexOf(out.data(), static_cast<size_t>(outLen)).c_str());
@@ -320,8 +321,13 @@ const proto::ProtoObject* cipherFinalImpl(
     if (!c || c->done || !c->ctx) return ctx ? ctx->fromUTF8String("") : PROTO_NONE;
     unsigned char out[EVP_MAX_BLOCK_LENGTH * 2] = {};
     int outLen = 0;
-    EVP_CipherFinal_ex(c->ctx, out, &outLen);
+    int rc = EVP_CipherFinal_ex(c->ctx, out, &outLen);
     c->done = true;
+    if (rc != 1) {
+        signalNativeException(makeNativeError(ctx, "Error",
+            "crypto cipher final: decryption failed (bad key, IV, or corrupt data)"));
+        return PROTO_NONE;
+    }
     if (c->enc) {
         return ctx->fromUTF8String(hexOf(out, static_cast<size_t>(outLen)).c_str());
     } else {
