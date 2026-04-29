@@ -502,6 +502,21 @@ struct InterpFrame {
 };
 static thread_local std::vector<InterpFrame> t_interpFrames;
 
+// Debug flags — evaluated ONCE at first use, never on the hot path.
+static bool s_debugSlotsChecked = false;
+static bool s_debugSlots = false;
+static bool s_debugBindChecked = false;
+static bool s_debugBind = false;
+
+static inline bool debugSlotsEnabled() {
+    if (!s_debugSlotsChecked) { s_debugSlots = !!getenv("PROTO_DEBUG_SLOTS"); s_debugSlotsChecked = true; }
+    return s_debugSlots;
+}
+static inline bool debugBindEnabled() {
+    if (!s_debugBindChecked) { s_debugBind = !!getenv("PROTO_DEBUG_BIND"); s_debugBindChecked = true; }
+    return s_debugBind;
+}
+
 static inline InterpFrame* currentFrame(proto::ProtoContext* ctx) {
     if (t_interpFrames.empty()) return nullptr;
     InterpFrame* f = &t_interpFrames.back();
@@ -512,7 +527,7 @@ static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int 
     if (!ctx) return PROTO_NONE;
     if (index >= ctx->getAutomaticLocalsCount()) return PROTO_NONE;
     const proto::ProtoObject* v = ctx->getAutomaticLocals()[index];
-    if (getenv("PROTO_DEBUG_SLOTS")) {
+    if (debugSlotsEnabled()) {
         printf("[DEBUG] getSlot(%p, %u) -> %p\n", ctx, index, v);
     }
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
@@ -520,7 +535,7 @@ static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int 
 
 static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
     if (!ctx) return;
-    if (getenv("PROTO_DEBUG_SLOTS")) {
+    if (debugSlotsEnabled()) {
         printf("[DEBUG] setSlot(%p, %u, %p)\n", ctx, index, value);
     }
     if (index >= ctx->getAutomaticLocalsCount())
@@ -4838,12 +4853,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     uint32_t bindCount = (finalArgc < nf.argCount()) ? finalArgc : nf.argCount();
-                    if (getenv("PROTO_DEBUG_BIND")) {
+                    if (debugBindEnabled()) {
                         printf("[DEBUG] OP_call_constructor: finalArgc=%u nf.argCount=%u bindCount=%u\n", finalArgc, nf.argCount(), bindCount);
                     }
                     for (uint32_t i = 0; i < bindCount; i++) {
                         const proto::ProtoObject* arg = argsList->getAt(pContext, static_cast<int>(i));
-                        if (getenv("PROTO_DEBUG_BIND")) {
+                        if (debugBindEnabled()) {
                             printf("[DEBUG]   Binding arg %u: %p\n", i, arg);
                         }
                         setSlot(&childCtx, i, arg);
@@ -5127,7 +5142,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (is_tail_call) return s;
                             stackPush(pContext, s);
                         } else {
-                            if (getenv("PROTO_DEBUG_BIND")) printf("[DEBUG] OP_call: no match found, pushing none\n");
+                            if (debugBindEnabled()) printf("[DEBUG] OP_call: no match found, pushing none\n");
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             if (is_tail_call) return PROTO_NONE;
                             stackPush(pContext, PROTO_NONE);
@@ -6822,7 +6837,7 @@ const proto::ProtoObject* callJSFunction(
         populateClosureCellsFromInstance(&childCtx, fn, nf);
         unsigned argc = args ? static_cast<unsigned>(args->getSize(ctx)) : 0u;
         const proto::ProtoObject* childEx = PROTO_NONE;
-        if (getenv("PROTO_DEBUG_BIND")) {
+        if (debugBindEnabled()) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
         }
         const proto::ProtoObject* result =
@@ -6874,7 +6889,7 @@ const proto::ProtoObject* callJSFunction(
                 const proto::ProtoObject* a = args->getAt(ctx, i);
                 mergedArgs = mergedArgs->appendLast(ctx, a ? a : PROTO_NONE);
             }
-            if (getenv("PROTO_DEBUG_BIND")) {
+            if (debugBindEnabled()) {
                 printf("[DEBUG] callJSFunction (bound): target=%p this=%p argc=%d\n", target, effectiveBoundThis, (int)mergedArgs->getSize(ctx));
             }
             return callJSFunction(ctx, target, effectiveBoundThis, mergedArgs);
