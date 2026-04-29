@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <unistd.h>
 #include <cstring>
 #include <string>
@@ -127,11 +128,9 @@ const proto::ProtoObject* socketCloseImpl(
     return PROTO_NONE;
 }
 
-// addMembership(multicastAddr, interfaceAddr?) — joins the IPv4 multicast
-// group via setsockopt(IP_ADD_MEMBERSHIP).  IPv6 (IPV6_JOIN_GROUP) is not
-// implemented; throws explicitly when called on a udp6 socket so the
-// limitation surfaces immediately instead of silently no-op'ing as the
-// pre-migration stub did.
+// addMembership(multicastAddr, interfaceAddr?) — joins the multicast group
+// via setsockopt.  For IPv4 sockets uses IP_ADD_MEMBERSHIP; for IPv6 sockets
+// uses IPV6_JOIN_GROUP with an optional interface name resolved to an index.
 const proto::ProtoObject* socketAddMembershipImpl(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -140,12 +139,7 @@ const proto::ProtoObject* socketAddMembershipImpl(
     const proto::ProtoSparseList*) {
     int fd = getFd(ctx, self);
     if (fd < 0) return PROTO_FALSE;
-    if (isIPv6Socket(ctx, self)) {
-        signalNativeException(makeNativeError(ctx, "Error",
-            "dgram.Socket.addMembership: IPv6 multicast (udp6) not "
-            "implemented in protoJS"));
-        return PROTO_NONE;
-    }
+
     std::string mcastAddr;
     if (!argString(ctx, args, 0, mcastAddr)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -155,6 +149,32 @@ const proto::ProtoObject* socketAddMembershipImpl(
     std::string ifaceAddr;
     argString(ctx, args, 1, ifaceAddr);  // optional
 
+    if (isIPv6Socket(ctx, self)) {
+        ipv6_mreq mreq6{};
+        if (inet_pton(AF_INET6, mcastAddr.c_str(), &mreq6.ipv6mr_multiaddr) <= 0) {
+            signalNativeException(makeNativeError(ctx, "Error",
+                "addMembership: invalid IPv6 multicast address"));
+            return PROTO_NONE;
+        }
+        // interface index 0 = kernel picks the default interface
+        mreq6.ipv6mr_interface = 0;
+        if (!ifaceAddr.empty()) {
+            unsigned int idx = if_nametoindex(ifaceAddr.c_str());
+            if (idx == 0) {
+                signalNativeException(makeNativeError(ctx, "Error",
+                    "addMembership: unknown interface name"));
+                return PROTO_NONE;
+            }
+            mreq6.ipv6mr_interface = idx;
+        }
+        if (setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+                        &mreq6, sizeof(mreq6)) != 0) {
+            return PROTO_FALSE;
+        }
+        return PROTO_TRUE;
+    }
+
+    // IPv4 path (unchanged)
     ip_mreq mreq{};
     if (inet_pton(AF_INET, mcastAddr.c_str(), &mreq.imr_multiaddr) <= 0) {
         signalNativeException(makeNativeError(ctx, "Error",
