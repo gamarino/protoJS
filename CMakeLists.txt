@@ -124,6 +124,7 @@ add_library(protojs_core STATIC
     src/TypedArrayPrototype.cpp
     src/DataViewPrototype.cpp
     src/MathBuiltin.cpp
+    src/JSONBuiltin.cpp
     src/ObjectPrototype.cpp
     src/FunctionPrototype.cpp
     src/PromisePrototype.cpp
