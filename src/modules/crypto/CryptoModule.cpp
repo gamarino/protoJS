@@ -551,17 +551,27 @@ const proto::ProtoObject* signFinalImpl(
         EVP_MD_CTX_free(signCtx);
         EVP_PKEY_free(pkey);
         s->done = true;
+        std::vector<uint8_t>().swap(s->dataBuf);  // release memory
         signalNativeException(makeNativeError(ctx, "Error",
             "sign.sign: EVP_DigestSignUpdate failed"));
         return PROTO_NONE;
     }
     size_t sigLen = 0;
-    EVP_DigestSignFinal(signCtx, nullptr, &sigLen);
+    if (EVP_DigestSignFinal(signCtx, nullptr, &sigLen) != 1 || sigLen == 0) {
+        EVP_MD_CTX_free(signCtx);
+        EVP_PKEY_free(pkey);
+        s->done = true;
+        std::vector<uint8_t>().swap(s->dataBuf);  // release memory
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: EVP_DigestSignFinal (size probe) failed"));
+        return PROTO_NONE;
+    }
     std::vector<unsigned char> sig(sigLen);
     int rc = EVP_DigestSignFinal(signCtx, sig.data(), &sigLen);
     EVP_MD_CTX_free(signCtx);
     EVP_PKEY_free(pkey);
     s->done = true;
+    std::vector<uint8_t>().swap(s->dataBuf);  // release memory
 
     if (rc != 1) {
         signalNativeException(makeNativeError(ctx, "Error",
@@ -629,6 +639,7 @@ const proto::ProtoObject* verifyFinalImpl(
         EVP_MD_CTX_free(verCtx);
         EVP_PKEY_free(pkey);
         s->done = true;
+        std::vector<uint8_t>().swap(s->dataBuf);  // release memory
         return PROTO_FALSE;
     }
 
@@ -645,6 +656,7 @@ const proto::ProtoObject* verifyFinalImpl(
     EVP_MD_CTX_free(verCtx);
     EVP_PKEY_free(pkey);
     s->done = true;
+    std::vector<uint8_t>().swap(s->dataBuf);  // release memory
     return (rc == 1) ? PROTO_TRUE : PROTO_FALSE;
 }
 
