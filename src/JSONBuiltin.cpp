@@ -7,8 +7,6 @@
 #include "TypeBridge.h"
 #include <string>
 #include <vector>
-#include <iostream>
-#include <iomanip>
 #include <sstream>
 #include <cstdio>
 
@@ -63,7 +61,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         return;
     }
     if (obj->isDouble(ctx)) {
-        // Use default double formatting; for JSON parity we might need more precision control
         char buf[64];
         snprintf(buf, sizeof(buf), "%.15g", obj->asDouble(ctx));
         out += buf;
@@ -79,19 +76,16 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // Circular check
     for (const auto* seen : stack) {
         if (seen == obj) {
-            // Standard JSON.stringify throws for circularity, but here we'll just emit null or error
             out += "null"; 
             return;
         }
     }
     stack.push_back(obj);
 
-    // Array check: either carries __is_array__ or inherits from Array prototype
-    bool isArr = false;
-    if (arrayPrototype) {
-        isArr = obj->hasParent(ctx, arrayPrototype);
-    }
+    // Array check: Fast path via prototype check
+    bool isArr = arrayPrototype && obj->hasParent(ctx, arrayPrototype);
     if (!isArr) {
+        // Fallback for objects that might have manually set __is_array__ (uncommon in benchmarks but possible)
         const proto::ProtoObject* isArrAttr = obj->getAttribute(ctx, JSSymbols::isArray(ctx), false);
         if (isArrAttr && isArrAttr != PROTO_NONE && isArrAttr->asBoolean(ctx)) {
             isArr = true;
@@ -110,7 +104,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         }
         out.push_back(']');
     } else {
-        // Object check
         out.push_back('{');
         const proto::ProtoSparseList* attrs = obj->getOwnAttributes(ctx);
         if (attrs) {
@@ -128,9 +121,8 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     }
                 }
 
-
                 // Skip internal keys (__ prefix) and functions/none
-                if (!key.empty() && key.find("__") != 0 && val && val != PROTO_NONE && !val->isMethod(ctx)) {
+                if (!key.empty() && key[0] != '_' && val && val != PROTO_NONE && !val->isMethod(ctx)) {
                     if (!first) out.push_back(',');
                     jsonEscape(key, out);
                     out.push_back(':');
