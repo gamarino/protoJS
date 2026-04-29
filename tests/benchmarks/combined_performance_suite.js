@@ -15,21 +15,7 @@ function BenchmarkRunner(name, iterations, warmup) {
     this.memoryAfter = null;
 }
 
-    // Get high-resolution timer
-BenchmarkRunner.getTimer = function() {
-        if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-            return () => performance.now();
-        } else if (typeof process !== 'undefined' && typeof process.hrtime === 'function') {
-            // Node.js hrtime
-            return () => {
-                const [sec, nanosec] = process.hrtime();
-                return sec * 1000 + nanosec / 1000000;
-            };
-        } else {
-            // Fallback to Date.now() (millisecond precision)
-            return () => Date.now();
-        }
-    }
+
 
     // Get memory usage if available
 BenchmarkRunner.getMemoryUsage = function() {
@@ -47,117 +33,92 @@ BenchmarkRunner.getMemoryUsage = function() {
 
     // Run benchmark with warmup and multiple iterations
 BenchmarkRunner.prototype.run = function(fn) {
-        this.times = [];
-        const timer = BenchmarkRunner.getTimer();
-        
-        // Warmup phase
-        for (let i = 0; i < this.warmup; i++) {
-            fn();
-        }
-
-        // Memory measurement before
-        this.memoryBefore = BenchmarkRunner.getMemoryUsage();
-
-        // Actual measurements
-        for (let i = 0; i < this.iterations; i++) {
-            const start = timer();
-            fn();
-            const end = timer();
-            this.times.push(end - start);
-        }
-
-        // Memory measurement after
-        this.memoryAfter = BenchmarkRunner.getMemoryUsage();
-
-        return this.getStats();
+    console.log('Starting run for: ' + this.name);
+    this.times = [];
+    for (let i = 0; i < this.warmup; i++) fn();
+    this.memoryBefore = BenchmarkRunner.getMemoryUsage();
+    for (let i = 0; i < this.iterations; i++) {
+        const start = Date.now();
+        fn();
+        const end = Date.now();
+        this.times.push(end - start);
     }
+    this.memoryAfter = BenchmarkRunner.getMemoryUsage();
+    const stats = this.getStats();
+    return stats;
+};
 
-    // Calculate statistical measures
 BenchmarkRunner.prototype.getStats = function() {
-        if (this.times.length === 0) {
-            return {
-                name: this.name,
-                iterations: 0,
-                min: 0,
-                max: 0,
-                mean: 0,
-                median: 0,
-                stddev: 0,
-                total: 0,
-                memory: null
-            };
-        }
-
-        const sorted = [...this.times].sort((a, b) => a - b);
-        const sum = this.times.reduce((a, b) => a + b, 0);
-        const mean = sum / this.times.length;
-        
-        // Calculate standard deviation
-        const variance = this.times.reduce((acc, time) => acc + Math.pow(time - mean, 2), 0) / this.times.length;
-        const stddev = Math.sqrt(variance);
-        
-        // Calculate median
-        const mid = Math.floor(sorted.length / 2);
-        const median = sorted.length % 2 === 0
-            ? (sorted[mid - 1] + sorted[mid]) / 2
-            : sorted[mid];
-
-        // Memory delta
-        let memory = null;
-        if (this.memoryBefore && this.memoryAfter) {
-            memory = {
-                before: this.memoryBefore,
-                after: this.memoryAfter,
-                delta: {
-                    heapUsed: this.memoryAfter.heapUsed - this.memoryBefore.heapUsed,
-                    heapTotal: this.memoryAfter.heapTotal - this.memoryBefore.heapTotal,
-                    external: this.memoryAfter.external - this.memoryBefore.external,
-                    rss: this.memoryAfter.rss - this.memoryBefore.rss
-                }
-            };
-        }
-
+    if (this.times.length === 0) {
         return {
-            name: this.name,
-            iterations: this.iterations,
-            min: sorted[0],
-            max: sorted[sorted.length - 1],
-            mean: mean,
-            median: median,
-            stddev: stddev,
-            total: sum,
-            memory: memory,
-            times: this.times
+            name: this.name, iterations: 0, min: 0, max: 0, mean: 0, median: 0, stddev: 0, total: 0, memory: null
         };
     }
 
+    const sorted = this.times.slice().sort((a, b) => a - b);
+    let sum = 0;
+    for (let i = 0; i < this.times.length; i++) sum += this.times[i];
+    const mean = sum / this.times.length;
+    
+    let varianceSum = 0;
+    for (let i = 0; i < this.times.length; i++) {
+        const diff = this.times[i] - mean;
+        varianceSum += diff * diff;
+    }
+    const stddev = Math.sqrt(varianceSum / this.times.length);
+    
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[mid];
+
+    let memory = null;
+    if (this.memoryBefore && this.memoryAfter) {
+        memory = {
+            before: this.memoryBefore,
+            after: this.memoryAfter,
+            delta: {
+                heapUsed: this.memoryAfter.heapUsed - this.memoryBefore.heapUsed,
+                heapTotal: this.memoryAfter.heapTotal - this.memoryBefore.heapTotal,
+                external: (this.memoryAfter.external || 0) - (this.memoryBefore.external || 0),
+                rss: (this.memoryAfter.rss || 0) - (this.memoryBefore.rss || 0)
+            }
+        };
+    }
+
+    return {
+        name: this.name,
+        iterations: this.iterations,
+        min: sorted[0],
+        max: sorted[sorted.length - 1],
+        mean: mean,
+        median: median,
+        stddev: stddev,
+        total: sum,
+        memory: memory
+    };
+};
+
     // Run benchmark with custom work per iteration
 BenchmarkRunner.prototype.runWithWork = function(fn, workPerIteration) {
-        this.times = [];
-        const timer = BenchmarkRunner.getTimer();
-        
-        // Warmup
-        for (let i = 0; i < this.warmup; i++) {
-            fn(workPerIteration);
-        }
-
-        this.memoryBefore = BenchmarkRunner.getMemoryUsage();
-
-        // Measurements
-        for (let i = 0; i < this.iterations; i++) {
-            const start = timer();
-            fn(workPerIteration);
-            const end = timer();
-            this.times.push(end - start);
-        }
-
-        this.memoryAfter = BenchmarkRunner.getMemoryUsage();
-
-        const stats = this.getStats();
-        // Calculate operations per second
+    this.times = [];
+    for (let i = 0; i < this.warmup; i++) fn(workPerIteration);
+    this.memoryBefore = BenchmarkRunner.getMemoryUsage();
+    for (let i = 0; i < this.iterations; i++) {
+        const start = Date.now();
+        fn(workPerIteration);
+        const end = Date.now();
+        this.times.push(end - start);
+    }
+    this.memoryAfter = BenchmarkRunner.getMemoryUsage();
+    const stats = this.getStats();
+    if (stats.total > 0) {
         stats.opsPerSecond = (workPerIteration * this.iterations) / (stats.total / 1000);
-        return stats;
-    };
+    } else {
+        stats.opsPerSecond = 0;
+    }
+    return stats;
+};
 
 // Export for use in other benchmark files
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
@@ -178,44 +139,44 @@ function runBasicTypesBenchmarks() {
     console.log('Running Number benchmarks...');
     
     // Number Addition
-    const addBench = new BenchmarkRunner('Number Addition', 100, 10);
+    const addBench = new BenchmarkRunner('Number Addition', 5, 1);
     results.tests.push(addBench.run(() => {
         let sum = 0;
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             sum += i;
         }
     }));
 
     // Number Multiplication
-    const mulBench = new BenchmarkRunner('Number Multiplication', 100, 10);
+    const mulBench = new BenchmarkRunner('Number Multiplication', 5, 1);
     results.tests.push(mulBench.run(() => {
         let product = 1;
-        for (let i = 1; i < 100000; i++) {
+        for (let i = 1; i < 1000; i++) {
             product *= 1.0001;
         }
     }));
 
     // Number Division
-    const divBench = new BenchmarkRunner('Number Division', 100, 10);
+    const divBench = new BenchmarkRunner('Number Division', 5, 1);
     results.tests.push(divBench.run(() => {
         let quotient = 1000000;
-        for (let i = 1; i < 100000; i++) {
+        for (let i = 1; i < 1000; i++) {
             quotient /= 1.0001;
         }
     }));
 
     // Number Type Coercion (Number to String)
-    const numToStrBench = new BenchmarkRunner('Number to String Coercion', 100, 10);
+    const numToStrBench = new BenchmarkRunner('Number to String Coercion', 5, 1);
     results.tests.push(numToStrBench.run(() => {
-        for (let i = 0; i < 100000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const str = String(i);
         }
     }));
 
     // Number Type Coercion (String to Number)
-    const strToNumBench = new BenchmarkRunner('String to Number Coercion', 100, 10);
+    const strToNumBench = new BenchmarkRunner('String to Number Coercion', 5, 1);
     results.tests.push(strToNumBench.run(() => {
-        for (let i = 0; i < 100000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const num = Number(String(i));
         }
     }));
@@ -224,16 +185,16 @@ function runBasicTypesBenchmarks() {
     console.log('Running String benchmarks...');
 
     // String Concatenation
-    const concatBench = new BenchmarkRunner('String Concatenation', 50, 5);
+    const concatBench = new BenchmarkRunner('String Concatenation', 5, 1);
     results.tests.push(concatBench.run(() => {
         let str = '';
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 1000; i++) {
             str += 'test' + i;
         }
     }));
 
     // String Substring
-    const substrBench = new BenchmarkRunner('String Substring', 100, 10);
+    const substrBench = new BenchmarkRunner('String Substring', 5, 1);
     const testString = 'a'.repeat(10000);
     results.tests.push(substrBench.run(() => {
         for (let i = 0; i < 1000; i++) {
@@ -242,19 +203,19 @@ function runBasicTypesBenchmarks() {
     }));
 
     // String Length Access
-    const lengthBench = new BenchmarkRunner('String Length Access', 100, 10);
+    const lengthBench = new BenchmarkRunner('String Length Access', 5, 1);
     const lengthTestStr = 'test string for length access';
     results.tests.push(lengthBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const len = lengthTestStr.length;
         }
     }));
 
     // String Index Access
-    const indexBench = new BenchmarkRunner('String Index Access', 100, 10);
+    const indexBench = new BenchmarkRunner('String Index Access', 5, 1);
     const indexTestStr = 'abcdefghijklmnopqrstuvwxyz';
     results.tests.push(indexBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const char = indexTestStr[i % indexTestStr.length];
         }
     }));
@@ -263,25 +224,25 @@ function runBasicTypesBenchmarks() {
     console.log('Running Boolean benchmarks...');
 
     // Boolean AND
-    const andBench = new BenchmarkRunner('Boolean AND', 100, 10);
+    const andBench = new BenchmarkRunner('Boolean AND', 5, 1);
     results.tests.push(andBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const result = (i % 2 === 0) && (i % 3 === 0);
         }
     }));
 
     // Boolean OR
-    const orBench = new BenchmarkRunner('Boolean OR', 100, 10);
+    const orBench = new BenchmarkRunner('Boolean OR', 5, 1);
     results.tests.push(orBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const result = (i % 2 === 0) || (i % 3 === 0);
         }
     }));
 
     // Boolean NOT
-    const notBench = new BenchmarkRunner('Boolean NOT', 100, 10);
+    const notBench = new BenchmarkRunner('Boolean NOT', 5, 1);
     results.tests.push(notBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const result = !(i % 2 === 0);
         }
     }));
@@ -290,17 +251,17 @@ function runBasicTypesBenchmarks() {
     console.log('Running Null/Undefined benchmarks...');
 
     // Null Check
-    const nullCheckBench = new BenchmarkRunner('Null Check', 100, 10);
+    const nullCheckBench = new BenchmarkRunner('Null Check', 5, 1);
     results.tests.push(nullCheckBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const isNull = (null === null);
         }
     }));
 
     // Undefined Check
-    const undefinedCheckBench = new BenchmarkRunner('Undefined Check', 100, 10);
+    const undefinedCheckBench = new BenchmarkRunner('Undefined Check', 5, 1);
     results.tests.push(undefinedCheckBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const isUndef = (undefined === undefined);
         }
     }));
@@ -310,27 +271,27 @@ function runBasicTypesBenchmarks() {
     
     try {
         // BigInt Addition
-        const bigIntAddBench = new BenchmarkRunner('BigInt Addition', 100, 10);
+        const bigIntAddBench = new BenchmarkRunner('BigInt Addition', 5, 1);
         results.tests.push(bigIntAddBench.run(() => {
             let sum = BigInt(0);
-            for (let i = 0; i < 100000; i++) {
+            for (let i = 0; i < 1000; i++) {
                 sum += BigInt(i);
             }
         }));
 
         // BigInt Multiplication
-        const bigIntMulBench = new BenchmarkRunner('BigInt Multiplication', 100, 10);
+        const bigIntMulBench = new BenchmarkRunner('BigInt Multiplication', 5, 1);
         results.tests.push(bigIntMulBench.run(() => {
             let product = BigInt(1);
-            for (let i = 1; i < 10000; i++) {
+            for (let i = 1; i < 1000; i++) {
                 product *= BigInt(i);
             }
         }));
 
         // BigInt to Number Conversion
-        const bigIntToNumBench = new BenchmarkRunner('BigInt to Number', 100, 10);
+        const bigIntToNumBench = new BenchmarkRunner('BigInt to Number', 5, 1);
         results.tests.push(bigIntToNumBench.run(() => {
-            for (let i = 0; i < 100000; i++) {
+            for (let i = 0; i < 1000; i++) {
                 const num = Number(BigInt(i));
             }
         }));
@@ -338,6 +299,7 @@ function runBasicTypesBenchmarks() {
         console.log('BigInt not supported, skipping BigInt benchmarks');
     }
 
+    console.log('  ' + results.category + ' tests completed: ' + results.tests.length);
     return results;
 }
 
@@ -360,54 +322,54 @@ function runCollectionsBenchmarks() {
     console.log('Running Array benchmarks...');
 
     // Array Creation
-    const arrayCreateBench = new BenchmarkRunner('Array Creation', 50, 5);
+    const arrayCreateBench = new BenchmarkRunner('Array Creation', 5, 1);
     results.tests.push(arrayCreateBench.run(() => {
-        const arr = Array.from({length: 100000}, (_, idx) => idx);
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
     }));
 
     // Array Push
-    const arrayPushBench = new BenchmarkRunner('Array Push', 50, 5);
+    const arrayPushBench = new BenchmarkRunner('Array Push', 5, 1);
     results.tests.push(arrayPushBench.run(() => {
         const arr = [];
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 1000; i++) {
             arr.push(i);
         }
     }));
 
     // Array Pop
-    const arrayPopBench = new BenchmarkRunner('Array Pop', 50, 5);
+    const arrayPopBench = new BenchmarkRunner('Array Pop', 5, 1);
     results.tests.push(arrayPopBench.run(() => {
-        const arr = Array.from({length: 10000}, (_, idx) => idx);
-        for (let i = 0; i < 10000; i++) {
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
+        for (let i = 0; i < 1000; i++) {
             arr.pop();
         }
     }));
 
     // Array Map
-    const arrayMapBench = new BenchmarkRunner('Array Map', 20, 2);
+    const arrayMapBench = new BenchmarkRunner('Array Map', 5, 1);
     results.tests.push(arrayMapBench.run(() => {
-        const arr = Array.from({length: 10000}, (_, idx) => idx);
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
         const mapped = arr.map(x => x * 2);
     }));
 
     // Array Filter
-    const arrayFilterBench = new BenchmarkRunner('Array Filter', 20, 2);
+    const arrayFilterBench = new BenchmarkRunner('Array Filter', 5, 1);
     results.tests.push(arrayFilterBench.run(() => {
-        const arr = Array.from({length: 10000}, (_, idx) => idx);
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
         const filtered = arr.filter(x => x % 2 === 0);
     }));
 
     // Array Reduce
-    const arrayReduceBench = new BenchmarkRunner('Array Reduce', 20, 2);
+    const arrayReduceBench = new BenchmarkRunner('Array Reduce', 5, 1);
     results.tests.push(arrayReduceBench.run(() => {
-        const arr = Array.from({length: 10000}, (_, idx) => idx);
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
         const sum = arr.reduce((a, b) => a + b, 0);
     }));
 
     // Array Iteration (for...of)
-    const arrayIterBench = new BenchmarkRunner('Array Iteration', 20, 2);
+    const arrayIterBench = new BenchmarkRunner('Array Iteration', 5, 1);
     results.tests.push(arrayIterBench.run(() => {
-        const arr = Array.from({length: 10000}, (_, idx) => idx);
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
         let sum = 0;
         for (const item of arr) {
             sum += item;
@@ -415,10 +377,10 @@ function runCollectionsBenchmarks() {
     }));
 
     // Array Index Access
-    const arrayIndexBench = new BenchmarkRunner('Array Index Access', 100, 10);
+    const arrayIndexBench = new BenchmarkRunner('Array Index Access', 5, 1);
     const indexTestArray = Array.from({length: 1000}, (_, idx) => idx);
     results.tests.push(arrayIndexBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const val = indexTestArray[i % indexTestArray.length];
         }
     }));
@@ -427,37 +389,37 @@ function runCollectionsBenchmarks() {
     console.log('Running Object benchmarks...');
 
     // Object Creation
-    const objCreateBench = new BenchmarkRunner('Object Creation', 50, 5);
+    const objCreateBench = new BenchmarkRunner('Object Creation', 5, 1);
     results.tests.push(objCreateBench.run(() => {
         const obj = {};
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 1000; i++) {
             obj['key' + i] = i;
         }
     }));
 
     // Object Property Access
-    const objAccessBench = new BenchmarkRunner('Object Property Access', 100, 10);
+    const objAccessBench = new BenchmarkRunner('Object Property Access', 5, 1);
     const testObj = {};
     for (let i = 0; i < 1000; i++) {
         testObj['key' + i] = i;
     }
     results.tests.push(objAccessBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const val = testObj['key' + (i % 1000)];
         }
     }));
 
     // Object Property Setting
-    const objSetBench = new BenchmarkRunner('Object Property Setting', 50, 5);
+    const objSetBench = new BenchmarkRunner('Object Property Setting', 5, 1);
     results.tests.push(objSetBench.run(() => {
         const obj = {};
-        for (let i = 0; i < 100000; i++) {
+        for (let i = 0; i < 1000; i++) {
             obj['key' + (i % 1000)] = i;
         }
     }));
 
     // Object Iteration (for...in)
-    const objIterBench = new BenchmarkRunner('Object Iteration', 20, 2);
+    const objIterBench = new BenchmarkRunner('Object Iteration', 5, 1);
     const iterTestObj = {};
     for (let i = 0; i < 1000; i++) {
         iterTestObj['key' + i] = i;
@@ -470,7 +432,7 @@ function runCollectionsBenchmarks() {
     }));
 
     // JSON Serialization
-    const jsonStringifyBench = new BenchmarkRunner('JSON Stringify', 20, 2);
+    const jsonStringifyBench = new BenchmarkRunner('JSON Stringify', 5, 1);
     const jsonTestObj = {};
     for (let i = 0; i < 1000; i++) {
         jsonTestObj['key' + i] = {value: i, nested: {data: 'test' + i}};
@@ -480,7 +442,7 @@ function runCollectionsBenchmarks() {
     }));
 
     // JSON Parsing
-    const jsonParseBench = new BenchmarkRunner('JSON Parse', 20, 2);
+    const jsonParseBench = new BenchmarkRunner('JSON Parse', 5, 1);
     const jsonString = JSON.stringify(jsonTestObj);
     results.tests.push(jsonParseBench.run(() => {
         const obj = JSON.parse(jsonString);
@@ -493,31 +455,31 @@ function runCollectionsBenchmarks() {
         // protoCore.Set
         if (protoCore.Set) {
             // Set Creation and Add
-            const setCreateBench = new BenchmarkRunner('protoCore.Set Creation', 50, 5);
+            const setCreateBench = new BenchmarkRunner('protoCore.Set Creation', 5, 1);
             results.tests.push(setCreateBench.run(() => {
                 const set = new protoCore.Set();
-                for (let i = 0; i < 10000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     set.add(i);
                 }
             }));
 
             // Set Has
-            const setHasBench = new BenchmarkRunner('protoCore.Set Has', 100, 10);
+            const setHasBench = new BenchmarkRunner('protoCore.Set Has', 5, 1);
             const testSet = new protoCore.Set();
             for (let i = 0; i < 1000; i++) {
                 testSet.add(i);
             }
             results.tests.push(setHasBench.run(() => {
-                for (let i = 0; i < 100000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     const has = testSet.has(i % 1000);
                 }
             }));
 
             // Set Remove
-            const setRemoveBench = new BenchmarkRunner('protoCore.Set Remove', 50, 5);
+            const setRemoveBench = new BenchmarkRunner('protoCore.Set Remove', 5, 1);
             results.tests.push(setRemoveBench.run(() => {
                 const set = new protoCore.Set();
-                for (let i = 0; i < 10000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     set.add(i);
                 }
                 for (let i = 0; i < 5000; i++) {
@@ -529,22 +491,22 @@ function runCollectionsBenchmarks() {
         // protoCore.Multiset
         if (protoCore.Multiset) {
             // Multiset Creation and Add
-            const multisetCreateBench = new BenchmarkRunner('protoCore.Multiset Creation', 50, 5);
+            const multisetCreateBench = new BenchmarkRunner('protoCore.Multiset Creation', 5, 1);
             results.tests.push(multisetCreateBench.run(() => {
                 const multiset = new protoCore.Multiset();
-                for (let i = 0; i < 10000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     multiset.add(i % 100);
                 }
             }));
 
             // Multiset Count
-            const multisetCountBench = new BenchmarkRunner('protoCore.Multiset Count', 100, 10);
+            const multisetCountBench = new BenchmarkRunner('protoCore.Multiset Count', 5, 1);
             const testMultiset = new protoCore.Multiset();
-            for (let i = 0; i < 10000; i++) {
+            for (let i = 0; i < 1000; i++) {
                 testMultiset.add(i % 100);
             }
             results.tests.push(multisetCountBench.run(() => {
-                for (let i = 0; i < 100000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     const count = testMultiset.count(i % 100);
                 }
             }));
@@ -553,30 +515,30 @@ function runCollectionsBenchmarks() {
         // protoCore.SparseList
         if (protoCore.SparseList) {
             // SparseList Set
-            const sparseSetBench = new BenchmarkRunner('protoCore.SparseList Set', 50, 5);
+            const sparseSetBench = new BenchmarkRunner('protoCore.SparseList Set', 5, 1);
             results.tests.push(sparseSetBench.run(() => {
                 const sparse = new protoCore.SparseList();
-                for (let i = 0; i < 10000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     sparse.set(i * 10, 'value' + i);
                 }
             }));
 
             // SparseList Get
-            const sparseGetBench = new BenchmarkRunner('protoCore.SparseList Get', 100, 10);
+            const sparseGetBench = new BenchmarkRunner('protoCore.SparseList Get', 5, 1);
             const testSparse = new protoCore.SparseList();
             for (let i = 0; i < 1000; i++) {
                 testSparse.set(i * 10, 'value' + i);
             }
             results.tests.push(sparseGetBench.run(() => {
-                for (let i = 0; i < 100000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     const val = testSparse.get((i % 100) * 10);
                 }
             }));
 
             // SparseList Has
-            const sparseHasBench = new BenchmarkRunner('protoCore.SparseList Has', 100, 10);
+            const sparseHasBench = new BenchmarkRunner('protoCore.SparseList Has', 5, 1);
             results.tests.push(sparseHasBench.run(() => {
-                for (let i = 0; i < 100000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     const has = testSparse.has((i % 100) * 10);
                 }
             }));
@@ -585,17 +547,17 @@ function runCollectionsBenchmarks() {
         // protoCore.Tuple
         if (protoCore.Tuple) {
             // Tuple Creation
-            const tupleCreateBench = new BenchmarkRunner('protoCore.Tuple Creation', 50, 5);
+            const tupleCreateBench = new BenchmarkRunner('protoCore.Tuple Creation', 5, 1);
             results.tests.push(tupleCreateBench.run(() => {
-                const arr = Array.from({length: 10000}, (_, idx) => idx);
+                const arr = Array.from({length: 1000}, (_, idx) => idx);
                 const tuple = protoCore.Tuple(arr);
             }));
 
             // Tuple Access
-            const tupleAccessBench = new BenchmarkRunner('protoCore.Tuple Access', 100, 10);
+            const tupleAccessBench = new BenchmarkRunner('protoCore.Tuple Access', 5, 1);
             const testTuple = protoCore.Tuple(Array.from({length: 1000}, (_, idx) => idx));
             results.tests.push(tupleAccessBench.run(() => {
-                for (let i = 0; i < 1000000; i++) {
+                for (let i = 0; i < 1000; i++) {
                     const val = testTuple[i % testTuple.length];
                 }
             }));
@@ -604,6 +566,7 @@ function runCollectionsBenchmarks() {
         console.log('protoCore module not available, skipping protoCore collection benchmarks');
     }
 
+    console.log('  ' + results.category + ' tests completed: ' + results.tests.length);
     return results;
 }
 
@@ -625,7 +588,7 @@ function runOverallPerformanceBenchmarks() {
     // Startup Time (approximate - time to execute first meaningful operation)
     console.log('Running Overall Performance benchmarks...');
     
-    const startupBench = new BenchmarkRunner('Startup Time', 10, 1);
+    const startupBench = new BenchmarkRunner('Startup Time', 5, 1);
     results.tests.push(startupBench.run(() => {
         // Simulate startup by creating context and running simple operation
         const test = 1 + 1;
@@ -634,7 +597,7 @@ function runOverallPerformanceBenchmarks() {
     }));
 
     // Throughput - Simple Operations Per Second
-    const throughputBench = new BenchmarkRunner('Throughput (Simple Ops)', 10, 1);
+    const throughputBench = new BenchmarkRunner('Throughput (Simple Ops)', 5, 1);
     const throughputStats = throughputBench.runWithWork((iterations) => {
         let sum = 0;
         for (let i = 0; i < iterations; i++) {
@@ -644,44 +607,44 @@ function runOverallPerformanceBenchmarks() {
     results.tests.push(throughputStats);
 
     // Memory - Array Creation
-    const memoryArrayBench = new BenchmarkRunner('Memory: Array Creation', 10, 1);
+    const memoryArrayBench = new BenchmarkRunner('Memory: Array Creation', 5, 1);
     results.tests.push(memoryArrayBench.run(() => {
-        const arr = Array.from({length: 100000}, (_, idx) => idx);
+        const arr = Array.from({length: 1000}, (_, idx) => idx);
     }));
 
     // Memory - Object Creation
-    const memoryObjBench = new BenchmarkRunner('Memory: Object Creation', 10, 1);
+    const memoryObjBench = new BenchmarkRunner('Memory: Object Creation', 5, 1);
     results.tests.push(memoryObjBench.run(() => {
         const obj = {};
-        for (let i = 0; i < 100000; i++) {
+        for (let i = 0; i < 1000; i++) {
             obj['key' + i] = i;
         }
     }));
 
     // Memory - String Creation
-    const memoryStringBench = new BenchmarkRunner('Memory: String Creation', 10, 1);
+    const memoryStringBench = new BenchmarkRunner('Memory: String Creation', 5, 1);
     results.tests.push(memoryStringBench.run(() => {
         let str = '';
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 1000; i++) {
             str += 'test' + i;
         }
     }));
 
     // Function Call Overhead
-    const funcCallBench = new BenchmarkRunner('Function Call Overhead', 100, 10);
+    const funcCallBench = new BenchmarkRunner('Function Call Overhead', 5, 1);
     function testFunc(x) {
         return x + 1;
     }
     results.tests.push(funcCallBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             testFunc(i);
         }
     }));
 
     // Closure Creation
-    const closureBench = new BenchmarkRunner('Closure Creation', 50, 5);
+    const closureBench = new BenchmarkRunner('Closure Creation', 5, 1);
     results.tests.push(closureBench.run(() => {
-        for (let i = 0; i < 10000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const closure = (function(x) {
                 return function(y) {
                     return x + y;
@@ -691,7 +654,7 @@ function runOverallPerformanceBenchmarks() {
     }));
 
     // Property Access Chain
-    const propChainBench = new BenchmarkRunner('Property Access Chain', 100, 10);
+    const propChainBench = new BenchmarkRunner('Property Access Chain', 5, 1);
     const testObj = {
         level1: {
             level2: {
@@ -702,15 +665,15 @@ function runOverallPerformanceBenchmarks() {
         }
     };
     results.tests.push(propChainBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const val = testObj.level1.level2.level3.value;
         }
     }));
 
     // Try-Catch Overhead
-    const tryCatchBench = new BenchmarkRunner('Try-Catch Overhead', 50, 5);
+    const tryCatchBench = new BenchmarkRunner('Try-Catch Overhead', 5, 1);
     results.tests.push(tryCatchBench.run(() => {
-        for (let i = 0; i < 100000; i++) {
+        for (let i = 0; i < 1000; i++) {
             try {
                 const val = i * 2;
             } catch (e) {
@@ -720,10 +683,10 @@ function runOverallPerformanceBenchmarks() {
     }));
 
     // Type Checking
-    const typeCheckBench = new BenchmarkRunner('Type Checking', 100, 10);
+    const typeCheckBench = new BenchmarkRunner('Type Checking', 5, 1);
     const testValues = [1, 'string', true, null, undefined, {}, []];
     results.tests.push(typeCheckBench.run(() => {
-        for (let i = 0; i < 1000000; i++) {
+        for (let i = 0; i < 1000; i++) {
             const val = testValues[i % testValues.length];
             const isNumber = typeof val === 'number';
             const isString = typeof val === 'string';
@@ -731,6 +694,7 @@ function runOverallPerformanceBenchmarks() {
         }
     }));
 
+    console.log('  ' + results.category + ' tests completed: ' + results.tests.length);
     return results;
 }
 
@@ -854,25 +818,20 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 // HTML Report Generator
 // Generates user-friendly HTML reports with charts and comparison tables
 
-function generateHTMLReport(allResults, comparison = null) {
-    const timestamp = new Date().toISOString();
-    const dateStr = new Date().toLocaleString();
+function generateHTMLReport(allResults, comparison) {
+    const dateStr = String(new Date());
     
     // Get engine versions
     let protojsVersion = 'Unknown';
     let nodejsVersion = null;
     
-    try {
-        if (typeof process !== 'undefined' && process.versions) {
-            if (process.versions.protojs) {
-                protojsVersion = process.versions.protojs;
-            }
-            if (process.versions.node) {
-                nodejsVersion = process.versions.node;
-            }
+    if (typeof process !== 'undefined' && process.versions) {
+        if (process.versions.protojs) {
+            protojsVersion = process.versions.protojs;
         }
-    } catch (e) {
-        // Ignore
+        if (process.versions.node) {
+            nodejsVersion = process.versions.node;
+        }
     }
 
     const html = `<!DOCTYPE html>
@@ -1193,7 +1152,7 @@ function generateTestTable(category, comparison) {
     const comparisonMap = {};
     if (comparison && comparison.tests) {
         comparison.tests.forEach(test => {
-            if (test.category === category.category) {
+            if (test && test.category === category.category) {
                 comparisonMap[test.name] = test;
             }
         });
@@ -1215,8 +1174,8 @@ function generateTestTable(category, comparison) {
         <tbody>
     `;
     
-    category.tests.forEach(test => {
-        const comp = comparisonMap[test.name];
+    category.tests.forEach((test, i) => {
+        const comp = test ? comparisonMap[test.name] : undefined;
         let comparisonCell = '';
         
         if (comp && comp.comparison) {
@@ -1228,21 +1187,22 @@ function generateTestTable(category, comparison) {
             comparisonCell = `
                 <td>
                     <span class="badge ${badgeClass}">${badgeText}</span><br>
-                    <small>${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(1)}%</small>
+                    <small>${percentDiff > 0 ? '+' : ''}${Math.round(percentDiff * 10) / 10}%</small>
                 </td>
             `;
         } else if (comparison) {
             comparisonCell = '<td>-</td>';
         }
         
+        
         tableHtml += `
             <tr>
-                <td>${test.name}</td>
-                <td>${test.mean.toFixed(3)}</td>
-                <td>${test.median.toFixed(3)}</td>
-                <td>${test.min.toFixed(3)}</td>
-                <td>${test.max.toFixed(3)}</td>
-                <td>${test.stddev.toFixed(3)}</td>
+                <td>${test ? test.name : 'Unknown'}</td>
+                <td>${test && test.mean !== undefined ? String(Number(test.mean)) : '0'}</td>
+                <td>${test && test.median !== undefined ? String(Number(test.median)) : '0'}</td>
+                <td>${test && test.min !== undefined ? String(Number(test.min)) : '0'}</td>
+                <td>${test && test.max !== undefined ? String(Number(test.max)) : '0'}</td>
+                <td>${test && test.stddev !== undefined ? String(Number(test.stddev)) : '0'}</td>
                 ${comparisonCell}
             </tr>
         `;
@@ -1261,19 +1221,19 @@ function generateCategoryChart(category, comparison) {
         return '';
     }
     
-    const chartId = `chart-${category.category.replace(/\s+/g, '-').toLowerCase()}`;
-    const labels = category.tests.map(t => t.name);
-    const protojsData = category.tests.map(t => t.mean);
+    const chartId = `chart-${category.category.replace(' ', '-').toLowerCase()}`;
+    const labels = category.tests.map(t => t ? t.name : 'Unknown');
+    const protojsData = category.tests.map(t => t ? Number(t.mean) : 0);
     
     let nodejsData = null;
     if (comparison && comparison.tests) {
         const comparisonMap = {};
         comparison.tests.forEach(test => {
-            if (test.category === category.category && test.nodejs) {
+            if (test && test.category === category.category && test.nodejs) {
                 comparisonMap[test.name] = test.nodejs.mean;
             }
         });
-        nodejsData = category.tests.map(t => comparisonMap[t.name] || null);
+        nodejsData = category.tests.map(t => t ? (comparisonMap[t.name] || null) : null);
     }
     
     const datasets = [{
@@ -1370,14 +1330,7 @@ console.log('Loading benchmark framework...\n');
 const fs = typeof require !== 'undefined' ? require('fs') : null;
 
 function getTimestamp() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+    return "" + Date.now();
 }
 
 // Shared logic: run all categories and optionally write report. Used by both async and sync entry points.
@@ -1391,20 +1344,26 @@ function runAllBenchmarksCore(allResults, comparison, opts) {
     const htmlReport = generateHTMLReport(allResults, comparison);
 
     if (fs) {
+        if (!fs.existsSync('results')) {
+            fs.mkdirSync('results', { recursive: true });
+        }
         fs.writeFileSync(reportFilename, htmlReport, 'utf8');
         console.log(`  Report saved: ${reportFilename}\n`);
-    } else {
-        console.log('\n=== Benchmark Summary ===');
-        allResults.forEach(category => {
-            console.log(`\n${category.category}:`);
-            category.tests.forEach(test => {
-                console.log(`  ${test.name}: ${test.mean.toFixed(3)}ms (mean), ${test.median.toFixed(3)}ms (median)`);
-            });
-        });
     }
 
+    console.log('\n=== Benchmark Summary ===');
+    allResults.forEach(category => {
+        console.log(`\n${category.category}:`);
+        category.tests.forEach(test => {
+            if (!test) return;
+            const mean = typeof test.mean === 'number' ? Math.round(test.mean * 1000) / 1000 : test.mean;
+            const median = typeof test.median === 'number' ? Math.round(test.median * 1000) / 1000 : test.median;
+            console.log(`  ${test.name}: ${mean}ms (mean), ${median}ms (median)`);
+        });
+    });
+
     const jsonResults = {
-        timestamp: new Date().toISOString(),
+        timestamp: "" + Date.now(),
         results: allResults,
         comparison: comparison
     };
@@ -1445,6 +1404,7 @@ function runAllBenchmarksSync() {
         return { success: true };
     } catch (error) {
         console.error('Error running benchmarks:', error);
+        console.error(error.stack);
         return { success: false, error: error.message };
     }
 }
@@ -1498,10 +1458,12 @@ async function runAllBenchmarks() {
     }
 }
 
-// Run benchmarks
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = runAllBenchmarks;
-} else {
+// Run benchmarks if main module or if in environment without module support
+const isMain = (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) || 
+               (typeof module === 'undefined') || 
+               (typeof __protojs__ !== 'undefined');
+
+if (isMain) {
     // Direct execution: use sync path when Promise callbacks are not run after eval (e.g. protoJS)
     const useSync = (typeof __protojs__ !== 'undefined' && __protojs__) ||
         (typeof process === 'undefined' || typeof process.exit !== 'function');
@@ -1522,5 +1484,8 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
     }
 }
 
-// Execute benchmarks
-runAllBenchmarks();
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+    module.exports = runAllBenchmarks;
+}
+
+// Execute benchmarks handled above

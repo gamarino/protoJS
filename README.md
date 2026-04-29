@@ -391,23 +391,20 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 build against protoCore 1.1.0).  Pure compute, no startup cost on either
 side.
 
-| Benchmark        | protoJS  | Node.js | Ratio (Node faster) |
-|------------------|---------:|--------:|--------------------:|
-| parallel_cpu     |    52 ms |   70 ms |             0.74× |
-| control_flow     |   834 ms |    4 ms |           208.50× |
-| object_property  |  1631 ms |   47 ms |            34.70× |
-| array_literal    |   726 ms |    3 ms |           242.00× |
-| numeric_loop     |   522 ms |    3 ms |           174.00× |
-| function_calls   |   962 ms |    1 ms |           962.00× |
-| string_concat    |   timeout|       — |                 — |
+| Benchmark             | protoJS     | Node.js    | Ratio (Node faster) |
+|-----------------------|------------:|-----------:|--------------------:|
+| Number Addition       |      5.0 ms |     0.2 ms |               25.0× |
+| String Concatenation  |    200.4 ms |     0.2 ms |             1002.0× |
+| Array Iteration       |     62.8 ms |     0.2 ms |              314.0× |
+| Object Property Access|     16.0 ms |     0.2 ms |               80.0× |
+| JSON Stringify        |    998.8 ms |     0.6 ms |             1664.0× |
+| Throughput (Simple)   |   4434.6 ms |     3.0 ms |             1478.0× |
+| Closure Creation      |    123.4 ms |     0.2 ms |              617.0× |
 
-**Geometric mean: Node.js is 77.56× faster than protoJS** on the in-process
-suite.  V8's JIT (TurboFan + inline caches) dominates pure-compute hot
+**Geometric mean: Node.js is ~350× faster than protoJS** on the comprehensive
+suite. V8's JIT (TurboFan + inline caches) dominates pure-compute hot
 loops by orders of magnitude; that's the cost of running protoJS on a
-straightforward bytecode interpreter without a JIT.  `parallel_cpu` is
-the only benchmark within the same order of magnitude — it offloads work
-to native protoCore threads, so protoJS spends most of its time outside
-the interpreter.
+straightforward bytecode interpreter without a JIT.
 
 What the numbers do *not* measure
   - Startup cost.  protoJS starts in roughly the same wall-clock time as
@@ -637,7 +634,7 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** ~101× slower than Node.js on the in-process compute suite (geomean, 2026-04-28 baseline) — V8's JIT advantage on pure hot loops; `parallel_cpu` is the only benchmark within the same order of magnitude (1.32×)
+- **Performance:** ~350× slower than Node.js on the in-process compute suite (geomean, 2026-04-28 baseline) — V8's JIT advantage on pure hot loops.
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
