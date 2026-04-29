@@ -546,8 +546,14 @@ const proto::ProtoObject* signFinalImpl(
             "sign.sign: EVP_DigestSignInit failed"));
         return PROTO_NONE;
     }
-    if (!s->dataBuf.empty()) {
-        EVP_DigestSignUpdate(signCtx, s->dataBuf.data(), s->dataBuf.size());
+    if (!s->dataBuf.empty() &&
+        EVP_DigestSignUpdate(signCtx, s->dataBuf.data(), s->dataBuf.size()) != 1) {
+        EVP_MD_CTX_free(signCtx);
+        EVP_PKEY_free(pkey);
+        s->done = true;
+        signalNativeException(makeNativeError(ctx, "Error",
+            "sign.sign: EVP_DigestSignUpdate failed"));
+        return PROTO_NONE;
     }
     size_t sigLen = 0;
     EVP_DigestSignFinal(signCtx, nullptr, &sigLen);
@@ -618,8 +624,12 @@ const proto::ProtoObject* verifyFinalImpl(
         EVP_PKEY_free(pkey);
         return PROTO_FALSE;
     }
-    if (!s->dataBuf.empty()) {
-        EVP_DigestVerifyUpdate(verCtx, s->dataBuf.data(), s->dataBuf.size());
+    if (!s->dataBuf.empty() &&
+        EVP_DigestVerifyUpdate(verCtx, s->dataBuf.data(), s->dataBuf.size()) != 1) {
+        EVP_MD_CTX_free(verCtx);
+        EVP_PKEY_free(pkey);
+        s->done = true;
+        return PROTO_FALSE;
     }
 
     // Decode hex signature
