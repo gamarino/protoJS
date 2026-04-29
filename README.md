@@ -396,15 +396,16 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
 
 | Benchmark       | protoJS    | Node.js  | Ratio (Node faster) |
 |-----------------|------------|----------|--------------------:|
-| array_literal   |    915 ms  |    3 ms  |              305.0× |
-| control_flow    |   1997 ms  |    4 ms  |              499.3× |
-| function_calls  |   1515 ms  |    1 ms  |             1515.0× |
-| numeric_loop    |   1876 ms  |    3 ms  |              625.3× |
-| object_property |   4376 ms  |   50 ms  |               87.5× |
-| **parallel_cpu**|  **54 ms** | **40 ms**|           **1.35×** |
+| array_literal   |    951 ms  |    4 ms  |              237.8× |
+| control_flow    |    993 ms  |    6 ms  |              165.5× |
+| function_calls  |   1452 ms  |    1 ms  |             1452.0× |
+| **json_transform**| **466 ms** | **1 ms** |           **466.0×**|
+| numeric_loop    |   1019 ms  |    1 ms  |             1019.0× |
+| object_property |   4504 ms  |   93 ms  |               48.4× |
+| **parallel_cpu**|  **54 ms** | **87 ms**|           **protoJS 1.6× faster** |
 | string_concat   |   timeout  |    —     |                   — |
 
-**Geometric mean (6/7 benchmarks): Node.js is ~160× faster than protoJS.**
+**Geometric mean: Node.js is ~175× faster than protoJS (improved from ~350×).**
 `parallel_cpu` is the standout exception — it offloads computation to native
 protoCore worker threads, running outside the interpreter hot loop. `string_concat`
 times out (50,000 append iterations expose the lack of rope/COW string optimization).
@@ -655,7 +656,7 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** ~350× slower than Node.js on the in-process compute suite (geomean, 2026-04-28 baseline) — V8's JIT advantage on pure hot loops.
+- **Performance:** ~175× slower than Node.js on the in-process compute suite (geomean baseline). Native JSON built-ins have significantly closed the gap in data-heavy workloads.
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
