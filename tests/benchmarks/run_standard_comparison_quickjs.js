@@ -29,18 +29,12 @@ function findProtojs() {
 
 function findQjs() {
     const candidates = [
-        path.join(QUICKJS_SRC, 'qjs'),
-        path.join(QUICKJS_SRC, 'qjs.exe'),
-        path.resolve(QUICKJS_SRC, 'qjs'),
+        path.join(__dirname, 'qjs_minimal'),
+        path.join(__dirname, '../../qjs_raw'),
     ];
     for (const p of candidates) {
         if (fs.existsSync(p)) return p;
     }
-    try {
-        const r = require('child_process').execSync('which qjs 2>/dev/null', { encoding: 'utf8' });
-        const p = (r || '').trim();
-        if (p && fs.existsSync(p)) return p;
-    } catch (_) {}
     return null;
 }
 

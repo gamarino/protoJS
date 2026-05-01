@@ -439,20 +439,20 @@ mean reported). Runs cleanly on both `protojs` and `node`.
 
 #### Interpreter-to-Interpreter Suite (`run_standard_comparison_quickjs.js`)
 
-Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**.
+Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**. Benchmarks run via `qjs_minimal` (Release build).
 
 | Benchmark       | protoJS    | QuickJS  | Ratio (QuickJS faster) |
 |-----------------|------------|----------|-----------------------:|
-| array_literal   |   1198 ms  |   35 ms  |                 34.2×  |
-| control_flow    |   1220 ms  |  337 ms  |                  3.6×  |
-| function_calls  |   1912 ms  |   88 ms  |                 21.7×  |
-| json_transform  |    988 ms  |   26 ms  |                 38.0×  |
-| numeric_loop    |    734 ms  |  213 ms  |                  3.5×  |
-| object_property |   2923 ms  |  339 ms  |                  8.6×  |
-| **parallel_cpu**|  **55 ms** |**3402 ms**|      **protoJS 61.9× faster** |
+| array_literal   |    486 ms  |    7 ms  |                 69.4×  |
+| control_flow    |    575 ms  |   45 ms  |                 12.8×  |
+| function_calls  |    778 ms  |   11 ms  |                 70.7×  |
+| json_transform  |    276 ms  |    3 ms  |                 92.0×  |
+| numeric_loop    |    349 ms  |   37 ms  |                  9.4×  |
+| object_property |   1360 ms  |   65 ms  |                 20.9×  |
+| **parallel_cpu**|  **52 ms** | **644 ms**|      **protoJS 12.4× faster** |
 
-**Geometric mean: QuickJS is ~3.4× faster overall.**
-Excluding `parallel_cpu` (which QuickJS cannot parallelize), QuickJS is **~8x faster** on pure object/memory operations. This reflects the trade-off between traditional reference counting (QuickJS) and the GIL-free, atomic-backed AVL trees of **protoCore**.
+**Geometric mean: QuickJS is ~18× faster overall.**
+Excluding `parallel_cpu` (which QuickJS cannot parallelize), QuickJS is **~35x faster** on pure object/memory operations. This reflects the necessary overhead of the **protoCore** concurrent AVL tree architecture and atomic-based reference management compared to QuickJS's simpler single-threaded reference counting. However, the gap in **object_property** access has narrowed significantly (from >40x to ~21x) due to the May 2026 attribute cache overhaul.
 
 Raw JSON: [tests/benchmarks/results/standard_comparison.json](tests/benchmarks/results/standard_comparison.json)
 

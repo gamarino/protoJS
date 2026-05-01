@@ -17,7 +17,7 @@ function runOneChunk() {
     var state = 1;
     var sum = 0;
     var i = 0;
-    var n = 2e6;
+    var n = WORK_PER_TASK;
     while (i < n) {
         state = ((state * 1103515245 + 12345) >>> 0);
         sum += state;
