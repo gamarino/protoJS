@@ -318,7 +318,7 @@ For more details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## The Swarm of One
 
-**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now back JavaScript on a GIL-free, structurally-sharing object model. The interpreter itself is currently ~101× behind V8 on pure compute (see [Performance Benchmarks](#performance-benchmarks) for an honest 2026-04-28 baseline) — a JIT is future work — but the runtime contract (immutability, concurrent GC, lock-free threading) opens design space that V8's monolith cannot match. This is the democratization of high-level engineering: delivering a clear architectural alternative without the overhead of a massive corporate R&D department.
+**The Swarm of One** is the architect's manifesto for the AI era. In protoJS, we didn't just build a runtime; we orchestrated a paradigm shift. By leading a swarm of specialized AI agents, a single architect replaced the entire QuickJS runtime with protoCore primitives in record time. The same 64-byte cells that power Python and C++ now back JavaScript on a GIL-free, structurally-sharing object model. The interpreter itself is currently ~100× behind V8 on pure compute (see [Performance Benchmarks](#performance-benchmarks) for an honest 2026-05-01 baseline) — a JIT is future work — but the runtime contract (immutability, concurrent GC, lock-free threading) opens design space that V8's monolith cannot match. This is the democratization of high-level engineering: delivering a clear architectural alternative without the overhead of a massive corporate R&D department.
 
 ---
 
@@ -386,7 +386,7 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-04-28** (in-process median time, protoJS Release build
+**Honest baseline — 2026-05-01** (in-process median time, protoJS Release build
 linked against the latest protoCore vs. Node.js/V8 22). Pure compute; no startup
 cost counted on either side.
 
@@ -396,16 +396,16 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
 
 | Benchmark       | protoJS    | Node.js  | Ratio (Node faster) |
 |-----------------|------------|----------|--------------------:|
-| array_literal   |    951 ms  |    4 ms  |              237.8× |
-| control_flow    |    993 ms  |    6 ms  |              165.5× |
-| function_calls  |   1452 ms  |    1 ms  |             1452.0× |
-| **json_transform**| **466 ms** | **1 ms** |           **466.0×**|
-| numeric_loop    |   1019 ms  |    1 ms  |             1019.0× |
-| object_property |   4504 ms  |   93 ms  |               48.4× |
-| **parallel_cpu**|  **54 ms** | **87 ms**|           **protoJS 1.6× faster** |
+| array_literal   |    507 ms  |    3 ms  |              169.0× |
+| control_flow    |    566 ms  |    4 ms  |              141.5× |
+| function_calls  |    751 ms  |    1 ms  |              751.0× |
+| **json_transform**| **285 ms** | **1 ms** |           **285.0×**|
+| numeric_loop    |    337 ms  |    1 ms  |              337.0× |
+| object_property |   1380 ms  |   30 ms  |               46.0× |
+| **parallel_cpu**|  **52 ms** | **41 ms**|           **Node 1.3× faster** |
 | string_concat   |   timeout  |    —     |                   — |
 
-**Geometric mean: Node.js is ~175× faster than protoJS (improved from ~350×).**
+**Geometric mean: Node.js is ~100× faster than protoJS (improved from ~175×).**
 `parallel_cpu` is the standout exception — it offloads computation to native
 protoCore worker threads, running outside the interpreter hot loop. `string_concat`
 times out (50,000 append iterations expose the lack of rope/COW string optimization).
@@ -673,7 +673,7 @@ SOFTWARE.
 **This project is in active development (Phase 6 Complete - Ecosystem & Compatibility).**
 
 - Phase 6 complete: Extended npm support, performance benchmarking, and Node.js test suite compatibility
-- **Performance:** ~175× slower than Node.js on the in-process compute suite (geomean baseline). Native JSON built-ins have significantly closed the gap in data-heavy workloads.
+- **Performance:** ~100× slower than Node.js on the in-process compute suite (geomean baseline). The May 2026 "own-only" cache overhaul significantly improved object property access (~3.2x faster).
 - Core modules functional: fs, path, http, stream, events, util, crypto, url, buffer, net
 - Advanced modules: worker_threads, cluster, dgram, child_process, dns
 - Developer tools: Memory Analyzer, Visual Profiler, Integrated Debugger with Chrome DevTools Protocol
