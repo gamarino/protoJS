@@ -39,7 +39,6 @@ namespace protojs {
 // ---------------------------------------------------------------------------
 // OOP Dispatch Helpers (noinline to prevent i-cache bloating in the main loop)
 // ---------------------------------------------------------------------------
-__attribute__((noinline))
 static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) {
     if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
     const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
@@ -73,13 +72,23 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
 // ---------------------------------------------------------------------------
 // Property key interning optimization
 // ---------------------------------------------------------------------------
+static thread_local const proto::ProtoString* t_internCache_in[128] = {nullptr};
+static thread_local const proto::ProtoString* t_internCache_out[128] = {nullptr};
+
 static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
     if (!s) return nullptr;
-    // createSymbol is sharded hash lookup; relatively cheap if already exists.
-    // For small strings used as keys, this is a massive win due to pointer-stable hashing in protoCore.
+    if (s->isSymbol()) return s;
+    
+    size_t hash = (reinterpret_cast<size_t>(s) >> 4) & 127;
+    if (t_internCache_in[hash] == s) return t_internCache_out[hash];
+
     std::string utf8;
     s->toUTF8String(ctx, utf8);
-    return proto::ProtoString::createSymbol(ctx, utf8.c_str());
+    const proto::ProtoString* symbol = proto::ProtoString::createSymbol(ctx, utf8.c_str());
+    
+    t_internCache_in[hash] = s;
+    t_internCache_out[hash] = symbol;
+    return symbol;
 }
 
 static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
@@ -3653,7 +3662,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                     }
                     if (obj && key) {
-                        val = resolveFieldOOP(pContext, obj, key);
+                        // Fast path: check own properties first (avoiding BehaviorRegistry/prototype chain)
+                        val = obj->getAttribute(pContext, key, false);
+                        if (!val || val == PROTO_NONE) {
+                            val = resolveFieldOOP(pContext, obj, key);
+                        }
+                        
                         if (!val || val == PROTO_NONE) {
                             std::string keyStrGAE;
                             key->toUTF8String(pContext, keyStrGAE);
@@ -3910,23 +3924,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
             L_OP_add: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
-                // ToPrimitive first so that objects with valueOf/toString participate
-                // in string detection and numeric addition correctly.
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
+                const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
-                if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
+                const proto::ProtoObject* a = stackTop(pContext);
                 stackPop(pContext);
+
+                // Integer fast-path (JS addition/concatenation)
+                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
+                    stackPush(pContext, pContext->fromInteger(a->asLong(pContext) + b->asLong(pContext)));
+                    DISPATCH();
+                }
+
+                // Fallback: ToPrimitive
+                const proto::ProtoObject* pa = toPrimIfObject(a);
+                const proto::ProtoObject* pb = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
-                // JS semantics: if either operand is a string, convert both to string and concat.
-                // Otherwise, convert both to number.
-                bool aIsStr = a && a != PROTO_NONE && a->isString(pContext);
-                bool bIsStr = b && b != PROTO_NONE && b->isString(pContext);
+
+                bool aIsStr = pa && pa != PROTO_NONE && pa->isString(pContext);
+                bool bIsStr = pb && pb != PROTO_NONE && pb->isString(pContext);
                 const proto::ProtoObject* res;
                 if (aIsStr || bIsStr) {
-                    // String concatenation: convert both sides to string, use ProtoString::appendLast
-                    const proto::ProtoObject* ra = toString(pContext, a);
-                    const proto::ProtoObject* rb = toString(pContext, b);
+                    const proto::ProtoObject* ra = toString(pContext, pa);
+                    const proto::ProtoObject* rb = toString(pContext, pb);
                     const proto::ProtoString* sa = ra ? ra->asString(pContext) : nullptr;
                     const proto::ProtoString* sb = rb ? rb->asString(pContext) : nullptr;
                     if (sa && sb) {
@@ -3936,8 +3955,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         res = sa ? ra : (sb ? rb : PROTO_NONE);
                     }
                 } else {
-                    const proto::ProtoObject* ra = toNumber(pContext, a);
-                    const proto::ProtoObject* rb = toNumber(pContext, b);
+                    const proto::ProtoObject* ra = toNumber(pContext, pa);
+                    const proto::ProtoObject* rb = toNumber(pContext, pb);
                     res = ra ? ra->add(pContext, rb) : PROTO_NONE;
                 }
                 stackPush(pContext, res ? res : PROTO_NONE);
@@ -3945,13 +3964,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
             L_OP_mul: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
+                const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
-                if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
+                const proto::ProtoObject* a = stackTop(pContext);
                 stackPop(pContext);
+                
+                // Integer fast-path
+                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
+                    stackPush(pContext, pContext->fromInteger(a->asLong(pContext) * b->asLong(pContext)));
+                    DISPATCH();
+                }
+
+                const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
+                const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* res = a->multiply(pContext, b);
+                const proto::ProtoObject* res = na->multiply(pContext, nb);
                 stackPush(pContext,res ? res : PROTO_NONE);
                 DISPATCH();
             }
@@ -3977,26 +4004,45 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
             L_OP_sub: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
+                const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
-                if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
+                const proto::ProtoObject* a = stackTop(pContext);
                 stackPop(pContext);
+
+                // Integer fast-path
+                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
+                    stackPush(pContext, pContext->fromInteger(a->asLong(pContext) - b->asLong(pContext)));
+                    DISPATCH();
+                }
+
+                const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
+                const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* res = a->subtract(pContext, b);
+                const proto::ProtoObject* res = na->subtract(pContext, nb);
                 stackPush(pContext,res ? res : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_mod: {
                 if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
+                const proto::ProtoObject* b = stackTop(pContext);
                 stackPop(pContext);
-                if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
+                const proto::ProtoObject* a = stackTop(pContext);
                 stackPop(pContext);
+                
+                // Integer fast-path
+                if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
+                    long long vb = b->asLong(pContext);
+                    if (vb != 0) {
+                        stackPush(pContext, pContext->fromInteger(a->asLong(pContext) % vb));
+                        DISPATCH();
+                    }
+                }
+
+                // Fallback to double/toNumber
+                const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
+                const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
                 if (has_pending_exception) DISPATCH();
-                // JS modulo yields double when either operand is double (matches IEEE 754 fmod).
-                // Always use fmod to avoid mixed-type exceptions in protoCore.
+                
                 {
                     auto toDoubleVal2 = [&](const proto::ProtoObject* v) -> double {
                         if (!v || v == PROTO_NONE) return 0.0;
@@ -4004,17 +4050,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (v->isDouble(pContext) || v->isFloat(pContext)) return v->asDouble(pContext);
                         return 0.0;
                     };
-                    double da = toDoubleVal2(a);
-                    double db = toDoubleVal2(b);
-                    // If both are exact integers and divisor is non-zero, return integer result.
-                    if (db != 0.0 && a && a != PROTO_NONE && a->isInteger(pContext) &&
-                        b && b != PROTO_NONE && b->isInteger(pContext)) {
-                        long long ia = a->asLong(pContext);
-                        long long ib = b->asLong(pContext);
-                        stackPush(pContext, pContext->fromInteger(ia % ib));
-                    } else {
-                        stackPush(pContext, pContext->fromDouble(std::fmod(da, db)));
-                    }
+                    double da = toDoubleVal2(na);
+                    double db = toDoubleVal2(nb);
+                    stackPush(pContext, pContext->fromDouble(std::fmod(da, db)));
                 }
                 DISPATCH();
             }

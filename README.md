@@ -447,12 +447,18 @@ Comparing against vanilla **QuickJS** (the underlying engine without protoCore) 
 | control_flow    |    575 ms  |   45 ms  |                 12.8×  |
 | function_calls  |    778 ms  |   11 ms  |                 70.7×  |
 | json_transform  |    276 ms  |    3 ms  |                 92.0×  |
-| numeric_loop    |    349 ms  |   37 ms  |                  9.4×  |
-| object_property |   1360 ms  |   65 ms  |                 20.9×  |
+| numeric_loop    |    342 ms  |   37 ms  |                  9.2×  |
+| object_property |   1384 ms  |   65 ms  |                 21.3×  |
 | **parallel_cpu**|  **52 ms** | **644 ms**|      **protoJS 12.4× faster** |
 
 **Geometric mean: QuickJS is ~18× faster overall.**
-Excluding `parallel_cpu` (which QuickJS cannot parallelize), QuickJS is **~35x faster** on pure object/memory operations. This reflects the necessary overhead of the **protoCore** concurrent AVL tree architecture and atomic-based reference management compared to QuickJS's simpler single-threaded reference counting. However, the gap in **object_property** access has narrowed significantly (from >40x to ~21x) due to the May 2026 attribute cache overhaul.
+
+### Why the 20x Gap?
+The performance difference in object property access is primarily driven by fundamental architectural trade-offs:
+
+1.  **Persistent vs. Mutable Memory**: QuickJS uses a traditional mutable hash map with hidden classes (Shapes) for fast O(1) property lookup. `protoJS` uses `protoCore`'s persistent AVL-tree structures. This provides full thread-safety and lock-free concurrency (zero-copy snapshots) but involves O(log N) lookup depth and significantly more pointer indirection.
+2.  **Zero-Allocation Symbols**: Every property access in `protoJS` requires interning the key into a `protoCore::ProtoString` symbol. While we have implemented a **128-entry Inline Cache (IC)** to eliminate redundant UTF-8 conversions and sharded lookups, the overhead of symbol-stable comparison in a sharded environment persists.
+3.  **Refcounting vs. Concurrency**: QuickJS uses single-threaded reference counting. `protoJS` leverages `protoCore`'s sharded, thread-safe memory management. The 20x gap in single-threaded property access is the direct "tax" for the **12x gain in parallel performance** shown in `parallel_cpu`.
 
 Raw JSON: [tests/benchmarks/results/standard_comparison.json](tests/benchmarks/results/standard_comparison.json)
 

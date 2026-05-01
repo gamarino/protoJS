@@ -212,43 +212,49 @@ const JSObjectBehavior* BehaviorRegistry::resolve(proto::ProtoContext* ctx, cons
         return defaultBehavior.get();
     }
 
+    static thread_local const proto::ProtoList* t_lastParents = nullptr;
+    static thread_local const JSObjectBehavior* t_lastBehavior = nullptr;
+    if (parents == t_lastParents && t_lastBehavior) return t_lastBehavior;
+
+    const JSObjectBehavior* behavior = nullptr;
     size_t size = parents->getSize(ctx);
-    if (size == 0) return defaultBehavior.get();
-    if (size == 1) {
+    
+    if (size == 0) {
+        behavior = defaultBehavior.get();
+    } else if (size == 1) {
         const proto::ProtoObject* parent = parents->getAt(ctx, 0);
         auto it = registry.find(parent);
-        if (it != registry.end()) return it->second.get();
-        return defaultBehavior.get();
-    }
-
-    std::vector<const JSObjectBehavior*> found;
-    // Iterate backwards: markers added later (Frozen) take precedence.
-    for (int i = static_cast<int>(size) - 1; i >= 0; --i) {
-        const proto::ProtoObject* parent = parents->getAt(ctx, i);
-        if (parent && parent != PROTO_NONE) {
-            auto it = registry.find(parent);
-            if (it != registry.end()) {
-                found.push_back(it->second.get());
+        if (it != registry.end()) behavior = it->second.get();
+        else behavior = defaultBehavior.get();
+    } else {
+        std::vector<const JSObjectBehavior*> found;
+        for (int i = static_cast<int>(size) - 1; i >= 0; --i) {
+            const proto::ProtoObject* parent = parents->getAt(ctx, i);
+            if (parent && parent != PROTO_NONE) {
+                auto it = registry.find(parent);
+                if (it != registry.end()) {
+                    found.push_back(it->second.get());
+                }
             }
+        }
+
+        if (found.empty()) {
+            behavior = defaultBehavior.get();
+        } else if (found.size() == 1) {
+            behavior = found[0];
+        } else {
+            static thread_local std::map<std::vector<const JSObjectBehavior*>, std::unique_ptr<CompositeBehavior>> t_compositeCache;
+            auto& composite = t_compositeCache[found];
+            if (!composite) {
+                composite = std::make_unique<CompositeBehavior>(found);
+            }
+            behavior = composite.get();
         }
     }
 
-    if (found.empty()) return defaultBehavior.get();
-    if (found.size() == 1) return found[0];
-
-    // For multiple behaviors, we should ideally cache the composite.
-    // For now, create a temporary one (leak-prone if resolve is called too much, 
-    // but behaviors are usually few). 
-    // Better: use a thread-local cache or a mutexed one.
-    
-    // Simple cache-less implementation for now to verify logic.
-    // In a real VM, we'd cache this based on the parent list identity.
-    static thread_local std::map<std::vector<const JSObjectBehavior*>, std::unique_ptr<CompositeBehavior>> t_compositeCache;
-    auto& composite = t_compositeCache[found];
-    if (!composite) {
-        composite = std::make_unique<CompositeBehavior>(found);
-    }
-    return composite.get();
+    t_lastParents = parents;
+    t_lastBehavior = behavior;
+    return behavior;
 }
 
 } // namespace protojs
