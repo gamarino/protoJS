@@ -1,260 +1,165 @@
 #include "BehaviorRegistry.h"
-#include "ProtoInterpreter.h"
-#include "../TypedArrayPrototype.h"
-#include "../JSSymbols.h"
-#include <string>
-#include <algorithm>
-#include <vector>
 #include <map>
-#include <memory>
+#include <unordered_map>
+#include <vector>
+#include "../JSSymbols.h"
 
 namespace protojs {
 
-// ---------------------------------------------------------------------------
-// TypedArrayBehavior
-// ---------------------------------------------------------------------------
-class TypedArrayBehavior : public JSObjectBehavior {
-    uint8_t m_elemType;
-public:
-    explicit TypedArrayBehavior(uint8_t elemType) : m_elemType(elemType) {}
+    // Implementation of FrozenBehavior
+    const proto::ProtoObject* FrozenBehavior::putField(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) const {
+        // ES spec: setting a property on a frozen object is a TypeError in strict mode.
+        // In ProtoJS we currently follow a "strict by default" approach for frozen objects.
+        return nullptr; // Indicates failure/exception
+    }
+    const proto::ProtoObject* FrozenBehavior::putElement(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) const {
+        return nullptr;
+    }
 
-    virtual const proto::ProtoObject* getField(
-        proto::ProtoContext* ctx, 
-        const proto::ProtoObject* obj, 
-        const proto::ProtoString* key) const override 
-    {
-        // 1. Try dictionary fast path for normal properties (like length, slice, etc)
-        const proto::ProtoObject* val = obj->getAttribute(ctx, key, true);
-        if (val && val != PROTO_NONE) {
-            return val;
+    // Implementation of NonExtensibleBehavior
+    const proto::ProtoObject* NonExtensibleBehavior::putField(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) const {
+        if (!obj || !key) return nullptr;
+        // If property exists, allow update. If not, reject.
+        if (obj->getAttribute(ctx, key, false) != PROTO_NONE) {
+            return obj->setAttribute(ctx, key, val);
+        }
+        return nullptr;
+    }
+    const proto::ProtoObject* NonExtensibleBehavior::putElement(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) const {
+        // Elements are always considered "new" if they are not in the fast-path array storage?
+        // Actually, NonExtensible only prevents new properties.
+        return nullptr; 
+    }
+
+    // Implementation of TypedArrayBehavior
+    class TypedArrayBehavior : public JSObjectBehavior {
+        uint8_t elemType;
+    public:
+        explicit TypedArrayBehavior(uint8_t et) : elemType(et) {}
+        uint8_t getTypedArrayElementType() const override { return elemType; }
+    };
+
+    // Helper: Composite behavior for multiple inheritance markers
+    class CompositeBehavior : public JSObjectBehavior {
+        std::vector<const JSObjectBehavior*> behaviors;
+    public:
+        explicit CompositeBehavior(const std::vector<const JSObjectBehavior*>& b) : behaviors(b) {}
+
+        const proto::ProtoObject* getElement(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index) const override {
+            for (auto b : behaviors) {
+                const proto::ProtoObject* res = b->getElement(ctx, obj, index);
+                if (res && res != (const proto::ProtoObject*)0) return res;
+            }
+            return nullptr;
         }
 
-        // 2. Fallback to typed array numeric element access
-        std::string keyStr = key->toStdString(ctx);
-        bool isNumeric = !keyStr.empty() && std::all_of(keyStr.begin(), keyStr.end(), ::isdigit);
-        if (isNumeric) {
-            uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-            return typedArrayGetElement(ctx, obj, idx, m_elemType);
+        const proto::ProtoObject* putElement(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) const override {
+            for (auto b : behaviors) {
+                const proto::ProtoObject* res = b->putElement(ctx, obj, index, val);
+                if (res) return res;
+            }
+            return nullptr;
         }
 
-        return PROTO_NONE;
-    }
-
-    virtual const proto::ProtoObject* getElement(
-        proto::ProtoContext* ctx, 
-        const proto::ProtoObject* obj, 
-        uint32_t index) const override 
-    {
-        return typedArrayGetElement(ctx, obj, index, m_elemType);
-    }
-
-    virtual const proto::ProtoObject* putElement(
-        proto::ProtoContext* ctx, 
-        const proto::ProtoObject* obj, 
-        uint32_t index,
-        const proto::ProtoObject* val) const override 
-    {
-        return typedArraySetElement(ctx, obj, index, val, m_elemType);
-    }
-
-    virtual const proto::ProtoObject* putField(
-        proto::ProtoContext* ctx, 
-        const proto::ProtoObject* obj, 
-        const proto::ProtoString* key, 
-        const proto::ProtoObject* val) const override 
-    {
-        std::string keyStr = key->toStdString(ctx);
-        bool isNumeric = !keyStr.empty() && std::all_of(keyStr.begin(), keyStr.end(), ::isdigit);
-        if (isNumeric) {
-            uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-            return typedArraySetElement(ctx, obj, idx, val, m_elemType);
+        uint8_t getTypedArrayElementType() const override {
+            for (auto b : behaviors) {
+                uint8_t et = b->getTypedArrayElementType();
+                if (et != 0xFF) return et;
+            }
+            return 0xFF;
         }
-        return obj->setAttribute(ctx, key, val);
+    };
+
+    BehaviorRegistry& BehaviorRegistry::instance() {
+        static BehaviorRegistry instance;
+        return instance;
     }
 
-    virtual uint8_t getTypedArrayElementType() const override {
-        return m_elemType;
-    }
-};
+    BehaviorRegistry::BehaviorRegistry() : defaultBehavior(std::make_unique<JSObjectBehavior>()) {}
 
-// ---------------------------------------------------------------------------
-// FrozenBehavior
-// ---------------------------------------------------------------------------
-const proto::ProtoObject* FrozenBehavior::putField(
-    proto::ProtoContext* ctx, 
-    const proto::ProtoObject* obj, 
-    const proto::ProtoString* key, 
-    const proto::ProtoObject* val) const 
-{
-    signalNativeException(makeNativeError(ctx, "TypeError", "Cannot assign to property of frozen object"));
-    return PROTO_NONE;
-}
-
-const proto::ProtoObject* FrozenBehavior::putElement(
-    proto::ProtoContext* ctx, 
-    const proto::ProtoObject* obj, 
-    uint32_t index, 
-    const proto::ProtoObject* val) const 
-{
-    signalNativeException(makeNativeError(ctx, "TypeError", "Cannot assign to element of frozen object"));
-    return PROTO_NONE;
-}
-
-// ---------------------------------------------------------------------------
-// NonExtensibleBehavior
-// ---------------------------------------------------------------------------
-const proto::ProtoObject* NonExtensibleBehavior::putField(
-    proto::ProtoContext* ctx, 
-    const proto::ProtoObject* obj, 
-    const proto::ProtoString* key, 
-    const proto::ProtoObject* val) const 
-{
-    // If property exists (is not nullptr), we can update it.
-    if (obj->getAttribute(ctx, key, false) == nullptr) {
-        signalNativeException(makeNativeError(ctx, "TypeError", "Object is not extensible"));
-        return PROTO_NONE;
-    }
-    return nullptr; // Pass through to allow standard update
-}
-
-const proto::ProtoObject* NonExtensibleBehavior::putElement(
-    proto::ProtoContext* ctx, 
-    const proto::ProtoObject* obj, 
-    uint32_t index, 
-    const proto::ProtoObject* val) const 
-{
-    const proto::ProtoString* key = JSSymbols::indexKey(ctx, index);
-    if (obj->getAttribute(ctx, key, false) == nullptr) {
-        // For TypedArrays, numeric elements always "exist" if in bounds.
-        // But NonExtensibleBehavior usually applies to named properties.
-        // If it's a TypedArray, it will handle it in its own putElement.
-        // If we reach here for a standard object, we block it.
-        signalNativeException(makeNativeError(ctx, "TypeError", "Object is not extensible"));
-        return PROTO_NONE;
-    }
-    return nullptr;
-}
-
-
-BehaviorRegistry& BehaviorRegistry::instance() {
-    static BehaviorRegistry _instance;
-    return _instance;
-}
-
-BehaviorRegistry::BehaviorRegistry() {
-    defaultBehavior = std::make_unique<JSObjectBehavior>();
-}
-
-void BehaviorRegistry::registerBehavior(const proto::ProtoObject* marker, std::unique_ptr<JSObjectBehavior> behavior) {
-    if (marker) {
+    void BehaviorRegistry::registerBehavior(const proto::ProtoObject* marker, std::unique_ptr<JSObjectBehavior> behavior) {
+        if (!marker || marker == (const proto::ProtoObject*)0) return;
         registry[marker] = std::move(behavior);
     }
-}
 
-void BehaviorRegistry::registerTypedArrayBehavior(const proto::ProtoObject* proto, uint8_t elemType) {
-    registerBehavior(proto, std::make_unique<TypedArrayBehavior>(elemType));
-}
+    void BehaviorRegistry::registerTypedArrayBehavior(const proto::ProtoObject* proto, uint8_t elemType) {
+        registerBehavior(proto, std::make_unique<TypedArrayBehavior>(elemType));
+    }
 
-class CompositeBehavior : public JSObjectBehavior {
-    std::vector<const JSObjectBehavior*> m_behaviors;
-public:
-    explicit CompositeBehavior(std::vector<const JSObjectBehavior*> behaviors) 
-        : m_behaviors(std::move(behaviors)) {}
-
-    const proto::ProtoObject* getField(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) const override {
-        for (auto b : m_behaviors) {
-            const proto::ProtoObject* val = b->getField(ctx, obj, key);
-            if (val && val != PROTO_NONE) return val;
+    const JSObjectBehavior* BehaviorRegistry::resolve(proto::ProtoContext* ctx, const proto::ProtoObject* obj) const {
+        if (!obj || (const proto::ProtoObject*)obj == (const proto::ProtoObject*)0) {
+            return defaultBehavior.get();
         }
-        return nullptr;
-    }
 
-    const proto::ProtoObject* putField(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) const override {
-        for (auto b : m_behaviors) {
-            const proto::ProtoObject* res = b->putField(ctx, obj, key, val);
-            if (res && res != obj) return res;
+        // Per-object behavior cache. Ultimate fast-path for hot loops.
+        // Prevents redundant snapshotting of mutable objects via getFirstParent().
+        static thread_local struct {
+            const proto::ProtoObject* obj;
+            const JSObjectBehavior* behavior;
+        } t_objCache[256];
+        
+        size_t objIdx = (reinterpret_cast<size_t>(obj) ^ (reinterpret_cast<size_t>(obj) >> 12)) & 255;
+        if (t_objCache[objIdx].obj == obj && t_objCache[objIdx].behavior) {
+            return t_objCache[objIdx].behavior;
         }
-        return obj->setAttribute(ctx, key, val);
-    }
 
-    const proto::ProtoObject* getElement(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index) const override {
-        for (auto b : m_behaviors) {
-            const proto::ProtoObject* val = b->getElement(ctx, obj, index);
-            if (val && val != PROTO_NONE) return val;
-        }
-        return nullptr;
-    }
+        const proto::ProtoObject* parent = obj->getFirstParent(ctx);
 
-    const proto::ProtoObject* putElement(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) const override {
-        for (auto b : m_behaviors) {
-            const proto::ProtoObject* res = b->putElement(ctx, obj, index, val);
-            if (res && res != obj) return res;
-        }
-        return obj->setAttribute(ctx, JSSymbols::indexKey(ctx, index), val);
-    }
+        static thread_local struct {
+            const proto::ProtoObject* parent;
+            const JSObjectBehavior* behavior;
+        } t_behaviorCache[256];
+        
+        size_t cacheIdx = (reinterpret_cast<size_t>(parent) ^ (reinterpret_cast<size_t>(parent) >> 12)) & 255;
+        const JSObjectBehavior* behavior = nullptr;
 
-    uint8_t getTypedArrayElementType() const override {
-        for (auto b : m_behaviors) {
-            uint8_t t = b->getTypedArrayElementType();
-            if (t != 0xFF) return t;
-        }
-        return 0xFF;
-    }
-};
-
-const JSObjectBehavior* BehaviorRegistry::resolve(proto::ProtoContext* ctx, const proto::ProtoObject* obj) const {
-    if (!obj || obj == PROTO_NONE) {
-        return defaultBehavior.get();
-    }
-
-    const proto::ProtoList* parents = obj->getParents(ctx);
-    if (!parents || (const proto::ProtoObject*)parents == PROTO_NONE) {
-        return defaultBehavior.get();
-    }
-
-    static thread_local const proto::ProtoList* t_lastParents = nullptr;
-    static thread_local const JSObjectBehavior* t_lastBehavior = nullptr;
-    if (parents == t_lastParents && t_lastBehavior) return t_lastBehavior;
-
-    const JSObjectBehavior* behavior = nullptr;
-    size_t size = parents->getSize(ctx);
-    
-    if (size == 0) {
-        behavior = defaultBehavior.get();
-    } else if (size == 1) {
-        const proto::ProtoObject* parent = parents->getAt(ctx, 0);
-        auto it = registry.find(parent);
-        if (it != registry.end()) behavior = it->second.get();
-        else behavior = defaultBehavior.get();
-    } else {
-        std::vector<const JSObjectBehavior*> found;
-        for (int i = static_cast<int>(size) - 1; i >= 0; --i) {
-            const proto::ProtoObject* parent = parents->getAt(ctx, i);
-            if (parent && parent != PROTO_NONE) {
+        if (t_behaviorCache[cacheIdx].parent == parent && t_behaviorCache[cacheIdx].behavior) {
+            behavior = t_behaviorCache[cacheIdx].behavior;
+        } else {
+            if (!parent || parent == (const proto::ProtoObject*)0) {
+                behavior = defaultBehavior.get();
+            } else {
                 auto it = registry.find(parent);
                 if (it != registry.end()) {
-                    found.push_back(it->second.get());
+                    behavior = it->second.get();
+                } else {
+                    // Walk parents manually via getFirstParent to avoid list allocation
+                    // if possible, but for multiple inheritance we still need getParents.
+                    const proto::ProtoList* parents = obj->getParents(ctx);
+                    size_t size = parents ? parents->getSize(ctx) : 0;
+                    if (size <= 1) {
+                        behavior = defaultBehavior.get();
+                    } else {
+                        std::vector<const JSObjectBehavior*> found;
+                        for (size_t i = 0; i < size; i++) {
+                            const proto::ProtoObject* p = parents->getAt(ctx, i);
+                            auto it2 = registry.find(p);
+                            if (it2 != registry.end()) {
+                                found.push_back(it2->second.get());
+                            }
+                        }
+                        if (found.empty()) {
+                            behavior = defaultBehavior.get();
+                        } else if (found.size() == 1) {
+                            behavior = found[0];
+                        } else {
+                            static thread_local std::map<std::vector<const JSObjectBehavior*>, std::unique_ptr<CompositeBehavior>> t_compositeCache;
+                            auto& composite = t_compositeCache[found];
+                            if (!composite) {
+                                composite = std::make_unique<CompositeBehavior>(found);
+                            }
+                            behavior = composite.get();
+                        }
+                    }
                 }
             }
+            t_behaviorCache[cacheIdx].parent = parent;
+            t_behaviorCache[cacheIdx].behavior = behavior;
         }
 
-        if (found.empty()) {
-            behavior = defaultBehavior.get();
-        } else if (found.size() == 1) {
-            behavior = found[0];
-        } else {
-            static thread_local std::map<std::vector<const JSObjectBehavior*>, std::unique_ptr<CompositeBehavior>> t_compositeCache;
-            auto& composite = t_compositeCache[found];
-            if (!composite) {
-                composite = std::make_unique<CompositeBehavior>(found);
-            }
-            behavior = composite.get();
-        }
+        t_objCache[objIdx].obj = obj;
+        t_objCache[objIdx].behavior = behavior;
+        return behavior;
     }
-
-    t_lastParents = parents;
-    t_lastBehavior = behavior;
-    return behavior;
-}
 
 } // namespace protojs

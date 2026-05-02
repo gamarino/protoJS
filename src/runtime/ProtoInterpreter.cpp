@@ -37,7 +37,7 @@
 namespace protojs {
 
 // ---------------------------------------------------------------------------
-// OOP Dispatch Helpers (noinline to prevent i-cache bloating in the main loop)
+// OOP Dispatch Helpers
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) {
     if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
@@ -45,7 +45,6 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     return behavior->getField(ctx, obj, key);
 }
 
-__attribute__((noinline))
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
     const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
     const proto::ProtoObject* res = behavior->putField(ctx, obj, key, val);
@@ -53,7 +52,6 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     return obj->setAttribute(ctx, key, val);
 }
 
-__attribute__((noinline))
 static const proto::ProtoObject* resolveElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index) {
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
@@ -72,14 +70,14 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
 // ---------------------------------------------------------------------------
 // Property key interning optimization
 // ---------------------------------------------------------------------------
-static thread_local const proto::ProtoString* t_internCache_in[128] = {nullptr};
-static thread_local const proto::ProtoString* t_internCache_out[128] = {nullptr};
+static thread_local const proto::ProtoString* t_internCache_in[512] = {nullptr};
+static thread_local const proto::ProtoString* t_internCache_out[512] = {nullptr};
 
 static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
     if (!s) return nullptr;
     if (s->isSymbol()) return s;
     
-    size_t hash = (reinterpret_cast<size_t>(s) >> 4) & 127;
+    size_t hash = ((reinterpret_cast<size_t>(s) >> 4) ^ (reinterpret_cast<size_t>(s) >> 13)) & 511;
     if (t_internCache_in[hash] == s) return t_internCache_out[hash];
 
     std::string utf8;
@@ -617,6 +615,7 @@ static inline uint16_t get_u16(const uint8_t* p) {
 static bool toBool(proto::ProtoContext* context, const proto::ProtoObject* value) {
     if (!context) return false;
     if (!value || value == PROTO_NONE || value->isNone(context)) return false;
+    if (proto::isSmallInt(value)) return proto::asSmallInt(value) != 0;
     if (value == t_nullSentinel) return false;  // JS null is falsy
     if (value == PROTO_TRUE) return true;
     if (value == PROTO_FALSE) return false;
@@ -658,6 +657,7 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         return makeNaN();
     }
 
+    if (proto::isSmallInt(value)) return value;
     if (value->isInteger(context) || value->isDouble(context) || value->isFloat(context)) {
         // Already a numeric primitive.
         return value;
@@ -708,6 +708,7 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
 /** JS ToInt32: truncate to signed 32-bit integer. */
 static int32_t toInt32Val(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (!v || v == PROTO_NONE || v->isNone(ctx)) return 0;
+    if (proto::isSmallInt(v)) return static_cast<int32_t>(proto::asSmallInt(v));
     if (v->isInteger(ctx)) return static_cast<int32_t>(v->asLong(ctx));
     if (v->isDouble(ctx) || v->isFloat(ctx)) {
         double d = v->asDouble(ctx);
@@ -735,13 +736,16 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
     if (!context) return PROTO_NONE;
 
     if (!value || value == PROTO_NONE || value->isNone(context)) {
-        // We currently map "no value" to "undefined" in string context.
-        return context->fromUTF8String("undefined");
+        static const proto::ProtoObject* s_undef = nullptr;
+        if (!s_undef) s_undef = context->fromUTF8String("undefined");
+        return s_undef;
     }
 
     // null converts to the string "null".
     if (value == t_nullSentinel) {
-        return context->fromUTF8String("null");
+        static const proto::ProtoObject* s_null = nullptr;
+        if (!s_null) s_null = context->fromUTF8String("null");
+        return s_null;
     }
 
     if (value->isString(context)) {
@@ -1769,6 +1773,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
      * Returns the original value unchanged when the object is already a primitive. */
     auto toPrimIfObject = [&](const proto::ProtoObject* obj) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj->isNone(pContext)) return obj;
+        if (proto::isSmallInt(obj)) return obj;
         if (obj == t_nullSentinel) return obj;  // null does not coerce to primitive
         if (obj->isBoolean(pContext) || obj->isInteger(pContext) ||
             obj->isDouble(pContext) || obj->isFloat(pContext) ||
@@ -2118,7 +2123,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     const proto::ProtoObject* globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE;
     int opcode = 0;
 
+    // Local cache of stack pointers. MUST be re-fetched after any recursive call
+    // (OP_call, OP_get_field if it triggers a getter, etc.) because the
+    // context's automatic locals array or the thread-local frame vector
+    // might have reallocated.
+    const proto::ProtoObject** pAutomaticLocals = const_cast<const proto::ProtoObject**>(pContext->getAutomaticLocals());
+    const size_t _frameIdx = t_interpFrames.size() - 1;
+    const unsigned int currentStackBase = t_interpFrames[_frameIdx].stackBase;
+
+    #define _PF() (t_interpFrames[_frameIdx])
+    #define REFRESH_INTERP_STATE() do { \
+        pAutomaticLocals = const_cast<const proto::ProtoObject**>(pContext->getAutomaticLocals()); \
+    } while(0)
+
+    #define STACK_POP_ZERO() do { \
+        if (__builtin_expect(_PF().stackTop > 0, 1)) { \
+            pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE; \
+        } \
+    } while(0)
+
+    static thread_local uint32_t t_dispatchCount = 0;
     #define DISPATCH() do { \
+        if (__builtin_expect((++t_dispatchCount & 1023) == 0, 0)) pContext->safepoint(); \
         if (__builtin_expect(has_pending_exception, 0)) goto handle_exception_label; \
         if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch; \
         globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE; \
@@ -2135,40 +2161,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPush(pContext,pContext->fromInteger(-1));
                 DISPATCH();
             L_OP_push_0: ;
-                stackPush(pContext,pContext->fromInteger(0));
+                stackPush(pContext,proto::makeSmallInt(0));
                 DISPATCH();
             L_OP_push_1: ;
-                stackPush(pContext,pContext->fromInteger(1));
+                stackPush(pContext,proto::makeSmallInt(1));
                 DISPATCH();
             L_OP_push_2: ;
-                stackPush(pContext,pContext->fromInteger(2));
+                stackPush(pContext,proto::makeSmallInt(2));
                 DISPATCH();
             L_OP_push_3: ;
-                stackPush(pContext,pContext->fromInteger(3));
+                stackPush(pContext,proto::makeSmallInt(3));
                 DISPATCH();
             L_OP_push_4: ;
-                stackPush(pContext,pContext->fromInteger(4));
+                stackPush(pContext,proto::makeSmallInt(4));
                 DISPATCH();
             L_OP_push_5: ;
-                stackPush(pContext,pContext->fromInteger(5));
+                stackPush(pContext,proto::makeSmallInt(5));
                 DISPATCH();
             L_OP_push_6: ;
-                stackPush(pContext,pContext->fromInteger(6));
+                stackPush(pContext,proto::makeSmallInt(6));
                 DISPATCH();
             L_OP_push_7: ;
-                stackPush(pContext,pContext->fromInteger(7));
+                stackPush(pContext,proto::makeSmallInt(7));
                 DISPATCH();
             L_OP_push_i8: {
                 if (pc + 1 > len) return PROTO_NONE;
                 int8_t v = static_cast<int8_t>(buf[pc++]);
-                stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
+                stackPush(pContext,proto::makeSmallInt(v));
                 DISPATCH();
             }
             L_OP_push_i16: {
                 if (pc + 2 > len) return PROTO_NONE;
                 int16_t v = static_cast<int16_t>(get_u16(buf + pc));
                 pc += 2;
-                stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
+                if (proto::smallIntInRange(v)) {
+                    stackPush(pContext, proto::makeSmallInt(v));
+                } else {
+                    stackPush(pContext, pContext->fromInteger(static_cast<long long>(v)));
+                }
                 DISPATCH();
             }
             L_OP_push_i32: {
@@ -2176,7 +2206,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 4 > len) return PROTO_NONE;
                 int32_t v = (int32_t)get_u32(buf + pc);
                 pc += 4;
-                stackPush(pContext,pContext->fromInteger(static_cast<long long>(v)));
+                if (proto::smallIntInRange(v)) {
+                    stackPush(pContext, proto::makeSmallInt(v));
+                } else {
+                    stackPush(pContext, pContext->fromInteger(static_cast<long long>(v)));
+                }
                 DISPATCH();
             }
             L_OP_push_const8: {
@@ -3064,43 +3098,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_field: {
-                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
-                uint32_t atomIndex = get_u32(buf + pc);
+                if (_PF().stackTop < 1) return PROTO_NONE;
+                const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+
+                uint32_t atomIndex = (uint32_t)buf[pc] | ((uint32_t)buf[pc+1] << 8) |
+                                     ((uint32_t)buf[pc+2] << 16) | ((uint32_t)buf[pc+3] << 24);
                 pc += 4;
-                const proto::ProtoObject* obj = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
-                if (!key) { stackPush(pContext, PROTO_NONE); DISPATCH(); }
-                // Throw TypeError for null/undefined receiver.
-                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
-                    std::string keyStr;
-                    if (key) key->toUTF8String(pContext, keyStr);
-                    std::string msg = "Cannot read properties of ";
-                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
-                    msg += " (reading '"; msg += keyStr; msg += "')";
-                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
-                    has_pending_exception = true;
-                    DISPATCH();
-                }
-                
-                // Fast path: ONE direct call to protoCore! (callbacks=false for speed, getters handled manually below)
-                const proto::ProtoObject* val = obj->getAttribute(pContext, key, false);
-                
-                // OOP Dispatch via BehaviorRegistry ONLY if property not found natively
-                if (!val) { // nullptr means absent
-                    val = resolveFieldOOP(pContext, obj, key);
-                }
-                
-                // Invoke getter if no data value but an accessor is defined.
-                if (!val || val == PROTO_NONE) {
-                    std::string keyStr2;
-                    key->toUTF8String(pContext, keyStr2);
-                    const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStr2);
-                    if (has_pending_exception) DISPATCH();
-                    if (gval && gval != PROTO_NONE) val = gval;
-                }
-                
-                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
+
+                auto nameIt = module->atomToProto.find(atomIndex);
+                const proto::ProtoString* name = (nameIt != module->atomToProto.end()) ? nameIt->second : nullptr;
+                const proto::ProtoObject* val = resolveFieldOOP(pContext, obj, name);
+                REFRESH_INTERP_STATE();
+
+                if (has_pending_exception) DISPATCH();
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
                 DISPATCH();
             }
             L_OP_get_field2: {
@@ -3158,6 +3169,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!key || !obj) { DISPATCH(); }
 
                 const proto::ProtoObject* newObj = resolvePutFieldOOP(pContext, obj, key, val);
+                REFRESH_INTERP_STATE();
                 
                 if (hasCallException()) {
                     pending_exception = t_callException;
@@ -3626,16 +3638,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* newObj = (objProto && objProto != PROTO_NONE)
                     ? objProto->newChild(pContext, true)
                     : pContext->newObject(true);
-                stackPush(pContext,newObj);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = newObj;
                 DISPATCH();
             }
             // --- Array element helpers (implemented via property semantics) ---
             L_OP_get_array_el: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* index = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* obj = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // No zeroing for obj as result will overwrite it.
                 // Throw TypeError for null/undefined receiver.
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
                     std::string msg = "Cannot read properties of ";
@@ -3656,10 +3668,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast));
                 }
                 if (!val) {
-                    const proto::ProtoString* key = ensureInternedOOP(pContext, index);
-                    if (!key) {
-                        const proto::ProtoObject* keyObj = toString(pContext, index);
-                        key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
+                    const proto::ProtoString* key = nullptr;
+                    if (arrIdxFast >= 0) {
+                        key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast));
+                    } else {
+                        key = ensureInternedOOP(pContext, index);
+                        if (!key) {
+                            const proto::ProtoObject* keyObj = toString(pContext, index);
+                            key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
+                        }
                     }
                     if (obj && key) {
                         // Fast path: check own properties first (avoiding BehaviorRegistry/prototype chain)
@@ -3677,17 +3694,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_get_array_el2: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* index = stackTop(pContext);
-                const proto::ProtoObject* obj = stackAt(pContext, 1);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                 // Throw TypeError for null/undefined receiver.
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
-                    stackPop(pContext); // pop index
-                    stackPop(pContext); // pop obj
+                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
                     std::string msg = "Cannot read properties of ";
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
@@ -3703,9 +3720,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast2));
                 }
                 if (!val) {
-                    const proto::ProtoObject* keyObj = toString(pContext, index);
-                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    const proto::ProtoString* key = nullptr;
+                    if (arrIdxFast2 >= 0) {
+                        key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast2));
+                    } else {
+                        const proto::ProtoObject* keyObj = index;
+                        if (!index->isString(pContext)) {
+                            keyObj = toString(pContext, index);
+                            REFRESH_INTERP_STATE();
+                        }
+                        key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    }
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
+                    REFRESH_INTERP_STATE();
                     if ((!val || val == PROTO_NONE) && key) {
                         std::string keyStrGAE2;
                         key->toUTF8String(pContext, keyStrGAE2);
@@ -3714,17 +3741,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
-                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_get_array_el3: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* index = stackTop(pContext);
-                const proto::ProtoObject* obj = stackAt(pContext, 1);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
                 // Throw TypeError for null/undefined receiver.
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
-                    stackPop(pContext); // pop index
-                    stackPop(pContext); // pop obj
+                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                    pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
                     std::string msg = "Cannot read properties of ";
                     msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
@@ -3740,8 +3769,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast3));
                 }
                 if (!val) {
-                    const proto::ProtoObject* keyObj = toString(pContext, index);
-                    const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    const proto::ProtoString* key = nullptr;
+                    if (arrIdxFast3 >= 0) {
+                        key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast3));
+                    } else {
+                        const proto::ProtoObject* keyObj = toString(pContext, index);
+                        REFRESH_INTERP_STATE();
+                        key = keyObj ? keyObj->asString(pContext) : nullptr;
+                    }
                     val = (obj && key) ? obj->getAttribute(pContext, key, true) : PROTO_NONE;
                     if ((!val || val == PROTO_NONE) && key) {
                         std::string keyStrGAE3;
@@ -3751,18 +3786,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
-                stackPush(pContext, index);
-                stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_put_array_el: {
-                if (stackSize(pContext) < 3) return PROTO_NONE;
-                const proto::ProtoObject* value = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* index = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* obj = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 3) return PROTO_NONE;
+                const proto::ProtoObject* value = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
 
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
                     pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
@@ -3785,7 +3821,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (newObj) {
                         if (newObj != obj) updateMapping(pContext, obj, newObj);
                         // TypedArray elements don't affect .length, so we can jump to push.
-                        stackPush(pContext, newObj);
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = newObj;
                         DISPATCH();
                     }
                 } else {
@@ -3804,7 +3840,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                         if (newObj && newObj != obj) updateMapping(pContext, obj, newObj);
                         // Named properties don't affect .length, so we can jump to push.
-                        stackPush(pContext, newObj ? newObj : obj);
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = (newObj ? newObj : obj);
                         DISPATCH();
                     }
                 }
@@ -3841,21 +3877,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                stackPush(pContext, newObj ? newObj : (obj ? obj : PROTO_NONE));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (newObj ? newObj : (obj ? obj : PROTO_NONE));
                 DISPATCH();
             }
             L_OP_undefined: ;
-                stackPush(pContext,PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_NONE;
                 DISPATCH();
             L_OP_null: ;
                 // JS null is the null sentinel, not PROTO_NONE (which is undefined).
-                stackPush(pContext, t_nullSentinel ? t_nullSentinel : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (t_nullSentinel ? t_nullSentinel : PROTO_NONE);
                 DISPATCH();
             L_OP_push_false: ;
-                stackPush(pContext,PROTO_FALSE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_FALSE;
                 DISPATCH();
             L_OP_push_true: ;
-                stackPush(pContext,PROTO_TRUE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_TRUE;
                 DISPATCH();
             // --- Control flow ---
             L_OP_goto: {
@@ -3877,9 +3913,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_true: {
-                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* cond = stackTop(pContext);
-                stackPop(pContext);
+                if (pc + 4 > len || _PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
                 if (toBool(pContext, cond)) {
@@ -3888,9 +3924,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_false: {
-                if (pc + 4 > len || stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* cond = stackTop(pContext);
-                stackPop(pContext);
+                if (pc + 4 > len || _PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int32_t diff = static_cast<int32_t>(get_u32(buf + pc));
                 pc += 4;
                 if (!toBool(pContext, cond)) {
@@ -3899,9 +3935,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_true8: {
-                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* cond = stackTop(pContext);
-                stackPop(pContext);
+                if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (toBool(pContext, cond)) {
                     pc += off;
@@ -3911,9 +3947,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_if_false8: {
-                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* cond = stackTop(pContext);
-                stackPop(pContext);
+                if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* cond = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 int8_t off = static_cast<int8_t>(buf[pc]);
                 if (!toBool(pContext, cond)) {
                     pc += off;
@@ -3923,21 +3959,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_add: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
-                // Integer fast-path (JS addition/concatenation)
+                // Integer fast-path
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    long long resVal = proto::asSmallInt(a) + proto::asSmallInt(b);
+                    if (proto::smallIntInRange(resVal)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(resVal);
+                        DISPATCH();
+                    }
+                }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    stackPush(pContext, pContext->fromInteger(a->asLong(pContext) + b->asLong(pContext)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) + b->asLong(pContext));
                     DISPATCH();
                 }
 
                 // Fallback: ToPrimitive
                 const proto::ProtoObject* pa = toPrimIfObject(a);
                 const proto::ProtoObject* pb = toPrimIfObject(b);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
 
                 bool aIsStr = pa && pa != PROTO_NONE && pa->isString(pContext);
@@ -3946,6 +3989,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (aIsStr || bIsStr) {
                     const proto::ProtoObject* ra = toString(pContext, pa);
                     const proto::ProtoObject* rb = toString(pContext, pb);
+                    REFRESH_INTERP_STATE();
                     const proto::ProtoString* sa = ra ? ra->asString(pContext) : nullptr;
                     const proto::ProtoString* sb = rb ? rb->asString(pContext) : nullptr;
                     if (sa && sb) {
@@ -3957,38 +4001,50 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     const proto::ProtoObject* ra = toNumber(pContext, pa);
                     const proto::ProtoObject* rb = toNumber(pContext, pb);
+                    REFRESH_INTERP_STATE();
                     res = ra ? ra->add(pContext, rb) : PROTO_NONE;
                 }
-                stackPush(pContext, res ? res : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_mul: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 
                 // Integer fast-path
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    long long resVal = proto::asSmallInt(a) * proto::asSmallInt(b);
+                    if (proto::smallIntInRange(resVal)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(resVal);
+                        DISPATCH();
+                    }
+                }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    stackPush(pContext, pContext->fromInteger(a->asLong(pContext) * b->asLong(pContext)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) * b->asLong(pContext));
                     DISPATCH();
                 }
 
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* res = na->multiply(pContext, nb);
-                stackPush(pContext,res ? res : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_div: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(b_raw));
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext)));
-                stackPop(pContext);
+                const proto::ProtoObject* a_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // No zeroing for 'a' as result will overwrite it.
+                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(a_raw));
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 // JS division always yields double (handles /0 → ±Infinity, 0/0 → NaN, -0 correctly).
                 auto toDoubleVal = [&](const proto::ProtoObject* v) -> double {
@@ -3999,41 +4055,55 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 };
                 double da = toDoubleVal(a);
                 double db = toDoubleVal(b);
-                stackPush(pContext, pContext->fromDouble(da / db));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(da / db);
                 DISPATCH();
             }
             L_OP_sub: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
                 // Integer fast-path
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    long long resVal = proto::asSmallInt(a) - proto::asSmallInt(b);
+                    if (proto::smallIntInRange(resVal)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(resVal);
+                        DISPATCH();
+                    }
+                }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    stackPush(pContext, pContext->fromInteger(a->asLong(pContext) - b->asLong(pContext)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) - b->asLong(pContext));
                     DISPATCH();
                 }
 
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* res = na->subtract(pContext, nb);
-                stackPush(pContext,res ? res : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (res ? res : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_mod: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 
                 // Integer fast-path
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    long long va = proto::asSmallInt(a);
+                    long long vb = proto::asSmallInt(b);
+                    if (vb != 0) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(va % vb);
+                        DISPATCH();
+                    }
+                }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
                     long long vb = b->asLong(pContext);
                     if (vb != 0) {
-                        stackPush(pContext, pContext->fromInteger(a->asLong(pContext) % vb));
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) % vb);
                         DISPATCH();
                     }
                 }
@@ -4041,6 +4111,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Fallback to double/toNumber
                 const proto::ProtoObject* na = toNumber(pContext, toPrimIfObject(a));
                 const proto::ProtoObject* nb = toNumber(pContext, toPrimIfObject(b));
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 
                 {
@@ -4052,240 +4123,305 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     };
                     double da = toDoubleVal2(na);
                     double db = toDoubleVal2(nb);
-                    stackPush(pContext, pContext->fromDouble(std::fmod(da, db)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::fmod(da, db));
                 }
                 DISPATCH();
             }
             L_OP_eq: ;
             L_OP_neq: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* pa = toPrimIfObject(a);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 const proto::ProtoObject* pb = toPrimIfObject(b);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
                 bool eq = jsAbstractEquals(pContext, pa, pb);
-                stackPush(pContext, (opcode == OP_eq ? eq : !eq) ? PROTO_TRUE : PROTO_FALSE);
+                REFRESH_INTERP_STATE();
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((opcode == OP_eq ? eq : !eq) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_strict_eq: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
-                stackPush(pContext, (cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_strict_neq: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = stackTop(pContext);
-                stackPop(pContext);
-                const proto::ProtoObject* a = stackTop(pContext);
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
-                stackPush(pContext, (cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_lt: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) < proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
+                const proto::ProtoObject* pa = toPrimIfObject(a);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                const proto::ProtoObject* pb = toPrimIfObject(b);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (a && b) ? a->compare(pContext, b) : 0;
-                stackPush(pContext, (cmp < 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp < 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_lte: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) <= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
+                const proto::ProtoObject* pa = toPrimIfObject(a);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                const proto::ProtoObject* pb = toPrimIfObject(b);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (a && b) ? a->compare(pContext, b) : 0;
-                stackPush(pContext, (cmp <= 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp <= 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_gt: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) > proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
+                const proto::ProtoObject* pa = toPrimIfObject(a);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                const proto::ProtoObject* pb = toPrimIfObject(b);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (a && b) ? a->compare(pContext, b) : 0;
-                stackPush(pContext, (cmp > 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp > 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_gte: {
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) >= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
+                    DISPATCH();
+                }
+                const proto::ProtoObject* pa = toPrimIfObject(a);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext));
-                stackPop(pContext);
+                const proto::ProtoObject* pb = toPrimIfObject(b);
+                REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (a && b) ? a->compare(pContext, b) : 0;
-                stackPush(pContext, (cmp >= 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp >= 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_and: {
                 // Bitwise AND: ToInt32(a) & ToInt32(b)
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) & toInt32Val(pContext, b);
-                stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_or: {
                 // Bitwise OR: ToInt32(a) | ToInt32(b)
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) | toInt32Val(pContext, b);
-                stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_xor: {
                 // Bitwise XOR: ToInt32(a) ^ ToInt32(b)
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) ^ toInt32Val(pContext, b);
-                stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_shl: {
                 // Left shift: ToInt32(a) << (ToUint32(b) & 0x1F)
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) << (toUint32Val(pContext, b) & 0x1Fu);
-                stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_sar: {
                 // Arithmetic right shift: ToInt32(a) >> (ToUint32(b) & 0x1F)
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) >> (toUint32Val(pContext, b) & 0x1Fu);
-                stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_shr: {
                 // Unsigned right shift: ToUint32(a) >>> (ToUint32(b) & 0x1F) → Int32 result
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 uint32_t ua = toUint32Val(pContext, a);
                 uint32_t shift = toUint32Val(pContext, b) & 0x1Fu;
                 uint32_t ures = ua >> shift;
                 // ToNumber result: if fits in signed int32, return integer, else double
                 if (ures <= static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
-                    stackPush(pContext, pContext->fromInteger(static_cast<long long>(ures)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(ures));
                 } else {
-                    stackPush(pContext, pContext->fromDouble(static_cast<double>(ures)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(static_cast<double>(ures));
                 }
                 DISPATCH();
             }
             L_OP_not: {
                 // Bitwise NOT: ~ToInt32(a)
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = toPrimIfObject(stackTop(pContext)); stackPop(pContext);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = ~toInt32Val(pContext, a);
-                stackPush(pContext, pContext->fromInteger(static_cast<long long>(res)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_neg: {
                 // Unary minus: -ToNumber(a)
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoObject* num = toNumber(pContext, toPrimIfObject(a));
                 if (has_pending_exception) DISPATCH();
-                if (!num || num == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); DISPATCH(); }
+                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
                 if (num->isInteger(pContext)) {
                     long long v = num->asLong(pContext);
-                    stackPush(pContext, v == 0 ? pContext->fromDouble(-0.0) : pContext->fromInteger(-v));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (v == 0 ? pContext->fromDouble(-0.0) : pContext->fromInteger(-v));
                 } else {
-                    stackPush(pContext, pContext->fromDouble(-num->asDouble(pContext)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(-num->asDouble(pContext));
                 }
                 DISPATCH();
             }
             L_OP_lnot: {
                 // Logical NOT: !ToBoolean(a)
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
-                stackPush(pContext, toBool(pContext, a) ? PROTO_FALSE : PROTO_TRUE);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (toBool(pContext, a) ? PROTO_FALSE : PROTO_TRUE);
                 DISPATCH();
             }
             L_OP_inc: {
                 // Prefix increment: ToNumber(a) + 1
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = toNumber(pContext, stackTop(pContext)); stackPop(pContext);
-                if (!a || a == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); DISPATCH(); }
-                if (a->isInteger(pContext)) stackPush(pContext, pContext->fromInteger(a->asLong(pContext) + 1));
-                else stackPush(pContext, pContext->fromDouble(a->asDouble(pContext) + 1.0));
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a)) {
+                    long long val = proto::asSmallInt(a) + 1;
+                    if (proto::smallIntInRange(val)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val);
+                        DISPATCH();
+                    }
+                }
+                const proto::ProtoObject* num = toNumber(pContext, a);
+                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
+                if (num->isInteger(pContext)) pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(num->asLong(pContext) + 1);
+                else pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(num->asDouble(pContext) + 1.0);
                 DISPATCH();
             }
             L_OP_dec: {
                 // Prefix decrement: ToNumber(a) - 1
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = toNumber(pContext, stackTop(pContext)); stackPop(pContext);
-                if (!a || a == PROTO_NONE) { stackPush(pContext, pContext->fromDouble(std::numeric_limits<double>::quiet_NaN())); DISPATCH(); }
-                if (a->isInteger(pContext)) stackPush(pContext, pContext->fromInteger(a->asLong(pContext) - 1));
-                else stackPush(pContext, pContext->fromDouble(a->asDouble(pContext) - 1.0));
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a)) {
+                    long long val = proto::asSmallInt(a) - 1;
+                    if (proto::smallIntInRange(val)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val);
+                        DISPATCH();
+                    }
+                }
+                const proto::ProtoObject* num = toNumber(pContext, a);
+                if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
+                if (num->isInteger(pContext)) pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(num->asLong(pContext) - 1);
+                else pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(num->asDouble(pContext) - 1.0);
                 DISPATCH();
             }
             L_OP_post_inc: {
                 // Post-increment: pushes original value then incremented value.
-                // Stack effect: a → a_orig, a+1 (but QuickJS spec: n_pop=1, n_push=2)
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a)) {
+                    long long val = proto::asSmallInt(a);
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a;
+                    if (proto::smallIntInRange(val + 1)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val + 1);
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* num = toNumber(pContext, a);
                 const proto::ProtoObject* inc;
                 if (!num || num == PROTO_NONE) inc = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
                 else if (num->isInteger(pContext)) inc = pContext->fromInteger(num->asLong(pContext) + 1);
                 else inc = pContext->fromDouble(num->asDouble(pContext) + 1.0);
-                stackPush(pContext, num ? num : PROTO_NONE);
-                stackPush(pContext, inc);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (num ? num : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = inc;
                 DISPATCH();
             }
             L_OP_post_dec: {
                 // Post-decrement: pushes original value then decremented value.
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (proto::isSmallInt(a)) {
+                    long long val = proto::asSmallInt(a);
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a;
+                    if (proto::smallIntInRange(val - 1)) {
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val - 1);
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* num = toNumber(pContext, a);
                 const proto::ProtoObject* dec;
                 if (!num || num == PROTO_NONE) dec = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
                 else if (num->isInteger(pContext)) dec = pContext->fromInteger(num->asLong(pContext) - 1);
                 else dec = pContext->fromDouble(num->asDouble(pContext) - 1.0);
-                stackPush(pContext, num ? num : PROTO_NONE);
-                stackPush(pContext, dec);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (num ? num : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = dec;
                 DISPATCH();
             }
             L_OP_dec_loc: {
@@ -4293,12 +4429,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount) {
-                    const proto::ProtoObject* cur = toNumber(pContext, getSlot(pContext, argCount + locIndex));
+                    const proto::ProtoObject* cur = pAutomaticLocals[currentStackBase + argCount + locIndex];
+                    if (proto::isSmallInt(cur)) {
+                        long long val = proto::asSmallInt(cur) - 1;
+                        if (proto::smallIntInRange(val)) {
+                            pAutomaticLocals[currentStackBase + argCount + locIndex] = proto::makeSmallInt(val);
+                            DISPATCH();
+                        }
+                    }
+                    const proto::ProtoObject* num = toNumber(pContext, cur);
                     const proto::ProtoObject* nv;
-                    if (!cur || cur == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                    else if (cur->isInteger(pContext)) nv = pContext->fromInteger(cur->asLong(pContext) - 1);
-                    else nv = pContext->fromDouble(cur->asDouble(pContext) - 1.0);
-                    setSlot(pContext, argCount + locIndex, nv);
+                    if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
+                    else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) - 1);
+                    else nv = pContext->fromDouble(num->asDouble(pContext) - 1.0);
+                    pAutomaticLocals[currentStackBase + argCount + locIndex] = nv;
                 }
                 DISPATCH();
             }
@@ -4307,20 +4451,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount) {
-                    const proto::ProtoObject* cur = toNumber(pContext, getSlot(pContext, argCount + locIndex));
+                    const proto::ProtoObject* cur = pAutomaticLocals[currentStackBase + argCount + locIndex];
+                    if (proto::isSmallInt(cur)) {
+                        long long val = proto::asSmallInt(cur) + 1;
+                        if (proto::smallIntInRange(val)) {
+                            pAutomaticLocals[currentStackBase + argCount + locIndex] = proto::makeSmallInt(val);
+                            DISPATCH();
+                        }
+                    }
+                    const proto::ProtoObject* num = toNumber(pContext, cur);
                     const proto::ProtoObject* nv;
-                    if (!cur || cur == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
-                    else if (cur->isInteger(pContext)) nv = pContext->fromInteger(cur->asLong(pContext) + 1);
-                    else nv = pContext->fromDouble(cur->asDouble(pContext) + 1.0);
-                    setSlot(pContext, argCount + locIndex, nv);
+                    if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
+                    else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) + 1);
+                    else nv = pContext->fromDouble(num->asDouble(pContext) + 1.0);
+                    pAutomaticLocals[currentStackBase + argCount + locIndex] = nv;
                 }
                 DISPATCH();
             }
-            L_OP_add_loc: {
+                L_OP_add_loc: {
                 // add_loc loc8: pops TOS and adds it to a local variable. Format: loc8 (1 byte).
-                if (pc + 1 > len || stackEmpty(pContext)) return PROTO_NONE;
+                if (pc + 1 > len || _PF().stackTop == 0) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
-                const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* val = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (locIndex < varCount) {
                     const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
                     // JS + semantics: string concat or numeric add.
@@ -4345,26 +4498,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
             L_OP_pow: {
                 // Exponentiation: a ** b
-                if (stackSize(pContext) < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(stackTop(pContext))); stackPop(pContext);
+                if (_PF().stackTop < 2) return PROTO_NONE;
+                const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(stackTop(pContext))); stackPop(pContext);
+                const proto::ProtoObject* a = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
                 if (has_pending_exception) DISPATCH();
                 double da = (!a || a == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : a->asDouble(pContext);
                 double db = (!b || b == PROTO_NONE) ? std::numeric_limits<double>::quiet_NaN() : b->asDouble(pContext);
                 double result = std::pow(da, db);
                 if (result == std::trunc(result) && std::abs(result) < 9.007199254740992e15 && !std::isnan(result) && !std::isinf(result))
-                    stackPush(pContext, pContext->fromInteger(static_cast<long long>(result)));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(result));
                 else
-                    stackPush(pContext, pContext->fromDouble(result));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(result);
                 DISPATCH();
             }
             L_OP_is_undefined_or_null: {
                 // Pops one value; pushes true if it is undefined (PROTO_NONE) or null (t_nullSentinel).
                 // Used by the ?? operator and ?. optional chaining.
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE || val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* val = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((!val || val == PROTO_NONE || val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_nop: ;
@@ -4372,11 +4526,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             L_OP_get_length: {
                 // Push the .length property of TOS.
-                if (stackEmpty(pContext)) return PROTO_NONE;
-                const proto::ProtoObject* obj = stackTop(pContext); stackPop(pContext);
+                if (_PF().stackTop == 0) return PROTO_NONE;
+                const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 const proto::ProtoString* lk = JSSymbols::length(pContext);
                 const proto::ProtoObject* len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
-                stackPush(pContext, len_val ? len_val : PROTO_NONE);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (len_val ? len_val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_to_object: {
@@ -5090,6 +5244,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot, &childEx);
+                    REFRESH_INTERP_STATE();
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
@@ -5108,6 +5263,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* result = nativeFn
                         ? nativeFn(pContext, thisVal, nullptr, argsList, nullptr)
                         : PROTO_NONE;
+                    REFRESH_INTERP_STATE();
                     if (t_hasCallException) {
                         pending_exception  = t_callException;
                         has_pending_exception = true;
@@ -5140,6 +5296,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         for (uint32_t i = 0; i < argc; i++) merged = merged->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                         for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                         const proto::ProtoObject* res = callJSFunction(pContext, target, bThis ? bThis : PROTO_NONE, merged);
+                        REFRESH_INTERP_STATE();
                         if (is_tail_call) return res;
                         stackPush(pContext, res);
                     } else {

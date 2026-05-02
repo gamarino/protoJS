@@ -65,8 +65,7 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
             if (mod->atomToProto.find(atomIndex) == mod->atomToProto.end()) {
                 const char* str = JS_AtomToCString(ctx, (JSAtom)atomIndex);
                 if (str) {
-                    const proto::ProtoObject* so = pContext->fromUTF8String(str);
-                    const proto::ProtoString* ps = so ? so->asString(pContext) : nullptr;
+                    const proto::ProtoString* ps = proto::ProtoString::createSymbol(pContext, str);
                     JS_FreeCString(ctx, str);
                     if (ps) mod->atomToProto[atomIndex] = ps;
                 }

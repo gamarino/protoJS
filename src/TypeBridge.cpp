@@ -37,9 +37,9 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
 
     if (JS_IsString(val)) {
         const char* str = JS_ToCString(ctx, val);
-        const proto::ProtoObject* pStr = pContext->fromUTF8String(str);
+        const proto::ProtoString* pStr = proto::ProtoString::createSymbol(pContext, str);
         JS_FreeCString(ctx, str);
-        return pStr;
+        return pStr->asObject(pContext);
     }
 
     if (JS_IsBigInt(ctx, val)) {
@@ -166,15 +166,15 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             
             if (JS_IsString(sourceVal)) {
                 const char* source = JS_ToCString(ctx, sourceVal);
-                const proto::ProtoObject* pSource = pContext->fromUTF8String(source);
-                pObj = pObj->setAttribute(pContext, JSSymbols::source(pContext), pSource);
+                const proto::ProtoString* pSource = proto::ProtoString::createSymbol(pContext, source);
+                pObj = pObj->setAttribute(pContext, JSSymbols::source(pContext), pSource->asObject(pContext));
                 JS_FreeCString(ctx, source);
             }
 
             if (JS_IsString(flagsVal)) {
                 const char* flags = JS_ToCString(ctx, flagsVal);
-                const proto::ProtoObject* pFlags = pContext->fromUTF8String(flags);
-                pObj = pObj->setAttribute(pContext, JSSymbols::flags(pContext), pFlags);
+                const proto::ProtoString* pFlags = proto::ProtoString::createSymbol(pContext, flags);
+                pObj = pObj->setAttribute(pContext, JSSymbols::flags(pContext), pFlags->asObject(pContext));
                 JS_FreeCString(ctx, flags);
             }
             
@@ -257,8 +257,8 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         JSValue desc = JS_GetPropertyStr(ctx, val, "description");
         if (JS_IsString(desc)) {
             const char* descStr = JS_ToCString(ctx, desc);
-            const proto::ProtoObject* pDesc = pContext->fromUTF8String(descStr);
-            pObj = pObj->setAttribute(pContext, JSSymbols::description(pContext), pDesc);
+            const proto::ProtoString* pDesc = proto::ProtoString::createSymbol(pContext, descStr);
+            pObj = pObj->setAttribute(pContext, JSSymbols::description(pContext), pDesc->asObject(pContext));
             JS_FreeCString(ctx, descStr);
         }
         JS_FreeValue(ctx, desc);
@@ -289,7 +289,7 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                 const char* prop_name = JS_AtomToCString(ctx, props[i].atom);
                 
                 const proto::ProtoObject* pVal = fromJS(ctx, prop_val, pContext);
-                const proto::ProtoString* pName = pContext->fromUTF8String(prop_name)->asString(pContext);
+                const proto::ProtoString* pName = proto::ProtoString::createSymbol(pContext, prop_name);
 
                 if (pName) {
                     pObj = pObj->setAttribute(pContext, pName, pVal);
