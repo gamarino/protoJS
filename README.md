@@ -398,29 +398,37 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
 
 | Benchmark           | protoJS    | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
 |---------------------|------------|----------|--------------------:|--------------:|
-| array_literal       |    222 ms  |    3 ms  |               74.0× |   2.3× faster |
-| control_flow        |    276 ms  |    7 ms  |               39.4× |   2.0× faster |
-| function_calls      |    373 ms  |    1 ms  |              373.0× |   2.0× faster |
-| numeric_loop        |    201 ms  |    1 ms  |              201.0× |   1.7× faster |
-| object_read_only    |    303 ms  |    2 ms  |              151.5× | new bench     |
-| **string_concat**   |    118 ms  |    1 ms  |              118.0× | timeout → ✓   |
-| **parallel_cpu**    |  **52 ms** |**47 ms** |  **Node 1.11×** (margin) |   unchanged   |
+| array_literal       |    256 ms  |    3 ms  |               85.3× |   2.0× faster |
+| control_flow        |    294 ms  |    5 ms  |               58.8× |   1.9× faster |
+| function_calls      |    412 ms  |    1 ms  |              412.0× |   1.8× faster |
+| numeric_loop        |    158 ms  |    1 ms  |              158.0× |   2.1× faster |
+| object_read_only    |    280 ms  |    1 ms  |              280.0× | new bench     |
+| **string_concat**   |    114 ms  |    1 ms  |              114.0× | timeout → ✓   |
+| **parallel_cpu**    |  **52 ms** |**41 ms** |  **Node 1.27×**     |   unchanged   |
 | object_property / object_write_only / json_transform / tree_traversal | crash | — | — | pre-existing |
 
-**Geometric mean (7 successful benches): Node.js 63.85× faster than protoJS
+**Geometric mean (7 successful benches): Node.js 74.9× faster than protoJS
 (improved from ~100× on 2026-05-01).** Two May 2026 fixes drove most of the
 gain: removing the global runtime string-intern map collapsed `s += 'x'`
-from O(N²) (timeout) to O(N log N) (118 ms for 50 000 concats), and routing
+from O(N²) (timeout) to O(N log N) (114 ms for 50 000 concats), and routing
 `OP_inc_loc` / `OP_dec_loc` through the same slot-addressing helpers as
 `OP_get_loc` fixed an infinite loop in every `for (var i = 0; i < N; i++)`
 inside a function — which had been silently masked by other timeouts.
 
-`parallel_cpu` remains effectively a tie — protoJS offloads work to native
+`parallel_cpu` is the standout — protoJS offloads work to native
 protoCore worker threads, so the interpreter hot loop is irrelevant.  Four
 benches still crash at high N (≥ 5000 records under heavy mutable-property
 pressure): a pre-existing `getHash` segfault in the `setAttribute` AVL
-rebuild path, surfaced under release-build optimization (ASan + debug
-runs cleanly).  Tracked separately from the timeout fixes here.
+rebuild path triggered by stale C++ locals during concurrent mark+sweep.
+ASan + debug builds complete the same workload cleanly (json_transform
+runs 1092 ms with 5000 records); the failure surfaces only under
+release-build optimization, indicating a missed GC root in a code path
+where intermediate allocations live only in C++ scratch.  The fix
+requires reaching every native callback that builds protoCore objects in
+C++ locals (ArrayPrototype, JSONBuiltin, TypedArray, etc.) and either
+wrapping them in `ProtoContext::CriticalSection` or pinning each
+intermediate via `pendingRoot` — too broad to land alongside the timeout
+fixes.
 
 #### Comprehensive Macro Suite (`combined_performance_suite.js`)
 
@@ -455,15 +463,15 @@ Comparing against vanilla **QuickJS** (the underlying engine without protoCore) 
 
 | Benchmark           | protoJS    | QuickJS  | Ratio (QuickJS faster) | vs 2026-05-01 |
 |---------------------|------------|----------|-----------------------:|--------------:|
-| array_literal       |    217 ms  |    7 ms  |                 31.0×  |   2.2× faster |
-| control_flow        |    264 ms  |   50 ms  |                  5.3×  |   2.2× faster |
-| function_calls      |    382 ms  |   13 ms  |                 29.4×  |   2.0× faster |
-| numeric_loop        |    166 ms  |   39 ms  |                  4.3×  |   2.1× faster |
-| object_read_only    |    317 ms  |    7 ms  |                 45.3×  | new bench     |
-| **string_concat**   |    125 ms  |    6 ms  |                 20.8×  | timeout → ✓   |
-| **parallel_cpu**    |  **51 ms** | **696 ms**|      **protoJS 13.6× faster** |   unchanged   |
+| array_literal       |    232 ms  |    7 ms  |                 33.1×  |   2.1× faster |
+| control_flow        |    269 ms  |   57 ms  |                  4.7×  |   2.1× faster |
+| function_calls      |    453 ms  |   19 ms  |                 23.8×  |   1.7× faster |
+| numeric_loop        |    158 ms  |   43 ms  |                  3.7×  |   2.2× faster |
+| object_read_only    |    454 ms  |    8 ms  |                 56.7×  | new bench     |
+| **string_concat**   |    138 ms  |    6 ms  |                 23.0×  | timeout → ✓   |
+| **parallel_cpu**    |  **51 ms** | **746 ms**|      **protoJS 14.6× faster** |   unchanged   |
 
-**Geometric mean (7 benches): QuickJS 7.6× faster than protoJS (improved from
+**Geometric mean (7 benches): QuickJS 7.4× faster than protoJS (improved from
 ~18× on 2026-05-01).** The same protoCore + interpreter changes that closed
 the Node gap also closed more than half the QuickJS gap — interpreter-vs-
 interpreter we are now within an order of magnitude on every bench except
