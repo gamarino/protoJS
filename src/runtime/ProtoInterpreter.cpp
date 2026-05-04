@@ -3699,6 +3699,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_array_el2: {
+                // QuickJS opcode signature:
+                //   DEF(get_array_el2, 1, 2, 2, none) /* obj prop -> obj value */
+                // n_pop=2, n_push=2 — net 0 stack delta.  Used for
+                // method-style chained access where the next op needs
+                // `obj` as the `this` binding (e.g. `obj[k]()` first
+                // does get_array_el2 then call_method).
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
@@ -3742,12 +3748,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
-                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
-                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
+                // Spec: pop 2 (obj, prop) push 2 (obj, value).  Net 0:
+                // overwrite the prop slot with val; obj stays in place.
+                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
+                    (val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_get_array_el3: {
+                // QuickJS opcode signature:
+                //   DEF(get_array_el3, 1, 2, 3, none) /* obj prop -> obj prop value */
+                // n_pop=2, n_push=3 — net +1 stack delta.  Used in
+                // chained-then-calls where the next op needs `obj`,
+                // `prop`, and `value` (e.g. some super/method paths).
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
@@ -3787,9 +3799,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (gval && gval != PROTO_NONE) val = gval;
                     }
                 }
-                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
-                pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val && val != PROTO_NONE ? val : PROTO_NONE);
+                // Spec: pop 2 (obj, prop) push 3 (obj, prop, value).
+                // Obj and prop already in slots [-2] and [-1]; just
+                // push val on top (net +1).
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                    (val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_put_array_el: {
