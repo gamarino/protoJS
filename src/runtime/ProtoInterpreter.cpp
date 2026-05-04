@@ -4900,41 +4900,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     resolvedMod2 = &t_rootModule->nestedFunctions[bcId];
                 if (resolvedMod2) {
                     const auto& nf = *resolvedMod2;
-                    // GC critical section scoped narrowly: argsList is
-                    // built by repeated appendLast in a C++ local that
-                    // is NOT on any GC root.  An inner allocCell can
-                    // submit the young chain to dirtySegments mid-build,
-                    // leaving the in-flight list (and its element
-                    // values) unrooted across a sweep.  CS only needs to
-                    // hold until the values are copied into childCtx's
-                    // automaticLocals (a GC root) — runBytecode itself
-                    // takes its own CS where it needs them.
+                    // GC critical section: argsList is built by repeated
+                    // appendLast in a C++ local that is NOT on any GC
+                    // root.  Without continuous CS coverage, an inner
+                    // allocCell that crosses its 64-allocation safepoint
+                    // can submit the young chain to dirtySegments
+                    // BETWEEN the build and the bind-into-childCtx
+                    // phase, after which argsList's cells are
+                    // sweep-candidates with no live root.  CS therefore
+                    // spans the entire build → setSlot region as one
+                    // section; runBytecode itself runs OUTSIDE the CS
+                    // (and takes its own CS where it needs them) since
+                    // by that point childCtx.automaticLocals owns the
+                    // values.
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
+                    childCtx.currentFileName = pContext->currentFileName;
+                    childCtx.currentLineNumber = pContext->currentLineNumber;
                     const proto::ProtoList* argsList;
+                    const proto::ProtoObject* effectiveThis;
+                    uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
                     {
                         proto::ProtoContext::CriticalSection callCs0(pContext);
                         argsList = pContext->newList();
                         for (uint32_t i = 0; i < argc; i++)
                             argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                    }
-                    // Determine effective this: arrow functions use their lexical __arrow_this__
-                    // capture rather than the call-site receiver, matching ECMAScript semantics.
-                    const proto::ProtoObject* effectiveThis = thisVal;
-                    if (nf.isArrow) {
-                        const proto::ProtoObject* captured =
-                            func->getAttribute(pContext, JSSymbols::arrowThis(pContext), false);
-                        if (captured && captured != PROTO_NONE)
-                            effectiveThis = captured;
-                    }
-                    for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
-                    childCtx.currentFileName = pContext->currentFileName;
-                    childCtx.currentLineNumber = pContext->currentLineNumber;
-                    uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
-                    {
-                        // Bind args into childCtx slots under CS so the
-                        // setSlot writes (and the argsList itself) stay
-                        // rooted until childCtx.automaticLocals owns them.
-                        proto::ProtoContext::CriticalSection bindCs0(pContext);
+                        // Determine effective this inside the CS so the
+                        // arrow-this lookup cannot trigger a sweep that
+                        // frees argsList.
+                        effectiveThis = thisVal;
+                        if (nf.isArrow) {
+                            const proto::ProtoObject* captured =
+                                func->getAttribute(pContext, JSSymbols::arrowThis(pContext), false);
+                            if (captured && captured != PROTO_NONE)
+                                effectiveThis = captured;
+                        }
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                         for (uint32_t i = 0; i < bindCount; i++)
                             setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
                     }
@@ -5263,33 +5263,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 if (resolvedModule) {
                     const auto& nf = *resolvedModule;
-                    // CS only across the build — argsList is held in
-                    // C++ scratch.  See resolvedMod2 branch above for
-                    // rationale.
-                    const proto::ProtoList* argsList;
-                    {
-                        proto::ProtoContext::CriticalSection callCs3(pContext);
-                        argsList = pContext->newList();
-                        for (uint32_t i = 0; i < argc; i++)
-                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                    }
-
-                    const proto::ProtoObject* callThisVal = PROTO_NONE;
-                    if (nf.isArrow) {
-                        const proto::ProtoObject* captured =
-                            func->getAttribute(pContext, JSSymbols::arrowThis(pContext), false);
-                        if (captured && captured != PROTO_NONE)
-                            callThisVal = captured;
-                    }
-                    for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
 
                     // Pre-size automaticLocals to match the callee's needs:
                     // args + vars + closure-vars + stack + safety margin.
-                    // This lets the ProtoContext constructor allocate the
-                    // exact slot region in one shot — no resize, no
-                    // double-allocation when runBytecode then asks for the
-                    // same size.  Stack-buffer SBO for typical functions:
-                    // 64 slots cover most call frames without heap alloc.
+                    // SBO for typical functions: 64 slots cover most
+                    // call frames without heap alloc.
                     constexpr size_t kSBOSlots = 64;
                     const size_t totalSlots =
                         nf.argCount() + nf.varCount() +
@@ -5301,17 +5279,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         for (size_t s = 0; s < totalSlots; ++s) sboBuf_call[s] = PROTO_NONE;
                         ext = sboBuf_call;
                     }
-                    // Standard protoCore binding: pass parameterNames and argsList to constructor.
                     proto::ProtoContext childCtx(pContext->space, pContext,
                                                  nullptr, nullptr, nullptr, nullptr,
                                                  totalSlots, ext);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
+
+                    // CS spans the entire build → setSlot region — see
+                    // resolvedMod2 branch for rationale.  Without
+                    // continuous CS, threshold submission can fire
+                    // between build and bind, leaving argsList cells
+                    // sweep-candidates with no live root.
+                    const proto::ProtoList* argsList;
+                    const proto::ProtoObject* callThisVal;
                     uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
                     {
-                        // Bind args under CS so the values stay rooted
-                        // until childCtx.automaticLocals owns them.
-                        proto::ProtoContext::CriticalSection bindCs3(pContext);
+                        proto::ProtoContext::CriticalSection callCs3(pContext);
+                        argsList = pContext->newList();
+                        for (uint32_t i = 0; i < argc; i++)
+                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                        callThisVal = PROTO_NONE;
+                        if (nf.isArrow) {
+                            const proto::ProtoObject* captured =
+                                func->getAttribute(pContext, JSSymbols::arrowThis(pContext), false);
+                            if (captured && captured != PROTO_NONE)
+                                callThisVal = captured;
+                        }
+                        for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                         for (uint32_t i = 0; i < bindCount; i++)
                             setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
                     }
