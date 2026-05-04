@@ -3793,13 +3793,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_put_array_el: {
+                // QuickJS opcode signature: DEF(put_array_el, 1, 3, 0, none)
+                // — n_pop=3, n_push=0.  Pops obj, index, value; sets
+                // obj[index]=value; pushes NOTHING.  When the bytecode
+                // appears in expression context (the assignment's value
+                // is consumed by the next op), the QuickJS compiler
+                // wraps it in `insert3 ... drop`; the peephole pass
+                // collapses `insert3 put_array_el drop` back to plain
+                // `put_array_el`.  Either way this opcode itself must
+                // leave the operand stack 3 slots smaller than it
+                // found it — pushing here accumulates a spurious slot
+                // per iteration in tight loops like
+                // `for (let i = 0; i < N; i++) obj['k' + i] = i;`,
+                // which after ~17 iterations exhausts the stack window
+                // sized at compile-time as `module->stackSize() + 16`
+                // and silently corrupts subsequent property writes
+                // (they end up on a stack slot rather than reaching
+                // setAttribute).
                 if (_PF().stackTop < 3) return PROTO_NONE;
                 const proto::ProtoObject* value = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* index = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
 
                 if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
                     pending_exception = makeError(pContext, "TypeError", "Cannot set property on null/undefined", pGlobalRoot);
@@ -3821,8 +3838,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     if (newObj) {
                         if (newObj != obj) updateMapping(pContext, obj, newObj);
-                        // TypedArray elements don't affect .length, so we can jump to push.
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = newObj;
+                        // TypedArray store complete; spec says no push.
                         DISPATCH();
                     }
                 } else {
@@ -3840,8 +3856,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             DISPATCH();
                         }
                         if (newObj && newObj != obj) updateMapping(pContext, obj, newObj);
-                        // Named properties don't affect .length, so we can jump to push.
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = (newObj ? newObj : obj);
+                        // Named property store complete; spec says no push.
                         DISPATCH();
                     }
                 }
@@ -3878,7 +3893,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (newObj ? newObj : (obj ? obj : PROTO_NONE));
+                // Spec: no push — the operand stack ends 3 slots smaller.
                 DISPATCH();
             }
             L_OP_undefined: ;
