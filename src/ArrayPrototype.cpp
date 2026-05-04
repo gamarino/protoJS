@@ -620,6 +620,18 @@ static const proto::ProtoObject* arrayPush(
         // then publish via a single setAttribute(__elements__, …).  This
         // is the lazy-publish pattern from the microbench (~3 us/op vs
         // ~5 us/op for per-element setAttribute on a string-keyed tree).
+        //
+        // GC critical section: each appendLast produces a fresh ProtoList
+        // root that is reachable only via the C++ local `list` until the
+        // closing setArrayElements publishes it through setAttribute.
+        // With PROTOCORE_GC_REINCLUDE_SURVIVORS=ON, every cell appears in
+        // dirtySegments after each sweep, so a concurrent mark cycle that
+        // misses the C++ local will free the half-built list under us
+        // (manifested as a getHash segfault inside the AVL rebuild from
+        // setAttribute).  CriticalSection bars STW + threshold submission
+        // for this thread, so the young chain holds the new cells until
+        // the publish lands.
+        proto::ProtoContext::CriticalSection cs(ctx);
         const proto::ProtoList* list = getArrayElements(ctx, self);
         if (!list) list = ctx->newList();
         for (unsigned long i = 0; i < argc; i++) {
