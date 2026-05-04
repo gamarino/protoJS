@@ -4,6 +4,23 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`tree_traversal` UAF stabilised** (2026-05-04): The benchmark built a
+  16383-node binary tree of mutable objects (depth=14) and then summed the
+  values; with `PROTOCORE_GC_REINCLUDE_SURVIVORS=ON` it crashed reproducibly
+  during the sum pass with a use-after-free on a snapshot's `attributes`
+  pointer (stale `ocValue->attributes` pointing into a recycled cell). Root
+  cause was a stale-mark bug in protoCore's GC: mark would set the mark bit
+  on cells reachable from a root but not in `segmentsToProcess`, sweep never
+  cleared those bits, and the next cycle's mark skipped the entire subtree
+  underneath any such cell. Fix landed in protoCore (pre-mark unmark pass);
+  see `protoCore/docs/GarbageCollector.md` § "Phase 4a". With the fix the
+  benchmark passes 10/10 and the rest of the standard suite (`object_property`,
+  `object_write_only`, `object_read_only`, `json_transform`, `string_concat`,
+  `string_processing`, `array_literal`, `control_flow`, `function_calls`,
+  `numeric_loop`, `tree_traversal`) is 5/5 stable.
+
 ### Added
 
 - **Restore standard timing APIs** (2026-04-26): The runtime now exposes
