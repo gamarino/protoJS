@@ -76,14 +76,32 @@ static thread_local const proto::ProtoString* t_internCache_out[512] = {nullptr}
 static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
     if (!s) return nullptr;
     if (s->isSymbol()) return s;
-    
+
+    // GC-aware invalidation: the cache key is the runtime ProtoString
+    // pointer, which is NOT pointer-stable across GC cycles — a freed
+    // rope cell can be reused for a string with totally different
+    // content while our cache still maps the old pointer to the old
+    // symbol.  Each GC cycle bumps the space's gcCycleCount; we clear
+    // the cache when the counter advances so stale pointer entries
+    // never escape.  Same discipline BehaviorRegistry::resolve uses
+    // for its per-thread behavior cache.
+    static thread_local uint64_t t_lastClearedCycle = 0;
+    if (ctx && ctx->space) {
+        uint64_t currentCycle = ctx->space->getGCCycleCount();
+        if (currentCycle != t_lastClearedCycle) {
+            t_lastClearedCycle = currentCycle;
+            std::memset(t_internCache_in, 0, sizeof(t_internCache_in));
+            std::memset(t_internCache_out, 0, sizeof(t_internCache_out));
+        }
+    }
+
     size_t hash = ((reinterpret_cast<size_t>(s) >> 4) ^ (reinterpret_cast<size_t>(s) >> 13)) & 511;
     if (t_internCache_in[hash] == s) return t_internCache_out[hash];
 
     std::string utf8;
     s->toUTF8String(ctx, utf8);
     const proto::ProtoString* symbol = proto::ProtoString::createSymbol(ctx, utf8.c_str());
-    
+
     t_internCache_in[hash] = s;
     t_internCache_out[hash] = symbol;
     return symbol;
