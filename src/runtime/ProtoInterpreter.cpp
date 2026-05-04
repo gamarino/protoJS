@@ -5739,6 +5739,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // is the lazy-publish pattern: appendLast per element is
                 // O(log N) inside the list, but only one mutable-CAS round-
                 // trip on the array itself.
+                //
+                // GC critical section: each appendLast produces a fresh
+                // ProtoList root that is reachable only via the C++ local
+                // `list` until setArrayElements publishes it.  Without CS
+                // a safepoint poll inside an inner allocCell can submit
+                // the young chain to dirtySegments, leaving the in-flight
+                // tree's root unrooted across the next mark cycle.  Same
+                // discipline as ArrayPrototype.push.
+                proto::ProtoContext::CriticalSection arrayFromCs(pContext);
                 const proto::ProtoList* list = pContext->newList();
                 for (uint16_t i = 0; i < count; i++) {
                     const proto::ProtoObject* elem =
