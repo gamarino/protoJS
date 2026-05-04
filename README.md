@@ -410,26 +410,32 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
 | object_property / object_write_only / json_transform / tree_traversal | crash | — | — | residual race |
 
 **Geometric mean (7 stable benches): Node.js 68.15× faster than protoJS
-(improved from ~100× on 2026-05-01).** Three May 2026 fixes drove the
-gain: removing the global runtime string-intern map collapsed `s += 'x'`
-from O(N²) (timeout) to O(N log N) (136 ms for 50 000 concats), routing
-`OP_inc_loc` / `OP_dec_loc` through the same slot-addressing helpers as
-`OP_get_loc` fixed an infinite loop on `for (var i = 0; i < N; i++)`
-inside a function, and a new `criticalSectionsActive` counter on
-ProtoSpace makes the concurrent sweep wait for every mutator-side
-CriticalSection to finish before freeing — closing the UAF that surfaced
-on `getHash` of stale C++ scratch during the mutable AVL rebuild.
+(improved from ~100× on 2026-05-01).** Four May 2026 fixes drove the
+gain.  The runtime string-intern map was removed so `s += 'x'` collapsed
+from O(N²) (timeout) to O(N log N) (136 ms for 50 000 concats).
+`OP_inc_loc` / `OP_dec_loc` were routed through the same slot-addressing
+helpers as `OP_get_loc`, fixing an infinite loop on
+`for (var i = 0; i < N; i++)` inside a function.  Strong-symbol creation
+now allocates the working `ProtoStringImplementation` with a NULL
+`ProtoContext`, so the cells live for the lifetime of the process and
+no concurrent collector can free the in-flight rope between
+`fromUTF8Bytes` and the SymbolTable canonicalisation.  Finally, the
+per-thread `attributeCache` in `ProtoObject::getAttribute` is now
+invalidated on each `gcCycleCount` advance, the same discipline the
+embedder's `BehaviorRegistry` uses, so a snapshot pointer reused by
+the arena after a sweep no longer returns a stale result.
 
 `parallel_cpu` is effectively a tie — protoJS offloads work to native
 protoCore worker threads, so the interpreter hot loop is irrelevant.
 
 Four benches still fail under heavy allocation churn (5000+ mutable
 property writes per cycle): `object_property`, `object_write_only`,
-`json_transform`, `tree_traversal`.  The sweep gate cleared the
-`getHash` crash on the published path, but a residual race remains in
-the dynamic-key set path (e.g. `obj['k' + i] = i` past iteration ~17
-silently loses keys).  ASan + debug builds complete the same workloads
-cleanly (json_transform: 1092 ms at 5000 records), so this is an
+`json_transform` (occasional pass), `tree_traversal`.  The sweep gate
+and cache-invalidation fixes cleared the `getHash` crash on the
+published path, but a residual race remains in the dynamic-key set
+path (e.g. `obj['k' + i] = i` past iteration ~17 silently loses keys).
+ASan + debug builds complete the same workloads cleanly
+(json_transform: 1092 ms at 5000 records), so this is an
 optimisation-sensitive race in a code path where intermediate
 allocations live only in C++ scratch — not an algorithmic regression.
 Tracked separately from the geometric-mean numbers above.
