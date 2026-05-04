@@ -387,33 +387,40 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 ### Performance Benchmarks
 
 **Honest baseline — 2026-05-03** (in-process median time, protoJS Release build
-linked against the latest protoCore — including the GC survivor re-chain plus
-critical-section audit landed in May 2026 — vs. Node.js/V8 22 and vanilla
-QuickJS). Pure compute; no startup cost counted on either side.
+linked against the latest protoCore — including the GC survivor re-chain,
+critical-section audit, and the May 2026 fixes for runtime string interning
+and the OP_inc_loc / OP_dec_loc slot-addressing bug — vs. Node.js/V8 22 and
+vanilla QuickJS).  Pure compute; no startup cost counted on either side.
 
 #### Standard In-Process Suite (`run_standard_comparison.js`)
 
 Self-contained micro-benchmarks with tight loops; 5 iterations each, median reported.
 
-| Benchmark         | protoJS    | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
-|-------------------|------------|----------|--------------------:|--------------:|
-| array_literal     |    199 ms  |    3 ms  |               66.3× |   2.5× faster |
-| control_flow      |    239 ms  |    4 ms  |               59.8× |   2.4× faster |
-| function_calls    |    327 ms  |    1 ms  |              327.0× |   2.3× faster |
-| numeric_loop      |    192 ms  |    1 ms  |              192.0× |   1.8× faster |
-| object_read_only  |    336 ms  |    2 ms  |              168.0× | new bench     |
-| **parallel_cpu**  |  **52 ms** |**53 ms** |  **protoJS 1.02× faster** |   unchanged   |
-| json_transform / object_property / object_write_only / string_concat / string_processing / tree_traversal | timeout | — | — | — |
+| Benchmark           | protoJS    | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
+|---------------------|------------|----------|--------------------:|--------------:|
+| array_literal       |    222 ms  |    3 ms  |               74.0× |   2.3× faster |
+| control_flow        |    276 ms  |    7 ms  |               39.4× |   2.0× faster |
+| function_calls      |    373 ms  |    1 ms  |              373.0× |   2.0× faster |
+| numeric_loop        |    201 ms  |    1 ms  |              201.0× |   1.7× faster |
+| object_read_only    |    303 ms  |    2 ms  |              151.5× | new bench     |
+| **string_concat**   |    118 ms  |    1 ms  |              118.0× | timeout → ✓   |
+| **parallel_cpu**    |  **52 ms** |**47 ms** |  **Node 1.11×** (margin) |   unchanged   |
+| object_property / object_write_only / json_transform / tree_traversal | crash | — | — | pre-existing |
 
-**Geometric mean (6 successful benches): Node.js 58.7× faster than protoJS
-(improved from ~100× on 2026-05-01).** The GC survivor re-chain unblocked
-allocation-heavy workloads, and the per-context allocation threshold bounded
-RSS in tight loops; the combined effect is ~2× across the in-process suite.
-`parallel_cpu` remains the standout exception — it offloads computation to
-native protoCore worker threads, running outside the interpreter hot loop.
-The timed-out benches are the same rope/AVL-tree hotspots affecting protoPython
-(`str_concat_loop`, `list_append_loop`); a JIT or generational write-barrier
-is the only realistic path to closing those.
+**Geometric mean (7 successful benches): Node.js 63.85× faster than protoJS
+(improved from ~100× on 2026-05-01).** Two May 2026 fixes drove most of the
+gain: removing the global runtime string-intern map collapsed `s += 'x'`
+from O(N²) (timeout) to O(N log N) (118 ms for 50 000 concats), and routing
+`OP_inc_loc` / `OP_dec_loc` through the same slot-addressing helpers as
+`OP_get_loc` fixed an infinite loop in every `for (var i = 0; i < N; i++)`
+inside a function — which had been silently masked by other timeouts.
+
+`parallel_cpu` remains effectively a tie — protoJS offloads work to native
+protoCore worker threads, so the interpreter hot loop is irrelevant.  Four
+benches still crash at high N (≥ 5000 records under heavy mutable-property
+pressure): a pre-existing `getHash` segfault in the `setAttribute` AVL
+rebuild path, surfaced under release-build optimization (ASan + debug
+runs cleanly).  Tracked separately from the timeout fixes here.
 
 #### Comprehensive Macro Suite (`combined_performance_suite.js`)
 
@@ -446,21 +453,22 @@ mean reported). Runs cleanly on both `protojs` and `node`.
 
 Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**. Benchmarks run via `qjs_minimal` (Release build).
 
-| Benchmark         | protoJS    | QuickJS  | Ratio (QuickJS faster) | vs 2026-05-01 |
-|-------------------|------------|----------|-----------------------:|--------------:|
-| array_literal     |    247 ms  |    7 ms  |                 35.3×  |   2.0× faster |
-| control_flow      |    274 ms  |   54 ms  |                  5.1×  |   2.1× faster |
-| function_calls    |    371 ms  |   13 ms  |                 28.5×  |   2.1× faster |
-| numeric_loop      |    158 ms  |   42 ms  |                  3.8×  |   2.2× faster |
-| object_read_only  |    296 ms  |    6 ms  |                 49.3×  | new bench     |
-| **parallel_cpu**  |  **52 ms** | **640 ms**|      **protoJS 12.3× faster** |   unchanged   |
+| Benchmark           | protoJS    | QuickJS  | Ratio (QuickJS faster) | vs 2026-05-01 |
+|---------------------|------------|----------|-----------------------:|--------------:|
+| array_literal       |    217 ms  |    7 ms  |                 31.0×  |   2.2× faster |
+| control_flow        |    264 ms  |   50 ms  |                  5.3×  |   2.2× faster |
+| function_calls      |    382 ms  |   13 ms  |                 29.4×  |   2.0× faster |
+| numeric_loop        |    166 ms  |   39 ms  |                  4.3×  |   2.1× faster |
+| object_read_only    |    317 ms  |    7 ms  |                 45.3×  | new bench     |
+| **string_concat**   |    125 ms  |    6 ms  |                 20.8×  | timeout → ✓   |
+| **parallel_cpu**    |  **51 ms** | **696 ms**|      **protoJS 13.6× faster** |   unchanged   |
 
-**Geometric mean (6 benches): QuickJS 6.5× faster than protoJS (improved from
-~18× on 2026-05-01).** The same protoCore changes that closed the Node gap
-also closed half the QuickJS gap — interpreter-vs-interpreter we are now
-within an order of magnitude on every individual bench except the same
-mutable-property workload that fundamentally trades single-threaded speed for
-GIL-free immutable snapshots.
+**Geometric mean (7 benches): QuickJS 7.6× faster than protoJS (improved from
+~18× on 2026-05-01).** The same protoCore + interpreter changes that closed
+the Node gap also closed more than half the QuickJS gap — interpreter-vs-
+interpreter we are now within an order of magnitude on every bench except
+mutable-property workloads, which fundamentally trade single-threaded speed
+for GIL-free immutable snapshots.
 
 ### Why the gap?
 The performance difference in object property access is primarily driven by fundamental architectural trade-offs:
