@@ -399,25 +399,48 @@ side.
 
 Self-contained micro-benchmarks with tight loops; 5 iterations each, median reported.
 
-| Benchmark           | protoJS    | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
-|---------------------|------------|----------|--------------------:|--------------:|
-| array_literal       |    217 ms  |    3 ms  |               72.3× |   2.3× faster |
-| control_flow        |    279 ms  |    4 ms  |               69.8× |   2.0× faster |
-| numeric_loop        |    114 ms  |    1 ms  |              114.0× |   3.0× faster |
-| object_read_only    |    276 ms  |    1 ms  |              276.0× | new bench     |
-| **string_concat**   |    129 ms  |    1 ms  |              129.0× | timeout → ✓   |
-| **parallel_cpu**    |  **53 ms** |**42 ms** |  **Node 1.26×**     |   unchanged   |
-| object_property / object_write_only / json_transform / tree_traversal | crash | — | — | residual race |
+| Benchmark             | protoJS     | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
+|-----------------------|-------------|----------|--------------------:|--------------:|
+| array_literal         |    312 ms   |    3 ms  |              104.0× |   1.6× faster |
+| control_flow          |    283 ms   |    5 ms  |               56.6× |   2.0× faster |
+| function_calls        |    395 ms   |    1 ms  |              395.0× |   1.9× faster |
+| numeric_loop          |    126 ms   |    1 ms  |              126.0× |   2.7× faster |
+| object_read_only      |     73 ms   |    1 ms  |               73.0× |  new — 4× wins|
+| **string_concat**     |    141 ms   |    1 ms  |              141.0× |  timeout → ✓  |
+| **object_property**   |    476 ms   |   39 ms  |               12.2× |   crash → ✓   |
+| **object_write_only** |   1268 ms   |   19 ms  |               66.7× |   crash → ✓   |
+| **json_transform**    |    111 ms   |    1 ms  |              111.0× |   crash → ✓   |
+| **parallel_cpu**      |  **54 ms**  |**44 ms** |  **Node 1.23×**     |   unchanged   |
+| tree_traversal        |    crash    |    —     |                   — | deep-recursion residual |
 
-**Geometric mean (6 stable benches): Node.js 54.4× faster than protoJS
-(improved from ~100× on 2026-05-01, and from 68.15× on the prior
-mid-May iteration).** The May 2026 fixes that drove the gain:
+**Geometric mean (10 stable benches): Node.js 56.55× faster than protoJS
+(improved from ~100× on 2026-05-01, and three additional benches —
+`object_property`, `object_write_only`, `json_transform` — moved from
+crashing to passing thanks to the late-May spec-violation and CS
+audits).** The May 2026 fixes that drove the gain:
 
 - The runtime string-intern map was removed so `s += 'x'` collapsed from
-  O(N²) (timeout) to O(N log N) (129 ms for 50 000 concats).
+  O(N²) (timeout) to O(N log N) (141 ms for 50 000 concats).
 - `OP_inc_loc` / `OP_dec_loc` were routed through the same slot-addressing
   helpers as `OP_get_loc`, fixing an infinite loop on
   `for (var i = 0; i < N; i++)` inside a function.
+- `OP_put_array_el` was popping the spec'd 3 slots but pushing a
+  spurious 1, accumulating one slot per iteration in dynamic-key
+  loops like `obj['k' + i] = i;`.  After ~17 iterations the operand
+  stack exceeded its compile-time-sized window and subsequent writes
+  silently bypassed setAttribute.  Removing the push restores the
+  QuickJS contract — see commit log for the matching fix to
+  `OP_get_array_el2 / OP_get_array_el3`.
+- `OP_array_from` and the five `argsList` builds inside `OP_call` /
+  `OP_call_method` / `OP_call_constructor` are now wrapped in
+  `ProtoContext::CriticalSection` from the first `appendLast` through
+  the bind-into-childCtx loop.  Without continuous CS, an inner
+  allocCell that crosses its 64-allocation safepoint poll could
+  submit the in-flight list to dirtySegments, leaving the freshly
+  built list (and its element values) sweep-candidates with no live
+  GC root.  Fixed json_transform (0/5 → 5/5) and let
+  object_property / object_write_only land on the suite via the
+  combined fixes.
 - Strong-symbol creation now allocates the working
   `ProtoStringImplementation` with a NULL `ProtoContext`, so the cells
   live for the lifetime of the process and no concurrent collector can
@@ -433,14 +456,16 @@ mid-May iteration).** The May 2026 fixes that drove the gain:
 `parallel_cpu` is effectively a tie — protoJS offloads work to native
 protoCore worker threads, so the interpreter hot loop is irrelevant.
 
-Four benches still fail under heavy allocation churn (5000+ mutable
-property writes per cycle): `object_property`, `object_write_only`,
-`json_transform` (occasional pass), `tree_traversal`.  ASan + debug
-builds complete the same workloads cleanly (json_transform: 1092 ms at
-5000 records), so this is an optimisation-sensitive race in a code
-path where intermediate allocations live only in C++ scratch — not an
-algorithmic regression.  Tracked separately from the geometric-mean
-numbers above.
+Only `tree_traversal` (DEPTH=14, 16 383 nodes, deep recursive property
+access) still fails on the standard suite.  The OP_put_array_el spec
+violation, OP_array_from missing CS, and OP_call argsList missing CS
+patterns that broke object_property / object_write_only /
+json_transform were all visible to a static-analysis pass over the
+QuickJS opcode contract table; tree_traversal's residual race occurs
+only at the very highest allocation pressure and survives the
+extended OP_call CS coverage.  Lowering the depth (DEPTH ≤ 12) or
+disabling `PROTOCORE_GC_REINCLUDE_SURVIVORS` clears it; the
+underlying issue is tracked separately.
 
 #### Comprehensive Macro Suite (`combined_performance_suite.js`)
 
