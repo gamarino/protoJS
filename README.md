@@ -388,9 +388,11 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 **Honest baseline — 2026-05-03** (in-process median time, protoJS Release build
 linked against the latest protoCore — including the GC survivor re-chain,
-critical-section audit, and the May 2026 fixes for runtime string interning
-and the OP_inc_loc / OP_dec_loc slot-addressing bug — vs. Node.js/V8 22 and
-vanilla QuickJS).  Pure compute; no startup cost counted on either side.
+critical-section audit, the runtime string-intern removal, the OP_inc_loc /
+OP_dec_loc slot-addressing fix, and the late-May `criticalSectionsActive`
+gate that serialises concurrent sweep with mutator critical sections — vs.
+Node.js/V8 22 and vanilla QuickJS).  Pure compute; no startup cost counted
+on either side.
 
 #### Standard In-Process Suite (`run_standard_comparison.js`)
 
@@ -398,37 +400,39 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
 
 | Benchmark           | protoJS    | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
 |---------------------|------------|----------|--------------------:|--------------:|
-| array_literal       |    256 ms  |    3 ms  |               85.3× |   2.0× faster |
-| control_flow        |    294 ms  |    5 ms  |               58.8× |   1.9× faster |
-| function_calls      |    412 ms  |    1 ms  |              412.0× |   1.8× faster |
-| numeric_loop        |    158 ms  |    1 ms  |              158.0× |   2.1× faster |
-| object_read_only    |    280 ms  |    1 ms  |              280.0× | new bench     |
-| **string_concat**   |    114 ms  |    1 ms  |              114.0× | timeout → ✓   |
-| **parallel_cpu**    |  **52 ms** |**41 ms** |  **Node 1.27×**     |   unchanged   |
-| object_property / object_write_only / json_transform / tree_traversal | crash | — | — | pre-existing |
+| array_literal       |    253 ms  |    3 ms  |               84.3× |   2.0× faster |
+| control_flow        |    276 ms  |    5 ms  |               55.2× |   2.0× faster |
+| function_calls      |    425 ms  |    1 ms  |              425.0× |   1.8× faster |
+| numeric_loop        |    148 ms  |    1 ms  |              148.0× |   2.3× faster |
+| object_read_only    |    290 ms  |    2 ms  |              145.0× | new bench     |
+| **string_concat**   |    136 ms  |    1 ms  |              136.0× | timeout → ✓   |
+| **parallel_cpu**    |  **52 ms** |**44 ms** |  **Node 1.18×**     |   unchanged   |
+| object_property / object_write_only / json_transform / tree_traversal | crash | — | — | residual race |
 
-**Geometric mean (7 successful benches): Node.js 74.9× faster than protoJS
-(improved from ~100× on 2026-05-01).** Two May 2026 fixes drove most of the
+**Geometric mean (7 stable benches): Node.js 68.15× faster than protoJS
+(improved from ~100× on 2026-05-01).** Three May 2026 fixes drove the
 gain: removing the global runtime string-intern map collapsed `s += 'x'`
-from O(N²) (timeout) to O(N log N) (114 ms for 50 000 concats), and routing
+from O(N²) (timeout) to O(N log N) (136 ms for 50 000 concats), routing
 `OP_inc_loc` / `OP_dec_loc` through the same slot-addressing helpers as
-`OP_get_loc` fixed an infinite loop in every `for (var i = 0; i < N; i++)`
-inside a function — which had been silently masked by other timeouts.
+`OP_get_loc` fixed an infinite loop on `for (var i = 0; i < N; i++)`
+inside a function, and a new `criticalSectionsActive` counter on
+ProtoSpace makes the concurrent sweep wait for every mutator-side
+CriticalSection to finish before freeing — closing the UAF that surfaced
+on `getHash` of stale C++ scratch during the mutable AVL rebuild.
 
-`parallel_cpu` is the standout — protoJS offloads work to native
-protoCore worker threads, so the interpreter hot loop is irrelevant.  Four
-benches still crash at high N (≥ 5000 records under heavy mutable-property
-pressure): a pre-existing `getHash` segfault in the `setAttribute` AVL
-rebuild path triggered by stale C++ locals during concurrent mark+sweep.
-ASan + debug builds complete the same workload cleanly (json_transform
-runs 1092 ms with 5000 records); the failure surfaces only under
-release-build optimization, indicating a missed GC root in a code path
-where intermediate allocations live only in C++ scratch.  The fix
-requires reaching every native callback that builds protoCore objects in
-C++ locals (ArrayPrototype, JSONBuiltin, TypedArray, etc.) and either
-wrapping them in `ProtoContext::CriticalSection` or pinning each
-intermediate via `pendingRoot` — too broad to land alongside the timeout
-fixes.
+`parallel_cpu` is effectively a tie — protoJS offloads work to native
+protoCore worker threads, so the interpreter hot loop is irrelevant.
+
+Four benches still fail under heavy allocation churn (5000+ mutable
+property writes per cycle): `object_property`, `object_write_only`,
+`json_transform`, `tree_traversal`.  The sweep gate cleared the
+`getHash` crash on the published path, but a residual race remains in
+the dynamic-key set path (e.g. `obj['k' + i] = i` past iteration ~17
+silently loses keys).  ASan + debug builds complete the same workloads
+cleanly (json_transform: 1092 ms at 5000 records), so this is an
+optimisation-sensitive race in a code path where intermediate
+allocations live only in C++ scratch — not an algorithmic regression.
+Tracked separately from the geometric-mean numbers above.
 
 #### Comprehensive Macro Suite (`combined_performance_suite.js`)
 
