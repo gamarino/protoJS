@@ -4426,14 +4426,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
             L_OP_dec_loc: {
                 // Decrement a local variable slot in-place. Format: loc8 (1 byte).
+                // Local vars live at slot `argCount + locIndex` from the
+                // base of the frame's automaticLocals window — NOT
+                // offset by currentStackBase, which is where the
+                // operand stack starts.  Mismatching this with the
+                // get_loc / put_loc layout would silently overwrite
+                // stack temporaries and leave the var at its original
+                // value, causing infinite for(;;i--) loops to lock up.
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount) {
-                    const proto::ProtoObject* cur = pAutomaticLocals[currentStackBase + argCount + locIndex];
+                    const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
                     if (proto::isSmallInt(cur)) {
                         long long val = proto::asSmallInt(cur) - 1;
                         if (proto::smallIntInRange(val)) {
-                            pAutomaticLocals[currentStackBase + argCount + locIndex] = proto::makeSmallInt(val);
+                            setSlot(pContext, argCount + locIndex, proto::makeSmallInt(val));
                             DISPATCH();
                         }
                     }
@@ -4442,20 +4449,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
                     else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) - 1);
                     else nv = pContext->fromDouble(num->asDouble(pContext) - 1.0);
-                    pAutomaticLocals[currentStackBase + argCount + locIndex] = nv;
+                    setSlot(pContext, argCount + locIndex, nv);
                 }
                 DISPATCH();
             }
             L_OP_inc_loc: {
                 // Increment a local variable slot in-place. Format: loc8 (1 byte).
+                // See L_OP_dec_loc for the slot-addressing rationale —
+                // QuickJS's peephole turns `get_loc;post_inc;put_loc;drop`
+                // into `inc_loc`, so this fast path must end with the
+                // var slot updated, NOT a stack slot.
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t locIndex = buf[pc++];
                 if (locIndex < varCount) {
-                    const proto::ProtoObject* cur = pAutomaticLocals[currentStackBase + argCount + locIndex];
+                    const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
                     if (proto::isSmallInt(cur)) {
                         long long val = proto::asSmallInt(cur) + 1;
                         if (proto::smallIntInRange(val)) {
-                            pAutomaticLocals[currentStackBase + argCount + locIndex] = proto::makeSmallInt(val);
+                            setSlot(pContext, argCount + locIndex, proto::makeSmallInt(val));
                             DISPATCH();
                         }
                     }
@@ -4464,7 +4475,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!num || num == PROTO_NONE) nv = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
                     else if (num->isInteger(pContext)) nv = pContext->fromInteger(num->asLong(pContext) + 1);
                     else nv = pContext->fromDouble(num->asDouble(pContext) + 1.0);
-                    pAutomaticLocals[currentStackBase + argCount + locIndex] = nv;
+                    setSlot(pContext, argCount + locIndex, nv);
                 }
                 DISPATCH();
             }
