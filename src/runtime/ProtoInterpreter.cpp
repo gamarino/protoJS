@@ -70,41 +70,24 @@ static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, 
 // ---------------------------------------------------------------------------
 // Property key interning optimization
 // ---------------------------------------------------------------------------
-static thread_local const proto::ProtoString* t_internCache_in[512] = {nullptr};
-static thread_local const proto::ProtoString* t_internCache_out[512] = {nullptr};
-
 static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const proto::ProtoString* s) {
     if (!s) return nullptr;
     if (s->isSymbol()) return s;
 
-    // GC-aware invalidation: the cache key is the runtime ProtoString
-    // pointer, which is NOT pointer-stable across GC cycles — a freed
-    // rope cell can be reused for a string with totally different
-    // content while our cache still maps the old pointer to the old
-    // symbol.  Each GC cycle bumps the space's gcCycleCount; we clear
-    // the cache when the counter advances so stale pointer entries
-    // never escape.  Same discipline BehaviorRegistry::resolve uses
-    // for its per-thread behavior cache.
-    static thread_local uint64_t t_lastClearedCycle = 0;
-    if (ctx && ctx->space) {
-        uint64_t currentCycle = ctx->space->getGCCycleCount();
-        if (currentCycle != t_lastClearedCycle) {
-            t_lastClearedCycle = currentCycle;
-            std::memset(t_internCache_in, 0, sizeof(t_internCache_in));
-            std::memset(t_internCache_out, 0, sizeof(t_internCache_out));
-        }
-    }
-
-    size_t hash = ((reinterpret_cast<size_t>(s) >> 4) ^ (reinterpret_cast<size_t>(s) >> 13)) & 511;
-    if (t_internCache_in[hash] == s) return t_internCache_out[hash];
-
+    // Routing through createSymbol every call: protoCore's SymbolTable
+    // already deduplicates by content via a 64-shard concurrent
+    // hash, so the per-thread pointer-keyed cache that used to live
+    // here was a micro-optimisation, not load-bearing.  The cache
+    // was unsafe under churn: when the GC freed a rope cell and the
+    // arena reused the slot for a fresh rope with different content,
+    // a hash collision returned the stale symbol — keys ended up
+    // installed under the wrong slot, manifested as obj['k17'] = 17
+    // becoming obj['k_other'] = 17 in object_property-style loops.
+    // Re-introduce a cache only with a proper invalidation strategy
+    // (e.g. validate-by-content on hit).
     std::string utf8;
     s->toUTF8String(ctx, utf8);
-    const proto::ProtoString* symbol = proto::ProtoString::createSymbol(ctx, utf8.c_str());
-
-    t_internCache_in[hash] = s;
-    t_internCache_out[hash] = symbol;
-    return symbol;
+    return proto::ProtoString::createSymbol(ctx, utf8.c_str());
 }
 
 static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
