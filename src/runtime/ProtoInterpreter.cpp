@@ -4900,9 +4900,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     resolvedMod2 = &t_rootModule->nestedFunctions[bcId];
                 if (resolvedMod2) {
                     const auto& nf = *resolvedMod2;
-                    const proto::ProtoList* argsList = pContext->newList();
-                    for (uint32_t i = 0; i < argc; i++)
-                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    // GC critical section scoped narrowly: argsList is
+                    // built by repeated appendLast in a C++ local that
+                    // is NOT on any GC root.  An inner allocCell can
+                    // submit the young chain to dirtySegments mid-build,
+                    // leaving the in-flight list (and its element
+                    // values) unrooted across a sweep.  CS only needs to
+                    // hold until the values are copied into childCtx's
+                    // automaticLocals (a GC root) — runBytecode itself
+                    // takes its own CS where it needs them.
+                    const proto::ProtoList* argsList;
+                    {
+                        proto::ProtoContext::CriticalSection callCs0(pContext);
+                        argsList = pContext->newList();
+                        for (uint32_t i = 0; i < argc; i++)
+                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    }
                     // Determine effective this: arrow functions use their lexical __arrow_this__
                     // capture rather than the call-site receiver, matching ECMAScript semantics.
                     const proto::ProtoObject* effectiveThis = thisVal;
@@ -4917,8 +4930,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
-                    for (uint32_t i = 0; i < bindCount; i++)
-                        setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
+                    {
+                        // Bind args into childCtx slots under CS so the
+                        // setSlot writes (and the argsList itself) stay
+                        // rooted until childCtx.automaticLocals owns them.
+                        proto::ProtoContext::CriticalSection bindCs0(pContext);
+                        for (uint32_t i = 0; i < bindCount; i++)
+                            setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
+                    }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
@@ -4931,6 +4950,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (opcode != OP_tail_call_method)
                         stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (funcIsNative) {
+                    // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
+                    proto::ProtoContext::CriticalSection callCs1(pContext);
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
@@ -5019,11 +5040,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 const proto::ProtoObject* func = stackAt(pContext, argc + 1);
                 const proto::ProtoObject* newTarget = stackAt(pContext, argc);
-                
+
+                // CS: argsList held in C++ scratch — see resolvedMod2 branch.
+                proto::ProtoContext::CriticalSection callCs2(pContext);
                 const proto::ProtoList* argsList = pContext->newList();
                 for (uint32_t i = 0; i < argc; i++)
                     argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                
+
                 // ES spec: Unwrapping bound functions for construct calls.
                 const proto::ProtoString* bfK = JSSymbols::boundFn(pContext);
                 while (func && func != PROTO_NONE && bfK) {
@@ -5240,10 +5263,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 if (resolvedModule) {
                     const auto& nf = *resolvedModule;
-                    const proto::ProtoList* argsList = pContext->newList();
-                    for (uint32_t i = 0; i < argc; i++)
-                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
-                    
+                    // CS only across the build — argsList is held in
+                    // C++ scratch.  See resolvedMod2 branch above for
+                    // rationale.
+                    const proto::ProtoList* argsList;
+                    {
+                        proto::ProtoContext::CriticalSection callCs3(pContext);
+                        argsList = pContext->newList();
+                        for (uint32_t i = 0; i < argc; i++)
+                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    }
+
                     const proto::ProtoObject* callThisVal = PROTO_NONE;
                     if (nf.isArrow) {
                         const proto::ProtoObject* captured =
@@ -5278,8 +5308,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
-                    for (uint32_t i = 0; i < bindCount; i++)
-                        setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
+                    {
+                        // Bind args under CS so the values stay rooted
+                        // until childCtx.automaticLocals owns them.
+                        proto::ProtoContext::CriticalSection bindCs3(pContext);
+                        for (uint32_t i = 0; i < bindCount; i++)
+                            setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
+                    }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
                     const proto::ProtoObject* childEx = PROTO_NONE;
@@ -5295,6 +5330,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (func && func->isMethod(pContext)) {
                     const proto::ProtoObject* thisVal = PROTO_NONE;
+                    // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
+                    proto::ProtoContext::CriticalSection callCs4(pContext);
                     const proto::ProtoList* argsList = pContext->newList();
                     for (uint32_t i = 0; i < argc; i++)
                         argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
