@@ -3136,7 +3136,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 
                 // Fast path: ONE direct call to protoCore! (callbacks=false for speed)
                 const proto::ProtoObject* val = key ? obj->getAttribute(pContext, key, false) : PROTO_NONE;
-                
+
                 // OOP Dispatch via BehaviorRegistry ONLY if property not found natively
                 if (!val && key) {
                     val = resolveFieldOOP(pContext, obj, key);
@@ -3841,6 +3841,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 long long idxFast = numericArrayIndexOrNeg(pContext, index);
                 const proto::ProtoObject* newObj = nullptr;
 
+                // 0. Native ProtoList fast path for plain arrays.  Has to run
+                //    BEFORE OOP dispatch because resolvePutElementOOP's default
+                //    fallback unconditionally calls setAttribute("0",...), which
+                //    is incompatible with arrayTryFastGet — the latter reads the
+                //    `__array_elements__` ProtoList, while the former writes to
+                //    a string-keyed attribute.  When that mismatch happens, the
+                //    write succeeds (string-keyed) but the read hits the stale
+                //    list, so `arr[0] = 10` followed by `arr[0]` returns 1.
+                //    arrayTryFastSet returns false for non-arrays, so this is a
+                //    no-op for them and OOP dispatch runs as before.
+                if (idxFast >= 0 &&
+                    arrayTryFastSet(pContext, obj, static_cast<unsigned long>(idxFast), value)) {
+                    newObj = obj;
+                    goto put_array_el_update_length;
+                }
+
                 // 1. Polymorphic Dispatch for special objects (TypedArrays, Frozen, etc.)
                 if (idxFast >= 0) {
                     newObj = resolvePutElementOOP(pContext, obj, static_cast<uint32_t>(idxFast), value);
@@ -3875,15 +3891,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                // 2. Native ProtoList fast path
-                if (idxFast >= 0 && arrayTryFastSet(pContext, obj, static_cast<unsigned long>(idxFast), value)) {
-                    newObj = obj;
-                } else if (idxFast >= 0) {
-                    // 3. Fallback to dictionary set for numeric indices
+                // 2. Fallback to dictionary set for numeric indices on objects
+                //    that are NOT native arrays (the array fast path above
+                //    already returned, jumping past this block).
+                if (idxFast >= 0) {
                     newObj = obj->setAttribute(pContext, protojs::JSSymbols::indexKey(pContext, static_cast<uint32_t>(idxFast)), value);
                     if (newObj && newObj != obj) updateMapping(pContext, obj, newObj);
                 }
 
+                put_array_el_update_length:
                 // Update .length if index is a valid array index (and not a special object handled above).
                 if (newObj && idxFast >= 0 && idxFast < (long long)0xFFFFFFFELL) {
                     const proto::ProtoString* lenKey = JSSymbols::length(pContext);
