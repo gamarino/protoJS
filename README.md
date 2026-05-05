@@ -386,38 +386,44 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-05-03** (in-process median time, protoJS Release build
-linked against the latest protoCore — including the GC survivor re-chain,
+**Honest baseline — 2026-05-04** (in-process median time, protoJS built in
+pure Release mode (`-O3 -DNDEBUG`, no debug info) and linked against the
+matching Release build of protoCore — including the GC survivor re-chain,
 the runtime string-intern removal, the OP_inc_loc / OP_dec_loc slot-
 addressing fix, perpetual NULL-context allocation for strong symbols,
 and the simplification of `getAttribute` to rely on the GC-pinned
 attribute cache instead of a per-cycle invalidation — vs. Node.js/V8 22
-and vanilla QuickJS).  Pure compute; no startup cost counted on either
-side.
+and vanilla QuickJS (`qjs_minimal` rebuilt with the same `-O3 -DNDEBUG`).
+Pure compute; no startup cost counted on either side.  Each row in the
+tables below is the median across **3 runs** of the runner, where every
+run already reports the median of **5 internal iterations** of the
+benchmark.
 
 #### Standard In-Process Suite (`run_standard_comparison.js`)
 
 Self-contained micro-benchmarks with tight loops; 5 iterations each, median reported.
 
-| Benchmark             | protoJS     | Node.js  | Ratio (Node faster) | vs 2026-05-01 |
-|-----------------------|-------------|----------|--------------------:|--------------:|
-| array_literal         |    312 ms   |    3 ms  |              104.0× |   1.6× faster |
-| control_flow          |    283 ms   |    5 ms  |               56.6× |   2.0× faster |
-| function_calls        |    395 ms   |    1 ms  |              395.0× |   1.9× faster |
-| numeric_loop          |    126 ms   |    1 ms  |              126.0× |   2.7× faster |
-| object_read_only      |     73 ms   |    1 ms  |               73.0× |  new — 4× wins|
-| **string_concat**     |    141 ms   |    1 ms  |              141.0× |  timeout → ✓  |
-| **object_property**   |    476 ms   |   39 ms  |               12.2× |   crash → ✓   |
-| **object_write_only** |   1268 ms   |   19 ms  |               66.7× |   crash → ✓   |
-| **json_transform**    |    111 ms   |    1 ms  |              111.0× |   crash → ✓   |
-| **parallel_cpu**      |  **54 ms**  |**44 ms** |  **Node 1.23×**     |   unchanged   |
-| tree_traversal        |    crash    |    —     |                   — | deep-recursion residual |
+| Benchmark             | protoJS     | Node.js  | Ratio (Node faster) |
+|-----------------------|-------------|----------|--------------------:|
+| array_literal         |    287 ms   |    3 ms  |               95.7× |
+| control_flow          |    267 ms   |    6 ms  |               44.5× |
+| function_calls        |    404 ms   |    1 ms  |              404.0× |
+| numeric_loop          |    130 ms   |    1 ms  |              130.0× |
+| object_read_only      |     68 ms   |    1 ms  |               68.0× |
+| string_concat         |    165 ms   |    1 ms  |              165.0× |
+| object_property       |    524 ms   |   35 ms  |               15.0× |
+| object_write_only     |   1248 ms   |   12 ms  |              104.0× |
+| json_transform        |     98 ms   |    1 ms  |               98.0× |
+| **parallel_cpu**      |  **52 ms**  |**45 ms** |  **Node 1.16×**     |
+| tree_traversal        |    965 ms   |    1 ms  |              965.0× |
 
-**Geometric mean (10 stable benches): Node.js 56.55× faster than protoJS
-(improved from ~100× on 2026-05-01, and three additional benches —
-`object_property`, `object_write_only`, `json_transform` — moved from
-crashing to passing thanks to the late-May spec-violation and CS
-audits).** The May 2026 fixes that drove the gain:
+**Geometric mean (11 benches): Node.js 75.13× faster than protoJS.**
+`tree_traversal` now completes (it crashed on the previous baseline thanks
+to the GC survivor re-chain landing in protoCore) but at 965 ms it pulls
+the geomean up; if it is excluded the ten remaining benches yield Node
+65.4× faster, which is broadly consistent with the 2026-05-03 RelWithDebInfo
+number once the four formerly-crashing benches are included.  The May 2026
+fixes that built up to this baseline:
 
 - The runtime string-intern map was removed so `s += 'x'` collapsed from
   O(N²) (timeout) to O(N log N) (141 ms for 50 000 concats).
@@ -456,33 +462,26 @@ audits).** The May 2026 fixes that drove the gain:
 `parallel_cpu` is effectively a tie — protoJS offloads work to native
 protoCore worker threads, so the interpreter hot loop is irrelevant.
 
-Only `tree_traversal` (DEPTH=14, 16 383 nodes, deep recursive property
-access) still fails on the standard suite.  The OP_put_array_el spec
-violation, OP_array_from missing CS, and OP_call argsList missing CS
-patterns that broke object_property / object_write_only /
-json_transform were all visible to a static-analysis pass over the
-QuickJS opcode contract table; tree_traversal's residual race occurs
-only at the very highest allocation pressure and survives the
-extended OP_call CS coverage.  Lowering the depth (DEPTH ≤ 12) or
-disabling `PROTOCORE_GC_REINCLUDE_SURVIVORS` clears it; the
-underlying issue is tracked separately.
+`tree_traversal` (DEPTH=14, 16 383 nodes, deep recursive property access)
+now completes on the standard suite.  The previously-tracked GC survivor
+race that crashed it has been resolved by the protoCore pre-mark unmark
+pass (May 2026).  The remaining 965 ms — versus 1 ms on Node.js — reflects
+the cost of repeatedly walking the prototype chain through immutable
+snapshots; it is the deepest property-walk workload in the suite and
+amplifies every per-attribute overhead the interpreter still pays.
 
 #### Comprehensive Macro Suite (`combined_performance_suite.js`)
 
 41 tests across Basic Types, Collections, and Overall Performance (5 iterations,
-mean reported). Runs cleanly on both `protojs` and `node`.
-
-| Benchmark             | protoJS     | Node.js    | Ratio (Node faster) |
-|-----------------------|------------:|-----------:|--------------------:|
-| Number Addition       |      5.0 ms |     0.2 ms |               25.0× |
-| String Concatenation  |    200.4 ms |     0.2 ms |             1002.0× |
-| Array Iteration       |     62.8 ms |     0.2 ms |              314.0× |
-| Object Property Access|     16.0 ms |     0.2 ms |               80.0× |
-| JSON Stringify        |    998.8 ms |     0.6 ms |             1664.0× |
-| Throughput (Simple)   |   4434.6 ms |     3.0 ms |             1478.0× |
-| Closure Creation      |    123.4 ms |     0.2 ms |              617.0× |
-
-**Geometric mean: Node.js is ~350× faster** on this wider suite.
+mean reported).  As of 2026-05-04 this suite **no longer completes on
+protoJS**: the runner reaches the BigInt category at the end of Basic
+Types, then aborts with `Error: is not a function` before producing the
+per-benchmark summary line.  The same regression reproduces against the
+older RelWithDebInfo build, so it is not introduced by the Release flag
+change — it is a pre-existing bug in the harness's interaction with
+protoJS that needs its own fix before this table can be refreshed.  Until
+then, the standard and QuickJS-comparison suites above are the
+trustworthy single-threaded performance baseline.
 
 #### What the numbers do *not* measure
 
@@ -496,24 +495,32 @@ mean reported). Runs cleanly on both `protojs` and `node`.
 
 #### Interpreter-to-Interpreter Suite (`run_standard_comparison_quickjs.js`)
 
-Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**. Benchmarks run via `qjs_minimal` (Release build).
+Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**.  Both engines were rebuilt on 2026-05-04 with the same `-O3 -DNDEBUG` flags so the comparison is purely interpreter-vs-interpreter (no compile-flag asymmetry).
 
-| Benchmark           | protoJS    | QuickJS  | Ratio (QuickJS faster) | vs 2026-05-01 |
-|---------------------|------------|----------|-----------------------:|--------------:|
-| array_literal       |    236 ms  |    6 ms  |                 39.3×  |   2.1× faster |
-| control_flow        |    295 ms  |   46 ms  |                  6.4×  |   1.9× faster |
-| function_calls      |    383 ms  |   11 ms  |                 34.8×  |   2.0× faster |
-| numeric_loop        |    133 ms  |   49 ms  |                  2.7×  |   2.6× faster |
-| object_read_only    |    292 ms  |    6 ms  |                 48.7×  | new bench     |
-| **string_concat**   |    128 ms  |    5 ms  |                 25.6×  | timeout → ✓   |
-| **parallel_cpu**    |  **52 ms** | **620 ms**|      **protoJS 11.9× faster** |   unchanged   |
+| Benchmark           | protoJS    | QuickJS  | Ratio (QuickJS faster) |
+|---------------------|------------|----------|-----------------------:|
+| array_literal       |    295 ms  |    6 ms  |                 49.2×  |
+| control_flow        |    266 ms  |   47 ms  |                  5.7×  |
+| function_calls      |    421 ms  |    9 ms  |                 46.8×  |
+| json_transform      |    105 ms  |    4 ms  |                 26.3×  |
+| numeric_loop        |    124 ms  |   36 ms  |                  3.4×  |
+| object_property     |    520 ms  |   72 ms  |                  7.2×  |
+| object_read_only    |     69 ms  |    6 ms  |                 11.5×  |
+| object_write_only   |   1379 ms  |   61 ms  |                 22.6×  |
+| string_concat       |    163 ms  |    5 ms  |                 32.6×  |
+| **parallel_cpu**    |  **52 ms** | **767 ms**|      **protoJS 14.8× faster** |
+| tree_traversal      |   1057 ms  |    4 ms  |                264.3×  |
 
-**Geometric mean (7 benches): QuickJS 8.2× faster than protoJS (improved from
-~18× on 2026-05-01).** The same protoCore + interpreter changes that closed
-the Node gap also closed more than half the QuickJS gap — interpreter-vs-
-interpreter we are now within an order of magnitude on every bench except
-mutable-property workloads, which fundamentally trade single-threaded speed
-for GIL-free immutable snapshots.
+**Geometric mean (11 benches): QuickJS 12.62× faster than protoJS.** As in
+the Node comparison, `tree_traversal` is the single dominant outlier at
+264×; excluding it, QuickJS is 9.4× faster on the remaining 10 benches.
+`parallel_cpu` remains the only bench where protoJS wins — and the margin
+widens to 14.8× because QuickJS, lacking native threads, cannot exploit
+multiple cores at all.  Interpreter-vs-interpreter we are now within an
+order of magnitude on every bench except `tree_traversal` and the
+mutable-property / array-build workloads (`array_literal`,
+`function_calls`, `string_concat`), which fundamentally trade
+single-threaded speed for GIL-free immutable snapshots.
 
 ### Why the gap?
 The performance difference in object property access is primarily driven by fundamental architectural trade-offs:
@@ -524,14 +531,27 @@ The performance difference in object property access is primarily driven by fund
 
 Raw JSON: [tests/benchmarks/results/standard_comparison.json](tests/benchmarks/results/standard_comparison.json)
 
-**To reproduce:**
+**To reproduce** (Release builds of both protoCore and protoJS, plus an `-O3` `qjs_minimal`):
 ```bash
-# Standard suite
-PROTOJS_BIN=$(pwd)/build/protojs node tests/benchmarks/run_standard_comparison.js
+# 1. Build protoCore in pure Release.
+cd ../protoCore && cmake -B build_release -S . -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build_release --target protoCore -j$(nproc)
 
-# Comprehensive suite (both engines)
-node tests/benchmarks/combined_performance_suite.js
-./build/protojs tests/benchmarks/combined_performance_suite.js
+# 2. Build protoJS in pure Release, linked against the protoCore Release lib.
+cd ../protoJS && cmake -B build_release -S . -DCMAKE_BUILD_TYPE=Release \
+    -DPROTOCORE_LIBRARY=$(pwd)/../protoCore/build_release/libprotoCore.so \
+    && cmake --build build_release --target protojs -j$(nproc)
+
+# 3. Rebuild qjs_minimal with the same -O3 flags (Release).
+cd tests/benchmarks && gcc -O3 -DNDEBUG -I../../deps/quickjs -o qjs_minimal \
+    qjs_minimal.c ../../deps/quickjs/quickjs.c ../../deps/quickjs/libregexp.c \
+    ../../deps/quickjs/libunicode.c ../../deps/quickjs/cutils.c \
+    ../../deps/quickjs/dtoa.c -lm -lpthread
+cd ../..
+
+# 4. Run the suites against the Release binary.
+PROTOJS_BIN=$(pwd)/build_release/protojs node tests/benchmarks/run_standard_comparison.js
+PROTOJS_BIN=$(pwd)/build_release/protojs node tests/benchmarks/run_standard_comparison_quickjs.js
 ```
 
 ---
