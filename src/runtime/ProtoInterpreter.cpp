@@ -4937,9 +4937,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
                     {
                         proto::ProtoContext::CriticalSection callCs0(pContext);
-                        argsList = pContext->newList();
-                        for (uint32_t i = 0; i < argc; i++)
-                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                        // The top `argc` stack slots [arg0..argN-1] are
+                        // contiguous in automaticLocals.  Pass that slice
+                        // directly to ctx->newList(n, items) — single cell
+                        // allocation when argc ≤ 5, AVL fallback otherwise.
+                        InterpFrame* frameNow = currentFrame(pContext);
+                        const proto::ProtoObject* const* argSlice =
+                            pContext->getAutomaticLocals()
+                            + frameNow->stackBase + frameNow->stackTop - argc;
+                        argsList = pContext->newList(argc, argSlice);
                         // Determine effective this inside the CS so the
                         // arrow-this lookup cannot trigger a sweep that
                         // frees argsList.
@@ -4968,9 +4974,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (funcIsNative) {
                     // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
                     proto::ProtoContext::CriticalSection callCs1(pContext);
-                    const proto::ProtoList* argsList = pContext->newList();
-                    for (uint32_t i = 0; i < argc; i++)
-                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    InterpFrame* frameNowN = currentFrame(pContext);
+                    const proto::ProtoObject* const* argSliceN =
+                        pContext->getAutomaticLocals()
+                        + frameNowN->stackBase + frameNowN->stackTop - argc;
+                    const proto::ProtoList* argsList = pContext->newList(argc, argSliceN);
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     // Invoke the native function directly via asMethod() to bypass the
                     // ProtoObject::call() attribute-lookup indirection.
