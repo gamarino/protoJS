@@ -277,24 +277,32 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         JSContextWrapper* wrapper = static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
         const proto::ProtoObject* objectProto = wrapper ? wrapper->getJSObjectPrototype() : nullptr;
         const proto::ProtoObject* pObj = objectProto ? objectProto->newChild(pContext, true) : pContext->newObject(true);
-        
+
+        // Register the (still-empty) mapping BEFORE walking properties.  The
+        // QuickJS global object reaches itself via `globalThis` (and via
+        // `Function.prototype.constructor` chains, etc.); without an early
+        // mapping the recursive fromJS call would not find this object in
+        // the cache and would start a fresh mutable child → infinite
+        // recursion that hangs the require() path.  pObj is mutable, so the
+        // same handle keeps resolving to the latest snapshot as we add
+        // attributes below; the mapping does not need to be re-registered.
+        GCBridge::registerMapping(val, pObj, ctx);
+
         // Iterate over JS object properties and set as attributes in protoCore.
-        // NOTE: ProtoObjects are immutable; setAttribute returns a new root that must
-        // be captured, otherwise updates are silently dropped.
         JSPropertyEnum* props;
         uint32_t prop_count;
         if (JS_GetOwnPropertyNames(ctx, &props, &prop_count, val, JS_GPN_STRING_MASK | JS_GPN_SYMBOL_MASK) == 0) {
             for (uint32_t i = 0; i < prop_count; i++) {
                 JSValue prop_val = JS_GetProperty(ctx, val, props[i].atom);
                 const char* prop_name = JS_AtomToCString(ctx, props[i].atom);
-                
+
                 const proto::ProtoObject* pVal = fromJS(ctx, prop_val, pContext);
                 const proto::ProtoString* pName = proto::ProtoString::createSymbol(pContext, prop_name);
 
                 if (pName) {
                     pObj = pObj->setAttribute(pContext, pName, pVal);
                 }
-                
+
                 JS_FreeValue(ctx, prop_val);
                 JS_FreeCString(ctx, prop_name);
                 JS_FreeAtom(ctx, props[i].atom);
@@ -302,8 +310,6 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             js_free(ctx, props);
         }
 
-        // Register mapping so future operations can resolve back to this protoCore object.
-        GCBridge::registerMapping(val, pObj, ctx);
         return pObj;
     }
 
