@@ -93,10 +93,17 @@ async function compareOne(benchmarkFile, protojsPath, qjsPath) {
         ? quickjsResult.parsed.time_ms
         : null;
 
+    // See run_standard_comparison.js for rationale: floor a 0 ms in-script
+    // median to 0.5 ms (half a Date.now() tick) so sub-millisecond benches
+    // still report a valid ratio instead of being dropped as "parse failed".
+    const TIMER_FLOOR_MS = 0.5;
+    const protojsForRatio = (protojsTime != null && protojsTime <= 0) ? TIMER_FLOOR_MS : protojsTime;
+    const quickjsForRatio = (quickjsTime != null && quickjsTime <= 0) ? TIMER_FLOOR_MS : quickjsTime;
+
     let speedup = null;
     let faster = null;
-    if (protojsTime != null && quickjsTime != null && quickjsTime > 0) {
-        speedup = quickjsTime / protojsTime;
+    if (protojsForRatio != null && quickjsForRatio != null && protojsForRatio > 0) {
+        speedup = quickjsForRatio / protojsForRatio;
         faster = speedup > 1 ? 'protoJS' : 'QuickJS';
         if (speedup < 1) speedup = 1 / speedup;
     }
@@ -126,9 +133,11 @@ function generateReport(results) {
     if (successful.length > 0) {
         console.log('\nBenchmark results (median time_ms from 5 runs):');
         console.log('-'.repeat(70));
+        // Use the per-row speedup (already TIMER_FLOOR_MS-corrected) so that
+        // sub-millisecond benches do not zero-out the geomean product.
         let geo = 1;
         successful.forEach(r => {
-            const ratio = r.quickjs_time_ms / r.protojs_time_ms;
+            const ratio = r.faster === 'QuickJS' ? r.speedup : (1 / r.speedup);
             if (ratio > 0) geo *= ratio;
             console.log(`${r.name}: protoJS ${r.protojs_time_ms.toFixed(2)} ms, QuickJS ${r.quickjs_time_ms.toFixed(2)} ms => ${r.faster} ${r.speedup.toFixed(2)}x`);
         });
@@ -157,7 +166,13 @@ function generateReport(results) {
             total: results.length,
             successful: successful.length,
             failed: failed.length,
-            geoMeanQuickjsOverProto: successful.length ? Math.pow(successful.reduce((g, r) => g * (r.quickjs_time_ms / r.protojs_time_ms), 1), 1 / successful.length) : null,
+            geoMeanQuickjsOverProto: successful.length
+                ? Math.pow(
+                    successful.reduce(
+                        (g, r) => g * (r.faster === 'QuickJS' ? r.speedup : (1 / r.speedup)),
+                        1),
+                    1 / successful.length)
+                : null,
         },
     }, null, 2));
     console.log(`\nJSON report: ${reportPath}`);

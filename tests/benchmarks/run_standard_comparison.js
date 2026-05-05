@@ -82,10 +82,21 @@ async function compareOne(benchmarkFile) {
         ? nodeResult.parsed.time_ms
         : null;
 
+    // When Node finishes in under 1 ms its in-script median floors to 0; that
+    // does not mean the bench failed to parse, it means it ran below the
+    // Date.now() resolution.  Floor to 0.5 ms (half the timer tick) for ratio
+    // purposes so the comparison still reports a meaningful "Node Nx faster"
+    // rather than dropping the row entirely.  The same applies symmetrically
+    // for protoJS, but in practice protoJS is never sub-millisecond on these
+    // benches, so the floor only affects the Node side.
+    const TIMER_FLOOR_MS = 0.5;
+    const protojsForRatio = (protojsTime != null && protojsTime <= 0) ? TIMER_FLOOR_MS : protojsTime;
+    const nodeForRatio    = (nodeTime    != null && nodeTime    <= 0) ? TIMER_FLOOR_MS : nodeTime;
+
     let speedup = null;
     let faster = null;
-    if (protojsTime != null && nodeTime != null && nodeTime > 0) {
-        speedup = nodeTime / protojsTime;
+    if (protojsForRatio != null && nodeForRatio != null && protojsForRatio > 0) {
+        speedup = nodeForRatio / protojsForRatio;
         faster = speedup > 1 ? 'protoJS' : 'Node.js';
         if (speedup < 1) speedup = 1 / speedup;
     }
@@ -115,9 +126,14 @@ function generateReport(results) {
     if (successful.length > 0) {
         console.log('\nBenchmark results (median time_ms from 5 runs):');
         console.log('-'.repeat(70));
+        // For the geomean, reuse the per-row speedup (which already uses the
+        // sub-tick TIMER_FLOOR_MS for either side) so 0 ms rows do not
+        // multiply the running product by zero and zero out the whole mean.
         let geo = 1;
         successful.forEach(r => {
-            const ratio = r.nodejs_time_ms / r.protojs_time_ms;
+            // r.speedup is always ≥ 1, oriented by r.faster.  Re-orient back
+            // to nodejs/protojs so the geomean has a single signed direction.
+            const ratio = r.faster === 'Node.js' ? r.speedup : (1 / r.speedup);
             if (ratio > 0) geo *= ratio;
             console.log(`${r.name}: protoJS ${r.protojs_time_ms.toFixed(2)} ms, Node ${r.nodejs_time_ms.toFixed(2)} ms => ${r.faster} ${r.speedup.toFixed(2)}x`);
         });
@@ -146,7 +162,13 @@ function generateReport(results) {
             total: results.length,
             successful: successful.length,
             failed: failed.length,
-            geoMeanNodeOverProto: successful.length ? Math.pow(successful.reduce((g, r) => g * (r.nodejs_time_ms / r.protojs_time_ms), 1), 1 / successful.length) : null,
+            geoMeanNodeOverProto: successful.length
+                ? Math.pow(
+                    successful.reduce(
+                        (g, r) => g * (r.faster === 'Node.js' ? r.speedup : (1 / r.speedup)),
+                        1),
+                    1 / successful.length)
+                : null,
         },
     }, null, 2));
     console.log(`\nJSON report: ${reportPath}`);
