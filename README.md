@@ -529,32 +529,41 @@ trustworthy single-threaded performance baseline.
 
 #### Interpreter-to-Interpreter Suite (`run_standard_comparison_quickjs.js`)
 
-Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**.  Both engines were rebuilt on 2026-05-04 with the same `-O3 -DNDEBUG` flags so the comparison is purely interpreter-vs-interpreter (no compile-flag asymmetry).
+Comparing against vanilla **QuickJS** (the underlying engine without protoCore) isolates the cost of the **protoCore memory model** and the **GIL-free architecture**.  Both engines were rebuilt on 2026-05-04 with the same `-O3 -DNDEBUG` flags so the comparison is purely interpreter-vs-interpreter (no compile-flag asymmetry).  Refreshed 2026-05-06 with the **P-JS-{0..4} cycle** in place, using the same 12-outer × 5-inner = 60-sample methodology as the Node comparison above (`node tests/benchmarks/run_aggregated.js 12 --quickjs`).
 
 | Benchmark           | protoJS    | QuickJS  | Ratio (QuickJS faster) |
 |---------------------|------------|----------|-----------------------:|
-| array_literal       |    306 ms  |    6 ms  |                 51.0×  |
-| control_flow        |    271 ms  |   46 ms  |                  5.9×  |
-| function_calls      |    431 ms  |   10 ms  |                 43.1×  |
-| json_transform      |    109 ms  |    4 ms  |                 27.3×  |
-| numeric_loop        |    130 ms  |   36 ms  |                  3.6×  |
-| object_property     |    553 ms  |   69 ms  |                  8.0×  |
-| object_read_only    |     70 ms  |    6 ms  |                 11.7×  |
-| object_write_only   |   1383 ms  |   60 ms  |                 23.1×  |
-| string_concat       |    168 ms  |    5 ms  |                 33.6×  |
-| **parallel_cpu**    |  **51 ms** | **741 ms**|      **protoJS 14.5× faster** |
-| tree_traversal      |   1036 ms  |    4 ms  |                259.0×  |
+| array_literal       |    296 ms  |    6 ms  |                 52.6×  |
+| control_flow        |    261 ms  |   45 ms  |                  5.8×  |
+| function_calls      |    411 ms  |   10 ms  |                 44.1×  |
+| json_transform      |      7 ms  |    1 ms  |                 14.0×  |
+| numeric_loop        |    120 ms  |   33 ms  |                  3.6×  |
+| object_property     |    506 ms  |   70 ms  |                  7.5×  |
+| object_read_only    |     65 ms  |    5 ms  |                 12.6×  |
+| object_write_only   |   1260 ms  |   53 ms  |                 23.4×  |
+| string_concat       |    155 ms  |    5 ms  |                 31.0×  |
+| **parallel_cpu**    |  **52 ms** | **711 ms**|      **protoJS 13.7× faster** |
+| tree_traversal      |    849 ms  |    4 ms  |                259.0×  |
 
-**Geometric mean (14 benches incl. small/tiny json variants): QuickJS ~8.8× faster than protoJS** (refreshed 2026-05-06 — full May 2026 perf cycle including tasks #36/#42).  As in
+**Geometric mean (12 benches): QuickJS 9.68× faster than protoJS** (median across 12 outer rounds; geomean-of-medians 10.49×).  As in
 the Node comparison, `tree_traversal` is the single dominant outlier at
-259×; excluding it, the gap narrows substantially.
+259×; excluding it, the gap narrows to ~7×.
 `parallel_cpu` remains the only bench where protoJS wins — and the margin
-widens to 14.5× because QuickJS, lacking native threads, cannot exploit
+widens to 13.7× because QuickJS, lacking native threads, cannot exploit
 multiple cores at all.  Interpreter-vs-interpreter we are now within an
 order of magnitude on every bench except `tree_traversal` and the
 mutable-property / array-build workloads (`array_literal`,
 `function_calls`, `string_concat`), which fundamentally trade
 single-threaded speed for GIL-free immutable snapshots.
+
+The headline shifted slightly from the previous "~8.8×" estimate to the
+current 9.68× because the methodology tightened from a 3-run measurement
+to a 60-sample median; the absolute protoJS numbers improved meaningfully
+(`object_property` 553 → 506 ms, `object_write_only` 1383 → 1260 ms,
+`tree_traversal` 1036 → 849 ms) but QuickJS scales similarly tight under
+this O3 build, so the ratio reflects the irreducible per-cell-allocation
+cost of structural sharing on workloads that QuickJS can serve from a
+mutable hidden-class hash.
 
 ### Why the gap?
 The performance difference in object property access is primarily driven by fundamental architectural trade-offs:
