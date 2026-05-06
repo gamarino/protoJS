@@ -1874,6 +1874,54 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         return PROTO_NONE;
     };
 
+    /* P-JS-1 accessor lookup cache.
+     *
+     * `__get_<name>__` and `__set_<name>__` are sidecar attributes used by
+     * Object.defineProperty to install getters/setters on the prototype.
+     * Every OP_get_field2 miss used to construct the sidecar symbol on the
+     * fly: `"__get_" + keyStr + "__"` followed by `fromUTF8String` (which
+     * allocates a fresh ProtoString rope cell tree).  For dense property
+     * access on objects without accessors, this was O(N) cell allocations
+     * per miss for nothing — the symbol always missed in the AVL since no
+     * code ever defined `__get_<name>__`.
+     *
+     * Cache the (name → getter-symbol) mapping per thread.  First miss
+     * builds the symbol once and interns it; subsequent misses are a
+     * pointer-keyed unordered_map lookup.  Collision-free because property
+     * names are interned ProtoString pointers (auto-interned by protoCore
+     * symbol table).
+     *
+     * Two caches: one for getter sidecars, one for setter sidecars.  Both
+     * keyed on the property-name ProtoString pointer.
+     */
+    static thread_local std::unordered_map<const proto::ProtoString*, const proto::ProtoString*> t_getterSymCache;
+    static thread_local std::unordered_map<const proto::ProtoString*, const proto::ProtoString*> t_setterSymCache;
+
+    auto getterSymbolFor = [&](const proto::ProtoString* key) -> const proto::ProtoString* {
+        if (!key) return nullptr;
+        auto it = t_getterSymCache.find(key);
+        if (it != t_getterSymCache.end()) return it->second;
+        std::string keyStr;
+        key->toUTF8String(pContext, keyStr);
+        std::string gkStr = "__get_" + keyStr + "__";
+        const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
+        t_getterSymCache[key] = gk;
+        return gk;
+    };
+    auto setterSymbolFor = [&](const proto::ProtoString* key) -> const proto::ProtoString* {
+        if (!key) return nullptr;
+        auto it = t_setterSymCache.find(key);
+        if (it != t_setterSymCache.end()) return it->second;
+        std::string keyStr;
+        key->toUTF8String(pContext, keyStr);
+        std::string skStr = "__set_" + keyStr + "__";
+        const proto::ProtoObject* sko = pContext->fromUTF8String(skStr.c_str());
+        const proto::ProtoString* sk  = sko ? sko->asString(pContext) : nullptr;
+        t_setterSymCache[key] = sk;
+        return sk;
+    };
+
     /* Accessor property helper: invoke getter stored as __get_<keyStr>__ on the object (or
      * its prototype chain).  Returns the getter result, PROTO_NONE if no getter is defined,
      * or PROTO_NONE with has_pending_exception set if the getter throws.
@@ -1889,6 +1937,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         const proto::ProtoObject* getter = obj->getAttribute(pContext, gk, true);
         if (!getter || getter == PROTO_NONE) return PROTO_NONE;
         // Call getter with obj as `this` — no arguments.
+        const proto::ProtoList* emptyArgs = pContext->newList();
+        const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
+        if (t_hasCallException) {
+            pending_exception  = t_callException;
+            has_pending_exception = true;
+            t_hasCallException = false;
+            t_callException    = nullptr;
+            return PROTO_NONE;
+        }
+        return result ? result : PROTO_NONE;
+    };
+
+    /* P-JS-1 fast variant: takes the property-name ProtoString directly,
+     * uses the per-thread getter-symbol cache to avoid the per-miss
+     * `fromUTF8String` allocation (the original lambda pays a fresh
+     * ProtoString rope construction every call). */
+    auto invokeGetterIfPresentFast = [&](
+            const proto::ProtoObject* obj,
+            const proto::ProtoString* key) -> const proto::ProtoObject* {
+        if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || !key) return PROTO_NONE;
+        const proto::ProtoString* gk = getterSymbolFor(key);
+        if (!gk) return PROTO_NONE;
+        const proto::ProtoObject* getter = obj->getAttribute(pContext, gk, true);
+        if (!getter || getter == PROTO_NONE) return PROTO_NONE;
         const proto::ProtoList* emptyArgs = pContext->newList();
         const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
         if (t_hasCallException) {
@@ -3191,10 +3263,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* val = key ? resolveFieldOOP(pContext, obj, key) : PROTO_NONE;
 
                 // Invoke getter if no data value but an accessor is defined.
+                // P-JS-1 fast variant: cached getter-symbol lookup, no
+                // per-call `fromUTF8String` allocation.
                 if ((!val || val == PROTO_NONE) && key) {
-                    std::string keyStr2;
-                    key->toUTF8String(pContext, keyStr2);
-                    const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStr2);
+                    const proto::ProtoObject* gval = invokeGetterIfPresentFast(obj, key);
                     if (has_pending_exception) DISPATCH();
                     if (gval && gval != PROTO_NONE) val = gval;
                 }
