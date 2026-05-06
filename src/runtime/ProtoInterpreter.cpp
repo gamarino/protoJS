@@ -1071,46 +1071,86 @@ static inline void updateMapping(proto::ProtoContext*, const proto::ProtoObject*
 // This is called from OP_put_field, OP_define_field, and OP_put_array_el
 // whenever a new snapshot is produced.
 // ---------------------------------------------------------------------------
+// P-JS-3 — fast prototype-identity probe.
+//
+// Hot writes (`obj.x = y`) used to do up to 6 pointer-compares per call
+// against every well-known protoCore prototype slot.  For 99 % of writes
+// the receiver is a regular instance, NOT a prototype object, and all
+// six compares miss — pure overhead.
+//
+// Replace with a small thread-shared array of prototype pointers,
+// initialised lazily on first call.  `mightBePrototype` does a single
+// pass over the array (≤ 6 entries → fits one cache line, branch
+// predictor learns the always-miss case).  Only on a hit do we run the
+// original swap logic.  When a prototype is replaced we update the
+// array entry so the cache stays accurate.
+namespace {
+struct PrototypeIdentitySet {
+    const proto::ProtoObject* slots[8] = {nullptr};
+    int count = 0;
+    bool initialized = false;
+
+    inline bool mightBePrototype(const proto::ProtoObject* p) const {
+        if (!initialized) return true;  // before init, fall through to slow path
+        for (int i = 0; i < count; ++i) if (slots[i] == p) return true;
+        return false;
+    }
+    void add(const proto::ProtoObject* p) {
+        if (!p) return;
+        for (int i = 0; i < count; ++i) if (slots[i] == p) return;
+        if (count < 8) slots[count++] = p;
+    }
+    void replace(const proto::ProtoObject* oldP, const proto::ProtoObject* newP) {
+        for (int i = 0; i < count; ++i) {
+            if (slots[i] == oldP) { slots[i] = newP; return; }
+        }
+        add(newP);
+    }
+};
+PrototypeIdentitySet g_protoSet;
+
+inline void ensureProtoSetInit(proto::ProtoSpace* sp) {
+    if (g_protoSet.initialized) return;
+    g_protoSet.add(sp->booleanPrototype);
+    g_protoSet.add(sp->smallIntegerPrototype);
+    g_protoSet.add(sp->largeIntegerPrototype);
+    g_protoSet.add(sp->doublePrototype);
+    g_protoSet.add(sp->stringPrototype);
+    g_protoSet.add(sp->objectPrototype);
+    g_protoSet.initialized = true;
+}
+} // namespace
+
 static void updateSpacePrototypeIfMatching(proto::ProtoContext* pContext,
                                            const proto::ProtoObject* oldObj,
                                            const proto::ProtoObject* newObj) {
     if (!pContext || !pContext->space || !oldObj || !newObj || oldObj == newObj)
         return;
     proto::ProtoSpace* sp = pContext->space;
-    // Boolean.prototype
+    ensureProtoSetInit(sp);
+
+    // Fast bail: dominant case is "obj is not a prototype" → exit
+    // after one short cache-resident scan.
+    if (!g_protoSet.mightBePrototype(oldObj)) return;
+
+    // Slow path — actually identify which prototype was hit.  Same
+    // branching as before, just guarded by the fast probe so it only
+    // fires on real prototype writes (rare, e.g. `Array.prototype.foo
+    // = ...`).
     if (sp->booleanPrototype == oldObj) {
         sp->booleanPrototype = const_cast<proto::ProtoObject*>(newObj);
-        return;
-    }
-    // Number.prototype (integers and doubles share one JS prototype)
-    if (sp->smallIntegerPrototype == oldObj) {
+    } else if (sp->smallIntegerPrototype == oldObj
+            || sp->largeIntegerPrototype == oldObj
+            || sp->doublePrototype == oldObj) {
         sp->smallIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
         sp->largeIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
         sp->doublePrototype       = const_cast<proto::ProtoObject*>(newObj);
-        return;
-    }
-    if (sp->largeIntegerPrototype == oldObj) {
-        sp->largeIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
-        sp->smallIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
-        sp->doublePrototype       = const_cast<proto::ProtoObject*>(newObj);
-        return;
-    }
-    if (sp->doublePrototype == oldObj) {
-        sp->doublePrototype       = const_cast<proto::ProtoObject*>(newObj);
-        sp->smallIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
-        sp->largeIntegerPrototype = const_cast<proto::ProtoObject*>(newObj);
-        return;
-    }
-    // String.prototype
-    if (sp->stringPrototype == oldObj) {
+    } else if (sp->stringPrototype == oldObj) {
         sp->stringPrototype = const_cast<proto::ProtoObject*>(newObj);
-        return;
-    }
-    // Object.prototype (root)
-    if (sp->objectPrototype == oldObj) {
+    } else if (sp->objectPrototype == oldObj) {
         sp->objectPrototype = const_cast<proto::ProtoObject*>(newObj);
-        return;
     }
+    g_protoSet.replace(oldObj, newObj);
 }
 
 // ---------------------------------------------------------------------------
