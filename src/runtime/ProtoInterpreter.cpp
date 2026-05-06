@@ -39,14 +39,41 @@ namespace protojs {
 // ---------------------------------------------------------------------------
 // OOP Dispatch Helpers
 // ---------------------------------------------------------------------------
+//
+// P-JS-4 default-behavior short-circuit.
+//
+// `BehaviorRegistry::resolve()` returns one of:
+//   - `defaultBehavior` — a vanilla JSObjectBehavior whose getField just
+//     forwards to `obj->getAttribute(ctx, key, true)`, putField returns
+//     nullptr (caller falls back to setAttribute), getElement returns
+//     nullptr, putElement returns nullptr.
+//   - a custom behavior (Array / Map / Set / RegExp / TypedArray / ...).
+//
+// For plain objects — by far the dominant case in OOP-dispatch-heavy
+// workloads — the resolved behavior IS the default one, and the virtual
+// call paid for nothing. Compare the resolved pointer to the registry's
+// default and inline the underlying primitive call directly. The
+// compiler can keep the inlined path branch-free; the virtual-dispatch
+// path stays available for the rare custom-behavior objects.
+
 static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key) {
     if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
-    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    const auto& reg = protojs::BehaviorRegistry::instance();
+    const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
+    if (behavior == reg.getDefault()) {
+        return obj->getAttribute(ctx, key, true);
+    }
     return behavior->getField(ctx, obj, key);
 }
 
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
-    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    const auto& reg = protojs::BehaviorRegistry::instance();
+    const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
+    if (behavior == reg.getDefault()) {
+        // Default putField is `return nullptr;` → caller always falls
+        // back to setAttribute. Skip the virtual call entirely.
+        return obj->setAttribute(ctx, key, val);
+    }
     const proto::ProtoObject* res = behavior->putField(ctx, obj, key, val);
     if (res) return res;
     return obj->setAttribute(ctx, key, val);
@@ -54,14 +81,26 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
 
 static const proto::ProtoObject* resolveElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index) {
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
-    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    const auto& reg = protojs::BehaviorRegistry::instance();
+    const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
+    if (behavior == reg.getDefault()) {
+        // Default getElement returns nullptr — same observable outcome
+        // as the virtual call, but no v-table indirection.
+        return nullptr;
+    }
     return behavior->getElement(ctx, obj, index);
 }
 
 __attribute__((noinline))
 static const proto::ProtoObject* resolvePutElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index, const proto::ProtoObject* val) {
     if (!obj || obj == PROTO_NONE) return obj;
-    const protojs::JSObjectBehavior* behavior = protojs::BehaviorRegistry::instance().resolve(ctx, obj);
+    const auto& reg = protojs::BehaviorRegistry::instance();
+    const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
+    if (behavior == reg.getDefault()) {
+        // Default putElement returns nullptr → caller falls back to
+        // setAttribute on the indexed key.
+        return obj->setAttribute(ctx, JSSymbols::indexKey(ctx, index), val);
+    }
     const proto::ProtoObject* res = behavior->putElement(ctx, obj, index, val);
     if (res) return res;
     return obj->setAttribute(ctx, JSSymbols::indexKey(ctx, index), val);
