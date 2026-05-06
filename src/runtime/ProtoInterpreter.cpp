@@ -3179,14 +3179,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 
-                // Fast path: ONE direct call to protoCore! (callbacks=false for speed)
-                const proto::ProtoObject* val = key ? obj->getAttribute(pContext, key, false) : PROTO_NONE;
+                // P-JS-2 — single getAttribute call.  Previously this site
+                // did getAttribute(callbacks=false) THEN, on miss,
+                // resolveFieldOOP which itself called getAttribute(true)
+                // through the default JSObjectBehavior.  Both walks visited
+                // the same prototype chain — pure redundancy.  We skip the
+                // first probe and let resolveFieldOOP perform the single
+                // canonical chain walk; the BehaviorRegistry-resolved
+                // behavior already handles the protocol callbacks
+                // correctly.
+                const proto::ProtoObject* val = key ? resolveFieldOOP(pContext, obj, key) : PROTO_NONE;
 
-                // OOP Dispatch via BehaviorRegistry ONLY if property not found natively
-                if (!val && key) {
-                    val = resolveFieldOOP(pContext, obj, key);
-                }
-                
                 // Invoke getter if no data value but an accessor is defined.
                 if ((!val || val == PROTO_NONE) && key) {
                     std::string keyStr2;
@@ -3195,7 +3198,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (has_pending_exception) DISPATCH();
                     if (gval && gval != PROTO_NONE) val = gval;
                 }
-                
+
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
             }
