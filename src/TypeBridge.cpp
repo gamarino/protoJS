@@ -84,6 +84,8 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             JS_FreeValue(ctx, item);
         }
         backing = backing->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(len)));
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+        if (isArrKey) backing = backing->setAttribute(pContext, isArrKey, PROTO_TRUE);
 
         // Register mapping so that future lookups can reuse the same backing.
         GCBridge::registerMapping(val, backing, ctx);
