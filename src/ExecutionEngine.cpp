@@ -180,6 +180,8 @@ JSValue ExecutionEngine::opNewArray(JSContext* ctx) {
     const proto::ProtoObject* backing = arrayProto->newChild(pContext, true);
     const proto::ProtoString* lengthKey = JSSymbols::length(pContext);
     backing = backing->setAttribute(pContext, lengthKey, pContext->fromInteger(0));
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+    if (isArrKey) backing = backing->setAttribute(pContext, isArrKey, PROTO_TRUE);
 
     JSValue jsArr = JS_NewArray(ctx);
     GCBridge::registerMapping(jsArr, backing, ctx);
