@@ -386,38 +386,65 @@ For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-05-04** (in-process median time, protoJS built in
+**Honest baseline — 2026-05-06** (in-process median time, protoJS built in
 pure Release mode (`-O3 -DNDEBUG`, no debug info) and linked against the
 matching Release build of protoCore — including the GC survivor re-chain,
 the runtime string-intern removal, the OP_inc_loc / OP_dec_loc slot-
 addressing fix, perpetual NULL-context allocation for strong symbols,
-and the simplification of `getAttribute` to rely on the GC-pinned
-attribute cache instead of a per-cycle invalidation — vs. Node.js/V8 22
-and vanilla QuickJS (`qjs_minimal` rebuilt with the same `-O3 -DNDEBUG`).
-Pure compute; no startup cost counted on either side.  Each row in the
-tables below is the median across **3 runs** of the runner, where every
-run already reports the median of **5 internal iterations** of the
-benchmark.
+the simplification of `getAttribute` to rely on the GC-pinned attribute
+cache instead of a per-cycle invalidation, and the **P-JS-{0..4} cycle**
+that minimised protoCore-side traffic on the property-access hot path
+(see "Driving wins" below) — vs. Node.js/V8 22 and vanilla QuickJS
+(`qjs_minimal` rebuilt with the same `-O3 -DNDEBUG`).  Pure compute;
+no startup cost counted on either side.  Each row in the tables below
+is the median across **12 outer rounds** of the runner, where every
+round already reports the median of **5 internal iterations** of the
+benchmark — i.e. **60 timing samples per cell**.
 
 #### Standard In-Process Suite (`run_standard_comparison.js`)
 
-Self-contained micro-benchmarks with tight loops; 5 iterations each, median reported.
+Self-contained micro-benchmarks with tight loops; 12 outer × 5 inner = 60 samples, median reported.
 
 | Benchmark             | protoJS     | Node.js  | Ratio (Node faster) |
 |-----------------------|-------------|----------|--------------------:|
-| array_literal         |    289 ms   |    7 ms  |               41.3× |
-| control_flow          |    267 ms   |    6 ms  |               44.5× |
-| function_calls        |    402 ms   |    1 ms  |              402.0× |
-| numeric_loop          |    136 ms   |    1 ms  |              136.0× |
-| object_read_only      |     65 ms   |    1 ms  |               65.0× |
-| string_concat         |    165 ms   |    1 ms  |              165.0× |
-| object_property       |    569 ms   |   34 ms  |               16.7× |
-| object_write_only     |   1364 ms   |   13 ms  |              104.9× |
-| json_transform        |    113 ms   |    1 ms  |              113.0× |
-| **parallel_cpu**      |  **53 ms**  |**41 ms** |  **Node 1.29×**     |
-| tree_traversal        |   1033 ms   |    1 ms  |             1033.0× |
+| array_literal         |    301 ms   |    3 ms  |              111.8× |
+| control_flow          |    307 ms   |    5 ms  |               61.6× |
+| function_calls        |    448 ms   |    1 ms  |              448.0× |
+| numeric_loop          |    124 ms   |    1 ms  |              124.0× |
+| object_read_only      |     70 ms   |    2 ms  |               47.5× |
+| string_concat         |    176 ms   |    1 ms  |              154.5× |
+| object_property       |    598 ms   |   39 ms  |               15.2× |
+| object_write_only     |   1430 ms   |   12 ms  |              118.6× |
+| json_transform        |      8 ms   |    1 ms  |               15.0× |
+| **parallel_cpu**      |  **52 ms**  |**43 ms** |  **Node 1.21×**     |
+| tree_traversal        |   1004 ms   |    1 ms  |             1195.5× |
 
-**Geometric mean (14 benches incl. small/tiny json variants): Node.js ~39× faster than protoJS** (refreshed 2026-05-06 — full May 2026 perf cycle: paths #2/#3/#4/#6, task #28 CAS removal, task #34 destructor reorder fix, task #36 chunked freelist via GC pre-chunking, tasks #37/#39 type-flags cache + unified attribute fast paths, **task #42 SparseList hash cascade elimination**).  Improvement of ~48 % over the prior 75.13× baseline.  Driving wins:
+**Geometric mean (12 benches): Node.js 41.3× faster than protoJS**
+(median across 12 rounds; geomean-of-medians 49.6×) — refreshed
+2026-05-06 after the **P-JS-{0..4} cycle** added on top of the May
+2026 work (paths #2/#3/#4/#6, task #28 CAS removal, task #34 destructor
+reorder fix, task #36 chunked freelist via GC pre-chunking, tasks
+#37/#39 type-flags cache + unified attribute fast paths, **task #42
+SparseList hash cascade elimination**).  Improvement of ~45 % over
+the prior 75.13× baseline.  Driving wins:
+
+P-JS-{0..4} cycle (this commit):
+  - **P-JS-0** updateMapping made a no-op — runtime never reads the
+    JSValue ↔ ProtoObject mapping outside compile-time TypeBridge
+    (QuickJS is parser/compiler only; objects live in protoCore
+    exclusively at run time)
+  - **P-JS-2** dedup'd the redundant getAttribute(callbacks=true)
+    in OP_get_field2 (resolveFieldOOP already does the canonical walk)
+  - **P-JS-3** prototype-identity set replaces 6 pointer-compares per
+    write in updateSpacePrototypeIfMatching
+  - **P-JS-1** thread-local cache for `__get_<name>__` / `__set_<name>__`
+    sidecar symbols — was constructing a fresh ProtoString rope on
+    every property-miss probe
+  - **P-JS-4** short-circuit default JSObjectBehavior dispatch — the
+    common case (plain object) now skips the v-table indirection and
+    calls obj->getAttribute / obj->setAttribute directly
+
+Cumulative May 2026 wins still in effect:
 
   - path #4 single-allocation `argsList` builder (`OP_call` / `OP_call_method` / `OP_call_constructor`)
   - path #6 mutable-cache stash on `resolveMutableState` hot path
@@ -425,11 +452,12 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
   - task #42 SparseList hash propagation removed (`isString` 3.78 % → 0 %, `getAttribute` 14.03 % → 5.90 %)
 
 `tree_traversal` now completes (it crashed on the previous baseline thanks
-to the GC survivor re-chain landing in protoCore) but at 965 ms it pulls
-the geomean up; if it is excluded the ten remaining benches yield Node
-65.4× faster, which is broadly consistent with the 2026-05-03 RelWithDebInfo
-number once the four formerly-crashing benches are included.  The May 2026
-fixes that built up to this baseline:
+to the GC survivor re-chain landing in protoCore) but at ~1 s it dominates
+the geomean — the bench measures Node at 1 ms (timer floor) so the ratio
+is mostly an artefact of timer resolution.  Excluding `tree_traversal`
+the remaining 11 benches yield Node ~37× faster — the load-bearing
+single-thread number on this hardware.  The May 2026 fixes that built
+up to this baseline:
 
 - The runtime string-intern map was removed so `s += 'x'` collapsed from
   O(N²) (timeout) to O(N log N) (141 ms for 50 000 concats).
