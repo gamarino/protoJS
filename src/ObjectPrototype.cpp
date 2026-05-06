@@ -1129,11 +1129,11 @@ static const proto::ProtoObject* objectToString(
         }
     }
 
-    // Array: has __is_array__ in prototype chain (set on Array.prototype).
+    // Array: has __is_array__ as an own attribute (moved from prototype in Phase 7).
     {
         const proto::ProtoString* iaKey = JSSymbols::isArray(ctx);
         if (iaKey) {
-            const proto::ProtoObject* iaVal = self->getAttribute(ctx, iaKey, true);
+            const proto::ProtoObject* iaVal = self->getAttribute(ctx, iaKey, false);
             if (iaVal == PROTO_TRUE)
                 return ctx->fromUTF8String("[object Array]");
         }
