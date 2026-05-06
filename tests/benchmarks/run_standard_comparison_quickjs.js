@@ -15,7 +15,19 @@ const QUICKJS_SRC = path.join(__dirname, '../../deps/quickjs');
 const BENCH_RESULT_PREFIX = '__BENCH_RESULT__';
 
 function findProtojs() {
+    if (process.env.PROTOJS_BIN) {
+        if (fs.existsSync(process.env.PROTOJS_BIN)) return process.env.PROTOJS_BIN;
+        console.error(`PROTOJS_BIN=${process.env.PROTOJS_BIN} does not exist`);
+        return null;
+    }
+    // Prefer build_release/ — see comment in run_standard_comparison.js.
+    // Without this prefix, 2026-05 measurements silently used a stale
+    // build/ binary for an entire optimisation cycle.
     const candidates = [
+        path.join(__dirname, '../../build_release/protojs'),
+        path.join(__dirname, '../build_release/protojs'),
+        path.resolve(__dirname, '../../build_release/protojs'),
+        path.resolve(__dirname, '../build_release/protojs'),
         path.join(__dirname, '../../build/protojs'),
         path.join(__dirname, '../build/protojs'),
         path.resolve(__dirname, '../../build/protojs'),

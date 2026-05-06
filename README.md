@@ -407,41 +407,67 @@ Self-contained micro-benchmarks with tight loops; 12 outer × 5 inner = 60 sampl
 
 | Benchmark             | protoJS     | Node.js  | Ratio (Node faster) |
 |-----------------------|-------------|----------|--------------------:|
-| array_literal         |    287 ms   |    2 ms  |              138.8× |
-| control_flow          |    255 ms   |    4 ms  |               62.0× |
-| function_calls        |    403 ms   |    1 ms  |              403.0× |
-| numeric_loop          |    116 ms   |    1 ms  |              116.0× |
-| object_read_only      |     67 ms   |    1 ms  |               64.5× |
-| string_concat         |    152 ms   |    1 ms  |              151.5× |
-| object_property       |    512 ms   |   34 ms  |               15.5× |
-| object_write_only     |   1232 ms   |   12 ms  |              109.8× |
-| json_transform        |      7 ms   |    1 ms  |               14.0× |
-| **parallel_cpu**      |  **52 ms**  |**40 ms** |  **Node 1.30×**     |
-| tree_traversal        |    847 ms   |    1 ms  |              918.0× |
+| array_literal         |    199 ms   |    2 ms  |               93.5× |
+| control_flow          |    245 ms   |    4 ms  |               60.6× |
+| function_calls        |    189 ms   |    1 ms  |              189.0× |
+| numeric_loop          |    115 ms   |    1 ms  |              114.5× |
+| object_read_only      |     64 ms   |    1 ms  |               57.5× |
+| string_concat         |    103 ms   |    1 ms  |              103.0× |
+| object_property       |    359 ms   |   37 ms  |                9.9× |
+| object_write_only     |    823 ms   |   11 ms  |               74.8× |
+| json_transform        |      5 ms   |    1 ms  |               10.0× |
+| **parallel_cpu**      |  **52 ms**  |**41 ms** |  **Node 1.27×**     |
+| tree_traversal        |    316 ms   |    1 ms  |              457.0× |
 
-**Geometric mean (12 benches): Node.js 39.40× faster than protoJS**
-(median across 12 rounds; geomean-of-medians 49.6×) — refreshed
-2026-05-06 after **P-JS-6 (DISPATCH macro hot-path trim)** added on top of
-SmallSparseList, P-JS-{0..5}, and the broader May 2026 work (paths #2/#3/#4/#6, task #28 CAS removal, task #34 destructor
+**Geometric mean (12 benches): Node.js 28.94× faster than protoJS**
+(median across 12 rounds; geomean-of-medians 36.84×) — refreshed
+2026-05-06 after **P-JS-7 (dispatch_table hoisted out of the per-call
+hot path)** completed the May 2026 cycle on top of SmallSparseList,
+P-JS-{0..6}, and the broader May 2026 work.
+
+> **⚠ Earlier "intermediate" cycle measurements were noise.** The
+> aggregated runner (`run_standard_comparison.js`) silently used a
+> stale `build/protojs` binary instead of the rebuilt `build_release/protojs`
+> for every prior measurement in this cycle.  The "+1-2% per step"
+> README entries (P-JS-5, SmallSparseList, P-JS-6) were comparing the
+> SAME unchanged binary across rounds — pure noise.  This entry is
+> the first measurement against the actual optimised binary.  The
+> runner is now fixed (`PROTOJS_BIN` env var support + `build_release/`
+> preferred over `build/`) so this cannot recur. (paths #2/#3/#4/#6, task #28 CAS removal, task #34 destructor
 reorder fix, task #36 chunked freelist via GC pre-chunking, tasks
 #37/#39 type-flags cache + unified attribute fast paths, **task #42
 SparseList hash cascade elimination**).  Improvement of ~45 % over
 the prior 75.13× baseline.  Driving wins:
 
-**P-JS-6 — DISPATCH macro hot-path trim** (latest): the
-computed-goto dispatcher used to re-fetch `globalObj` from
-`*pGlobalRoot` on **every** opcode dispatch and to null-check the
-dispatch_table slot.  Both were redundant for the common case:
-`globalObj` is consumed by only ~6 opcodes (OP_push_this in
-non-strict mode, the obj == globalObj check in OP_put_field /
-OP_define_field / OP_delete, and the Array.prototype lookup in
-OP_array_from), and the dispatch_table is now pre-filled with
-`&&L_default` so the slot is always a valid jump target.  Per-dispatch
-overhead drops from ~19 cycles to ~12 cycles (-37%).  Per-bench
-impact (60-sample median): tree_traversal 885→847 ms (-4%),
-control_flow 259→255 (-2%), array_literal 291→287 (-1%); function
-call dispatch density paths see micro-improvements within noise band.
-Geomean Node 40.17× → 39.40×; vs QuickJS 9.74× → 9.67×.
+**P-JS-7 — dispatch_table hoisted out of the per-call hot path**
+(largest single win of the cycle): the 256-entry computed-goto table
+was re-initialised on every entry to `runBytecode` — 256 default-fills
++ ~210 per-opcode overrides = ~470 stores per call.  For
+tree_traversal that was ~150 M wasted stores per bench run.  Beyond
+the raw stores, each frame held 2 KB of dispatch_table on the C++
+stack; with recursion depth 14, ~28 KB of duplicated tables overflowed
+L1d (32 KB), causing measurable cache pressure that flat profiles
+attributed silently to the `runBytecode` self-time symbol.  Fix:
+function-scope `static const void* dispatch_table[256]` initialised
+once via DCLP (`std::atomic<bool>` + `std::mutex`).  Address-of-label
+values are stable across function entries — the binary loads once,
+labels live at fixed code-segment offsets — so single-process
+initialisation is correct.  Steady-state cost: 1 acquire-load + a
+predicted-not-taken branch (~2 cycles) per `runBytecode` entry.
+Per-bench impact (60-sample real medians, post-cycle): tree_traversal
+1004→316 ms (**−69%**), function_calls 448→189 ms (−58%),
+object_write_only 1430→823 (−42%), object_property 598→359 (−40%),
+array_literal 301→199 (−34%), string_concat 176→103 (−41%).
+
+**P-JS-6 — DISPATCH macro hot-path trim**: the computed-goto
+dispatcher used to re-fetch `globalObj` from `*pGlobalRoot` on **every**
+opcode dispatch and to null-check the dispatch_table slot.  Both were
+redundant for the common case: `globalObj` is consumed by only ~6
+opcodes (OP_push_this in non-strict mode, the obj == globalObj check
+in OP_put_field / OP_define_field / OP_delete, and the Array.prototype
+lookup in OP_array_from), and the dispatch_table is now pre-filled
+with `&&L_default` so the slot is always a valid jump target.
+Per-dispatch overhead drops from ~19 cycles to ~12 cycles (-37%).
 
 **SmallSparseList** (in protoCore — auto-applies through
 the public ProtoSparseList API): single-cell inline form for sparse
@@ -574,23 +600,23 @@ Comparing against vanilla **QuickJS** (the underlying engine without protoCore) 
 
 | Benchmark           | protoJS    | QuickJS  | Ratio (QuickJS faster) |
 |---------------------|------------|----------|-----------------------:|
-| array_literal       |    284 ms  |    6 ms  |                 49.1×  |
-| control_flow        |    251 ms  |   44 ms  |                  5.7×  |
-| function_calls      |    404 ms  |    9 ms  |                 43.1×  |
-| json_transform      |      7 ms  |    1 ms  |                 14.0×  |
-| numeric_loop        |    115 ms  |   33 ms  |                  3.5×  |
-| object_property     |    515 ms  |   67 ms  |                  7.7×  |
-| object_read_only    |     64 ms  |    6 ms  |                 12.2×  |
-| object_write_only   |   1238 ms  | 52.5 ms  |                 23.2×  |
-| string_concat       |    151 ms  |    5 ms  |                 31.7×  |
-| **parallel_cpu**    |  **52 ms** | **695 ms**|      **protoJS 13.4× faster** |
-| tree_traversal      |    857 ms  |    3 ms  |                280.3×  |
+| array_literal       |    206 ms  |    6 ms  |                 33.3×  |
+| control_flow        |    247 ms  |   47 ms  |                  5.4×  |
+| function_calls      |    198 ms  |   10 ms  |                 20.5×  |
+| json_transform      |      7 ms  |    1 ms  |                  8.6×  |
+| numeric_loop        |    122 ms  | 35.5 ms  |                  3.5×  |
+| object_property     |    369 ms  |   73 ms  |                  5.3×  |
+| object_read_only    |     65 ms  |    6 ms  |                 10.6×  |
+| object_write_only   |    872 ms  | 60.5 ms  |                 15.3×  |
+| string_concat       |    118 ms  |    5 ms  |                 21.6×  |
+| **parallel_cpu**    |  **52 ms** | **719 ms**|      **protoJS 13.8× faster** |
+| tree_traversal      |    347 ms  |    4 ms  |                 81.6×  |
 
-**Geometric mean (12 benches): QuickJS 9.67× faster than protoJS** (median across 12 outer rounds; geomean-of-medians 10.44×).  As in
+**Geometric mean (12 benches): QuickJS 7.05× faster than protoJS** (median across 12 outer rounds; geomean-of-medians 7.32×).  As in
 the Node comparison, `tree_traversal` is the single dominant outlier at
 282×; excluding it, the gap narrows to ~7×.
 `parallel_cpu` remains the only bench where protoJS wins — and the margin
-widens to 13.4× because QuickJS, lacking native threads, cannot exploit
+widens to 13.8× because QuickJS, lacking native threads, cannot exploit
 multiple cores at all.  Interpreter-vs-interpreter we are now within an
 order of magnitude on every bench except `tree_traversal` and the
 mutable-property / array-build workloads (`array_literal`,

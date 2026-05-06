@@ -20,7 +20,19 @@ function findProtojs() {
         console.error(`PROTOJS_BIN=${process.env.PROTOJS_BIN} does not exist`);
         return null;
     }
+    // Prefer build_release/ over build/.  In May 2026 we discovered that
+    // this runner had silently been measuring a stale `build/protojs`
+    // binary for an entire optimisation cycle (P-JS-{0..7} +
+    // SmallSparseList) — every "+1-2 % geomean improvement" was actually
+    // noise over an unchanged binary while build_release/ was being
+    // rebuilt invisibly.  Search build_release/ first, then build/, then
+    // walk up.  The README's reproduction recipe explicitly uses
+    // build_release/, so this matches what users intend.
     const candidates = [
+        path.join(__dirname, '../../build_release/protojs'),
+        path.join(__dirname, '../build_release/protojs'),
+        path.resolve(__dirname, '../../build_release/protojs'),
+        path.resolve(__dirname, '../build_release/protojs'),
         path.join(__dirname, '../../build/protojs'),
         path.join(__dirname, '../build/protojs'),
         path.resolve(__dirname, '../../build/protojs'),
