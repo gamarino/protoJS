@@ -1042,18 +1042,23 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
  * identity for JS objects across the bridge, we must update the mapping for the 
  * underlying JSValue to point to the new snapshot.
  */
-static void updateMapping(proto::ProtoContext* pContext, const proto::ProtoObject* oldObj, const proto::ProtoObject* newObj) {
-    if (!oldObj || !newObj || oldObj == newObj) return;
-    JSContextWrapper* wrapper = JSContextWrapper::current();
-    if (!wrapper) return;
-    JSContext* ctx = wrapper->getJSContext();
-    if (!ctx) return;
-    
-    JSValue jsVal = GCBridge::getJSValue(oldObj, ctx);
-    if (!JS_IsException(jsVal) && !JS_IsNull(jsVal) && !JS_IsUndefined(jsVal)) {
-        GCBridge::registerMapping(jsVal, newObj, ctx);
-    }
-    JS_FreeValue(ctx, jsVal);
+// P-JS-0 — no-op (vestigial QuickJS-runtime bridge).
+//
+// QuickJS is the parser/compiler only at runtime; `runBytecode` operates
+// purely on protoCore objects.  `GCBridge::registerMapping` populates a
+// JSValue→ProtoObject* index that NO runtime path consumes — lookups via
+// `GCBridge::getProtoObject` happen only at compile time inside
+// `ProtoBytecodeLoader` for the constant pool and inside the dead
+// `ExecutionEngine::opGet/SetProperty/opCall` functions that the new
+// interpreter never calls.
+//
+// Every `obj.x = y` used to walk this dead path: JSContextWrapper fetch
+// + GCBridge::getJSValue (allocating a fresh JSValue snapshot) +
+// JS_FreeValue + register-and-forget registerMapping.  All for an index
+// no consumer reads.  Making this a no-op keeps the call sites stable
+// while letting the optimiser delete the per-call work.
+static inline void updateMapping(proto::ProtoContext*, const proto::ProtoObject*, const proto::ProtoObject*) {
+    // Intentional no-op — see block comment above.
 }
 
 // ---------------------------------------------------------------------------
