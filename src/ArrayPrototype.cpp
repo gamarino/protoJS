@@ -1916,8 +1916,10 @@ static const proto::ProtoObject* arrayIsArray(
     const proto::ProtoObject* val = args->getAt(ctx, 0);
     if (!val || val == PROTO_NONE) return PROTO_FALSE;
     const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
-    if (isArrayKey && val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
-        return PROTO_TRUE;
+    if (isArrayKey) {
+        if (val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
+            return PROTO_TRUE;
+    }
     return PROTO_FALSE;
 }
 
@@ -2100,8 +2102,17 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey)
+    if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Array"));
+        const proto::ProtoString* pdnk = ctx->fromUTF8String("__pd_name__")->asString(ctx);
+        if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2)); // configurable, !writable, !enumerable
+    }
+    const proto::ProtoString* lengthKey = JSSymbols::length(ctx);
+    if (lengthKey) {
+        ctor = ctor->setAttribute(ctx, lengthKey, ctx->fromInteger(1));
+        const proto::ProtoString* pdlk = ctx->fromUTF8String("__pd_length__")->asString(ctx);
+        if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2)); // configurable, !writable, !enumerable
+    }
 
     // Add static methods: isArray, from, of.
     struct { const char* name; proto::ProtoMethod fn; long long length; } statics[] = {
