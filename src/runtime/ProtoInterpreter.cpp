@@ -5226,9 +5226,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 // CS: argsList held in C++ scratch — see resolvedMod2 branch.
                 proto::ProtoContext::CriticalSection callCs2(pContext);
-                const proto::ProtoList* argsList = pContext->newList();
-                for (uint32_t i = 0; i < argc; i++)
-                    argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                // P-#4 single-allocation builder (matches L_OP_call /
+                // L_OP_call_method): pass the contiguous slice in
+                // automaticLocals directly.
+                InterpFrame* frameNowC = currentFrame(pContext);
+                const proto::ProtoObject* const* argSliceC =
+                    pContext->getAutomaticLocals()
+                    + frameNowC->stackBase + frameNowC->stackTop - argc;
+                const proto::ProtoList* argsList = pContext->newList(argc, argSliceC);
 
                 // ES spec: Unwrapping bound functions for construct calls.
                 const proto::ProtoString* bfK = JSSymbols::boundFn(pContext);
@@ -5478,9 +5483,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     uint32_t bindCount = (argc < nf.argCount()) ? argc : nf.argCount();
                     {
                         proto::ProtoContext::CriticalSection callCs3(pContext);
-                        argsList = pContext->newList();
-                        for (uint32_t i = 0; i < argc; i++)
-                            argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                        // Match L_OP_call_method (P-#4 single-allocation
+                        // builder): the top `argc` stack slots live
+                        // contiguously in automaticLocals at
+                        // [stackBase + stackTop - argc, stackBase + stackTop)
+                        // — pass that slice directly to the multi-arg
+                        // newList builder.  argc ≤ 5 yields a single
+                        // SmallList cell; argc > 5 falls back to the AVL
+                        // builder via the same entry point.  Replaces
+                        // 1 + N cell allocations per call with 1.
+                        InterpFrame* frameNow = currentFrame(pContext);
+                        const proto::ProtoObject* const* argSlice =
+                            pContext->getAutomaticLocals()
+                            + frameNow->stackBase + frameNow->stackTop - argc;
+                        argsList = pContext->newList(argc, argSlice);
                         callThisVal = PROTO_NONE;
                         if (nf.isArrow) {
                             const proto::ProtoObject* captured =
