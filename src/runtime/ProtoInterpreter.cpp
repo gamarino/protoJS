@@ -33,6 +33,8 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_set>
+#include <mutex>           // P-JS-7: dispatch_table init mutex
+#include <atomic>          // P-JS-7: dispatch_table_initialized flag
 
 namespace protojs {
 
@@ -2061,15 +2063,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // and can't disambiguate).  Typical 1.2-1.7x speed-up on tight loops
     // over the bytecode.
     //
-    // The table is filled at function entry — `&&label` is not a constant
-    // expression so we can't use designated initialisers in C++20.  Cost
-    // is ~256 pointer writes per runBytecode call (≈ amortised noise).
+    // P-JS-7: cache the table once per process.  `&&label` is not a
+    // *static* constant expression in C++ (so we can't use a namespace-
+    // scope initialiser), AND it cannot be referenced from a nested
+    // lambda (GCC extension limitation: `&&label` only resolves inside
+    // the enclosing function body, not inside a lambda's body).  We
+    // therefore use double-checked locking with the init code written
+    // directly in runBytecode's body — labels are accessible there.
+    //
+    // Address-of-label values are stable across every entry to the same
+    // function (labels live in the code segment at fixed offsets), so
+    // initialising once and reusing for every subsequent call from any
+    // thread is safe.  Eliminates ~256 + ~210 stores per call (the
+    // previous version re-filled the table from scratch on every entry
+    // — for tree_traversal that was ~150 M wasted stores per bench
+    // run).  Steady-state cost: 1 acquire-load + predicted-not-taken
+    // branch (~2 cycles) per runBytecode entry.
     //
     // Pre-fill every slot with `&&L_default` so the DISPATCH hot path
     // never has to test for nullptr — unimplemented opcodes route to the
     // diagnostic L_default handler the same way as if the slot had been
     // explicitly assigned to it.  Saves one branch per dispatch.
-    const void* dispatch_table[256];
+    static const void* dispatch_table[256];
+    static std::atomic<bool> dispatch_table_initialized{false};
+    static std::mutex dispatch_table_init_mutex;
+    if (__builtin_expect(!dispatch_table_initialized.load(std::memory_order_acquire), 0)) {
+    std::lock_guard<std::mutex> _disp_init_lock(dispatch_table_init_mutex);
+    if (!dispatch_table_initialized.load(std::memory_order_relaxed)) {
     for (int i = 0; i < 256; ++i) dispatch_table[i] = &&L_default;
     dispatch_table[OP_add] = &&L_OP_add;
     dispatch_table[OP_add_loc] = &&L_OP_add_loc;
@@ -2277,6 +2297,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_xor] = &&L_OP_xor;
     dispatch_table[OP_yield] = &&L_OP_yield;
     dispatch_table[OP_yield_star] = &&L_OP_yield_star;
+    dispatch_table_initialized.store(true, std::memory_order_release);
+    }   // close inner DCLP check
+    }   // close outer "not initialized" branch
 
     // globalObj is recomputed on every dispatch because some opcodes
     // (top-level `var` set, OP_put_field on the global root) re-bind
