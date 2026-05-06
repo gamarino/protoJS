@@ -417,7 +417,13 @@ Self-contained micro-benchmarks with tight loops; 5 iterations each, median repo
 | **parallel_cpu**      |  **53 ms**  |**41 ms** |  **Node 1.29×**     |
 | tree_traversal        |   1033 ms   |    1 ms  |             1033.0× |
 
-**Geometric mean (14 benches incl. small/tiny json variants): Node.js ~40× faster than protoJS** (refreshed 2026-05-06 after the May 2026 perf cycle: paths #2/#3/#4/#6, task #28 CAS removal, task #34 destructor reorder fix, **task #36 chunked freelist via GC pre-chunking**).  Improvement of ~47 % over the prior 75.13× baseline driven mostly by path #4's single-allocation argsList builder (`OP_call` / `OP_call_method` / `OP_call_constructor`), the path #6 mutable-cache stash, and task #36's O(1) chunked freelist refill (eliminated `getFreeCells` from 7.91 % to 0.52 % of CPU).
+**Geometric mean (14 benches incl. small/tiny json variants): Node.js ~39× faster than protoJS** (refreshed 2026-05-06 — full May 2026 perf cycle: paths #2/#3/#4/#6, task #28 CAS removal, task #34 destructor reorder fix, task #36 chunked freelist via GC pre-chunking, tasks #37/#39 type-flags cache + unified attribute fast paths, **task #42 SparseList hash cascade elimination**).  Improvement of ~48 % over the prior 75.13× baseline.  Driving wins:
+
+  - path #4 single-allocation `argsList` builder (`OP_call` / `OP_call_method` / `OP_call_constructor`)
+  - path #6 mutable-cache stash on `resolveMutableState` hot path
+  - task #36 O(1) chunked freelist refill (`getFreeCells` 7.91 % → 0.52 % CPU)
+  - task #42 SparseList hash propagation removed (`isString` 3.78 % → 0 %, `getAttribute` 14.03 % → 5.90 %)
+
 `tree_traversal` now completes (it crashed on the previous baseline thanks
 to the GC survivor re-chain landing in protoCore) but at 965 ms it pulls
 the geomean up; if it is excluded the ten remaining benches yield Node
@@ -511,7 +517,7 @@ Comparing against vanilla **QuickJS** (the underlying engine without protoCore) 
 | **parallel_cpu**    |  **51 ms** | **741 ms**|      **protoJS 14.5× faster** |
 | tree_traversal      |   1036 ms  |    4 ms  |                259.0×  |
 
-**Geometric mean (14 benches incl. small/tiny json variants): QuickJS ~9.5× faster than protoJS** (refreshed 2026-05-06 — May 2026 perf cycle including task #36 chunked freelist).  As in
+**Geometric mean (14 benches incl. small/tiny json variants): QuickJS ~8.8× faster than protoJS** (refreshed 2026-05-06 — full May 2026 perf cycle including tasks #36/#42).  As in
 the Node comparison, `tree_traversal` is the single dominant outlier at
 259×; excluding it, the gap narrows substantially.
 `parallel_cpu` remains the only bench where protoJS wins — and the margin
