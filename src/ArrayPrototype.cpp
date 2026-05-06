@@ -373,37 +373,38 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* arr,
                                             unsigned long newLen) {
     if (!arr) return PROTO_NONE;
-    // Only bump length on real arrays (carrying __is_array__ marker),
-    // not on plain objects used as array-likes — that would shadow prototype getters.
+    // Only bump magic length on real arrays (carrying __is_array__ marker).
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     const proto::ProtoObject* isArrVal = isArrKey
-        ? arr->getAttribute(ctx, isArrKey, true) : nullptr;
-    if (isArrVal != PROTO_TRUE) return arr;
+        ? arr->hasOwnAttribute(ctx, isArrKey) : nullptr;
+    bool isRealArray = (isArrVal == PROTO_TRUE);
 
-    // FAST PATH: native ProtoList storage — truncate or pad in place.
-    if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
-        unsigned long size = static_cast<unsigned long>(els->getSize(ctx));
-        if (newLen < size) {
-            const proto::ProtoList* truncated = els->splitFirst(ctx, static_cast<int>(newLen));
-            if (truncated) setArrayElements(ctx, arr, truncated);
-        } else if (newLen > size) {
-            // Pad with PROTO_NONE up to the new length.  Bounded by the
-            // sparse threshold to avoid runaway pads from `arr.length = 2**32`.
-            if (newLen - size > kSparseFallbackThreshold) {
-                // Fall through to legacy length-attribute set so that semantics
-                // are preserved (length set, elements untouched).
-            } else {
-                const proto::ProtoList* padded = els;
-                for (unsigned long i = size; i < newLen; ++i) {
-                    padded = padded->appendLast(ctx, PROTO_NONE);
+    if (isRealArray) {
+        // FAST PATH: native ProtoList storage — truncate or pad in place.
+        if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
+            unsigned long size = static_cast<unsigned long>(els->getSize(ctx));
+            if (newLen < size) {
+                const proto::ProtoList* truncated = els->splitFirst(ctx, static_cast<int>(newLen));
+                if (truncated) setArrayElements(ctx, arr, truncated);
+            } else if (newLen > size) {
+                // Pad with PROTO_NONE up to the new length.  Bounded by the
+                // sparse threshold to avoid runaway pads from `arr.length = 2**32`.
+                if (newLen - size > kSparseFallbackThreshold) {
+                    // Fall through to legacy length-attribute set so that semantics
+                    // are preserved (length set, elements untouched).
+                } else {
+                    const proto::ProtoList* padded = els;
+                    for (unsigned long i = size; i < newLen; ++i) {
+                        padded = padded->appendLast(ctx, PROTO_NONE);
+                    }
+                    setArrayElements(ctx, arr, padded);
+                    return arr;
                 }
-                setArrayElements(ctx, arr, padded);
-                return arr;
+            } else {
+                return arr;  // size unchanged
             }
-        } else {
-            return arr;  // size unchanged
+            return arr;
         }
-        return arr;
     }
 
     const proto::ProtoString* key = JSSymbols::length(ctx);
@@ -528,6 +529,8 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
     const proto::ProtoObject* arr = proto
         ? proto->newChild(ctx, true)
         : ctx->newObject(true);
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    if (isArrKey) arr = arr->setAttribute(ctx, isArrKey, PROTO_TRUE);
     return arrSetLen(ctx, arr, 0);
 }
 
@@ -1912,16 +1915,8 @@ static const proto::ProtoObject* arrayIsArray(
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* val = args->getAt(ctx, 0);
     if (!val || val == PROTO_NONE) return PROTO_FALSE;
-    if (val->isInteger(ctx) || val->isDouble(ctx) || val->isFloat(ctx) ||
-        val->isString(ctx) || val->isBoolean(ctx)) return PROTO_FALSE;
-    // Heuristic: any object with a "length" attribute that is a non-negative integer
-    // is treated as an array.  This matches the practical usage in test262.
-    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (!lenKey) return PROTO_FALSE;
-    const proto::ProtoObject* lv = val->getAttribute(ctx, lenKey, false);
-    if (!lv || lv == PROTO_NONE) return PROTO_FALSE;
-    if (lv->isInteger(ctx) && lv->asLong(ctx) >= 0) return PROTO_TRUE;
-    if ((lv->isDouble(ctx) || lv->isFloat(ctx)) && lv->asDouble(ctx) >= 0.0)
+    const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
+    if (isArrayKey && val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
         return PROTO_TRUE;
     return PROTO_FALSE;
 }
@@ -2086,9 +2081,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         }
     }
 
-    // Mark the array prototype so Object.prototype.toString can detect arrays.
-    const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
-    if (isArrayKey) proto = proto->setAttribute(ctx, isArrayKey, PROTO_TRUE);
+    // Mark the array prototype no longer carries __is_array__; it belongs on instances.
 
     // Store in module-level static for createNewArray.
     s_arrayProto = proto;
