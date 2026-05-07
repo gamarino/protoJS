@@ -1070,11 +1070,57 @@ static const proto::ProtoObject* objectHasOwnProperty(
 static const proto::ProtoObject* objectPropertyIsEnumerable(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
-    const proto::ParentLink* pl,
+    const proto::ParentLink*,
     const proto::ProtoList* args,
-    const proto::ProtoSparseList* kw)
+    const proto::ProtoSparseList*)
 {
-    return objectHasOwnProperty(ctx, self, pl, args, kw);
+    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key || key == PROTO_NONE) return PROTO_FALSE;
+
+    std::string keyStr;
+    if (key->isString(ctx)) {
+        const proto::ProtoString* ps = key->asString(ctx);
+        if (ps) ps->toUTF8String(ctx, keyStr);
+    } else if (key->isInteger(ctx)) {
+        keyStr = std::to_string(key->asLong(ctx));
+    }
+    if (keyStr.empty()) return PROTO_FALSE;
+
+    const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
+    if (!strKey) return PROTO_FALSE;
+
+    // Check if it's an own property
+    bool exists = (self->hasOwnAttribute(ctx, strKey) == PROTO_TRUE);
+    if (!exists) {
+        // Also check accessors
+        for (const char* prefix : {"__get_", "__set_"}) {
+            std::string sk = std::string(prefix) + keyStr + "__";
+            const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+            const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+            if (sks && self->hasOwnAttribute(ctx, sks) == PROTO_TRUE) {
+                exists = true;
+                break;
+            }
+        }
+    }
+    if (!exists) return PROTO_FALSE;
+
+    // Check descriptor bit 0x4 (enumerable)
+    std::string pdKeyStr = std::string("__pd_") + keyStr + "__";
+    const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+    const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+    if (pdks) {
+        const proto::ProtoObject* pdAttr = self->getAttribute(ctx, pdks, true);
+        if (pdAttr && pdAttr->isInteger(ctx)) {
+            long long bits = pdAttr->asLong(ctx);
+            return (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE;
+        }
+    }
+
+    // Default: properties are enumerable unless explicitly marked (bits 0x3 vs 0x7)
+    return PROTO_TRUE;
 }
 
 // ---------------------------------------------------------------------------
@@ -1187,6 +1233,28 @@ static const proto::ProtoObject* objectValueOf(
     return self;
 }
 
+static const proto::ProtoObject* objectIsPrototypeOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    const proto::ProtoObject* arg = args->getAt(ctx, 0);
+    // If arg is not an object, return false
+    if (!arg || arg == PROTO_NONE || arg->isNone(ctx) || arg->isInteger(ctx) || arg->isDouble(ctx) || arg->asString(ctx) || arg == PROTO_TRUE || arg == PROTO_FALSE)
+        return PROTO_FALSE;
+
+    // Walk the prototype chain of arg
+    const proto::ProtoObject* curr = arg->getFirstParent(ctx);
+    while (curr && curr != PROTO_NONE) {
+        if (curr == self) return PROTO_TRUE;
+        curr = curr->getFirstParent(ctx);
+    }
+    return PROTO_FALSE;
+}
+
 } // anonymous namespace
 
 const proto::ProtoObject* installObjectInstanceMethods(
@@ -1210,7 +1278,9 @@ const proto::ProtoObject* installObjectInstanceMethods(
         }
     };
     reg("hasOwnProperty",       objectHasOwnProperty);
+    reg("isPrototypeOf",        objectIsPrototypeOf);
     reg("propertyIsEnumerable", objectPropertyIsEnumerable);
+    reg("toLocaleString",       objectToString); // Alias for now
     reg("toString",             objectToString);
     reg("valueOf",              objectValueOf);
     return base;
