@@ -2083,7 +2083,17 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         }
     }
 
-    // Mark the array prototype no longer carries __is_array__; it belongs on instances.
+    // Array.prototype has a length property (0, non-configurable).
+    const proto::ProtoString* lengthKey = JSSymbols::length(ctx);
+    if (lengthKey) {
+        proto = proto->setAttribute(ctx, lengthKey, ctx->fromInteger(0));
+        const proto::ProtoString* pdlk = ctx->fromUTF8String("__pd_length__")->asString(ctx);
+        if (pdlk) proto = proto->setAttribute(ctx, pdlk, ctx->fromInteger(0x1)); // writable, !configurable, !enumerable
+    }
+
+    // Array.prototype is itself an array (exotic object).
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    if (isArrKey) proto = proto->setAttribute(ctx, isArrKey, PROTO_TRUE);
 
     // Store in module-level static for createNewArray.
     s_arrayProto = proto;
@@ -2097,6 +2107,10 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         JSSymbols::arrayCtor(ctx);
     if (markerKey) ctor = ctor->setAttribute(ctx, markerKey, PROTO_TRUE);
 
+    // Explicitly mark as a constructor for OP_call_constructor.
+    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
+
     const proto::ProtoString* protoKey =
         JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
@@ -2107,7 +2121,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* pdnk = ctx->fromUTF8String("__pd_name__")->asString(ctx);
         if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2)); // configurable, !writable, !enumerable
     }
-    const proto::ProtoString* lengthKey = JSSymbols::length(ctx);
+    lengthKey = JSSymbols::length(ctx);
     if (lengthKey) {
         ctor = ctor->setAttribute(ctx, lengthKey, ctx->fromInteger(1));
         const proto::ProtoString* pdlk = ctx->fromUTF8String("__pd_length__")->asString(ctx);
@@ -2125,8 +2139,14 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* key = ctx->fromUTF8String(s.name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* fn = wrapNativeFunction(ctx, s.fn, s.name, s.length, globalRoot);
-            if (fn && fn != PROTO_NONE)
+            if (fn && fn != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, fn);
+                // Set descriptor: {writable: true, enumerable: false, configurable: true}
+                // bits: 0=1 (w), 1=1 (c), 2=0 (e) -> 0x3
+                std::string pdKeyStr = "__pd_" + std::string(s.name) + "__";
+                const proto::ProtoString* pdk = ctx->fromUTF8String(pdKeyStr.c_str())->asString(ctx);
+                if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3));
+            }
         }
     }
 

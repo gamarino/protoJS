@@ -516,6 +516,10 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     if (protoKey2 && numProto && numProto != PROTO_NONE)
         ctor = ctor->setAttribute(ctx, protoKey2, numProto);
 
+    // Explicitly mark as a constructor for OP_call_constructor.
+    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
+
     // __number_ctor__ marker for typeof/instanceof checks.
     const proto::ProtoString* numCtorKey = ctx->fromUTF8String("__number_ctor__")->asString(ctx);
     if (numCtorKey) ctor = ctor->setAttribute(ctx, numCtorKey, PROTO_TRUE);

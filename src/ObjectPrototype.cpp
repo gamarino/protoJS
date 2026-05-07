@@ -1275,6 +1275,10 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
 
+    // Explicitly mark as a constructor for OP_call_constructor.
+    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
+
     // Mark as callable so OP_typeof / OP_typeof_is_function return "function".
     // The __construct__ method also handles `new Object(value)` → coerce to object.
     static const proto::ProtoMethod objectCtorFn = [](

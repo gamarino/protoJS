@@ -1334,6 +1334,10 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, protoKey, reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype));
     }
 
+    // Explicitly mark as a constructor for OP_call_constructor.
+    const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+    if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
+
     // Mark as the String constructor so OP_call can invoke it as a conversion function.
     const proto::ProtoString* markerKey = JSSymbols::stringCtor(ctx);
     if (markerKey) ctor = ctor->setAttribute(ctx, markerKey, PROTO_TRUE);

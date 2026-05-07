@@ -172,6 +172,11 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     if (protoKey && boolProto && boolProto != PROTO_NONE)
         ctor = ctor->setAttribute(ctx, protoKey, boolProto);
 
+    // Explicitly mark as a constructor for OP_call_constructor.
+    const proto::ProtoObject* isCtorObj = ctx->fromUTF8String("__is_constructor__");
+    const proto::ProtoString* isCtorKey = isCtorObj ? isCtorObj->asString(ctx) : nullptr;
+    if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
+
     // __boolean_ctor__ marker for instanceof checks
     const proto::ProtoObject* boolCtorKeyObj = ctx->fromUTF8String("__boolean_ctor__");
     const proto::ProtoString* boolCtorKey = boolCtorKeyObj ? boolCtorKeyObj->asString(ctx) : nullptr;

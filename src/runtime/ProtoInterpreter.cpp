@@ -5413,6 +5413,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* pk = JSSymbols::prototype(pContext);
                         const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
                         const proto::ProtoObject* arr = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
+                        // Set the internal array marker so Array.isArray identifies it.
+                        const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                        if (isArrKey) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
                         if (finalArgc == 1 && argsList->getAt(pContext, 0)->isInteger(pContext)) {
                             arr = arr->setAttribute(pContext, JSSymbols::length(pContext), argsList->getAt(pContext, 0));
                         } else {
@@ -5460,19 +5463,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     } else {
                         // Generic: if the constructor carries a __construct__ native method,
                         // invoke it directly (Boolean, Number, Map, Set, Promise, WeakMap, etc.).
-                        // This fallback was present before commit 9056944 and must be retained.
                         const proto::ProtoObject* ctorKeyObj = pContext->fromUTF8String("__construct__");
                         const proto::ProtoString* ctorKey = ctorKeyObj ? ctorKeyObj->asString(pContext) : nullptr;
                         const proto::ProtoObject* ctorMethod = (ctorKey && func && func != PROTO_NONE)
                             ? func->getAttribute(pContext, ctorKey, false) : nullptr;
+                        
+                        const proto::ProtoObject* isCtorKeyObj = pContext->fromUTF8String("__is_constructor__");
+                        const proto::ProtoString* isCtorKey = isCtorKeyObj ? isCtorKeyObj->asString(pContext) : nullptr;
+                        const proto::ProtoObject* isCtor = (isCtorKey && func && func != PROTO_NONE)
+                            ? func->getAttribute(pContext, isCtorKey, false) : nullptr;
+
                         if (ctorMethod && ctorMethod != PROTO_NONE && ctorMethod->isMethod(pContext)) {
                             proto::ProtoMethod ctorFn = ctorMethod->asMethod(pContext);
                             if (ctorFn)
                                 result = ctorFn(pContext, newObj, nullptr, argsList, nullptr);
+                        } else if (isCtor == PROTO_TRUE) {
+                            // Explicitly marked as constructor (e.g. Array).
+                            // If no specialized logic above matched (Array matches errAttr etc.), just return newObj.
+                            result = newObj;
+                        } else {
+                            // Not a constructor! Throw TypeError.
+                            pending_exception = makeError(pContext, "TypeError", "function is not a constructor", pGlobalRoot);
+                            has_pending_exception = true;
+                            DISPATCH();
                         }
                     }
                 }
 
+                // If result is an object, return it; otherwise return the newly created object (spec 9.2.2).
                 bool resultIsObject = result && result != PROTO_NONE && !result->isInteger(pContext) && !result->isDouble(pContext) && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
                 stackPush(pContext, resultIsObject ? result : newObj);
                 DISPATCH();
@@ -5665,6 +5683,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* protK = JSSymbols::prototype(pContext);
                             const proto::ProtoObject* prot = func->getAttribute(pContext, protK, false);
                             const proto::ProtoObject* arr = (prot && prot != PROTO_NONE) ? prot->newChild(pContext, true) : pContext->newObject(true);
+                            // Set the internal array marker so Array.isArray identifies it.
+                            const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                            if (isArrKey) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
                             arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(argc)));
                             if (is_tail_call) return arr;
                             stackPush(pContext, arr);
@@ -6032,6 +6053,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     ? arrProto->newChild(pContext, true)   // mutable, inherits Array.prototype
                     : pContext->newObject(true);            // fallback: mutable plain object
                 if (!arr) { stackPush(pContext, PROTO_NONE); DISPATCH(); }
+                // Set the internal array marker so Array.isArray identifies it.
+                const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                if (isArrKey) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
                 // Build the elements ProtoList (native storage) and publish it
                 // via a single setAttribute(__elements__, …) at the end.  This
                 // is the lazy-publish pattern: appendLast per element is
