@@ -77,11 +77,11 @@ numericArrayIndexOrNeg(proto::ProtoContext* ctx,
     if (!idx || idx == PROTO_NONE) return -1;
     if (idx->isInteger(ctx)) {
         long long v = idx->asLong(ctx);
-        return (v >= 0) ? v : -1;
+        return (v >= 0 && v < 4294967295LL) ? v : -1;
     }
     if (idx->isDouble(ctx) || idx->isFloat(ctx)) {
         double d = idx->asDouble(ctx);
-        if (d < 0.0 || d != d /* NaN */ || d > 4294967295.0) return -1;
+        if (d < 0.0 || d != d /* NaN */ || d >= 4294967295.0) return -1;
         long long v = static_cast<long long>(d);
         return (static_cast<double>(v) == d) ? v : -1;
     }
