@@ -1082,6 +1082,30 @@ src/JSContext.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSContext.cpp.s
 .PHONY : src/JSContext.cpp.s
 
+src/JSONBuiltin.o: src/JSONBuiltin.cpp.o
+.PHONY : src/JSONBuiltin.o
+
+# target to build an object file
+src/JSONBuiltin.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSONBuiltin.cpp.o
+.PHONY : src/JSONBuiltin.cpp.o
+
+src/JSONBuiltin.i: src/JSONBuiltin.cpp.i
+.PHONY : src/JSONBuiltin.i
+
+# target to preprocess a source file
+src/JSONBuiltin.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSONBuiltin.cpp.i
+.PHONY : src/JSONBuiltin.cpp.i
+
+src/JSONBuiltin.s: src/JSONBuiltin.cpp.s
+.PHONY : src/JSONBuiltin.s
+
+# target to generate assembly for a file
+src/JSONBuiltin.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/JSONBuiltin.cpp.s
+.PHONY : src/JSONBuiltin.cpp.s
+
 src/JSPrototypes.o: src/JSPrototypes.cpp.o
 .PHONY : src/JSPrototypes.o
 
@@ -2594,6 +2618,30 @@ src/repl/REPL.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/repl/REPL.cpp.s
 .PHONY : src/repl/REPL.cpp.s
 
+src/runtime/BehaviorRegistry.o: src/runtime/BehaviorRegistry.cpp.o
+.PHONY : src/runtime/BehaviorRegistry.o
+
+# target to build an object file
+src/runtime/BehaviorRegistry.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/BehaviorRegistry.cpp.o
+.PHONY : src/runtime/BehaviorRegistry.cpp.o
+
+src/runtime/BehaviorRegistry.i: src/runtime/BehaviorRegistry.cpp.i
+.PHONY : src/runtime/BehaviorRegistry.i
+
+# target to preprocess a source file
+src/runtime/BehaviorRegistry.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/BehaviorRegistry.cpp.i
+.PHONY : src/runtime/BehaviorRegistry.cpp.i
+
+src/runtime/BehaviorRegistry.s: src/runtime/BehaviorRegistry.cpp.s
+.PHONY : src/runtime/BehaviorRegistry.s
+
+# target to generate assembly for a file
+src/runtime/BehaviorRegistry.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/protojs_core.dir/build.make CMakeFiles/protojs_core.dir/src/runtime/BehaviorRegistry.cpp.s
+.PHONY : src/runtime/BehaviorRegistry.cpp.s
+
 src/runtime/ProtoBytecodeLoader.o: src/runtime/ProtoBytecodeLoader.cpp.o
 .PHONY : src/runtime/ProtoBytecodeLoader.o
 
@@ -2843,6 +2891,9 @@ help:
 	@echo "... src/JSContext.o"
 	@echo "... src/JSContext.i"
 	@echo "... src/JSContext.s"
+	@echo "... src/JSONBuiltin.o"
+	@echo "... src/JSONBuiltin.i"
+	@echo "... src/JSONBuiltin.s"
 	@echo "... src/JSPrototypes.o"
 	@echo "... src/JSPrototypes.i"
 	@echo "... src/JSPrototypes.s"
@@ -3032,6 +3083,9 @@ help:
 	@echo "... src/repl/REPL.o"
 	@echo "... src/repl/REPL.i"
 	@echo "... src/repl/REPL.s"
+	@echo "... src/runtime/BehaviorRegistry.o"
+	@echo "... src/runtime/BehaviorRegistry.i"
+	@echo "... src/runtime/BehaviorRegistry.s"
 	@echo "... src/runtime/ProtoBytecodeLoader.o"
 	@echo "... src/runtime/ProtoBytecodeLoader.i"
 	@echo "... src/runtime/ProtoBytecodeLoader.s"

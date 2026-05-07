@@ -6,5 +6,5 @@ CXX_DEFINES = -Dfixture_addon_EXPORTS
 
 CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs -I/home/gamarino/Documentos/proyectos/protoJS/src
 
-CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20 -fPIC
+CXX_FLAGS = -O2 -g -DNDEBUG -std=gnu++20 -fPIC
 

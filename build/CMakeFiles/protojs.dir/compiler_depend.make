@@ -9,6 +9,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
   /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/EventLoopBindings.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/JSONBuiltin.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h \
@@ -517,7 +518,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/x86_64-linux-gnu/bits/endian.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h:
+/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
 
 /usr/include/c++/13/bits/stl_algobase.h:
 
@@ -685,12 +686,6 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/locale.h:
 
-/usr/include/x86_64-linux-gnu/bits/stdio2.h:
-
-/usr/include/c++/13/bits/quoted_string.h:
-
-/usr/include/c++/13/bits/unordered_map.h:
-
 /usr/include/c++/13/ext/string_conversions.h:
 
 /usr/include/x86_64-linux-gnu/bits/endianness.h:
@@ -706,6 +701,8 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/c++/13/bits/atomic_timed_wait.h:
 
 /usr/include/c++/13/bits/ranges_algobase.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/JSONBuiltin.h:
 
 /usr/include/x86_64-linux-gnu/bits/wchar.h:
 
@@ -755,11 +752,17 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/debug/debug.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/main.cpp:
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h:
+/usr/include/c++/13/iosfwd:
 
-/usr/include/c++/13/bits/streambuf.tcc:
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h:
+
+/usr/include/c++/13/bits/semaphore_base.h:
+
+/usr/include/c++/13/system_error:
+
+/usr/include/c++/13/compare:
 
 /home/gamarino/Documentos/proyectos/protoCore/headers/protoCore.h:
 
@@ -793,9 +796,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/locale_facets.h:
 
-/usr/include/c++/13/iosfwd:
+/home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h:
+/home/gamarino/Documentos/proyectos/protoJS/src/main.cpp:
+
+/usr/include/c++/13/bits/streambuf.tcc:
 
 /usr/include/c++/13/bits/memoryfwd.h:
 
@@ -811,11 +816,11 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/basic_string.tcc:
 
-/usr/include/c++/13/bits/semaphore_base.h:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:
 
-/usr/include/c++/13/system_error:
+/usr/include/c++/13/bits/quoted_string.h:
 
-/usr/include/c++/13/compare:
+/usr/include/c++/13/bits/unordered_map.h:
 
 /usr/include/c++/13/bits/cpp_type_traits.h:
 
@@ -838,6 +843,12 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/linux/close_range.h:
 
 /usr/include/c++/13/debug/assertions.h:
+
+/usr/include/c++/13/bits/basic_string.h:
+
+/usr/include/libintl.h:
+
+/usr/include/c++/13/atomic:
 
 /usr/include/c++/13/bits/atomic_lockfree_defines.h:
 
@@ -880,12 +891,6 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/c++/13/locale:
 
 /usr/include/c++/13/bits/atomic_futex.h:
-
-/usr/include/c++/13/atomic:
-
-/usr/include/c++/13/bits/basic_string.h:
-
-/usr/include/libintl.h:
 
 /usr/include/c++/13/bits/stl_deque.h:
 
@@ -1106,5 +1111,3 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
 
 /usr/include/x86_64-linux-gnu/bits/byteswap.h:
-
-/usr/include/x86_64-linux-gnu/bits/cpu-set.h:

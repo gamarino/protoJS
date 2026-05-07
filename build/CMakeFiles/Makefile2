@@ -1049,8 +1049,8 @@ _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/clean:
 
 # All Build rule for target.
 tests/CMakeFiles/protojs_tests.dir/all: CMakeFiles/protojs_core.dir/all
-tests/CMakeFiles/protojs_tests.dir/all: _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/all
 tests/CMakeFiles/protojs_tests.dir/all: _deps/catch2-build/src/CMakeFiles/Catch2.dir/all
+tests/CMakeFiles/protojs_tests.dir/all: _deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/protojs_tests.dir/build.make tests/CMakeFiles/protojs_tests.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/gamarino/Documentos/proyectos/protoJS/build/CMakeFiles --progress-num=95,96,97,98,99 "Built target protojs_tests"

@@ -10,6 +10,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o
  /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h
  /home/gamarino/Documentos/proyectos/protoJS/src/EventLoopBindings.h
  /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h
+ /home/gamarino/Documentos/proyectos/protoJS/src/JSONBuiltin.h
  /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h
  /home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h
  /home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h
