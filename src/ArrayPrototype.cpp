@@ -2159,6 +2159,21 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         }
     }
 
+    // Symbol.iterator = values
+    {
+        const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+        if (symIterKey) {
+            const proto::ProtoString* valuesKey = ctx->fromUTF8String("values")->asString(ctx);
+            const proto::ProtoObject* valuesFn = valuesKey
+                ? proto->getAttribute(ctx, valuesKey, false) : nullptr;
+            if (valuesFn && valuesFn != PROTO_NONE) {
+                proto = proto->setAttribute(ctx, symIterKey, valuesFn);
+                const proto::ProtoString* pdk = ctx->fromUTF8String("__pd_Symbol.iterator__")->asString(ctx);
+                if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // Register on global root.
     // ------------------------------------------------------------------
