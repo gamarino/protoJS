@@ -425,6 +425,13 @@ Self-contained micro-benchmarks with tight loops; 12 outer × 5 inner = 60 sampl
 hot path)** completed the May 2026 cycle on top of SmallSparseList,
 P-JS-{0..6}, and the broader May 2026 work.
 
+> **Re-verified 2026-05-07** after the protoCore `ProtoObjectCell::attributes`
+> tag-0 architectural fix landed (storing the raw `ProtoSparseListImplementation*`
+> instead of the API-tagged `ProtoSparseList*`): median geomean 31.23×, geomean-
+> of-medians 38.17×.  Both deltas sit inside the round-to-round variance band
+> (single-round geomeans ranged 25.14–39.06), so the architectural fix is
+> performance-neutral for protoJS.  Same `build_release/protojs`, same Node 22, same 12×5 sampling.
+
 > **⚠ Earlier "intermediate" cycle measurements were noise.** The
 > aggregated runner (`run_standard_comparison.js`) silently used a
 > stale `build/protojs` binary instead of the rebuilt `build_release/protojs`
@@ -612,7 +619,14 @@ Comparing against vanilla **QuickJS** (the underlying engine without protoCore) 
 | **parallel_cpu**    |  **52 ms** | **719 ms**|      **protoJS 13.8× faster** |
 | tree_traversal      |    347 ms  |    4 ms  |                 81.6×  |
 
-**Geometric mean (12 benches): QuickJS 7.05× faster than protoJS** (median across 12 outer rounds; geomean-of-medians 7.32×).  As in
+**Geometric mean (12 benches): QuickJS 7.05× faster than protoJS** (median across 12 outer rounds; geomean-of-medians 7.32×).
+
+> **Re-verified 2026-05-07** post protoCore tag-0 fix: median geomean 6.87×,
+> geomean-of-medians 7.63× — within noise of the 2026-05-06 baseline.
+> `parallel_cpu` win held at 15.4× (protoJS 52 ms vs QuickJS 796 ms), reflecting
+> QuickJS's lack of native threads.
+
+As in
 the Node comparison, `tree_traversal` is the single dominant outlier at
 282×; excluding it, the gap narrows to ~7×.
 `parallel_cpu` remains the only bench where protoJS wins — and the margin
