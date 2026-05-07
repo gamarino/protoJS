@@ -196,6 +196,9 @@ const proto::ProtoString* symbolSearch(proto::ProtoContext* ctx);   // "Symbol.s
 const proto::ProtoString* symbolSplit(proto::ProtoContext* ctx);    // "Symbol.split"
 const proto::ProtoString* symbolMatchAll(proto::ProtoContext* ctx); // "Symbol.matchAll"
 const proto::ProtoString* symbolIterator(proto::ProtoContext* ctx); // "Symbol.iterator"
+const proto::ProtoString* symbolSpecies(proto::ProtoContext* ctx);  // "Symbol.species"
+const proto::ProtoString* symbolHasInstance(proto::ProtoContext* ctx); // "Symbol.hasInstance"
+const proto::ProtoString* symbolToStringTag(proto::ProtoContext* ctx); // "Symbol.toStringTag"
 const proto::ProtoString* toStringTag(proto::ProtoContext* ctx);   // "__toStringTag__"
 
 // ---- Numeric index symbols (0..N) ---------------------------------------

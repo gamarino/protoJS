@@ -534,6 +534,72 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
     return arrSetLen(ctx, arr, 0);
 }
 
+/**
+ * ES6+ ArraySpeciesCreate(originalArray, length) implementation.
+ */
+static const proto::ProtoObject* arraySpeciesCreate(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* originalArray,
+    unsigned long length)
+{
+    if (!originalArray || originalArray == PROTO_NONE)
+        return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+
+    // IsArray check: per spec, species is only checked if originalArray is a real array.
+    const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
+    if (!isArrayKey || originalArray->hasOwnAttribute(ctx, isArrayKey) != PROTO_TRUE)
+        return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+
+    const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
+    const proto::ProtoObject* C = originalArray->getAttribute(ctx, ctorKey, true);
+
+    // If C is a constructor, check its @@species.
+    if (C && C != PROTO_NONE) {
+        const proto::ProtoString* speciesKey = JSSymbols::symbolSpecies(ctx);
+        if (speciesKey) {
+            const proto::ProtoObject* species = C->getAttribute(ctx, speciesKey, true);
+            if (species && species != PROTO_NONE) {
+                C = species;
+                // If species is null, use default Array (ES6 22.1.3.17.1 step 5.b).
+                if (getNullSentinel() && C == getNullSentinel()) C = PROTO_NONE;
+            } else {
+                C = PROTO_NONE;
+            }
+        }
+    }
+
+    if (!C || C == PROTO_NONE)
+        return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+
+    // Step 8: Construct(C, [length])
+    const proto::ProtoString* constructKey = ctx->fromUTF8String("__construct__")->asString(ctx);
+    const proto::ProtoObject* constructFn = (constructKey && C) ? C->getAttribute(ctx, constructKey, false) : nullptr;
+    
+    if (constructFn && constructFn != PROTO_NONE && constructFn->isMethod(ctx)) {
+        // Create newObj as child of C.prototype
+        const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+        const proto::ProtoObject* proto = C->getAttribute(ctx, protoKey, true);
+        const proto::ProtoObject* newObj = (proto && proto != PROTO_NONE) ? proto->newChild(ctx, true) : ctx->newObject(true);
+        
+        // Mark as array (necessary if the constructor doesn't do it)
+        if (isArrayKey) newObj = newObj->setAttribute(ctx, isArrayKey, PROTO_TRUE);
+
+        const proto::ProtoList* args = ctx->newList();
+        args = args->appendLast(ctx, ctx->fromInteger(static_cast<long long>(length)));
+        
+        proto::ProtoMethod fn = constructFn->asMethod(ctx);
+        const proto::ProtoObject* res = fn(ctx, newObj, nullptr, args, nullptr);
+        
+        // If res is object, return it, else newObj
+        if (res && res != PROTO_NONE && !res->isInteger(ctx) && !res->isDouble(ctx) && !res->asString(ctx) && res != PROTO_TRUE && res != PROTO_FALSE)
+            return res;
+        return newObj;
+    }
+
+    // Default fallback
+    return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
+}
+
 // ---------------------------------------------------------------------------
 // Null/undefined `this` guard for Array prototype methods.
 // Per ECMAScript spec, all Array.prototype methods must throw a TypeError when
@@ -815,7 +881,7 @@ static const proto::ProtoObject* arraySlice(
     start = normalizeIdxClamp(start, len);
     end   = normalizeIdxClamp(end,   len);
 
-    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<unsigned long>(end - start));
     long long outIdx = 0;
     for (long long i = start; i < end; i++) {
         arrSet(ctx, result,
@@ -947,7 +1013,28 @@ static const proto::ProtoObject* arrayConcat(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+
+    // Concat length calculation (pre-scan)
+    unsigned long totalLen = 0;
+    auto countLen = [&](const proto::ProtoObject* obj) {
+        if (!obj || obj == PROTO_NONE) { totalLen++; return; }
+        if (obj->isInteger(ctx) || obj->isDouble(ctx) || obj->isFloat(ctx) ||
+            obj->isString(ctx) || obj->isBoolean(ctx)) { totalLen++; return; }
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        const proto::ProtoObject* lv = lenKey ? obj->getAttribute(ctx, lenKey, false) : nullptr;
+        if (lv && lv != PROTO_NONE && (lv->isInteger(ctx) || lv->isDouble(ctx) || lv->isFloat(ctx))) {
+            totalLen += static_cast<unsigned long>(lv->asLong(ctx));
+        } else {
+            totalLen++;
+        }
+    };
+    countLen(self);
+    if (args) {
+        unsigned long argc = static_cast<unsigned long>(args->getSize(ctx));
+        for (unsigned long ai = 0; ai < argc; ai++) countLen(args->getAt(ctx, static_cast<int>(ai)));
+    }
+
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, totalLen);
     unsigned long outIdx = 0;
 
     // Helper: determine if a value should be spread (array-like with "length").
@@ -1166,7 +1253,7 @@ static const proto::ProtoObject* arrayMap(
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
-    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* mapped =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
@@ -1191,7 +1278,7 @@ static const proto::ProtoObject* arrayFilter(
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (!fn || fn == PROTO_NONE) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
-    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
     unsigned long outIdx = 0;
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
@@ -1902,6 +1989,17 @@ static const proto::ProtoObject* arrayValues(
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 { return makeArrayIterator(ctx, self, "values"); }
 
+/** get Array[Symbol.species] */
+static const proto::ProtoObject* arraySpeciesGetter(
+    proto::ProtoContext* /*ctx*/,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    return self;
+}
+
 // ---------------------------------------------------------------------------
 // Array.isArray static method
 // ---------------------------------------------------------------------------
@@ -2146,6 +2244,20 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 std::string pdKeyStr = "__pd_" + std::string(s.name) + "__";
                 const proto::ProtoString* pdk = ctx->fromUTF8String(pdKeyStr.c_str())->asString(ctx);
                 if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3));
+            }
+        }
+    }
+
+    // get Array[Symbol.species]
+    {
+        const proto::ProtoString* speciesKey = JSSymbols::symbolSpecies(ctx);
+        if (speciesKey) {
+            const proto::ProtoObject* getter = ctx->fromMethod(nullptr, arraySpeciesGetter);
+            if (getter) {
+                // Register as a getter using the internal __get_<name>__ convention.
+                // Well-known symbols use their string representation "Symbol.species".
+                const proto::ProtoString* gksSym = ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
             }
         }
     }
