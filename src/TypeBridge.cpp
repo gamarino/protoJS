@@ -9,6 +9,20 @@
 #include <vector>
 
 namespace protojs {
+thread_local const proto::ProtoObject* t_nullSentinel = nullptr;
+thread_local const proto::ProtoObject* t_undefinedSentinel = nullptr;
+
+void initializeUndefinedSentinel(proto::ProtoContext* ctx) {
+    if (!t_undefinedSentinel) t_undefinedSentinel = ctx->newObject(true);
+    if (!t_nullSentinel) t_nullSentinel = ctx->newObject(true);
+}
+
+void initializeNullSentinel(proto::ProtoContext* ctx) {
+    initializeUndefinedSentinel(ctx);
+}
+
+const proto::ProtoObject* getUndefinedSentinel() { return t_undefinedSentinel; }
+const proto::ProtoObject* getNullSentinel() { return t_nullSentinel; }
 
 const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto::ProtoContext* pContext) {
     if (JS_IsNull(val)) {
@@ -17,7 +31,8 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         return s ? s : PROTO_NONE;
     }
     if (JS_IsUndefined(val)) {
-        return PROTO_NONE;
+        const proto::ProtoObject* u = protojs::getUndefinedSentinel();
+        return u ? u : PROTO_NONE;
     }
 
     if (JS_IsBool(val)) {
@@ -322,6 +337,10 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
     const proto::ProtoObject* nullSentinel = protojs::getNullSentinel();
     if (nullSentinel && obj == nullSentinel) {
         return JS_NULL;
+    }
+    const proto::ProtoObject* undefinedSentinel = protojs::getUndefinedSentinel();
+    if (undefinedSentinel && obj == undefinedSentinel) {
+        return JS_UNDEFINED;
     }
     if (obj == PROTO_NONE || obj == nullptr) {
         return JS_UNDEFINED;

@@ -57,6 +57,7 @@ const proto::ProtoObject* callJSFunction(
  * Returns nullptr if called before runBytecode has been entered on this thread.
  */
 const proto::ProtoObject* getNullSentinel();
+const proto::ProtoObject* getUndefinedSentinel();
 
 /**
  * Invoke a protoCore-callable (bytecode function or ProtoMethod) from
@@ -86,6 +87,12 @@ const proto::ProtoObject* callJSFunctionFromAsync(
  * before the first script execution.
  */
 void initializeNullSentinel(proto::ProtoContext* ctx);
+
+/**
+ * Eagerly initializes the thread-local undefined sentinel using @p ctx.
+ * Safe to call multiple times; a no-op if the sentinel is already set.
+ */
+void initializeUndefinedSentinel(proto::ProtoContext* ctx);
 
 /**
  * Returns a pointer to the thread-local current global root.

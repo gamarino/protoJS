@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
+#include <cmath>
 
 namespace protojs {
 
@@ -564,32 +565,116 @@ static const proto::ProtoObject* objectSetPrototypeOf(
 }
 
 // ---------------------------------------------------------------------------
-// coercePropNameToString — convert any JS value to a property name string
-// per ECMAScript ToPropertyKey (simplified: no Symbol support).
+// coercePropNameToKey — convert any JS value to a property name ProtoString*
+// per ECMAScript ToPropertyKey (supports Symbols natively).
 // ---------------------------------------------------------------------------
-static bool coercePropNameToString(
+static const proto::ProtoString* coercePropNameToKey(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* nameObj,
-    std::string& out)
+    const proto::ProtoObject* nameObj)
 {
-    if (!nameObj || nameObj == PROTO_NONE) { out = "undefined"; return true; }
-    if (nameObj->isString(ctx)) {
-        const proto::ProtoString* ps = nameObj->asString(ctx);
-        if (ps) { ps->toUTF8String(ctx, out); return true; }
-    }
-    if (nameObj->isInteger(ctx)) { out = std::to_string(nameObj->asLong(ctx)); return true; }
-    if (nameObj->isDouble(ctx) || nameObj->isFloat(ctx)) {
-        double d = nameObj->asDouble(ctx);
-        if (d == (long long)d) out = std::to_string((long long)d);
-        else {
-            char buf[64]; snprintf(buf, sizeof(buf), "%g", d);
-            out = buf;
+    std::string out;
+    const proto::ProtoObject* current = nameObj;
+
+    // ToPropertyKey(argument):
+    // 1. Let key be ? ToPrimitive(argument, hint String).
+    if (current && !current->isString(ctx) && !current->isInteger(ctx) && 
+        !current->isDouble(ctx) && !current->isFloat(ctx) && 
+        !current->isBoolean(ctx) && current != getNullSentinel() && 
+        current != getUndefinedSentinel() && current != PROTO_NONE) 
+    {
+        auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+            if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
+            if (fn->isMethod(ctx)) return true;
+            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+            if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+            return false;
+        };
+
+        const proto::ProtoObject* prim = nullptr;
+        // 1. Try toString()
+        const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
+        const proto::ProtoObject* tsFn = tsKey ? current->getAttribute(ctx, tsKey, true) : nullptr;
+        if (isCallable(tsFn)) {
+            const proto::ProtoObject* res = callJSFunction(ctx, tsFn, current, ctx->newList());
+            if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
+                prim = res;
+            }
         }
-        return true;
+        
+        // 2. Try valueOf()
+        if (!prim && !hasCallException()) {
+            const proto::ProtoString* voKey = ctx->fromUTF8String("valueOf")->asString(ctx);
+            const proto::ProtoObject* voFn = voKey ? current->getAttribute(ctx, voKey, true) : nullptr;
+            if (isCallable(voFn)) {
+                const proto::ProtoObject* res = callJSFunction(ctx, voFn, current, ctx->newList());
+                if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
+                    prim = res;
+                }
+            }
+        }
+        
+        if (prim) {
+            current = prim;
+        } else {
+            if (!hasCallException()) {
+                signalNativeException(makeNativeError(ctx, "TypeError", "Cannot convert object to primitive value"));
+            }
+            return nullptr;
+        }
     }
-    if (nameObj->isBoolean(ctx)) { out = nameObj->asBoolean(ctx) ? "true" : "false"; return true; }
-    if (nameObj == getNullSentinel()) { out = "null"; return true; }
-    return false;
+
+    if (!current || current == PROTO_NONE || current == getUndefinedSentinel()) {
+        out = "undefined";
+    } else if (current->isString(ctx)) {
+        return current->asString(ctx);
+    } else if (current->isInteger(ctx)) {
+        out = std::to_string(current->asLong(ctx));
+    } else if (current->isDouble(ctx) || current->isFloat(ctx)) {
+        double d = current->asDouble(ctx);
+        if (std::isnan(d)) out = "NaN";
+        else if (std::isinf(d)) out = d < 0 ? "-Infinity" : "Infinity";
+        else if (d == 0.0) out = "0";
+        else {
+            double absD = std::abs(d);
+            char buf[128];
+            if (absD >= 1e21 || (absD > 0 && absD < 1e-6)) {
+                snprintf(buf, sizeof(buf), "%.15g", d);
+                out = buf;
+                for (auto &c : out) if (c == 'E') c = 'e';
+                size_t ePos = out.find('e');
+                if (ePos != std::string::npos) {
+                    std::string base = out.substr(0, ePos);
+                    std::string exp  = out.substr(ePos + 1);
+                    if (!exp.empty() && exp[0] == '+') exp.erase(0, 1);
+                    bool neg = false;
+                    if (!exp.empty() && exp[0] == '-') { neg = true; exp.erase(0, 1); }
+                    while (exp.size() > 1 && exp[0] == '0') exp.erase(0, 1);
+                    out = base + "e" + (neg ? "-" : "+") + exp;
+                }
+            } else {
+                snprintf(buf, sizeof(buf), "%.15g", d);
+                out = buf;
+                if (out.find('e') != std::string::npos || out.find('E') != std::string::npos) {
+                    snprintf(buf, sizeof(buf), "%.20f", d);
+                    out = buf;
+                    if (out.find('.') != std::string::npos) {
+                        while (out.back() == '0') out.pop_back();
+                        if (out.back() == '.') out.pop_back();
+                    }
+                }
+            }
+        }
+    } else if (current->isBoolean(ctx)) {
+        out = current == PROTO_TRUE ? "true" : "false";
+    } else if (current == getNullSentinel()) {
+        out = "null";
+    } else {
+        out = "[object Object]";
+    }
+
+    return ctx->fromUTF8String(out.c_str())->asString(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -609,160 +694,197 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoSparseList*)
 {
     if (!ctx || !args || args->getSize(ctx) < 3) return PROTO_NONE;
-
     const proto::ProtoObject* target = args->getAt(ctx, 0);
-    // Per ES spec, Object.defineProperty throws TypeError on non-object first argument.
-    {
-        const proto::ProtoObject* nullSentinel = getNullSentinel();
-        bool isNull = (target == nullSentinel);
-        bool isUndefined = (!target || target == PROTO_NONE);
-        if (isNull || isUndefined ||
-            target->isBoolean(ctx) || target->isInteger(ctx) ||
-            target->isDouble(ctx)  || target->isFloat(ctx)   ||
-            target->isString(ctx)) {
-            signalNativeException(makeNativeError(ctx, "TypeError",
-                "Object.defineProperty called on non-object"));
-            return PROTO_NONE;
-        }
-    }
-
-    // Get property name string — coerce any JS value per spec (ToPropertyKey).
-    const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
-    std::string propName;
-    if (!coercePropNameToString(ctx, propNameObj, propName) || propName.empty())
-        return target;
-
-    // Get descriptor object.
     const proto::ProtoObject* desc = args->getAt(ctx, 2);
-    if (!desc || desc == PROTO_NONE) return target;
 
-    // Per ES5 §8.12.9: if the property already exists and is non-configurable,
-    // redefining it must throw a TypeError.
-    // Sidecar bit layout: bit 0 = writable, bit 1 = configurable, bit 2 = enumerable.
-    {
-        const proto::ProtoObject* ko0 = ctx->fromUTF8String(propName.c_str());
-        const proto::ProtoString* pk0 = ko0 ? ko0->asString(ctx) : nullptr;
-        if (pk0) {
-            const proto::ProtoObject* existingVal = target->getAttribute(ctx, pk0, false);
-            if (existingVal != nullptr) {  // property exists (existingVal may be PROTO_NONE = undefined)
-                // Check sidecar for configurable bit.
-                std::string pdExKey = std::string("__pd_") + propName + "__";
-                const proto::ProtoObject* pdeko = ctx->fromUTF8String(pdExKey.c_str());
-                const proto::ProtoString* pdek = pdeko ? pdeko->asString(ctx) : nullptr;
-                const proto::ProtoObject* existingBitsObj = pdek
-                    ? target->getAttribute(ctx, pdek, false) : nullptr;
-                // If no sidecar exists, the property was created by plain assignment and
-                // has default flags {writable, enumerable, configurable} = true.
-                // Treating it as configurable is correct — no TypeError needed.
-                if (existingBitsObj && existingBitsObj != PROTO_NONE
-                    && existingBitsObj->isInteger(ctx)) {
-                    long existingBits = existingBitsObj->asLong(ctx);
-                    // bit 1 (value 0x2) is the configurable flag.
-                    bool isConfigurable = (existingBits & 0x2) != 0;
-                    if (!isConfigurable) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "Cannot redefine property: property is non-configurable"));
-                        return PROTO_NONE;
-                    }
-                }
-            }
-        }
+    if (!target || target == PROTO_NONE || target == getNullSentinel() || target == getUndefinedSentinel() ||
+        target->isBoolean(ctx) || target->isInteger(ctx) ||
+        target->isDouble(ctx)  || target->isFloat(ctx)   ||
+        target->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError", "Object.defineProperty called on non-object"));
+        return PROTO_NONE;
     }
 
-    // Extract flags from descriptor.
-    // Per ES spec, Object.defineProperty defaults: writable=false, configurable=false, enumerable=false
-    // when flags are not explicitly provided.
-    auto getBoolProp = [&](const char* name, bool defaultVal) -> bool {
-        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-        const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-        if (!k) return defaultVal;
-        const proto::ProtoObject* v = desc->getAttribute(ctx, k, false);
-        if (!v || v == PROTO_NONE) return defaultVal;
-        return (v == PROTO_TRUE) || (v->isBoolean(ctx) && v->asBoolean(ctx));
-    };
+    const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
+    const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
+    if (!k) return target;
 
-    bool writable     = getBoolProp("writable",     false);
-    bool configurable = getBoolProp("configurable",  false);
-    bool enumerable   = getBoolProp("enumerable",    false);
-
-    // Accessor descriptor: extract get/set functions and store as __get_<name>__ / __set_<name>__.
-    auto getFnProp = [&](const char* name) -> const proto::ProtoObject* {
-        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
-        const proto::ProtoString* k  = ko ? ko->asString(ctx) : nullptr;
-        if (!k) return nullptr;
-        const proto::ProtoObject* v = desc->getAttribute(ctx, k, false);
-        if (!v || v == PROTO_NONE || v->isNone(ctx)) return nullptr;
-        return v;
-    };
-    const proto::ProtoObject* getter = getFnProp("get");
-    const proto::ProtoObject* setter = getFnProp("set");
-    bool isAccessor = getter || setter;
-
-    // Per ES5 8.10.5 step 9: it is a TypeError to specify both accessor (get/set)
-    // and data (value/writable) fields in the same descriptor.
-    if (isAccessor) {
-        auto descHasKey = [&](const char* name) -> bool {
-            const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
-            const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
-            if (!k2) return false;
-            // getAttribute(..., false) returns nullptr when property is absent on this object;
-            // returns PROTO_NONE or a real value when the key is present.
-            const proto::ProtoObject* v = desc->getAttribute(ctx, k2, false);
-            return v != nullptr;
-        };
-        if (descHasKey("value") || descHasKey("writable")) {
-            signalNativeException(makeNativeError(ctx, "TypeError",
-                "Invalid property descriptor. Cannot both specify accessors "
-                "and a value or writable attribute"));
-            return PROTO_NONE;
-        }
+    if (!desc || desc == PROTO_NONE || desc == getNullSentinel() || desc == getUndefinedSentinel() ||
+        desc->isBoolean(ctx) || desc->isInteger(ctx) ||
+        desc->isDouble(ctx)  || desc->isFloat(ctx)   ||
+        desc->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError", "Property description must be an object"));
+        return PROTO_NONE;
     }
 
-    if (getter) {
-        std::string gkStr = "__get_" + propName + "__";
-        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
-        if (gk) target = target->setAttribute(ctx, gk, getter);
-    }
-    if (setter) {
-        std::string skStr = "__set_" + propName + "__";
-        const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
-        const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
-        if (sk) target = target->setAttribute(ctx, sk, setter);
-    }
-    if (isAccessor) {
-        // When converting a data property to an accessor, remove the data key
-        // entirely (nullptr, not PROTO_NONE).  Using nullptr makes setAttribute
-        // call implRemoveAt so the key is absent: hasAttribute returns PROTO_FALSE.
-        // This is essential for two reasons:
-        //   1. arrLen / arrGet no longer see a stale data value instead of invoking
-        //      the getter (or returning undefined for setter-only accessors).
-        //   2. The global environment record's HasBinding returns false after the
-        //      data key is removed, so strict-mode assignment correctly throws
-        //      ReferenceError when the accessor is later deleted.
-        const proto::ProtoObject* dko = ctx->fromUTF8String(propName.c_str());
-        const proto::ProtoString* dk  = dko ? dko->asString(ctx) : nullptr;
-        if (dk) target = target->setAttribute(ctx, dk, nullptr);
-    }
-    // Store the value for data descriptors.
-    // Per ES5 §8.6.1: a data property always has a Value; default is undefined.
-    // Must create the property even when "value" is absent so hasOwnProperty returns true.
-    if (!isAccessor) {
-        const proto::ProtoObject* valueKey = ctx->fromUTF8String("value");
-        const proto::ProtoString* vkp = valueKey ? valueKey->asString(ctx) : nullptr;
-        const proto::ProtoObject* val = (vkp) ? desc->getAttribute(ctx, vkp, false) : nullptr;
-        // val == nullptr means "value" key was absent → default to PROTO_NONE (undefined).
-        const proto::ProtoObject* storedVal = val ? val : PROTO_NONE;
-        const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
-        const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
-        if (pk) target = target->setAttribute(ctx, pk, storedVal);
-    }
+    bool propExists = (target->hasOwnAttribute(ctx, k) == PROTO_TRUE);
+    const proto::ProtoObject* existingVal = propExists ? target->getAttribute(ctx, k, false) : nullptr;
 
-    // Encode descriptor flags and store as sidecar attribute.
-    uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
-    std::string pdKeyStr = "__pd_" + propName + "__";
+    std::string kstr;
+    k->toUTF8String(ctx, kstr);
+    std::string pdKeyStr = "__pd_" + kstr + "__";
     const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+    
+    const proto::ProtoObject* existingBitsObj = (pdk && propExists && target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) 
+        ? target->getAttribute(ctx, pdk, false) : nullptr;
+    long existingBits = (existingBitsObj && existingBitsObj->isInteger(ctx)) ? existingBitsObj->asLong(ctx) : 0x7;
+
+    if (propExists && !(existingBits & 0x2)) { // configurable=false (bit 1)
+        signalNativeException(makeNativeError(ctx, "TypeError", "Cannot redefine non-configurable property"));
+        return PROTO_NONE;
+    }
+
+    auto descHasKey = [&](const char* name) -> bool {
+        const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
+        const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
+        if (!k2) return false;
+        if (desc->getAttribute(ctx, k2, false) != PROTO_NONE) return true;
+        
+        std::string nstr = name;
+        std::string gkStr = "__get_" + nstr + "__";
+        const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+        if (gk && desc->getAttribute(ctx, gk, false) != PROTO_NONE) return true;
+        
+        std::string skStr = "__set_" + nstr + "__";
+        const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+        if (sk && desc->getAttribute(ctx, sk, false) != PROTO_NONE) return true;
+        
+        return false;
+    };
+
+    auto jsGetAttribute = [&](const proto::ProtoObject* obj, const proto::ProtoString* key) -> const proto::ProtoObject* {
+        if (!obj || obj == PROTO_NONE || !key) return getUndefinedSentinel();
+        
+        std::string ks;
+        key->toUTF8String(ctx, ks);
+        std::string gkStr = "__get_" + ks + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        
+        if (gk) {
+            const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
+                const proto::ProtoList* emptyArgs = ctx->newList();
+                const proto::ProtoObject* res = callJSFunction(ctx, getter, obj, emptyArgs);
+                if (hasCallException()) return PROTO_NONE;
+                return res ? res : getUndefinedSentinel();
+            }
+        }
+        
+        const proto::ProtoObject* v = obj->getAttribute(ctx, key, true);
+        return (v && v != PROTO_NONE) ? v : getUndefinedSentinel();
+    };
+
+    auto getBoolProp = [&](const char* name, bool defaultVal) -> bool {
+        if (!descHasKey(name)) return defaultVal;
+        const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
+        const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
+        const proto::ProtoObject* d = jsGetAttribute(desc, k2);
+        if (hasCallException()) return defaultVal;
+        if (!d || d == PROTO_NONE || d == getUndefinedSentinel()) return false;
+        if (d->isBoolean(ctx)) return (d == PROTO_TRUE);
+        if (d->isInteger(ctx)) return (d->asLong(ctx) != 0);
+        if (d->isDouble(ctx)) {
+            double v = d->asDouble(ctx);
+            return (!std::isnan(v) && v != 0.0);
+        }
+        return true; 
+    };
+
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        return false;
+    };
+
+    auto getFnProp = [&](const char* name) -> const proto::ProtoObject* {
+        if (!descHasKey(name)) return nullptr;
+        const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
+        const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
+        const proto::ProtoObject* v = jsGetAttribute(desc, k2);
+        if (hasCallException()) return PROTO_NONE;
+        if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return getUndefinedSentinel();
+        
+        if (!isCallable(v)) {
+            signalNativeException(makeNativeError(ctx, "TypeError", (std::string(name) + " must be a function").c_str()));
+            return PROTO_NONE;
+        }
+        return v;
+    };
+
+    const proto::ProtoObject* getter = getFnProp("get");
+    if (hasCallException()) return PROTO_NONE;
+    const proto::ProtoObject* setter = getFnProp("set");
+    if (hasCallException()) return PROTO_NONE;
+
+    bool hasGet = descHasKey("get");
+    bool hasSet = descHasKey("set");
+    bool isAccessor = hasGet || hasSet;
+
+    if (isAccessor && (descHasKey("value") || descHasKey("writable"))) {
+        signalNativeException(makeNativeError(ctx, "TypeError", "Cannot specify both accessors and value/writable"));
+        return PROTO_NONE;
+    }
+
+    if (!propExists) {
+        JSContextWrapper* wrapper = JSContextWrapper::current();
+        if (wrapper && target->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+            signalNativeException(makeNativeError(ctx, "TypeError", "Cannot add property to non-extensible object"));
+            return PROTO_NONE;
+        }
+    }
+
+    bool writable     = getBoolProp("writable",     propExists ? ((existingBits & 0x1) != 0) : false);
+    bool configurable = getBoolProp("configurable",  propExists ? ((existingBits & 0x2) != 0) : false);
+    bool enumerable   = getBoolProp("enumerable",    propExists ? ((existingBits & 0x4) != 0) : false);
+
+    if (isAccessor) {
+        target = target->setAttribute(ctx, k, nullptr);
+        std::string gkStr = "__get_" + kstr + "__";
+        const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+        if (gk) {
+            const proto::ProtoObject* gVal = (getter && getter != getUndefinedSentinel()) ? getter : nullptr;
+            target = target->setAttribute(ctx, gk, gVal);
+        }
+        std::string skStr = "__set_" + kstr + "__";
+        const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+        if (sk) {
+            const proto::ProtoObject* sVal = (setter && setter != getUndefinedSentinel()) ? setter : nullptr;
+            target = target->setAttribute(ctx, sk, sVal);
+        }
+    } else {
+        const proto::ProtoObject* val = nullptr;
+        if (descHasKey("value")) {
+            const proto::ProtoObject* koV = ctx->fromUTF8String("value");
+            val = jsGetAttribute(desc, koV ? koV->asString(ctx) : nullptr);
+            if (hasCallException()) return PROTO_NONE;
+        }
+        
+        const proto::ProtoObject* storedVal = nullptr;
+        if (val) {
+            storedVal = (val == PROTO_NONE) ? getUndefinedSentinel() : val;
+        } else if (propExists) {
+            storedVal = existingVal;
+        } else {
+            storedVal = getUndefinedSentinel();
+        }
+        target = target->setAttribute(ctx, k, storedVal);
+        
+        // Remove accessor sidecars if transitioning to data property.
+        std::string gkStr = "__get_" + kstr + "__";
+        const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+        if (gk) target = target->setAttribute(ctx, gk, nullptr);
+        std::string skStr = "__set_" + kstr + "__";
+        const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+        if (sk) target = target->setAttribute(ctx, sk, nullptr);
+    }
+
+    uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
     if (pdk) target = target->setAttribute(ctx, pdk, ctx->fromInteger((long long)bits));
 
     return target;
@@ -786,82 +908,57 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
     if (!target || target == PROTO_NONE) return PROTO_NONE;
 
-    std::string propName;
-    if (!coercePropNameToString(ctx, propNameObj, propName) || propName.empty())
-        return PROTO_NONE;
-
-    const proto::ProtoObject* ko = ctx->fromUTF8String(propName.c_str());
-    const proto::ProtoString* pk = ko ? ko->asString(ctx) : nullptr;
-    if (!pk) return PROTO_NONE;
+    const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
+    if (!k) return PROTO_NONE;
 
     // Helper: build result descriptor object.
     auto setAttr = [&](const proto::ProtoObject*& r, const char* name, const proto::ProtoObject* v) {
-        const proto::ProtoObject* k = ctx->fromUTF8String(name);
-        const proto::ProtoString* ks = k ? k->asString(ctx) : nullptr;
-        if (ks) r = r->setAttribute(ctx, ks, v);
+        const proto::ProtoString* ks = ctx->fromUTF8String(name)->asString(ctx);
+        if (ks) r = r->setAttribute(ctx, ks, (v && v != PROTO_NONE) ? v : getUndefinedSentinel());
     };
 
-    // Check for accessor descriptor first: __get_<prop>__ or __set_<prop>__ as OWN attributes.
-    std::string gkStr = "__get_" + propName + "__";
-    std::string skStr = "__set_" + propName + "__";
-    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
-    const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
-    const proto::ProtoString* sk2 = sko ? sko->asString(ctx) : nullptr;
+    std::string kstr;
+    k->toUTF8String(ctx, kstr);
 
-    const proto::ProtoObject* getter = (gk) ? target->hasOwnAttribute(ctx, gk) : nullptr;
-    const proto::ProtoObject* setter = (sk2) ? target->hasOwnAttribute(ctx, sk2) : nullptr;
+    // 1. Check accessor sidecars first.
+    std::string gkStr = "__get_" + kstr + "__";
+    const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+    bool hasG = gk && (target->hasOwnAttribute(ctx, gk) == PROTO_TRUE);
+    const proto::ProtoObject* gv = hasG ? target->getAttribute(ctx, gk, false) : nullptr;
 
-    if (getter == PROTO_TRUE || setter == PROTO_TRUE) {
-        // Accessor descriptor.
-        const proto::ProtoObject* getterFn = (gk && getter == PROTO_TRUE)
-            ? target->getAttribute(ctx, gk, false) : PROTO_NONE;
-        const proto::ProtoObject* setterFn = (sk2 && setter == PROTO_TRUE)
-            ? target->getAttribute(ctx, sk2, false) : PROTO_NONE;
+    std::string skStr = "__set_" + kstr + "__";
+    const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+    bool hasS = sk && (target->hasOwnAttribute(ctx, sk) == PROTO_TRUE);
+    const proto::ProtoObject* sv = hasS ? target->getAttribute(ctx, sk, false) : nullptr;
 
-        // Get descriptor flags (configurable, enumerable only for accessors).
-        std::string pdKeyStr = "__pd_" + propName + "__";
-        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
-        const proto::ProtoString* pdk  = pdko ? pdko->asString(ctx) : nullptr;
-        const proto::ProtoObject* bitsObj = pdk ? target->getAttribute(ctx, pdk, false) : nullptr;
-        uint8_t bits = 0x2; // default for accessors: configurable=true, enumerable=false
-        if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(ctx))
-            bits = static_cast<uint8_t>(bitsObj->asLong(ctx));
+    std::string pdKeyStr = "__pd_" + kstr + "__";
+    const proto::ProtoString* pdk = ctx->fromUTF8String(pdKeyStr.c_str())->asString(ctx);
+    bool hasPd = pdk && (target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE);
+    const proto::ProtoObject* bitsObj = hasPd ? target->getAttribute(ctx, pdk, false) : nullptr;
 
-        const proto::ProtoObject* result = ctx->newObject(true);
-        setAttr(result, "get",          getterFn ? getterFn : PROTO_NONE);
-        setAttr(result, "set",          setterFn ? setterFn : PROTO_NONE);
-        setAttr(result, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
-        setAttr(result, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
-        return result;
+    if (hasG || hasS) {
+        const proto::ProtoObject* res = ctx->newObject(true);
+        setAttr(res, "get", gv);
+        setAttr(res, "set", sv);
+        uint8_t bits = (bitsObj && bitsObj->isInteger(ctx)) ? (uint8_t)bitsObj->asLong(ctx) : 0x7;
+        setAttr(res, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
+        setAttr(res, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
+        return res;
     }
 
-    // Check if the property is an OWN data property.
-    const proto::ProtoObject* ownFlag = target->hasOwnAttribute(ctx, pk);
-    if (ownFlag != PROTO_TRUE) return PROTO_NONE; // inherited or absent
+    // 2. Data property.
+    if (target->hasOwnAttribute(ctx, k) != PROTO_TRUE) return PROTO_NONE; // not found
+    const proto::ProtoObject* val = target->getAttribute(ctx, k, false);
 
-    const proto::ProtoObject* val = target->getAttribute(ctx, pk, false);
-    // val==nullptr means getAttribute returned null at C++ level (e.g. the attribute
-    // stores PROTO_NONE = undefined).  The property DOES exist (ownFlag confirmed above),
-    // so treat !val as PROTO_NONE rather than returning PROTO_NONE (absence).
-    const proto::ProtoObject* storedVal = val ? val : PROTO_NONE;
-
-    // Get descriptor flags.
-    std::string pdKeyStr = "__pd_" + propName + "__";
-    const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
-    const proto::ProtoString* pdk  = pdko ? pdko->asString(ctx) : nullptr;
-    const proto::ProtoObject* bitsObj = pdk ? target->getAttribute(ctx, pdk, false) : nullptr;
-    uint8_t bits = 0x7; // default: writable=true, configurable=true, enumerable=true
-    if (bitsObj && bitsObj != PROTO_NONE && bitsObj->isInteger(ctx))
-        bits = static_cast<uint8_t>(bitsObj->asLong(ctx));
-
-    const proto::ProtoObject* result = ctx->newObject(true);
-    setAttr(result, "value",        storedVal);
-    setAttr(result, "writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
-    setAttr(result, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
-    setAttr(result, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
-    return result;
+    const proto::ProtoObject* res = ctx->newObject(true);
+    setAttr(res, "value", val);
+    uint8_t bits = (bitsObj && bitsObj->isInteger(ctx)) ? (uint8_t)bitsObj->asLong(ctx) : 0x7;
+    setAttr(res, "writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr(res, "enumerable",   (bits & 0x4) ? PROTO_TRUE : PROTO_FALSE);
+    setAttr(res, "configurable", (bits & 0x2) ? PROTO_TRUE : PROTO_FALSE);
+    return res;
 }
+
 
 // ---------------------------------------------------------------------------
 // Object.defineProperties(target, props) → apply a map of descriptors
@@ -1039,21 +1136,15 @@ static const proto::ProtoObject* objectHasOwnProperty(
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
 
-    std::string keyStr;
-    if (key->isString(ctx)) {
-        const proto::ProtoString* ps = key->asString(ctx);
-        if (ps) ps->toUTF8String(ctx, keyStr);
-    } else if (key->isInteger(ctx)) {
-        keyStr = std::to_string(key->asLong(ctx));
-    }
-    if (keyStr.empty()) return PROTO_FALSE;
+    const proto::ProtoString* k = coercePropNameToKey(ctx, key);
+    if (!k) return PROTO_FALSE;
 
-    const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
-    if (!strKey) return PROTO_FALSE;
-    const proto::ProtoObject* own = self->hasOwnAttribute(ctx, strKey);
-    if (own == PROTO_TRUE) return PROTO_TRUE;
+    if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) return PROTO_TRUE;
+
     // Also check accessor sidecars — accessor properties have no data key when
     // defined via Object.defineProperty (the data key is removed on creation).
+    std::string keyStr;
+    k->toUTF8String(ctx, keyStr);
     for (const char* prefix : {"__get_", "__set_"}) {
         std::string sk = std::string(prefix) + keyStr + "__";
         const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
@@ -1079,34 +1170,28 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
 
-    std::string keyStr;
-    if (key->isString(ctx)) {
-        const proto::ProtoString* ps = key->asString(ctx);
-        if (ps) ps->toUTF8String(ctx, keyStr);
-    } else if (key->isInteger(ctx)) {
-        keyStr = std::to_string(key->asLong(ctx));
-    }
-    if (keyStr.empty()) return PROTO_FALSE;
+    const proto::ProtoString* k = coercePropNameToKey(ctx, key);
+    if (!k) return PROTO_FALSE;
 
-    const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
-    if (!strKey) return PROTO_FALSE;
-
-    // Check if it's an own property
-    bool exists = (self->hasOwnAttribute(ctx, strKey) == PROTO_TRUE);
-    if (!exists) {
+    if (self->hasOwnAttribute(ctx, k) != PROTO_TRUE) {
         // Also check accessors
+        std::string keyStr;
+        k->toUTF8String(ctx, keyStr);
+        bool found = false;
         for (const char* prefix : {"__get_", "__set_"}) {
             std::string sk = std::string(prefix) + keyStr + "__";
             const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
             const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
             if (sks && self->hasOwnAttribute(ctx, sks) == PROTO_TRUE) {
-                exists = true;
+                found = true;
                 break;
             }
         }
+        if (!found) return PROTO_FALSE;
     }
-    if (!exists) return PROTO_FALSE;
 
+    std::string keyStr;
+    k->toUTF8String(ctx, keyStr);
     // Check descriptor bit 0x4 (enumerable)
     std::string pdKeyStr = std::string("__pd_") + keyStr + "__";
     const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
@@ -1134,7 +1219,7 @@ static const proto::ProtoObject* objectToString(
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE || self->isNone(ctx))
+    if (!self || self == PROTO_NONE || self->isNone(ctx) || self == getUndefinedSentinel())
         return ctx->fromUTF8String("[object Undefined]");
 
     // null sentinel → [object Null]

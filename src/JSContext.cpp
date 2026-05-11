@@ -17,6 +17,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -109,8 +110,8 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
 
     // Eagerly initialize the null sentinel so TypeBridge null round-trips work
     // before the first script execution. The script bootstrap path also initializes
-    // it (anchored on the global root), but unit tests never reach that path.
     protojs::initializeNullSentinel(pContext);
+    protojs::initializeUndefinedSentinel(pContext);
     
     // Store pointer to this wrapper in JSContext opaque for GCBridge access
     JS_SetContextOpaque(ctx, this);
@@ -136,6 +137,21 @@ const proto::ProtoObject* JSContextWrapper::getNativeGlobal() {
     if (!jsPrototypes_.object || !pContext) return nullptr;
     /* Build a blank global object; converted modules register onto it explicitly. */
     nativeGlobalRoot_ = jsPrototypes_.object->newChild(pContext, true);
+    
+    // Inject missing ES5 globals
+    const proto::ProtoString* infinityStr = proto::ProtoString::createSymbol(pContext, "Infinity");
+    const proto::ProtoString* nanStr = proto::ProtoString::createSymbol(pContext, "NaN");
+    const proto::ProtoString* undefinedStr = proto::ProtoString::createSymbol(pContext, "undefined");
+    const proto::ProtoString* symbolStr = proto::ProtoString::createSymbol(pContext, "Symbol");
+
+    nativeGlobalRoot_ = nativeGlobalRoot_->setAttribute(pContext, infinityStr, pContext->fromDouble(INFINITY));
+    nativeGlobalRoot_ = nativeGlobalRoot_->setAttribute(pContext, nanStr, pContext->fromDouble(NAN));
+    
+    const proto::ProtoObject* undefSentinel = protojs::getUndefinedSentinel();
+    if (undefSentinel) {
+        nativeGlobalRoot_ = nativeGlobalRoot_->setAttribute(pContext, undefinedStr, undefSentinel);
+    }
+    
     return nativeGlobalRoot_;
 }
 

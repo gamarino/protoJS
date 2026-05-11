@@ -23,6 +23,10 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         out << "null";
         return;
     }
+    if (val == protojs::getUndefinedSentinel()) {
+        out << "undefined";
+        return;
+    }
     if (val->isString(ctx)) {
         const proto::ProtoString* s = val->asString(ctx);
         if (s) {

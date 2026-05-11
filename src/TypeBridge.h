@@ -24,6 +24,11 @@ public:
     static JSValue toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::ProtoContext* pContext);
 };
 
+void initializeUndefinedSentinel(proto::ProtoContext* ctx);
+void initializeNullSentinel(proto::ProtoContext* ctx);
+const proto::ProtoObject* getUndefinedSentinel();
+const proto::ProtoObject* getNullSentinel();
+
 } // namespace protojs
 
 #endif // PROTOJS_TYPEBRIDGE_H

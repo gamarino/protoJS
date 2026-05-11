@@ -160,6 +160,9 @@ static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, con
 }
 
 
+extern thread_local const proto::ProtoObject* t_nullSentinel;
+extern thread_local const proto::ProtoObject* t_undefinedSentinel;
+
 namespace {
 
 // ----- Closure cells (by-reference capture) -----------------------------
@@ -305,7 +308,7 @@ thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
 thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
 // The JS null sentinel: a stable ProtoObject* representing null.
 // PROTO_NONE continues to represent undefined/absence.
-thread_local const proto::ProtoObject* t_nullSentinel = nullptr;
+
 
 // ---------------------------------------------------------------------------
 // Generator resume state.
@@ -860,8 +863,8 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
     // Per spec §7.2.13 step 2-3: null == undefined → true; null/undefined == other → false.
     bool xNull  = (x == t_nullSentinel);
     bool yNull  = (y == t_nullSentinel);
-    bool xUndef = !x || x == PROTO_NONE || x->isNone(ctx);
-    bool yUndef = !y || y == PROTO_NONE || y->isNone(ctx);
+    bool xUndef = !x || x == PROTO_NONE || x == getUndefinedSentinel() || x->isNone(ctx);
+    bool yUndef = !y || y == PROTO_NONE || y == getUndefinedSentinel() || y->isNone(ctx);
     bool xNullish = xNull || xUndef;
     bool yNullish = yNull || yUndef;
     if (xNullish && yNullish) return true;   // null==null, null==undefined, undefined==null
@@ -4441,7 +4444,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
+                int cmp = 1;
+                if (a == b) {
+                    cmp = 0;
+                } else if (a && b) {
+                    bool aUndef = (a == getUndefinedSentinel());
+                    bool bUndef = (b == getUndefinedSentinel());
+                    if (aUndef && bUndef) cmp = 0;
+                    else cmp = a->compare(pContext, b);
+                } else {
+                    bool aUndef = (!a || a == PROTO_NONE || a == getUndefinedSentinel());
+                    bool bUndef = (!b || b == PROTO_NONE || b == getUndefinedSentinel());
+                    if (aUndef && bUndef) cmp = 0;
+                    else cmp = 1;
+                }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
@@ -4450,7 +4466,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                int cmp = (a && b) ? a->compare(pContext, b) : ((!a && !b) ? 0 : 1);
+                int cmp = 1;
+                if (a == b) {
+                    cmp = 0;
+                } else if (a && b) {
+                    bool aUndef = (a == getUndefinedSentinel());
+                    bool bUndef = (b == getUndefinedSentinel());
+                    if (aUndef && bUndef) cmp = 0;
+                    else cmp = a->compare(pContext, b);
+                } else {
+                    bool aUndef = (!a || a == PROTO_NONE || a == getUndefinedSentinel());
+                    bool bUndef = (!b || b == PROTO_NONE || b == getUndefinedSentinel());
+                    if (aUndef && bUndef) cmp = 0;
+                    else cmp = 1;
+                }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
@@ -7307,15 +7336,7 @@ static const proto::ProtoObject* generatorThrow(proto::ProtoContext* ctx,
     return resumeGenerator(ctx, thisVal, sentVal, 2 /* throw */);
 }
 
-const proto::ProtoObject* getNullSentinel() {
-    return t_nullSentinel;
-}
 
-void initializeNullSentinel(proto::ProtoContext* ctx) {
-    if (!t_nullSentinel && ctx) {
-        t_nullSentinel = ctx->newObject(false);
-    }
-}
 
 const proto::ProtoObject** getCurrentGlobalRoot() {
     return t_currentGlobalRoot;

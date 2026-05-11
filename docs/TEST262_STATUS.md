@@ -16,9 +16,40 @@ It is updated each time a significant batch of tests is run or a coverage area i
 
 **Authoritative full-suite metric:** `44,596 / 47,219 = 94.4%` — full `language + built-ins` run on protoCore path, 2026-03-18 (`snapshot-language_built-ins-1773855099985.json`). This is the single most reliable conformance number, run without sub-pattern double-counting.
 
+## Phase 43 Snapshot — 2026-05-11  ✅ CURRENT
+
+> **Phase 43 target:** Stabilizing ES5.1 Property Semantics (defineProperty + ToPropertyKey).
+> Delivered: Full `ToPrimitive(hint String)` logic in `coercePropNameToKey`, supporting native method wrappers and JS closures.
+> Delivered: Strict `hasOwnAttribute` usage in `objectDefineProperty` to prevent prototype chain interference.
+> Delivered: Enforced callable checks for `get`/`set` attributes in descriptors.
+> Delivered: `TypeError` enforcement for failed object-to-primitive conversions.
+> Snapshot files:
+> - `scratch/results_defineProperty_final_v12.txt` (local)
+
+### Results
+
+| Area | Total | Passed | Pass % | Phase 42 Baseline | Delta |
+|------|------:|-------:|-------:|------------------:|-------|
+| `built-ins/Object/defineProperty` | 1,131 | 525 | **46.4%** | 480 (42.4%) | **+45 passes** |
+| `built-ins/Object/getOwnPropertyDescriptor` | 310 | 124 | **40.0%** | 107 (34.5%) | **+17 passes** |
+
+### Key implementations delivered
+
+| Feature | Files | Tests recovered |
+|---------|-------|----------------|
+| Full `ToPropertyKey` (hint String) with native wrapper support | `src/ObjectPrototype.cpp` | `15.2.3.6-2-39.js` |
+| `TypeError` on failed `ToPrimitive` conversion | `src/ObjectPrototype.cpp` | `15.2.3.6-2-47.js` |
+| Strict `hasOwnAttribute` defineProperty ownership | `src/ObjectPrototype.cpp` | conformance hardening |
+| Accessor descriptor reconfiguration logic fixes | `src/ObjectPrototype.cpp` | various `15.2.3.6-4-x` |
+
 ---
 
-## Phase 41 Snapshot — 2026-05-06  ✅ CURRENT
+## Phase 42 Snapshot — 2026-05-11 (superseded by Phase 43)
+
+---
+
+## Phase 41 Snapshot — 2026-05-06
+
 
 > **Phase 41 target:** Array identification + Strict Constructor semantics. Finalized exotic array identification, property descriptors, and interpreter call-path hardening.
 > Delivered: `__is_array__` marker for exotic array identification (fixing `new Array()` and `Array()` false negatives in `isArray`).
