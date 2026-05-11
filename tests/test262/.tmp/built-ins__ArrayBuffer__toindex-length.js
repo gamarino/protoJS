@@ -1,0 +1,288 @@
+// Copyright (C) 2017 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+/*---
+description: |
+    Collection of assertion functions used throughout test262
+defines: [assert]
+---*/
+
+
+function assert(mustBeTrue, message) {
+  if (mustBeTrue === true) {
+    return;
+  }
+
+  if (message === undefined) {
+    message = 'Expected true but got ' + assert._toString(mustBeTrue);
+  }
+  throw new Test262Error(message);
+}
+
+assert._isSameValue = function (a, b) {
+  if (a === b) {
+    // Handle +/-0 vs. -/+0
+    return a !== 0 || 1 / a === 1 / b;
+  }
+
+  // Handle NaN vs. NaN
+  return a !== a && b !== b;
+};
+
+assert.sameValue = function (actual, expected, message) {
+  try {
+    if (assert._isSameValue(actual, expected)) {
+      return;
+    }
+  } catch (error) {
+    throw new Test262Error(message + ' (_isSameValue operation threw) ' + error);
+    return;
+  }
+
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(expected) + '») to be true';
+
+  throw new Test262Error(message);
+};
+
+assert.notSameValue = function (actual, unexpected, message) {
+  if (!assert._isSameValue(actual, unexpected)) {
+    return;
+  }
+
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(unexpected) + '») to be false';
+
+  throw new Test262Error(message);
+};
+
+assert.throws = function (expectedErrorConstructor, func, message) {
+  var expectedName, actualName;
+  if (typeof func !== "function") {
+    throw new Test262Error('assert.throws requires two arguments: the error constructor ' +
+      'and a function to run');
+    return;
+  }
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  try {
+    func();
+  } catch (thrown) {
+    if (typeof thrown !== 'object' || thrown === null) {
+      message += 'Thrown value was not an object!';
+      throw new Test262Error(message);
+    } else if (thrown.constructor !== expectedErrorConstructor) {
+      expectedName = expectedErrorConstructor.name;
+      actualName = thrown.constructor.name;
+      if (expectedName === actualName) {
+        message += 'Expected a ' + expectedName + ' but got a different error constructor with the same name';
+      } else {
+        message += 'Expected a ' + expectedName + ' but got a ' + actualName;
+      }
+      throw new Test262Error(message);
+    }
+    return;
+  }
+
+  message += 'Expected a ' + expectedErrorConstructor.name + ' to be thrown but no exception was thrown at all';
+  throw new Test262Error(message);
+};
+
+function isPrimitive(value) {
+  return !value || (typeof value !== 'object' && typeof value !== 'function');
+}
+
+assert.compareArray = function (actual, expected, message) {
+  message = message === undefined ? '' : message;
+
+  if (typeof message === 'symbol') {
+    message = message.toString();
+  }
+
+  if (isPrimitive(actual)) {
+    assert(false, `Actual argument [${actual}] shouldn't be primitive. ${message}`);
+  } else if (isPrimitive(expected)) {
+    assert(false, `Expected argument [${expected}] shouldn't be primitive. ${message}`);
+  }
+  var result = compareArray(actual, expected);
+  if (result) return;
+
+  var format = compareArray.format;
+  assert(false, `Actual ${format(actual)} and expected ${format(expected)} should have the same contents. ${message}`);
+};
+
+function compareArray(a, b) {
+  if (b.length !== a.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (!assert._isSameValue(b[i], a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+compareArray.format = function (arrayLike) {
+  return `[${Array.prototype.map.call(arrayLike, String).join(', ')}]`;
+};
+
+assert._formatIdentityFreeValue = function formatIdentityFreeValue(value) {
+  switch (value === null ? 'null' : typeof value) {
+    case 'string':
+      return typeof JSON !== "undefined" ? JSON.stringify(value) : `"${value}"`;
+    case 'bigint':
+      return `${value}n`;
+    case 'number':
+      if (value === 0 && 1 / value === -Infinity) return '-0';
+      // falls through
+    case 'boolean':
+    case 'undefined':
+    case 'null':
+      return String(value);
+  }
+};
+
+assert._toString = function (value) {
+  var basic = assert._formatIdentityFreeValue(value);
+  if (basic) return basic;
+  try {
+    return String(value);
+  } catch (err) {
+    if (err.name === 'TypeError') {
+      return Object.prototype.toString.call(value);
+    }
+    throw err;
+  }
+};
+
+
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+/*---
+description: |
+    Provides both:
+
+    - An error class to avoid false positives when testing for thrown exceptions
+    - A function to explicitly throw an exception using the Test262Error class
+defines: [Test262Error, $DONOTEVALUATE]
+---*/
+
+
+function Test262Error(message) {
+  this.message = message || "";
+}
+
+Test262Error.prototype.toString = function () {
+  return "Test262Error: " + this.message;
+};
+
+Test262Error.thrower = function (message) {
+  throw new Test262Error(message);
+};
+
+function $DONOTEVALUATE() {
+  throw "Test262: This statement should not be evaluated.";
+}
+
+
+// Copyright (C) 2016 The V8 Project authors. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+/*---
+esid: sec-arraybuffer-length
+description: >
+  The `length` parameter is converted to a value numeric index value.
+info: |
+  ArrayBuffer( length )
+
+  1. If NewTarget is undefined, throw a TypeError exception.
+  2. Let byteLength be ? ToIndex(length).
+  3. Return ? AllocateArrayBuffer(NewTarget, byteLength).
+
+  ToIndex( value )
+
+  1. If value is undefined, then
+    a. Let index be 0.
+  2. Else,
+    a. Let integerIndex be ? ToInteger(value).
+    b. If integerIndex < 0, throw a RangeError exception.
+    c. Let index be ! ToLength(integerIndex).
+    d. If SameValueZero(integerIndex, index) is false, throw a RangeError exception.
+  3. Return index.
+---*/
+
+var obj1 = {
+  valueOf: function() {
+    return 42;
+  }
+};
+
+var obj2 = {
+  toString: function() {
+    return 42;
+  }
+};
+
+var buffer;
+
+buffer = new ArrayBuffer(obj1);
+assert.sameValue(buffer.byteLength, 42, "object's valueOf");
+
+buffer = new ArrayBuffer(obj2);
+assert.sameValue(buffer.byteLength, 42, "object's toString");
+
+buffer = new ArrayBuffer("");
+assert.sameValue(buffer.byteLength, 0, "the Empty string");
+
+buffer = new ArrayBuffer("0");
+assert.sameValue(buffer.byteLength, 0, "string '0'");
+
+buffer = new ArrayBuffer("1");
+assert.sameValue(buffer.byteLength, 1, "string '1'");
+
+buffer = new ArrayBuffer(true);
+assert.sameValue(buffer.byteLength, 1, "true");
+
+buffer = new ArrayBuffer(false);
+assert.sameValue(buffer.byteLength, 0, "false");
+
+buffer = new ArrayBuffer(NaN);
+assert.sameValue(buffer.byteLength, 0, "NaN");
+
+buffer = new ArrayBuffer(null);
+assert.sameValue(buffer.byteLength, 0, "null");
+
+buffer = new ArrayBuffer(undefined);
+assert.sameValue(buffer.byteLength, 0, "undefined");
+
+buffer = new ArrayBuffer(0.1);
+assert.sameValue(buffer.byteLength, 0, "0.1");
+
+buffer = new ArrayBuffer(0.9);
+assert.sameValue(buffer.byteLength, 0, "0.9");
+
+buffer = new ArrayBuffer(1.1);
+assert.sameValue(buffer.byteLength, 1, "1.1");
+
+buffer = new ArrayBuffer(1.9);
+assert.sameValue(buffer.byteLength, 1, "1.9");
+
+buffer = new ArrayBuffer(-0.1);
+assert.sameValue(buffer.byteLength, 0, "-0.1");
+
+buffer = new ArrayBuffer(-0.99999);
+assert.sameValue(buffer.byteLength, 0, "-0.99999");

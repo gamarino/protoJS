@@ -1,0 +1,254 @@
+// Copyright (C) 2017 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+/*---
+description: |
+    Collection of assertion functions used throughout test262
+defines: [assert]
+---*/
+
+
+function assert(mustBeTrue, message) {
+  if (mustBeTrue === true) {
+    return;
+  }
+
+  if (message === undefined) {
+    message = 'Expected true but got ' + assert._toString(mustBeTrue);
+  }
+  throw new Test262Error(message);
+}
+
+assert._isSameValue = function (a, b) {
+  if (a === b) {
+    // Handle +/-0 vs. -/+0
+    return a !== 0 || 1 / a === 1 / b;
+  }
+
+  // Handle NaN vs. NaN
+  return a !== a && b !== b;
+};
+
+assert.sameValue = function (actual, expected, message) {
+  try {
+    if (assert._isSameValue(actual, expected)) {
+      return;
+    }
+  } catch (error) {
+    throw new Test262Error(message + ' (_isSameValue operation threw) ' + error);
+    return;
+  }
+
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(expected) + '») to be true';
+
+  throw new Test262Error(message);
+};
+
+assert.notSameValue = function (actual, unexpected, message) {
+  if (!assert._isSameValue(actual, unexpected)) {
+    return;
+  }
+
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(unexpected) + '») to be false';
+
+  throw new Test262Error(message);
+};
+
+assert.throws = function (expectedErrorConstructor, func, message) {
+  var expectedName, actualName;
+  if (typeof func !== "function") {
+    throw new Test262Error('assert.throws requires two arguments: the error constructor ' +
+      'and a function to run');
+    return;
+  }
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  try {
+    func();
+  } catch (thrown) {
+    if (typeof thrown !== 'object' || thrown === null) {
+      message += 'Thrown value was not an object!';
+      throw new Test262Error(message);
+    } else if (thrown.constructor !== expectedErrorConstructor) {
+      expectedName = expectedErrorConstructor.name;
+      actualName = thrown.constructor.name;
+      if (expectedName === actualName) {
+        message += 'Expected a ' + expectedName + ' but got a different error constructor with the same name';
+      } else {
+        message += 'Expected a ' + expectedName + ' but got a ' + actualName;
+      }
+      throw new Test262Error(message);
+    }
+    return;
+  }
+
+  message += 'Expected a ' + expectedErrorConstructor.name + ' to be thrown but no exception was thrown at all';
+  throw new Test262Error(message);
+};
+
+function isPrimitive(value) {
+  return !value || (typeof value !== 'object' && typeof value !== 'function');
+}
+
+assert.compareArray = function (actual, expected, message) {
+  message = message === undefined ? '' : message;
+
+  if (typeof message === 'symbol') {
+    message = message.toString();
+  }
+
+  if (isPrimitive(actual)) {
+    assert(false, `Actual argument [${actual}] shouldn't be primitive. ${message}`);
+  } else if (isPrimitive(expected)) {
+    assert(false, `Expected argument [${expected}] shouldn't be primitive. ${message}`);
+  }
+  var result = compareArray(actual, expected);
+  if (result) return;
+
+  var format = compareArray.format;
+  assert(false, `Actual ${format(actual)} and expected ${format(expected)} should have the same contents. ${message}`);
+};
+
+function compareArray(a, b) {
+  if (b.length !== a.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (!assert._isSameValue(b[i], a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+compareArray.format = function (arrayLike) {
+  return `[${Array.prototype.map.call(arrayLike, String).join(', ')}]`;
+};
+
+assert._formatIdentityFreeValue = function formatIdentityFreeValue(value) {
+  switch (value === null ? 'null' : typeof value) {
+    case 'string':
+      return typeof JSON !== "undefined" ? JSON.stringify(value) : `"${value}"`;
+    case 'bigint':
+      return `${value}n`;
+    case 'number':
+      if (value === 0 && 1 / value === -Infinity) return '-0';
+      // falls through
+    case 'boolean':
+    case 'undefined':
+    case 'null':
+      return String(value);
+  }
+};
+
+assert._toString = function (value) {
+  var basic = assert._formatIdentityFreeValue(value);
+  if (basic) return basic;
+  try {
+    return String(value);
+  } catch (err) {
+    if (err.name === 'TypeError') {
+      return Object.prototype.toString.call(value);
+    }
+    throw err;
+  }
+};
+
+
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+/*---
+description: |
+    Provides both:
+
+    - An error class to avoid false positives when testing for thrown exceptions
+    - A function to explicitly throw an exception using the Test262Error class
+defines: [Test262Error, $DONOTEVALUATE]
+---*/
+
+
+function Test262Error(message) {
+  this.message = message || "";
+}
+
+Test262Error.prototype.toString = function () {
+  return "Test262Error: " + this.message;
+};
+
+Test262Error.thrower = function (message) {
+  throw new Test262Error(message);
+};
+
+function $DONOTEVALUATE() {
+  throw "Test262: This statement should not be evaluated.";
+}
+
+
+// Copyright (C) 2025 Igalia, S.L. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+/*---
+esid: sec-temporal.zoneddatetime.prototype.subtract
+description: Subtracting unbalanced durations with large subsecond values from a date
+features: [Temporal]
+---*/
+
+// const pdt1 = new Temporal.PlainDateTime(2020, 2, 29, 0, 57, 27, 747, 612, 578);
+const zdt1 = new Temporal.ZonedDateTime(1582966647747612578n, "America/Los_Angeles");
+
+assert.sameValue(zdt1.subtract(Temporal.Duration.from({nanoseconds: Number.MAX_SAFE_INTEGER})).epochNanoseconds,
+                 1573959448492871587n);
+assert.sameValue(zdt1.subtract(Temporal.Duration.from({nanoseconds: Number.MIN_SAFE_INTEGER})).epochNanoseconds,
+                 1591973847002353569n);
+
+assert.sameValue(zdt1.subtract(Temporal.Duration.from({microseconds: Number.MAX_SAFE_INTEGER})).epochNanoseconds,
+                 -7424232606993378422n);
+assert.sameValue(zdt1.subtract(Temporal.Duration.from({microseconds: Number.MIN_SAFE_INTEGER})).epochNanoseconds,
+                 10590165902488603578n);
+
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({milliseconds: Number.MAX_SAFE_INTEGER})));
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({milliseconds: Number.MIN_SAFE_INTEGER})));
+
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({seconds: Number.MAX_SAFE_INTEGER})));
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({seconds: Number.MIN_SAFE_INTEGER})));
+
+const bigNumber = 9007199254740990976;
+
+assert.sameValue(zdt1.subtract(Temporal.Duration.from({nanoseconds: bigNumber})).epochNanoseconds,
+                 -7424232606993378398n);
+assert.sameValue(zdt1.subtract(Temporal.Duration.from({nanoseconds: -bigNumber})).epochNanoseconds,
+                 10590165902488603554n);
+
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({microseconds: bigNumber})));
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({microseconds: -bigNumber})));
+
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({milliseconds: bigNumber})));
+assert.throws(RangeError, () => zdt1.subtract(Temporal.Duration.from({milliseconds: -bigNumber})));
+
+const zdt2 = new Temporal.ZonedDateTime(0n, "UTC");
+
+assert.sameValue(zdt2.subtract(Temporal.Duration.from({nanoseconds: bigNumber})).epochNanoseconds,
+                 -9007199254740990976n);
+assert.sameValue(zdt2.subtract(Temporal.Duration.from({nanoseconds: -bigNumber})).epochNanoseconds,
+                 9007199254740990976n);
+
+assert.throws(RangeError, () => zdt2.subtract(Temporal.Duration.from({microseconds: bigNumber})));
+assert.throws(RangeError, () => zdt2.subtract(Temporal.Duration.from({microseconds: -bigNumber})));
+
+assert.throws(RangeError, () => zdt2.subtract(Temporal.Duration.from({milliseconds: bigNumber})));
+assert.throws(RangeError, () => zdt2.subtract(Temporal.Duration.from({milliseconds: -bigNumber})));

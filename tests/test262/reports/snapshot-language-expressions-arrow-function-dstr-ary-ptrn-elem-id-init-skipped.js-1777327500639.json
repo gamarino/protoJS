@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-04-27T22:05:00.639Z",
+  "patterns": [
+    "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-skipped.js"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 1,
+    "failed_syntax": 0,
+    "failed_semantics": 0,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/expressions/arrow-function/dstr/ary-ptrn-elem-id-init-skipped.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -L/home/gamarino/Documentos/proyectos/protoCore/build_off -Wl,-rpath,/home/gamarino/Documentos/proyectos/protoCore/build_off -shared -Wl,-soname,simple.so -o tests/native_addons/simple/simple.so CMakeFiles/simple_addon.dir/tests/native_addons/simple/simple_addon.cpp.o  -Wl,-rpath,/home/gamarino/Documentos/proyectos/protoCore/build -ldl 

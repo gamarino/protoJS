@@ -1,0 +1,1252 @@
+{
+  "timestamp": "1777939687308",
+  "results": [
+    {
+      "category": "Basic Types",
+      "tests": [
+        {
+          "name": "Number Addition",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4357360,
+              "heapTotal": 5570560,
+              "external": 1463775,
+              "rss": 25550848
+            },
+            "after": {
+              "heapUsed": 4363248,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 26599424
+            },
+            "delta": {
+              "heapUsed": 5888,
+              "heapTotal": 0,
+              "external": 40,
+              "rss": 1048576
+            }
+          }
+        },
+        {
+          "name": "Number Multiplication",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4401592,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 28303360
+            },
+            "after": {
+              "heapUsed": 4482464,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29220864
+            },
+            "delta": {
+              "heapUsed": 80872,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 917504
+            }
+          }
+        },
+        {
+          "name": "Number Division",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4504608,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29351936
+            },
+            "after": {
+              "heapUsed": 4592240,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29483008
+            },
+            "delta": {
+              "heapUsed": 87632,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 131072
+            }
+          }
+        },
+        {
+          "name": "Number to String Coercion",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4622024,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29483008
+            },
+            "after": {
+              "heapUsed": 4624048,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29483008
+            },
+            "delta": {
+              "heapUsed": 2024,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "String to Number Coercion",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4662288,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29483008
+            },
+            "after": {
+              "heapUsed": 4671128,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29483008
+            },
+            "delta": {
+              "heapUsed": 8840,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "String Concatenation",
+          "iterations": 5,
+          "min": 0,
+          "max": 10,
+          "mean": 2,
+          "median": 0,
+          "stddev": 4,
+          "total": 10,
+          "memory": {
+            "before": {
+              "heapUsed": 4735928,
+              "heapTotal": 5570560,
+              "external": 1463815,
+              "rss": 29614080
+            },
+            "after": {
+              "heapUsed": 4350928,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30269440
+            },
+            "delta": {
+              "heapUsed": -385000,
+              "heapTotal": 1048576,
+              "external": 0,
+              "rss": 655360
+            }
+          }
+        },
+        {
+          "name": "String Substring",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4398624,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30400512
+            },
+            "after": {
+              "heapUsed": 4561896,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "delta": {
+              "heapUsed": 163272,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 262144
+            }
+          }
+        },
+        {
+          "name": "String Length Access",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4566720,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "after": {
+              "heapUsed": 4567552,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "String Index Access",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4572264,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "after": {
+              "heapUsed": 4579272,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "delta": {
+              "heapUsed": 7008,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Boolean AND",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4584848,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "after": {
+              "heapUsed": 4585680,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30662656
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Boolean OR",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4590136,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "after": {
+              "heapUsed": 4590968,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Boolean NOT",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4596328,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "after": {
+              "heapUsed": 4598072,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "delta": {
+              "heapUsed": 1744,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Null Check",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4604400,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "after": {
+              "heapUsed": 4605232,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Undefined Check",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4609640,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "after": {
+              "heapUsed": 4611384,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "delta": {
+              "heapUsed": 1744,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "BigInt Addition",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4665888,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 30924800
+            },
+            "after": {
+              "heapUsed": 4911272,
+              "heapTotal": 6619136,
+              "external": 1463815,
+              "rss": 31186944
+            },
+            "delta": {
+              "heapUsed": 245384,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 262144
+            }
+          }
+        },
+        {
+          "name": "BigInt Multiplication",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.4,
+          "median": 0,
+          "stddev": 0.48989794855663565,
+          "total": 2,
+          "memory": {
+            "before": {
+              "heapUsed": 4748808,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4409872,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": -338936,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "BigInt to Number",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4438464,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4559256,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 120792,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Collections",
+      "tests": [
+        {
+          "name": "Array Creation",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4588048,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4629560,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 41512,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Push",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4663432,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4814784,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 151352,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Pop",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4828048,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4872000,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 43952,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Map",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4893576,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4976928,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 83352,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Filter",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 5001920,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 5108360,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 106440,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Reduce",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 5123192,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 5166088,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 42896,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Iteration",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 5227088,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4442312,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": -784776,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Array Index Access",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4455288,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "after": {
+              "heapUsed": 4456120,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31580160
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Object Creation",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4649728,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "after": {
+              "heapUsed": 5289088,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "delta": {
+              "heapUsed": 639360,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Object Property Access",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4507560,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "after": {
+              "heapUsed": 4628400,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "delta": {
+              "heapUsed": 120840,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Object Property Setting",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.4,
+          "median": 0,
+          "stddev": 0.48989794855663565,
+          "total": 2,
+          "memory": {
+            "before": {
+              "heapUsed": 4756936,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "after": {
+              "heapUsed": 5371648,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "delta": {
+              "heapUsed": 614712,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Object Iteration",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 4619056,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "after": {
+              "heapUsed": 4702944,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "delta": {
+              "heapUsed": 83888,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "JSON Stringify",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.4,
+          "median": 0,
+          "stddev": 0.48989794855663565,
+          "total": 2,
+          "memory": {
+            "before": {
+              "heapUsed": 5062216,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "after": {
+              "heapUsed": 5407960,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31711232
+            },
+            "delta": {
+              "heapUsed": 345744,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "JSON Parse",
+          "iterations": 5,
+          "min": 0,
+          "max": 2,
+          "mean": 1,
+          "median": 1,
+          "stddev": 0.6324555320336759,
+          "total": 5,
+          "memory": {
+            "before": {
+              "heapUsed": 4889856,
+              "heapTotal": 7143424,
+              "external": 1463815,
+              "rss": 31842304
+            },
+            "after": {
+              "heapUsed": 4861840,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32104448
+            },
+            "delta": {
+              "heapUsed": -28016,
+              "heapTotal": 2621440,
+              "external": 0,
+              "rss": 262144
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Overall Performance",
+      "tests": [
+        {
+          "name": "Startup Time",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4876024,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32104448
+            },
+            "after": {
+              "heapUsed": 4877176,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32104448
+            },
+            "delta": {
+              "heapUsed": 1152,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Throughput (Simple Ops)",
+          "iterations": 5,
+          "min": 1,
+          "max": 1,
+          "mean": 1,
+          "median": 1,
+          "stddev": 0,
+          "total": 5,
+          "memory": {
+            "before": {
+              "heapUsed": 5780064,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32235520
+            },
+            "after": {
+              "heapUsed": 5781048,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32235520
+            },
+            "delta": {
+              "heapUsed": 984,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          },
+          "opsPerSecond": 1000000000
+        },
+        {
+          "name": "Memory: Array Creation",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 5794480,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32235520
+            },
+            "after": {
+              "heapUsed": 5835992,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32235520
+            },
+            "delta": {
+              "heapUsed": 41512,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Memory: Object Creation",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 5963568,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 32366592
+            },
+            "after": {
+              "heapUsed": 6578464,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33021952
+            },
+            "delta": {
+              "heapUsed": 614896,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 655360
+            }
+          }
+        },
+        {
+          "name": "Memory: String Creation",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 6638984,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33021952
+            },
+            "after": {
+              "heapUsed": 4981448,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33153024
+            },
+            "delta": {
+              "heapUsed": -1657536,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 131072
+            }
+          }
+        },
+        {
+          "name": "Function Call Overhead",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 4986224,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33153024
+            },
+            "after": {
+              "heapUsed": 4987056,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33284096
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 131072
+            }
+          }
+        },
+        {
+          "name": "Closure Creation",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 5162176,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33284096
+            },
+            "after": {
+              "heapUsed": 6007744,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33546240
+            },
+            "delta": {
+              "heapUsed": 845568,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 262144
+            }
+          }
+        },
+        {
+          "name": "Property Access Chain",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 6013176,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33546240
+            },
+            "after": {
+              "heapUsed": 6014008,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33677312
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 131072
+            }
+          }
+        },
+        {
+          "name": "Try-Catch Overhead",
+          "iterations": 5,
+          "min": 0,
+          "max": 0,
+          "mean": 0,
+          "median": 0,
+          "stddev": 0,
+          "total": 0,
+          "memory": {
+            "before": {
+              "heapUsed": 6019616,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33677312
+            },
+            "after": {
+              "heapUsed": 6020448,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33677312
+            },
+            "delta": {
+              "heapUsed": 832,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        },
+        {
+          "name": "Type Checking",
+          "iterations": 5,
+          "min": 0,
+          "max": 1,
+          "mean": 0.2,
+          "median": 0,
+          "stddev": 0.4000000000000001,
+          "total": 1,
+          "memory": {
+            "before": {
+              "heapUsed": 6025152,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33677312
+            },
+            "after": {
+              "heapUsed": 6026824,
+              "heapTotal": 9764864,
+              "external": 1463815,
+              "rss": 33677312
+            },
+            "delta": {
+              "heapUsed": 1672,
+              "heapTotal": 0,
+              "external": 0,
+              "rss": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "comparison": null
+}

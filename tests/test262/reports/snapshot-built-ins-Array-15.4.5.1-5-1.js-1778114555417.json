@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-05-07T00:42:35.416Z",
+  "patterns": [
+    "built-ins/Array/15.4.5.1-5-1.js"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/15.4.5.1-5-1.js",
+      "result": "failed_semantics",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__15.4.5.1-5-1.js\nException in /home/gamarino/D"
+    }
+  ]
+}

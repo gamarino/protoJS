@@ -1,0 +1,219 @@
+{
+  "generatedAt": "2026-05-06T23:13:25.148Z",
+  "patterns": [
+    "built-ins/Array/isArray"
+  ],
+  "total": 29,
+  "summary": {
+    "passed": 19,
+    "failed_syntax": 0,
+    "failed_semantics": 10,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-1.js",
+      "result": "passed",
+      "durationMs": 82,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-2.js",
+      "result": "passed",
+      "durationMs": 57,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-3.js",
+      "result": "passed",
+      "durationMs": 62,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-4.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-5.js",
+      "result": "failed_semantics",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__15.4.3.2-0-5.js\nException in /home/g"
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-6.js",
+      "result": "passed",
+      "durationMs": 52,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-0-7.js",
+      "result": "passed",
+      "durationMs": 79,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-1.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-10.js",
+      "result": "passed",
+      "durationMs": 47,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-11.js",
+      "result": "passed",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-12.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-13.js",
+      "result": "failed_semantics",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__15.4.3.2-1-13.js\nException in /home/"
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-15.js",
+      "result": "passed",
+      "durationMs": 54,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-2.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-3.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-4.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-5.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-6.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-7.js",
+      "result": "failed_semantics",
+      "durationMs": 29,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__15.4.3.2-1-7.js\nException in /home/g"
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-8.js",
+      "result": "passed",
+      "durationMs": 27,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-1-9.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-2-1.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__15.4.3.2-2-1.js\nException in /home/g"
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-2-2.js",
+      "result": "passed",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Array/isArray/15.4.3.2-2-3.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__15.4.3.2-2-3.js\nException in /home/g"
+    },
+    {
+      "path": "built-ins/Array/isArray/descriptor.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__descriptor.js\nException in /home/gam"
+    },
+    {
+      "path": "built-ins/Array/isArray/name.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__name.js\nException in /home/gamarino/"
+    },
+    {
+      "path": "built-ins/Array/isArray/not-a-constructor.js",
+      "result": "failed_semantics",
+      "durationMs": 28,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__not-a-constructor.js\nException in /h"
+    },
+    {
+      "path": "built-ins/Array/isArray/proxy-revoked.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__proxy-revoked.js\nException in /home/"
+    },
+    {
+      "path": "built-ins/Array/isArray/proxy.js",
+      "result": "failed_semantics",
+      "durationMs": 30,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Array__isArray__proxy.js\nException in /home/gamarino"
+    }
+  ]
+}

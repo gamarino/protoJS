@@ -55,6 +55,10 @@ public:
     static void init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj);
 
 private:
+    static const proto::ProtoObject* dateConstructor(proto::ProtoContext*, const proto::ProtoObject*,
+                                                      const proto::ParentLink*,
+                                                      const proto::ProtoList*,
+                                                      const proto::ProtoSparseList*);
     static const proto::ProtoObject* dateNow(proto::ProtoContext*, const proto::ProtoObject*,
                                               const proto::ParentLink*,
                                               const proto::ProtoList*,

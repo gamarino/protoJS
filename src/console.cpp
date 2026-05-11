@@ -243,6 +243,27 @@ namespace {
         std::chrono::steady_clock::now();
 }
 
+const proto::ProtoObject* TimingAPIs::dateConstructor(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* self,
+                                                       const proto::ParentLink* /*parentLink*/,
+                                                       const proto::ProtoList* /*args*/,
+                                                       const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
+    
+    // If called with 'new', self is the new instance.
+    if (self && self != PROTO_NONE && self != getUndefinedSentinel() && self != getNullSentinel()) {
+        const proto::ProtoString* gtKey = ctx->fromUTF8String("getTime") ? ctx->fromUTF8String("getTime")->asString(ctx) : nullptr;
+        if (gtKey) {
+            self = self->setAttribute(ctx, gtKey, ctx->fromMethod(nullptr, TimingAPIs::dateNow));
+        }
+        return self;
+    }
+    
+    // Date() as function returns a string.
+    return ctx->fromUTF8String("Thu Jan 01 1970 00:00:00 GMT+0000");
+}
+
+
 const proto::ProtoObject* TimingAPIs::dateNow(proto::ProtoContext* ctx,
                                                const proto::ProtoObject* /*self*/,
                                                const proto::ParentLink* /*parentLink*/,
@@ -283,7 +304,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
         const proto::ProtoObject* dateObj =
             (existingDate && existingDate != PROTO_NONE)
                 ? existingDate
-                : ctx->newObject(true);
+                : ctx->fromMethod(nullptr, TimingAPIs::dateConstructor);
         if (dateObj) {
             const proto::ProtoString* nowKey =
                 ctx->fromUTF8String("now") ? ctx->fromUTF8String("now")->asString(ctx) : nullptr;

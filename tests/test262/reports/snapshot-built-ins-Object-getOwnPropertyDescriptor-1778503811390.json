@@ -1,0 +1,2186 @@
+{
+  "generatedAt": "2026-05-11T12:50:11.390Z",
+  "patterns": [
+    "built-ins/Object/getOwnPropertyDescriptor"
+  ],
+  "total": 310,
+  "summary": {
+    "passed": 122,
+    "failed_syntax": 0,
+    "failed_semantics": 188,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-0-1.js",
+      "result": "passed",
+      "durationMs": 48,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-1-1.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-1-1.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-1-2.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-1-2.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-1-3.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-1-4.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-1.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-1.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-1.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-10.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-11.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-12.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-13.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-14.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-15.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-16.js",
+      "result": "failed_semantics",
+      "durationMs": 1265,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-16.js\nt"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-17.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-18.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-19.js",
+      "result": "failed_semantics",
+      "durationMs": 1241,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-19.js\nt"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-2.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-2.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-20.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-21.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-22.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-23.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-24.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-25.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-26.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-27.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-28.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-29.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-3.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-30.js",
+      "result": "failed_semantics",
+      "durationMs": 1242,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-30.js\nt"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-31.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-32.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-33.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-34.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-35.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-36.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-37.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-38.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-39.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-4.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-40.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-41.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-42.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-43.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-44.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-44.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-45.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-46.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-2-46.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-47.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-5.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-6.js",
+      "result": "passed",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-7.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-8.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-2-9.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-1.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-10.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-13.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-14.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-3-14.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-15.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-2.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-3.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-4.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-5.js",
+      "result": "passed",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-6.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-7.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-8.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-3-9.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-1.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-1.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-10.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-10.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-100.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-100.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-101.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-101.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-102.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-102.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-103.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-103.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-104.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-104.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-105.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-105.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-106.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-106.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-107.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-107.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-108.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-108.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-109.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-109.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-11.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-11.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-110.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-110.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-111.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-111.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-112.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-112.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-113.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-113.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-114.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-114.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-115.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-115.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-116.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-116.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-117.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-117.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-118.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-118.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-120.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-120.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-121.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-121.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-122.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-122.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-123.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-123.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-124.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-124.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-125.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-125.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-126.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-126.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-127.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-127.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-128.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-128.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-129.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-129.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-130.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-130.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-131.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-131.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-132.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-132.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-133.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-133.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-134.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-134.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-135.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-135.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-136.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-136.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-138.js",
+      "result": "failed_semantics",
+      "durationMs": 31,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-138.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-139.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-139.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-14.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-14.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-140.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-140.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-141.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-141.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-142.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-142.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-143.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-143.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-144.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-144.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-145.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-145.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-146.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-146.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-147.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-147.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-148.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-148.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-149.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-149.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-15.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-15.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-150.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-150.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-151.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-151.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-152.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-152.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-153.js",
+      "result": "failed_semantics",
+      "durationMs": 32,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-153.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-154.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-154.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-156.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-156.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-157.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-157.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-158.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-158.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-159.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-159.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-16.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-16.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-160.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-160.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-161.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-161.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-162.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-162.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-163.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-163.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-165.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-165.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-166.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-166.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-167.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-167.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-168.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-168.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-169.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-169.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-17.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-17.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-170.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-170.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-171.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-171.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-172.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-172.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-173.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-173.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-174.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-174.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-175.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-175.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-176.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-176.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-177.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-177.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-178.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-178.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-179.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-179.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-18.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-18.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-180.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-180.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-182.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-182.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-183.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-183.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-184.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-184.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-185.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-185.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-186.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-186.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-187.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-187.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-188.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-188.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-189.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-189.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-19.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-19.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-190.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-190.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-191.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-191.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-192.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-192.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-193.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-193.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-194.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-194.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-195.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-195.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-196.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-196.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-197.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-197.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-198.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-198.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-199.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-199.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-2.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-2.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-20.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-20.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-200.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-200.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-201.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-201.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-202.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-202.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-203.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-203.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-204.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-204.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-205.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-205.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-206.js",
+      "result": "failed_semantics",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-206.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-207.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-207.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-208.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-208.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-209.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-209.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-21.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-21.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-210.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-210.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-211.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-211.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-212.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-212.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-213.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-213.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-214.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-214.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-215.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-215.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-216.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-216.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-217.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-217.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-218.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-218.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-219.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-219.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-22.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-22.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-220.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-220.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-221.js",
+      "result": "failed_semantics",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-221.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-222.js",
+      "result": "failed_semantics",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-222.js\n"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-223.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-224.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-225.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-226.js",
+      "result": "passed",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-227.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-228.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-229.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-23.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-23.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-230.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-231.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-232.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-233.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-234.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-235.js",
+      "result": "passed",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-236.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-237.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-238.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-239.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-24.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-24.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-240.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-241.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-242.js",
+      "result": "passed",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-243.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-244.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-245.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-246.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-247.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-248.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-249.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-25.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-25.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-250.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-26.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-26.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-27.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-27.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-28.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-29.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-3.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-30.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-31.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-32.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-33.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-34.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-34.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-35.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-36.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-37.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-38.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-39.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-39.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-4.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-4.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-40.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-40.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-41.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-41.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-42.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-42.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-43.js",
+      "result": "failed_semantics",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-43.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-44.js",
+      "result": "failed_semantics",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-44.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-45.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-45.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-46.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-46.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-47.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-47.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-48.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-48.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-49.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-49.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-5.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-5.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-50.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-50.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-51.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-51.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-52.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-52.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-53.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-53.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-54.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-54.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-55.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-55.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-56.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-56.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-57.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-57.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-58.js",
+      "result": "failed_semantics",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-58.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-59.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-59.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-6.js",
+      "result": "failed_semantics",
+      "durationMs": 34,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-6.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-60.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-60.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-61.js",
+      "result": "failed_semantics",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-61.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-62.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-62.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-63.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-64.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-65.js",
+      "result": "passed",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-66.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-67.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-68.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-69.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-7.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-7.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-70.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-71.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-72.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-73.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-75.js",
+      "result": "passed",
+      "durationMs": 42,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-76.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-77.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-78.js",
+      "result": "passed",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-79.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-8.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-8.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-80.js",
+      "result": "passed",
+      "durationMs": 36,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-81.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-82.js",
+      "result": "passed",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-84.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-84.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-85.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-85.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-86.js",
+      "result": "failed_semantics",
+      "durationMs": 41,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-86.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-88.js",
+      "result": "failed_semantics",
+      "durationMs": 46,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-88.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-89.js",
+      "result": "passed",
+      "durationMs": 45,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-9.js",
+      "result": "failed_semantics",
+      "durationMs": 51,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-9.js\nEx"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-90.js",
+      "result": "failed_semantics",
+      "durationMs": 44,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-90.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-91.js",
+      "result": "passed",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-92.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-93.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-94.js",
+      "result": "passed",
+      "durationMs": 43,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-96.js",
+      "result": "failed_semantics",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-96.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-97.js",
+      "result": "failed_semantics",
+      "durationMs": 40,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-97.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-98.js",
+      "result": "failed_semantics",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-98.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-99.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__15.2.3.3-4-99.js\nE"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/length.js",
+      "result": "passed",
+      "durationMs": 39,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/name.js",
+      "result": "passed",
+      "durationMs": 37,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/not-a-constructor.js",
+      "result": "passed",
+      "durationMs": 35,
+      "negative": null,
+      "errorSummary": null
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/primitive-string.js",
+      "result": "failed_semantics",
+      "durationMs": 33,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__primitive-string.j"
+    },
+    {
+      "path": "built-ins/Object/getOwnPropertyDescriptor/primitive-symbol.js",
+      "result": "failed_semantics",
+      "durationMs": 38,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__getOwnPropertyDescriptor__primitive-symbol.j"
+    }
+  ]
+}

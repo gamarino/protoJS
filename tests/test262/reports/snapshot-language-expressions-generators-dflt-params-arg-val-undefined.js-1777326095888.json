@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-04-27T21:41:35.888Z",
+  "patterns": [
+    "language/expressions/generators/dflt-params-arg-val-undefined.js"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "language/expressions/generators/dflt-params-arg-val-undefined.js",
+      "result": "failed_semantics",
+      "durationMs": 49,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/language__expressions__generators__dflt-params-arg-val-undefine"
+    }
+  ]
+}

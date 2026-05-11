@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-05-11T12:41:01.982Z",
+  "patterns": [
+    "built-ins/Object/defineProperty/15.2.3.6-3-157.js"
+  ],
+  "total": 1,
+  "summary": {
+    "passed": 0,
+    "failed_syntax": 0,
+    "failed_semantics": 1,
+    "timeout": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "path": "built-ins/Object/defineProperty/15.2.3.6-3-157.js",
+      "result": "failed_semantics",
+      "durationMs": 138,
+      "negative": null,
+      "errorSummary": "Command failed: /home/gamarino/Documentos/proyectos/protoJS/build/protojs /home/gamarino/Documentos/proyectos/protoJS/tests/test262/.tmp/built-ins__Object__defineProperty__15.2.3.6-3-157.js\nException "
+    }
+  ]
+}

@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProtoJS Performance Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        h3 {
+            color: #555;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        
+        .summary {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .summary-item {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .summary-item h4 {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .summary-item .value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #34495e;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        th:hover {
+            background: #2c3e50;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .faster {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .slower {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .similar {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .chart-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 5px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        
+        .badge-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .badge-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .badge-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .expandable {
+            cursor: pointer;
+        }
+        
+        .expandable::before {
+            content: '▶ ';
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        
+        .expandable.expanded::before {
+            transform: rotate(90deg);
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ProtoJS Performance Report</h1>
+        
+        <div class="summary">
+            <h2>Executive Summary</h2>
+            <p><strong>Generated:</strong> Mon May 04 2026 21:08:07 GMT-0300 (hora estándar de Argentina)</p>
+            <p><strong>ProtoJS Version:</strong> Unknown</p>
+            <p><strong>Node.js Version:</strong> 22.17.0</p>
+            
+            <div class="summary-grid">
+                
+        <div class="summary-item">
+            <h4>Total Categories</h4>
+            <div class="value">3</div>
+        </div>
+        <div class="summary-item">
+            <h4>Total Tests</h4>
+            <div class="value">41</div>
+        </div>
+        
+    
+            </div>
+        </div>
+        
+        
+        <div class="section">
+            <h2>Basic Types</h2>
+            
+    <table>
+        <thead>
+            <tr>
+                <th>Test Name</th>
+                <th>Mean (ms)</th>
+                <th>Median (ms)</th>
+                <th>Min (ms)</th>
+                <th>Max (ms)</th>
+                <th>Std Dev (ms)</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+    
+            <tr>
+                <td>Number Addition</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Number Multiplication</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Number Division</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Number to String Coercion</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>String to Number Coercion</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>String Concatenation</td>
+                <td>2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>10</td>
+                <td>4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>String Substring</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>String Length Access</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>String Index Access</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Boolean AND</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Boolean OR</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Boolean NOT</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Null Check</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Undefined Check</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>BigInt Addition</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>BigInt Multiplication</td>
+                <td>0.4</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.48989794855663565</td>
+                
+            </tr>
+        
+            <tr>
+                <td>BigInt to Number</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+        </tbody>
+    </table>
+    
+            
+    <div class="chart-container">
+        <h3>Performance Comparison Chart</h3>
+        <canvas id="chart-basic-types" width="400" height="200"></canvas>
+        <script>
+            (function() {
+                const ctx = document.getElementById('chart-basic-types').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ["Number Addition","Number Multiplication","Number Division","Number to String Coercion","String to Number Coercion","String Concatenation","String Substring","String Length Access","String Index Access","Boolean AND","Boolean OR","Boolean NOT","Null Check","Undefined Check","BigInt Addition","BigInt Multiplication","BigInt to Number"],
+                        datasets: [{"label":"ProtoJS","data":[0.2,0,0,0,0,2,0.2,0,0.2,0,0.2,0,0,0.2,0,0.4,0.2],"backgroundColor":"rgba(52, 152, 219, 0.6)","borderColor":"rgba(52, 152, 219, 1)","borderWidth":1}]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Time (ms)'
+                                }
+                            }
+                        }
+                    }
+                });
+            })();
+        </script>
+    </div>
+    
+        </div>
+        
+        <div class="section">
+            <h2>Collections</h2>
+            
+    <table>
+        <thead>
+            <tr>
+                <th>Test Name</th>
+                <th>Mean (ms)</th>
+                <th>Median (ms)</th>
+                <th>Min (ms)</th>
+                <th>Max (ms)</th>
+                <th>Std Dev (ms)</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+    
+            <tr>
+                <td>Array Creation</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Push</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Pop</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Map</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Filter</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Reduce</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Iteration</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Array Index Access</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Object Creation</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Object Property Access</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Object Property Setting</td>
+                <td>0.4</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.48989794855663565</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Object Iteration</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>JSON Stringify</td>
+                <td>0.4</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.48989794855663565</td>
+                
+            </tr>
+        
+            <tr>
+                <td>JSON Parse</td>
+                <td>1</td>
+                <td>1</td>
+                <td>0</td>
+                <td>2</td>
+                <td>0.6324555320336759</td>
+                
+            </tr>
+        
+        </tbody>
+    </table>
+    
+            
+    <div class="chart-container">
+        <h3>Performance Comparison Chart</h3>
+        <canvas id="chart-collections" width="400" height="200"></canvas>
+        <script>
+            (function() {
+                const ctx = document.getElementById('chart-collections').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ["Array Creation","Array Push","Array Pop","Array Map","Array Filter","Array Reduce","Array Iteration","Array Index Access","Object Creation","Object Property Access","Object Property Setting","Object Iteration","JSON Stringify","JSON Parse"],
+                        datasets: [{"label":"ProtoJS","data":[0,0.2,0.2,0.2,0.2,0.2,0.2,0,0.2,0.2,0.4,0.2,0.4,1],"backgroundColor":"rgba(52, 152, 219, 0.6)","borderColor":"rgba(52, 152, 219, 1)","borderWidth":1}]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Time (ms)'
+                                }
+                            }
+                        }
+                    }
+                });
+            })();
+        </script>
+    </div>
+    
+        </div>
+        
+        <div class="section">
+            <h2>Overall Performance</h2>
+            
+    <table>
+        <thead>
+            <tr>
+                <th>Test Name</th>
+                <th>Mean (ms)</th>
+                <th>Median (ms)</th>
+                <th>Min (ms)</th>
+                <th>Max (ms)</th>
+                <th>Std Dev (ms)</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+    
+            <tr>
+                <td>Startup Time</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Throughput (Simple Ops)</td>
+                <td>1</td>
+                <td>1</td>
+                <td>1</td>
+                <td>1</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Memory: Array Creation</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Memory: Object Creation</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Memory: String Creation</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Function Call Overhead</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Closure Creation</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Property Access Chain</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Try-Catch Overhead</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                
+            </tr>
+        
+            <tr>
+                <td>Type Checking</td>
+                <td>0.2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>0.4000000000000001</td>
+                
+            </tr>
+        
+        </tbody>
+    </table>
+    
+            
+    <div class="chart-container">
+        <h3>Performance Comparison Chart</h3>
+        <canvas id="chart-overall-performance" width="400" height="200"></canvas>
+        <script>
+            (function() {
+                const ctx = document.getElementById('chart-overall-performance').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ["Startup Time","Throughput (Simple Ops)","Memory: Array Creation","Memory: Object Creation","Memory: String Creation","Function Call Overhead","Closure Creation","Property Access Chain","Try-Catch Overhead","Type Checking"],
+                        datasets: [{"label":"ProtoJS","data":[0,1,0,0.2,0.2,0,0.2,0,0,0.2],"backgroundColor":"rgba(52, 152, 219, 0.6)","borderColor":"rgba(52, 152, 219, 1)","borderWidth":1}]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Time (ms)'
+                                }
+                            }
+                        }
+                    }
+                });
+            })();
+        </script>
+    </div>
+    
+        </div>
+        
+        
+        <div class="footer">
+            <p><strong>Test Environment:</strong> Platform: linux, Architecture: x64</p>
+            <p><strong>Methodology:</strong> All benchmarks run with 100 iterations (default) and 10 warmup iterations. Results show mean execution time in milliseconds unless otherwise specified.</p>
+        </div>
+    </div>
+    
+    <script>
+        
+        
+        // Table sorting functionality
+        document.querySelectorAll('th').forEach(header => {
+            header.addEventListener('click', () => {
+                const table = header.closest('table');
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const index = Array.from(header.parentElement.children).indexOf(header);
+                const isAsc = header.classList.contains('asc');
+                
+                rows.sort((a, b) => {
+                    const aVal = a.children[index].textContent.trim();
+                    const bVal = b.children[index].textContent.trim();
+                    const aNum = parseFloat(aVal);
+                    const bNum = parseFloat(bVal);
+                    
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return isAsc ? bNum - aNum : aNum - bNum;
+                    }
+                    return isAsc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+                });
+                
+                rows.forEach(row => tbody.appendChild(row));
+                header.classList.toggle('asc');
+            });
+        });
+        
+        // Expandable sections
+        document.querySelectorAll('.expandable').forEach(el => {
+            el.addEventListener('click', () => {
+                el.classList.toggle('expanded');
+                const content = el.nextElementSibling;
+                if (content) {
+                    content.classList.toggle('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

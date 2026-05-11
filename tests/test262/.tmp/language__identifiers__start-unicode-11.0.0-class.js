@@ -1,0 +1,543 @@
+// Copyright (C) 2017 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+/*---
+description: |
+    Collection of assertion functions used throughout test262
+defines: [assert]
+---*/
+
+
+function assert(mustBeTrue, message) {
+  if (mustBeTrue === true) {
+    return;
+  }
+
+  if (message === undefined) {
+    message = 'Expected true but got ' + assert._toString(mustBeTrue);
+  }
+  throw new Test262Error(message);
+}
+
+assert._isSameValue = function (a, b) {
+  if (a === b) {
+    // Handle +/-0 vs. -/+0
+    return a !== 0 || 1 / a === 1 / b;
+  }
+
+  // Handle NaN vs. NaN
+  return a !== a && b !== b;
+};
+
+assert.sameValue = function (actual, expected, message) {
+  try {
+    if (assert._isSameValue(actual, expected)) {
+      return;
+    }
+  } catch (error) {
+    throw new Test262Error(message + ' (_isSameValue operation threw) ' + error);
+    return;
+  }
+
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(expected) + '») to be true';
+
+  throw new Test262Error(message);
+};
+
+assert.notSameValue = function (actual, unexpected, message) {
+  if (!assert._isSameValue(actual, unexpected)) {
+    return;
+  }
+
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(unexpected) + '») to be false';
+
+  throw new Test262Error(message);
+};
+
+assert.throws = function (expectedErrorConstructor, func, message) {
+  var expectedName, actualName;
+  if (typeof func !== "function") {
+    throw new Test262Error('assert.throws requires two arguments: the error constructor ' +
+      'and a function to run');
+    return;
+  }
+  if (message === undefined) {
+    message = '';
+  } else {
+    message += ' ';
+  }
+
+  try {
+    func();
+  } catch (thrown) {
+    if (typeof thrown !== 'object' || thrown === null) {
+      message += 'Thrown value was not an object!';
+      throw new Test262Error(message);
+    } else if (thrown.constructor !== expectedErrorConstructor) {
+      expectedName = expectedErrorConstructor.name;
+      actualName = thrown.constructor.name;
+      if (expectedName === actualName) {
+        message += 'Expected a ' + expectedName + ' but got a different error constructor with the same name';
+      } else {
+        message += 'Expected a ' + expectedName + ' but got a ' + actualName;
+      }
+      throw new Test262Error(message);
+    }
+    return;
+  }
+
+  message += 'Expected a ' + expectedErrorConstructor.name + ' to be thrown but no exception was thrown at all';
+  throw new Test262Error(message);
+};
+
+function isPrimitive(value) {
+  return !value || (typeof value !== 'object' && typeof value !== 'function');
+}
+
+assert.compareArray = function (actual, expected, message) {
+  message = message === undefined ? '' : message;
+
+  if (typeof message === 'symbol') {
+    message = message.toString();
+  }
+
+  if (isPrimitive(actual)) {
+    assert(false, `Actual argument [${actual}] shouldn't be primitive. ${message}`);
+  } else if (isPrimitive(expected)) {
+    assert(false, `Expected argument [${expected}] shouldn't be primitive. ${message}`);
+  }
+  var result = compareArray(actual, expected);
+  if (result) return;
+
+  var format = compareArray.format;
+  assert(false, `Actual ${format(actual)} and expected ${format(expected)} should have the same contents. ${message}`);
+};
+
+function compareArray(a, b) {
+  if (b.length !== a.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (!assert._isSameValue(b[i], a[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+compareArray.format = function (arrayLike) {
+  return `[${Array.prototype.map.call(arrayLike, String).join(', ')}]`;
+};
+
+assert._formatIdentityFreeValue = function formatIdentityFreeValue(value) {
+  switch (value === null ? 'null' : typeof value) {
+    case 'string':
+      return typeof JSON !== "undefined" ? JSON.stringify(value) : `"${value}"`;
+    case 'bigint':
+      return `${value}n`;
+    case 'number':
+      if (value === 0 && 1 / value === -Infinity) return '-0';
+      // falls through
+    case 'boolean':
+    case 'undefined':
+    case 'null':
+      return String(value);
+  }
+};
+
+assert._toString = function (value) {
+  var basic = assert._formatIdentityFreeValue(value);
+  if (basic) return basic;
+  try {
+    return String(value);
+  } catch (err) {
+    if (err.name === 'TypeError') {
+      return Object.prototype.toString.call(value);
+    }
+    throw err;
+  }
+};
+
+
+// Copyright (c) 2012 Ecma International.  All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+/*---
+description: |
+    Provides both:
+
+    - An error class to avoid false positives when testing for thrown exceptions
+    - A function to explicitly throw an exception using the Test262Error class
+defines: [Test262Error, $DONOTEVALUATE]
+---*/
+
+
+function Test262Error(message) {
+  this.message = message || "";
+}
+
+Test262Error.prototype.toString = function () {
+  return "Test262Error: " + this.message;
+};
+
+Test262Error.thrower = function (message) {
+  throw new Test262Error(message);
+};
+
+function $DONOTEVALUATE() {
+  throw "Test262: This statement should not be evaluated.";
+}
+
+
+// Copyright 2024 Mathias Bynens. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+/*---
+author: Mathias Bynens
+esid: prod-PrivateIdentifier
+description: |
+  Test that Unicode v11.0.0 ID_Start characters are accepted as
+  identifier start characters in private class fields.
+info: |
+  Generated by https://github.com/mathiasbynens/caniunicode
+features: [class, class-fields-private]
+---*/
+
+class _ {
+  #ՠ;
+  #ֈ;
+  #ׯ;
+  #ᡸ;
+  #Ა;
+  #Ბ;
+  #Გ;
+  #Დ;
+  #Ე;
+  #Ვ;
+  #Ზ;
+  #Თ;
+  #Ი;
+  #Კ;
+  #Ლ;
+  #Მ;
+  #Ნ;
+  #Ო;
+  #Პ;
+  #Ჟ;
+  #Რ;
+  #Ს;
+  #Ტ;
+  #Უ;
+  #Ფ;
+  #Ქ;
+  #Ღ;
+  #Ყ;
+  #Შ;
+  #Ჩ;
+  #Ც;
+  #Ძ;
+  #Წ;
+  #Ჭ;
+  #Ხ;
+  #Ჯ;
+  #Ჰ;
+  #Ჱ;
+  #Ჲ;
+  #Ჳ;
+  #Ჴ;
+  #Ჵ;
+  #Ჶ;
+  #Ჷ;
+  #Ჸ;
+  #Ჹ;
+  #Ჺ;
+  #Ჽ;
+  #Ჾ;
+  #Ჿ;
+  #ㄯ;
+  #鿫;
+  #鿬;
+  #鿭;
+  #鿮;
+  #鿯;
+  #ꞯ;
+  #Ꞹ;
+  #ꞹ;
+  #ꣾ;
+  #𐨴;
+  #𐨵;
+  #𐴀;
+  #𐴁;
+  #𐴂;
+  #𐴃;
+  #𐴄;
+  #𐴅;
+  #𐴆;
+  #𐴇;
+  #𐴈;
+  #𐴉;
+  #𐴊;
+  #𐴋;
+  #𐴌;
+  #𐴍;
+  #𐴎;
+  #𐴏;
+  #𐴐;
+  #𐴑;
+  #𐴒;
+  #𐴓;
+  #𐴔;
+  #𐴕;
+  #𐴖;
+  #𐴗;
+  #𐴘;
+  #𐴙;
+  #𐴚;
+  #𐴛;
+  #𐴜;
+  #𐴝;
+  #𐴞;
+  #𐴟;
+  #𐴠;
+  #𐴡;
+  #𐴢;
+  #𐴣;
+  #𐼀;
+  #𐼁;
+  #𐼂;
+  #𐼃;
+  #𐼄;
+  #𐼅;
+  #𐼆;
+  #𐼇;
+  #𐼈;
+  #𐼉;
+  #𐼊;
+  #𐼋;
+  #𐼌;
+  #𐼍;
+  #𐼎;
+  #𐼏;
+  #𐼐;
+  #𐼑;
+  #𐼒;
+  #𐼓;
+  #𐼔;
+  #𐼕;
+  #𐼖;
+  #𐼗;
+  #𐼘;
+  #𐼙;
+  #𐼚;
+  #𐼛;
+  #𐼜;
+  #𐼧;
+  #𐼰;
+  #𐼱;
+  #𐼲;
+  #𐼳;
+  #𐼴;
+  #𐼵;
+  #𐼶;
+  #𐼷;
+  #𐼸;
+  #𐼹;
+  #𐼺;
+  #𐼻;
+  #𐼼;
+  #𐼽;
+  #𐼾;
+  #𐼿;
+  #𐽀;
+  #𐽁;
+  #𐽂;
+  #𐽃;
+  #𐽄;
+  #𐽅;
+  #𑅄;
+  #𑜚;
+  #𑠀;
+  #𑠁;
+  #𑠂;
+  #𑠃;
+  #𑠄;
+  #𑠅;
+  #𑠆;
+  #𑠇;
+  #𑠈;
+  #𑠉;
+  #𑠊;
+  #𑠋;
+  #𑠌;
+  #𑠍;
+  #𑠎;
+  #𑠏;
+  #𑠐;
+  #𑠑;
+  #𑠒;
+  #𑠓;
+  #𑠔;
+  #𑠕;
+  #𑠖;
+  #𑠗;
+  #𑠘;
+  #𑠙;
+  #𑠚;
+  #𑠛;
+  #𑠜;
+  #𑠝;
+  #𑠞;
+  #𑠟;
+  #𑠠;
+  #𑠡;
+  #𑠢;
+  #𑠣;
+  #𑠤;
+  #𑠥;
+  #𑠦;
+  #𑠧;
+  #𑠨;
+  #𑠩;
+  #𑠪;
+  #𑠫;
+  #𑪝;
+  #𑵠;
+  #𑵡;
+  #𑵢;
+  #𑵣;
+  #𑵤;
+  #𑵥;
+  #𑵧;
+  #𑵨;
+  #𑵪;
+  #𑵫;
+  #𑵬;
+  #𑵭;
+  #𑵮;
+  #𑵯;
+  #𑵰;
+  #𑵱;
+  #𑵲;
+  #𑵳;
+  #𑵴;
+  #𑵵;
+  #𑵶;
+  #𑵷;
+  #𑵸;
+  #𑵹;
+  #𑵺;
+  #𑵻;
+  #𑵼;
+  #𑵽;
+  #𑵾;
+  #𑵿;
+  #𑶀;
+  #𑶁;
+  #𑶂;
+  #𑶃;
+  #𑶄;
+  #𑶅;
+  #𑶆;
+  #𑶇;
+  #𑶈;
+  #𑶉;
+  #𑶘;
+  #𑻠;
+  #𑻡;
+  #𑻢;
+  #𑻣;
+  #𑻤;
+  #𑻥;
+  #𑻦;
+  #𑻧;
+  #𑻨;
+  #𑻩;
+  #𑻪;
+  #𑻫;
+  #𑻬;
+  #𑻭;
+  #𑻮;
+  #𑻯;
+  #𑻰;
+  #𑻱;
+  #𑻲;
+  #𖹀;
+  #𖹁;
+  #𖹂;
+  #𖹃;
+  #𖹄;
+  #𖹅;
+  #𖹆;
+  #𖹇;
+  #𖹈;
+  #𖹉;
+  #𖹊;
+  #𖹋;
+  #𖹌;
+  #𖹍;
+  #𖹎;
+  #𖹏;
+  #𖹐;
+  #𖹑;
+  #𖹒;
+  #𖹓;
+  #𖹔;
+  #𖹕;
+  #𖹖;
+  #𖹗;
+  #𖹘;
+  #𖹙;
+  #𖹚;
+  #𖹛;
+  #𖹜;
+  #𖹝;
+  #𖹞;
+  #𖹟;
+  #𖹠;
+  #𖹡;
+  #𖹢;
+  #𖹣;
+  #𖹤;
+  #𖹥;
+  #𖹦;
+  #𖹧;
+  #𖹨;
+  #𖹩;
+  #𖹪;
+  #𖹫;
+  #𖹬;
+  #𖹭;
+  #𖹮;
+  #𖹯;
+  #𖹰;
+  #𖹱;
+  #𖹲;
+  #𖹳;
+  #𖹴;
+  #𖹵;
+  #𖹶;
+  #𖹷;
+  #𖹸;
+  #𖹹;
+  #𖹺;
+  #𖹻;
+  #𖹼;
+  #𖹽;
+  #𖹾;
+  #𖹿;
+  #𘟭;
+  #𘟮;
+  #𘟯;
+  #𘟰;
+  #𘟱;
+};

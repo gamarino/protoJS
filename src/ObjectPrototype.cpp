@@ -756,24 +756,29 @@ static const proto::ProtoObject* objectDefineProperty(
     auto jsGetAttribute = [&](const proto::ProtoObject* obj, const proto::ProtoString* key) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || !key) return getUndefinedSentinel();
         
-        std::string ks;
-        key->toUTF8String(ctx, ks);
-        std::string gkStr = "__get_" + ks + "__";
-        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
-        
-        if (gk) {
-            const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
-            if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
-                const proto::ProtoList* emptyArgs = ctx->newList();
-                const proto::ProtoObject* res = callJSFunction(ctx, getter, obj, emptyArgs);
-                if (hasCallException()) return PROTO_NONE;
-                return res ? res : getUndefinedSentinel();
+        const proto::ProtoObject* curr = obj;
+        while (curr && curr != PROTO_NONE) {
+            if (curr->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
+                std::string ks;
+                key->toUTF8String(ctx, ks);
+                std::string gkStr = "__get_" + ks + "__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                
+                if (gk && curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
+                    const proto::ProtoObject* getter = curr->getAttribute(ctx, gk, false);
+                    if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
+                        const proto::ProtoList* emptyArgs = ctx->newList();
+                        const proto::ProtoObject* res = callJSFunction(ctx, getter, obj, emptyArgs);
+                        if (hasCallException()) return PROTO_NONE;
+                        return res ? res : getUndefinedSentinel();
+                    }
+                }
+                return curr->getAttribute(ctx, key, false);
             }
+            curr = curr->getPrototype(ctx);
         }
-        
-        const proto::ProtoObject* v = obj->getAttribute(ctx, key, true);
-        return (v && v != PROTO_NONE) ? v : getUndefinedSentinel();
+        return getUndefinedSentinel();
     };
 
     auto getBoolProp = [&](const char* name, bool defaultVal) -> bool {
@@ -782,12 +787,16 @@ static const proto::ProtoObject* objectDefineProperty(
         const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
         const proto::ProtoObject* d = jsGetAttribute(desc, k2);
         if (hasCallException()) return defaultVal;
-        if (!d || d == PROTO_NONE || d == getUndefinedSentinel()) return false;
+        if (!d || d == PROTO_NONE || d == getUndefinedSentinel() || d == getNullSentinel()) return false;
         if (d->isBoolean(ctx)) return (d == PROTO_TRUE);
         if (d->isInteger(ctx)) return (d->asLong(ctx) != 0);
-        if (d->isDouble(ctx)) {
+        if (d->isDouble(ctx) || d->isFloat(ctx)) {
             double v = d->asDouble(ctx);
-            return (!std::isnan(v) && v != 0.0);
+            return (!std::isnan(v) && v != 0.0 && v != -0.0);
+        }
+        if (d->isString(ctx)) {
+            const proto::ProtoString* s = d->asString(ctx);
+            return s && s->getSize(ctx) > 0;
         }
         return true; 
     };
@@ -844,7 +853,7 @@ static const proto::ProtoObject* objectDefineProperty(
     bool enumerable   = getBoolProp("enumerable",    propExists ? ((existingBits & 0x4) != 0) : false);
 
     if (isAccessor) {
-        target = target->setAttribute(ctx, k, nullptr);
+        target = target->setAttribute(ctx, k, getUndefinedSentinel());
         std::string gkStr = "__get_" + kstr + "__";
         const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
         if (gk) {

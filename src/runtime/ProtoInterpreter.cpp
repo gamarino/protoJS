@@ -65,7 +65,9 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     if (behavior == reg.getDefault()) {
         return obj->getAttribute(ctx, key, true);
     }
-    return behavior->getField(ctx, obj, key);
+    const proto::ProtoObject* res = behavior->getField(ctx, obj, key);
+    // printf("DEBUG: resolveFieldOOP key=%p res=%p\n", key, res);
+    return res;
 }
 
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
@@ -2024,20 +2026,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* obj,
             const proto::ProtoString* key) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || !key) return PROTO_NONE;
-        const proto::ProtoString* gk = getterSymbolFor(key);
-        if (!gk) return PROTO_NONE;
-        const proto::ProtoObject* getter = obj->getAttribute(pContext, gk, true);
-        if (!getter || getter == PROTO_NONE) return PROTO_NONE;
-        const proto::ProtoList* emptyArgs = pContext->newList();
-        const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
-        if (t_hasCallException) {
-            pending_exception  = t_callException;
-            has_pending_exception = true;
-            t_hasCallException = false;
-            t_callException    = nullptr;
-            return PROTO_NONE;
+        
+        const proto::ProtoObject* curr = obj;
+        const proto::ProtoObject* objProto = pContext->space ? pContext->space->objectPrototype : nullptr;
+        int depth = 0;
+        while (curr && curr != PROTO_NONE && depth < 100) {
+            if (curr->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
+                const proto::ProtoString* gk = getterSymbolFor(key);
+                if (gk && curr->hasOwnAttribute(pContext, gk) == PROTO_TRUE) {
+                    const proto::ProtoObject* getter = curr->getAttribute(pContext, gk, false);
+                    if (getter && getter != PROTO_NONE && getter != t_undefinedSentinel) {
+                        const proto::ProtoList* emptyArgs = pContext->newList();
+                        const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
+                        if (t_hasCallException) {
+                            pending_exception  = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException = false;
+                            t_callException    = nullptr;
+                            return PROTO_NONE;
+                        }
+                        return result ? result : PROTO_NONE;
+                    }
+                }
+                return PROTO_NONE;
+            }
+            if (curr == objProto) break; // Stop at Object.prototype
+            curr = curr->getPrototype(pContext);
+            depth++;
         }
-        return result ? result : PROTO_NONE;
+        return PROTO_NONE;
     };
 
     /* Accessor setter helper: invoke setter stored as __set_<keyStr>__. Returns false (and
@@ -2046,38 +2063,46 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* obj,
             const std::string& keyStr,
             const proto::ProtoObject* newVal,
-            bool isStrict) -> bool /* true = setter was called, false = no setter */ {
+            bool isStrict) -> bool {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return false;
-        std::string skStr = "__set_" + keyStr + "__";
-        const proto::ProtoObject* sko = pContext->fromUTF8String(skStr.c_str());
-        const proto::ProtoString* sk  = sko ? sko->asString(pContext) : nullptr;
-        if (!sk) {
-            // Check if it's a getter-only accessor (no setter) — throw TypeError in strict.
-            std::string gkStr = "__get_" + keyStr + "__";
-            const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
-            const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
-            if (gk && obj->getAttribute(pContext, gk, true) != PROTO_NONE) {
-                if (isStrict) {
-                    pending_exception = makeError(pContext, "TypeError",
-                        "Cannot set property with no setter", pGlobalRoot);
-                    has_pending_exception = true;
+        const proto::ProtoString* key = pContext->fromUTF8String(keyStr.c_str())->asString(pContext);
+        if (!key) return false;
+
+        const proto::ProtoObject* curr = obj;
+        while (curr && curr != PROTO_NONE) {
+            if (curr->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
+                const proto::ProtoString* sk = setterSymbolFor(key);
+                if (sk && curr->hasOwnAttribute(pContext, sk) == PROTO_TRUE) {
+                    const proto::ProtoObject* setter = curr->getAttribute(pContext, sk, false);
+                    if (setter && setter != PROTO_NONE && setter != t_undefinedSentinel) {
+                        const proto::ProtoList* emptySetArgs = pContext->newList();
+                        const proto::ProtoList* setArgs = emptySetArgs->appendLast(pContext, newVal ? newVal : PROTO_NONE);
+                        callJSFunction(pContext, setter, obj, setArgs ? setArgs : emptySetArgs);
+                        if (t_hasCallException) {
+                            pending_exception  = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException = false;
+                            t_callException    = nullptr;
+                        }
+                        return true;
+                    }
                 }
-                return true;  // accessor exists, write was silently ignored in sloppy mode
+                
+                const proto::ProtoString* gk = getterSymbolFor(key);
+                if (gk && curr->hasOwnAttribute(pContext, gk) == PROTO_TRUE) {
+                    if (isStrict) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Cannot set property with no setter", pGlobalRoot);
+                        has_pending_exception = true;
+                    }
+                    return true;
+                }
+                
+                return false;
             }
-            return false;  // not an accessor at all
+            curr = curr->getPrototype(pContext);
         }
-        const proto::ProtoObject* setter = obj->getAttribute(pContext, sk, true);
-        if (!setter || setter == PROTO_NONE) return false;
-        const proto::ProtoList* emptySetArgs = pContext->newList();
-        const proto::ProtoList* setArgs = emptySetArgs->appendLast(pContext, newVal ? newVal : PROTO_NONE);
-        callJSFunction(pContext, setter, obj, setArgs ? setArgs : emptySetArgs);
-        if (t_hasCallException) {
-            pending_exception  = t_callException;
-            has_pending_exception = true;
-            t_hasCallException = false;
-            t_callException    = nullptr;
-        }
-        return true;
+        return false;
     };
 
     // ----- Threaded dispatch (computed-goto) -----
@@ -3348,7 +3373,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 auto nameIt = module->atomToProto.find(atomIndex);
                 const proto::ProtoString* name = (nameIt != module->atomToProto.end()) ? nameIt->second : nullptr;
-                const proto::ProtoObject* val = resolveFieldOOP(pContext, obj, name);
+                const proto::ProtoObject* val = name ? invokeGetterIfPresentFast(obj, name) : PROTO_NONE;
+                if (has_pending_exception) DISPATCH();
+                if (!val || val == PROTO_NONE) {
+                    val = resolveFieldOOP(pContext, obj, name);
+                }
                 REFRESH_INTERP_STATE();
 
                 if (has_pending_exception) DISPATCH();
@@ -3383,16 +3412,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // canonical chain walk; the BehaviorRegistry-resolved
                 // behavior already handles the protocol callbacks
                 // correctly.
-                const proto::ProtoObject* val = key ? resolveFieldOOP(pContext, obj, key) : PROTO_NONE;
-
-                // Invoke getter if no data value but an accessor is defined.
-                // P-JS-1 fast variant: cached getter-symbol lookup, no
-                // per-call `fromUTF8String` allocation.
-                if ((!val || val == PROTO_NONE) && key) {
-                    const proto::ProtoObject* gval = invokeGetterIfPresentFast(obj, key);
-                    if (has_pending_exception) DISPATCH();
-                    if (gval && gval != PROTO_NONE) val = gval;
+                const proto::ProtoObject* val = key ? invokeGetterIfPresentFast(obj, key) : PROTO_NONE;
+                if (has_pending_exception) DISPATCH();
+                if (!val || val == PROTO_NONE) {
+                    val = resolveFieldOOP(pContext, obj, key);
                 }
+                // (Accessor fallback removed; handled above)
 
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
                 DISPATCH();
@@ -4968,7 +4993,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const char* typeStr = "undefined";
                 if (v == t_nullSentinel) {
                     typeStr = "object";  // typeof null === "object" per spec
-                } else if (v && v != PROTO_NONE && !v->isNone(pContext)) {
+                } else if (v && v != PROTO_NONE && !v->isNone(pContext) && v != t_undefinedSentinel) {
                     if (v->isBoolean(pContext)) typeStr = "boolean";
                     else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
                     else if (v->asString(pContext)) typeStr = "string";
@@ -6039,7 +6064,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
+                stackPush(pContext, (!val || val == PROTO_NONE || val == t_undefinedSentinel) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_typeof_is_function: {
