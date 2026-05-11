@@ -383,6 +383,7 @@ ctest
 ```
 
 For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
+For official ECMAScript compliance status and roadmap, see **[TEST262_status.md](TEST262_status.md)**.
 
 ### Performance Benchmarks
 
