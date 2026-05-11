@@ -1,8 +1,8 @@
 # Test262 Conformance Status: ProtoJS
 
 **Last Updated**: 2026-05-11
-**Total Conformance**: 30,824 / 52,925 (**58.2%**)
-**Status**: ACTIVE DEVELOPMENT (Property Shadowing Stabilized)
+**Total Conformance**: 31,074 / 52,925 (**58.7%**)
+**Status**: ACTIVE DEVELOPMENT (Block 1: Scoping & Fundamentals Complete)
 
 ## Summary by Test Family
 
@@ -12,32 +12,27 @@
 | **built-ins** | 10,313 | 23,334 | 44.2% |
 | **harness** | 75 | 116 | 64.7% |
 | **intl402** | 1,550 | 3,276 | 47.3% |
-| **language** | 17,840 | 23,629 | 75.5% |
+| **language** | 18,090 | 23,629 | 76.6% |
 | **staging** | 560 | 1,484 | 37.7% |
-| **Total** | **30,824** | **52,925** | **58.2%** |
+| **Total** | **31,074** | **52,925** | **58.7%** |
 
-## Highlight: `built-ins/Object/defineProperty`
+## Block 1 Accomplishments: Scoping & Fundamentals
+**Date**: 2026-05-11
+**Gains**: +250 tests in `language` category.
 
-Significant effort has been focused on property descriptor compliance, specifically around property shadowing and accessor/data property priority.
-
-- **Passed**: 685 / 1,131 (60.6%)
-- **Status**: Property Shadowing Resolved.
-
-### Recent Improvements
-- **Property Shadowing**: Fully resolved ES5.1 property shadowing regressions. Own data properties now correctly shadow inherited accessors, and own accessors correctly shadow inherited data properties.
-- **Accessor Resolution**: Refactored `OP_get_field` and `OP_get_field2` to prioritize own-accessor resolution via a shadowing-aware prototype walk.
-- **Placeholder Sentinels**: Switched to `undefined` sentinels for accessor placeholders in `Object.defineProperty`, ensuring robust `hasOwnAttribute` detection.
-- **Interpreter Stability**: Eliminated infinite prototype loops in `invokeGetterIfPresentFast` by implementing cycle guards and `Object.prototype` detection.
+- **Closure TDZ**: Fixed ReferenceError enforcement for captured lexical variables (cells).
+- **Accessor Setters**: Implemented setter support in `OP_put_field` and `OP_set_field` via prototype chain walk.
+- **Strict Mode 'this'**: Corrected `this` coercion in non-strict mode to properly handle `undefined`/`null` sentinels.
+- **Redeclaration**: Verified `SyntaxError` enforcement for lexical redeclarations (handled by QuickJS parser integration).
 
 ## Remaining High-Level Issues
 
-- **C++ Attribute Lookup**: `jsGetAttribute` in `ObjectPrototype.cpp` still uses a legacy walk for some descriptor parsing paths, which may lead to subtle discrepancies in complex descriptor objects.
-- **Bootstrap Prototype Cycle**: Identified a self-prototype cycle on `Object.prototype` during engine initialization that requires a core-level architectural fix.
-- **Proxies & Reflect**: Coverage in `Proxy` (built-ins) remains low (~25%) due to missing trap support for certain internal methods.
-- **Temporal**: Large-scale failures in `intl402/Temporal` due to incomplete timezone and calendar implementation.
+- **Iteration Protocols**: `for-of` and `for-await-of` (Block 2 & 3).
+- **Generators**: `yield` and state machine transitions.
+- **Async Generators**: Awaiting results of `next()`.
+- **Mapped Arguments**: Parameter aliasing in non-strict functions.
 
 ## Next Steps
 
-1. **Native Parity**: Refactor `jsGetAttribute` to use the same `invokeGetterIfPresentFast` logic to ensure consistency between C++ and JS property access.
-2. **Bootstrap Fix**: Resolve the `Object.prototype` self-prototype cycle in the bootstrap sequence.
-3. **Array Conformance**: Address remaining holes in `Array.prototype.map` and `filter` regarding species-aware construction.
+1. **Block 2: Iteration & Generator Protocols**: Addressing `for-of` termination and Generator state machines.
+2. **Block 3: Async Semantics**: Implementing `for-await-of` and Async Generators.

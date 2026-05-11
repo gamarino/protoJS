@@ -37,6 +37,8 @@
 #include <atomic>          // P-JS-7: dispatch_table_initialized flag
 
 namespace protojs {
+extern thread_local const proto::ProtoObject* t_nullSentinel;
+extern thread_local const proto::ProtoObject* t_undefinedSentinel;
 
 // ---------------------------------------------------------------------------
 // OOP Dispatch Helpers
@@ -71,16 +73,40 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
 }
 
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
+    if (!obj || obj == PROTO_NONE || !key) return obj;
+
+    // Accessor setter support: check for __set_<key>__ sidecar.
+    std::string keyStr;
+    key->toUTF8String(ctx, keyStr);
+    std::string skStr = "__set_" + keyStr + "__";
+    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+    
+    if (sk) {
+        const proto::ProtoObject* curr = obj;
+        const proto::ProtoObject* objProto = ctx->space ? ctx->space->objectPrototype : nullptr;
+        int depth = 0;
+        while (curr && curr != PROTO_NONE && depth < 100) {
+            if (curr->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
+                const proto::ProtoObject* setter = curr->getAttribute(ctx, sk, false);
+                if (setter && setter != PROTO_NONE && setter != t_undefinedSentinel) {
+                    const proto::ProtoList* args = ctx->newList();
+                    const proto::ProtoList* setArgs = args->appendLast(ctx, val ? val : PROTO_NONE);
+                    callJSFunction(ctx, setter, obj, setArgs);
+                    return obj;
+                }
+                break;
+            }
+            if (curr == objProto) break;
+            curr = curr->getPrototype(ctx);
+            depth++;
+        }
+    }
+
     const auto& reg = protojs::BehaviorRegistry::instance();
     const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
 
     // Respect writable descriptor flag (bit 0 of __pd_<key>__).
-    std::string keyStr;
-    if (key && key->isSymbol()) {
-        keyStr = "sym_" + std::to_string(reinterpret_cast<unsigned long long>(key));
-    } else if (key) {
-        key->toUTF8String(ctx, keyStr);
-    }
     std::string pdKeyStr = "__pd_" + keyStr + "__";
     const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
@@ -88,16 +114,12 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
         uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
         if (!(bits & 0x1)) {
-            // Property is non-writable (or overshadowed by non-writable inherited property).
-            // In strict mode, OP_put_field doesn't throw automatically unless we set pending_exception.
-            // For now, silently drop the write to pass ES5 semantics in sloppy mode tests.
+            // Property is non-writable.
             return obj;
         }
     }
 
     if (behavior == reg.getDefault()) {
-        // Default putField is `return nullptr;` → caller always falls
-        // back to setAttribute. Skip the virtual call entirely.
         return obj->setAttribute(ctx, key, val);
     }
 
@@ -162,8 +184,6 @@ static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, con
 }
 
 
-extern thread_local const proto::ProtoObject* t_nullSentinel;
-extern thread_local const proto::ProtoObject* t_undefinedSentinel;
 
 namespace {
 
@@ -2497,8 +2517,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, thisObj ? thisObj : PROTO_NONE);
                 } else {
                     REFRESH_GLOBAL_OBJ();
-                    stackPush(pContext, (thisObj && thisObj != PROTO_NONE) ? thisObj
-                                                                           : (globalObj ? globalObj : PROTO_NONE));
+                    const proto::ProtoObject* finalThis = thisObj;
+                    if (!finalThis || finalThis == PROTO_NONE || finalThis == t_undefinedSentinel || finalThis == t_nullSentinel) {
+                        finalThis = globalObj ? globalObj : PROTO_NONE;
+                    }
+                    stackPush(pContext, finalThis);
                 }
                 DISPATCH();
             L_OP_special_object: {
@@ -2987,12 +3010,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_get_var_ref0);
                 {
                     const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
-                    if (slotVal == tdzSentinel) {
-                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
-                        has_pending_exception = true;
-                        DISPATCH();
-                    }
                     const proto::ProtoObject* val = readCell(pContext, slotVal);
+                    if (slotVal == tdzSentinel || val == tdzSentinel) {
+                        bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                         module->closureVarIsLexical[refIndex];
+                        if (isLexical || slotVal == tdzSentinel || val == tdzSentinel) {
+                            pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                    }
                     stackPush(pContext, val ? val : PROTO_NONE);
                 }
                 DISPATCH();
@@ -3006,6 +3033,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+                
+                // TDZ check for lexical variables
+                bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                 module->closureVarIsLexical[refIndex];
+                if (isLexical) {
+                    const proto::ProtoObject* curVal = readCell(pContext, slotVal);
+                    if (slotVal == tdzSentinel || curVal == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+
                 if (isCell(pContext, slotVal)) {
                     writeCell(pContext, slotVal, val);
                 } else {
@@ -3036,6 +3076,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = static_cast<uint16_t>(opcode - OP_set_var_ref0);
                 const proto::ProtoObject* val = stackTop(pContext);
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+
+                // TDZ check for lexical variables
+                bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                 module->closureVarIsLexical[refIndex];
+                if (isLexical) {
+                    const proto::ProtoObject* curVal = readCell(pContext, slotVal);
+                    if (slotVal == tdzSentinel || curVal == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+
                 if (isCell(pContext, slotVal)) {
                     writeCell(pContext, slotVal, val);
                 } else {
@@ -3058,7 +3111,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint16_t refIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
-                stackPush(pContext, readCell(pContext, slotVal));
+                const proto::ProtoObject* val = readCell(pContext, slotVal);
+                
+                // TDZ check for lexical variables
+                if (slotVal == tdzSentinel || val == tdzSentinel) {
+                    bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                     module->closureVarIsLexical[refIndex];
+                    if (isLexical || slotVal == tdzSentinel || val == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+                
+                stackPush(pContext, val);
                 DISPATCH();
             }
             L_OP_put_var_ref: {
@@ -3072,6 +3138,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+
+                // TDZ check for lexical variables
+                bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                 module->closureVarIsLexical[refIndex];
+                if (isLexical) {
+                    const proto::ProtoObject* curVal = readCell(pContext, slotVal);
+                    if (slotVal == tdzSentinel || curVal == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+
                 if (isCell(pContext, slotVal)) {
                     writeCell(pContext, slotVal, val);
                 } else {
@@ -3095,6 +3174,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
+
+                // TDZ check for lexical variables
+                bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                 module->closureVarIsLexical[refIndex];
+                if (isLexical) {
+                    const proto::ProtoObject* curVal = readCell(pContext, slotVal);
+                    if (slotVal == tdzSentinel || curVal == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+
                 if (isCell(pContext, slotVal)) {
                     writeCell(pContext, slotVal, val);
                 } else {
@@ -3118,11 +3210,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pc += 2;
                 {
                     const proto::ProtoObject* slotVal = getSlot(pContext, argCount + varCount + refIndex);
-                    if (slotVal == tdzSentinel) {
-                        pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot); has_pending_exception = true;
-                        DISPATCH();
-                    }
                     const proto::ProtoObject* val = readCell(pContext, slotVal);
+                    if (slotVal == tdzSentinel || val == tdzSentinel) {
+                        bool isLexical = static_cast<size_t>(refIndex) < module->closureVarIsLexical.size() &&
+                                         module->closureVarIsLexical[refIndex];
+                        if (isLexical || slotVal == tdzSentinel || val == tdzSentinel) {
+                            pending_exception = makeError(pContext, "ReferenceError", "Cannot access before initialization", pGlobalRoot);
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                    }
                     stackPush(pContext, val ? val : PROTO_NONE);
                 }
                 DISPATCH();
