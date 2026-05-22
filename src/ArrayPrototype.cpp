@@ -1933,7 +1933,7 @@ static const proto::ProtoObject* arrayIteratorNext(
     }
 
     // Advance index in-place (self is mutable).
-    self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
+    const proto::ProtoObject* nextSelf = self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
 
     // Determine value based on kind.
     std::string kind = "values";
