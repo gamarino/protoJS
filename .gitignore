@@ -34,5 +34,16 @@
 
 # Packaging
 *.deb
+*.tar.gz
 protoJS_staging/
 .worktrees/
+
+# Out-of-tree build directories
+build/
+build_release/
+build_check/
+
+# Scratch and transient test artifacts
+scratch/
+tests/test262/.tmp/
+tests/test262/reports/
