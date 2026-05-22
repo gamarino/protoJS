@@ -264,3 +264,42 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 if(ENABLE_COVERAGE)
     message(STATUS "Coverage: Enabled")
 endif()
+
+# --- Packaging (CPack) ---
+# Native installers for the protojs runtime. The install(TARGETS protojs ...)
+# rule above places the binary under <prefix>/bin; the install RPATH lets it
+# find libprotoCore without LD_LIBRARY_PATH. protojs's standard modules (fs,
+# path, http, ...) are compiled into the binary, so there is nothing else to
+# install. The package declares a dependency on protoCore's package, which
+# provides libprotoCore.
+set(CPACK_PACKAGE_NAME "protojs")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "protoJS - a JavaScript runtime on the protoCore object model")
+set(CPACK_PACKAGE_VENDOR "numaes")
+set(CPACK_PACKAGE_CONTACT "gamarino@gmail.com")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_COMPONENTS_ALL protoJS)
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "protoJS")
+
+# Platform-specific generators.
+if(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+elseif(UNIX)
+    set(CPACK_GENERATOR "DEB;RPM;TGZ")
+    # protojs links libprotoCore — the package metadata must declare it.
+    # protoCore's CPack package name is "protoCore"; the DEB generator
+    # lowercases it to "protocore", the RPM generator keeps the case.
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "gamarino@gmail.com")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "interpreters")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "protocore")
+    set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+    set(CPACK_RPM_PACKAGE_GROUP "Development/Languages")
+    set(CPACK_RPM_PACKAGE_REQUIRES "protoCore")
+elseif(WIN32)
+    set(CPACK_GENERATOR "NSIS;ZIP")
+    set(CPACK_NSIS_PACKAGE_NAME "protoJS")
+endif()
+
+include(CPack)
