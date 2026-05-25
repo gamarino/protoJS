@@ -33,7 +33,11 @@ const proto::ProtoObject* ioReadFile(
     auto future = pool.getExecutor().submit(
         [path]() { return IOModule::readFileSync(path); });
     try {
-        std::string content = future.get();
+        std::string content;
+        {
+            proto::ProtoContext::UnmanagedScope u(ctx);
+            content = future.get();
+        }
         return ctx->fromUTF8String(content.c_str());
     } catch (...) {
         return PROTO_NONE;
@@ -53,7 +57,12 @@ const proto::ProtoObject* ioWriteFile(
     auto future = pool.getExecutor().submit(
         [path, content]() { return IOModule::writeFileSync(path, content); });
     try {
-        return future.get() ? PROTO_TRUE : PROTO_FALSE;
+        bool ok;
+        {
+            proto::ProtoContext::UnmanagedScope u(ctx);
+            ok = future.get();
+        }
+        return ok ? PROTO_TRUE : PROTO_FALSE;
     } catch (...) {
         return PROTO_FALSE;
     }

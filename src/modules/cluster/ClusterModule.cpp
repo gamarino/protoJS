@@ -59,7 +59,11 @@ const proto::ProtoObject* workerSend(
     int fd = getIntAttr(ctx, self, ipcWriteKey(ctx));
     if (fd < 0) return PROTO_FALSE;
     msg.push_back('\n');
-    ssize_t w = ::write(fd, msg.data(), msg.size());
+    ssize_t w;
+    {
+        proto::ProtoContext::UnmanagedScope u(ctx);
+        w = ::write(fd, msg.data(), msg.size());
+    }
     return (w == static_cast<ssize_t>(msg.size())) ? PROTO_TRUE : PROTO_FALSE;
 }
 

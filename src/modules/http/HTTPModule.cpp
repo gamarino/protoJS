@@ -321,8 +321,11 @@ const proto::ProtoObject* responseEnd(
     resp << "Content-Length: " << body.size() << "\r\n\r\n" << body;
 
     std::string out = resp.str();
-    ssize_t wn = ::write(clientFd, out.data(), out.size());
-    (void)wn;
+    {
+        proto::ProtoContext::UnmanagedScope u(ctx);
+        ssize_t wn = ::write(clientFd, out.data(), out.size());
+        (void)wn;
+    }
     self->setAttribute(ctx, keyHeadersSent(ctx), PROTO_TRUE);
     ::close(clientFd);
     self->setAttribute(ctx, keyClientFD(ctx), ctx->fromInteger(-1));
@@ -542,7 +545,10 @@ const proto::ProtoObject* serverClose(
         ::close(state->socketFd);
         state->socketFd = -1;
     }
-    if (state->thread.joinable()) state->thread.join();
+    if (state->thread.joinable()) {
+        proto::ProtoContext::UnmanagedScope u(ctx);
+        state->thread.join();
+    }
     if (wasListening) g_activeServers.fetch_sub(1);
     if (self) self->setAttribute(ctx, keyFD(ctx), ctx->fromInteger(-1));
     return PROTO_NONE;

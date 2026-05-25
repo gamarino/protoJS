@@ -10,19 +10,27 @@ namespace protojs {
 void REPL::start(JSContext* ctx) {
     std::cout << "protoJS REPL v0.1.0" << std::endl;
     std::cout << "Type .help for commands, .exit to exit" << std::endl;
-    
+
     std::vector<std::string> history;
     std::string input;
     int lineCount = 0;
-    
+
+    JSContextWrapper* w =
+        static_cast<JSContextWrapper*>(JS_GetContextOpaque(ctx));
+    proto::ProtoContext* pctx = w ? w->getProtoContext() : nullptr;
+
     while (true) {
         if (lineCount == 0) {
             std::cout << "> ";
         } else {
             std::cout << "... ";
         }
-        
-        std::string line = readLine();
+
+        std::string line;
+        {
+            proto::ProtoContext::UnmanagedScope u(pctx);
+            line = readLine();
+        }
         if (line.empty() && lineCount == 0) {
             continue;
         }

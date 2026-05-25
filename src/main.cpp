@@ -548,7 +548,10 @@ int main(int argc, char** argv) {
            protojs::HTTPModule::getActiveClientCount() > 0 ||
            protojs::NetModule::getActiveCount() > 0) {
         protojs::EventLoop::getInstance().processCallbacks();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        {
+            proto::ProtoContext::UnmanagedScope u(wrapper.getProtoContext());
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
 
         auto now = std::chrono::steady_clock::now();
         if (now - start > timeout) {

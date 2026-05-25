@@ -365,7 +365,11 @@ const proto::ProtoObject* socketWriteImpl(
     if (bytes.empty()) return PROTO_FALSE;
     int fd = s->socketFd.load();
     if (fd < 0) return PROTO_FALSE;
-    ssize_t sent = ::send(fd, bytes.data(), bytes.size(), 0);
+    ssize_t sent;
+    {
+        proto::ProtoContext::UnmanagedScope u(ctx);
+        sent = ::send(fd, bytes.data(), bytes.size(), 0);
+    }
     return (sent > 0) ? PROTO_TRUE : PROTO_FALSE;
 }
 
@@ -393,7 +397,10 @@ const proto::ProtoObject* socketDestroyImpl(
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
     SocketState* s = getSocketState(ctx, self);
-    if (s) teardownSocket(s);
+    if (s) {
+        proto::ProtoContext::UnmanagedScope u(ctx);
+        teardownSocket(s);
+    }
     return PROTO_NONE;
 }
 
@@ -638,7 +645,10 @@ const proto::ProtoObject* serverCloseImpl(
     const proto::ProtoList* /*args*/,
     const proto::ProtoSparseList*) {
     ServerState* s = getServerState(ctx, self);
-    if (s) teardownServer(s);
+    if (s) {
+        proto::ProtoContext::UnmanagedScope u(ctx);
+        teardownServer(s);
+    }
     return PROTO_NONE;
 }
 
