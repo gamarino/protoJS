@@ -387,6 +387,126 @@ For official ECMAScript compliance status and roadmap, see **[TEST262_status.md]
 
 ### Performance Benchmarks
 
+**Honest baseline — 2026-05-31** (in-process median time, protoJS built in
+pure Release mode and linked against protoCore `libprotoCore.so.1.2.0` —
+the build that includes **snapshot-at-STW + Phase 2 trim** for concurrent
+GC (see `protoCore/docs/GarbageCollector.md` § "Concurrent Mark Without
+Barriers").  This baseline is the first measurable run since 2026-05-06:
+two regressions had silently broken the standard suite between then and
+now, both fixed in this cycle.
+
+> **Regressions fixed this cycle**
+>
+> 1. `printf("TRACE: ...")` was committed into the bytecode `DISPATCH()`
+>    macro on 2026-05-22 by snapshot `7b5d9ddd` (uncommitted working tree
+>    marked as "not separately reviewed").  Every dispatch printed a
+>    trace line to stdout — both polluting the `__BENCH_RESULT__` parser
+>    (every benchmark reported "Error: undefined") and adding
+>    catastrophic per-dispatch overhead.  Removed by `283a02a5`.
+> 2. `Date.now` was `undefined`.  Root cause: `TimingAPIs::init` created
+>    `Date` via `ctx->fromMethod(...)` and then tried to attach `.now`
+>    via `setAttribute`.  Method objects created with `fromMethod` do not
+>    retain attribute writes — the assignment silently dropped.  Fixed
+>    by `b546a64f` switching to `newObject(true)` with matching `name`/
+>    `prototype` so the interpreter's stub-installer guard skips it.
+>
+> Together these explain why no comparable measurement could be produced
+> between 2026-04-28 and 2026-05-31.
+
+#### Standard In-Process Suite (`run_standard_comparison.js`, `run_standard_comparison_quickjs.js`)
+
+Self-contained micro-benchmarks; each reports median of 5 internal
+runs.  Both reference engines exercised in the same session against
+the same `build_release/protojs`.
+
+##### vs Node.js 22
+
+| Benchmark             | protoJS     | Node     | Node speedup |
+|-----------------------|------------:|---------:|-------------:|
+| array_literal         |    197 ms   |    3 ms  |        65.7× |
+| control_flow          |    228 ms   |    5 ms  |        45.6× |
+| function_calls        |    215 ms   |    1 ms  |       215.0× |
+| json_transform        |    105 ms   |    2 ms  |        52.5× |
+| numeric_loop          |    109 ms   |    1 ms  |       109.0× |
+| object_property       |   1650 ms   |   49 ms  |        33.7× |
+| object_read_only      |     52 ms   |    3 ms  |        17.3× |
+| object_write_only     |   6904 ms   |   11 ms  |       627.6× |
+| **parallel_cpu**      |  **52 ms**  |**41 ms** | **Node 1.3×** |
+| string_concat         |    107 ms   |    1 ms  |       107.0× |
+
+**Geometric mean (10 benches): Node 37.75× faster than protoJS** —
+load-bearing single-thread number on this hardware.
+
+##### vs vanilla QuickJS (interpreter-vs-interpreter, no JIT on either side)
+
+| Benchmark             | protoJS     | QuickJS  | QuickJS speedup |
+|-----------------------|------------:|---------:|----------------:|
+| array_literal         |    431 ms   |    6 ms  |          71.83× |
+| control_flow          |    522 ms   |   50 ms  |          10.44× |
+| function_calls        |    257 ms   |   10 ms  |          25.70× |
+| json_transform        |    133 ms   |    4 ms  |          33.25× |
+| numeric_loop          |    130 ms   |   89 ms  |           1.46× |
+| object_property       |   2012 ms   |   91 ms  |          22.11× |
+| object_read_only      |     63 ms   |    6 ms  |          10.50× |
+| object_write_only     |   8551 ms   |   54 ms  |         158.35× |
+| **parallel_cpu**      |  **52 ms**  |**776 ms**| **protoJS 14.92×** |
+| string_concat         |    113 ms   |    4 ms  |          28.25× |
+| tree_traversal        |    349 ms   |    4 ms  |          87.25× |
+
+**Geometric mean (11 benches): QuickJS 10.34× faster than protoJS** —
+the meaningful interpreter-vs-interpreter number.  Closing this gap is
+the work of the P-JS optimisation track.  The Node gap above includes
+the JIT advantage layered on top of this.
+
+##### Architectural payoff: GIL-free threading
+
+`parallel_cpu.js` (4 tasks × 5 rounds via `protoCore.runInThread`):
+
+- protoJS: **52 ms** — single-process, four real OS threads running
+  concurrently on protoCore primitives with no global lock.
+- QuickJS: 776 ms — single-threaded interpreter, serialised CPU work.
+- Node.js: 41 ms — V8 JIT'd code, single-threaded but JIT-fast.
+
+protoJS **wins 14.9×** against QuickJS and reaches **77 % of Node's**
+JIT'd throughput on a workload that scales with cores.  This is the
+one benchmark where the architectural decision (GIL-free runtime on
+protoCore) is visibly load-bearing.  Workloads that scale across
+cores get the advantage; tight single-thread loops do not.
+
+#### Comparison against 2026-04-28 baseline
+
+Compares the six benchmarks present in both runs.
+
+| benchmark            | 04-28 (ms) | 05-31 (ms) | Δ      |
+|----------------------|-----------:|-----------:|-------:|
+| array_literal        |       1030 |        197 | −80.9% |
+| control_flow         |        735 |        228 | −69.0% |
+| function_calls       |       2090 |        215 | −89.7% |
+| numeric_loop         |        455 |        109 | −76.0% |
+| object_property      |       9577 |       1650 | −82.8% |
+| parallel_cpu         |         55 |         52 |  −5.5% |
+
+**Geomean ratio = 0.249** — protoJS is ~75 % faster than the 2026-04-28
+baseline across the six benchmarks present in both runs.  This is the
+P-JS-{0..7} optimisation cycle's actual landed effect, which could not
+be measured properly while the TRACE printf was active on the binary.
+
+#### Hot spots worth targeted attention
+
+- `object_write_only` (158× QuickJS, 628× Node) — cost of writes
+  through protoCore's immutable structural-sharing: every property
+  assignment builds a new object chain.  Highest-leverage target.
+- `tree_traversal` / `function_calls` (87× / 26× QuickJS) — tight-loop
+  dispatch dominates.  P-JS track is already addressing this.
+- `numeric_loop` (1.46× QuickJS) — within noise of parity; the basic
+  integer loop is no longer pathological.
+
+Full report: `tests/benchmarks/results/comparison_2026-05-31.md`.
+Raw JSON results: `tests/benchmarks/results/baseline_2026-05-31.json`
+and `tests/benchmarks/results/standard_comparison_quickjs.json`.
+
+---
+
 **Honest baseline — 2026-05-06** (in-process median time, protoJS built in
 pure Release mode (`-O3 -DNDEBUG`, no debug info) and linked against the
 matching Release build of protoCore — including the GC survivor re-chain,

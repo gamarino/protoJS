@@ -1,0 +1,179 @@
+{
+  "timestamp": "2026-05-31T23:10:17.837Z",
+  "results": [
+    {
+      "benchmark": "array_literal.js",
+      "name": "array_literal",
+      "protojs_time_ms": 431,
+      "quickjs_time_ms": 6,
+      "speedup": 71.83333333333334,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "control_flow.js",
+      "name": "control_flow",
+      "protojs_time_ms": 522,
+      "quickjs_time_ms": 50,
+      "speedup": 10.44,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "function_calls.js",
+      "name": "function_calls",
+      "protojs_time_ms": 257,
+      "quickjs_time_ms": 10,
+      "speedup": 25.7,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "json_transform.js",
+      "name": "json_transform",
+      "protojs_time_ms": 133,
+      "quickjs_time_ms": 4,
+      "speedup": 33.25,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "json_transform_small.js",
+      "name": "json_transform",
+      "protojs_time_ms": 14,
+      "quickjs_time_ms": 1,
+      "speedup": 14,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "json_transform_tiny.js",
+      "name": "json_transform",
+      "protojs_time_ms": 0,
+      "quickjs_time_ms": 0,
+      "speedup": 1,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "numeric_loop.js",
+      "name": "numeric_loop",
+      "protojs_time_ms": 130,
+      "quickjs_time_ms": 89,
+      "speedup": 1.4606741573033708,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "object_property.js",
+      "name": "object_property",
+      "protojs_time_ms": 2012,
+      "quickjs_time_ms": 91,
+      "speedup": 22.10989010989011,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "object_read_only.js",
+      "name": "object_read_only",
+      "protojs_time_ms": 63,
+      "quickjs_time_ms": 6,
+      "speedup": 10.5,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "object_write_only.js",
+      "name": "object_write_only",
+      "protojs_time_ms": 8551,
+      "quickjs_time_ms": 54,
+      "speedup": 158.35185185185185,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "parallel_cpu.js",
+      "name": "parallel_cpu",
+      "protojs_time_ms": 52,
+      "quickjs_time_ms": 776,
+      "speedup": 14.923076923076923,
+      "faster": "protoJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "string_concat.js",
+      "name": "string_concat",
+      "protojs_time_ms": 113,
+      "quickjs_time_ms": 4,
+      "speedup": 28.25,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "string_processing.js",
+      "name": "string_processing",
+      "protojs_time_ms": 1,
+      "quickjs_time_ms": 0,
+      "speedup": 2,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    },
+    {
+      "benchmark": "tree_traversal.js",
+      "name": "tree_traversal",
+      "protojs_time_ms": 349,
+      "quickjs_time_ms": 4,
+      "speedup": 87.25,
+      "faster": "QuickJS",
+      "protojs_ok": true,
+      "quickjs_ok": true,
+      "protojs_stderr": "",
+      "quickjs_stderr": ""
+    }
+  ],
+  "summary": {
+    "total": 14,
+    "successful": 14,
+    "failed": 0,
+    "geoMeanQuickjsOverProto": 10.337448810942725
+  }
+}

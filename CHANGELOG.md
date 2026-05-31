@@ -6,6 +6,38 @@ All notable changes to protoJS are documented in this file.
 
 ### Fixed
 
+- **Standard benchmark suite restored after silent regression**
+  (2026-05-31):  Two regressions had broken the standard suite between
+  2026-05-06 and now.  Together they explain why no comparable
+  performance number could be produced for nearly a month.
+
+  - **`printf("TRACE: ...")` in `DISPATCH()` macro** (commit `283a02a5`).
+    Committed by snapshot `7b5d9ddd` on 2026-05-22 with the explicit
+    note "in-progress... not separately reviewed" — the line emitted a
+    trace to stdout on every bytecode dispatch.  The `__BENCH_RESULT__`
+    regex never matched, every benchmark reported `Error: undefined`,
+    and per-dispatch printf overhead was catastrophic but masked by the
+    runner failure upstream.  One-line removal.
+  - **`Date.now` undefined** (commit `b546a64f`).  `TimingAPIs::init`
+    created `Date` via `ctx->fromMethod(...)` then attached `.now` via
+    `setAttribute`.  Method objects do not retain attribute writes —
+    the assignment silently dropped, leaving `Date.now` permanently
+    undefined.  Every standard benchmark times its workload via
+    `Date.now()` so every benchmark threw `TypeError`.  Switched to
+    `newObject(true)` with matching `name`/`prototype` so the
+    interpreter's stub-installer guard skips it; constructor behaviour
+    (`new Date()`) intentionally not provided — no standard benchmark
+    needs it and reintroducing it properly belongs to broader Date
+    work.
+
+  After the fixes the suite passes 14/14 vs Node and 14/14 vs QuickJS.
+  Geomean ratio against the 2026-04-28 baseline is **0.249** — protoJS
+  is ~75 % faster than that baseline across the six benchmarks present
+  in both runs (P-JS-{0..7} cycle's actual landed effect, finally
+  measurable).  See README.md § "Honest baseline — 2026-05-31" and
+  `tests/benchmarks/results/comparison_2026-05-31.md` for the full
+  comparison including the new QuickJS reference.
+
 - **`tree_traversal` UAF stabilised** (2026-05-04): The benchmark built a
   16383-node binary tree of mutable objects (depth=14) and then summed the
   values; with `PROTOCORE_GC_REINCLUDE_SURVIVORS=ON` it crashed reproducibly

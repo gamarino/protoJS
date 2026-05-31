@@ -1,0 +1,179 @@
+{
+  "timestamp": "2026-05-31T23:11:30.575Z",
+  "results": [
+    {
+      "benchmark": "array_literal.js",
+      "name": "array_literal",
+      "protojs_time_ms": 197,
+      "nodejs_time_ms": 3,
+      "speedup": 65.66666666666667,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "control_flow.js",
+      "name": "control_flow",
+      "protojs_time_ms": 228,
+      "nodejs_time_ms": 5,
+      "speedup": 45.6,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "function_calls.js",
+      "name": "function_calls",
+      "protojs_time_ms": 215,
+      "nodejs_time_ms": 1,
+      "speedup": 215,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "json_transform.js",
+      "name": "json_transform",
+      "protojs_time_ms": 105,
+      "nodejs_time_ms": 2,
+      "speedup": 52.49999999999999,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "json_transform_small.js",
+      "name": "json_transform",
+      "protojs_time_ms": 12,
+      "nodejs_time_ms": 0,
+      "speedup": 24,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "json_transform_tiny.js",
+      "name": "json_transform",
+      "protojs_time_ms": 1,
+      "nodejs_time_ms": 0,
+      "speedup": 2,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "numeric_loop.js",
+      "name": "numeric_loop",
+      "protojs_time_ms": 109,
+      "nodejs_time_ms": 1,
+      "speedup": 109,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "object_property.js",
+      "name": "object_property",
+      "protojs_time_ms": 1650,
+      "nodejs_time_ms": 49,
+      "speedup": 33.6734693877551,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "object_read_only.js",
+      "name": "object_read_only",
+      "protojs_time_ms": 52,
+      "nodejs_time_ms": 3,
+      "speedup": 17.333333333333332,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "object_write_only.js",
+      "name": "object_write_only",
+      "protojs_time_ms": 6904,
+      "nodejs_time_ms": 11,
+      "speedup": 627.6363636363636,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "parallel_cpu.js",
+      "name": "parallel_cpu",
+      "protojs_time_ms": 52,
+      "nodejs_time_ms": 41,
+      "speedup": 1.2682926829268293,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "string_concat.js",
+      "name": "string_concat",
+      "protojs_time_ms": 107,
+      "nodejs_time_ms": 1,
+      "speedup": 107.00000000000001,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "string_processing.js",
+      "name": "string_processing",
+      "protojs_time_ms": 1,
+      "nodejs_time_ms": 0,
+      "speedup": 2,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "tree_traversal.js",
+      "name": "tree_traversal",
+      "protojs_time_ms": 340,
+      "nodejs_time_ms": 0,
+      "speedup": 680,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    }
+  ],
+  "summary": {
+    "total": 14,
+    "successful": 14,
+    "failed": 0,
+    "geoMeanNodeOverProto": 37.75470747973067
+  }
+}
