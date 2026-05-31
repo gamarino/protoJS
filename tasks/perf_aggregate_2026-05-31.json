@@ -1,0 +1,478 @@
+{
+  "methodology": "GC suppressed via PROTOCORE_GC_CONTEXT_THRESHOLD=1000000000; main thread 98%+ samples",
+  "total_ms": 49965,
+  "per_bench_ms": {
+    "object_write_only": 35165,
+    "object_property": 8245,
+    "tree_traversal": 1565,
+    "function_calls": 1140,
+    "control_flow": 1030,
+    "array_literal": 970,
+    "numeric_loop": 530,
+    "string_concat": 535,
+    "json_transform": 520,
+    "object_read_only": 265
+  },
+  "ranked": [
+    {
+      "rank": 1,
+      "abs_ms": 3340.8379999999997,
+      "pct_total": 6.686356449514659,
+      "so": "[unknown]",
+      "symbol": "0xffffffffa07d4bb7",
+      "concentration": {
+        "object_write_only": 7.25,
+        "object_property": 6.27,
+        "tree_traversal": 6.18,
+        "function_calls": 4.49,
+        "array_literal": 8.13,
+        "string_concat": 3.09,
+        "json_transform": 5.49,
+        "object_read_only": 0.97
+      }
+    },
+    {
+      "rank": 2,
+      "abs_ms": 3330.9519999999998,
+      "pct_total": 6.666570599419592,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoContext::allocCell",
+      "concentration": {
+        "object_write_only": 7.28,
+        "object_property": 6.38,
+        "tree_traversal": 6.22,
+        "function_calls": 3.86,
+        "array_literal": 5.31,
+        "string_concat": 3.55,
+        "json_transform": 6.19,
+        "object_read_only": 0.33
+      }
+    },
+    {
+      "rank": 3,
+      "abs_ms": 3233.1125000000006,
+      "pct_total": 6.47075452816972,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoListImplementation::ProtoListImplementation",
+      "concentration": {
+        "object_write_only": 7.35,
+        "object_property": 6.13,
+        "tree_traversal": 4.61,
+        "function_calls": 0.33,
+        "array_literal": 3.71,
+        "string_concat": 0.5,
+        "json_transform": 5.48
+      }
+    },
+    {
+      "rank": 4,
+      "abs_ms": 2398.0475000000006,
+      "pct_total": 4.7994546182327635,
+      "so": "protojs",
+      "symbol": "protojs::runBytecode",
+      "concentration": {
+        "object_write_only": 2.29,
+        "object_property": 0.32,
+        "tree_traversal": 4.77,
+        "function_calls": 0.72,
+        "control_flow": 48.86,
+        "array_literal": 0.51,
+        "numeric_loop": 50.47,
+        "string_concat": 0.94,
+        "json_transform": 1.73,
+        "object_read_only": 22.55
+      }
+    },
+    {
+      "rank": 5,
+      "abs_ms": 1471.5754999999995,
+      "pct_total": 2.9452126488541968,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::",
+      "concentration": {
+        "object_write_only": 0.34,
+        "object_property": 0.4,
+        "tree_traversal": 0.49,
+        "function_calls": 1.85,
+        "array_literal": 0.62,
+        "json_transform": 0.93
+      }
+    },
+    {
+      "rank": 6,
+      "abs_ms": 1470.2835,
+      "pct_total": 2.942626838787151,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoSpace::getFreeCells",
+      "concentration": {
+        "object_write_only": 3.17,
+        "object_property": 2.97,
+        "tree_traversal": 2.34,
+        "function_calls": 1.28,
+        "array_literal": 2.17,
+        "numeric_loop": 1.19,
+        "string_concat": 2.37,
+        "json_transform": 3.41,
+        "object_read_only": 0.64
+      }
+    },
+    {
+      "rank": 7,
+      "abs_ms": 1419.5849999999998,
+      "pct_total": 2.841158811167817,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoListImplementation::implInsertAt",
+      "concentration": {
+        "object_write_only": 3.11,
+        "object_property": 2.95,
+        "tree_traversal": 2.08,
+        "array_literal": 3.5,
+        "json_transform": 3.12
+      }
+    },
+    {
+      "rank": 8,
+      "abs_ms": 895.81,
+      "pct_total": 1.7928750125087558,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoContext::addCell2Context",
+      "concentration": {
+        "object_write_only": 1.91,
+        "object_property": 1.82,
+        "tree_traversal": 2.17,
+        "function_calls": 1.33,
+        "array_literal": 0.73,
+        "string_concat": 1.44,
+        "json_transform": 1.96
+      }
+    },
+    {
+      "rank": 9,
+      "abs_ms": 789.7609999999997,
+      "pct_total": 1.580628439907935,
+      "so": "protojs",
+      "symbol": "protojs::",
+      "concentration": {
+        "object_write_only": 0.42,
+        "object_property": 0.4,
+        "tree_traversal": 0.93,
+        "function_calls": 0.48,
+        "control_flow": 2.1,
+        "array_literal": 0.31,
+        "numeric_loop": 1.62,
+        "string_concat": 0.38,
+        "json_transform": 0.35,
+        "object_read_only": 0.37
+      }
+    },
+    {
+      "rank": 10,
+      "abs_ms": 693.482,
+      "pct_total": 1.3879355548884218,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::Cell::Cell",
+      "concentration": {
+        "object_write_only": 1.51,
+        "object_property": 1.46,
+        "tree_traversal": 0.97,
+        "function_calls": 1.05,
+        "array_literal": 0.91,
+        "json_transform": 1.18
+      }
+    },
+    {
+      "rank": 11,
+      "abs_ms": 605.9450000000002,
+      "pct_total": 1.2127389172420697,
+      "so": "[unknown]",
+      "symbol": "0xffffffffa08667e0",
+      "concentration": {
+        "object_write_only": 1.28,
+        "object_property": 1.25,
+        "tree_traversal": 1.39,
+        "function_calls": 0.64,
+        "array_literal": 1.71,
+        "string_concat": 0.76,
+        "json_transform": 0.59
+      }
+    },
+    {
+      "rank": 12,
+      "abs_ms": 585.5715000000001,
+      "pct_total": 1.1719633743620537,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoString::toUTF8String",
+      "concentration": {
+        "object_write_only": 1.12,
+        "object_property": 1.37,
+        "tree_traversal": 3.62,
+        "json_transform": 1.46,
+        "object_read_only": 5.48
+      }
+    },
+    {
+      "rank": 13,
+      "abs_ms": 584.9105000000001,
+      "pct_total": 1.1706404483138197,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoString::create",
+      "concentration": {
+        "object_write_only": 1.37,
+        "object_property": 1.01,
+        "tree_traversal": 1.27
+      }
+    },
+    {
+      "rank": 14,
+      "abs_ms": 580.9465,
+      "pct_total": 1.1627068948263783,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoListImplementation::implGetAt",
+      "concentration": {
+        "object_write_only": 1.32,
+        "object_property": 0.89,
+        "tree_traversal": 0.69,
+        "numeric_loop": 0.38,
+        "json_transform": 3.5,
+        "object_read_only": 4.67
+      }
+    },
+    {
+      "rank": 15,
+      "abs_ms": 574.1900000000002,
+      "pct_total": 1.1491844291003706,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoObject::getAttribute",
+      "concentration": {
+        "object_write_only": 0.73,
+        "object_property": 0.65,
+        "tree_traversal": 2.55,
+        "function_calls": 6.48,
+        "control_flow": 4.17,
+        "array_literal": 3.42,
+        "numeric_loop": 7.99,
+        "string_concat": 0.37,
+        "json_transform": 0.71,
+        "object_read_only": 9.8
+      }
+    },
+    {
+      "rank": 16,
+      "abs_ms": 507.652,
+      "pct_total": 1.0160152106474534,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoThreadImplementation::implAllocCell",
+      "concentration": {
+        "object_write_only": 1.1,
+        "object_property": 0.96,
+        "tree_traversal": 0.91,
+        "function_calls": 1.0,
+        "array_literal": 0.63,
+        "string_concat": 0.93,
+        "json_transform": 0.78,
+        "object_read_only": 0.34
+      }
+    },
+    {
+      "rank": 17,
+      "abs_ms": 444.54600000000005,
+      "pct_total": 0.8897148003602523,
+      "so": "[unknown]",
+      "symbol": "0xffffffffa0a0128c",
+      "concentration": {
+        "object_write_only": 0.99,
+        "object_property": 0.79,
+        "tree_traversal": 0.92,
+        "function_calls": 0.7,
+        "array_literal": 0.51,
+        "json_transform": 0.76
+      }
+    },
+    {
+      "rank": 18,
+      "abs_ms": 443.2485,
+      "pct_total": 0.8871179825878114,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoContext::fromUTF8String",
+      "concentration": {
+        "object_write_only": 0.99,
+        "object_property": 0.96,
+        "tree_traversal": 1.02
+      }
+    },
+    {
+      "rank": 19,
+      "abs_ms": 414.06950000000006,
+      "pct_total": 0.8287191033723609,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoSparseListImplementation::ProtoSparseListImplementation",
+      "concentration": {
+        "object_write_only": 0.68,
+        "object_property": 0.57,
+        "tree_traversal": 2.8,
+        "function_calls": 3.91,
+        "array_literal": 2.25,
+        "json_transform": 3.41
+      }
+    },
+    {
+      "rank": 20,
+      "abs_ms": 400.852,
+      "pct_total": 0.802265585910137,
+      "so": "protojs",
+      "symbol": "protojs::resolvePutFieldOOP",
+      "concentration": {
+        "object_write_only": 0.95,
+        "object_property": 0.81
+      }
+    },
+    {
+      "rank": 21,
+      "abs_ms": 338.13400000000007,
+      "pct_total": 0.6767417192034425,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::RopeCharacterIterator::next",
+      "concentration": {
+        "object_write_only": 0.65,
+        "object_property": 0.81,
+        "tree_traversal": 1.51,
+        "numeric_loop": 0.34,
+        "json_transform": 1.2,
+        "object_read_only": 4.19
+      }
+    },
+    {
+      "rank": 22,
+      "abs_ms": 330.7509999999999,
+      "pct_total": 0.661965375763034,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoSparseListImplementation::implSetAt",
+      "concentration": {
+        "object_write_only": 0.62,
+        "object_property": 0.56,
+        "tree_traversal": 0.72,
+        "function_calls": 3.26,
+        "array_literal": 1.0,
+        "json_transform": 1.62
+      }
+    },
+    {
+      "rank": 23,
+      "abs_ms": 324.12000000000006,
+      "pct_total": 0.6486940858601022,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoList::getAt",
+      "concentration": {
+        "object_write_only": 0.68,
+        "object_property": 0.35,
+        "tree_traversal": 0.57,
+        "function_calls": 1.37,
+        "control_flow": 1.19,
+        "numeric_loop": 3.09,
+        "object_read_only": 1.12
+      }
+    },
+    {
+      "rank": 24,
+      "abs_ms": 320.797,
+      "pct_total": 0.642043430401281,
+      "so": "[unknown]",
+      "symbol": "0xffffffffa08667c5",
+      "concentration": {
+        "object_write_only": 0.75,
+        "object_property": 0.5,
+        "tree_traversal": 0.71,
+        "array_literal": 0.31,
+        "json_transform": 0.33
+      }
+    },
+    {
+      "rank": 25,
+      "abs_ms": 320.08399999999995,
+      "pct_total": 0.6406164315020513,
+      "so": "[unknown]",
+      "symbol": "0xffffffffa08667c0",
+      "concentration": {
+        "object_write_only": 0.72,
+        "object_property": 0.53,
+        "tree_traversal": 0.52,
+        "function_calls": 0.64,
+        "array_literal": 0.41,
+        "json_transform": 0.56,
+        "object_read_only": 0.33
+      }
+    },
+    {
+      "rank": 26,
+      "abs_ms": 229.54949999999997,
+      "pct_total": 0.45942059441609123,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::Cell::operator new",
+      "concentration": {
+        "object_write_only": 0.47,
+        "object_property": 0.37,
+        "tree_traversal": 0.76,
+        "function_calls": 0.67,
+        "array_literal": 0.56,
+        "string_concat": 0.74,
+        "json_transform": 0.58,
+        "object_read_only": 0.69
+      }
+    },
+    {
+      "rank": 27,
+      "abs_ms": 224.506,
+      "pct_total": 0.44932652856999905,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::SymbolTable::lookupByContent",
+      "concentration": {
+        "object_write_only": 0.5,
+        "object_property": 0.44,
+        "array_literal": 0.63,
+        "json_transform": 1.21
+      }
+    },
+    {
+      "rank": 28,
+      "abs_ms": 187.9695,
+      "pct_total": 0.37620234163914745,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoObject::isString",
+      "concentration": {
+        "object_write_only": 0.32,
+        "object_property": 0.65,
+        "tree_traversal": 0.78,
+        "control_flow": 0.38,
+        "json_transform": 0.49,
+        "object_read_only": 1.2
+      }
+    },
+    {
+      "rank": 29,
+      "abs_ms": 172.3995,
+      "pct_total": 0.3450405283698589,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::StringLeafNode::StringLeafNode",
+      "concentration": {
+        "object_write_only": 0.34,
+        "object_property": 0.59,
+        "json_transform": 0.47,
+        "object_read_only": 0.66
+      }
+    },
+    {
+      "rank": 30,
+      "abs_ms": 161.5395,
+      "pct_total": 0.3233053137196037,
+      "so": "libprotoCore.so.1.2.0",
+      "symbol": "proto::ProtoObject::setAttribute",
+      "concentration": {
+        "object_write_only": 0.32,
+        "tree_traversal": 0.49,
+        "function_calls": 1.94,
+        "array_literal": 1.43,
+        "json_transform": 1.03
+      }
+    }
+  ]
+}
