@@ -2430,7 +2430,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (__builtin_expect(has_pending_exception, 0)) goto handle_exception_label; \
         if (__builtin_expect(pc < 0 || pc >= len, 0)) goto exit_dispatch; \
         opcode = (int)(unsigned char)buf[pc++]; \
-        std::printf("TRACE: pc=%d opcode=0x%02x stackSize=%u\n", (int)pc-1, opcode, (unsigned int)stackSize(pContext)); \
         goto *dispatch_table[opcode]; \
     } while(0)
 
