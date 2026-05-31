@@ -292,28 +292,41 @@ const proto::ProtoObject* TimingAPIs::performanceNow(proto::ProtoContext* ctx,
 void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj) {
     if (!ctx || !globalObj) return;
 
-    // Install or augment a `Date` global with a static `.now` method.
-    // ProtoInterpreter's "unimplemented stub constructor" pass would
-    // otherwise overwrite Date with an empty stub later; we install
-    // first so its `existing && existing != PROTO_NONE` guard skips us.
+    // Install a `Date` global as a mutable namespace object carrying the
+    // static `.now` method (and `.name` / `.prototype` to mirror what the
+    // interpreter's "unimplemented stub constructor" pass would otherwise
+    // install).  We must use newObject(true), not fromMethod: method
+    // objects created via fromMethod do not retain attributes written via
+    // setAttribute, so adding `.now` to one silently produces a Date with
+    // no static methods.  ProtoInterpreter's stub installer has an
+    // `existing && existing != PROTO_NONE` guard which skips our object
+    // since we install before eval starts.  None of the standard
+    // benchmarks construct Date instances via `new Date()`, so callable-
+    // constructor behaviour is intentionally not provided here.
     const proto::ProtoString* dateKey =
         ctx->fromUTF8String("Date") ? ctx->fromUTF8String("Date")->asString(ctx) : nullptr;
     if (dateKey) {
-        const proto::ProtoObject* existingDate =
-            globalObj->getAttribute(ctx, dateKey, false);
-        const proto::ProtoObject* dateObj =
-            (existingDate && existingDate != PROTO_NONE)
-                ? existingDate
-                : ctx->fromMethod(nullptr, TimingAPIs::dateConstructor);
+        const proto::ProtoObject* dateObj = ctx->newObject(true);
         if (dateObj) {
+            const proto::ProtoString* nameKey =
+                ctx->fromUTF8String("name") ? ctx->fromUTF8String("name")->asString(ctx) : nullptr;
+            if (nameKey)
+                dateObj = dateObj->setAttribute(ctx, nameKey,
+                                                ctx->fromUTF8String("Date"));
+            const proto::ProtoString* protoKey =
+                ctx->fromUTF8String("prototype") ? ctx->fromUTF8String("prototype")->asString(ctx) : nullptr;
+            if (protoKey) {
+                const proto::ProtoObject* dateProto = ctx->newObject(true);
+                if (dateProto)
+                    dateObj = dateObj->setAttribute(ctx, protoKey, dateProto);
+            }
             const proto::ProtoString* nowKey =
                 ctx->fromUTF8String("now") ? ctx->fromUTF8String("now")->asString(ctx) : nullptr;
             if (nowKey) {
                 const proto::ProtoObject* nowFn =
                     ctx->fromMethod(nullptr, TimingAPIs::dateNow);
-                if (nowFn) {
+                if (nowFn)
                     dateObj = dateObj->setAttribute(ctx, nowKey, nowFn);
-                }
             }
             globalObj = globalObj->setAttribute(ctx, dateKey, dateObj);
         }
