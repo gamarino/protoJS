@@ -6438,10 +6438,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoObject* result = constructed ? constructed : wrapper;
                                 // Unwrap to primitive: Number()/Boolean()/String()
                                 // return the primitive itself, not the wrapper.
-                                const proto::ProtoString* pvKey = JSSymbols::primitiveValue(pContext);
-                                if (pvKey && result && result != PROTO_NONE) {
-                                    const proto::ProtoObject* pv = result->getAttribute(pContext, pvKey, false);
-                                    if (pv && pv != PROTO_NONE) result = pv;
+                                // Object() is the exception — \`Object(5)\` must
+                                // return the wrapper (\`new Number(5)\` shape) per
+                                // ECMA-262 §19.1.1.  Detect via the function's
+                                // .name (a primitive ctor is one whose name is
+                                // not 'Object').  Cheaper than a dedicated
+                                // marker attribute.
+                                bool isObjectCtor = false;
+                                const proto::ProtoString* nameKey = JSSymbols::name(pContext);
+                                if (nameKey) {
+                                    const proto::ProtoObject* fnName = func->getAttribute(pContext, nameKey, false);
+                                    if (fnName && fnName != PROTO_NONE) {
+                                        const proto::ProtoString* fns = fnName->asString(pContext);
+                                        if (fns) {
+                                            std::string n;
+                                            fns->toUTF8String(pContext, n);
+                                            if (n == "Object") isObjectCtor = true;
+                                        }
+                                    }
+                                }
+                                if (!isObjectCtor) {
+                                    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(pContext);
+                                    if (pvKey && result && result != PROTO_NONE) {
+                                        const proto::ProtoObject* pv = result->getAttribute(pContext, pvKey, false);
+                                        if (pv && pv != PROTO_NONE) result = pv;
+                                    }
                                 }
                                 if (is_tail_call) return result ? result : PROTO_NONE;
                                 stackPush(pContext, result ? result : PROTO_NONE);
