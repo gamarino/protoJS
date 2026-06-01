@@ -1094,6 +1094,85 @@ const proto::ProtoObject* stringRaw(
     return ctx->fromUTF8String(result.c_str());
 }
 
+// String iterator next() — returns {value: char, done: bool}.
+// The iterator object holds __str__ (the string) and __idx__ (current
+// UTF-16 code-unit index).  Advancing reads one Unicode codepoint
+// (surrogate pair coalesced) and bumps __idx__.
+static const proto::ProtoObject* stringIteratorNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    auto makeResult = [&](const proto::ProtoObject* val, bool done) -> const proto::ProtoObject* {
+        const proto::ProtoObject* r = ctx->newObject(true);
+        const proto::ProtoString* vk = JSSymbols::value(ctx);
+        const proto::ProtoString* dk = JSSymbols::done(ctx);
+        if (vk) r = r->setAttribute(ctx, vk, val ? val : PROTO_NONE);
+        if (dk) r = r->setAttribute(ctx, dk, done ? PROTO_TRUE : PROTO_FALSE);
+        return r;
+    };
+    if (!self || self == PROTO_NONE) return makeResult(PROTO_NONE, true);
+    const proto::ProtoObject* strKo = ctx->fromUTF8String("__str__");
+    const proto::ProtoString* strKey = strKo ? strKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* idxKo = ctx->fromUTF8String("__idx__");
+    const proto::ProtoString* idxKey = idxKo ? idxKo->asString(ctx) : nullptr;
+    if (!strKey || !idxKey) return makeResult(PROTO_NONE, true);
+    const proto::ProtoObject* sObj = self->getAttribute(ctx, strKey, false);
+    const proto::ProtoObject* iObj = self->getAttribute(ctx, idxKey, false);
+    if (!sObj || !sObj->isString(ctx)) return makeResult(PROTO_NONE, true);
+    long long idx = (iObj && iObj->isInteger(ctx)) ? iObj->asLong(ctx) : 0;
+    std::string utf8;
+    sObj->asString(ctx)->toUTF8String(ctx, utf8);
+    // Walk to byte offset for idx (UTF-8 byte sequence count).
+    long long byteOffset = 0;
+    long long cps = 0;
+    while (byteOffset < (long long)utf8.size() && cps < idx) {
+        unsigned char c = static_cast<unsigned char>(utf8[byteOffset]);
+        size_t step = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+        byteOffset += step;
+        cps++;
+    }
+    if (byteOffset >= (long long)utf8.size())
+        return makeResult(PROTO_NONE, true);
+    unsigned char c = static_cast<unsigned char>(utf8[byteOffset]);
+    size_t step = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+    std::string single = utf8.substr(byteOffset, step);
+    const proto::ProtoObject* charObj = ctx->fromUTF8String(single.c_str());
+    // Advance the iterator's idx in-place (mutable object).
+    self->setAttribute(ctx, idxKey, ctx->fromInteger(idx + 1));
+    return makeResult(charObj, false);
+}
+
+// String[Symbol.iterator]() — returns a fresh iterator over the
+// string's codepoints.  Receiver is the string primitive (this).
+static const proto::ProtoObject* stringSymbolIterator(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* iter = ctx->newObject(true);
+    if (!iter) return PROTO_NONE;
+    const proto::ProtoObject* strKo = ctx->fromUTF8String("__str__");
+    const proto::ProtoString* strKey = strKo ? strKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* idxKo = ctx->fromUTF8String("__idx__");
+    const proto::ProtoString* idxKey = idxKo ? idxKo->asString(ctx) : nullptr;
+    if (strKey) iter = iter->setAttribute(ctx, strKey, self ? self : PROTO_NONE);
+    if (idxKey) iter = iter->setAttribute(ctx, idxKey, ctx->fromInteger(0));
+
+    // .next method on the iterator.
+    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+    if (nextKey) {
+        const proto::ProtoObject* wrapper = ctx->newObject(true);
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        const proto::ProtoObject* rawM = ctx->fromMethod(nullptr, stringIteratorNext);
+        if (wrapper && nfKey && rawM) {
+            wrapper = wrapper->setAttribute(ctx, nfKey, rawM);
+            iter = iter->setAttribute(ctx, nextKey, wrapper);
+        }
+    }
+    return iter;
+}
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -1203,6 +1282,25 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     reg("normalize",         stringNormalize,     0);
     reg("isWellFormed",      stringIsWellFormed,  0);
     reg("matchAll",          stringMatchAll,      1);
+
+    // String[Symbol.iterator] — yields each Unicode codepoint (UTF-16
+    // code unit pair handled correctly for BMP-only strings).
+    // The iterator is returned as a fresh object carrying __str__ and
+    // __idx__ markers plus a .next method that advances the index.
+    reg("stringIterNext",    stringIteratorNext,  0);
+    {
+        const proto::ProtoObject* siko = ctx->fromUTF8String("Symbol.iterator");
+        const proto::ProtoString* sik = siko ? siko->asString(ctx) : nullptr;
+        if (sik) {
+            const proto::ProtoObject* wrapper = ctx->newObject(true);
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            const proto::ProtoObject* rawM = ctx->fromMethod(nullptr, stringSymbolIterator);
+            if (wrapper && nfKey && rawM) {
+                wrapper = wrapper->setAttribute(ctx, nfKey, rawM);
+                sp = sp->setAttribute(ctx, sik, wrapper);
+            }
+        }
+    }
 
     // Mark as built.
     if (sentinelKey) sp = sp->setAttribute(ctx, sentinelKey, PROTO_TRUE);
