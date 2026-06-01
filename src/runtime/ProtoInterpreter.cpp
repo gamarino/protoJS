@@ -2678,6 +2678,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_init_ctor] = &&L_OP_init_ctor;
     dispatch_table[OP_check_brand] = &&L_OP_check_brand;
     dispatch_table[OP_add_brand] = &&L_OP_add_brand;
+    dispatch_table[OP_set_home_object] = &&L_OP_set_home_object;
+    dispatch_table[OP_get_super] = &&L_OP_get_super;
+    dispatch_table[OP_private_symbol] = &&L_OP_private_symbol;
+    dispatch_table[OP_set_proto] = &&L_OP_set_proto;
+    dispatch_table[OP_get_private_field] = &&L_OP_get_private_field;
+    dispatch_table[OP_put_private_field] = &&L_OP_put_private_field;
+    dispatch_table[OP_define_private_field] = &&L_OP_define_private_field;
     dispatch_table[OP_call_method] = &&L_OP_call_method;
     dispatch_table[OP_apply] = &&L_OP_apply;
     dispatch_table[OP_catch] = &&L_OP_catch;
@@ -3209,6 +3216,155 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Private brand registration — minimal impl: skip.
                 if (stackSize(pContext) >= 2) {
                     stackPop(pContext);
+                    stackPop(pContext);
+                }
+                DISPATCH();
+            }
+            L_OP_set_home_object: {
+                // DEF(set_home_object, 1, 0, 0, none)
+                // Attach the home object (sp[-2]) to the method (sp[-1])
+                // so that super.X resolves via the home-object's prototype
+                // chain.  Net-zero stack effect.  Minimal impl: record the
+                // home object on the method under __home_object__.
+                if (stackSize(pContext) >= 2) {
+                    const proto::ProtoObject* method = stackAt(pContext, 0);
+                    const proto::ProtoObject* home   = stackAt(pContext, 1);
+                    if (method && method != PROTO_NONE && home && home != PROTO_NONE) {
+                        const proto::ProtoObject* hoKo = pContext->fromUTF8String("__home_object__");
+                        const proto::ProtoString* hoKey = hoKo ? hoKo->asString(pContext) : nullptr;
+                        if (hoKey) {
+                            const proto::ProtoObject* newMethod = method->setAttribute(pContext, hoKey, home);
+                            if (newMethod && newMethod != method) {
+                                // Replace TOS with newMethod (in-place rewrite).
+                                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = newMethod;
+                            }
+                        }
+                    }
+                }
+                DISPATCH();
+            }
+            L_OP_get_super: {
+                // DEF(get_super, 1, 1, 1, none)
+                // Stack [..., obj] → [..., obj.prototype]
+                // For super.X access: walks one level up the prototype
+                // chain (the home object's parent).  Pre-fix dot/bracket
+                // access then resolves on the parent, which is what
+                // `super.foo()` needs.  This is a partial implementation
+                // — call-site `this` rebinding isn't perfect for chains
+                // deeper than one level.
+                if (stackEmpty(pContext)) DISPATCH();
+                const proto::ProtoObject* topObj = stackTop(pContext);
+                stackPop(pContext);
+                const proto::ProtoObject* parent = nullptr;
+                if (topObj && topObj != PROTO_NONE)
+                    parent = topObj->getPrototype(pContext);
+                stackPush(pContext, parent ? parent : PROTO_NONE);
+                DISPATCH();
+            }
+            L_OP_get_private_field: {
+                // DEF(get_private_field, 1, 2, 1, none)
+                // Stack [..., obj, private_symbol] → [..., obj[private_symbol]]
+                // Minimal impl: read by symbol's __name__ as if it were a
+                // regular attribute.  Private semantics (brand checks)
+                // are not yet enforced.
+                if (stackSize(pContext) < 2) DISPATCH();
+                const proto::ProtoObject* sym = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* o   = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoString* name = nullptr;
+                if (sym && sym != PROTO_NONE) {
+                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
+                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
+                    if (nk) {
+                        const proto::ProtoObject* nv = sym->getAttribute(pContext, nk, false);
+                        if (nv && nv != PROTO_NONE) name = nv->asString(pContext);
+                    }
+                }
+                const proto::ProtoObject* val = (o && o != PROTO_NONE && name)
+                    ? o->getAttribute(pContext, name, true) : PROTO_NONE;
+                stackPush(pContext, val ? val : PROTO_NONE);
+                DISPATCH();
+            }
+            L_OP_put_private_field: {
+                // DEF(put_private_field, 1, 3, 1, none)
+                // Stack [..., obj, value, private_symbol] → [..., obj]
+                // (n_pop=3 n_push=1: obj is preserved underneath).
+                if (stackSize(pContext) < 3) DISPATCH();
+                const proto::ProtoObject* sym = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* o   = stackTop(pContext);
+                const proto::ProtoString* name = nullptr;
+                if (sym && sym != PROTO_NONE) {
+                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
+                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
+                    if (nk) {
+                        const proto::ProtoObject* nv = sym->getAttribute(pContext, nk, false);
+                        if (nv && nv != PROTO_NONE) name = nv->asString(pContext);
+                    }
+                }
+                if (o && o != PROTO_NONE && name) {
+                    const proto::ProtoObject* no = o->setAttribute(pContext, name, val ? val : PROTO_NONE);
+                    if (no && no != o) {
+                        updateMapping(pContext, o, no);
+                        pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = no;
+                    }
+                }
+                DISPATCH();
+            }
+            L_OP_define_private_field: {
+                // DEF(define_private_field, 1, 3, 1, none)
+                // Same shape as put_private_field but for the initial
+                // definition (no brand check needed even when enforced).
+                if (stackSize(pContext) < 3) DISPATCH();
+                const proto::ProtoObject* sym = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* val = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* o   = stackTop(pContext);
+                const proto::ProtoString* name = nullptr;
+                if (sym && sym != PROTO_NONE) {
+                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
+                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
+                    if (nk) {
+                        const proto::ProtoObject* nv = sym->getAttribute(pContext, nk, false);
+                        if (nv && nv != PROTO_NONE) name = nv->asString(pContext);
+                    }
+                }
+                if (o && o != PROTO_NONE && name) {
+                    const proto::ProtoObject* no = o->setAttribute(pContext, name, val ? val : PROTO_NONE);
+                    if (no && no != o) {
+                        updateMapping(pContext, o, no);
+                        pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = no;
+                    }
+                }
+                DISPATCH();
+            }
+            L_OP_private_symbol: {
+                // DEF(private_symbol, 5, 0, 1, atom)
+                // Push a fresh private-symbol value for the given atom.
+                // Minimal impl: push a unique object marked
+                // __is_private_symbol__ + __name__ from the atom name.
+                if (pc + 4 > len) return PROTO_NONE;
+                uint32_t atomIndex = get_u32(buf + pc);
+                pc += 4;
+                const proto::ProtoString* name = resolveAtom(mod, pContext, atomIndex);
+                const proto::ProtoObject* sym = pContext->newObject(true);
+                if (name && sym) {
+                    const proto::ProtoObject* ko = pContext->fromUTF8String("__is_private_symbol__");
+                    const proto::ProtoString* k = ko ? ko->asString(pContext) : nullptr;
+                    if (k) sym = sym->setAttribute(pContext, k, PROTO_TRUE);
+                    const proto::ProtoObject* nko = pContext->fromUTF8String("__name__");
+                    const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
+                    if (nk) sym = sym->setAttribute(pContext, nk, name->asObject(pContext));
+                }
+                stackPush(pContext, sym ? sym : PROTO_NONE);
+                DISPATCH();
+            }
+            L_OP_set_proto: {
+                // DEF(set_proto, 1, 2, 1, none)
+                // Stack [..., obj, proto] → [..., obj]
+                // Sets obj's [[Prototype]] to proto.  Minimal impl:
+                // just pop proto and leave obj on the stack (the
+                // structural prototype-chain change isn't trivially
+                // expressible on already-allocated protoCore cells).
+                if (stackSize(pContext) >= 2) {
                     stackPop(pContext);
                 }
                 DISPATCH();
