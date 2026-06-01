@@ -1865,6 +1865,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureWeakMapConstructor(pContext, pGlobalRoot);
     ensureMathObject(pContext, pGlobalRoot);
     ensureObjectConstructor(pContext, pGlobalRoot);
+    // Per ECMA-262 §19.3, the global object is reachable as globalThis.
+    // Install it as a self-reference; the descriptor for globalThis is
+    // { writable:true, enumerable:false, configurable:true } (descriptor
+    // bits 0x1|0x2 = 0x3) per §B.2.1.
+    if (pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoObject* gtObj = pContext->fromUTF8String("globalThis");
+        const proto::ProtoString* gtKey = gtObj ? gtObj->asString(pContext) : nullptr;
+        if (gtKey) {
+            const proto::ProtoObject* existing =
+                (*pGlobalRoot)->getAttribute(pContext, gtKey, false);
+            if (!existing || existing == PROTO_NONE) {
+                *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, gtKey, *pGlobalRoot);
+                const proto::ProtoObject* pdObj = pContext->fromUTF8String("__pd_globalThis__");
+                const proto::ProtoString* pdKey = pdObj ? pdObj->asString(pContext) : nullptr;
+                if (pdKey) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdKey, pContext->fromInteger(0x3LL));
+            }
+        }
+    }
     ensureFunctionPrototype(pContext, pGlobalRoot);
     ensurePromiseConstructor(pContext, pGlobalRoot);
     // Bootstrap Symbol well-known symbols as string-valued properties on the Symbol stub.
