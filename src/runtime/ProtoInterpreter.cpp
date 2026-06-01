@@ -6677,16 +6677,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* iterable = stackTop(pContext);
                 stackPop(pContext);
-                // Null is not iterable — throw TypeError.
+                // Null and undefined are not iterable — throw TypeError per
+                // ECMA-262 §7.4.1 GetIterator(undefined/null) → TypeError.
                 if (iterable == t_nullSentinel) {
                     pending_exception = makeError(pContext, "TypeError",
                         "null is not iterable", pGlobalRoot);
                     has_pending_exception = true;
                     DISPATCH();
                 }
-                // PROTO_NONE guard: generator iterables return PROTO_NONE from OP_initial_yield
-                // (unsupported). Propagate vacuous-pass so generator-based for-of tests don't regress.
-                if (!iterable || iterable == PROTO_NONE) return PROTO_NONE;
+                if (!iterable || iterable == PROTO_NONE ||
+                    iterable == getUndefinedSentinel() ||
+                    iterable->isNone(pContext)) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "undefined is not iterable", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
 
                 // Case A: native iterator object (produced by Array/TypedArray keys/values/entries).
                 // Detect by presence of both `next` method and `__iter_arr__` internal key.
