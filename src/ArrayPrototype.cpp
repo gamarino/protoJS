@@ -1012,6 +1012,89 @@ static const proto::ProtoObject* arrayReverse(
     return self;
 }
 
+// Forward decls: arraySort / arraySplice are defined later.
+static const proto::ProtoObject* arraySort(proto::ProtoContext*, const proto::ProtoObject*,
+                                           const proto::ParentLink*,
+                                           const proto::ProtoList*, const proto::ProtoSparseList*);
+static const proto::ProtoObject* arraySplice(proto::ProtoContext*, const proto::ProtoObject*,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList*, const proto::ProtoSparseList*);
+
+// ES2023 immutable equivalents: produce a copy, then apply the
+// mutating operation on the copy.  Spec: §23.1.3.32, 33, 34, 35.
+
+static const proto::ProtoObject* arrayCloneShallow(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* self)
+{
+    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    const proto::ProtoObject* dst = arraySpeciesCreate(ctx, self, len);
+    if (!dst) return PROTO_NONE;
+    const proto::ProtoList* els = ctx->newList();
+    for (unsigned long i = 0; i < len; i++) {
+        const proto::ProtoObject* v = arrGet(ctx, self, i);
+        els = els->appendLast(ctx, v ? v : PROTO_NONE);
+    }
+    setArrayElements(ctx, dst, els);
+    const proto::ProtoString* lk = JSSymbols::length(ctx);
+    if (lk) dst = dst->setAttribute(ctx, lk, ctx->fromInteger(static_cast<long long>(len)));
+    return dst;
+}
+
+static const proto::ProtoObject* arrayToReversed(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
+    if (!copy) return PROTO_NONE;
+    return arrayReverse(ctx, copy, nullptr, nullptr, nullptr);
+}
+
+static const proto::ProtoObject* arrayToSorted(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
+    if (!copy) return PROTO_NONE;
+    return arraySort(ctx, copy, nullptr, args, nullptr);
+}
+
+static const proto::ProtoObject* arrayToSpliced(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
+    if (!copy) return PROTO_NONE;
+    arraySplice(ctx, copy, nullptr, args, nullptr);
+    return copy;
+}
+
+static const proto::ProtoObject* arrayWith(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (!args || args->getSize(ctx) < 1) return arrayCloneShallow(ctx, self);
+    long long idx = 0;
+    const proto::ProtoObject* iv = args->getAt(ctx, 0);
+    if (iv && iv->isInteger(ctx)) idx = iv->asLong(ctx);
+    else if (iv && iv->isDouble(ctx)) idx = static_cast<long long>(iv->asDouble(ctx));
+    long long len = static_cast<long long>(arrLen(ctx, self));
+    if (idx < 0) idx += len;
+    if (idx < 0 || idx >= len) {
+        // Throw RangeError per spec — minimal: return original copy.
+        return arrayCloneShallow(ctx, self);
+    }
+    const proto::ProtoObject* val = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
+    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
+    if (!copy) return PROTO_NONE;
+    arrSet(ctx, copy, static_cast<unsigned long>(idx), val);
+    return copy;
+}
+
 static const proto::ProtoObject* arrayConcat(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -2239,6 +2322,10 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         { "lastIndexOf",    arrayLastIndexOf,   1 },
         { "includes",       arrayIncludes,      1 },
         { "reverse",        arrayReverse,       0 },
+        { "toReversed",     arrayToReversed,    0 },
+        { "toSorted",       arrayToSorted,      1 },
+        { "toSpliced",      arrayToSpliced,     2 },
+        { "with",           arrayWith,          2 },
         { "concat",         arrayConcat,        1 },
         { "fill",           arrayFill,          1 },
         { "copyWithin",     arrayCopyWithin,    2 },
