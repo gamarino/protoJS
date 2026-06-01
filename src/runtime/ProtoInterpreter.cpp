@@ -6231,10 +6231,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             stackPush(pContext, s);
                         } else {
                             // ECMA-262 §7.3.13 Call: if IsCallable(func) is
-                            // false, throw TypeError.  Pre-fix this branch
-                            // silently pushed undefined, so `Math()` /
-                            // `({}).x()` returned undefined instead of
-                            // throwing.
+                            // false, throw TypeError.  IsCallable is true
+                            // when func has __construct__ (Number, Boolean,
+                            // Map, etc.) or is a method or has a
+                            // __bytecode_id__ (JS function).  Without any
+                            // of those markers, the receiver is genuinely
+                            // not callable — throw.
+                            const proto::ProtoString* conKey = JSSymbols::construct(pContext);
+                            const proto::ProtoObject* conMethod = (conKey && func && func != PROTO_NONE)
+                                ? func->getAttribute(pContext, conKey, false) : nullptr;
+                            if (conMethod && conMethod != PROTO_NONE && conMethod->isMethod(pContext)) {
+                                // Number(...) / Boolean(...) etc. called as a
+                                // conversion function.  The __construct__ method
+                                // expects `self` to be a fresh wrapper object
+                                // and sets __primitive_value__ on it; for the
+                                // no-new conversion case we then unwrap to the
+                                // primitive and discard the wrapper.
+                                const proto::ProtoList* argsList = pContext->newList();
+                                for (uint32_t i = 0; i < argc; i++)
+                                    argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                                for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                                const proto::ProtoObject* protoForCtor = func->getAttribute(pContext, JSSymbols::prototype(pContext), false);
+                                const proto::ProtoObject* wrapper = (protoForCtor && protoForCtor != PROTO_NONE)
+                                    ? protoForCtor->newChild(pContext, true)
+                                    : pContext->newObject(true);
+                                const proto::ProtoObject* constructed = conMethod->asMethod(pContext)(
+                                    pContext, wrapper, nullptr, argsList, nullptr);
+                                const proto::ProtoObject* result = constructed ? constructed : wrapper;
+                                // Unwrap to primitive: Number()/Boolean()/String()
+                                // return the primitive itself, not the wrapper.
+                                const proto::ProtoString* pvKey = JSSymbols::primitiveValue(pContext);
+                                if (pvKey && result && result != PROTO_NONE) {
+                                    const proto::ProtoObject* pv = result->getAttribute(pContext, pvKey, false);
+                                    if (pv && pv != PROTO_NONE) result = pv;
+                                }
+                                if (is_tail_call) return result ? result : PROTO_NONE;
+                                stackPush(pContext, result ? result : PROTO_NONE);
+                                DISPATCH();
+                            }
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             pending_exception = makeError(pContext, "TypeError",
                                 "is not a function", pGlobalRoot);
