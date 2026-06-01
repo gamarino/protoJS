@@ -2333,6 +2333,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
         bool valueOfPresent = false;
         bool toStringPresent = false;
+        // Step 0: try Symbol.toPrimitive (ECMA-262 §7.1.1 step 2).  If
+        // the object defines @@toPrimitive, that method's return value
+        // is used directly (must be a primitive).  Hint is "default"
+        // here because most call sites don't differentiate.
+        {
+            const proto::ProtoObject* tpKeyObj = pContext->fromUTF8String("Symbol.toPrimitive");
+            const proto::ProtoString* tpKey = tpKeyObj ? tpKeyObj->asString(pContext) : nullptr;
+            const proto::ProtoObject* tpFn = tpKey
+                ? obj->getAttribute(pContext, tpKey, true) : nullptr;
+            if (tpFn && tpFn != PROTO_NONE) {
+                const proto::ProtoList* hintArgs = pContext->newList();
+                hintArgs = hintArgs->appendLast(pContext, pContext->fromUTF8String("default"));
+                const proto::ProtoObject* prim = callJSFunction(pContext, tpFn, obj, hintArgs);
+                if (t_hasCallException) {
+                    pending_exception     = t_callException;
+                    has_pending_exception = true;
+                    t_hasCallException    = false;
+                    t_callException       = nullptr;
+                    return PROTO_NONE;
+                }
+                if (isPrimitive(prim)) return prim;
+            }
+        }
         // Step 1: try valueOf.
         //
         // Use callJSFunction (the unified dispatch) instead of the local
