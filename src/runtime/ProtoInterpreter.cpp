@@ -825,7 +825,11 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                                           const proto::ProtoObject* value) {
     if (!context) return PROTO_NONE;
 
-    if (!value || value == PROTO_NONE || value->isNone(context)) {
+    // Match both the canonical PROTO_NONE "undefined" and the heap-allocated
+    // undefined sentinel used as the global `undefined` identifier's value.
+    // protoJS keeps two representations; either must coerce to the same string.
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    if (!value || value == PROTO_NONE || value->isNone(context) || value == undefSent) {
         static const proto::ProtoObject* s_undef = nullptr;
         if (!s_undef) s_undef = context->fromUTF8String("undefined");
         return s_undef;
