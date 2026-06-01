@@ -1105,6 +1105,61 @@ static const proto::ProtoObject* objectFromEntries(
         v = ik ? arr->getAttribute(ctx, ik, false) : nullptr;
         return v ? v : PROTO_NONE;
     };
+
+    auto processPair = [&](const proto::ProtoObject* pair) -> void {
+        if (!pair || pair == PROTO_NONE) return;
+        const proto::ProtoObject* keyObj = readEl(pair, 0);
+        const proto::ProtoObject* valObj = readEl(pair, 1);
+        if (!valObj) valObj = PROTO_NONE;
+        if (!keyObj || keyObj == PROTO_NONE) return;
+        std::string keyStr;
+        if (keyObj->isString(ctx)) {
+            const proto::ProtoString* ps = keyObj->asString(ctx);
+            if (ps) ps->toUTF8String(ctx, keyStr);
+        } else if (keyObj->isInteger(ctx)) {
+            keyStr = std::to_string(keyObj->asLong(ctx));
+        }
+        if (keyStr.empty()) return;
+        const proto::ProtoString* entryKey =
+            ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
+        if (entryKey) result = result->setAttribute(ctx, entryKey, valObj);
+    };
+
+    // Iterator-first path: try Symbol.iterator, or treat iterable as
+    // iterator if it already has .next.  Mirrors the OP_append /
+    // Array.from logic added in 21b00b45 / 9a1d70f8.
+    const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+    const proto::ProtoObject* iterFn = symIterKey
+        ? iterable->getAttribute(ctx, symIterKey, true) : nullptr;
+    const proto::ProtoObject* iter = nullptr;
+    if (iterFn && iterFn != PROTO_NONE) {
+        const proto::ProtoList* noArgs = ctx->newList();
+        iter = callJSFunction(ctx, iterFn, iterable, noArgs);
+    } else {
+        const proto::ProtoString* probeNextK = JSSymbols::next(ctx);
+        const proto::ProtoObject* probeNext = probeNextK
+            ? iterable->getAttribute(ctx, probeNextK, true) : nullptr;
+        if (probeNext && probeNext != PROTO_NONE) iter = iterable;
+    }
+    if (iter && iter != PROTO_NONE) {
+        const proto::ProtoString* nextKey  = JSSymbols::next(ctx);
+        const proto::ProtoString* doneKey  = JSSymbols::done(ctx);
+        const proto::ProtoString* valueKey = JSSymbols::value(ctx);
+        const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKey, true);
+        long long safety = 0;
+        while (nextFn && nextFn != PROTO_NONE) {
+            const proto::ProtoList* nArgs = ctx->newList();
+            const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
+            if (!res || res == PROTO_NONE) break;
+            const proto::ProtoObject* dv = res->getAttribute(ctx, doneKey, false);
+            if (dv == PROTO_TRUE) break;
+            const proto::ProtoObject* pair = res->getAttribute(ctx, valueKey, false);
+            processPair(pair);
+            if (++safety > 100000) break;
+        }
+        return result;
+    }
+
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return result;
     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKey, false);
@@ -1114,9 +1169,6 @@ static const proto::ProtoObject* objectFromEntries(
         else if (lenObj->isDouble(ctx)) len = static_cast<long long>(lenObj->asDouble(ctx));
     }
     if (len < 0) {
-        // Iterable lacks .length but may still have __elements__ (some
-        // intermediate producers — and the Map-iterable case once we
-        // upgrade fromEntries — only populate elements).
         const proto::ProtoList* els = getArrayElements(ctx, iterable);
         if (els) len = static_cast<long long>(els->getSize(ctx));
         else len = 0;
