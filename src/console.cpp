@@ -328,6 +328,21 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 if (nowFn)
                     dateObj = dateObj->setAttribute(ctx, nowKey, nowFn);
             }
+            // __native_fn__ — make typeof Date === 'function'.
+            // The cell is reused — Date.now is the canonical \"thing that
+            // looks like a callable\" we have here, so point __native_fn__
+            // at it so the wrapper passes the isMethod check.  Calling
+            // Date() still returns the current epoch ms (since dateNow
+            // ignores args).  new Date() doesn't construct a real Date
+            // object yet — that's separate work.
+            const proto::ProtoString* nfKey =
+                ctx->fromUTF8String("__native_fn__")
+                    ? ctx->fromUTF8String("__native_fn__")->asString(ctx) : nullptr;
+            if (nfKey) {
+                const proto::ProtoObject* m =
+                    ctx->fromMethod(nullptr, TimingAPIs::dateNow);
+                if (m) dateObj = dateObj->setAttribute(ctx, nfKey, m);
+            }
             globalObj = globalObj->setAttribute(ctx, dateKey, dateObj);
         }
     }

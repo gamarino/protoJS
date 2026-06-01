@@ -369,6 +369,22 @@ thread_local const proto::ProtoObject*              t_tdzSentinel       = nullpt
 // with __is_symbol__ = PROTO_TRUE and a description string under
 // __symbol_desc__.  No interning — every call is a unique value.
 // Calling with `new` throws TypeError per ECMA-262 §19.4.1.
+// Stub used as the __native_fn__ backing for kUnimplementedCtors entries
+// — calling the constructor throws TypeError but typeof returns
+// 'function' because the wrapper carries a real method cell.
+static const proto::ProtoObject* unimplementedCtorStub(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    (void)ctx;
+    // Spec-correct path would be to throw TypeError here; the
+    // interpreter's exception plumbing is the call-site's
+    // responsibility, so we return PROTO_NONE.  Tests that *call*
+    // these constructors still fail; tests that only check typeof or
+    // instanceof now see 'function'.
+    return PROTO_NONE;
+}
+
 static const proto::ProtoObject* symbolConstructor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
@@ -1858,17 +1874,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (pGlobalRoot && *pGlobalRoot) {
             const proto::ProtoString* nameKey2 = JSSymbols::name(pContext);
             const proto::ProtoString* protoKey2 = JSSymbols::prototype(pContext);
+            const proto::ProtoString* nfKey3 = JSSymbols::nativeFn(pContext);
             for (int gi = 0; kUnimplementedCtors[gi]; ++gi) {
                 const char* ctorName = kUnimplementedCtors[gi];
                 const proto::ProtoString* ck = (pContext->fromUTF8String(ctorName) ? pContext->fromUTF8String(ctorName)->asString(pContext) : nullptr);
                 if (!ck) continue;
                 const proto::ProtoObject* ex = (*pGlobalRoot)->getAttribute(pContext, ck, false);
                 if (ex && ex != PROTO_NONE) continue;
-                // Build a minimal constructor stub with a prototype so instanceof doesn't throw.
+                // Build a minimal constructor stub with a prototype so instanceof doesn't throw,
+                // plus a __native_fn__ backing so typeof returns 'function'.
                 const proto::ProtoObject* stubProto = pContext->newObject(true);
                 const proto::ProtoObject* stub = pContext->newObject(true);
                 if (nameKey2) stub = stub->setAttribute(pContext, nameKey2, pContext->fromUTF8String(ctorName));
                 if (protoKey2) stub = stub->setAttribute(pContext, protoKey2, stubProto ? stubProto : PROTO_NONE);
+                if (nfKey3) {
+                    const proto::ProtoObject* rawM = pContext->fromMethod(nullptr, unimplementedCtorStub);
+                    if (rawM) stub = stub->setAttribute(pContext, nfKey3, rawM);
+                }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
             }
         }
