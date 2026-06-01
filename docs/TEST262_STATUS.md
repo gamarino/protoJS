@@ -1,8 +1,8 @@
 # Test262 Conformance Status — protoJS
 
-**Last full-suite run:** 2026-06-01 (cycle 4 — 20 more fixes)
-**Snapshot:** `tests/test262/reports/snapshot-language_built-ins-1780347465173.json`
-**Binary:** `build_release/protojs` v0.1.0 (commit `7e9c654b` on `master`)
+**Last full-suite run:** 2026-06-01 (cycle 5 — bug correction + 18 more fixes)
+**Snapshot:** `tests/test262/reports/snapshot-language_built-ins-1780352472153.json`
+**Binary:** `build_release/protojs` v0.1.0 (commit `00ad7634` on `master`)
 **Scope:** `language` + `built-ins` (46 963 tests)
 **Runner:** parallel (`TEST262_CONCURRENCY=10`, ~7 min wall)
 
@@ -10,28 +10,65 @@
 
 | | Total | Passed | Failed (syntax) | Failed (semantics) | Timeouts | Skipped | Pass rate |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **2026-06-01 (cycle 4 — 20 more fixes)** | 46 963 | **28 767** | 874 | 17 173 | 138 | 11 | **61.25 %** |
+| **2026-06-01 (cycle 5 — bug fix + 18 more)** | 46 963 | **28 830** | 874 | 17 098 | 150 | 11 | **61.39 %** |
+| 2026-06-01 (cycle 4) | 46 963 | 28 767 | 874 | 17 173 | 138 | 11 | 61.25 % |
 | 2026-06-01 (cycle 3) | 46 963 | 28 018 | 874 | 18 019 | 41 | 11 | 59.66 % |
 | 2026-06-01 (cycle 2) | 46 963 | 27 884 | 874 | 18 156 | 38 | 11 | 59.37 % |
 | 2026-06-01 (cycle 1) | 46 963 | 27 565 | 874 | 18 477 | 36 | 11 | 58.70 % |
 | 2026-05-11 (prior full) | 46 963 | 27 025 | 830 | 18 666 | 431 | 11 | 57.55 % |
-| **Δ this cycle** | 0 | **+749** | 0 | **−846** | +97 | 0 | **+1.59 pp** |
-| **Δ since 05-11 baseline** | 0 | **+1 742** | +44 | **−1 493** | **−293** | 0 | **+3.71 pp** |
+| **Δ this cycle** | 0 | **+63** | 0 | **−75** | +12 | 0 | **+0.14 pp** |
+| **Δ since 05-11 baseline** | 0 | **+1 805** | +44 | **−1 568** | **−281** | 0 | **+3.84 pp** |
 
-Cumulative day in numbers:
-- **+1 742 passes** since the prior full run (3 weeks ago).
-- **−1 493 semantics failures** — every gain is a previously-failing test now resolving cleanly.
-- **−293 timeouts** net (cycle 4 added +97 to handle previously-bailed paths that now hit real iterator loops).
-- Four correctness cycles, **80 commits**, each one root cause.
+Cumulative since 2026-05-11 baseline:
+- **+1 805 passes** in 5 cycles (~100 commits).
+- **−1 568 semantics failures** — broad fundamentals work.
+- **−281 timeouts** net.
+- Cycle 5 was the smallest gain because it included one fix (OP_define_class +
+  cohort) that turned out to surface deeper pre-existing bugs and had to be
+  reverted twice.  The discovered bug — Array/Object constructors not inheriting
+  Function.prototype — was kept (commit b2e65d20) since it's correct on its own.
 
-## By Family (cycle 4 vs cycle 3)
+## By Family (cycle 5 vs cycle 4)
 
-| Family | Total | Passed (cycle 4) | Passed (cycle 3) | Δ | Pass rate (cycle 4) |
+| Family | Total | Passed (cycle 5) | Passed (cycle 4) | Δ | Pass rate (cycle 5) |
 |---|---:|---:|---:|---:|---:|
-| `built-ins` | 23 334 | **10 324** | 10 090 | **+234** | **44.25 %** |
-| `language` | 23 629 | **18 443** | 17 928 | **+515** | **78.05 %** |
+| `built-ins` | 23 334 | **10 410** | 10 324 | **+86** | **44.62 %** |
+| `language` | 23 629 | **18 420** | 18 443 | **−23** | **77.95 %** |
 
-`language` led the cycle at +515 (driven by spread, rest, destructure rest, and iterator-protocol fixes). `built-ins` carried +234 mostly via Map/Set/Object.fromEntries/Array.from coordinating with native `__elements__` storage.
+Cycle 5 was built-ins-led (+86 from Reflect, Symbol.for/keyFor, ES2023 Array
+immutables, Object.assign(array), String.split, Array constructor populating
+__elements__).  The small `language` regression (-23) is from new semantics
+that newly run (NaN === NaN now false; in-operator now finds array indices)
+exposing test corner cases that previously dispatched through other paths.
+
+## Cycle 5 Fixes (commits between `a5967f40..00ad7634`)
+
+| # | Commit | Fix |
+|---|---|---|
+| 0 (bug discovered in cycle 4) | `b2e65d20` | **Array / Object constructors inherit Function.prototype**.  Pre-fix `Array.apply` was undefined.  The cycle 4 OP_define_class re-application exposed this when class constructor bodies called `Array.apply(this, arguments)`.  Number/Boolean/String already followed the pattern; this brought Array/Object in line. |
+| 1 | `07726529` | `Number.prototype.toString` returns `'NaN'` / `'Infinity'` / `'-Infinity'` (was lowercase `nan` / `inf` from C's %g). |
+| 2 | `aabe1e1b` | `console.log` Node-style formatter for arrays (`[v1, v2, ...]`), plain objects (`{k: v, ...}`), and NaN/Infinity casing. |
+| 3 | `314a6300` | `console.log` numeric precision via `snprintf %.17g` (was ostream default 6 digits, truncating `Number.MAX_SAFE_INTEGER` and `Math.PI`). |
+| 4 | `bc661218` | `console`: added `assert / group / groupEnd / dir / dirxml / trace / count / countReset / table / clear` stubs. |
+| 5 | `7432b2f6` | `Reflect.apply / has / get / set / ownKeys` + `Symbol.for / keyFor` native impls. |
+| 6 | `819b4b55` | `String.prototype.split` publishes entries via `__elements__` (was indexed-attribute only). |
+| 7 | `48b46771` | `Object.assign` copies `__elements__` when source is a real array. |
+| 8 | `424ec2ff` | ES2023 immutable Array methods: `toReversed / toSorted / toSpliced / with`. |
+| 9 | `2149efdd` | `OP_fclosure / OP_fclosure8` — default `fn.prototype` inherits Object.prototype (so `new F().hasOwnProperty(...)` no longer throws). |
+| 10 | `b922c660` | Strict equality: `NaN === NaN` is `false` (was true due to pointer-equality fast path). |
+| 11 | `0a10bd0a` | `in` operator finds array indices stored in `__elements__`. |
+| 12 | `28784c23` | `a.length = N` trims / grows `__elements__` correctly (was a no-op on the ProtoList). |
+| 13 | `56adbab8` | `toPrimIfObject` invokes `Symbol.toPrimitive` when present (Step 0 of ECMA-262 §7.1.1). |
+| 14 | `14a6c9d4` | `Number(undefined)` → `NaN` (was 0). |
+| 15 | `c5defd44` | `Array.prototype.flat(Infinity)` handles `Infinity` depth (was casting to int = 0 → effectively `.flat(0)`). |
+| 16 | `042c2cde` | `Boolean(null)` / `Boolean(undefined)` → `false` (was true). |
+| 17 | `1ac0ddb6` | `Array(v1, v2, ...)` / `new Array(v1, v2, ...)` populates `__elements__` (was indexed-attribute only). |
+| 18 | `a46d1329` → reverted `00ad7634` | **OP_define_class re-attempt — REVERTED**.  Re-implementing class support after the constructor-inheritance bug fix revealed that the partial class impl (no proper super-call dispatch, no instance-field initializers) caused ~5 500 class-test regressions on its own.  Kept the bug-fix (b2e65d20) but reverted the class impl pending a complete implementation. |
+| 19 | `41f1cc22` → reverted `579a724c` | **Class-adjacent opcodes (set_home_object, get_super, private fields, set_proto) — REVERTED** as part of the same partial-class-impl rollback. |
+
+Net: 18 fixes preserved (bug fix b2e65d20 + 17 standalone improvements).
+The 2 reverted commits net to "no-op" for the suite (class support remains
+out of reach until super-call dispatch and instance fields are implemented).
 
 ## Cycle 4 Fixes (commits between `5108c164..7e9c654b`)
 
@@ -73,7 +110,8 @@ Cumulative day in numbers:
 - **2026-06-01 (cycle 1 — 6 commits, morning):** 58.70 %.
 - **2026-06-01 (cycle 2 — 20 commits, afternoon):** 59.37 %.
 - **2026-06-01 (cycle 3 — 20 more commits, early evening):** 59.66 %.
-- **2026-06-01 (cycle 4 — 20 more commits, evening):** **61.25 %** (28 767 / 46 963).
+- **2026-06-01 (cycle 4 — 20 more commits, evening):** 61.25 % (28 767 / 46 963).
+- **2026-06-01 (cycle 5 — bug fix + 18 more, late evening):** **61.39 %** (28 830 / 46 963).
 
 ## How to Run
 
