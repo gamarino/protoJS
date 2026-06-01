@@ -3887,10 +3887,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 bool apDone = false;
                 bool apError = false;
                 if (apSrcLen >= 0) {
-                    // Array / TypedArray path.
+                    // Array / TypedArray path.  Element reads must use
+                    // arrayTryFastGet first (arrays now store their data
+                    // in `__elements__` ProtoList, NOT as string-keyed
+                    // attributes — getAttribute("0") returns nullptr on a
+                    // dense array, so spread of `[1,2,3]` was silently
+                    // producing no elements).
                     for (long long i = 0; i < apSrcLen && !apError; i++) {
-                        const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
-                        const proto::ProtoObject* v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
+                        const proto::ProtoObject* v = arrayTryFastGet(pContext, apIterable, static_cast<unsigned long>(i));
+                        if (!v) {
+                            const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
+                            v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
+                        }
                         if (!v) v = PROTO_NONE;
                         const proto::ProtoString* tk = JSSymbols::indexKey(pContext, static_cast<uint32_t>(apIdx));
                         if (tk) {
@@ -3898,6 +3906,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (na) { updateMapping(pContext, apArray, na); apArray = na; }
                         }
                         apIdx++;
+                    }
+                    // Also update the target array's length and __elements__.
+                    if (apIdx > 0) {
+                        const proto::ProtoString* lenKeyOut = JSSymbols::length(pContext);
+                        if (lenKeyOut) {
+                            const proto::ProtoObject* na = apArray->setAttribute(pContext, lenKeyOut, pContext->fromInteger(apIdx));
+                            if (na) { updateMapping(pContext, apArray, na); apArray = na; }
+                        }
                     }
                     apDone = true;
                 } else {
