@@ -5133,14 +5133,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // lookup sees the accessor, not a stale value).
                             const proto::ProtoObject* tmp = obj3->setAttribute(pContext, key3, PROTO_NONE);
                             const proto::ProtoObject* newObj3 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
-                            // Class-body accessor descriptor:
-                            // {enumerable:false, configurable:true} → bits 0x2.
-                            if (newObj3) {
-                                std::string pdName = "__pd_" + nameStr + "__";
-                                const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
-                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                                if (pdk) newObj3 = newObj3->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
-                            }
                             stackPop(pContext);
                             stackPush(pContext, newObj3 ? newObj3 : obj3);
                             DISPATCH();
@@ -5176,18 +5168,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     const proto::ProtoObject* newObj3 =
                         obj3->setAttribute(pContext, key3, methodVal ? methodVal : PROTO_NONE);
-                    // Class-body methods / accessors are non-enumerable per
-                    // ECMA-262 §10.2.7: { writable:true, enumerable:false,
-                    // configurable:true } for methods → bits 0x3.
-                    // Accessor sidecars share the same descriptor.
-                    if (newObj3) {
-                        std::string nameStr;
-                        key3->toUTF8String(pContext, nameStr);
-                        std::string pdName = "__pd_" + nameStr + "__";
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) newObj3 = newObj3->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
-                    }
                     stackPop(pContext);
                     stackPush(pContext, newObj3 ? newObj3 : obj3);
                 }
