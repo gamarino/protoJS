@@ -3821,8 +3821,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Set array[index] = value; update array pointer in slot below index.
                 const proto::ProtoObject* newArr = arrObj2->setAttribute(
                     pContext, idxKey2, elemVal2 ? elemVal2 : PROTO_NONE);
-                // Update the length if needed.
-                if (newArr && idxVal && idxVal->isInteger(pContext)) {
+                // Update the length if needed — but ONLY when the receiver
+                // is actually an array.  OP_define_array_el is reused for
+                // computed-name object literals (`{[k]: v}`); pre-fix the
+                // length update fired there too, silently adding a
+                // \"length\" property to plain objects (e.g.
+                // `{[1]:'a',[3]:'b'}` ended up with `length: 4`).
+                const proto::ProtoString* isArrKeyDA = JSSymbols::isArray(pContext);
+                const proto::ProtoObject* isArrValDA = isArrKeyDA && newArr
+                    ? newArr->getAttribute(pContext, isArrKeyDA, false) : nullptr;
+                bool isRealArray = (isArrValDA == PROTO_TRUE);
+                if (isRealArray && newArr && idxVal && idxVal->isInteger(pContext)) {
                     long long i2 = idxVal->asLong(pContext);
                     const proto::ProtoString* lenKey4 = JSSymbols::length(pContext);
                     if (lenKey4) {
