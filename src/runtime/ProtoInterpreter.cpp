@@ -5687,21 +5687,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                // protoJS keeps two distinct representations of the JS
-                // `undefined`: PROTO_NONE (the tagged-pointer absence value
-                // used everywhere by the bytecode dispatch) and the heap-
-                // allocated `t_undefinedSentinel` used as the value of the
-                // global `undefined` identifier.  ALL forms must compare
-                // equal under === and !==.  Pre-fix: `undefined === void 0`
-                // returned false because the previous code only checked
-                // sentinel-vs-sentinel in the both-non-null branch.
                 auto isUndef = [&](const proto::ProtoObject* x) {
                     return !x || x == PROTO_NONE ||
                            x == getUndefinedSentinel() ||
                            (x && x->isNone(pContext));
                 };
+                // ECMA-262 §7.2.16 IsStrictlyEqual: NaN is never strictly
+                // equal to anything (including itself).  Pre-fix the
+                // pointer-equality fast path returned true for `NaN === NaN`.
+                auto isNaNStrict = [&](const proto::ProtoObject* x) -> bool {
+                    if (!x) return false;
+                    if (x->isDouble(pContext) || x->isFloat(pContext))
+                        return std::isnan(x->asDouble(pContext));
+                    return false;
+                };
                 int cmp = 1;
-                if (a == b) cmp = 0;
+                if (isNaNStrict(a) || isNaNStrict(b)) cmp = 1;
+                else if (a == b) cmp = 0;
                 else if (isUndef(a) && isUndef(b)) cmp = 0;
                 else if (a && b) cmp = a->compare(pContext, b);
                 else cmp = 1;
@@ -5719,8 +5721,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                            x == getUndefinedSentinel() ||
                            (x && x->isNone(pContext));
                 };
+                auto isNaNStrict2 = [&](const proto::ProtoObject* x) -> bool {
+                    if (!x) return false;
+                    if (x->isDouble(pContext) || x->isFloat(pContext))
+                        return std::isnan(x->asDouble(pContext));
+                    return false;
+                };
                 int cmp = 1;
-                if (a == b) cmp = 0;
+                if (isNaNStrict2(a) || isNaNStrict2(b)) cmp = 1;
+                else if (a == b) cmp = 0;
                 else if (isUndef(a) && isUndef(b)) cmp = 0;
                 else if (a && b) cmp = a->compare(pContext, b);
                 else cmp = 1;
