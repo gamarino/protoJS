@@ -1073,9 +1073,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!ctor) continue;
         // Set prototype.constructor = ctor so `e.constructor === TypeError` identity checks pass.
         {
-            const proto::ProtoString* ctorPropKey =
-                ctx->fromUTF8String("constructor")
-                ? ctx->fromUTF8String("constructor")->asString(ctx) : nullptr;
+            const proto::ProtoString* ctorPropKey = JSSymbols::constructor(ctx);
             if (ctorPropKey) {
                 proto = proto->setAttribute(ctx, ctorPropKey, ctor);
                 if (!proto) continue;
@@ -1444,8 +1442,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // Push the sent value onto the stack (becomes the result of the yield expression).
         const proto::ProtoObject* sentVal = PROTO_NONE;
         if (t_genIterator) {
-            const proto::ProtoObject* ko2 = pContext->fromUTF8String("__gen_sent__");
-            const proto::ProtoString* k2  = ko2 ? ko2->asString(pContext) : nullptr;
+            const proto::ProtoString* k2 = JSSymbols::genSent(pContext);
             if (k2) {
                 const proto::ProtoObject* sv = t_genIterator->getAttribute(pContext, k2, false);
                 if (sv && sv != PROTO_NONE) sentVal = sv;
@@ -1455,8 +1452,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
         // If mode==2 (throw): override sentVal with the throw value as pending_exception.
         if (t_genIterator) {
-            const proto::ProtoObject* ko3 = pContext->fromUTF8String("__gen_throw_val__");
-            const proto::ProtoString* k3  = ko3 ? ko3->asString(pContext) : nullptr;
+            const proto::ProtoString* k3 = JSSymbols::genThrowVal(pContext);
             if (k3) {
                 const proto::ProtoObject* tv = t_genIterator->getAttribute(pContext, k3, false);
                 if (tv && tv != PROTO_NONE) {
@@ -1578,10 +1574,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
     // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
     if (!t_nullSentinel && pGlobalRoot && *pGlobalRoot) {
-        const proto::ProtoString* sentinelKey =
-            (pContext->fromUTF8String("__js_null_sentinel__")
-                ? pContext->fromUTF8String("__js_null_sentinel__")->asString(pContext)
-                : nullptr);
+        const proto::ProtoString* sentinelKey = JSSymbols::jsNullSentinel(pContext);
         if (sentinelKey) {
             const proto::ProtoObject* existing =
                 (*pGlobalRoot)->getAttribute(pContext, sentinelKey, false);
@@ -1598,10 +1591,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Bootstrap the TDZ sentinel. Same approach as t_nullSentinel: a unique ProtoObject
     // that cannot equal any legitimate JS value (including empty string "").
     if (!t_tdzSentinel && pGlobalRoot && *pGlobalRoot) {
-        const proto::ProtoString* tdzKey =
-            (pContext->fromUTF8String("__js_tdz_sentinel__")
-                ? pContext->fromUTF8String("__js_tdz_sentinel__")->asString(pContext)
-                : nullptr);
+        const proto::ProtoString* tdzKey = JSSymbols::jsTdzSentinel(pContext);
         if (tdzKey) {
             const proto::ProtoObject* existing =
                 (*pGlobalRoot)->getAttribute(pContext, tdzKey, false);
@@ -1737,8 +1727,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // implementations are not provided by QuickJS at this layer; the
     // protoCore-side global is separate from QuickJS's globalThis.
     {
-        const proto::ProtoObject* jsonKeyObj = pContext->fromUTF8String("JSON");
-        const proto::ProtoString* jsonKey = jsonKeyObj ? jsonKeyObj->asString(pContext) : nullptr;
+        // "JSON" is interned once and reused as both the global key and the
+        // toStringTag value below; the prior code did fromUTF8String("JSON")
+        // twice on every interpreter init.
+        const proto::ProtoObject* jsonStrObj = pContext->fromUTF8String("JSON");
+        const proto::ProtoString* jsonKey = jsonStrObj ? jsonStrObj->asString(pContext) : nullptr;
         if (jsonKey && pGlobalRoot && *pGlobalRoot) {
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, jsonKey, false);
             if (!existing || existing == PROTO_NONE) {
@@ -1746,8 +1739,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (jsonObj) {
                     const proto::ProtoString* tagKey = JSSymbols::toStringTag(pContext);
                     if (tagKey)
-                        jsonObj = jsonObj->setAttribute(pContext, tagKey,
-                                                        pContext->fromUTF8String("JSON"));
+                        jsonObj = jsonObj->setAttribute(pContext, tagKey, jsonStrObj);
                     *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, jsonKey, jsonObj);
                 }
             }
@@ -1769,9 +1761,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // This allows JS code like `obj[Symbol.iterator] = fn` to use the canonical key
     // "Symbol.iterator" that JSSymbols::symbolIterator() also returns.
     if (pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoObject* symbolStrObj = pContext->fromUTF8String("Symbol");
         const proto::ProtoString* symbolGlobalKey =
-            pContext->fromUTF8String("Symbol")
-                ? pContext->fromUTF8String("Symbol")->asString(pContext) : nullptr;
+            symbolStrObj ? symbolStrObj->asString(pContext) : nullptr;
         if (symbolGlobalKey) {
             const proto::ProtoObject* symbolObj =
                 (*pGlobalRoot)->getAttribute(pContext, symbolGlobalKey, false);
@@ -5172,8 +5164,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
                                 const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
                                 // __construct__ is used by Object, Number, Boolean, Map, Set, Promise, etc.
-                                const proto::ProtoObject* consObj = pContext->fromUTF8String("__construct__");
-                                const proto::ProtoString* conK = consObj ? consObj->asString(pContext) : nullptr;
+                                const proto::ProtoString* conK = JSSymbols::construct(pContext);
                                 bool isCtor = (acK && v->getAttribute(pContext, acK, false) == PROTO_TRUE)
                                           || (ecK && v->getAttribute(pContext, ecK, false) && v->getAttribute(pContext, ecK, false) != PROTO_NONE)
                                           || (reK && v->getAttribute(pContext, reK, false) == PROTO_TRUE)
@@ -5698,13 +5689,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     } else {
                         // Generic: if the constructor carries a __construct__ native method,
                         // invoke it directly (Boolean, Number, Map, Set, Promise, WeakMap, etc.).
-                        const proto::ProtoObject* ctorKeyObj = pContext->fromUTF8String("__construct__");
-                        const proto::ProtoString* ctorKey = ctorKeyObj ? ctorKeyObj->asString(pContext) : nullptr;
+                        const proto::ProtoString* ctorKey = JSSymbols::construct(pContext);
                         const proto::ProtoObject* ctorMethod = (ctorKey && func && func != PROTO_NONE)
                             ? func->getAttribute(pContext, ctorKey, false) : nullptr;
                         
-                        const proto::ProtoObject* isCtorKeyObj = pContext->fromUTF8String("__is_constructor__");
-                        const proto::ProtoString* isCtorKey = isCtorKeyObj ? isCtorKeyObj->asString(pContext) : nullptr;
+                        const proto::ProtoString* isCtorKey = JSSymbols::isConstructor(pContext);
                         const proto::ProtoObject* isCtor = (isCtorKey && func && func != PROTO_NONE)
                             ? func->getAttribute(pContext, isCtorKey, false) : nullptr;
 
@@ -5962,8 +5951,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
                     // bits: 0x1=writable, 0x2=configurable, 0x4=enumerable → 0x1 only.
                     {
-                        const proto::ProtoObject* pdko = pContext->fromUTF8String("__pd_prototype__");
-                        const proto::ProtoString* pdks = pdko ? pdko->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdks = JSSymbols::pdPrototype(pContext);
                         if (pdks) fnInst = fnInst->setAttribute(pContext, pdks, pContext->fromInteger(0x1LL));
                     }
                     // Resolve function metadata from the root module's flat nestedFunctions
@@ -5994,8 +5982,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                         // Mark async functions so callJSFunction can wrap the result in a Promise.
                         if (nm8.isAsync) {
-                            const proto::ProtoObject* iasKey = pContext->fromUTF8String("__is_async__");
-                            const proto::ProtoString* iasK = iasKey ? iasKey->asString(pContext) : nullptr;
+                            const proto::ProtoString* iasK = JSSymbols::isAsync(pContext);
                             if (iasK) fnInst = fnInst->setAttribute(pContext, iasK, PROTO_TRUE);
                         }
                         // Closure var capture: store cells (or raw values
@@ -6072,8 +6059,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->newObject(true));
                     // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
                     {
-                        const proto::ProtoObject* pdko2 = pContext->fromUTF8String("__pd_prototype__");
-                        const proto::ProtoString* pdks2 = pdko2 ? pdko2->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext);
                         if (pdks2) fnInst2 = fnInst2->setAttribute(pContext, pdks2, pContext->fromInteger(0x1LL));
                     }
                     // Resolve function metadata from the root module's flat nestedFunctions list.
@@ -6107,8 +6093,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                         // Mark async functions so callJSFunction can wrap the result in a Promise.
                         if (nm2.isAsync) {
-                            const proto::ProtoObject* iasKey2 = pContext->fromUTF8String("__is_async__");
-                            const proto::ProtoString* iasK2 = iasKey2 ? iasKey2->asString(pContext) : nullptr;
+                            const proto::ProtoString* iasK2 = JSSymbols::isAsync(pContext);
                             if (iasK2) fnInst2 = fnInst2->setAttribute(pContext, iasK2, PROTO_TRUE);
                         }
                         // Closure var capture: store cells (or raw values for
@@ -6253,8 +6238,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* reK = JSSymbols::regexpCtor(pContext);
                             const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
                             const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
-                            const proto::ProtoObject* consO = pContext->fromUTF8String("__construct__");
-                            const proto::ProtoString* conK = consO ? consO->asString(pContext) : nullptr;
+                            const proto::ProtoString* conK = JSSymbols::construct(pContext);
                             isFunc = (acK && val->getAttribute(pContext, acK, false) == PROTO_TRUE)
                                   || (ecK && val->getAttribute(pContext, ecK, false) && val->getAttribute(pContext, ecK, false) != PROTO_NONE)
                                   || (reK && val->getAttribute(pContext, reK, false) == PROTO_TRUE)
@@ -7467,13 +7451,19 @@ static const proto::ProtoObject* resumeGenerator(proto::ProtoContext* ctx,
     }
 
     // If mode == 2 (throw): pre-store the throw value on the iterator.
+    // Reads of these keys live in L_OP_yield's resumption path (see
+    // JSSymbols::genSent / JSSymbols::genThrowVal); writes MUST go through
+    // the same interned ProtoString* or the read won't find the write.
     if (mode == 2 && sentVal && sentVal != PROTO_NONE) {
-        iter = genSetObj(ctx, iter, "__gen_throw_val__", sentVal);
+        const proto::ProtoString* k = JSSymbols::genThrowVal(ctx);
+        if (k && iter) iter = iter->setAttribute(ctx, k, sentVal);
     } else {
         // Store sent value (result of yield expr on resume).
-        iter = genSetObj(ctx, iter, "__gen_sent__", sentVal ? sentVal : PROTO_NONE);
+        const proto::ProtoString* ks = JSSymbols::genSent(ctx);
+        if (ks && iter) iter = iter->setAttribute(ctx, ks, sentVal ? sentVal : PROTO_NONE);
         // Clear any prior throw val.
-        iter = genSetObj(ctx, iter, "__gen_throw_val__", PROTO_NONE);
+        const proto::ProtoString* kt = JSSymbols::genThrowVal(ctx);
+        if (kt && iter) iter = iter->setAttribute(ctx, kt, PROTO_NONE);
     }
 
     // Set up resume thread-locals.

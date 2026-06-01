@@ -112,6 +112,18 @@ const proto::ProtoString* bytecode(proto::ProtoContext* ctx);       // "__byteco
 const proto::ProtoString* metadata(proto::ProtoContext* ctx);       // "__metadata__"
 const proto::ProtoString* nativeFn(proto::ProtoContext* ctx);       // "__native_fn__"
 const proto::ProtoString* arrayElements(proto::ProtoContext* ctx);  // "__elements__" — ProtoList storage for dense arrays
+// Recurrent interpreter sentinels — added 2026-05-31 to eliminate
+// per-dispatch ctx->fromUTF8String("…") + ->asString(ctx) cycles
+// in hot bytecode handlers.  Each pair was previously re-interned
+// twice per call site through the doubled `X ? X->asString : nullptr`
+// pattern; now interned once via DEFINE_SYMBOL.
+const proto::ProtoString* construct(proto::ProtoContext* ctx);      // "__construct__"
+const proto::ProtoString* genSent(proto::ProtoContext* ctx);        // "__gen_sent__"
+const proto::ProtoString* genThrowVal(proto::ProtoContext* ctx);    // "__gen_throw_val__"
+const proto::ProtoString* pdPrototype(proto::ProtoContext* ctx);    // "__pd_prototype__"
+const proto::ProtoString* jsNullSentinel(proto::ProtoContext* ctx); // "__js_null_sentinel__"
+const proto::ProtoString* jsTdzSentinel(proto::ProtoContext* ctx);  // "__js_tdz_sentinel__"
+const proto::ProtoString* isConstructor(proto::ProtoContext* ctx);  // "__is_constructor__"
 
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"
