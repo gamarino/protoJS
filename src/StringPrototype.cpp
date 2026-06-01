@@ -1,5 +1,6 @@
 #include "StringPrototype.h"
 #include "ArrayPrototype.h"
+#include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
@@ -877,6 +878,11 @@ const proto::ProtoObject* stringSplit(
     // Result array — use createNewArray so that [] prototype methods (join, forEach, etc.) are inherited.
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    // Native __elements__ storage so OP_get_array_el / .map / .filter /
+    // JSON.stringify see entries (pre-fix split wrote indexed-attribute
+    // only, producing an empty-looking array via __elements__).
+    proto::ProtoContext::CriticalSection splitCs(ctx);
+    const proto::ProtoList* els = ctx->newList();
 
     // Determine limit
     long long limit = std::numeric_limits<long long>::max();
@@ -890,15 +896,15 @@ const proto::ProtoObject* stringSplit(
     }
 
     if (limit == 0) {
+        protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0));
         return result;
     }
 
     // No separator argument (or undefined): return array with entire string
     if (!args || args->getSize(ctx) == 0) {
-        const proto::ProtoObject* elem = ctx->fromUTF8String(s.c_str());
-        const proto::ProtoString* k0 = JSSymbols::indexKey(ctx,0);
-        if (k0) result = result->setAttribute(ctx, k0, elem);
+        els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
     }
@@ -906,9 +912,8 @@ const proto::ProtoObject* stringSplit(
     const proto::ProtoObject* sepArg = args->getAt(ctx, 0);
     // Undefined separator: return array with entire string
     if (!sepArg || sepArg == PROTO_NONE) {
-        const proto::ProtoObject* elem = ctx->fromUTF8String(s.c_str());
-        const proto::ProtoString* k0 = JSSymbols::indexKey(ctx,0);
-        if (k0) result = result->setAttribute(ctx, k0, elem);
+        els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
         return result;
     }
@@ -939,10 +944,10 @@ const proto::ProtoObject* stringSplit(
     if (se16.empty()) {
         for (size_t i = 0; i < su16.size() && count < limit; i++) {
             std::string ch = utf16ToUTF8(su16, i, i + 1);
-            const proto::ProtoString* k = JSSymbols::indexKey(ctx,static_cast<uint32_t>(count));
-            if (k) result = result->setAttribute(ctx, k, ctx->fromUTF8String(ch.c_str()));
+            els = els->appendLast(ctx, ctx->fromUTF8String(ch.c_str()));
             count++;
         }
+        protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
         return result;
     }
@@ -960,13 +965,13 @@ const proto::ProtoObject* stringSplit(
         }
         // Slice [pos, found) as a segment
         std::string segment = utf16ToUTF8(su16, pos, found);
-        const proto::ProtoString* k = JSSymbols::indexKey(ctx,static_cast<uint32_t>(count));
-        if (k) result = result->setAttribute(ctx, k, ctx->fromUTF8String(segment.c_str()));
+        els = els->appendLast(ctx, ctx->fromUTF8String(segment.c_str()));
         count++;
         if (found == su16.size()) break; // no more separators
         pos = found + se16.size();
     }
 
+    protojs::setArrayElements(ctx, result, els);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
     return result;
 }
