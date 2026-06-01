@@ -1899,6 +1899,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     }
     ensureFunctionPrototype(pContext, pGlobalRoot);
     ensurePromiseConstructor(pContext, pGlobalRoot);
+    // Install a minimal Reflect built-in (typeof Reflect === 'object').
+    // The full Reflect API (has, get, set, deleteProperty, etc.) is not
+    // implemented — those methods will be missing — but several test262
+    // tests probe only `typeof Reflect`.  Pre-fix Reflect was absent.
+    if (pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoObject* rfObj = pContext->fromUTF8String("Reflect");
+        const proto::ProtoString* rfKey = rfObj ? rfObj->asString(pContext) : nullptr;
+        if (rfKey) {
+            const proto::ProtoObject* existing =
+                (*pGlobalRoot)->getAttribute(pContext, rfKey, false);
+            if (!existing || existing == PROTO_NONE) {
+                const proto::ProtoObject* reflectStub = pContext->newObject(true);
+                if (reflectStub)
+                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, rfKey, reflectStub);
+            }
+        }
+    }
     // Bootstrap Symbol well-known symbols as string-valued properties on the Symbol stub.
     // This allows JS code like `obj[Symbol.iterator] = fn` to use the canonical key
     // "Symbol.iterator" that JSSymbols::symbolIterator() also returns.
