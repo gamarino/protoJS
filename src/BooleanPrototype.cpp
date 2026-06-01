@@ -1,5 +1,6 @@
 #include "BooleanPrototype.h"
 #include "JSSymbols.h"
+#include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 #include <cmath>
@@ -80,28 +81,35 @@ static const proto::ProtoObject* booleanConstruct(
     bool val = false;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
-        if (a && a != PROTO_NONE) {
-            if (a == PROTO_TRUE) {
-                val = true;
-            } else if (a == PROTO_FALSE) {
-                val = false;
-            } else if (a->isBoolean(ctx)) {
-                val = a->asBoolean(ctx);
-            } else if (a->isInteger(ctx)) {
-                val = a->asLong(ctx) != 0;
-            } else if (a->isDouble(ctx) || a->isFloat(ctx)) {
-                double d = a->asDouble(ctx);
-                val = (d != 0.0) && !std::isnan(d);
-            } else if (a->isString(ctx)) {
-                std::string s;
-                const proto::ProtoString* ps = a->asString(ctx);
-                if (ps) {
-                    ps->toUTF8String(ctx, s);
-                    val = !s.empty();
-                }
-            } else {
-                val = true; // non-null object → truthy
+        // Falsy: undefined (PROTO_NONE / t_undefinedSentinel) and null
+        // (t_nullSentinel).  Pre-fix the loop reached `val = true` for
+        // both `null` and the heap undefined sentinel because they are
+        // non-null pointers other than PROTO_NONE.
+        if (!a || a == PROTO_NONE
+            || a == protojs::getUndefinedSentinel()
+            || a == protojs::getNullSentinel()
+            || a->isNone(ctx)) {
+            val = false;
+        } else if (a == PROTO_TRUE) {
+            val = true;
+        } else if (a == PROTO_FALSE) {
+            val = false;
+        } else if (a->isBoolean(ctx)) {
+            val = a->asBoolean(ctx);
+        } else if (a->isInteger(ctx)) {
+            val = a->asLong(ctx) != 0;
+        } else if (a->isDouble(ctx) || a->isFloat(ctx)) {
+            double d = a->asDouble(ctx);
+            val = (d != 0.0) && !std::isnan(d);
+        } else if (a->isString(ctx)) {
+            std::string s;
+            const proto::ProtoString* ps = a->asString(ctx);
+            if (ps) {
+                ps->toUTF8String(ctx, s);
+                val = !s.empty();
             }
+        } else {
+            val = true; // any other non-falsy object → truthy
         }
     }
     const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
