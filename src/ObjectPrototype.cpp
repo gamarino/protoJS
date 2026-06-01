@@ -1160,6 +1160,36 @@ static const proto::ProtoObject* objectHasOwnProperty(
         const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
         if (sks && self->hasOwnAttribute(ctx, sks) == PROTO_TRUE) return PROTO_TRUE;
     }
+
+    // Array element fallback: array elements live in the internal
+    // `__elements__` ProtoList, NOT as own attributes — so hasOwnAttribute
+    // returns false for "0" on `[101]` even though spec-wise the element
+    // is an own data property.  Synthesise the check: if self is an
+    // array and the key parses as a valid non-negative integer index
+    // strictly less than the array's length, the property exists.
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    const proto::ProtoObject* isArr = isArrKey ? self->getAttribute(ctx, isArrKey, true) : nullptr;
+    if (isArr == PROTO_TRUE) {
+        long long idx = -1;
+        // The key string must round-trip through ToString to be a valid
+        // integer index per ES2015 §7.1.16 (canonical numeric strings).
+        if (!keyStr.empty()) {
+            char* end = nullptr;
+            long long v = std::strtoll(keyStr.c_str(), &end, 10);
+            if (end && *end == '\0' && v >= 0 && std::to_string(v) == keyStr)
+                idx = v;
+        }
+        if (idx >= 0) {
+            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+            const proto::ProtoObject* lenVal = lenKey
+                ? self->getAttribute(ctx, lenKey, false) : nullptr;
+            if (lenVal && lenVal != PROTO_NONE && lenVal->isInteger(ctx)) {
+                long long len = lenVal->asLong(ctx);
+                if (idx < len) return PROTO_TRUE;
+            }
+        }
+    }
+
     return PROTO_FALSE;
 }
 
