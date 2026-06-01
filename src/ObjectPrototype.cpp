@@ -1,5 +1,6 @@
 #include "ObjectPrototype.h"
 #include "ArrayPrototype.h"
+#include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
@@ -111,11 +112,12 @@ static const proto::ProtoObject* objectKeys(
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    const proto::ProtoList* elsList = ctx->newList();
     for (size_t i = 0; i < keys.size(); i++) {
-        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
         const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
-        if (ik && kv) result = result->setAttribute(ctx, ik, kv);
+        elsList = elsList->appendLast(ctx, kv ? kv : PROTO_NONE);
     }
+    setArrayElements(ctx, result, elsList);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(keys.size())));
     if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
@@ -141,10 +143,11 @@ static const proto::ProtoObject* objectValues(
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    const proto::ProtoList* elsList = ctx->newList();
     for (size_t i = 0; i < vals.size(); i++) {
-        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-        if (ik) result = result->setAttribute(ctx, ik, vals[i]);
+        elsList = elsList->appendLast(ctx, vals[i] ? vals[i] : PROTO_NONE);
     }
+    setArrayElements(ctx, result, elsList);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(vals.size())));
     if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
@@ -173,18 +176,23 @@ static const proto::ProtoObject* objectEntries(
     const proto::ProtoString* idx0 = JSSymbols::indexKey(ctx, 0);
     const proto::ProtoString* idx1 = JSSymbols::indexKey(ctx, 1);
 
+    (void)idx0; (void)idx1;  // pairs built via __elements__ below
+    const proto::ProtoList* outerList = ctx->newList();
     for (size_t i = 0; i < keys.size(); i++) {
-        // Build pair [key, value] as a 2-element array.
+        // Build pair [key, value] as a 2-element array — use __elements__
+        // storage just like Object.keys/values, so the result round-trips
+        // through arrayTryFastGet and JSON.stringify cleanly.
         const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
-        const proto::ProtoObject* kv  = ctx->fromUTF8String(keys[i].c_str());
-        if (idx0 && kv)       pair = pair->setAttribute(ctx, idx0, kv);
-        if (idx1)             pair = pair->setAttribute(ctx, idx1, vals[i]);
-        if (lenKey)           pair = pair->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
-        if (isArrKey2)        pair = pair->setAttribute(ctx, isArrKey2, PROTO_TRUE);
-
-        const proto::ProtoString* outerIdx = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-        if (outerIdx) result = result->setAttribute(ctx, outerIdx, pair);
+        const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
+        const proto::ProtoList* pairEls = ctx->newList();
+        pairEls = pairEls->appendLast(ctx, kv ? kv : PROTO_NONE);
+        pairEls = pairEls->appendLast(ctx, vals[i] ? vals[i] : PROTO_NONE);
+        setArrayElements(ctx, pair, pairEls);
+        if (lenKey)    pair = pair->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
+        if (isArrKey2) pair = pair->setAttribute(ctx, isArrKey2, PROTO_TRUE);
+        outerList = outerList->appendLast(ctx, pair);
     }
+    setArrayElements(ctx, result, outerList);
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(keys.size())));
     if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
@@ -497,17 +505,18 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey  = JSSymbols::length(ctx);
     const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+    // Use the canonical __elements__ ProtoList storage so JSON.stringify,
+    // arrayTryFastGet, and Array.prototype methods see the entries.
+    // The prior string-indexed-attribute layout was invisible to those
+    // paths — getArrayElements() returned nullptr, so a freshly produced
+    // `Object.keys(...)` rendered as '[]' under JSON.stringify.
+    const proto::ProtoList* elsList = ctx->newList();
     for (size_t i = 0; i < keys.size(); i++) {
-        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
         const proto::ProtoObject* kv = ctx->fromUTF8String(keys[i].c_str());
-        if (ik && kv) result = result->setAttribute(ctx, ik, kv);
+        elsList = elsList->appendLast(ctx, kv ? kv : PROTO_NONE);
     }
+    setArrayElements(ctx, result, elsList);
     if (lenKey)   result = result->setAttribute(ctx, lenKey,   ctx->fromInteger(static_cast<long long>(keys.size())));
-    // __is_array__ must be PROTO_TRUE (not the integer 1) so the rest of
-    // the runtime — hasOwnProperty's array fallback, JSON.stringify's array
-    // detection, the OP_define_array_el length guard — actually picks it
-    // up as an array.  Pre-fix it was fromInteger(1), which silently
-    // mismatched every \`isArr == PROTO_TRUE\` check.
     if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
 }
