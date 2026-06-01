@@ -1,6 +1,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
+#include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 #include <string>
@@ -64,10 +65,15 @@ static const proto::ProtoObject* fnApply(
             }
         }
         for (long long i = 0; i < alen; i++) {
-            const proto::ProtoString* ik =
-                JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-            const proto::ProtoObject* av =
-                ik ? argsArray->getAttribute(ctx, ik, false) : PROTO_NONE;
+            // Read via arrayTryFastGet first (arrays store elements in
+            // __elements__ ProtoList) — falling back to indexed-attribute
+            // lookup keeps legacy array-likes working.
+            const proto::ProtoObject* av = arrayTryFastGet(ctx, argsArray, static_cast<unsigned long>(i));
+            if (!av) {
+                const proto::ProtoString* ik =
+                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                av = ik ? argsArray->getAttribute(ctx, ik, false) : PROTO_NONE;
+            }
             callArgs = callArgs->appendLast(ctx, av ? av : PROTO_NONE);
         }
     }
