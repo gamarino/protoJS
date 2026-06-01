@@ -48,16 +48,33 @@ static void collectOwnKeys(
     bool includeNonEnumerable = false)
 {
     if (!obj || obj == PROTO_NONE) return;
-    const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
-    if (!own) return;
 
     // Detect arrays to suppress the "length" key (length is non-enumerable on arrays).
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     bool isArr = false;
     if (isArrKey) {
         const proto::ProtoObject* arrFlag = obj->getAttribute(ctx, isArrKey, false);
-        isArr = arrFlag && arrFlag != PROTO_NONE;
+        isArr = (arrFlag == PROTO_TRUE);
     }
+    // Synthesise array indices first (spec: index keys precede string keys
+    // in own-property enumeration).  Pre-fix Object.keys([10,20,30])
+    // returned [] because the elements live in __elements__, not as
+    // own attributes — the SparseList iterator below misses them.
+    if (isArr) {
+        const proto::ProtoList* elsList = getArrayElements(ctx, obj);
+        if (elsList) {
+            unsigned long n = elsList->getSize(ctx);
+            for (unsigned long i = 0; i < n; ++i) {
+                const proto::ProtoObject* v = elsList->getAt(ctx, static_cast<int>(i));
+                if (v && v != PROTO_NONE) {  // skip sparse holes
+                    keys.push_back(std::to_string(i));
+                    if (vals) vals->push_back(v);
+                }
+            }
+        }
+    }
+    const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
+    if (!own) return;
     const proto::ProtoString* lenSymbol = JSSymbols::length(ctx);
 
     const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
