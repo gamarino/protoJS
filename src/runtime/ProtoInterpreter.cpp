@@ -2399,6 +2399,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_call3] = &&L_OP_call3;
     dispatch_table[OP_call_constructor] = &&L_OP_call_constructor;
     dispatch_table[OP_call_method] = &&L_OP_call_method;
+    dispatch_table[OP_apply] = &&L_OP_apply;
     dispatch_table[OP_catch] = &&L_OP_catch;
     dispatch_table[OP_close_loc] = &&L_OP_close_loc;
     dispatch_table[OP_copy_data_properties] = &&L_OP_copy_data_properties;
@@ -2815,6 +2816,91 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     JSSymbols::length(pContext),
                     pContext->fromInteger(count));
                 stackPush(pContext, arr ? arr : PROTO_NONE);
+                DISPATCH();
+            }
+            L_OP_apply: {
+                // DEF(apply, 3, 3, 1, u16)
+                //   stack [..., fn, this_arg, argsArray] → [..., result]
+                //   u16 magic: bit 0 = construct; bit 1 = no-null-array tolerance
+                //
+                // Emitted for spread call:    f(...arr)   → magic=0
+                //                  new f(...arr)         → magic=1
+                //                  super(...args)        → magic=1
+                if (pc + 2 > len || stackSize(pContext) < 3) return PROTO_NONE;
+                uint16_t magic = get_u16(buf + pc);
+                pc += 2;
+                const proto::ProtoObject* argsArr = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* thisArg = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* fn      = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+
+                // Build the args list from argsArr's __elements__ (with
+                // indexed-attribute fallback for legacy producers).
+                proto::ProtoContext::CriticalSection applyCs(pContext);
+                const proto::ProtoList* argList = pContext->newList();
+                if (argsArr && argsArr != PROTO_NONE) {
+                    const proto::ProtoList* els = protojs::getArrayElements(pContext, argsArr);
+                    if (els) {
+                        size_t sz = els->getSize(pContext);
+                        for (size_t i = 0; i < sz; ++i)
+                            argList = argList->appendLast(pContext,
+                                els->getAt(pContext, static_cast<int>(i)));
+                    } else {
+                        const proto::ProtoString* lenK = JSSymbols::length(pContext);
+                        const proto::ProtoObject* lenV = lenK ? argsArr->getAttribute(pContext, lenK, false) : nullptr;
+                        long long n = 0;
+                        if (lenV && lenV != PROTO_NONE && lenV->isInteger(pContext)) n = lenV->asLong(pContext);
+                        for (long long i = 0; i < n; ++i) {
+                            const proto::ProtoString* ik = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
+                            const proto::ProtoObject* av = ik ? argsArr->getAttribute(pContext, ik, false) : PROTO_NONE;
+                            argList = argList->appendLast(pContext, av ? av : PROTO_NONE);
+                        }
+                    }
+                }
+
+                const proto::ProtoObject* result = PROTO_NONE;
+                if (magic & 1) {
+                    // Construct path: synthesise a `new fn(...args)` call.
+                    // Build newObj inheriting from fn.prototype, dispatch
+                    // via callJSFunction with newObj as `this`, then prefer
+                    // the returned object if it's an object, else newObj.
+                    const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                    const proto::ProtoObject* funcProto = (protoKey && fn && fn != PROTO_NONE)
+                        ? fn->getAttribute(pContext, protoKey, false) : nullptr;
+                    const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
+                        ? funcProto->newChild(pContext, true)
+                        : pContext->newObject(true);
+                    const proto::ProtoObject* ret =
+                        callJSFunction(pContext, fn, newObj, argList);
+                    if (t_hasCallException) {
+                        pending_exception = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException = nullptr;
+                        DISPATCH();
+                    }
+                    // If constructor returned a non-undefined object, use it; else newObj.
+                    if (ret && ret != PROTO_NONE && !ret->isInteger(pContext) &&
+                        !ret->isBoolean(pContext) && !ret->isDouble(pContext) &&
+                        !ret->asString(pContext) && ret != t_nullSentinel)
+                        result = ret;
+                    else
+                        result = newObj;
+                } else {
+                    result = callJSFunction(pContext, fn, thisArg, argList);
+                    if (t_hasCallException) {
+                        pending_exception = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException = nullptr;
+                        DISPATCH();
+                    }
+                }
+                REFRESH_INTERP_STATE();
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                    result ? result : PROTO_NONE;
                 DISPATCH();
             }
             L_OP_return: {
@@ -3966,6 +4052,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             newArr = updatedArr;
                         }
                     }
+                    // Mirror the write into __elements__ so consumers
+                    // reading via getArrayElements see the value.  Pre-fix
+                    // OP_define_array_el wrote indexed-attribute only, so
+                    // mixed array literals like `[0, ...[1,2,3], 4]`
+                    // (OP_append publishes __elements__=[0,1,2,3], then
+                    // OP_define_array_el writes attribute "4" without
+                    // touching __elements__) ended up with the trailing
+                    // 4 invisible to JSON.stringify, OP_get_array_el etc.
+                    if (i2 >= 0) {
+                        const proto::ProtoList* defEls =
+                            protojs::getArrayElements(pContext, newArr);
+                        if (!defEls) defEls = pContext->newList();
+                        long long curSz = static_cast<long long>(defEls->getSize(pContext));
+                        if (i2 == curSz) {
+                            defEls = defEls->appendLast(pContext,
+                                elemVal2 ? elemVal2 : PROTO_NONE);
+                        } else if (i2 < curSz) {
+                            defEls = defEls->setAt(pContext,
+                                static_cast<int>(i2),
+                                elemVal2 ? elemVal2 : PROTO_NONE);
+                        } else {
+                            while (curSz < i2) {
+                                defEls = defEls->appendLast(pContext, PROTO_NONE);
+                                ++curSz;
+                            }
+                            defEls = defEls->appendLast(pContext,
+                                elemVal2 ? elemVal2 : PROTO_NONE);
+                        }
+                        if (defEls) protojs::setArrayElements(pContext, newArr, defEls);
+                    }
                 }
                 updateMapping(pContext, arrObj2, newArr);
                 // Replace the array slot (2nd from top) with updated array.
@@ -4016,6 +4132,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 bool apDone = false;
                 bool apError = false;
+                // Maintain a local rolling __elements__ ProtoList — start
+                // from whatever the array already has so successive
+                // OP_append calls accumulate correctly.  Pre-fix
+                // L_OP_append wrote elements via setAttribute(indexKey, v)
+                // only, never updating __elements__ — so consumers that
+                // read via getArrayElements (OP_apply spread call,
+                // OP_get_array_el, arrayTryFastGet, JSON.stringify,
+                // Array.prototype.*) saw the array as empty.
+                const proto::ProtoList* apEls = protojs::getArrayElements(pContext, apArray);
+                if (!apEls) apEls = pContext->newList();
+                proto::ProtoContext::CriticalSection apCs(pContext);
                 if (apSrcLen >= 0) {
                     // Array / TypedArray path.  Element reads must use
                     // arrayTryFastGet first (arrays now store their data
@@ -4030,20 +4157,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             v = ik ? apIterable->getAttribute(pContext, ik, false) : PROTO_NONE;
                         }
                         if (!v) v = PROTO_NONE;
-                        const proto::ProtoString* tk = JSSymbols::indexKey(pContext, static_cast<uint32_t>(apIdx));
-                        if (tk) {
-                            const proto::ProtoObject* na = apArray->setAttribute(pContext, tk, v);
-                            if (na) { updateMapping(pContext, apArray, na); apArray = na; }
-                        }
+                        apEls = apEls->appendLast(pContext, v);
                         apIdx++;
-                    }
-                    // Also update the target array's length and __elements__.
-                    if (apIdx > 0) {
-                        const proto::ProtoString* lenKeyOut = JSSymbols::length(pContext);
-                        if (lenKeyOut) {
-                            const proto::ProtoObject* na = apArray->setAttribute(pContext, lenKeyOut, pContext->fromInteger(apIdx));
-                            if (na) { updateMapping(pContext, apArray, na); apArray = na; }
-                        }
                     }
                     apDone = true;
                 } else {
@@ -4087,11 +4202,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoObject* apVal = (apResult && apResult != PROTO_NONE && apValKey)
                                     ? apResult->getAttribute(pContext, apValKey, false) : PROTO_NONE;
                                 if (!apVal) apVal = PROTO_NONE;
-                                const proto::ProtoString* tk = JSSymbols::indexKey(pContext, static_cast<uint32_t>(apIdx));
-                                if (tk) {
-                                    const proto::ProtoObject* na = apArray->setAttribute(pContext, tk, apVal);
-                                    if (na) { updateMapping(pContext, apArray, na); apArray = na; }
-                                }
+                                apEls = apEls->appendLast(pContext, apVal);
                                 apIdx++;
                             }
                             apDone = !apError;
@@ -4108,7 +4219,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
 
-                // Update array.length to cover all inserted elements.
+                // Publish accumulated __elements__ and length.
+                if (apArray && apArray != PROTO_NONE && apEls) {
+                    protojs::setArrayElements(pContext, apArray, apEls);
+                }
                 if (apLenKey && apArray && apArray != PROTO_NONE) {
                     const proto::ProtoObject* curLenO = apArray->getAttribute(pContext, apLenKey, false);
                     long long curLen = (curLenO && curLenO != PROTO_NONE && curLenO->isInteger(pContext))
