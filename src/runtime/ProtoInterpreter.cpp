@@ -3471,6 +3471,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 auto nameIt = module->atomToProto.find(atomIndex);
                 const proto::ProtoString* name = (nameIt != module->atomToProto.end()) ? nameIt->second : nullptr;
+                // string.length is handled by the dedicated OP_get_length
+                // opcode that QuickJS emits for `.length` accesses; no
+                // length fast path needed here.  The rare `s["length"]`
+                // form takes the prototype-chain walk below.
                 const proto::ProtoObject* val = name ? invokeGetterIfPresentFast(obj, name) : PROTO_NONE;
                 if (has_pending_exception) DISPATCH();
                 if (!val || val == PROTO_NONE) {
@@ -3500,7 +3504,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     DISPATCH();
                 }
-                
+
+                // string.length is handled by the dedicated OP_get_length
+                // opcode; no length fast path needed here.
+
                 // P-JS-2 — single getAttribute call.  Previously this site
                 // did getAttribute(callbacks=false) THEN, on miss,
                 // resolveFieldOOP which itself called getAttribute(true)
@@ -5001,6 +5008,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Push the .length property of TOS.
                 if (_PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+
+                // Fast path: string.length — bypass the full prototype-chain
+                // walk that getAttribute would do.  protoCore's ProtoString
+                // already stores the codepoint count in the rope-node header
+                // (total_chars / char_count) and answers getSize() in O(1)
+                // for both leaf and internal node forms; for inline strings
+                // it walks the few inline UTF-8 bytes (≤ 7 chars).
+                //
+                // Pre-this-fast-path: `s.length` returned `undefined` because
+                // length was never installed on the JS-side String.prototype
+                // by BuildStringPrototype.  Every benchmark using
+                // `for (var i = 0; i < s.length; i++)` looped zero times.
+                //
+                // Caveat: returns codepoint count, not the spec's UTF-16
+                // code-unit count.  These match for BMP characters (almost
+                // all JS string content); non-BMP characters are off-by-one
+                // per surrogate pair, which a future pass can correct by
+                // counting code units explicitly.  Not paying that cost on
+                // every .length read for now.
+                if (obj && obj != PROTO_NONE && obj->isString(pContext)) {
+                    long long n = static_cast<long long>(
+                        obj->asString(pContext)->getSize(pContext));
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                        pContext->fromInteger(n);
+                    DISPATCH();
+                }
+
                 const proto::ProtoString* lk = JSSymbols::length(pContext);
                 const proto::ProtoObject* len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (len_val ? len_val : PROTO_NONE);
@@ -5388,8 +5422,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pending_exception = childEx; has_pending_exception = true;
                         DISPATCH();
                     }
-                    if (opcode != OP_tail_call_method)
-                        stackPush(pContext, result ? result : PROTO_NONE);
+                    // Tail-call: caller's return value IS the callee's result.
+                    // Don't push to the stack — propagate up via early return.
+                    // Bug-prior to this fix: only the push was suppressed, so
+                    // the OP_return that QuickJS's compiler emits after the
+                    // tail-call read stale stack and produced `undefined`.
+                    if (opcode == OP_tail_call_method)
+                        return result ? result : PROTO_NONE;
+                    stackPush(pContext, result ? result : PROTO_NONE);
                 } else if (funcIsNative) {
                     // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
                     proto::ProtoContext::CriticalSection callCs1(pContext);
@@ -5412,8 +5452,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         t_callException    = nullptr;
                         DISPATCH();
                     }
-                    if (opcode != OP_tail_call_method)
-                        stackPush(pContext, result ? result : PROTO_NONE);
+                    // Tail-call: see comment in the JS-callee branch above.
+                    if (opcode == OP_tail_call_method)
+                        return result ? result : PROTO_NONE;
+                    stackPush(pContext, result ? result : PROTO_NONE);
                 } else {
                     // Check for bound function sentinel (__bound_fn__ attribute).
                     const proto::ProtoString* bfMethKey = JSSymbols::boundFn(pContext);
