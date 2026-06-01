@@ -5171,9 +5171,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_neg: {
-                // Unary minus: -ToNumber(a)
+                // Unary minus: -ToNumber(a).  Same ToNumber rules as
+                // L_OP_plus — pre-numerify null and the boolean
+                // singletons so `-null` becomes -0 (not -NaN).
                 if (_PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (a == PROTO_TRUE) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(-1);
+                    DISPATCH();
+                }
+                if (a == PROTO_FALSE || a == t_nullSentinel) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(-0.0);
+                    DISPATCH();
+                }
                 const proto::ProtoObject* num = toNumber(pContext, toPrimIfObject(a));
                 if (has_pending_exception) DISPATCH();
                 if (!num || num == PROTO_NONE) { pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN()); DISPATCH(); }
@@ -5521,9 +5531,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_plus: {
-                // Unary plus: ToNumber(a)
+                // Unary plus: ToNumber(a).  null→0, true→1, false→0
+                // (ECMA-262 §7.1.4 ToNumber).  Pre-fix the toNumber()
+                // helper returned NaN for the null and boolean
+                // singletons because it didn't recognise them as
+                // primitives, so `+null` → NaN, `+true` → 1, `+false`
+                // → 0 (the boolean cases happened to work via a
+                // different fallback).
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* a = stackTop(pContext); stackPop(pContext);
+                if (a == PROTO_TRUE) { stackPush(pContext, proto::makeSmallInt(1)); DISPATCH(); }
+                if (a == PROTO_FALSE || a == t_nullSentinel) { stackPush(pContext, proto::makeSmallInt(0)); DISPATCH(); }
                 { const proto::ProtoObject* pv = toPrimIfObject(a);
                   if (has_pending_exception) DISPATCH();
                   stackPush(pContext, toNumber(pContext, pv)); }
