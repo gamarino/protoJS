@@ -3598,23 +3598,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                         if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
                     }
-                    // length: spec §15.7.10 — set to declared arg count of
-                    // the constructor function.  Read argCount from the
-                    // resolved bytecode metadata (bfunc.__bytecode_id__).
-                    // Pre-fix OP_fclosure SHOULD set length but the class
-                    // ctor path can arrive without it (or with stale 0
-                    // from some intermediate transformation).
+                    // length: spec §15.7.10 — set to argCount.  The
+                    // OP_fclosure handler already set length to the
+                    // argCount; ensure descriptor bits are right.
                     {
-                        const proto::ProtoString* lenKey = JSSymbols::length(pContext);
-                        long long argCnt = 0;
-                        int bcId = getBytecodeId(pContext, ctor);
-                        if (bcId >= 0 && t_rootModule &&
-                            static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size()) {
-                            argCnt = static_cast<long long>(
-                                t_rootModule->nestedFunctions[bcId].argCount_);
-                        }
-                        if (lenKey)
-                            ctor = ctor->setAttribute(pContext, lenKey, pContext->fromInteger(argCnt));
                         const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_length__");
                         const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                         if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
@@ -5182,24 +5169,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* keyVal    = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* obj2      = stackTop(pContext);
-                if (!obj2 || obj2 == PROTO_NONE) DISPATCH();
-                // Convert key to ProtoString — accepting undefined and
-                // null too so `class C { get [f()](){} }` with f()
-                // returning undefined stores under the string "undefined"
-                // (ToPropertyKey semantics).  Pre-fix any PROTO_NONE key
-                // silently skipped the define.
-                const proto::ProtoString* keyStr2 = nullptr;
-                if (keyVal && keyVal != PROTO_NONE) {
-                    keyStr2 = keyVal->asString(pContext);
-                    if (!keyStr2 && keyVal->isInteger(pContext)) {
-                        long long idx = keyVal->asLong(pContext);
-                        if (idx >= 0)
-                            keyStr2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
-                    }
+                if (!obj2 || obj2 == PROTO_NONE || !keyVal || keyVal == PROTO_NONE) DISPATCH();
+                // Convert key to ProtoString (handles string or numeric keys).
+                const proto::ProtoString* keyStr2 = keyVal->asString(pContext);
+                if (!keyStr2 && keyVal->isInteger(pContext)) {
+                    long long idx = keyVal->asLong(pContext);
+                    if (idx >= 0)
+                        keyStr2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
                 }
                 if (!keyStr2) {
-                    // ToPropertyKey: coerce via ToString (handles undefined→"undefined",
-                    // null→"null", numbers, objects, etc.).
+                    // Object-keyed: coerce via ToPropertyKey (user toString).
                     const proto::ProtoObject* coerced = toString(pContext, keyVal);
                     keyStr2 = coerced ? coerced->asString(pContext) : nullptr;
                 }
