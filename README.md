@@ -390,8 +390,8 @@ For official ECMAScript compliance status and roadmap, see **[TEST262_status.md]
 **Honest baseline — 2026-06-01** (in-process median time, protoJS built
 in pure Release mode against `libprotoCore.so.1.2.0` — same protoCore
 binary as 2026-05-31, no protoCore changes this cycle).  This run lands
-on top of the 2026-05-31 snapshot and reflects four protoJS-only commits
-that closed three correctness bugs and added one perf fast path:
+on top of the 2026-05-31 snapshot and reflects five protoJS-only commits
+that closed four correctness bugs and added one perf fast path:
 
 > **Landed this cycle (2026-06-01)**
 >
@@ -417,12 +417,22 @@ that closed three correctness bugs and added one perf fast path:
 >    had theirs).  `numeric_loop` −20.8%, `json_transform` −11.5%,
 >    `control_flow` −6.4%, `array_literal` −5%; geomean improved
 >    58.84× → 55.88× vs Node before noise smoothing.
->
-> Still unresolved (documented but deferred): `for-of` over arrays
-> and generators produces an incorrect value on the FIRST iteration
-> only (subsequent iterations are correct).  Root cause in
-> `OP_for_of_start`/`OP_for_of_next` stack discipline; out of scope
-> for this protoJS-only cycle.
+> 4. `3dc726b8 fix(interp)` — `for-of` over arrays and generators
+>    produced wrong values on the FIRST iteration AND never terminated
+>    (`for (var v of [10,20,30]) console.log(v)` printed `10,20,30,
+>    undefined,undefined,...` forever).  Root cause: L_OP_for_of_start
+>    writes iterator bookkeeping into absolute automaticLocals slots
+>    starting at `0x10000 + pc` (~65 000).  The first write triggers
+>    `resizeAutomaticLocals(65 567)`, which relocates the std::vector's
+>    storage — but runBytecode caches the slot array pointer in a local
+>    `pAutomaticLocals` at the top of the dispatch loop, which is now
+>    dangling.  Every subsequent opcode that accesses the value stack
+>    via `pAutomaticLocals[...]` reads (or writes!) freed memory; this
+>    causes both the garbage on iteration 1 and the non-termination
+>    (the counter at `baseSlot+1` is read through the stale pointer
+>    and never reflects the updated index).  Fix: invoke
+>    `REFRESH_INTERP_STATE()` after each of the three setSlot blocks
+>    in L_OP_for_of_start (Case A, B, C).
 
 #### Standard In-Process Suite — vs Node.js 22 / V8
 
