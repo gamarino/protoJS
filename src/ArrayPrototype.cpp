@@ -2044,6 +2044,51 @@ static const proto::ProtoObject* arrayFrom(
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     if (!src || src == PROTO_NONE) return result;
 
+    // Optional map function (Array.from(src, mapFn[, thisArg])).
+    const proto::ProtoObject* mapFn = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : nullptr;
+    const proto::ProtoObject* mapThis = (args->getSize(ctx) > 2) ? args->getAt(ctx, 2) : PROTO_NONE;
+    if (mapFn == PROTO_NONE) mapFn = nullptr;
+    auto applyMap = [&](const proto::ProtoObject* v, long long idx) -> const proto::ProtoObject* {
+        if (!mapFn) return v;
+        const proto::ProtoList* margs = ctx->newList();
+        margs = margs->appendLast(ctx, v ? v : PROTO_NONE);
+        margs = margs->appendLast(ctx, ctx->fromInteger(idx));
+        return callJSFunction(ctx, mapFn, mapThis ? mapThis : PROTO_NONE, margs);
+    };
+
+    // First check Symbol.iterator for generators, Sets, Maps, etc.
+    const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+    const proto::ProtoObject* iterFn = symIterKey
+        ? src->getAttribute(ctx, symIterKey, true) : nullptr;
+    if (iterFn && iterFn != PROTO_NONE) {
+        const proto::ProtoList* noArgs = ctx->newList();
+        const proto::ProtoObject* iter = callJSFunction(ctx, iterFn, src, noArgs);
+        if (iter && iter != PROTO_NONE) {
+            const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+            const proto::ProtoString* doneKey = JSSymbols::done(ctx);
+            const proto::ProtoString* valueKey = JSSymbols::value(ctx);
+            const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKey, true);
+            const proto::ProtoList* resultEls = ctx->newList();
+            long long idx = 0;
+            while (nextFn && nextFn != PROTO_NONE) {
+                const proto::ProtoList* nArgs = ctx->newList();
+                const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
+                if (!res || res == PROTO_NONE) break;
+                const proto::ProtoObject* dv = res->getAttribute(ctx, doneKey, false);
+                if (dv == PROTO_TRUE) break;
+                const proto::ProtoObject* vv = res->getAttribute(ctx, valueKey, false);
+                const proto::ProtoObject* mapped = applyMap(vv, idx);
+                resultEls = resultEls->appendLast(ctx, mapped ? mapped : PROTO_NONE);
+                idx++;
+                if (idx > 100000) break; // safety
+            }
+            setArrayElements(ctx, result, resultEls);
+            const proto::ProtoString* lk = JSSymbols::length(ctx);
+            if (lk) result = result->setAttribute(ctx, lk, ctx->fromInteger(idx));
+            return result;
+        }
+    }
+
     // If src has a "length", iterate by index (array-like).
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return result;
@@ -2053,8 +2098,10 @@ static const proto::ProtoObject* arrayFrom(
         unsigned long n = static_cast<unsigned long>(
             lv->isInteger(ctx) ? lv->asLong(ctx)
                                : static_cast<long long>(lv->asDouble(ctx)));
-        for (unsigned long i = 0; i < n; i++)
-            arrSet(ctx, result, i, arrGet(ctx, src, i));
+        for (unsigned long i = 0; i < n; i++) {
+            const proto::ProtoObject* v = arrGet(ctx, src, i);
+            arrSet(ctx, result, i, applyMap(v, static_cast<long long>(i)));
+        }
         result = arrSetLen(ctx, result, n);
         return result;
     }
@@ -2068,7 +2115,9 @@ static const proto::ProtoObject* arrayFrom(
             unsigned long i = 0;
             for (unsigned char c : str) {
                 char buf[2] = {static_cast<char>(c), '\0'};
-                arrSet(ctx, result, i++, ctx->fromUTF8String(buf));
+                const proto::ProtoObject* v = ctx->fromUTF8String(buf);
+                arrSet(ctx, result, i, applyMap(v, static_cast<long long>(i)));
+                i++;
             }
             result = arrSetLen(ctx, result, i);
         }
