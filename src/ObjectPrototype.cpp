@@ -1565,8 +1565,14 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     // Methods are already inherited from space->objectPrototype via getAttribute(key, true).
     // No need to re-register them here — just keep the constructor object clean.
 
-    // Build Object constructor object.
-    const proto::ProtoObject* ctor = ctx->newObject(false);
+    // Build Object constructor object.  Parent: Function.prototype
+    // so that \`Object.apply\`, \`Object.call\`, \`Object.bind\` resolve
+    // via the standard chain walk (same fix as ArrayPrototype).
+    const proto::ProtoObject* ctorParent =
+        (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* ctor = ctorParent
+        ? ctorParent->newChild(ctx, false)
+        : ctx->newObject(false);
     if (!ctor) return;
 
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {

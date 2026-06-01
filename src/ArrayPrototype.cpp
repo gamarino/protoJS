@@ -2301,8 +2301,19 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
 
     // ------------------------------------------------------------------
     // Build the Array constructor object.
+    //
+    // Parent: Function.prototype (space->methodPrototype) so that
+    // \`Array.apply\`, \`Array.call\`, \`Array.bind\` resolve via the
+    // standard chain walk.  Pre-fix the constructor was an orphan
+    // newObject(false) child — every Function.prototype method was
+    // invisible to it.  Number / Boolean / String constructors
+    // already follow this pattern; this fix brings Array in line.
     // ------------------------------------------------------------------
-    const proto::ProtoObject* ctor = ctx->newObject(false);
+    const proto::ProtoObject* ctorParent =
+        (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* ctor = ctorParent
+        ? ctorParent->newChild(ctx, false)
+        : ctx->newObject(false);
 
     const proto::ProtoString* markerKey =
         JSSymbols::arrayCtor(ctx);
