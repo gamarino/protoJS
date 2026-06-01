@@ -259,6 +259,11 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*);
 
+// Forward decl — defined further below; objectCreate / objectSetPrototypeOf
+// both consult/update this thread-local map.
+extern thread_local std::unordered_map<const proto::ProtoObject*,
+                                       const proto::ProtoObject*> t_jsProtoMap;
+
 // ---------------------------------------------------------------------------
 // Object.create(proto[, propertiesObject]) → new object with [[Prototype]]=proto
 // ---------------------------------------------------------------------------
@@ -276,8 +281,13 @@ static const proto::ProtoObject* objectCreate(
     const proto::ProtoObject* result;
 
     if (!protoArg || protoArg == PROTO_NONE || protoArg == getNullSentinel()) {
-        // Object.create(null) → plain object with no prototype
+        // Object.create(null) → plain object with no prototype.
+        // Record the override in t_jsProtoMap so Object.getPrototypeOf
+        // returns null (not the protoCore-default Object.prototype).
+        // The actual newObject still has a C++ parent chain, but the
+        // override takes precedence in getPrototypeOf and instanceof.
         result = ctx->newObject(true);
+        if (result) t_jsProtoMap[result] = getNullSentinel();
     } else {
         // Object.create(proto) → child inheriting from proto
         result = protoArg->newChild(ctx, true);
@@ -339,7 +349,7 @@ static const proto::ProtoObject* objectCreate(
 // the C++ parent pointer; we track the override out-of-band instead.
 // Objects in this map are always reachable (the map itself holds the reference),
 // so the GC will not reclaim them while the override is active.
-static thread_local std::unordered_map<const proto::ProtoObject*,
+thread_local std::unordered_map<const proto::ProtoObject*,
                                        const proto::ProtoObject*> t_jsProtoMap;
 
 // Returns true if obj is a JS primitive (not a plain object or array).
