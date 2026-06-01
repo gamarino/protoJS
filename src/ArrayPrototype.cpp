@@ -1850,8 +1850,15 @@ static const proto::ProtoObject* arrayFlat(
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* d = args->getAt(ctx, 0);
         if (d && d != PROTO_NONE && d->isInteger(ctx)) depth = (int)d->asLong(ctx);
-        else if (d && d != PROTO_NONE && (d->isDouble(ctx) || d->isFloat(ctx)))
-            depth = (int)d->asDouble(ctx);
+        else if (d && d != PROTO_NONE && (d->isDouble(ctx) || d->isFloat(ctx))) {
+            double dv = d->asDouble(ctx);
+            // Spec: Infinity → integer-valued ∞ (in practice INT_MAX).
+            // Casting double Infinity to int is UB and produced 0 in the
+            // protoJS build, so .flat(Infinity) was effectively .flat(0).
+            if (std::isinf(dv) || dv > 2147483647.0) depth = 2147483647;
+            else if (std::isnan(dv)) depth = 0;
+            else depth = static_cast<int>(dv);
+        }
     }
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     unsigned long outIdx = 0;
