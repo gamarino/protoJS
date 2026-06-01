@@ -4945,6 +4945,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // PROTO_TRUE/PROTO_FALSE singletons (pointer constants)
                 // and returned a pointer-order comparison, not a numeric
                 // one — `1 < true` came out as true.
+                // undefined coerces to NaN; comparisons with NaN are always
+                // false (ECMA §7.2.13 step 3.b returns 'undefined' which the
+                // comparison opcodes map to false).
+                auto isUndefForCmp = [&](const proto::ProtoObject* x) {
+                    return !x || x == PROTO_NONE ||
+                           x == getUndefinedSentinel() ||
+                           (x && x->isNone(pContext));
+                };
+                if (isUndefForCmp(a) || isUndefForCmp(b)) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_FALSE;
+                    DISPATCH();
+                }
                 auto numerifyBool = [&](const proto::ProtoObject* x) -> const proto::ProtoObject* {
                     if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
                     if (x == PROTO_FALSE) return proto::makeSmallInt(0);
@@ -4973,6 +4985,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // see L_OP_lt for the boolean-numerify rationale.
+                // undefined comparisons short-circuit to false (NaN rule);
+                // see L_OP_lt for the spec reference.
+                if (!a || a == PROTO_NONE || a == getUndefinedSentinel() ||
+                    (a && a->isNone(pContext)) ||
+                    !b || b == PROTO_NONE || b == getUndefinedSentinel() ||
+                    (b && b->isNone(pContext))) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_FALSE;
+                    DISPATCH();
+                }
                 if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
                 else if (a == t_nullSentinel) a = proto::makeSmallInt(0); // ToNumber(null) = 0
@@ -4998,6 +5019,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // undefined comparisons short-circuit to false (NaN rule);
+                // see L_OP_lt for the spec reference.
+                if (!a || a == PROTO_NONE || a == getUndefinedSentinel() ||
+                    (a && a->isNone(pContext)) ||
+                    !b || b == PROTO_NONE || b == getUndefinedSentinel() ||
+                    (b && b->isNone(pContext))) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_FALSE;
+                    DISPATCH();
+                }
                 if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
                 else if (a == t_nullSentinel) a = proto::makeSmallInt(0); // ToNumber(null) = 0
@@ -5023,6 +5053,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // undefined comparisons short-circuit to false (NaN rule);
+                // see L_OP_lt for the spec reference.
+                if (!a || a == PROTO_NONE || a == getUndefinedSentinel() ||
+                    (a && a->isNone(pContext)) ||
+                    !b || b == PROTO_NONE || b == getUndefinedSentinel() ||
+                    (b && b->isNone(pContext))) {
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_FALSE;
+                    DISPATCH();
+                }
                 if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
                 else if (a == t_nullSentinel) a = proto::makeSmallInt(0); // ToNumber(null) = 0
