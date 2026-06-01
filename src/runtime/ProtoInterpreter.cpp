@@ -6420,6 +6420,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         setSlot(pContext, baseSlot,     iterable);
                         setSlot(pContext, baseSlot + 1, pContext->fromInteger(-1LL)); // sentinel
                         setSlot(pContext, baseSlot + 2, pContext->fromInteger(0LL));  // done flag
+                        // setSlot at baseSlot (≥ 0x10000) forces a massive
+                        // resize of automaticLocals on first hit, invalidating
+                        // the pAutomaticLocals pointer cached at the top of
+                        // runBytecode.  Without refresh, the next opcode reads
+                        // stale freed memory — the for-of body sees garbage
+                        // on the first iteration and the loop never terminates
+                        // (idx checks read stale values).  REFRESH HERE.
+                        REFRESH_INTERP_STATE();
                         const proto::ProtoObject* iterObj = pContext->newObject(false);
                         if (!iterObj) return PROTO_NONE;
                         const proto::ProtoString* slotKey2 = JSSymbols::iterSlot(pContext);
@@ -6454,6 +6462,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     setSlot(pContext, baseSlotC,     iterator);
                     setSlot(pContext, baseSlotC + 1, pContext->fromInteger(-1LL)); // sentinel: next()-based
                     setSlot(pContext, baseSlotC + 2, pContext->fromInteger(0LL));  // done flag
+                    REFRESH_INTERP_STATE(); // setSlot(≥0x10000) resized automaticLocals — see Case A comment.
                     const proto::ProtoObject* iterObjC = pContext->newObject(false);
                     if (!iterObjC) return PROTO_NONE;
                     const proto::ProtoString* slotKeyC = JSSymbols::iterSlot(pContext);
@@ -6473,6 +6482,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     uint32_t baseSlot = 0x10000u + static_cast<uint32_t>(pc - 1);
                     setSlot(pContext, baseSlot,     iterable);
                     setSlot(pContext, baseSlot + 1, pContext->fromInteger(0LL));
+                    REFRESH_INTERP_STATE(); // setSlot(≥0x10000) resized automaticLocals — see Case A comment.
                     // Build a lightweight iterator object carrying the slot base.
                     const proto::ProtoObject* iterObj = pContext->newObject(false);
                     if (iterObj) {
