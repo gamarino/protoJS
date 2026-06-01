@@ -6226,17 +6226,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (is_tail_call) return err;
                             stackPush(pContext, err);
                         } else if (func && func != PROTO_NONE && arrayCtorAttr && func->getAttribute(pContext, arrayCtorAttr, false) == PROTO_TRUE) {
-                            // Array(...) -> new Array(...)
+                            // Array(...) — same semantics as new Array(...).
+                            // ECMA-262 §22.1.1.1: if there's exactly one
+                            // argument and it is a non-negative integer,
+                            // create a sparse array of that length.
+                            // Otherwise, treat each argument as an element.
                             const proto::ProtoList* argsList = pContext->newList();
                             for (uint32_t i = 0; i < argc; i++) argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             const proto::ProtoString* protK = JSSymbols::prototype(pContext);
                             const proto::ProtoObject* prot = func->getAttribute(pContext, protK, false);
                             const proto::ProtoObject* arr = (prot && prot != PROTO_NONE) ? prot->newChild(pContext, true) : pContext->newObject(true);
-                            // Set the internal array marker so Array.isArray identifies it.
                             const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
                             if (isArrKey) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
-                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(argc)));
+                            long long arrLength = static_cast<long long>(argc);
+                            if (argc == 1) {
+                                const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
+                                if (a0 && a0->isInteger(pContext)) {
+                                    long long n = a0->asLong(pContext);
+                                    if (n >= 0 && n <= 0xFFFFFFFFLL) arrLength = n;
+                                    // else fall through to element-mode (n elements would error per spec; we just keep argc)
+                                } else {
+                                    // single non-integer arg: treat as one element.
+                                    const proto::ProtoString* k0 = JSSymbols::indexKey(pContext, 0);
+                                    if (k0) arr = arr->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
+                                }
+                            } else {
+                                for (uint32_t i = 0; i < argc; i++) {
+                                    const proto::ProtoString* ki = JSSymbols::indexKey(pContext, i);
+                                    if (ki) arr = arr->setAttribute(pContext, ki,
+                                        argsList->getAt(pContext, static_cast<int>(i)));
+                                }
+                            }
+                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(arrLength));
                             if (is_tail_call) return arr;
                             stackPush(pContext, arr);
                         } else if (func && func != PROTO_NONE && strCtorAttr && func->getAttribute(pContext, strCtorAttr, false) == PROTO_TRUE) {
