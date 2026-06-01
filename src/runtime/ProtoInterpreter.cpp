@@ -1402,6 +1402,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // restore saved state from thread-locals set by resumeGenerator().
     // -----------------------------------------------------------------------
     int pc = 0;
+    // On a generator resume, OP_yield's spec n_push=2 requires sent-value
+    // and kind to land on the value stack before the body sees its first
+    // post-yield opcode (typically if_false8 inspecting the kind).  The
+    // pushes can't happen inside the resume branch because the InterpFrame
+    // hasn't been pushed yet — currentFrame() returns nullptr and
+    // stackPush is a silent no-op.  Stash here, push after the frame.
+    const proto::ProtoObject* gen_resume_sent_val = PROTO_NONE;
+    long long                 gen_resume_kind     = 0;
+    bool                      gen_resume_active   = false;
     if (t_genResumePc >= 0) {
         pc = t_genResumePc;
         t_genResumePc = -1;
@@ -1439,26 +1448,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             t_genResumeCatchStack = nullptr;
         }
 
-        // Push the sent value onto the stack (becomes the result of the yield expression).
-        const proto::ProtoObject* sentVal = PROTO_NONE;
+        // QuickJS OP_yield has DEF(yield, size=1, n_pop=1, n_push=2, format=none):
+        // on resume the bytecode after OP_yield expects TWO values on the
+        // stack — sent value below, resume kind on top.  QuickJS emits an
+        // `if_false8` immediately after OP_yield to check the resume kind:
+        // pop top → if 0 (next), jump to continue-body; if 1/2 (return /
+        // throw), fall through to dedicated handlers.
+        //
+        // We can't push here yet — currentFrame() returns nullptr because
+        // the InterpFrame for this call has not been pushed (that happens
+        // below, after the if/else).  Stash the values; push them below.
+        //
+        // Resume kind values match QuickJS: 0 = next, 1 = return, 2 = throw.
+        gen_resume_sent_val   = PROTO_NONE;
+        gen_resume_kind       = 0;
+        gen_resume_active     = true;
         if (t_genIterator) {
             const proto::ProtoString* k2 = JSSymbols::genSent(pContext);
             if (k2) {
                 const proto::ProtoObject* sv = t_genIterator->getAttribute(pContext, k2, false);
-                if (sv && sv != PROTO_NONE) sentVal = sv;
+                if (sv && sv != PROTO_NONE) gen_resume_sent_val = sv;
             }
         }
-        stackPush(pContext, sentVal);
 
-        // If mode==2 (throw): override sentVal with the throw value as pending_exception.
+        // mode==2 (throw): override sentVal with the throw value and signal
+        // throw kind.  The post-yield bytecode reads the kind, sees 2, and
+        // re-raises the value as an exception (caller of OP_yield site).
         if (t_genIterator) {
             const proto::ProtoString* k3 = JSSymbols::genThrowVal(pContext);
             if (k3) {
                 const proto::ProtoObject* tv = t_genIterator->getAttribute(pContext, k3, false);
                 if (tv && tv != PROTO_NONE) {
-                    stackPop(pContext);
-                    pending_exception = tv;
-                    has_pending_exception = true;
+                    gen_resume_sent_val = tv;
+                    gen_resume_kind     = 2;
                 }
             }
         }
@@ -1528,7 +1550,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     } _interpFramePopOnExit;
 
-    if (t_genResumePc < 0) {
+    // OP_yield resume: the InterpFrame now exists so stackPush will hit the
+    // correct slots.  Push sent-value first (bottom) then resume kind (top)
+    // so if_false8 pops the kind and dispatches normal/return/throw based
+    // on it; the body then references the sent value below.  Without this
+    // the body saw an empty stack on resume, if_false8 underflowed, and
+    // multi-yield generators returned {done:true} after the first yield.
+
+    // Fresh start only: initialise the value stack and pre-load closure
+    // vars from the global into their dedicated slots.  On a generator
+    // resume both of these have already been restored from the saved
+    // snapshot above (and initStack would clobber the resume push that
+    // happens right after this block).  Previously this branch was
+    // guarded on (t_genResumePc < 0), but the resume path resets
+    // t_genResumePc to -1 at the very top — so the guard was always
+    // true and initStack ran on every resume, blanking the live stack.
+    if (!gen_resume_active) {
         initStack(pContext);
         const proto::ProtoObject* globalObjInit = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : thisObj;
         /* Pre-load closure vars from the global object into their dedicated slots.
@@ -1570,6 +1607,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
     ProtoBytecodeModule* mod = const_cast<ProtoBytecodeModule*>(module);
+
+    // Generator OP_yield resume: push the two values that the post-yield
+    // bytecode expects on the stack (see DEF(yield, 1, 1, 2, none)).  The
+    // sent value sits below and the resume kind on top; QuickJS emits an
+    // `if_false8` right after OP_yield that pops the kind and jumps to
+    // the body-continue label when kind == 0 (next), or falls through to
+    // dedicated return/throw handlers for kind 1/2.  Pre-this-fix the
+    // pushes happened before the InterpFrame existed (silent no-ops) AND
+    // initStack ran on every resume (would have clobbered them anyway);
+    // multi-yield generators returned {done:true} after the first yield.
+    if (gen_resume_active) {
+        stackPush(pContext, gen_resume_sent_val);
+        stackPush(pContext, pContext->fromInteger(gen_resume_kind));
+    }
 
     // Bootstrap the null sentinel. Stored as __js_null_sentinel__ on the global root
     // so the GC can trace it. Cached in t_nullSentinel for O(1) access during execution.
