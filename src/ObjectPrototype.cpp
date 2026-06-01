@@ -1092,27 +1092,42 @@ static const proto::ProtoObject* objectFromEntries(
     const proto::ProtoObject* iterable = args->getAt(ctx, 0);
     if (!iterable || iterable == PROTO_NONE) return result;
 
+    // Iterable element read: prefer __elements__ first (real arrays
+    // and Map.entries() / Set.entries() pair tuples store data there;
+    // pre-fix only checked indexed-attribute keys and silently produced
+    // {} for both [[k,v],...] arrays AND Map iterables).
+    auto readEl = [&](const proto::ProtoObject* arr, long long i) -> const proto::ProtoObject* {
+        if (!arr || arr == PROTO_NONE) return PROTO_NONE;
+        const proto::ProtoObject* v =
+            arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
+        if (v) return v;
+        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        v = ik ? arr->getAttribute(ctx, ik, false) : nullptr;
+        return v ? v : PROTO_NONE;
+    };
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return result;
     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKey, false);
-    long long len = 0;
+    long long len = -1;
     if (lenObj && lenObj != PROTO_NONE) {
         if (lenObj->isInteger(ctx)) len = lenObj->asLong(ctx);
         else if (lenObj->isDouble(ctx)) len = static_cast<long long>(lenObj->asDouble(ctx));
     }
-
-    const proto::ProtoString* k0Key = JSSymbols::indexKey(ctx, 0);
-    const proto::ProtoString* k1Key = JSSymbols::indexKey(ctx, 1);
+    if (len < 0) {
+        // Iterable lacks .length but may still have __elements__ (some
+        // intermediate producers — and the Map-iterable case once we
+        // upgrade fromEntries — only populate elements).
+        const proto::ProtoList* els = getArrayElements(ctx, iterable);
+        if (els) len = static_cast<long long>(els->getSize(ctx));
+        else len = 0;
+    }
 
     for (long long i = 0; i < len; i++) {
-        const proto::ProtoString* idxKey =
-            JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-        if (!idxKey) continue;
-        const proto::ProtoObject* pair = iterable->getAttribute(ctx, idxKey, false);
+        const proto::ProtoObject* pair = readEl(iterable, i);
         if (!pair || pair == PROTO_NONE) continue;
 
-        const proto::ProtoObject* keyObj = k0Key ? pair->getAttribute(ctx, k0Key, false) : nullptr;
-        const proto::ProtoObject* valObj = k1Key ? pair->getAttribute(ctx, k1Key, false) : PROTO_NONE;
+        const proto::ProtoObject* keyObj = readEl(pair, 0);
+        const proto::ProtoObject* valObj = readEl(pair, 1);
         if (!valObj) valObj = PROTO_NONE;
 
         if (!keyObj || keyObj == PROTO_NONE) continue;
