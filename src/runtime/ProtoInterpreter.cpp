@@ -862,8 +862,22 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         if (std::isnan(v)) return context->fromUTF8String("NaN");
         if (std::isinf(v)) return context->fromUTF8String(v > 0 ? "Infinity" : "-Infinity");
         char buf[64];
-        // Use %.15g for shortest representation that preserves value (JS semantics).
-        snprintf(buf, sizeof(buf), "%.15g", v);
+        // Spec §7.1.12.1 ToString(Number): when the value is an
+        // integer in safe-integer range and fits in long long, format
+        // as a plain integer literal — both for spec faithfulness and
+        // to avoid losing the last digit to %.15g rounding (`%.15g
+        // 9007199254740991` prints `9.00719925474099e+15`, dropping
+        // the trailing `1`).  Otherwise fall back to %.17g — the
+        // shortest representation that round-trips for IEEE-754
+        // doubles per the ECMA-262 ToString algorithm.
+        if (v == std::trunc(v) && std::abs(v) < 1e21) {
+            long long iv = static_cast<long long>(v);
+            if (static_cast<double>(iv) == v) {
+                const std::string tmp = std::to_string(iv);
+                return context->fromUTF8String(tmp.c_str());
+            }
+        }
+        snprintf(buf, sizeof(buf), "%.17g", v);
         return context->fromUTF8String(buf);
     }
 
