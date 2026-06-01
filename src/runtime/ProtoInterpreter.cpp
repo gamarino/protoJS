@@ -5136,11 +5136,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_is_undefined_or_null: {
-                // Pops one value; pushes true if it is undefined (PROTO_NONE) or null (t_nullSentinel).
+                // Pops one value; pushes true if it is undefined or null.
                 // Used by the ?? operator and ?. optional chaining.
+                // Both undefined representations (PROTO_NONE and heap
+                // sentinel) plus the null sentinel must qualify — see
+                // L_OP_is_undefined for the two-representation rationale.
                 if (_PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* val = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((!val || val == PROTO_NONE || val == t_nullSentinel) ? PROTO_TRUE : PROTO_FALSE);
+                bool nullish = (!val || val == PROTO_NONE || val == t_nullSentinel ||
+                                val == getUndefinedSentinel() ||
+                                (val && val->isNone(pContext)));
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = (nullish ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_nop: ;
