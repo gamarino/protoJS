@@ -7313,8 +7313,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         : pContext->newObject(true);
                     fnInst = fnInst->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId8)));
-                    fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext),
-                        pContext->newObject(true));
+                    // fn.prototype inherits Object.prototype (see L_OP_fclosure for rationale).
+                    const proto::ProtoObject* objProtoFc8 =
+                        (pContext->space && pContext->space->objectPrototype)
+                            ? pContext->space->objectPrototype : nullptr;
+                    const proto::ProtoObject* fnDefProto8 = objProtoFc8
+                        ? objProtoFc8->newChild(pContext, true)
+                        : pContext->newObject(true);
+                    fnInst = fnInst->setAttribute(pContext, JSSymbols::prototype(pContext), fnDefProto8);
                     // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
                     // bits: 0x1=writable, 0x2=configurable, 0x4=enumerable → 0x1 only.
                     {
@@ -7422,8 +7428,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         : pContext->newObject(true);
                     fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::bytecodeId(pContext),
                         pContext->fromInteger(static_cast<long long>(fnBcId2)));
-                    fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext),
-                        pContext->newObject(true));
+                    // fn.prototype must inherit Object.prototype so instances
+                    // produced by `new f()` carry hasOwnProperty/toString/etc.
+                    // Pre-fix the default prototype was a raw newObject(true)
+                    // with no parent, so `new F().hasOwnProperty(...)` threw.
+                    const proto::ProtoObject* objProtoFc =
+                        (pContext->space && pContext->space->objectPrototype)
+                            ? pContext->space->objectPrototype : nullptr;
+                    const proto::ProtoObject* fnDefProto = objProtoFc
+                        ? objProtoFc->newChild(pContext, true)
+                        : pContext->newObject(true);
+                    fnInst2 = fnInst2->setAttribute(pContext, JSSymbols::prototype(pContext), fnDefProto);
                     // Spec: fn.prototype is {writable:true, enumerable:false, configurable:false}
                     {
                         const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext);
