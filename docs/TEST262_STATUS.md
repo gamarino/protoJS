@@ -167,6 +167,71 @@ result: the cycle 5 final numbers (61.39 %) stand.  Full class
 implementation is filed as the dominant next-step gap — its
 investigation produced the precise list of subsystems needed below.
 
+## Class Implementation — third pass: super-call / init_ctor / descriptors
+
+A third attempt landed substantial class machinery and was again
+reverted (commits ab110e6d / 70995aa4 / c73391f5 / and four others
+revert the additional pieces).  What worked correctly when classes
+were enabled:
+
+  - `OP_define_class` sets `__class_parent__` on derived ctors, marks
+    `__is_constructor__`, applies spec-mandated descriptors:
+        name      = 0x2 (writable false, enumerable false, configurable true)
+        length    = 0x2 (same; value read from bytecode metadata argCount)
+        prototype = 0x0 (writable false, enumerable false, configurable false)
+        proto.constructor = 0x3 (writable true, enumerable false, configurable true)
+  - `OP_get_super` reads `__class_parent__` first, falls back to
+    getPrototype.  Three-level chain (A→B→C) returns "ABC".
+  - `OP_init_ctor` properly forwards `t_activeArgs` to the parent
+    constructor.  Default derived ctors (`class B extends A {}`)
+    receive the original `new B(0,1,2)` args via `arguments.length`.
+  - newObj inherits NEW_TARGET.prototype (not parent.prototype) so
+    `new C() instanceof C` is true even through deep `super()` chains.
+  - `OP_define_method` writes `__home_object__` AND `__pd_<name>__` =
+    0x3 (methods) / 0x2 (accessors), making class methods
+    non-enumerable per spec.
+  - `OP_define_method_computed` accepts undefined as a key
+    (coerces to "undefined"), so `get [f()]() {}` with f() returning
+    undefined works.
+  - thread-locals `t_activeFunc`, `t_activeNewTgt`, `t_activeArgs`
+    published at every runBytecode entry point with RAII restore.
+
+Test results: 200-test sample of non-async non-forbidden class tests
+went from 79/200 (39 %) initially to 127/300 (42 %) after the third
+pass.  Bytecode-level mechanics work for super(), super.method,
+default derived ctors, instanceof chain, ctor.name / .length,
+descriptors.
+
+What still doesn't work — the blocker for net-positive class
+implementation:
+
+  - **Instance field initializers** (`class A { x = 42; }`): QuickJS
+    compiles these into a separate `fields_init_fd` closure stored in
+    cpool, then `class_fields_init` local var stores it, and the
+    constructor body emits `OP_scope_get_var class_fields_init` +
+    `OP_call_method 0` to invoke it on `this`.  In protoJS the
+    OP_fclosure + OP_set_home_object + OP_scope_put_var_init chain
+    runs but `class_fields_init` reads back as undefined inside the
+    constructor.  Investigation suggests the closure-capture analysis
+    in protoJS's QuickJS bytecode-export phase doesn't include
+    class_fields_init in the constructor's nestedFunctions closure
+    var list, so the OP_get_var_ref lookup misses it.  Fixing this
+    requires diving into the bytecode-export closure analysis — out
+    of scope for this cycle.
+  - **Static field initializers** (`class A { static x = 42; }`): same
+    mechanism.
+  - **Brand checks on private fields** — minimally skipped; tests
+    that verify the brand TypeError fail.
+  - **Async methods / generators / `for-await-of`**: ~60 of the 200
+    "is not a function" failures are blocked on async/generator method
+    support inside class bodies.
+
+Full test262 with the third-pass class impl: 23 422 / 46 963 (49.9 %)
+vs 28 830 / 46 963 (61.4 %) baseline = −5 408.  The class tests now
+ACTUALLY RUN, but most fail on instance-field assertions and async
+patterns.  The honest engineering call is to revert again until
+instance fields can land in the same patch.
+
 ## Next Steps
 
 1. **ES6 classes — complete implementation**.  The investigation above
