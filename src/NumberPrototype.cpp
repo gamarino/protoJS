@@ -2,6 +2,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
+#include "TypeBridge.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cmath>
@@ -421,7 +422,14 @@ static const proto::ProtoObject* numberConstruct(
     double val = 0.0;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
-        if (a && a != PROTO_NONE) {
+        // Number(undefined) → NaN per ECMA-262 §7.1.4.  Pre-fix this
+        // branch silently kept val=0 for explicit-undefined input.
+        // protojs has two undefined representations: PROTO_NONE and
+        // t_undefinedSentinel — match both.
+        if (!a || a == PROTO_NONE || a == protojs::getUndefinedSentinel()
+            || a->isNone(ctx)) {
+            val = std::numeric_limits<double>::quiet_NaN();
+        } else if (a && a != PROTO_NONE) {
             if (a->isInteger(ctx)) val = static_cast<double>(a->asLong(ctx));
             else if (a->isDouble(ctx) || a->isFloat(ctx)) val = a->asDouble(ctx);
             else if (a->isBoolean(ctx)) val = (a == PROTO_TRUE) ? 1.0 : 0.0;
