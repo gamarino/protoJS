@@ -329,6 +329,11 @@ thread_local const proto::ProtoObject** t_currentGlobalRoot = nullptr;
 // All function objects carry bytecode IDs that are indices into the root module's nestedFunctions.
 // Nested invocations (inner functions) must look up bytecode IDs in the root module, not their own.
 thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
+// The currently-executing function object (set on entry to a function body),
+// used by OP_special_object kind=THIS_FUNC and kind=NEW_TARGET so super(...)
+// in derived class ctors can resolve `this_active_func`.
+thread_local const proto::ProtoObject* t_activeFunc   = nullptr;
+thread_local const proto::ProtoObject* t_activeNewTgt = nullptr;
 // The JS null sentinel: a stable ProtoObject* representing null.
 // PROTO_NONE continues to represent undefined/absence.
 
@@ -3061,8 +3066,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             argsObj = argsObj->setAttribute(pContext, tagKey, pContext->fromUTF8String("Arguments"));
                     }
                     stackPush(pContext, argsObj ? argsObj : PROTO_NONE);
+                } else if (soKind == 2) {
+                    // THIS_FUNC: the currently-running function object.
+                    // Populated by OP_call_constructor / OP_call_method
+                    // when entering a class/function body.
+                    stackPush(pContext, t_activeFunc ? t_activeFunc : PROTO_NONE);
+                } else if (soKind == 3) {
+                    // NEW_TARGET: the original `new`'s function reference.
+                    stackPush(pContext, t_activeNewTgt ? t_activeNewTgt : PROTO_NONE);
+                } else if (soKind == 4) {
+                    // HOME_OBJECT: stored on the method by OP_set_home_object
+                    // during class body construction.
+                    const proto::ProtoObject* home = PROTO_NONE;
+                    if (t_activeFunc && t_activeFunc != PROTO_NONE) {
+                        const proto::ProtoObject* hoKo = pContext->fromUTF8String("__home_object__");
+                        const proto::ProtoString* hoK = hoKo ? hoKo->asString(pContext) : nullptr;
+                        if (hoK) {
+                            const proto::ProtoObject* h = t_activeFunc->getAttribute(pContext, hoK, false);
+                            if (h && h != PROTO_NONE) home = h;
+                        }
+                    }
+                    stackPush(pContext, home);
                 } else {
-                    // kind 2 = THIS_FUNC, kind 3 = NEW_TARGET — not yet implemented.
+                    // kinds 5 (VAR_OBJECT), 6 (IMPORT_META) — undefined.
                     stackPush(pContext, PROTO_NONE);
                 }
                 DISPATCH();
@@ -3224,8 +3250,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // DEF(set_home_object, 1, 0, 0, none)
                 // Attach the home object (sp[-2]) to the method (sp[-1])
                 // so that super.X resolves via the home-object's prototype
-                // chain.  Net-zero stack effect.  Minimal impl: record the
-                // home object on the method under __home_object__.
+                // chain.  Net-zero stack effect.  Records __home_object__
+                // on the method; the value is read by OP_special_object
+                // kind=HOME_OBJECT at the start of the method body.
                 if (stackSize(pContext) >= 2) {
                     const proto::ProtoObject* method = stackAt(pContext, 0);
                     const proto::ProtoObject* home   = stackAt(pContext, 1);
@@ -3234,10 +3261,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* hoKey = hoKo ? hoKo->asString(pContext) : nullptr;
                         if (hoKey) {
                             const proto::ProtoObject* newMethod = method->setAttribute(pContext, hoKey, home);
-                            if (newMethod && newMethod != method) {
-                                // Replace TOS with newMethod (in-place rewrite).
-                                pAutomaticLocals[currentStackBase + _PF().stackTop - 1] = newMethod;
-                            }
+                            // Always update TOS — setAttribute may produce a
+                            // new snapshot pointer that the rest of the
+                            // pipeline (OP_define_method) must use.
+                            pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
+                                newMethod ? newMethod : method;
+                            updateMapping(pContext, method, newMethod ? newMethod : method);
                         }
                     }
                 }
@@ -3246,18 +3275,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_get_super: {
                 // DEF(get_super, 1, 1, 1, none)
                 // Stack [..., obj] → [..., obj.prototype]
-                // For super.X access: walks one level up the prototype
-                // chain (the home object's parent).  Pre-fix dot/bracket
-                // access then resolves on the parent, which is what
-                // `super.foo()` needs.  This is a partial implementation
-                // — call-site `this` rebinding isn't perfect for chains
-                // deeper than one level.
+                //
+                // Two use cases:
+                //   super.foo() — TOS is the method's home_object (e.g.
+                //   B.prototype).  Return TOS.[[Prototype]] (= A.prototype).
+                //
+                //   super(...args) — TOS is this_active_func (B's ctor).
+                //   Return the parent CLASS (A's ctor), which is stored
+                //   on the ctor under __class_parent__ by OP_define_class.
+                //   Falling back to TOS.getPrototype() returns
+                //   Function.prototype which is not a constructor, hence
+                //   the "function is not a constructor" error.
                 if (stackEmpty(pContext)) DISPATCH();
                 const proto::ProtoObject* topObj = stackTop(pContext);
                 stackPop(pContext);
                 const proto::ProtoObject* parent = nullptr;
-                if (topObj && topObj != PROTO_NONE)
-                    parent = topObj->getPrototype(pContext);
+                if (topObj && topObj != PROTO_NONE) {
+                    // Class-ctor case: check __class_parent__ first.
+                    const proto::ProtoObject* cpo = pContext->fromUTF8String("__class_parent__");
+                    const proto::ProtoString* cpk = cpo ? cpo->asString(pContext) : nullptr;
+                    if (cpk) {
+                        const proto::ProtoObject* cp = topObj->getAttribute(pContext, cpk, false);
+                        if (cp && cp != PROTO_NONE) parent = cp;
+                    }
+                    if (!parent) parent = topObj->getPrototype(pContext);
+                }
                 stackPush(pContext, parent ? parent : PROTO_NONE);
                 DISPATCH();
             }
@@ -3425,7 +3467,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     : pContext->newObject(true);
 
                 // bfunc IS the ctor (already a closure).  Install
-                // .prototype, .name, constructor-bit equivalent.
+                // .prototype, .name, and (for derived classes) a
+                // __class_parent__ marker pointing at the parent class
+                // so OP_get_super on the ctor resolves to the parent.
                 const proto::ProtoObject* ctor = bfunc;
                 if (ctor && ctor != PROTO_NONE && proto && proto != PROTO_NONE) {
                     const proto::ProtoString* pkey = JSSymbols::prototype(pContext);
@@ -3433,6 +3477,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                     const proto::ProtoString* ckey = JSSymbols::constructor(pContext);
                     if (ckey) proto = proto->setAttribute(pContext, ckey, ctor);
+
+                    // Mark as a constructor so OP_call_constructor accepts it.
+                    const proto::ProtoString* isCtorKey =
+                        pContext->fromUTF8String("__is_constructor__")
+                            ? pContext->fromUTF8String("__is_constructor__")->asString(pContext)
+                            : nullptr;
+                    if (isCtorKey) ctor = ctor->setAttribute(pContext, isCtorKey, PROTO_TRUE);
+
+                    // For derived classes, store the parent class on the ctor
+                    // under __class_parent__.  OP_get_super reads this when
+                    // the receiver is a class constructor — needed for
+                    // super(...args) and OP_init_ctor dispatch in derived
+                    // ctor bodies.
+                    if (hasHeritage && parentClass && parentClass != PROTO_NONE) {
+                        const proto::ProtoObject* cpo = pContext->fromUTF8String("__class_parent__");
+                        const proto::ProtoString* cpk = cpo ? cpo->asString(pContext) : nullptr;
+                        if (cpk) ctor = ctor->setAttribute(pContext, cpk, parentClass);
+                    }
 
                     // class name: when computed, sp[-3] is the name; when
                     // atom-named, resolve via constant table.
@@ -4979,6 +5041,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoObject* stripped =
                                 methodVal->setAttribute(pContext, protoKeyDel, nullptr);
                             if (stripped) methodVal = stripped;
+                        }
+                    }
+                    // Spec js_method_set_home_object: also attach the
+                    // target object (obj3) as the method's home_object so
+                    // super.X dispatch inside the method body can walk to
+                    // the parent prototype.  See QuickJS
+                    // js_method_set_properties() — invoked unconditionally
+                    // by OP_define_method.
+                    if (methodVal && methodVal != PROTO_NONE && obj3 && obj3 != PROTO_NONE) {
+                        const proto::ProtoObject* hoKo = pContext->fromUTF8String("__home_object__");
+                        const proto::ProtoString* hoK = hoKo ? hoKo->asString(pContext) : nullptr;
+                        if (hoK) {
+                            const proto::ProtoObject* mWithHome = methodVal->setAttribute(pContext, hoK, obj3);
+                            if (mWithHome) methodVal = mWithHome;
                         }
                     }
                     const proto::ProtoObject* newObj3 =
@@ -6741,9 +6817,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
+                    // Active func for OP_special_object inside method body.
+                    const proto::ProtoObject* prevActiveM = t_activeFunc;
+                    const proto::ProtoObject* prevTgtM    = t_activeNewTgt;
+                    t_activeFunc = func;
+                    t_activeNewTgt = nullptr;
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot, &childEx);
+                    t_activeFunc = prevActiveM;
+                    t_activeNewTgt = prevTgtM;
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
@@ -6751,9 +6834,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     // Tail-call: caller's return value IS the callee's result.
                     // Don't push to the stack — propagate up via early return.
-                    // Bug-prior to this fix: only the push was suppressed, so
-                    // the OP_return that QuickJS's compiler emits after the
-                    // tail-call read stale stack and produced `undefined`.
                     if (opcode == OP_tail_call_method)
                         return result ? result : PROTO_NONE;
                     stackPush(pContext, result ? result : PROTO_NONE);
@@ -6928,7 +7008,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         newObj = newObj->setAttribute(pContext, cKey, func);
                         setNWCDescriptor(pContext, newObj, "constructor");
                     }
-                    
+
+                    // Publish func + newTarget for OP_special_object kind
+                    // THIS_FUNC / NEW_TARGET inside the constructor body.
+                    // RAII restore on exit / exception.
+                    const proto::ProtoObject* prevActive  = t_activeFunc;
+                    const proto::ProtoObject* prevNewTgt2 = t_activeNewTgt;
+                    t_activeFunc   = func;
+                    t_activeNewTgt = (newTarget && newTarget != PROTO_NONE) ? newTarget : func;
+                    struct AfRestore {
+                        const proto::ProtoObject* pa;
+                        const proto::ProtoObject* pn;
+                        ~AfRestore() { t_activeFunc = pa; t_activeNewTgt = pn; }
+                    } _afRestore{prevActive, prevNewTgt2};
+
                     const auto& nf = *resolved;
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
                     childCtx.currentFileName = pContext->currentFileName;
@@ -7184,9 +7277,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
+                    // Publish active func for OP_special_object inside body.
+                    const proto::ProtoObject* prevActiveC = t_activeFunc;
+                    const proto::ProtoObject* prevTgtC    = t_activeNewTgt;
+                    t_activeFunc = func;
+                    // No `new` — new_target is undefined for regular calls.
+                    t_activeNewTgt = nullptr;
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot, &childEx);
+                    t_activeFunc = prevActiveC;
+                    t_activeNewTgt = prevTgtC;
                     REFRESH_INTERP_STATE();
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
@@ -9190,8 +9291,15 @@ const proto::ProtoObject* callJSFunction(
         if (debugBindEnabled()) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
         }
+        // Publish active func for OP_special_object kind=THIS_FUNC / kind=HOME_OBJECT.
+        const proto::ProtoObject* prevActiveK = t_activeFunc;
+        const proto::ProtoObject* prevTgtK    = t_activeNewTgt;
+        t_activeFunc = fn;
+        t_activeNewTgt = nullptr;
         const proto::ProtoObject* result =
             runBytecode(&childCtx, &nf, effectiveThis, args, globalRoot, &childEx);
+        t_activeFunc = prevActiveK;
+        t_activeNewTgt = prevTgtK;
         childCtx.returnValue = result;
         // Propagate exceptions from JS callbacks via thread-local so that
         // iterator-related call sites inside runBytecode can set pending_exception.
