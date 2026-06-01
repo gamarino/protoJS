@@ -5808,10 +5808,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
+                // Read __bytecode_id__ once.  If >= 0, func is a JS closure
+                // and CARRIES its identity by construction — skip the
+                // __native_fn__ unwrap (which would always return nullptr
+                // for a JS closure).  protoCore's per-thread attribute
+                // cache makes this getBytecodeId call ~cache-hit on every
+                // call after the first to the same closure.
                 int bcId = getBytecodeId(pContext, func);
 
-                // 1. Unwrap native function wrapper (__native_fn__).
-                {
+                // 1. Unwrap native function wrapper (__native_fn__) — only
+                //    for non-JS receivers (no __bytecode_id__).  Wrapper
+                //    objects (e.g. installNonEnumerableMethod-built array
+                //    methods) carry __native_fn__ but no __bytecode_id__,
+                //    so this branch covers them.
+                if (bcId < 0) {
                     const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(pContext);
                     if (nfKey2 && func && func != PROTO_NONE && !func->isMethod(pContext)) {
                         const proto::ProtoObject* rawMethod2 = func->getAttribute(pContext, nfKey2, false);
@@ -5820,8 +5830,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                // 2. Dispatch.
-                bcId = getBytecodeId(pContext, func);
+                // 2. Dispatch.  If the unwrap above replaced func, we need
+                //    a fresh bcId on the new func (which would be a raw
+                //    method with no __bytecode_id__, so this returns -1
+                //    and we fall through to the native-method branch).
+                if (bcId < 0) bcId = getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolvedModule = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
                     resolvedModule = &module->nestedFunctions[bcId];
