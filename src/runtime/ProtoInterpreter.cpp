@@ -4920,9 +4920,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // PROTO_TRUE/PROTO_FALSE singletons (pointer constants)
                 // and returned a pointer-order comparison, not a numeric
                 // one — `1 < true` came out as true.
-                auto numerifyBool = [](const proto::ProtoObject* x) -> const proto::ProtoObject* {
+                auto numerifyBool = [&](const proto::ProtoObject* x) -> const proto::ProtoObject* {
                     if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
                     if (x == PROTO_FALSE) return proto::makeSmallInt(0);
+                    if (x == t_nullSentinel) return proto::makeSmallInt(0); // ToNumber(null) = 0
                     return x;
                 };
                 a = numerifyBool(a);
@@ -4949,8 +4950,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // see L_OP_lt for the boolean-numerify rationale.
                 if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
+                else if (a == t_nullSentinel) a = proto::makeSmallInt(0); // ToNumber(null) = 0
                 if (b == PROTO_TRUE) b = proto::makeSmallInt(1);
                 else if (b == PROTO_FALSE) b = proto::makeSmallInt(0);
+                else if (b == t_nullSentinel) b = proto::makeSmallInt(0); // ToNumber(null) = 0
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) <= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
@@ -4972,8 +4975,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
+                else if (a == t_nullSentinel) a = proto::makeSmallInt(0); // ToNumber(null) = 0
                 if (b == PROTO_TRUE) b = proto::makeSmallInt(1);
                 else if (b == PROTO_FALSE) b = proto::makeSmallInt(0);
+                else if (b == t_nullSentinel) b = proto::makeSmallInt(0); // ToNumber(null) = 0
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) > proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
@@ -4995,8 +5000,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
+                else if (a == t_nullSentinel) a = proto::makeSmallInt(0); // ToNumber(null) = 0
                 if (b == PROTO_TRUE) b = proto::makeSmallInt(1);
                 else if (b == PROTO_FALSE) b = proto::makeSmallInt(0);
+                else if (b == t_nullSentinel) b = proto::makeSmallInt(0); // ToNumber(null) = 0
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) >= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
