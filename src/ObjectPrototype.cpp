@@ -234,6 +234,30 @@ static const proto::ProtoObject* objectAssign(
     for (int si = 1; si < argc; si++) {
         const proto::ProtoObject* src = args->getAt(ctx, si);
         if (!src || src == PROTO_NONE) continue;
+        // If src is an array, copy __elements__ first so that
+        // numeric-index iteration sees the data.
+        const proto::ProtoList* srcEls = getArrayElements(ctx, src);
+        if (srcEls) {
+            const proto::ProtoList* tgtEls = getArrayElements(ctx, target);
+            if (!tgtEls) tgtEls = ctx->newList();
+            size_t srcSz = srcEls->getSize(ctx);
+            size_t tgtSz = tgtEls->getSize(ctx);
+            for (size_t i = 0; i < srcSz; ++i) {
+                const proto::ProtoObject* v = srcEls->getAt(ctx, static_cast<int>(i));
+                if (i < tgtSz) tgtEls = tgtEls->setAt(ctx, static_cast<int>(i), v);
+                else           tgtEls = tgtEls->appendLast(ctx, v);
+            }
+            protojs::setArrayElements(ctx, target, tgtEls);
+            // length: target.length = max(target.length, srcSz)
+            const proto::ProtoString* lk = JSSymbols::length(ctx);
+            if (lk) {
+                long long curLen = 0;
+                const proto::ProtoObject* lv = target->getAttribute(ctx, lk, false);
+                if (lv && lv != PROTO_NONE && lv->isInteger(ctx)) curLen = lv->asLong(ctx);
+                if (static_cast<long long>(srcSz) > curLen)
+                    target = target->setAttribute(ctx, lk, ctx->fromInteger(static_cast<long long>(srcSz)));
+            }
+        }
         const proto::ProtoSparseList* own = src->getOwnAttributes(ctx);
         if (!own) continue;
         const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
