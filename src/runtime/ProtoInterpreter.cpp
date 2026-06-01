@@ -4235,23 +4235,37 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     apDone = true;
                 } else {
                     // Case B: general iterable — call Symbol.iterator, loop next().
+                    // If the value has no Symbol.iterator but already exposes
+                    // .next, treat it as an already-built iterator (Set/Map
+                    // entries(), values(), keys() return iterator objects
+                    // that may lack Symbol.iterator).
                     const proto::ProtoString* apSymIterKey = JSSymbols::symbolIterator(pContext);
                     const proto::ProtoObject* apIterFn = apSymIterKey
-                        ? apIterable->getAttribute(pContext, apSymIterKey, false) : PROTO_NONE;
+                        ? apIterable->getAttribute(pContext, apSymIterKey, true) : PROTO_NONE;
+                    const proto::ProtoObject* apIter = PROTO_NONE;
                     if (apIterFn && apIterFn != PROTO_NONE) {
                         const proto::ProtoList* emptyA = pContext->newList();
-                        const proto::ProtoObject* apIter = callJSFunction(pContext, apIterFn, apIterable, emptyA);
+                        apIter = callJSFunction(pContext, apIterFn, apIterable, emptyA);
                         if (t_hasCallException) {
                             pending_exception  = t_callException;
                             has_pending_exception = true;
                             t_hasCallException = false;
                             t_callException    = nullptr;
                             apError = true;
-                        } else if (apIter && apIter != PROTO_NONE) {
+                        }
+                    } else {
+                        const proto::ProtoString* probeNextKey = JSSymbols::next(pContext);
+                        const proto::ProtoObject* probeNext = probeNextKey
+                            ? apIterable->getAttribute(pContext, probeNextKey, true) : PROTO_NONE;
+                        if (probeNext && probeNext != PROTO_NONE)
+                            apIter = apIterable;
+                    }
+                    if (!apError && apIter && apIter != PROTO_NONE) {
+                        {
                             // Get the .next method.
                             const proto::ProtoString* apNextKey = JSSymbols::next(pContext);
                             const proto::ProtoObject* apNextFn = apNextKey
-                                ? apIter->getAttribute(pContext, apNextKey, false) : PROTO_NONE;
+                                ? apIter->getAttribute(pContext, apNextKey, true) : PROTO_NONE;
                             // Loop: call next() until done.
                             const proto::ProtoString* apDoneKey  = JSSymbols::done(pContext);
                             const proto::ProtoString* apValKey   = JSSymbols::value(pContext);
