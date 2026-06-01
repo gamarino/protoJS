@@ -53,7 +53,22 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const double d = val->asDouble(ctx);
         if (std::isnan(d))      out << "NaN";
         else if (std::isinf(d)) out << (d < 0 ? "-Infinity" : "Infinity");
-        else                    out << d;
+        else {
+            // Match JS ToString(Number) — drop trailing zeros, use up to
+            // 17 significant digits for round-trip safety.  Integer-valued
+            // doubles in safe-int range print as plain integers.
+            char buf[64];
+            if (d == std::trunc(d) && std::abs(d) < 1e21) {
+                long long iv = static_cast<long long>(d);
+                if (static_cast<double>(iv) == d) {
+                    snprintf(buf, sizeof(buf), "%lld", iv);
+                    out << buf;
+                    return;
+                }
+            }
+            snprintf(buf, sizeof(buf), "%.17g", d);
+            out << buf;
+        }
         return;
     }
     // Real arrays: print [v1, v2, ...]
