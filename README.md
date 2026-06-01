@@ -387,7 +387,112 @@ For official ECMAScript compliance status and roadmap, see **[TEST262_status.md]
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-05-31** (in-process median time, protoJS built in
+**Honest baseline — 2026-06-01** (in-process median time, protoJS built
+in pure Release mode against `libprotoCore.so.1.2.0` — same protoCore
+binary as 2026-05-31, no protoCore changes this cycle).  This run lands
+on top of the 2026-05-31 snapshot and reflects four protoJS-only commits
+that closed three correctness bugs and added one perf fast path:
+
+> **Landed this cycle (2026-06-01)**
+>
+> 1. `b09373ea perf(interp)` — skip `pContext->newList()` for argc==0
+>    native calls (`s.trim()`, `s.toString()`, etc.); collapse `OP_call`'s
+>    `newList()+appendLast` loop into the single-allocation
+>    `newList(argc, slice)` form.  Standard suite gain: `function_calls`
+>    **−33.7%**, `numeric_loop` −25.6%, `array_literal` −19%, eight more
+>    benches in the −8% to −28% range; geomean vs Node held steady at
+>    ~58× because the slowest string benches (still bottlenecked in
+>    protoCore-side rope construction) dominate the geomean math.
+> 2. `ac3f225d fix(interp)` — sync generator `return` was wrapping the
+>    value in `Promise.resolve()` instead of `{value, done:true}`.
+>    Root cause: QuickJS emits `OP_return_async` for both async-function
+>    AND sync-generator bodies; protoJS's handler unconditionally wrapped
+>    in Promise.  Fix gates the Promise wrap on `isAsync && !isGenerator`.
+>    `function* g(){return 99;}.next().value` now returns `99` (was a
+>    Promise-like `{then,catch,finally}`).  Plus two stray debug printfs
+>    (`FOR_OF_NEXT`, `L_OP_for_in_start`) that survived prior cleanup.
+> 3. `b0b6f692 perf(interp)` — SmallInt fast path for `OP_add_loc` (the
+>    only add-class opcode without one; `OP_add`, `OP_sub`, `OP_mul`,
+>    `OP_mod`, `OP_inc/dec`, `OP_inc_loc/dec_loc`, `OP_lt/lte/gt/gte` all
+>    had theirs).  `numeric_loop` −20.8%, `json_transform` −11.5%,
+>    `control_flow` −6.4%, `array_literal` −5%; geomean improved
+>    58.84× → 55.88× vs Node before noise smoothing.
+>
+> Still unresolved (documented but deferred): `for-of` over arrays
+> and generators produces an incorrect value on the FIRST iteration
+> only (subsequent iterations are correct).  Root cause in
+> `OP_for_of_start`/`OP_for_of_next` stack discipline; out of scope
+> for this protoJS-only cycle.
+
+#### Standard In-Process Suite — vs Node.js 22 / V8
+
+| Benchmark                  |   protoJS |    Node |    Node × |
+|----------------------------|----------:|--------:|----------:|
+| array_literal              |    195 ms |    2 ms |      97×  |
+| control_flow               |    192 ms |    5 ms |      38×  |
+| function_calls             |    220 ms |    1 ms |     220×  |
+| json_transform             |    103 ms |    1 ms |     103×  |
+| json_transform_small       |     11 ms |    0 ms |      22×  |
+| list_snapshot_history      |     29 ms |    0 ms |      58×  |
+| numeric_loop               |     93 ms |    1 ms |      93×  |
+| object_property            |   1562 ms |   32 ms |      49×  |
+| object_read_only           |     55 ms |    1 ms |      55×  |
+| object_write_only          |   6676 ms |   11 ms |     607×  |
+| **parallel_cpu**           |  **52 ms**|**40 ms**| **Node 1.3×** |
+| string_concat              |    104 ms |    1 ms |     104×  |
+| string_insert_middle       |    259 ms |    0 ms |     518×  |
+| string_processing          |    243 ms |    0 ms |     486×  |
+| string_repeated_doubling   |   2187 ms |   39 ms |      56×  |
+| tree_traversal             |    307 ms |    1 ms |     307×  |
+
+**Geometric mean (18 benches): Node.js 58.5× protoJS** — single-thread.
+Dominated by the four worst benches (`object_write_only`,
+`string_insert_middle`, `string_processing`, `string_repeated_doubling`)
+which all bottleneck in protoCore-side immutable-structure construction
+and would need protoCore work to move.
+
+#### Standard In-Process Suite — vs vanilla QuickJS (interpreter-vs-interpreter)
+
+| Benchmark                  |   protoJS |    QuickJS |  QuickJS × |
+|----------------------------|----------:|-----------:|-----------:|
+| array_literal              |    249 ms |       7 ms |     35.6×  |
+| control_flow               |    234 ms |      53 ms |      4.4×  |
+| function_calls             |    276 ms |      10 ms |     27.6×  |
+| json_transform             |    128 ms |       5 ms |     25.6×  |
+| json_transform_small       |     15 ms |       1 ms |     15.0×  |
+| list_snapshot_history      |     39 ms |       1 ms |     39.0×  |
+| numeric_loop               |    124 ms |      44 ms |      2.8×  |
+| object_property            |   1993 ms |      85 ms |     23.5×  |
+| object_read_only           |     77 ms |       7 ms |     11.0×  |
+| object_write_only          |   6838 ms |      51 ms |    134.1×  |
+| **parallel_cpu**           |  **52 ms**| **723 ms** | **protoJS 13.9×** |
+| string_concat              |    106 ms |       5 ms |     21.2×  |
+| string_insert_middle       |    254 ms |       0 ms |    508.0×  |
+| string_processing          |    240 ms |       0 ms |    480.0×  |
+| string_repeated_doubling   |   2259 ms |       2 ms |   1129.5×  |
+| tree_traversal             |    366 ms |       4 ms |     91.5×  |
+
+**Geometric mean (18 benches): QuickJS 21× protoJS** — single-thread
+interpreter vs interpreter, dominated by the same four benches as
+above.  `numeric_loop` is now **2.8× QuickJS** (was 1.46× on the
+2026-05-31 snapshot with QuickJS recording 89 ms; QuickJS itself is
+recording faster numeric work on this run, so the ratio swing is
+QuickJS-side run-to-run variance, not a protoJS regression — protoJS's
+own number on this bench improved from 130 ms to 124 ms).
+
+`control_flow` is **4.4× QuickJS** — the closest single-thread bench
+where protoJS is still in striking distance.
+
+`parallel_cpu`: **protoJS wins 13.9×** against QuickJS and runs at
+~77% of V8's JIT'd throughput on a workload that scales across cores.
+The one bench where GIL-free architecture is visibly load-bearing.
+
+Raw JSON: `tests/benchmarks/results/standard_comparison.json` and
+`tests/benchmarks/results/standard_comparison_quickjs.json`.
+
+---
+
+**Prior baseline — 2026-05-31** (in-process median time, protoJS built in
 pure Release mode and linked against protoCore `libprotoCore.so.1.2.0` —
 the build that includes **snapshot-at-STW + Phase 2 trim** for concurrent
 GC (see `protoCore/docs/GarbageCollector.md` § "Concurrent Mark Without
