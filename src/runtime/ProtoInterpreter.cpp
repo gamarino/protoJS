@@ -6198,10 +6198,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (is_tail_call) return s;
                             stackPush(pContext, s);
                         } else {
-                            if (debugBindEnabled()) printf("[DEBUG] OP_call: no match found, pushing none\n");
+                            // ECMA-262 §7.3.13 Call: if IsCallable(func) is
+                            // false, throw TypeError.  Pre-fix this branch
+                            // silently pushed undefined, so `Math()` /
+                            // `({}).x()` returned undefined instead of
+                            // throwing.
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                            if (is_tail_call) return PROTO_NONE;
-                            stackPush(pContext, PROTO_NONE);
+                            pending_exception = makeError(pContext, "TypeError",
+                                "is not a function", pGlobalRoot);
+                            has_pending_exception = true;
+                            DISPATCH();
                         }
                     }
                 }
