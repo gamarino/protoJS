@@ -4684,6 +4684,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
+                // Numerify booleans and null ONLY when neither operand is a
+                // string — otherwise `'x' + null` would coerce null to 0
+                // before the concat path saw it, producing 'x0' instead
+                // of the spec-correct 'xnull' (the string + concat path
+                // uses toString, which renders null as the literal 'null').
+                bool aIsStr0 = a && a->asString(pContext);
+                bool bIsStr0 = b && b->asString(pContext);
+                if (!aIsStr0 && !bIsStr0) {
+                    if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
+                    else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
+                    if (b == PROTO_TRUE)  b = proto::makeSmallInt(1);
+                    else if (b == PROTO_FALSE || b == t_nullSentinel) b = proto::makeSmallInt(0);
+                }
+
                 // Integer fast-path
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     long long resVal = proto::asSmallInt(a) + proto::asSmallInt(b);
@@ -4732,7 +4746,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                
+
+                if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
+                else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
+                if (b == PROTO_TRUE)  b = proto::makeSmallInt(1);
+                else if (b == PROTO_FALSE || b == t_nullSentinel) b = proto::makeSmallInt(0);
+
                 // Integer fast-path
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     long long resVal = proto::asSmallInt(a) * proto::asSmallInt(b);
@@ -4783,6 +4802,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+
+                // see L_OP_add for null / boolean numerify rationale.
+                if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
+                else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
+                if (b == PROTO_TRUE)  b = proto::makeSmallInt(1);
+                else if (b == PROTO_FALSE || b == t_nullSentinel) b = proto::makeSmallInt(0);
 
                 // Integer fast-path
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
