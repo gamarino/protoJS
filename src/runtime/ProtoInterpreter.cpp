@@ -4159,6 +4159,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             DISPATCH();
                         }
                     }
+                    // METHOD shorthand (op_flags == 0): per ECMA-262 §14.3.9,
+                    // functions declared as methods do NOT define a
+                    // \`prototype\` property.  OP_fclosure unconditionally
+                    // installs one; strip it for the method case so
+                    // \`Object.prototype.hasOwnProperty.call(method, 'prototype')\`
+                    // returns false as the spec requires.
+                    if (flag == 0 && methodVal && methodVal != PROTO_NONE) {
+                        const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
+                        if (protoKeyDel) {
+                            const proto::ProtoObject* stripped =
+                                methodVal->setAttribute(pContext, protoKeyDel, nullptr);
+                            if (stripped) methodVal = stripped;
+                        }
+                    }
                     const proto::ProtoObject* newObj3 =
                         obj3->setAttribute(pContext, key3, methodVal ? methodVal : PROTO_NONE);
                     stackPop(pContext);
