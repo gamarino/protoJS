@@ -1504,6 +1504,49 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("defineProperties",         objectDefineProperties,      2);
     reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor, 2);
 
+    // Object.is(a, b) — SameValue per ECMA-262 §7.2.11.  Differs from ===
+    // in two ways: NaN is Object.is NaN, and +0 is NOT Object.is -0.
+    static const proto::ProtoMethod objectIsFn = [](
+        proto::ProtoContext* ictx, const proto::ProtoObject* /*self*/,
+        const proto::ParentLink*, const proto::ProtoList* ia,
+        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        const proto::ProtoObject* a = (ia && ia->getSize(ictx) > 0) ? ia->getAt(ictx, 0) : PROTO_NONE;
+        const proto::ProtoObject* b = (ia && ia->getSize(ictx) > 1) ? ia->getAt(ictx, 1) : PROTO_NONE;
+        if (a == b) return PROTO_TRUE;
+        // NaN === NaN check
+        if (a && b && (a->isDouble(ictx) || a->isFloat(ictx)) &&
+            (b->isDouble(ictx) || b->isFloat(ictx))) {
+            double da = a->asDouble(ictx);
+            double db = b->asDouble(ictx);
+            if (std::isnan(da) && std::isnan(db)) return PROTO_TRUE;
+            // +0 vs -0 distinction
+            if (da == 0.0 && db == 0.0) {
+                bool aNeg = std::signbit(da);
+                bool bNeg = std::signbit(db);
+                return (aNeg == bNeg) ? PROTO_TRUE : PROTO_FALSE;
+            }
+            return (da == db) ? PROTO_TRUE : PROTO_FALSE;
+        }
+        // Both undefined (any form): SameValue is true.
+        auto isUndef = [&](const proto::ProtoObject* x) {
+            return !x || x == PROTO_NONE || (x && x->isNone(ictx));
+        };
+        if (isUndef(a) && isUndef(b)) return PROTO_TRUE;
+        if (a && b) {
+            int cmp = a->compare(ictx, b);
+            return (cmp == 0) ? PROTO_TRUE : PROTO_FALSE;
+        }
+        return PROTO_FALSE;
+    };
+    {
+        const proto::ProtoString* key = ctx->fromUTF8String("is")->asString(ctx);
+        if (key) {
+            const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, objectIsFn, "is", 2, globalRoot);
+            if (wrapped && wrapped != PROTO_NONE)
+                ctor = ctor->setAttribute(ctx, key, wrapped);
+        }
+    }
+
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
