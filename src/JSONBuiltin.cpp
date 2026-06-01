@@ -118,6 +118,21 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 if (i > 0) out.push_back(',');
                 stringifyRecursive(ctx, els->getAt(ctx, static_cast<int>(i)), out, arrayPrototype, stack, rs);
             }
+        } else {
+            // Legacy string-indexed-attribute fallback: many built-ins
+            // (String.prototype.split, regex match-array builder) still
+            // store elements as indexed attributes ("0", "1", ...).
+            // Iterate up to obj.length.
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            const proto::ProtoObject* lenV = lenK ? obj->getAttribute(ctx, lenK, false) : nullptr;
+            long long n = 0;
+            if (lenV && lenV != PROTO_NONE && lenV->isInteger(ctx)) n = lenV->asLong(ctx);
+            for (long long i = 0; i < n; ++i) {
+                if (i > 0) out.push_back(',');
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                const proto::ProtoObject* ev = ik ? obj->getAttribute(ctx, ik, false) : nullptr;
+                stringifyRecursive(ctx, ev ? ev : PROTO_NONE, out, arrayPrototype, stack, rs);
+            }
         }
         out.push_back(']');
     } else if (obj->isTuple(ctx)) {
