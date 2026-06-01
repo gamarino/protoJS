@@ -7513,14 +7513,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     bool fiIsArray = false;
                     if (fiIsArr) {
                         const proto::ProtoObject* af = fiObj->getAttribute(pContext, fiIsArr, false);
-                        fiIsArray = af && af != PROTO_NONE;
+                        fiIsArray = (af == PROTO_TRUE);
+                    }
+
+                    // Synthesise array indices from __elements__ so for-in
+                    // over a literal `[10,20,30]` emits '0','1','2' even
+                    // though those entries don't live as own attributes.
+                    // Indices come first in own-key enumeration per spec.
+                    std::unordered_set<std::string> fiSeen;
+                    if (fiIsArray) {
+                        const proto::ProtoList* els = getArrayElements(pContext, fiObj);
+                        if (els) {
+                            unsigned long n = els->getSize(pContext);
+                            for (unsigned long i = 0; i < n; ++i) {
+                                const proto::ProtoObject* v = els->getAt(pContext, static_cast<int>(i));
+                                if (v && v != PROTO_NONE) {  // skip holes
+                                    std::string s = std::to_string(i);
+                                    if (!fiSeen.count(s)) {
+                                        fiSeen.insert(s);
+                                        addFiKey(s);
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Walk the full [[Prototype]] chain per ES2015+ EnumerateObjectProperties.
                     // Keys seen at closer levels shadow the same key from ancestors.
                     // A visited-pointer set guards against cycles in the C++ parent chain;
                     // we stop as soon as getPrototype() returns a node we have already processed.
-                    std::unordered_set<std::string> fiSeen;
+                    // (fiSeen is shared with the array-index synth above.)
                     std::unordered_set<const proto::ProtoObject*> fiVisited;
                     const proto::ProtoObject* cursor = fiObj;
 
