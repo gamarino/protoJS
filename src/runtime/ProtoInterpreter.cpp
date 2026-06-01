@@ -6474,6 +6474,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                // Array index fast path: indices live in __elements__,
+                // not as data keys, so the regular hasAttribute walk
+                // misses them.  Pre-fix `0 in [10,20]` returned false.
+                // Handles both numeric and numeric-string keys.
+                long long arrIdxIn = -1;
+                if (keyVal && keyVal->isInteger(pContext)) {
+                    arrIdxIn = keyVal->asLong(pContext);
+                } else if (key) {
+                    std::string ks;
+                    key->toUTF8String(pContext, ks);
+                    if (!ks.empty()) {
+                        bool allDigits = true;
+                        for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
+                        if (allDigits) {
+                            try { arrIdxIn = std::stoll(ks); } catch (...) { arrIdxIn = -1; }
+                        }
+                    }
+                }
+                if (arrIdxIn >= 0) {
+                    const proto::ProtoList* els = protojs::getArrayElements(pContext, obj);
+                    if (els && arrIdxIn < static_cast<long long>(els->getSize(pContext))) {
+                        const proto::ProtoObject* v = els->getAt(pContext, static_cast<int>(arrIdxIn));
+                        if (v && v != PROTO_NONE) {
+                            stackPush(pContext, PROTO_TRUE);
+                            DISPATCH();
+                        }
+                    }
+                }
                 // IMPORTANT: hasAttribute returns PROTO_TRUE or PROTO_FALSE (both are non-null
                 // pointers), so must compare against PROTO_TRUE — never cast to bool directly.
                 // Check data key first.
