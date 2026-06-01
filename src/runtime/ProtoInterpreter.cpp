@@ -2083,13 +2083,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         bool valueOfPresent = false;
         bool toStringPresent = false;
         // Step 1: try valueOf.
+        //
+        // Use callJSFunction (the unified dispatch) instead of the local
+        // callMethod lambda.  callMethod only handles bytecode nested in
+        // the *current* module's nestedFunctions and bare ProtoMethod
+        // cells; the built-in toString / valueOf installed on
+        // Array.prototype, String.prototype, ... live behind a native
+        // function wrapper that callMethod can't unwrap, so callMethod
+        // returned PROTO_NONE for them — which the toPrimitive fallback
+        // then misread as "method returned non-primitive" and threw
+        // TypeError.  callJSFunction handles every variant.
         const proto::ProtoString* vk = JSSymbols::valueOf(pContext);
         if (vk) {
             const proto::ProtoObject* vfn = obj->getAttribute(pContext, vk, true);
             if (vfn && vfn != PROTO_NONE) {
                 valueOfPresent = true;
-                const proto::ProtoObject* prim = callMethod(vfn, vk, obj);
-                if (has_pending_exception) return PROTO_NONE;
+                const proto::ProtoList* emptyArgs = pContext->newList();
+                const proto::ProtoObject* prim = callJSFunction(pContext, vfn, obj, emptyArgs);
+                if (t_hasCallException) {
+                    pending_exception     = t_callException;
+                    has_pending_exception = true;
+                    t_hasCallException    = false;
+                    t_callException       = nullptr;
+                    return PROTO_NONE;
+                }
                 if (isPrimitive(prim)) return prim;
             }
         }
@@ -2099,8 +2116,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* tfn = obj->getAttribute(pContext, tk, true);
             if (tfn && tfn != PROTO_NONE) {
                 toStringPresent = true;
-                const proto::ProtoObject* prim = callMethod(tfn, tk, obj);
-                if (has_pending_exception) return PROTO_NONE;
+                const proto::ProtoList* emptyArgs = pContext->newList();
+                const proto::ProtoObject* prim = callJSFunction(pContext, tfn, obj, emptyArgs);
+                if (t_hasCallException) {
+                    pending_exception     = t_callException;
+                    has_pending_exception = true;
+                    t_hasCallException    = false;
+                    t_callException       = nullptr;
+                    return PROTO_NONE;
+                }
                 if (isPrimitive(prim)) return prim;
             }
         }
