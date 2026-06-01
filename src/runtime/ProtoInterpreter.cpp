@@ -4721,20 +4721,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // protoJS keeps two distinct representations of the JS
+                // `undefined`: PROTO_NONE (the tagged-pointer absence value
+                // used everywhere by the bytecode dispatch) and the heap-
+                // allocated `t_undefinedSentinel` used as the value of the
+                // global `undefined` identifier.  ALL forms must compare
+                // equal under === and !==.  Pre-fix: `undefined === void 0`
+                // returned false because the previous code only checked
+                // sentinel-vs-sentinel in the both-non-null branch.
+                auto isUndef = [&](const proto::ProtoObject* x) {
+                    return !x || x == PROTO_NONE ||
+                           x == getUndefinedSentinel() ||
+                           (x && x->isNone(pContext));
+                };
                 int cmp = 1;
-                if (a == b) {
-                    cmp = 0;
-                } else if (a && b) {
-                    bool aUndef = (a == getUndefinedSentinel());
-                    bool bUndef = (b == getUndefinedSentinel());
-                    if (aUndef && bUndef) cmp = 0;
-                    else cmp = a->compare(pContext, b);
-                } else {
-                    bool aUndef = (!a || a == PROTO_NONE || a == getUndefinedSentinel());
-                    bool bUndef = (!b || b == PROTO_NONE || b == getUndefinedSentinel());
-                    if (aUndef && bUndef) cmp = 0;
-                    else cmp = 1;
-                }
+                if (a == b) cmp = 0;
+                else if (isUndef(a) && isUndef(b)) cmp = 0;
+                else if (a && b) cmp = a->compare(pContext, b);
+                else cmp = 1;
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
@@ -4743,20 +4747,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // see L_OP_strict_eq for the unified undefined-equality rule.
+                auto isUndef = [&](const proto::ProtoObject* x) {
+                    return !x || x == PROTO_NONE ||
+                           x == getUndefinedSentinel() ||
+                           (x && x->isNone(pContext));
+                };
                 int cmp = 1;
-                if (a == b) {
-                    cmp = 0;
-                } else if (a && b) {
-                    bool aUndef = (a == getUndefinedSentinel());
-                    bool bUndef = (b == getUndefinedSentinel());
-                    if (aUndef && bUndef) cmp = 0;
-                    else cmp = a->compare(pContext, b);
-                } else {
-                    bool aUndef = (!a || a == PROTO_NONE || a == getUndefinedSentinel());
-                    bool bUndef = (!b || b == PROTO_NONE || b == getUndefinedSentinel());
-                    if (aUndef && bUndef) cmp = 0;
-                    else cmp = 1;
-                }
+                if (a == b) cmp = 0;
+                else if (isUndef(a) && isUndef(b)) cmp = 0;
+                else if (a && b) cmp = a->compare(pContext, b);
+                else cmp = 1;
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp != 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
