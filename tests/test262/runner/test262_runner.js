@@ -369,7 +369,22 @@ async function main() {
   }
 
   const results = [];
-  for (const t of tests) {
+  // Optional parallelism via TEST262_CONCURRENCY env var.  Falls back to
+  // sequential execution (matching the original behaviour) when unset or
+  // 1.  Useful for full-suite runs where the 47k-test sequential walk
+  // pegs a single core for half an hour.
+  const concurrency = Math.max(
+    1,
+    parseInt(process.env.TEST262_CONCURRENCY || "1", 10) || 1
+  );
+  // Quiet mode for parallel runs — each line is no longer useful when
+  // multiple workers are interleaving stdout, and the volume is huge
+  // (47k lines).  TEST262_VERBOSE=1 restores the per-test print.
+  const verbose = process.env.TEST262_VERBOSE === "1" || concurrency === 1;
+  const progressEvery = parseInt(process.env.TEST262_PROGRESS_EVERY || "500", 10);
+  let completed = 0;
+  const startWall = Date.now();
+  async function runOneWithBookkeeping(t) {
     if (skipSet.has(t.path) || skipSet.has(t.rel)) {
       const skipped = {
         path: t.rel,
@@ -378,14 +393,35 @@ async function main() {
         negative: null,
         errorSummary: "skip_proto_eval"
       };
-      console.log(`SKIPPED: ${skipped.path}`);
-      results.push(skipped);
-      continue;
+      if (verbose) console.log(`SKIPPED: ${skipped.path}`);
+      return skipped;
     }
-    // Simple sequential execution to start; can be parallelised later
     const r = await runOne(proto, cfg, t);
-    console.log(`${r.result.toUpperCase()}: ${r.path} (${r.durationMs} ms)`);
-    results.push(r);
+    if (verbose) console.log(`${r.result.toUpperCase()}: ${r.path} (${r.durationMs} ms)`);
+    completed++;
+    if (!verbose && progressEvery > 0 && completed % progressEvery === 0) {
+      const elapsed = ((Date.now() - startWall) / 1000).toFixed(1);
+      const rate = (completed / Math.max(1, Date.now() - startWall) * 1000).toFixed(0);
+      console.error(`[progress] ${completed}/${tests.length} (${elapsed}s, ${rate} tests/s)`);
+    }
+    return r;
+  }
+  if (concurrency <= 1) {
+    for (const t of tests) results.push(await runOneWithBookkeeping(t));
+  } else {
+    // Simple round-robin work queue.  Each worker promise pulls from the
+    // shared index; no batching needed since per-test cost varies and a
+    // FIFO queue self-balances.
+    let next = 0;
+    results.length = tests.length;  // pre-size to preserve discovery order
+    async function worker() {
+      while (true) {
+        const i = next++;
+        if (i >= tests.length) return;
+        results[i] = await runOneWithBookkeeping(tests[i]);
+      }
+    }
+    await Promise.all(Array.from({length: concurrency}, () => worker()));
   }
 
   const summary = { passed: 0, failed_syntax: 0, failed_semantics: 0, timeout: 0, skipped: 0 };

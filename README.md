@@ -383,7 +383,36 @@ ctest
 ```
 
 For more information on testing, see [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
-For official ECMAScript compliance status and roadmap, see **[TEST262_status.md](TEST262_status.md)**.
+For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATUS.md](docs/TEST262_STATUS.md)**.
+
+### Test262 Conformance
+
+**Latest full-suite run — 2026-06-01** (commit `073d1414`,
+`language + built-ins` patterns, 46 963 tests):
+
+| | Total | Passed | Failed (semantics) | Timeouts | Pass rate |
+|---|---:|---:|---:|---:|---:|
+| **2026-06-01 (this run)** | 46 963 | **27 565** | 18 477 | 36 | **58.70 %** |
+| 2026-05-11 (prior) | 46 963 | 27 025 | 18 666 | 431 | 57.55 % |
+| **Δ** | 0 | **+540** | −189 | **−395** | **+1.15 pp** |
+
+The 2026-06-01 cycle's correctness commits are responsible for both
+the net pass gain and the dramatic **−91 % timeout reduction**: the
+`OP_for_of_start` stale-pAutomaticLocals fix (`3dc726b8`) alone
+unblocked the `built-ins/Object` subtree (+870 passes there) and
+collapsed timeout count from 431 to 36.
+
+| Family | Passes (this run) | Passes (prior) | Δ | Pass rate |
+|---|---:|---:|---:|---:|
+| `built-ins` | 9 933 | 9 247 | **+686** | 42.57 % |
+| `language` | 17 632 | 17 778 | −146 | 74.62 % |
+
+`built-ins` carried the cycle's gains.  `language` slipped 146,
+concentrated in `language/expressions` (−376) and warranting a
+targeted bisect — see [docs/TEST262_STATUS.md](docs/TEST262_STATUS.md)
+for the per-category breakdown, the suspected regression areas,
+and the parallel runner setup that brought a full run to ~5:30 min
+on a 12-core machine.
 
 ### Performance Benchmarks
 
