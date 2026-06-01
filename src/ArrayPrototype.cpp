@@ -2255,8 +2255,19 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* key = ctx->fromUTF8String(m.name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* fn = wrapNativeFunction(ctx, m.fn, m.name, m.length, globalRoot);
-            if (fn && fn != PROTO_NONE)
+            if (fn && fn != PROTO_NONE) {
                 proto = proto->setAttribute(ctx, key, fn);
+                // ECMA-262: Array.prototype methods are
+                // { writable:true, enumerable:false, configurable:true }
+                // bits: writable(0x1) | configurable(0x2) = 0x3.
+                // Pre-fix the descriptor was absent → defaulted to all-true
+                // (incl. enumerable), so for-in over any array enumerated
+                // every method ("at,map,pop,find,...") alongside the indices.
+                std::string pdName = std::string("__pd_") + m.name + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+            }
         }
     }
 
