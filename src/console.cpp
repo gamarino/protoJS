@@ -1,7 +1,10 @@
 #include "console.h"
 #include "ProtoNativeModule.h"
 #include "runtime/ProtoInterpreter.h"
+#include "JSSymbols.h"
+#include "ArrayElementsStorage.h"
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -13,12 +16,11 @@ namespace {
 
 /** Convert a single ProtoObject to its string representation for printing. */
 static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* val,
-                             std::ostream& out) {
+                             std::ostream& out, int depth = 0) {
     if (!ctx || !val || val == PROTO_NONE || val->isNone(ctx)) {
         out << "undefined";
         return;
     }
-    // Check for null sentinel before any other type check.
     if (val == protojs::getNullSentinel()) {
         out << "null";
         return;
@@ -32,7 +34,10 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         if (s) {
             std::string tmp;
             s->toUTF8String(ctx, tmp);
-            out << tmp;
+            // Top-level strings print unquoted (Node.js console.log);
+            // nested ones get JSON-style quotes for readability.
+            if (depth == 0) out << tmp;
+            else out << '"' << tmp << '"';
         }
         return;
     }
@@ -45,11 +50,65 @@ static void printProtoValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
         return;
     }
     if (val->isDouble(ctx)) {
-        out << val->asDouble(ctx);
+        const double d = val->asDouble(ctx);
+        if (std::isnan(d))      out << "NaN";
+        else if (std::isinf(d)) out << (d < 0 ? "-Infinity" : "Infinity");
+        else                    out << d;
         return;
     }
-    /* Objects, arrays, etc. */
-    out << "[object Object]";
+    // Real arrays: print [v1, v2, ...]
+    {
+        const proto::ProtoObject* isArrObj = nullptr;
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        if (isArrKey) isArrObj = val->getAttribute(ctx, isArrKey, false);
+        if (isArrObj == PROTO_TRUE) {
+            out << '[';
+            const proto::ProtoList* els = getArrayElements(ctx, val);
+            if (els) {
+                size_t sz = els->getSize(ctx);
+                for (size_t i = 0; i < sz; ++i) {
+                    if (i > 0) out << ", ";
+                    printProtoValue(ctx, els->getAt(ctx, static_cast<int>(i)), out, depth + 1);
+                }
+            }
+            out << ']';
+            return;
+        }
+    }
+    // Method / function callable
+    if (val->isMethod(ctx)) {
+        out << "[Function]";
+        return;
+    }
+    // Plain object: print {k: v, ...}; recurse one level only to avoid blowup.
+    if (depth >= 4) {
+        out << "[Object]";
+        return;
+    }
+    out << '{';
+    const proto::ProtoSparseList* attrs = val->getOwnAttributes(ctx);
+    if (attrs) {
+        const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
+        bool first = true;
+        while (it && it->hasNext(ctx)) {
+            unsigned long hash = it->nextKey(ctx);
+            const proto::ProtoObject* v = it->nextValue(ctx);
+            std::string key = JSSymbols::getNameFromHash(ctx, hash);
+            if (key.empty()) {
+                const proto::ProtoString* sym = reinterpret_cast<const proto::ProtoString*>(hash);
+                if (hash > 0x1000) sym->toUTF8String(ctx, key);
+            }
+            // Skip internal "__"-prefixed keys.
+            if (!key.empty() && key[0] != '_') {
+                if (!first) out << ", ";
+                out << key << ": ";
+                printProtoValue(ctx, v, out, depth + 1);
+                first = false;
+            }
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        }
+    }
+    out << '}';
 }
 
 } // anonymous namespace
