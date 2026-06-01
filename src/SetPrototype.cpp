@@ -1,5 +1,6 @@
 #include "SetPrototype.h"
 #include "ArrayPrototype.h"
+#include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
@@ -443,27 +444,45 @@ static const proto::ProtoObject* setConstruct(
     if (argc > 0) {
         const proto::ProtoObject* iterable = args->getAt(ctx, 0);
         if (iterable && iterable != PROTO_NONE) {
+            // Element read: prefer the __elements__ native storage for
+            // real arrays.  Pre-fix the constructor only read via
+            // getAttribute(indexKey, true), so `new Set([1,2,3])`
+            // silently produced an empty set — arrays now keep their
+            // elements in __elements__, and getAttribute(\"0\") returns
+            // nullptr.
+            auto readIndex = [&](long i) -> const proto::ProtoObject* {
+                const proto::ProtoObject* v =
+                    arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
+                if (v) return v;
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                v = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
+                return v ? v : PROTO_NONE;
+            };
             const proto::ProtoString* lenKs = JSSymbols::length(ctx);
+            long len = -1;
             if (lenKs) {
                 const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
-                if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx)) {
-                    long len = lenObj->asLong(ctx);
-                    for (long i = 0; i < len; i++) {
-                        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                        if (!ik) continue;
-                        const proto::ProtoObject* val = iterable->getAttribute(ctx, ik, true);
-                        if (!val) val = PROTO_NONE;
-                        val = normalizeSetVal(ctx, val);
-                        if (!setContains(ctx, self, val)) {
-                            const proto::ProtoSet* core  = getSetCore(ctx, self);
-                            const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-                            long sz = getSetSize(ctx, self);
-                            if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
-                            if (order) setSetOrderInPlace(ctx, self,
-                                           order->setAt(ctx, static_cast<unsigned long>(sz), val));
-                            setSetSizeInPlace(ctx, self, sz + 1);
-                        }
-                    }
+                if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+                    len = lenObj->asLong(ctx);
+            }
+            // If __elements__ exists but .length attribute doesn't (some
+            // built-ins set elements without writing length), fall back
+            // to the elements list size.
+            if (len < 0) {
+                const proto::ProtoList* els = getArrayElements(ctx, iterable);
+                if (els) len = static_cast<long>(els->getSize(ctx));
+            }
+            for (long i = 0; i < len; i++) {
+                const proto::ProtoObject* val = readIndex(i);
+                val = normalizeSetVal(ctx, val);
+                if (!setContains(ctx, self, val)) {
+                    const proto::ProtoSet* core  = getSetCore(ctx, self);
+                    const proto::ProtoSparseList* order = getSetOrder(ctx, self);
+                    long sz = getSetSize(ctx, self);
+                    if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
+                    if (order) setSetOrderInPlace(ctx, self,
+                                   order->setAt(ctx, static_cast<unsigned long>(sz), val));
+                    setSetSizeInPlace(ctx, self, sz + 1);
                 }
             }
         }

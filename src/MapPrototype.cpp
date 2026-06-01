@@ -1,5 +1,6 @@
 #include "MapPrototype.h"
 #include "ArrayPrototype.h"
+#include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
@@ -714,23 +715,38 @@ static const proto::ProtoObject* mapConstruct(
     if (argc > 0) {
         const proto::ProtoObject* iterable = args->getAt(ctx, 0);
         if (iterable && iterable != PROTO_NONE) {
+            // Element / pair-element read: prefer __elements__ native
+            // storage; fall back to indexed-attribute.  Pre-fix
+            // `new Map([[\"a\",1]])` silently produced an empty Map
+            // because the outer iterable [...] is a real array with
+            // entries in __elements__ — getAttribute(\"0\") returned
+            // nullptr, so no pairs were processed.
+            auto readEl = [&](const proto::ProtoObject* arr, long i) -> const proto::ProtoObject* {
+                if (!arr || arr == PROTO_NONE) return PROTO_NONE;
+                const proto::ProtoObject* v =
+                    arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
+                if (v) return v;
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                v = ik ? arr->getAttribute(ctx, ik, true) : nullptr;
+                return v ? v : PROTO_NONE;
+            };
             const proto::ProtoString* lenKs = JSSymbols::length(ctx);
+            long len = -1;
             if (lenKs) {
                 const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
-                if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx)) {
-                    long len = lenObj->asLong(ctx);
-                    for (long i = 0; i < len; i++) {
-                        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                        if (!ik) continue;
-                        const proto::ProtoObject* pair = iterable->getAttribute(ctx, ik, true);
-                        if (!pair || pair == PROTO_NONE) continue;
-                        const proto::ProtoString* k0 = JSSymbols::indexKey(ctx, 0);
-                        const proto::ProtoString* k1 = JSSymbols::indexKey(ctx, 1);
-                        if (!k0 || !k1) continue;
-                        const proto::ProtoObject* pkey = pair->getAttribute(ctx, k0, true);
-                        const proto::ProtoObject* pval = pair->getAttribute(ctx, k1, true);
-                        if (!pkey) pkey = PROTO_NONE;
-                        if (!pval) pval = PROTO_NONE;
+                if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+                    len = lenObj->asLong(ctx);
+            }
+            if (len < 0) {
+                const proto::ProtoList* els = getArrayElements(ctx, iterable);
+                if (els) len = static_cast<long>(els->getSize(ctx));
+            }
+            for (long i = 0; i < len; i++) {
+                const proto::ProtoObject* pair = readEl(iterable, i);
+                if (!pair || pair == PROTO_NONE) continue;
+                const proto::ProtoObject* pkey = readEl(pair, 0);
+                const proto::ProtoObject* pval = readEl(pair, 1);
+                {
                         // Inline map.set(pkey, pval).
                         unsigned long existingIdx = 0;
                         const proto::ProtoSparseList* kl = getMapList(ctx, self, "__map_keys__");
@@ -758,7 +774,6 @@ static const proto::ProtoObject* mapConstruct(
                 }
             }
         }
-    }
     return self;
 }
 
