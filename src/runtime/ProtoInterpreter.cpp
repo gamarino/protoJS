@@ -5368,6 +5368,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
+                // Spec §13.10.2 / OrdinaryHasInstance: primitives are NEVER
+                // instanceof anything.  Without this short-circuit, protoCore's
+                // isInstanceOf walks the prototype chain — and primitives are
+                // children of their wrapper-class prototype (BooleanPrototype,
+                // NumberPrototype, StringPrototype), so it returned true and
+                // `false instanceof Boolean` was true (spec: false).
+                bool objIsPrimitive = (!obj || obj == PROTO_NONE || obj == t_nullSentinel ||
+                                       obj == getUndefinedSentinel() ||
+                                       obj->isBoolean(pContext) ||
+                                       obj->isInteger(pContext) ||
+                                       obj->isDouble(pContext) ||
+                                       (obj->isString(pContext) && !obj->isMethod(pContext)));
+                if (objIsPrimitive) {
+                    stackPush(pContext, PROTO_FALSE);
+                    DISPATCH();
+                }
                 const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE)
                     ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
                 stackPush(pContext, (res == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE);
