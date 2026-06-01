@@ -1226,7 +1226,33 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
                 break;
             }
         }
-        if (!found) return PROTO_FALSE;
+        if (!found) {
+            // Array element fallback: see objectHasOwnProperty for the
+            // same shape of check.  Array elements are enumerable by spec
+            // (writable: true, enumerable: true, configurable: true), so
+            // an in-range index returns true directly.
+            const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+            const proto::ProtoObject* isArr = isArrKey
+                ? self->getAttribute(ctx, isArrKey, true) : nullptr;
+            if (isArr == PROTO_TRUE) {
+                long long idx = -1;
+                if (!keyStr.empty()) {
+                    char* end = nullptr;
+                    long long v = std::strtoll(keyStr.c_str(), &end, 10);
+                    if (end && *end == '\0' && v >= 0 && std::to_string(v) == keyStr)
+                        idx = v;
+                }
+                if (idx >= 0) {
+                    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                    const proto::ProtoObject* lenVal = lenKey
+                        ? self->getAttribute(ctx, lenKey, false) : nullptr;
+                    if (lenVal && lenVal != PROTO_NONE && lenVal->isInteger(ctx)) {
+                        if (idx < lenVal->asLong(ctx)) return PROTO_TRUE;
+                    }
+                }
+            }
+            return PROTO_FALSE;
+        }
     }
 
     std::string keyStr;
