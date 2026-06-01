@@ -863,7 +863,62 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         return context->fromUTF8String(buf);
     }
 
-    // Generic object fallback matches typical "[object Object]" shape.
+    // Object case: invoke ToPrimitive with hint "string" — i.e. call the
+    // user's `.toString()` first, then fall back to `.valueOf()` if
+    // toString returns a non-primitive, then to the "[object Object]"
+    // literal if both fall through.  This is the spec-mandated path
+    // for ToPropertyKey (`obj[keyObj]` / `{[keyObj]: v}`) where the
+    // user's toString must run for the assignment's key, with whatever
+    // observable side effects it produces.  Previously this helper
+    // returned the literal "[object Object]" unconditionally, so
+    // `obj[{toString(){return 'p'}}] = 42` stored at key "[object
+    // Object]" instead of "p" — see test262
+    // language/expressions/object/computed-property-name-topropertykey-before-value-evaluation.
+    auto isStringPrim = [&](const proto::ProtoObject* v) -> bool {
+        return v && v != PROTO_NONE && (v->asString(context) ||
+                                         v->isBoolean(context) ||
+                                         v->isInteger(context) ||
+                                         v->isDouble(context) ||
+                                         v->isFloat(context));
+    };
+    // Re-implement a minimal toString invocation here (the runBytecode
+    // toPrimIfObject lambda has access to pending_exception/global root;
+    // this static helper does not).  Any exception thrown by the user's
+    // method propagates via t_hasCallException-style mechanism if the
+    // caller dispatches via callJSFunction — but the receivers in this
+    // file's call sites uniformly check has_pending_exception after the
+    // call returns, so an uncaught throw will surface there.
+    const proto::ProtoString* tk = JSSymbols::toString(context);
+    if (tk) {
+        const proto::ProtoObject* tfn = value->getAttribute(context, tk, true);
+        if (tfn && tfn != PROTO_NONE) {
+            const proto::ProtoObject* prim = nullptr;
+            if (tfn->isMethod(context)) {
+                prim = tfn->asMethod(context)(context, value, nullptr, nullptr, nullptr);
+            } else {
+                // Bytecode toString: invoke via callJSFunction so a
+                // user-defined `.toString()` actually runs.
+                const proto::ProtoList* noArgs = context->newList();
+                prim = callJSFunction(context, tfn, value, noArgs);
+            }
+            if (isStringPrim(prim)) return prim;
+        }
+    }
+    // Fallback to valueOf, then to the canonical literal.
+    const proto::ProtoString* vk = JSSymbols::valueOf(context);
+    if (vk) {
+        const proto::ProtoObject* vfn = value->getAttribute(context, vk, true);
+        if (vfn && vfn != PROTO_NONE) {
+            const proto::ProtoObject* prim = nullptr;
+            if (vfn->isMethod(context)) {
+                prim = vfn->asMethod(context)(context, value, nullptr, nullptr, nullptr);
+            } else {
+                const proto::ProtoList* noArgs = context->newList();
+                prim = callJSFunction(context, vfn, value, noArgs);
+            }
+            if (isStringPrim(prim)) return prim;
+        }
+    }
     return context->fromUTF8String("[object Object]");
 }
 
@@ -3703,7 +3758,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* idxVal   = stackTop(pContext);  // peek — stays on stack
                 const proto::ProtoObject* arrObj2  = stackAt(pContext, 1); // peek — stays
                 if (!arrObj2 || arrObj2 == PROTO_NONE) DISPATCH();
-                // Convert index to string key.
+                // ToPropertyKey semantics (ES2015 §7.1.14):
+                //   - integer → numeric string key
+                //   - already a string → use directly
+                //   - any other primitive or object → invoke ToString, which
+                //     for objects calls user-defined .toString() (and falls
+                //     back to .valueOf()) — this is the path the
+                //     `obj[{toString(){...}}] = v` and computed property
+                //     literal `{[keyObj]: v}` patterns rely on.
                 const proto::ProtoString* idxKey2 = nullptr;
                 if (idxVal && idxVal != PROTO_NONE && idxVal->isInteger(pContext)) {
                     long long i2 = idxVal->asLong(pContext);
@@ -3711,6 +3773,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         idxKey2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i2));
                 } else if (idxVal && idxVal != PROTO_NONE) {
                     idxKey2 = idxVal->asString(pContext);
+                    if (!idxKey2) {
+                        // Not already a ProtoString — coerce via the user's
+                        // .toString() chain (may run JS code, mutating
+                        // observable state — that's the spec-mandated order).
+                        const proto::ProtoObject* keyObj = toString(pContext, idxVal);
+                        if (keyObj) idxKey2 = keyObj->asString(pContext);
+                    }
                 }
                 if (!idxKey2) DISPATCH();
                 // Set array[index] = value; update array pointer in slot below index.
