@@ -5475,11 +5475,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (funcIsNative) {
                     // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
                     proto::ProtoContext::CriticalSection callCs1(pContext);
-                    InterpFrame* frameNowN = currentFrame(pContext);
-                    const proto::ProtoObject* const* argSliceN =
-                        pContext->getAutomaticLocals()
-                        + frameNowN->stackBase + frameNowN->stackTop - argc;
-                    const proto::ProtoList* argsList = pContext->newList(argc, argSliceN);
+                    // argc==0 fast path: skip newList entirely. All protoJS native
+                    // methods tolerate args==nullptr via the standard
+                    // `if (!args || args->getSize(ctx) <= i)` guard at every arg
+                    // access site; passing nullptr saves one cell allocation per
+                    // call for arg-less methods (toString, valueOf, trim, ...).
+                    const proto::ProtoList* argsList = nullptr;
+                    if (argc > 0) {
+                        InterpFrame* frameNowN = currentFrame(pContext);
+                        const proto::ProtoObject* const* argSliceN =
+                            pContext->getAutomaticLocals()
+                            + frameNowN->stackBase + frameNowN->stackTop - argc;
+                        argsList = pContext->newList(argc, argSliceN);
+                    }
                     for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     // Invoke the native function directly via asMethod() to bypass the
                     // ProtoObject::call() attribute-lookup indirection.
@@ -5885,9 +5893,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* thisVal = PROTO_NONE;
                     // CS: argsList held in C++ scratch — see resolvedMod2 branch above.
                     proto::ProtoContext::CriticalSection callCs4(pContext);
-                    const proto::ProtoList* argsList = pContext->newList();
-                    for (uint32_t i = 0; i < argc; i++)
-                        argsList = argsList->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                    // argc==0 fast path: pass nullptr (see L_OP_call_method
+                    // native branch for the rationale).  argc>0: use the
+                    // single-allocation newList(argc, slice) form rather than
+                    // newList()+appendLast loop — saves argc-1 cell allocations
+                    // and keeps the construction in a single critical section.
+                    const proto::ProtoList* argsList = nullptr;
+                    if (argc > 0) {
+                        const proto::ProtoObject* const* argSliceC =
+                            pContext->getAutomaticLocals()
+                            + currentFrame(pContext)->stackBase
+                            + currentFrame(pContext)->stackTop - argc;
+                        argsList = pContext->newList(argc, argSliceC);
+                    }
                     for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
 
                     const proto::ProtoMethod nativeFn = func->asMethod(pContext);

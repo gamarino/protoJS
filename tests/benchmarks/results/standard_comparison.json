@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-31T23:11:30.575Z",
+  "timestamp": "2026-06-01T02:45:08.946Z",
   "results": [
     {
       "benchmark": "array_literal.js",
       "name": "array_literal",
-      "protojs_time_ms": 197,
-      "nodejs_time_ms": 3,
-      "speedup": 65.66666666666667,
+      "protojs_time_ms": 250,
+      "nodejs_time_ms": 4,
+      "speedup": 62.5,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -16,9 +16,9 @@
     {
       "benchmark": "control_flow.js",
       "name": "control_flow",
-      "protojs_time_ms": 228,
-      "nodejs_time_ms": 5,
-      "speedup": 45.6,
+      "protojs_time_ms": 272,
+      "nodejs_time_ms": 6,
+      "speedup": 45.33333333333333,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -28,9 +28,9 @@
     {
       "benchmark": "function_calls.js",
       "name": "function_calls",
-      "protojs_time_ms": 215,
+      "protojs_time_ms": 317,
       "nodejs_time_ms": 1,
-      "speedup": 215,
+      "speedup": 317,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -40,9 +40,9 @@
     {
       "benchmark": "json_transform.js",
       "name": "json_transform",
-      "protojs_time_ms": 105,
+      "protojs_time_ms": 137,
       "nodejs_time_ms": 2,
-      "speedup": 52.49999999999999,
+      "speedup": 68.5,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -52,9 +52,9 @@
     {
       "benchmark": "json_transform_small.js",
       "name": "json_transform",
-      "protojs_time_ms": 12,
+      "protojs_time_ms": 14,
       "nodejs_time_ms": 0,
-      "speedup": 24,
+      "speedup": 28,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -74,11 +74,23 @@
       "nodejs_stderr": ""
     },
     {
+      "benchmark": "list_snapshot_history.js",
+      "name": "list_snapshot_history",
+      "protojs_time_ms": 41,
+      "nodejs_time_ms": 0,
+      "speedup": 82,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
       "benchmark": "numeric_loop.js",
       "name": "numeric_loop",
-      "protojs_time_ms": 109,
+      "protojs_time_ms": 156,
       "nodejs_time_ms": 1,
-      "speedup": 109,
+      "speedup": 156,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -88,9 +100,9 @@
     {
       "benchmark": "object_property.js",
       "name": "object_property",
-      "protojs_time_ms": 1650,
-      "nodejs_time_ms": 49,
-      "speedup": 33.6734693877551,
+      "protojs_time_ms": 2207,
+      "nodejs_time_ms": 45,
+      "speedup": 49.04444444444445,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -100,9 +112,9 @@
     {
       "benchmark": "object_read_only.js",
       "name": "object_read_only",
-      "protojs_time_ms": 52,
-      "nodejs_time_ms": 3,
-      "speedup": 17.333333333333332,
+      "protojs_time_ms": 72,
+      "nodejs_time_ms": 1,
+      "speedup": 72,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -112,9 +124,9 @@
     {
       "benchmark": "object_write_only.js",
       "name": "object_write_only",
-      "protojs_time_ms": 6904,
+      "protojs_time_ms": 8871,
       "nodejs_time_ms": 11,
-      "speedup": 627.6363636363636,
+      "speedup": 806.4545454545454,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -136,9 +148,9 @@
     {
       "benchmark": "string_concat.js",
       "name": "string_concat",
-      "protojs_time_ms": 107,
+      "protojs_time_ms": 113,
       "nodejs_time_ms": 1,
-      "speedup": 107.00000000000001,
+      "speedup": 113,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -146,8 +158,8 @@
       "nodejs_stderr": ""
     },
     {
-      "benchmark": "string_processing.js",
-      "name": "string_processing",
+      "benchmark": "string_concat_large_chunks.js",
+      "name": "string_concat_large_chunks",
       "protojs_time_ms": 1,
       "nodejs_time_ms": 0,
       "speedup": 2,
@@ -158,11 +170,47 @@
       "nodejs_stderr": ""
     },
     {
+      "benchmark": "string_insert_middle.js",
+      "name": "string_insert_middle",
+      "protojs_time_ms": 269,
+      "nodejs_time_ms": 0,
+      "speedup": 538,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "string_processing.js",
+      "name": "string_processing",
+      "protojs_time_ms": 253,
+      "nodejs_time_ms": 0,
+      "speedup": 506.00000000000006,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
+      "benchmark": "string_repeated_doubling.js",
+      "name": "string_repeated_doubling",
+      "protojs_time_ms": 2256,
+      "nodejs_time_ms": 42,
+      "speedup": 53.714285714285715,
+      "faster": "Node.js",
+      "protojs_ok": true,
+      "nodejs_ok": true,
+      "protojs_stderr": "",
+      "nodejs_stderr": ""
+    },
+    {
       "benchmark": "tree_traversal.js",
       "name": "tree_traversal",
-      "protojs_time_ms": 340,
-      "nodejs_time_ms": 0,
-      "speedup": 680,
+      "protojs_time_ms": 336,
+      "nodejs_time_ms": 1,
+      "speedup": 336,
       "faster": "Node.js",
       "protojs_ok": true,
       "nodejs_ok": true,
@@ -171,9 +219,9 @@
     }
   ],
   "summary": {
-    "total": 14,
-    "successful": 14,
+    "total": 18,
+    "successful": 18,
     "failed": 0,
-    "geoMeanNodeOverProto": 37.75470747973067
+    "geoMeanNodeOverProto": 61.87572960792376
   }
 }
