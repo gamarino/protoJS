@@ -6368,11 +6368,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_is_undefined: {
-                // Pops one value; pushes true if it is undefined (PROTO_NONE in protoCore).
+                // Pops one value; pushes true iff the value is the JS
+                // `undefined`.  protoJS has two undefined representations
+                // (PROTO_NONE and the heap-allocated t_undefinedSentinel
+                // used as the value of the global `undefined` identifier
+                // — see prior commits' notes).  Pre-fix this opcode only
+                // matched PROTO_NONE, so `undefined === void 0` (which
+                // QuickJS compiles to OP_push_undef / get_var undefined +
+                // OP_is_undefined) returned false because the global
+                // `undefined` resolves to the heap sentinel, not PROTO_NONE.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                stackPush(pContext, (!val || val == PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE);
+                bool isUndef = (!val || val == PROTO_NONE ||
+                                val == getUndefinedSentinel() ||
+                                (val && val->isNone(pContext)));
+                stackPush(pContext, isUndef ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_is_null: {
