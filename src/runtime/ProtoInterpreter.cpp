@@ -7351,22 +7351,38 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_for_of_next: {
                 if (pc + 1 > len) return PROTO_NONE;
                 uint8_t rawOffset = buf[pc++];
-                
-                // Pop the 3 iterator state slots (placeholders for Symbol.iterator case).
-                if (stackSize(pContext) < 3) return PROTO_NONE;
-                const proto::ProtoObject* catch_off = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* next_meth = stackTop(pContext); stackPop(pContext);
-                const proto::ProtoObject* iterator  = stackTop(pContext); stackPop(pContext);
+
+                // QuickJS semantics: the u8 byte is the depth of extra
+                // slots between the iterator state and TOS.  Stack
+                // layout is
+                //   [..., iterator, next_meth, catch_off,
+                //         slot_1, slot_2, ..., slot_rawOffset]
+                // After execution, value and done are pushed on top:
+                //   [..., iterator, next_meth, catch_off,
+                //         slot_1, ..., slot_rawOffset, value, done]
+                // The iterator state stays in-place; the impl below
+                // reads it via stackAt with the right depths and
+                // pushes value/done at the end.  Pre-fix the
+                // dispatcher ignored rawOffset and popped top 3
+                // unconditionally — for destructure rest patterns
+                // `[a, ...r] = [1,2,3,4]` (rawOffset=2 because
+                // array+idx sit above the iterator state) it corrupted
+                // the iterator state, so the rest array ended up empty.
+                if (stackSize(pContext) < static_cast<unsigned long>(rawOffset) + 3UL)
+                    return PROTO_NONE;
+                const proto::ProtoObject* catch_off =
+                    stackAt(pContext, static_cast<unsigned long>(rawOffset));
+                const proto::ProtoObject* next_meth =
+                    stackAt(pContext, static_cast<unsigned long>(rawOffset) + 1UL);
+                const proto::ProtoObject* iterator  =
+                    stackAt(pContext, static_cast<unsigned long>(rawOffset) + 2UL);
 
                 const proto::ProtoString* slotKey3 = JSSymbols::iterSlot(pContext);
                 const proto::ProtoObject* slotVal = (slotKey3 && iterator && iterator != PROTO_NONE)
                     ? iterator->getAttribute(pContext, slotKey3, false) : PROTO_NONE;
 
                 if (!slotVal || slotVal == PROTO_NONE || !slotVal->isInteger(pContext)) {
-                    // Restore slots and push done=true.
-                    stackPush(pContext, iterator ? iterator : PROTO_NONE);
-                    stackPush(pContext, next_meth ? next_meth : PROTO_NONE);
-                    stackPush(pContext, catch_off ? catch_off : PROTO_NONE);
+                    // Iterator state stays in-place — push value+done on top.
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
                     DISPATCH();
@@ -7375,11 +7391,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 uint32_t bs = static_cast<uint32_t>(slotVal->asLong(pContext));
                 const proto::ProtoObject* arrObj  = getSlot(pContext, bs);
                 const proto::ProtoObject* idxObj2 = getSlot(pContext, bs + 1);
-                
+
                 if (!arrObj || arrObj == PROTO_NONE || !idxObj2 || !idxObj2->isInteger(pContext)) {
-                    stackPush(pContext, iterator);
-                    stackPush(pContext, next_meth);
-                    stackPush(pContext, catch_off);
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
                     DISPATCH();
@@ -7427,11 +7440,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     const bool isDone = (doneFO && doneFO != PROTO_NONE) ? toBool(pContext, doneFO) : false;
                     if (isDone) setSlot(pContext, bs + 2, pContext->fromInteger(1LL));
-                    
-                    // Push 5 values back.
-                    stackPush(pContext, iterator);
-                    stackPush(pContext, next_meth);
-                    stackPush(pContext, catch_off);
+
+                    // Iterator state stays in-place — push value+done on top.
                     stackPush(pContext, valueFO ? valueFO : PROTO_NONE);
                     stackPush(pContext, isDone ? PROTO_TRUE : PROTO_FALSE);
                     DISPATCH();
@@ -7442,9 +7452,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 long long arrLen = (lenVal2 && lenVal2 != PROTO_NONE && lenVal2->isInteger(pContext))
                                    ? lenVal2->asLong(pContext) : 0LL;
                 if (idx2 >= arrLen) {
-                    stackPush(pContext, iterator);
-                    stackPush(pContext, next_meth);
-                    stackPush(pContext, catch_off);
                     stackPush(pContext, PROTO_NONE);
                     stackPush(pContext, PROTO_TRUE);
                     DISPATCH();
@@ -7455,16 +7462,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     elemVal = typedArrayGetElement(pContext, arrObj,
                                                   static_cast<uint32_t>(idx2), taElemType);
                 } else {
-                    std::string elemIdxStr = std::to_string(idx2);
-                    const proto::ProtoObject* elemIdxObj = pContext->fromUTF8String(elemIdxStr.c_str());
-                    const proto::ProtoString* elemIdxKey = elemIdxObj ? elemIdxObj->asString(pContext) : nullptr;
-                    elemVal = elemIdxKey
-                        ? arrObj->getAttribute(pContext, elemIdxKey, false) : PROTO_NONE;
+                    // Prefer __elements__ via arrayTryFastGet — dense
+                    // arrays no longer keep elements as string-keyed
+                    // attributes, so the indexKey getAttribute path
+                    // returns nullptr and the rest pattern
+                    // `[a,...r] = [1,2,3,4]` produced r = [].
+                    elemVal = arrayTryFastGet(pContext, arrObj, static_cast<unsigned long>(idx2));
+                    if (!elemVal) {
+                        std::string elemIdxStr = std::to_string(idx2);
+                        const proto::ProtoObject* elemIdxObj = pContext->fromUTF8String(elemIdxStr.c_str());
+                        const proto::ProtoString* elemIdxKey = elemIdxObj ? elemIdxObj->asString(pContext) : nullptr;
+                        elemVal = elemIdxKey
+                            ? arrObj->getAttribute(pContext, elemIdxKey, false) : PROTO_NONE;
+                    }
                 }
                 setSlot(pContext, bs + 1, pContext->fromInteger(idx2 + 1LL));
-                stackPush(pContext, iterator);
-                stackPush(pContext, next_meth);
-                stackPush(pContext, catch_off);
                 stackPush(pContext, elemVal ? elemVal : PROTO_NONE);
                 stackPush(pContext, PROTO_FALSE); // done = false
                 DISPATCH();
