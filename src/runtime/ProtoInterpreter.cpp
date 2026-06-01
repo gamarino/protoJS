@@ -4444,6 +4444,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         else if (val->isDouble(pContext))
                             newLen = static_cast<long long>(val->asDouble(pContext));
                         if (newLen >= 0) {
+                            // Trim __elements__ to the new length (real arrays
+                            // store entries there now).  Pre-fix this loop
+                            // only walked indexed-attribute keys, leaving the
+                            // ProtoList unchanged — so `a.length=2` on
+                            // [1,2,3,4] did nothing visible (Array.length
+                            // got the new value but iteration still saw 4).
+                            const proto::ProtoList* curEls =
+                                protojs::getArrayElements(pContext, newObj);
+                            if (curEls) {
+                                size_t curSz = curEls->getSize(pContext);
+                                if (static_cast<long long>(curSz) > newLen) {
+                                    const proto::ProtoList* trimmed = pContext->newList();
+                                    for (long long i = 0; i < newLen; ++i)
+                                        trimmed = trimmed->appendLast(pContext,
+                                            curEls->getAt(pContext, static_cast<int>(i)));
+                                    protojs::setArrayElements(pContext, newObj, trimmed);
+                                } else if (static_cast<long long>(curSz) < newLen) {
+                                    const proto::ProtoList* grown = curEls;
+                                    for (long long i = curSz; i < newLen; ++i)
+                                        grown = grown->appendLast(pContext, PROTO_NONE);
+                                    protojs::setArrayElements(pContext, newObj, grown);
+                                }
+                            }
                             int misses = 0;
                             for (long long i = newLen; i < newLen + 100000LL && misses < 8; i++) {
                                 const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
