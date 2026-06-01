@@ -4999,6 +4999,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (locIndex < varCount) {
                     const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
+                    // SmallInt fast path: most tight loops (`acc += i`,
+                    // `sum += arr[i]`) hit this op every iteration with
+                    // two tagged SmallInts. Bypass asString/toNumber/add
+                    // entirely — no allocation, single addition, range
+                    // check, re-tag, store.
+                    if (proto::isSmallInt(cur) && proto::isSmallInt(val)) {
+                        long long sum = proto::asSmallInt(cur) + proto::asSmallInt(val);
+                        if (proto::smallIntInRange(sum)) {
+                            setSlot(pContext, argCount + locIndex, proto::makeSmallInt(sum));
+                            DISPATCH();
+                        }
+                    }
                     // JS + semantics: string concat or numeric add.
                     bool curIsStr = cur && cur != PROTO_NONE && cur->asString(pContext);
                     bool valIsStr = val && val != PROTO_NONE && val->asString(pContext);
