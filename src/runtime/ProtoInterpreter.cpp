@@ -2202,23 +2202,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         const proto::ProtoObject* objProto = pContext->space ? pContext->space->objectPrototype : nullptr;
         int depth = 0;
         while (curr && curr != PROTO_NONE && depth < 100) {
-            if (curr->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
-                const proto::ProtoString* gk = getterSymbolFor(key);
-                if (gk && curr->hasOwnAttribute(pContext, gk) == PROTO_TRUE) {
-                    const proto::ProtoObject* getter = curr->getAttribute(pContext, gk, false);
-                    if (getter && getter != PROTO_NONE && getter != t_undefinedSentinel) {
-                        const proto::ProtoList* emptyArgs = pContext->newList();
-                        const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
-                        if (t_hasCallException) {
-                            pending_exception  = t_callException;
-                            has_pending_exception = true;
-                            t_hasCallException = false;
-                            t_callException    = nullptr;
-                            return PROTO_NONE;
-                        }
-                        return result ? result : PROTO_NONE;
+            // Check accessor sidecar first.  Built-in prototypes such as
+            // Set.prototype / Map.prototype install only `__get_<name>__`
+            // (no plain `<name>` attribute), so the previous "key must
+            // exist as own attribute" guard caused dot access to miss the
+            // accessor entirely while bracket access (which walked through
+            // resolveElementOOP + invokeGetterIfPresent slow path) found
+            // it.  Probe the sidecar at every level of the chain.
+            const proto::ProtoString* gk = getterSymbolFor(key);
+            if (gk && curr->hasOwnAttribute(pContext, gk) == PROTO_TRUE) {
+                const proto::ProtoObject* getter = curr->getAttribute(pContext, gk, false);
+                if (getter && getter != PROTO_NONE && getter != t_undefinedSentinel) {
+                    const proto::ProtoList* emptyArgs = pContext->newList();
+                    const proto::ProtoObject* result = callJSFunction(pContext, getter, obj, emptyArgs);
+                    if (t_hasCallException) {
+                        pending_exception  = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException    = nullptr;
+                        return PROTO_NONE;
                     }
+                    return result ? result : PROTO_NONE;
                 }
+            }
+            if (curr->hasOwnAttribute(pContext, key) == PROTO_TRUE) {
+                // Regular own attribute with no accessor at this level —
+                // stop so a prototype-level accessor cannot shadow a
+                // legitimate own value.  Normal resolution will pick it
+                // up.
                 return PROTO_NONE;
             }
             if (curr == objProto) break; // Stop at Object.prototype
