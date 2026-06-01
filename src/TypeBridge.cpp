@@ -4,6 +4,7 @@
 #include "JSContext.h"
 #include "ProtoArrayAdapter.h"
 #include "ProtoArgumentsAdapter.h"
+#include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include <string>
 #include <vector>
@@ -89,18 +90,76 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
         JS_ToUint32(ctx, &len, lenVal);
         JS_FreeValue(ctx, lenVal);
 
+        // Build native ProtoList element storage so the rest of the
+        // runtime (arrayTryFastGet, OP_get_array_el, getOwnElements,
+        // JSON.stringify's __elements__ path, etc.) sees the entries.
+        // Pre-fix: elements were stored as indexed-attribute keys ("0",
+        // "1", …) so consumers reading __elements__ saw the array as
+        // empty.  This is what broke tagged-template strings arrays
+        // (const-pool QuickJS array embedded into the bytecode): the
+        // strings array was the right length but s[0] returned null.
+        proto::ProtoContext::CriticalSection cs(pContext);
+        const proto::ProtoList* list = pContext->newList();
         for (uint32_t i = 0; i < len; i++) {
-            if (!JS_HasProperty(ctx, val, i)) {
-                continue; // hole
-            }
+            // JS_HasProperty on sealed template objects can return 0
+            // even when JS_GetPropertyUint32 yields the cooked string,
+            // so unconditionally fetch and check for exception/undefined
+            // instead of gating on JS_HasProperty.
             JSValue item = JS_GetPropertyUint32(ctx, val, i);
-            const proto::ProtoObject* pItem = fromJS(ctx, item, pContext);
-            backing = backing->setAttribute(pContext, JSSymbols::indexKey(pContext, i), pItem);
+            const proto::ProtoObject* pItem;
+            if (JS_IsException(item)) {
+                pItem = PROTO_NONE;
+            } else {
+                pItem = fromJS(ctx, item, pContext);
+            }
             JS_FreeValue(ctx, item);
+            list = list->appendLast(pContext, pItem ? pItem : PROTO_NONE);
         }
         backing = backing->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(len)));
         const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
         if (isArrKey) backing = backing->setAttribute(pContext, isArrKey, PROTO_TRUE);
+        if (list) protojs::setArrayElements(pContext, backing, list);
+
+        // Tagged-template support: re-walk non-index own properties so
+        // sidecars such as `raw` (a QuickJS-side array placed on the
+        // template object via JS_DefinePropertyValue) make it across.
+        JSPropertyEnum* tab = nullptr;
+        uint32_t plen = 0;
+        // Enumerate *all* own string properties, not just enumerable
+        // ones: the tagged-template `raw` sidecar is installed by
+        // QuickJS as a non-enumerable, non-writable, non-configurable
+        // property (JS_DefinePropertyValue with only JS_PROP_THROW),
+        // so JS_GPN_ENUM_ONLY skips it.
+        if (JS_GetOwnPropertyNames(ctx, &tab, &plen, val,
+                                   JS_GPN_STRING_MASK) == 0) {
+            for (uint32_t pi = 0; pi < plen; ++pi) {
+                JSAtom atom = tab[pi].atom;
+                const char* keyName = JS_AtomToCString(ctx, atom);
+                if (keyName) {
+                    bool isIndex = (keyName[0] != '\0');
+                    for (const char* p = keyName; isIndex && *p; ++p)
+                        if (*p < '0' || *p > '9') isIndex = false;
+                    if (!isIndex && strcmp(keyName, "length") != 0) {
+                        JSValue propVal = JS_GetProperty(ctx, val, atom);
+                        if (!JS_IsException(propVal)) {
+                            const proto::ProtoObject* p =
+                                fromJS(ctx, propVal, pContext);
+                            const proto::ProtoObject* ko =
+                                pContext->fromUTF8String(keyName);
+                            const proto::ProtoString* ks =
+                                ko ? ko->asString(pContext) : nullptr;
+                            if (ks)
+                                backing = backing->setAttribute(
+                                    pContext, ks, p ? p : PROTO_NONE);
+                            JS_FreeValue(ctx, propVal);
+                        }
+                    }
+                    JS_FreeCString(ctx, keyName);
+                }
+                JS_FreeAtom(ctx, atom);
+            }
+            js_free(ctx, tab);
+        }
 
         // Register mapping so that future lookups can reuse the same backing.
         GCBridge::registerMapping(val, backing, ctx);
