@@ -437,16 +437,21 @@ static const proto::ProtoObject* mapIteratorNext(
         } else if (kind == "values") {
             iterVal = v;
         } else {
-            // entries: [key, value]
+            // entries: [key, value] — build a real array via __elements__
+            // and the PROTO_TRUE isArray singleton.  Pre-fix the pair was
+            // stored with indexed-attribute keys (\"0\", \"1\") + length +
+            // __is_array__=fromInteger(1) (wrong singleton).  Consumers
+            // checking `__is_array__ == PROTO_TRUE` and reading via
+            // __elements__ saw the pair as a plain object.
             const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
-            const proto::ProtoString* i0 = JSSymbols::indexKey(ctx, 0);
-            const proto::ProtoString* i1 = JSSymbols::indexKey(ctx, 1);
             const proto::ProtoString* lk = JSSymbols::length(ctx);
             const proto::ProtoString* ia = JSSymbols::isArray(ctx);
-            if (i0) pair = pair->setAttribute(ctx, i0, k);
-            if (i1) pair = pair->setAttribute(ctx, i1, v);
+            const proto::ProtoList* pairEls = ctx->newList();
+            pairEls = pairEls->appendLast(ctx, k);
+            pairEls = pairEls->appendLast(ctx, v);
+            setArrayElements(ctx, pair, pairEls);
             if (lk) pair = pair->setAttribute(ctx, lk, ctx->fromInteger(2LL));
-            if (ia) pair = pair->setAttribute(ctx, ia, ctx->fromInteger(1LL));
+            if (ia) pair = pair->setAttribute(ctx, ia, PROTO_TRUE);
             iterVal = pair;
         }
 

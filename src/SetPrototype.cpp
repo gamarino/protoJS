@@ -359,16 +359,18 @@ static const proto::ProtoObject* setIteratorNext(
         if (!v) v = PROTO_NONE;
         const proto::ProtoObject* iterVal = PROTO_NONE;
         if (kind == "entries") {
-            // Set entries: [value, value]
+            // Set entries: [value, value] — build a real array via
+            // __elements__ and the PROTO_TRUE isArray singleton (see
+            // MapPrototype::mapIteratorNext for the rationale).
             const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
-            const proto::ProtoString* i0 = JSSymbols::indexKey(ctx, 0);
-            const proto::ProtoString* i1 = JSSymbols::indexKey(ctx, 1);
             const proto::ProtoString* lk = JSSymbols::length(ctx);
             const proto::ProtoString* ia = JSSymbols::isArray(ctx);
-            if (i0) pair = pair->setAttribute(ctx, i0, v);
-            if (i1) pair = pair->setAttribute(ctx, i1, v);
+            const proto::ProtoList* pairEls = ctx->newList();
+            pairEls = pairEls->appendLast(ctx, v);
+            pairEls = pairEls->appendLast(ctx, v);
+            setArrayElements(ctx, pair, pairEls);
             if (lk) pair = pair->setAttribute(ctx, lk, ctx->fromInteger(2LL));
-            if (ia) pair = pair->setAttribute(ctx, ia, ctx->fromInteger(1LL));
+            if (ia) pair = pair->setAttribute(ctx, ia, PROTO_TRUE);
             iterVal = pair;
         } else {
             iterVal = v; // "keys" or "values" both yield the value for Set
