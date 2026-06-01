@@ -6983,14 +6983,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* pk = JSSymbols::prototype(pContext);
                         const proto::ProtoObject* pr = func->getAttribute(pContext, pk, false);
                         const proto::ProtoObject* arr = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
-                        // Set the internal array marker so Array.isArray identifies it.
                         const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
                         if (isArrKey) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
                         if (finalArgc == 1 && argsList->getAt(pContext, 0)->isInteger(pContext)) {
+                            // new Array(n) — sparse: length = n, no __elements__.
                             arr = arr->setAttribute(pContext, JSSymbols::length(pContext), argsList->getAt(pContext, 0));
                         } else {
+                            // new Array(v1, v2, ...) — entries go in
+                            // __elements__ so iteration / JSON.stringify
+                            // / Array.prototype.* see them.  Pre-fix the
+                            // indexed-attribute fallback left the array
+                            // looking empty to those consumers.
+                            proto::ProtoContext::CriticalSection arrCs(pContext);
+                            const proto::ProtoList* els = pContext->newList();
                             for (uint32_t i = 0; i < finalArgc; i++)
-                                arr = arr->setAttribute(pContext, JSSymbols::indexKey(pContext, i), argsList->getAt(pContext, i));
+                                els = els->appendLast(pContext, argsList->getAt(pContext, i));
+                            protojs::setArrayElements(pContext, arr, els);
                             arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(static_cast<long long>(finalArgc)));
                         }
                         result = arr;
@@ -7288,16 +7296,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     if (n >= 0 && n <= 0xFFFFFFFFLL) arrLength = n;
                                     // else fall through to element-mode (n elements would error per spec; we just keep argc)
                                 } else {
-                                    // single non-integer arg: treat as one element.
-                                    const proto::ProtoString* k0 = JSSymbols::indexKey(pContext, 0);
-                                    if (k0) arr = arr->setAttribute(pContext, k0, a0 ? a0 : PROTO_NONE);
+                                    // single non-integer arg: treat as one element via __elements__.
+                                    const proto::ProtoList* els = pContext->newList();
+                                    els = els->appendLast(pContext, a0 ? a0 : PROTO_NONE);
+                                    protojs::setArrayElements(pContext, arr, els);
                                 }
                             } else {
-                                for (uint32_t i = 0; i < argc; i++) {
-                                    const proto::ProtoString* ki = JSSymbols::indexKey(pContext, i);
-                                    if (ki) arr = arr->setAttribute(pContext, ki,
+                                // multi-arg: entries go in __elements__ so iteration sees them.
+                                proto::ProtoContext::CriticalSection arrCs2(pContext);
+                                const proto::ProtoList* els = pContext->newList();
+                                for (uint32_t i = 0; i < argc; i++)
+                                    els = els->appendLast(pContext,
                                         argsList->getAt(pContext, static_cast<int>(i)));
-                                }
+                                protojs::setArrayElements(pContext, arr, els);
                             }
                             arr = arr->setAttribute(pContext, JSSymbols::length(pContext), pContext->fromInteger(arrLength));
                             if (is_tail_call) return arr;
