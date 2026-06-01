@@ -5766,6 +5766,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // for-in all correctly report the property as absent.
                     std::string propNameStrDel;
                     key->toUTF8String(pContext, propNameStrDel);
+                    // Array element deletion: when obj is an array and the
+                    // key is a numeric index, write PROTO_NONE into the
+                    // __elements__ ProtoList slot (creates a hole) before
+                    // the generic attribute path runs.  Pre-fix \`delete
+                    // a[1]\` was a silent no-op because the element lives
+                    // in __elements__, not as an own attribute.
+                    {
+                        const proto::ProtoString* isArrKeyDel = JSSymbols::isArray(pContext);
+                        const proto::ProtoObject* isArrValDel = isArrKeyDel
+                            ? obj->getAttribute(pContext, isArrKeyDel, true) : nullptr;
+                        if (isArrValDel == PROTO_TRUE && !propNameStrDel.empty() &&
+                            propNameStrDel[0] >= '0' && propNameStrDel[0] <= '9') {
+                            char* endp = nullptr;
+                            long long idx = std::strtoll(propNameStrDel.c_str(), &endp, 10);
+                            if (endp && *endp == '\0' && idx >= 0 &&
+                                std::to_string(idx) == propNameStrDel) {
+                                const proto::ProtoList* els = getArrayElements(pContext, obj);
+                                if (els && idx < static_cast<long long>(els->getSize(pContext))) {
+                                    const proto::ProtoList* newEls = els->setAt(pContext,
+                                        static_cast<unsigned long>(idx), PROTO_NONE);
+                                    if (newEls) setArrayElements(pContext, obj, newEls);
+                                }
+                            }
+                        }
+                    }
                     const proto::ProtoObject* newObj = obj->setAttribute(pContext, key, nullptr);
                     // Also remove accessor sidecars (__get_<name>__, __set_<name>__,
                     // __pd_<name>__) so the property is fully deleted per the spec.
