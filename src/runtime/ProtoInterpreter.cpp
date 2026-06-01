@@ -2672,12 +2672,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_call2] = &&L_OP_call2;
     dispatch_table[OP_call3] = &&L_OP_call3;
     dispatch_table[OP_call_constructor] = &&L_OP_call_constructor;
-    dispatch_table[OP_define_class] = &&L_OP_define_class;
-    dispatch_table[OP_define_class_computed] = &&L_OP_define_class_computed;
-    dispatch_table[OP_check_ctor] = &&L_OP_check_ctor;
-    dispatch_table[OP_init_ctor] = &&L_OP_init_ctor;
-    dispatch_table[OP_check_brand] = &&L_OP_check_brand;
-    dispatch_table[OP_add_brand] = &&L_OP_add_brand;
     dispatch_table[OP_call_method] = &&L_OP_call_method;
     dispatch_table[OP_apply] = &&L_OP_apply;
     dispatch_table[OP_catch] = &&L_OP_catch;
@@ -3181,123 +3175,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 REFRESH_INTERP_STATE();
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] =
                     result ? result : PROTO_NONE;
-                DISPATCH();
-            }
-            L_OP_check_ctor: {
-                // Verify the function was called as a constructor.
-                // Minimal impl: no-op — the strict spec semantics are
-                // not enforced yet and most tests pass-through.
-                DISPATCH();
-            }
-            L_OP_init_ctor: {
-                // Used in derived-class default constructors to invoke
-                // super.  Minimal impl: push undefined to satisfy stack
-                // discipline; explicit `super(...)` calls go through
-                // OP_apply instead.
-                stackPush(pContext, PROTO_NONE);
-                DISPATCH();
-            }
-            L_OP_check_brand: {
-                // Private brand check — minimal impl: skip.
-                if (stackSize(pContext) >= 2) {
-                    stackPop(pContext);
-                    stackPop(pContext);
-                }
-                DISPATCH();
-            }
-            L_OP_add_brand: {
-                // Private brand registration — minimal impl: skip.
-                if (stackSize(pContext) >= 2) {
-                    stackPop(pContext);
-                    stackPop(pContext);
-                }
-                DISPATCH();
-            }
-            L_OP_define_class: ;
-            L_OP_define_class_computed: {
-                // DEF(define_class,          6, 2, 2, atom_u8)
-                // DEF(define_class_computed, 6, 3, 3, atom_u8)
-                //
-                // For OP_define_class:
-                //   Stack [..., parent_class, bfunc] → [..., ctor, proto]
-                // For OP_define_class_computed:
-                //   Stack [..., name_value, parent_class, bfunc]
-                //         → [..., name_value, ctor, proto]
-                //
-                // Layout: u32 class_name_atom, u8 class_flags (bit 0 =
-                // HAS_HERITAGE).  When no heritage, parent_class is
-                // undefined on the stack — proto inherits Object.prototype
-                // and ctor inherits Function.prototype.  When heritage is
-                // present, parent_class is the explicit base class and
-                // parent_proto is base.prototype.
-                //
-                // Minimal implementation: bfunc is already a closure
-                // object (OP_fclosure populated its bytecode_id +
-                // closure cells).  We reuse it directly as the ctor —
-                // augmenting with .prototype and .name only.
-                bool isComputed = (opcode == OP_define_class_computed);
-                if (pc + 5 > len) return PROTO_NONE;
-                uint32_t classAtom = get_u32(buf + pc);
-                pc += 4;
-                uint8_t classFlags = buf[pc++];
-                bool hasHeritage = (classFlags & 1) != 0;
-                size_t need = isComputed ? 3 : 2;
-                if (stackSize(pContext) < need) return PROTO_NONE;
-                const proto::ProtoObject* bfunc =
-                    stackAt(pContext, 0);
-                const proto::ProtoObject* parentClass =
-                    stackAt(pContext, 1);
-                // For computed, sp[-3] is the name value; we leave it
-                // in-place under the new ctor.
-
-                // Resolve parent prototype.
-                REFRESH_GLOBAL_OBJ();
-                const proto::ProtoObject* parentProto = nullptr;
-                if (hasHeritage && parentClass && parentClass != PROTO_NONE) {
-                    const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
-                    if (protoKey)
-                        parentProto = parentClass->getAttribute(pContext, protoKey, false);
-                }
-                if (!parentProto || parentProto == PROTO_NONE) {
-                    if (pContext->space)
-                        parentProto = pContext->space->objectPrototype;
-                }
-
-                // Build proto inheriting parentProto.
-                const proto::ProtoObject* proto = (parentProto && parentProto != PROTO_NONE)
-                    ? parentProto->newChild(pContext, true)
-                    : pContext->newObject(true);
-
-                // bfunc IS the ctor (already a closure).  Install
-                // .prototype, .name, constructor-bit equivalent.
-                const proto::ProtoObject* ctor = bfunc;
-                if (ctor && ctor != PROTO_NONE && proto && proto != PROTO_NONE) {
-                    const proto::ProtoString* pkey = JSSymbols::prototype(pContext);
-                    if (pkey) ctor = ctor->setAttribute(pContext, pkey, proto);
-
-                    const proto::ProtoString* ckey = JSSymbols::constructor(pContext);
-                    if (ckey) proto = proto->setAttribute(pContext, ckey, ctor);
-
-                    // class name: when computed, sp[-3] is the name; when
-                    // atom-named, resolve via constant table.
-                    const proto::ProtoString* nameKey = JSSymbols::name(pContext);
-                    if (nameKey) {
-                        if (isComputed) {
-                            const proto::ProtoObject* nv = stackAt(pContext, 2);
-                            if (nv && nv != PROTO_NONE)
-                                ctor = ctor->setAttribute(pContext, nameKey, nv);
-                        } else {
-                            const proto::ProtoString* ns = resolveAtom(mod, pContext, classAtom);
-                            if (ns)
-                                ctor = ctor->setAttribute(pContext, nameKey, ns->asObject(pContext));
-                        }
-                    }
-                }
-
-                // Replace top 2 stack slots with [ctor, proto].
-                _PF().stackTop -= 2;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ctor ? ctor : PROTO_NONE;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto ? proto : PROTO_NONE;
                 DISPATCH();
             }
             L_OP_return: {
