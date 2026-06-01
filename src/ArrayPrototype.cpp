@@ -917,10 +917,13 @@ static const proto::ProtoObject* arrayIndexOf(
         }
     }
     from = normalizeIdx(from, len);
-    // Guard against extremely sparse arrays that would cause O(n) iteration over billions of slots.
-    static constexpr long long MAX_SEARCH_ITERS = 10LL; // 10 — prevents timeout on huge sparse arrays
-    long long end = (len - from > MAX_SEARCH_ITERS) ? from + MAX_SEARCH_ITERS : len;
-    for (long long i = from; i < end; i++) {
+    // NaN-as-needle: indexOf uses Strict Equality, so NaN is never found.
+    bool needleIsNaN = needle && (needle->isDouble(ctx) || needle->isFloat(ctx)) &&
+                       std::isnan(needle->asDouble(ctx));
+    if (needleIsNaN) return ctx->fromInteger(-1LL);
+    // Iterate the full array.  The prior 10-iteration cap was a sparse-array
+    // timeout guard but silently truncated indexOf for any 11+ length array.
+    for (long long i = from; i < len; i++) {
         if (strictEquals(ctx, arrGet(ctx, self, static_cast<unsigned long>(i)), needle))
             return ctx->fromInteger(i);
     }
