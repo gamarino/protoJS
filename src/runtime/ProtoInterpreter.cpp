@@ -2780,10 +2780,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_rest: {
-                // TODO: Implement rest parameter materialization once call/arg opcodes are wired.
+                // DEF(rest, 3, 0, 1, u16) — push an array containing args
+                // from the first-rest-index onward.  The call-time `args`
+                // ProtoList is passed into runBytecode so we have the
+                // full pre-truncation argument list available here.
                 if (pc + 2 > len) return PROTO_NONE;
-                pc += 2; // skip u16 argument index
-                stackPush(pContext,PROTO_NONE);
+                uint16_t firstRestIdx = get_u16(buf + pc);
+                pc += 2;
+                REFRESH_GLOBAL_OBJ();
+                const proto::ProtoString* arrProtoLookupKey =
+                    JSSymbols::arrayProto(pContext);
+                const proto::ProtoObject* arrProto =
+                    (arrProtoLookupKey && globalObj && globalObj != PROTO_NONE)
+                        ? globalObj->getAttribute(pContext, arrProtoLookupKey, false)
+                        : nullptr;
+                const proto::ProtoObject* arr = (arrProto && arrProto != PROTO_NONE)
+                    ? arrProto->newChild(pContext, true)
+                    : pContext->newObject(true);
+                const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                if (isArrKey && arr) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
+                proto::ProtoContext::CriticalSection restCs(pContext);
+                const proto::ProtoList* list = pContext->newList();
+                unsigned int total = args ? static_cast<unsigned int>(args->getSize(pContext)) : 0;
+                long long count = 0;
+                if (total > firstRestIdx) {
+                    for (unsigned int i = firstRestIdx; i < total; ++i) {
+                        const proto::ProtoObject* a = args->getAt(pContext, static_cast<int>(i));
+                        list = list->appendLast(pContext, a ? a : PROTO_NONE);
+                        ++count;
+                    }
+                }
+                if (arr && list) protojs::setArrayElements(pContext, arr, list);
+                if (arr) arr = arr->setAttribute(pContext,
+                    JSSymbols::length(pContext),
+                    pContext->fromInteger(count));
+                stackPush(pContext, arr ? arr : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_return: {
