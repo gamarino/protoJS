@@ -117,7 +117,7 @@ static const proto::ProtoObject* objectKeys(
         if (ik && kv) result = result->setAttribute(ctx, ik, kv);
     }
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(keys.size())));
-    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
 }
 
@@ -146,7 +146,7 @@ static const proto::ProtoObject* objectValues(
         if (ik) result = result->setAttribute(ctx, ik, vals[i]);
     }
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(vals.size())));
-    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
 }
 
@@ -180,13 +180,13 @@ static const proto::ProtoObject* objectEntries(
         if (idx0 && kv)       pair = pair->setAttribute(ctx, idx0, kv);
         if (idx1)             pair = pair->setAttribute(ctx, idx1, vals[i]);
         if (lenKey)           pair = pair->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
-        if (isArrKey2)        pair = pair->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+        if (isArrKey2)        pair = pair->setAttribute(ctx, isArrKey2, PROTO_TRUE);
 
         const proto::ProtoString* outerIdx = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
         if (outerIdx) result = result->setAttribute(ctx, outerIdx, pair);
     }
     if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(keys.size())));
-    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
 }
 
@@ -503,7 +503,12 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
         if (ik && kv) result = result->setAttribute(ctx, ik, kv);
     }
     if (lenKey)   result = result->setAttribute(ctx, lenKey,   ctx->fromInteger(static_cast<long long>(keys.size())));
-    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, ctx->fromInteger(1LL));
+    // __is_array__ must be PROTO_TRUE (not the integer 1) so the rest of
+    // the runtime — hasOwnProperty's array fallback, JSON.stringify's array
+    // detection, the OP_define_array_el length guard — actually picks it
+    // up as an array.  Pre-fix it was fromInteger(1), which silently
+    // mismatched every \`isArr == PROTO_TRUE\` check.
+    if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
     return result;
 }
 
