@@ -4815,6 +4815,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // Per ECMA-262 Abstract Relational Comparison §7.2.13 step 4:
+                // numerify booleans before comparison.  Pre-fix `1 < true`
+                // hit protoCore's compare() on a SmallInt vs the
+                // PROTO_TRUE/PROTO_FALSE singletons (pointer constants)
+                // and returned a pointer-order comparison, not a numeric
+                // one — `1 < true` came out as true.
+                auto numerifyBool = [](const proto::ProtoObject* x) -> const proto::ProtoObject* {
+                    if (x == PROTO_TRUE)  return proto::makeSmallInt(1);
+                    if (x == PROTO_FALSE) return proto::makeSmallInt(0);
+                    return x;
+                };
+                a = numerifyBool(a);
+                b = numerifyBool(b);
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) < proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
@@ -4834,6 +4847,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // see L_OP_lt for the boolean-numerify rationale.
+                if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
+                else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
+                if (b == PROTO_TRUE) b = proto::makeSmallInt(1);
+                else if (b == PROTO_FALSE) b = proto::makeSmallInt(0);
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) <= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
@@ -4853,6 +4871,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
+                else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
+                if (b == PROTO_TRUE) b = proto::makeSmallInt(1);
+                else if (b == PROTO_FALSE) b = proto::makeSmallInt(0);
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) > proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
@@ -4872,6 +4894,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                if (a == PROTO_TRUE) a = proto::makeSmallInt(1);
+                else if (a == PROTO_FALSE) a = proto::makeSmallInt(0);
+                if (b == PROTO_TRUE) b = proto::makeSmallInt(1);
+                else if (b == PROTO_FALSE) b = proto::makeSmallInt(0);
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (proto::asSmallInt(a) >= proto::asSmallInt(b)) ? PROTO_TRUE : PROTO_FALSE;
                     DISPATCH();
