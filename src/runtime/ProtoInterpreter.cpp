@@ -4049,14 +4049,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_define_method: {
                 // DEF(define_method, 6, 2, 1, atom_u8)
                 // Format: 4-byte atomIndex, 1-byte op_flags. Stack: [..., obj, method] → [..., obj].
+                // QuickJS op_flags: 0 = METHOD, 1 = GETTER, 2 = SETTER (plus high
+                // bits for enumerability — ignored here, the existing
+                // setAttribute path defaults to writable/configurable).
                 if (pc + 5 > len || stackSize(pContext) < 2) return PROTO_NONE;
                 uint32_t atomIndex = get_u32(buf + pc);
                 pc += 4;
-                /* uint8_t op_flags = */ buf[pc++]; // consumed but unused
+                uint8_t op_flags = buf[pc++];
                 const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* obj3      = stackTop(pContext);
                 const proto::ProtoString* key3 = resolveAtom(mod, pContext, atomIndex);
                 if (key3 && obj3) {
+                    // GETTER / SETTER: store under accessor sidecar key
+                    // (__get_<name>__ / __set_<name>__) and remove any
+                    // pre-existing data key so prototype-chain dispatch
+                    // routes through the accessor.  Pre-fix: object literal
+                    // `{ get foo() {...} }` stored the getter as a regular
+                    // data attribute, so `o.foo` returned the function
+                    // object instead of invoking it.
+                    int flag = op_flags & 0x3;
+                    if (flag == 1 || flag == 2) {
+                        std::string nameStr;
+                        key3->toUTF8String(pContext, nameStr);
+                        const std::string prefix = (flag == 1) ? "__get_" : "__set_";
+                        std::string sidecar = prefix + nameStr + "__";
+                        const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
+                        const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
+                        if (skp) {
+                            // Drop any pre-existing data key (so prototype-chain
+                            // lookup sees the accessor, not a stale value).
+                            const proto::ProtoObject* tmp = obj3->setAttribute(pContext, key3, PROTO_NONE);
+                            const proto::ProtoObject* newObj3 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
+                            stackPop(pContext);
+                            stackPush(pContext, newObj3 ? newObj3 : obj3);
+                            DISPATCH();
+                        }
+                    }
                     const proto::ProtoObject* newObj3 =
                         obj3->setAttribute(pContext, key3, methodVal ? methodVal : PROTO_NONE);
                     stackPop(pContext);
@@ -4067,9 +4095,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_define_method_computed: {
                 // DEF(define_method_computed, 2, 3, 1, u8)
                 // Format: 1 byte op_flags. Stack: [..., obj, key, method] → [..., obj].
-                // Assigns obj[key] = method for computed-property object literals and classes.
+                // Same flag interpretation as L_OP_define_method — see above.
                 if (pc + 1 > len || stackSize(pContext) < 3) { if (pc + 1 <= len) pc++; return PROTO_NONE; }
-                /* uint8_t op_flags = */ buf[pc++]; // consumed but unused (METHOD/GETTER/SETTER flag)
+                uint8_t op_flags = buf[pc++];
                 const proto::ProtoObject* methodVal = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* keyVal    = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* obj2      = stackTop(pContext);
@@ -4081,7 +4109,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (idx >= 0)
                         keyStr2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
                 }
+                if (!keyStr2) {
+                    // Object-keyed: coerce via ToPropertyKey (user toString).
+                    const proto::ProtoObject* coerced = toString(pContext, keyVal);
+                    keyStr2 = coerced ? coerced->asString(pContext) : nullptr;
+                }
                 if (!keyStr2) DISPATCH();
+                int flag = op_flags & 0x3;
+                if (flag == 1 || flag == 2) {
+                    std::string nameStr;
+                    keyStr2->toUTF8String(pContext, nameStr);
+                    const std::string prefix = (flag == 1) ? "__get_" : "__set_";
+                    std::string sidecar = prefix + nameStr + "__";
+                    const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
+                    const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
+                    if (skp) {
+                        const proto::ProtoObject* tmp = obj2->setAttribute(pContext, keyStr2, PROTO_NONE);
+                        const proto::ProtoObject* newObj2 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
+                        stackPop(pContext);
+                        stackPush(pContext, newObj2 ? newObj2 : obj2);
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* newObj2 =
                     obj2->setAttribute(pContext, keyStr2, methodVal ? methodVal : PROTO_NONE);
                 stackPop(pContext);
