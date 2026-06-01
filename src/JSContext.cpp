@@ -341,6 +341,14 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
                 hadError = true;
                 val = JS_EXCEPTION;
             } else {
+                // Pin the root module's metadata in the root set so it's not collected.
+                // This deep-roots the entire constant pool and nested functions via metadata links.
+                proto::ProtoRootSet* rs = getRootSet();
+                if (rs) {
+                    if (rootModuleHandle_) rs->remove(rootModuleHandle_);
+                    rootModuleHandle_ = rs->add(modPtr->metadata);
+                }
+
                 rootModule_ = modPtr;
                 rootModuleStorage_ = std::move(modulePtr);
                 const proto::ProtoObject* exception = PROTO_NONE;

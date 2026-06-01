@@ -8,6 +8,13 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
   /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h \
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.make
+=======
+  /home/gamarino/Documentos/proyectos/protoJS/src/JSONBuiltin.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h \
+  /home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h \
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.make
   /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/console.h \
   /home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h \
@@ -484,7 +491,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/std_mutex.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h:
+/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
 
 /usr/include/c++/13/bits/stl_algobase.h:
 
@@ -662,6 +669,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/locale.h:
 
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.make
 /usr/include/c++/13/bits/memoryfwd.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/dgram/DgramModule.h:
@@ -670,6 +678,8 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/unordered_map.h:
 
+=======
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.make
 /usr/include/c++/13/ext/string_conversions.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/limits.h:
@@ -680,11 +690,71 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/ranges_algobase.h:
 
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.make
 /home/gamarino/Documentos/proyectos/protoJS/src/main.cpp:
+=======
+/home/gamarino/Documentos/proyectos/protoJS/src/JSONBuiltin.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h:
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
 
-/usr/include/c++/13/bits/streambuf.tcc:
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/fs/FSModule.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/IOThreadPool.h:
+
+/usr/include/c++/13/type_traits:
+
+/usr/include/wchar.h:
+
+/usr/include/c++/13/bits/shared_ptr_base.h:
+
+/usr/include/c++/13/bits/basic_ios.h:
+
+/usr/include/c++/13/bits/cxxabi_forced.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/worker_threads/WorkerThreadsModule.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h:
+
+/usr/include/c++/13/bits/charconv.h:
+
+/usr/include/x86_64-linux-gnu/bits/errno.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/ProcessModule.h:
+
+/usr/include/c++/13/bits/stl_pair.h:
+
+/usr/include/c++/13/cstdio:
+
+/usr/include/x86_64-linux-gnu/bits/types/__locale_t.h:
+
+/usr/include/c++/13/bits/stl_multimap.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h:
+
+/usr/include/x86_64-linux-gnu/sys/time.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/events/EventsModule.h:
+
+/usr/include/linux/errno.h:
+
+/usr/include/c++/13/debug/debug.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/http/HTTPModule.h:
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.make
+
+/usr/include/c++/13/iosfwd:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h:
+
+/usr/include/c++/13/bits/semaphore_base.h:
+
+/usr/include/c++/13/system_error:
+
+/usr/include/c++/13/compare:
 
 /usr/include/c++/13/numbers:
 
@@ -764,15 +834,35 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/locale_facets.h:
 
-/usr/include/c++/13/iosfwd:
+/home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h:
 
-/home/gamarino/Documentos/proyectos/protoJS/src/modules/child_process/ChildProcessModule.h:
+/home/gamarino/Documentos/proyectos/protoJS/src/main.cpp:
 
+/usr/include/c++/13/bits/streambuf.tcc:
+
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.make
 /usr/include/c++/13/bits/semaphore_base.h:
+=======
+/usr/include/c++/13/bits/memoryfwd.h:
 
-/usr/include/c++/13/system_error:
+/home/gamarino/Documentos/proyectos/protoJS/src/modules/dgram/DgramModule.h:
 
-/usr/include/c++/13/compare:
+/usr/include/x86_64-linux-gnu/bits/waitflags.h:
+
+/home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h:
+
+/usr/include/c++/13/bits/hash_bytes.h:
+
+/usr/include/c++/13/array:
+
+/usr/include/c++/13/bits/basic_string.tcc:
+
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.make
+
+/usr/include/c++/13/bits/quoted_string.h:
+
+/usr/include/c++/13/bits/unordered_map.h:
 
 /home/gamarino/Documentos/proyectos/protoJS/src/profiling/VisualProfiler.h:
 
@@ -780,11 +870,19 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/debug/assertions.h:
 
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.make
 /usr/include/c++/13/bits/basic_string.tcc:
 
 /usr/include/c++/13/bits/hash_bytes.h:
 
 /usr/include/c++/13/array:
+=======
+/usr/include/c++/13/bits/basic_string.h:
+
+/usr/include/libintl.h:
+
+/usr/include/c++/13/atomic:
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.make
 
 /usr/include/c++/13/bits/atomic_lockfree_defines.h:
 
@@ -828,6 +926,7 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 
 /usr/include/c++/13/bits/atomic_futex.h:
 
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.make
 /usr/include/c++/13/atomic:
 
 /usr/include/c++/13/bits/basic_string.h:
@@ -835,6 +934,9 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/libintl.h:
 
 /usr/include/c++/13/bits/ostream.tcc:
+=======
+/usr/include/c++/13/bits/stl_deque.h:
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.make
 
 /home/gamarino/Documentos/proyectos/protoJS/src/modules/buffer/BufferModule.h:
 
@@ -1055,5 +1157,3 @@ CMakeFiles/protojs.dir/src/main.cpp.o: /home/gamarino/Documentos/proyectos/proto
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
 
 /usr/include/x86_64-linux-gnu/bits/byteswap.h:
-
-/usr/include/x86_64-linux-gnu/bits/cpu-set.h:

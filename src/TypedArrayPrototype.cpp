@@ -4,6 +4,8 @@
 #include "headers/protoCore.h"
 #include "runtime/BehaviorRegistry.h"
 
+#include <algorithm>
+#include <climits>
 #include <cstring>
 #include <cmath>
 #include <limits>

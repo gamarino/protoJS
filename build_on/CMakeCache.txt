@@ -191,7 +191,11 @@ CMAKE_ADDR2LINE:FILEPATH=/usr/bin/addr2line
 CMAKE_AR:FILEPATH=/usr/bin/ar
 
 //Build type
+<<<<<<< Updated upstream:build_on/CMakeCache.txt
 CMAKE_BUILD_TYPE:STRING=Release
+=======
+CMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+>>>>>>> Stashed changes:build/CMakeCache.txt
 
 //Enable/Disable color output during build.
 CMAKE_COLOR_MAKEFILE:BOOL=ON

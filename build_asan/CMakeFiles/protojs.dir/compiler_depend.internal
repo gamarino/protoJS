@@ -9,6 +9,13 @@ CMakeFiles/protojs.dir/src/main.cpp.o
  /home/gamarino/Documentos/proyectos/protoJS/src/Deferred.h
  /home/gamarino/Documentos/proyectos/protoJS/src/EventLoop.h
  /home/gamarino/Documentos/proyectos/protoJS/src/JSContext.h
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/compiler_depend.internal
+=======
+ /home/gamarino/Documentos/proyectos/protoJS/src/JSONBuiltin.h
+ /home/gamarino/Documentos/proyectos/protoJS/src/JSPrototypes.h
+ /home/gamarino/Documentos/proyectos/protoJS/src/ProtoCoreNativeBindings.h
+ /home/gamarino/Documentos/proyectos/protoJS/src/ProtoDeferred.h
+>>>>>>> Stashed changes:build/CMakeFiles/protojs.dir/compiler_depend.internal
  /home/gamarino/Documentos/proyectos/protoJS/src/ThreadPoolExecutor.h
  /home/gamarino/Documentos/proyectos/protoJS/src/console.h
  /home/gamarino/Documentos/proyectos/protoJS/src/debugging/IntegratedDebugger.h

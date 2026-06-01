@@ -219,7 +219,17 @@ void ensureMathObject(proto::ProtoContext* ctx,
 
     auto setConst = [&](const char* name, double val) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) math = math->setAttribute(ctx, key, ctx->fromDouble(val));
+        if (!key) return;
+        math = math->setAttribute(ctx, key, ctx->fromDouble(val));
+        // Math constants are spec'd { writable:false, enumerable:false,
+        // configurable:false } — descriptor bits = 0x0.  Without setting
+        // __pd_<name>__ they default to writable/enumerable/configurable,
+        // so `delete Math.PI` returned true and Math.PI = 99 silently
+        // overwrote the value.
+        std::string pd = std::string("__pd_") + name + "__";
+        const proto::ProtoObject* pko = ctx->fromUTF8String(pd.c_str());
+        const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+        if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0LL));
     };
 
     // Constants

@@ -6,5 +6,9 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs -I/home/gamarino/Documentos/proyectos/protoJS/build_on/_deps/catch2-src/src/catch2/.. -I/home/gamarino/Documentos/proyectos/protoJS/build_on/_deps/catch2-build/generated-includes
 
+<<<<<<< Updated upstream:build_on/_deps/catch2-build/src/CMakeFiles/Catch2.dir/flags.make
 CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20 -ffile-prefix-map=/home/gamarino/Documentos/proyectos/protoJS/build_on/_deps/catch2-src/=
+=======
+CXX_FLAGS = -O2 -g -DNDEBUG -std=gnu++20 -ffile-prefix-map=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/=
+>>>>>>> Stashed changes:build/_deps/catch2-build/src/CMakeFiles/Catch2WithMain.dir/flags.make
 

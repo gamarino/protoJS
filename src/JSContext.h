@@ -171,6 +171,8 @@ private:
     const void* rootModule_{nullptr};
     /** Owning storage for the same module so it survives past eval(). */
     std::unique_ptr<protojs::ProtoBytecodeModule> rootModuleStorage_;
+    /** Handle for pinning the root module's metadata in rootSet_. */
+    proto::ProtoRootSet::Handle rootModuleHandle_{0};
     /** ProtoCore-side root set for pinning async-callback receivers
      *  across event-loop hops; lazy-init, destroyed on wrapper destruction. */
     proto::ProtoRootSet* rootSet_{nullptr};

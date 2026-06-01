@@ -5,9 +5,24 @@
 #include "JSContext.h"
 #include "ProtoNativeModule.h"
 #include "TypeBridge.h"
+#include <protoCore.h>
 #include <string>
 #include <vector>
 #include <sstream>
+
+namespace {
+    class ScopedRoot {
+    public:
+        ScopedRoot(proto::ProtoRootSet* rs, const proto::ProtoObject* obj)
+            : rs_(rs), h_((rs && proto::ProtoObject::isCellPointer(obj)) ? rs->add(obj) : proto::ProtoRootSet::kNullHandle) {}
+        ~ScopedRoot() { if (rs_ && h_ != proto::ProtoRootSet::kNullHandle) rs_->remove(h_); }
+        ScopedRoot(const ScopedRoot&) = delete;
+        ScopedRoot& operator=(const ScopedRoot&) = delete;
+    private:
+        proto::ProtoRootSet* rs_;
+        proto::ProtoRootSet::Handle h_;
+    };
+}
 #include <cstdio>
 
 namespace protojs {
@@ -43,7 +58,8 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         const proto::ProtoObject* obj, 
                         std::string& out,
                         const proto::ProtoObject* arrayPrototype,
-                        std::vector<const proto::ProtoObject*>& stack) {
+                        std::vector<const proto::ProtoObject*>& stack,
+                        proto::ProtoRootSet* rs) {
     if (!obj || obj == PROTO_NONE || obj->isNone(ctx)) {
         out += "null";
         return;
@@ -85,7 +101,7 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // Array check: Fast path via prototype check
     bool isArr = arrayPrototype && obj->hasParent(ctx, arrayPrototype);
     if (!isArr) {
-        // Fallback for objects that might have manually set __is_array__ (uncommon in benchmarks but possible)
+        // Fallback for objects that might have manually set __is_array__
         const proto::ProtoObject* isArrAttr = obj->getAttribute(ctx, JSSymbols::isArray(ctx), false);
         if (isArrAttr && isArrAttr != PROTO_NONE && isArrAttr->asBoolean(ctx)) {
             isArr = true;
@@ -96,10 +112,23 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         out.push_back('[');
         const proto::ProtoList* els = getArrayElements(ctx, obj);
         if (els) {
+            ScopedRoot r_els(rs, els->asObject(ctx));
             size_t size = els->getSize(ctx);
             for (size_t i = 0; i < size; ++i) {
                 if (i > 0) out.push_back(',');
-                stringifyRecursive(ctx, els->getAt(ctx, static_cast<int>(i)), out, arrayPrototype, stack);
+                stringifyRecursive(ctx, els->getAt(ctx, static_cast<int>(i)), out, arrayPrototype, stack, rs);
+            }
+        }
+        out.push_back(']');
+    } else if (obj->isTuple(ctx)) {
+        out.push_back('[');
+        const proto::ProtoTuple* tuple = obj->asTuple(ctx);
+        if (tuple) {
+            ScopedRoot r_tuple(rs, tuple->asObject(ctx));
+            size_t size = tuple->getSize(ctx);
+            for (size_t i = 0; i < size; ++i) {
+                if (i > 0) out.push_back(',');
+                stringifyRecursive(ctx, tuple->getAt(ctx, static_cast<int>(i)), out, arrayPrototype, stack, rs);
             }
         }
         out.push_back(']');
@@ -107,11 +136,14 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         out.push_back('{');
         const proto::ProtoSparseList* attrs = obj->getOwnAttributes(ctx);
         if (attrs) {
+            ScopedRoot r_attrs(rs, reinterpret_cast<const proto::ProtoObject*>(attrs));
             const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
             bool first = true;
             while (it && it->hasNext(ctx)) {
+                ScopedRoot r_it(rs, reinterpret_cast<const proto::ProtoObject*>(it));
                 unsigned long hash = it->nextKey(ctx);
                 const proto::ProtoObject* val = it->nextValue(ctx);
+                ScopedRoot r_val(rs, val);
                 
                 std::string key = JSSymbols::getNameFromHash(ctx, hash);
                 if (key.empty()) {
@@ -120,13 +152,19 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         sym->toUTF8String(ctx, key);
                     }
                 }
+                
+                // Debug: log progress occasionally
+                static int keyCount = 0;
+                if (++keyCount % 1000 == 0) {
+                    fprintf(stderr, "JSON: stringifying key %s (total %d)\n", key.c_str(), keyCount);
+                }
 
                 // Skip internal keys (__ prefix) and functions/none
                 if (!key.empty() && key[0] != '_' && val && val != PROTO_NONE && !val->isMethod(ctx)) {
                     if (!first) out.push_back(',');
                     jsonEscape(key, out);
                     out.push_back(':');
-                    stringifyRecursive(ctx, val, out, arrayPrototype, stack);
+                    stringifyRecursive(ctx, val, out, arrayPrototype, stack, rs);
                     first = false;
                 }
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
@@ -134,7 +172,6 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         }
         out.push_back('}');
     }
-
     stack.pop_back();
 }
 
@@ -153,7 +190,11 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     
     std::string out;
     std::vector<const proto::ProtoObject*> stack;
-    stringifyRecursive(ctx, val, out, arrayProto, stack);
+    
+    if (!wrapper) wrapper = protojs::JSContextWrapper::current();
+    proto::ProtoRootSet* rs = wrapper ? wrapper->getRootSet() : nullptr;
+    
+    stringifyRecursive(ctx, val, out, arrayProto, stack, rs);
     return ctx->fromUTF8String(out.c_str());
 }
 

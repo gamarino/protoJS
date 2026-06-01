@@ -6,5 +6,9 @@ CXX_DEFINES = -DPROTOJS_TEST_PROJECT_ROOT=\"/home/gamarino/Documentos/proyectos/
 
 CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs -I/home/gamarino/Documentos/proyectos/protoJS/build_on/_deps/catch2-src/src/catch2/.. -I/home/gamarino/Documentos/proyectos/protoJS/build_on/_deps/catch2-build/generated-includes
 
+<<<<<<< Updated upstream:build_on/tests/CMakeFiles/protojs_tests.dir/flags.make
 CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20
+=======
+CXX_FLAGS = -O2 -g -DNDEBUG -std=gnu++20
+>>>>>>> Stashed changes:build/tests/CMakeFiles/protojs_tests.dir/flags.make
 

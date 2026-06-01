@@ -12,7 +12,11 @@ if(NOT DEFINED CMAKE_INSTALL_CONFIG_NAME)
     string(REGEX REPLACE "^[^A-Za-z0-9_]+" ""
            CMAKE_INSTALL_CONFIG_NAME "${BUILD_TYPE}")
   else()
+<<<<<<< Updated upstream:build_on/_deps/catch2-build/cmake_install.cmake
     set(CMAKE_INSTALL_CONFIG_NAME "Release")
+=======
+    set(CMAKE_INSTALL_CONFIG_NAME "RelWithDebInfo")
+>>>>>>> Stashed changes:build/_deps/catch2-build/cmake_install.cmake
   endif()
   message(STATUS "Install configuration: \"${CMAKE_INSTALL_CONFIG_NAME}\"")
 endif()

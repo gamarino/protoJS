@@ -26,7 +26,7 @@ static const ProtoSparseList* getSparse(
     }
 
     const ProtoString* elementsKey =
-        JSSymbols::elements(ctx);
+        JSSymbols::arrayElements(ctx);
     const ProtoObject* existing =
         arrayObj->getAttribute(ctx, elementsKey);
 
@@ -86,7 +86,7 @@ const ProtoObject* ProtoArrayAdapter::createArray(ProtoContext* ctx)
     const ProtoSparseList* sparse = ctx->newSparseList();
     const ProtoObject* sparseObj = sparse->asObject(ctx);
     const ProtoString* elementsKey =
-        JSSymbols::elements(ctx);
+        JSSymbols::arrayElements(ctx);
     obj = obj->setAttribute(ctx, elementsKey, sparseObj);
 
     obj = storeLength(ctx, obj, 0);
@@ -136,7 +136,7 @@ const ProtoObject* ProtoArrayAdapter::set(
     const ProtoObject* sparseObj = updatedSparse->asObject(ctx);
 
     const ProtoString* elementsKey =
-        JSSymbols::elements(ctx);
+        JSSymbols::arrayElements(ctx);
     const ProtoObject* updated =
         arrayObj->setAttribute(ctx, elementsKey, sparseObj);
 

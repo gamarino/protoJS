@@ -6,5 +6,9 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore -I/home/gamarino/Documentos/proyectos/protoJS/../protoCore/headers -I/home/gamarino/Documentos/proyectos/protoJS/deps/quickjs
 
+<<<<<<< Updated upstream:build_asan/CMakeFiles/protojs.dir/flags.make
 CXX_FLAGS = -fsanitize=address -fno-omit-frame-pointer -g -g -std=gnu++20
+=======
+CXX_FLAGS = -O2 -g -DNDEBUG -std=gnu++20 -ffile-prefix-map=/home/gamarino/Documentos/proyectos/protoJS/build/_deps/catch2-src/=
+>>>>>>> Stashed changes:build/_deps/catch2-build/src/CMakeFiles/Catch2.dir/flags.make
 
