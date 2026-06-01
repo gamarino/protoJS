@@ -953,10 +953,11 @@ static const proto::ProtoObject* arrayLastIndexOf(
     }
     if (from < 0) from += len;
     if (from >= len) from = len - 1;
-    // Guard against extremely sparse arrays that would cause O(n) iteration over billions of slots.
-    static constexpr long long MAX_SEARCH_ITERS = 10LL; // 10 — prevents timeout on huge sparse arrays
-    long long lo = (from > MAX_SEARCH_ITERS) ? from - MAX_SEARCH_ITERS : 0LL;
-    for (long long i = from; i >= lo; i--) {
+    // NaN is never found (Strict Equality).
+    bool needleIsNaN = needle && (needle->isDouble(ctx) || needle->isFloat(ctx)) &&
+                       std::isnan(needle->asDouble(ctx));
+    if (needleIsNaN) return ctx->fromInteger(-1LL);
+    for (long long i = from; i >= 0; i--) {
         if (strictEquals(ctx, arrGet(ctx, self, static_cast<unsigned long>(i)), needle))
             return ctx->fromInteger(i);
     }
