@@ -1519,13 +1519,24 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         proto::ProtoContext* ctx, const proto::ProtoObject* self,
         const proto::ParentLink*, const proto::ProtoList* args,
         const proto::ProtoSparseList*) -> const proto::ProtoObject* {
-        // new Object() → return self (already a plain object child of Object.prototype)
-        // new Object(value) → if value is an object, return it; otherwise return self
+        // ECMA-262 §19.1.1 Object([value]):
+        //   - no/undefined/null value → fresh empty object (the new self).
+        //   - object value → return value unchanged (boxing identity).
+        //   - primitive value (boolean/number/string) → wrap as a
+        //     primitive-wrapper object carrying __primitive_value__,
+        //     so subsequent valueOf/toString/coercion sees the primitive.
+        //     Pre-fix the primitive case returned `self` with no
+        //     primitive-value attribute, so `Object(5) + 0` produced
+        //     '[object Object]0' instead of 5.
         if (!args || args->getSize(ctx) == 0) return self;
         const proto::ProtoObject* val = args->getAt(ctx, 0);
         if (!val || val == PROTO_NONE) return self;
         if (val->isBoolean(ctx) || val->isInteger(ctx) || val->isDouble(ctx) ||
-            val->isString(ctx)) return self;
+            val->isString(ctx)) {
+            const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+            if (pvKey && self) self = self->setAttribute(ctx, pvKey, val);
+            return self;
+        }
         return val;
     };
     const proto::ProtoObject* ctorMethodObj = ctx->fromMethod(nullptr, objectCtorFn);
