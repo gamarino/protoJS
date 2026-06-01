@@ -4282,6 +4282,48 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* val = nullptr;
                 long long arrIdxFast = numericArrayIndexOrNeg(pContext, index);
+                // String character indexing: `"abc"[0]` → "a".  Pre-fix
+                // strings followed the regular property-attribute path and
+                // returned undefined for numeric indices because strings
+                // don't store their codepoints as own attributes.
+                if (arrIdxFast >= 0 && obj && obj->isString(pContext)) {
+                    const proto::ProtoString* ps = obj->asString(pContext);
+                    if (ps) {
+                        long long sz = static_cast<long long>(ps->getSize(pContext));
+                        if (arrIdxFast < sz) {
+                            // Extract the codepoint at arrIdxFast.
+                            // ProtoString lacks a direct charAt API exposed here;
+                            // use the existing string method via prototype lookup
+                            // would be heavy, so dispatch through asString +
+                            // substring would also be heavy.  Use the
+                            // string substring API directly.
+                            std::string utf8;
+                            ps->toUTF8String(pContext, utf8);
+                            // UTF-8 walk to the arrIdxFast-th codepoint.
+                            size_t i = 0;
+                            long long codepointsSeen = 0;
+                            while (i < utf8.size() && codepointsSeen < arrIdxFast) {
+                                unsigned char c = static_cast<unsigned char>(utf8[i]);
+                                if (c < 0x80) i += 1;
+                                else if (c < 0xE0) i += 2;
+                                else if (c < 0xF0) i += 3;
+                                else i += 4;
+                                codepointsSeen++;
+                            }
+                            if (i < utf8.size()) {
+                                unsigned char c = static_cast<unsigned char>(utf8[i]);
+                                size_t len = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                                if (i + len <= utf8.size()) {
+                                    std::string single = utf8.substr(i, len);
+                                    val = pContext->fromUTF8String(single.c_str());
+                                }
+                            }
+                        }
+                    }
+                    if (!val) val = PROTO_NONE;
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = val;
+                    DISPATCH();
+                }
                 if (arrIdxFast >= 0) {
                     val = resolveElementOOP(pContext, obj, static_cast<uint32_t>(arrIdxFast));
                 }
