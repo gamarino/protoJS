@@ -6487,7 +6487,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 
                 // Pop the 3 iterator state slots (placeholders for Symbol.iterator case).
                 if (stackSize(pContext) < 3) return PROTO_NONE;
-                printf("FOR_OF_NEXT: pc=%u stackSize=%u\n", (unsigned int)pc-2, (unsigned int)stackSize(pContext));
                 const proto::ProtoObject* catch_off = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* next_meth = stackTop(pContext); stackPop(pContext);
                 const proto::ProtoObject* iterator  = stackTop(pContext); stackPop(pContext);
@@ -6953,7 +6952,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             // string-keyed property names reachable through the full [[Prototype]]
             // chain (ES2015+ EnumerateObjectProperties semantics).
             L_OP_for_in_start: {
-                printf("L_OP_for_in_start\n");
                 const proto::ProtoObject* fiObj = PROTO_NONE;
                 if (!stackEmpty(pContext)) {
                     fiObj = stackTop(pContext);
@@ -7371,7 +7369,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPop(pContext);
                 }
                 if (!retVal) retVal = PROTO_NONE;
-                // Wrap in Promise.resolve(retVal).
+                // QuickJS emits OP_return_async at the end of both async-function
+                // and sync-generator bodies.  For sync generators (isGenerator &&
+                // !isAsync) the surrounding resumeGenerator() already wraps the
+                // raw return value in {value, done:true}; wrapping it here in a
+                // Promise produces {value:Promise{99}, done:true} instead of
+                // {value:99, done:true}.  Match L_OP_return's behaviour (return
+                // raw) for sync generators, and keep the Promise wrap only for
+                // genuine async function returns.
+                if (module && module->isGenerator && !module->isAsync) {
+                    return retVal;
+                }
+                // Wrap in Promise.resolve(retVal) for async functions.
                 return makeResolvedPromise(pContext, retVal);
             }
 
