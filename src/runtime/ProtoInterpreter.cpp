@@ -4093,12 +4093,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (funcSNC && funcSNC != PROTO_NONE && keySNC && keySNC != PROTO_NONE) {
                     const proto::ProtoString* nameKey = JSSymbols::name(pContext);
                     if (nameKey) {
-                        // Convert key to string for the name value.
+                        // Convert key to string for the name value, honouring
+                        // any user-defined `.toString()` (object case) — the
+                        // global `toString()` helper handles every value
+                        // type including primitives and objects-with-overrides.
+                        // Pre-fix: only `asString` (already-a-string) and
+                        // integer branches were handled; object keys fell
+                        // through with an empty name string, so
+                        // `({ [{toString(){return 'sum'}}]: function(){} })`
+                        // would produce a function whose `.name` was "".
                         std::string nameStr;
                         const proto::ProtoString* keyPS = keySNC->asString(pContext);
                         if (keyPS) keyPS->toUTF8String(pContext, nameStr);
                         else if (keySNC->isInteger(pContext))
                             nameStr = std::to_string(keySNC->asLong(pContext));
+                        else {
+                            const proto::ProtoObject* coerced = toString(pContext, keySNC);
+                            const proto::ProtoString* cs = coerced ? coerced->asString(pContext) : nullptr;
+                            if (cs) cs->toUTF8String(pContext, nameStr);
+                        }
                         const proto::ProtoObject* nameVal = pContext->fromUTF8String(nameStr.c_str());
                         if (nameVal) {
                             const proto::ProtoObject* newFunc = funcSNC->setAttribute(pContext, nameKey, nameVal);
