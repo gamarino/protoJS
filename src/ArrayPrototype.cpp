@@ -2061,13 +2061,26 @@ static const proto::ProtoObject* arrayFrom(
     };
 
     // First check Symbol.iterator for generators, Sets, Maps, etc.
+    // If the source has no Symbol.iterator but already exposes .next,
+    // it IS an iterator (Set.values(), Map.entries() etc.) — use it
+    // directly.  Pre-fix Array.from(iter) returned [] for these.
     const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
     const proto::ProtoObject* iterFn = symIterKey
         ? src->getAttribute(ctx, symIterKey, true) : nullptr;
+    const proto::ProtoObject* iter = nullptr;
     if (iterFn && iterFn != PROTO_NONE) {
         const proto::ProtoList* noArgs = ctx->newList();
-        const proto::ProtoObject* iter = callJSFunction(ctx, iterFn, src, noArgs);
-        if (iter && iter != PROTO_NONE) {
+        iter = callJSFunction(ctx, iterFn, src, noArgs);
+    } else {
+        const proto::ProtoString* probeNextK = JSSymbols::next(ctx);
+        const proto::ProtoObject* probeNext = probeNextK
+            ? src->getAttribute(ctx, probeNextK, true) : nullptr;
+        if (probeNext && probeNext != PROTO_NONE)
+            iter = src;
+    }
+    if (iter) {
+        {
+            (void)iter; // keep block shape
             const proto::ProtoString* nextKey = JSSymbols::next(ctx);
             const proto::ProtoString* doneKey = JSSymbols::done(ctx);
             const proto::ProtoString* valueKey = JSSymbols::value(ctx);
