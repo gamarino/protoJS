@@ -110,6 +110,14 @@ const proto::ProtoObject* numberToString(
     }
     double value = getNumberValue(context, self);
     std::string result;
+    // Spec-mandated names for non-finite values (ECMA-262 §7.1.12.1).
+    // C's "%g" outputs "nan", "inf", "-inf" which JS test262 rejects.
+    if (std::isnan(value)) {
+        return context->fromUTF8String("NaN");
+    }
+    if (std::isinf(value)) {
+        return context->fromUTF8String(value < 0 ? "-Infinity" : "Infinity");
+    }
     if (radix == 10) {
         char buf[64];
         if (value == static_cast<long long>(value) && value >= -9007199254740992.0 && value <= 9007199254740991.0) {
