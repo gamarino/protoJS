@@ -417,6 +417,26 @@ that closed four correctness bugs and added one perf fast path:
 >    had theirs).  `numeric_loop` −20.8%, `json_transform` −11.5%,
 >    `control_flow` −6.4%, `array_literal` −5%; geomean improved
 >    58.84× → 55.88× vs Node before noise smoothing.
+> 5. `ccefb3e4 perf(interp)` — reorder `L_OP_call` so `__bytecode_id__`
+>    is read first (cached on the closure's stable snapshot via
+>    protoCore's per-thread attribute cache).  If `bcId >= 0` the
+>    receiver is a JS closure by construction and the `__native_fn__`
+>    unwrap branch is skipped entirely (it would always return nullptr
+>    for a JS closure).  Folds the prior duplicate `getBytecodeId`
+>    call into a conditional re-lookup that only fires when unwrap
+>    replaced func.  Measured with `perf stat -r 3 -e cycles`:
+>    function_calls drops **−8% cycles, −7.1% instructions,
+>    −10.3% wall** with no IPC regression.  Standard suite:
+>    function_calls vs Node 224× → **199×** (−11%), vs QuickJS
+>    27.6× → **23.1×** (−16%); geomean vs Node 58.5× → **57.2×**.
+>    Architectural insight that drove this (from review): protoCore's
+>    attribute cache makes stable mutables effectively read-cached
+>    after first lookup; the right "inline cache" is not a parallel
+>    cache layer in the interpreter, but constructing the closure so
+>    its identity-attributes (bytecode id, captured cells, prototype)
+>    are reachable directly via attribute lookup that protoCore
+>    already caches.
+>
 > 4. `3dc726b8 fix(interp)` — `for-of` over arrays and generators
 >    produced wrong values on the FIRST iteration AND never terminated
 >    (`for (var v of [10,20,30]) console.log(v)` printed `10,20,30,
