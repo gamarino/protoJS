@@ -125,14 +125,83 @@ PROTOCORE_GC_CONTEXT_THRESHOLD=1000000000 \
   node tests/test262/runner/test262_runner.js
 ```
 
+## Class Implementation Investigation (cycle 5 second pass)
+
+After cycle 5 closed, a follow-on attempt explicitly tried to make the
+class implementation work in concert with the constructor-inheritance fix
+(b2e65d20).  The work landed:
+
+  - `OP_define_class` stores `__class_parent__` on the derived ctor.
+  - `OP_get_super` checks `__class_parent__` first (so super(...) walks
+    to the parent class, not Function.prototype).
+  - `t_activeFunc` / `t_activeNewTgt` thread-locals published at every
+    runBytecode entry point (OP_call_constructor, OP_call, OP_call_method,
+    callJSFunction) with RAII restore.
+  - `OP_special_object` kinds THIS_FUNC / NEW_TARGET / HOME_OBJECT read
+    those thread-locals.
+  - `OP_define_method` writes `__home_object__` on the method (mirrors
+    QuickJS's `js_method_set_properties` which calls
+    `js_method_set_home_object` for every class-body method).
+
+After these fixes the bytecode-level mechanics work:
+  class A { constructor(x){this.x=x;} }
+  class B extends A {
+    constructor(){ super(10); }            // → b.x = 10  ✓
+    foo() { return super.foo() + 10; }     // ✓
+  }
+  Three-level super chain (A → B → C) returns "ABC".
+
+However the full test262 run with these enabled produced
+**23 217 passes vs 28 830** (−5 569).  The class tests now actually
+RUN — exposing many remaining gaps: spec-mandated descriptors
+(name / length / prototype `__pd_*`), instance-field initializers
+(`class A { x = 42; }` — needs OP_set_class_name + OP_set_proto +
+cpool entry), brand-check semantics for private fields, the
+ES2023 unsupported-opcode 0x32 (throw_error) for class evaluation
+errors, etc.  Each gap fails a clutch of tests that previously
+silently exited via "unsupported opcode 0x53" and were counted as
+passes.
+
+Reverted again as commits 2af29b59 / a9497c15 / 2cd4a1b6.  Net
+result: the cycle 5 final numbers (61.39 %) stand.  Full class
+implementation is filed as the dominant next-step gap — its
+investigation produced the precise list of subsystems needed below.
+
 ## Next Steps
 
-1. **ES6 classes — proper implementation**. `class A { ... }` is widely used in language/statements + language/expressions (~1 800 tests gated on it). Needs both `OP_define_class` AND lifting Array/Object/etc. to inherit Function.prototype so `Array.apply` etc. resolve.
-2. **`super(...)` in derived class constructors** — `OP_init_ctor` is a stub; super-call dispatch needs proper threading.
-3. **Generators + `async`/`await`** — for-await-of (1 140 tests), Iterator built-ins (~129 tests still failing).
-4. **Symbol as a real primitive type** — currently `typeof Symbol() === 'object'`; many tests probe `typeof Symbol() === 'symbol'`. Needs bytecode-level type discrimination.
-5. **String iterator for surrogate pairs**. Current codepoint walk handles BMP characters; astral characters need UTF-16 surrogate-pair coalescing.
-6. **Object.fromEntries / Array.from / OP_append already share the iterator-direct probe** — the same pattern should be applied to the Set / Map constructors when given an iterable (currently they handle only array-likes; generators and Maps-of-Maps still produce empty results).
+1. **ES6 classes — complete implementation**.  The investigation above
+   produced the precise list of pieces still missing:
+     - Descriptor sidecars on ctor `name` / `length` / `prototype`
+       (`__pd_*` bits per ECMA-262 §10.2.7).  Several `*-name-binding`
+       tests fail precisely on `writable: false, enumerable: false,
+       configurable: true` checks.
+     - Instance-field initializers (`class A { x = 42; }`): QuickJS
+       emits a hidden fields_init closure attached via OP_set_class_name +
+       cpool entry; protoJS needs to run that closure on each `new` call
+       before the explicit constructor body.
+     - `OP_init_ctor` proper super-ctor dispatch for derived classes
+       without explicit constructor (currently a stub pushing
+       PROTO_NONE).
+     - `OP_throw_error` (0x32) for spec-mandated TypeError on
+       super-related misuse.
+     - Private-field brand checks (currently the field reads/writes
+       work but tests checking that the brand throws TypeError on
+       wrong-receiver fail).
+   With these pieces, the ~5 200 class tests that currently bail
+   silently via "unsupported opcode 0x53" should become net positive.
+2. **`super(...)` deep chains** — current impl works for one-level deep;
+   walking past the class body's home_object isn't fully threaded.
+3. **Generators + `async`/`await`** — for-await-of (1 140 tests), Iterator
+   built-ins (~129 tests still failing).
+4. **Symbol as a real primitive type** — currently `typeof Symbol() === 'object'`;
+   many tests probe `typeof Symbol() === 'symbol'`.  Needs bytecode-level
+   type discrimination.
+5. **String iterator for surrogate pairs** — current codepoint walk
+   handles BMP only.
+6. **Set / Map iterable constructor with non-array iterables** — they
+   already accept arrays via `__elements__` but generators and Maps-of-
+   Maps still produce empty collections.  Mirror the iterator-direct
+   probe pattern from `OP_append` / `Array.from` / `Object.fromEntries`.
 
 ## Methodology Notes
 
