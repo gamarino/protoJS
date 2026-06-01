@@ -2138,6 +2138,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         return PROTO_NONE;
     };
 
+    /* ECMA-262 §7.2.13 Abstract Relational Comparison after ToPrimitive.
+     * Inputs are already primitives.  Output: tri-state.
+     *   -1 → a < b
+     *    0 → a == b (relevant for <= / >=)
+     *   +1 → a > b
+     *    2 → NaN (the spec's "undefined") — comparison must be false.
+     *
+     * If both operands are strings, compare lexicographically.  Otherwise
+     * ToNumber both and numeric compare; NaN on either side returns 2.
+     *
+     * Pre-fix all four ops called `pa->compare(pContext, pb)` directly,
+     * which for a string-vs-integer pair (e.g. ToPrimitive([1]) === "1"
+     * vs literal 2) used protoCore's cross-type comparison and returned
+     * +1, so `[1] < 2` came out false.  This helper centralises the
+     * spec-correct ToNumber step. */
+    auto relCmpAfterPrim = [&](const proto::ProtoObject* pa,
+                               const proto::ProtoObject* pb) -> int {
+        if (!pa || !pb) return 2;
+        bool aS = pa->isString(pContext);
+        bool bS = pb->isString(pContext);
+        if (aS && bS) {
+            int c = pa->compare(pContext, pb);
+            return (c < 0) ? -1 : (c > 0) ? 1 : 0;
+        }
+        const proto::ProtoObject* na = toNumber(pContext, pa);
+        const proto::ProtoObject* nb = toNumber(pContext, pb);
+        if (!na || !nb) return 2;
+        auto isNaNVal = [&](const proto::ProtoObject* v) -> bool {
+            if (!v) return true;
+            if (v->isDouble(pContext) || v->isFloat(pContext))
+                return std::isnan(v->asDouble(pContext));
+            return false;
+        };
+        if (isNaNVal(na) || isNaNVal(nb)) return 2;
+        int c = na->compare(pContext, nb);
+        return (c < 0) ? -1 : (c > 0) ? 1 : 0;
+    };
+
     /* P-JS-1 accessor lookup cache.
      *
      * `__get_<name>__` and `__set_<name>__` are sidecar attributes used by
@@ -5041,8 +5079,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp < 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = relCmpAfterPrim(pa, pb);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == -1) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_lte: {
@@ -5076,8 +5114,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp <= 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = relCmpAfterPrim(pa, pb);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == -1 || cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_gt: {
@@ -5110,8 +5148,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp > 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = relCmpAfterPrim(pa, pb);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 1) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_gte: {
@@ -5144,8 +5182,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* pb = toPrimIfObject(b);
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
-                int cmp = (pa && pb) ? pa->compare(pContext, pb) : 0;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp >= 0) ? PROTO_TRUE : PROTO_FALSE);
+                int cmp = relCmpAfterPrim(pa, pb);
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] = ((cmp == 1 || cmp == 0) ? PROTO_TRUE : PROTO_FALSE);
                 DISPATCH();
             }
             L_OP_and: {
