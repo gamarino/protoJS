@@ -282,21 +282,103 @@ const proto::ProtoObject* Console::timeLog(proto::ProtoContext* ctx,
     return PROTO_NONE;
 }
 
+// console.assert(cond, ...args) — print "Assertion failed: ..." when cond is falsy.
+const proto::ProtoObject* Console::assert_(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* /*self*/,
+                                            const proto::ParentLink* /*parentLink*/,
+                                            const proto::ProtoList* args,
+                                            const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    if (argc == 0) return PROTO_NONE;
+    const proto::ProtoObject* cond = args->getAt(ctx, 0);
+    bool truthy = cond && cond != PROTO_NONE && cond != PROTO_FALSE
+        && cond != protojs::getNullSentinel()
+        && cond != protojs::getUndefinedSentinel()
+        && !(cond->isInteger(ctx) && cond->asLong(ctx) == 0)
+        && !(cond->isDouble(ctx) && (cond->asDouble(ctx) == 0.0 || std::isnan(cond->asDouble(ctx))))
+        && !(cond->isString(ctx) && cond->asString(ctx) && cond->asString(ctx)->getSize(ctx) == 0);
+    if (truthy) return PROTO_NONE;
+    std::cerr << "Assertion failed";
+    for (int i = 1; i < argc; ++i) {
+        std::cerr << (i == 1 ? ": " : " ");
+        printProtoValue(ctx, args->getAt(ctx, i), std::cerr);
+    }
+    std::cerr << "\n";
+    return PROTO_NONE;
+}
+
+// console.group / console.groupEnd — minimal no-op (just prints label).
+const proto::ProtoObject* Console::group(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject*,
+                                          const proto::ParentLink*,
+                                          const proto::ProtoList* args,
+                                          const proto::ProtoSparseList*) {
+    return Console::log(ctx, nullptr, nullptr, args, nullptr);
+}
+
+// console.dir(obj) — alias for log of one value.
+const proto::ProtoObject* Console::dir(proto::ProtoContext* ctx,
+                                        const proto::ProtoObject*,
+                                        const proto::ParentLink*,
+                                        const proto::ProtoList* args,
+                                        const proto::ProtoSparseList*) {
+    return Console::log(ctx, nullptr, nullptr, args, nullptr);
+}
+
+// console.trace — minimal: print label only (no stack trace).
+const proto::ProtoObject* Console::trace(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject*,
+                                          const proto::ParentLink*,
+                                          const proto::ProtoList* args,
+                                          const proto::ProtoSparseList*) {
+    std::cerr << "Trace";
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    for (int i = 0; i < argc; ++i) {
+        std::cerr << (i == 0 ? ": " : " ");
+        printProtoValue(ctx, args->getAt(ctx, i), std::cerr);
+    }
+    std::cerr << "\n";
+    return PROTO_NONE;
+}
+
+// console.count(label?) — minimal: prints "<label>: 1" each call.
+const proto::ProtoObject* Console::count(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject*,
+                                          const proto::ParentLink*,
+                                          const proto::ProtoList* args,
+                                          const proto::ProtoSparseList*) {
+    std::string label = firstStringArg(ctx, args, "default");
+    std::cout << label << ": 1\n";
+    return PROTO_NONE;
+}
+
 void Console::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj) {
     if (!ctx || !globalObj) return;
     static const NativeEntry entries[] = {
-        {"log",     Console::log},
-        {"error",   Console::error},
-        {"warn",    Console::warn},
-        {"info",    Console::log},      // info is a log alias in Node.js
-        {"debug",   Console::log},      // debug is a log alias in Node.js
-        {"time",    Console::time},
-        {"timeEnd", Console::timeEnd},
-        {"timeLog", Console::timeLog},
+        {"log",        Console::log},
+        {"error",      Console::error},
+        {"warn",       Console::warn},
+        {"info",       Console::log},
+        {"debug",      Console::log},
+        {"time",       Console::time},
+        {"timeEnd",    Console::timeEnd},
+        {"timeLog",    Console::timeLog},
+        {"assert",     Console::assert_},
+        {"group",      Console::group},
+        {"groupEnd",   Console::group},
+        {"groupCollapsed", Console::group},
+        {"dir",        Console::dir},
+        {"dirxml",     Console::dir},
+        {"trace",      Console::trace},
+        {"count",      Console::count},
+        {"countReset", Console::count},
+        {"table",      Console::log},
+        {"clear",      Console::log},
         NATIVE_MODULE_END
     };
     const proto::ProtoObject* consoleObj =
-        ProtoNativeModule::buildModule(ctx, entries, 8);
+        ProtoNativeModule::buildModule(ctx, entries, 19);
     if (!consoleObj) return;
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "console", consoleObj);
 }

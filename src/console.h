@@ -38,6 +38,26 @@ private:
                                              const proto::ParentLink*,
                                              const proto::ProtoList*,
                                              const proto::ProtoSparseList*);
+    static const proto::ProtoObject* assert_(proto::ProtoContext*, const proto::ProtoObject*,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList*,
+                                             const proto::ProtoSparseList*);
+    static const proto::ProtoObject* group(proto::ProtoContext*, const proto::ProtoObject*,
+                                           const proto::ParentLink*,
+                                           const proto::ProtoList*,
+                                           const proto::ProtoSparseList*);
+    static const proto::ProtoObject* dir(proto::ProtoContext*, const proto::ProtoObject*,
+                                         const proto::ParentLink*,
+                                         const proto::ProtoList*,
+                                         const proto::ProtoSparseList*);
+    static const proto::ProtoObject* trace(proto::ProtoContext*, const proto::ProtoObject*,
+                                           const proto::ParentLink*,
+                                           const proto::ProtoList*,
+                                           const proto::ProtoSparseList*);
+    static const proto::ProtoObject* count(proto::ProtoContext*, const proto::ProtoObject*,
+                                           const proto::ParentLink*,
+                                           const proto::ProtoList*,
+                                           const proto::ProtoSparseList*);
 };
 
 /**
