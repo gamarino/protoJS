@@ -365,6 +365,46 @@ thread_local const proto::ProtoObject*              t_tdzSentinel       = nullpt
 // These are registered as global properties during bootstrap.
 // ---------------------------------------------------------------------------
 
+// Minimal Symbol() callable.  Each call returns a fresh object tagged
+// with __is_symbol__ = PROTO_TRUE and a description string under
+// __symbol_desc__.  No interning — every call is a unique value.
+// Calling with `new` throws TypeError per ECMA-262 §19.4.1.
+static const proto::ProtoObject* symbolConstructor(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* sym = ctx->newObject(true);
+    if (!sym) return PROTO_NONE;
+    const proto::ProtoObject* tagObj = ctx->fromUTF8String("__is_symbol__");
+    const proto::ProtoString* tagKey = tagObj ? tagObj->asString(ctx) : nullptr;
+    if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* d = args->getAt(ctx, 0);
+        if (d && d != PROTO_NONE) {
+            std::string s;
+            if (d->isString(ctx)) {
+                if (const proto::ProtoString* ps = d->asString(ctx))
+                    ps->toUTF8String(ctx, s);
+            } else if (d->isInteger(ctx)) {
+                s = std::to_string(d->asLong(ctx));
+            } else if (d->isDouble(ctx)) {
+                char buf[64]; snprintf(buf, sizeof(buf), "%.15g", d->asDouble(ctx)); s = buf;
+            } else if (d == PROTO_TRUE) {
+                s = "true";
+            } else if (d == PROTO_FALSE) {
+                s = "false";
+            }
+            if (!s.empty()) {
+                const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
+                const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
+                if (descKey)
+                    sym = sym->setAttribute(ctx, descKey, ctx->fromUTF8String(s.c_str()));
+            }
+        }
+    }
+    return sym;
+}
+
 static const proto::ProtoObject* globalParseInt(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
@@ -1803,10 +1843,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         static const char* kUnimplementedCtors[] = {
             // Unimplemented standard JS built-in constructors.
             // NOTE: "Function" is intentionally omitted — wired via ensureFunctionPrototype.
+            // NOTE: "Symbol" is intentionally omitted — wired via the
+            //       symbolConstructor native fn below so `Symbol(desc)`
+            //       is callable.  The minimal stub leaves Symbol(...)
+            //       throwing \"is not a function\".
             "Date",
             "BigInt", "AggregateError",
-            // Metaprogramming built-in constructors.
-            "Symbol", "Proxy", "WeakRef", "WeakSet",
+            "Proxy", "WeakRef", "WeakSet",
             "FinalizationRegistry", "Iterator", "Generator", "GeneratorFunction",
             "AsyncFunction", "AsyncGenerator", "AsyncGeneratorFunction",
             "SharedArrayBuffer",
@@ -1916,6 +1959,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             }
         }
     }
+    // Install Symbol as a minimal callable constructor.  Pre-fix
+    // `Symbol("foo")` threw \"is not a function\" because the global
+    // Symbol stub had no native-fn backing.  wrapNativeFunction builds
+    // a callable wrapper inheriting Function.prototype; the wrapper's
+    // prototype attribute is left as a fresh blank object so
+    // `x instanceof Symbol` doesn't throw.
+    if (pGlobalRoot && *pGlobalRoot) {
+        const proto::ProtoObject* symbolStrObj = pContext->fromUTF8String("Symbol");
+        const proto::ProtoString* symbolGlobalKey =
+            symbolStrObj ? symbolStrObj->asString(pContext) : nullptr;
+        if (symbolGlobalKey) {
+            const proto::ProtoObject* existing =
+                (*pGlobalRoot)->getAttribute(pContext, symbolGlobalKey, false);
+            if (!existing || existing == PROTO_NONE) {
+                const proto::ProtoObject* symbolCtor =
+                    wrapNativeFunction(pContext, symbolConstructor, "Symbol", 0, pGlobalRoot);
+                if (symbolCtor && symbolCtor != PROTO_NONE) {
+                    const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                    if (protoKey) {
+                        const proto::ProtoObject* symProto = pContext->newObject(true);
+                        if (symProto)
+                            symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
+                    }
+                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolCtor);
+                }
+            }
+        }
+    }
+
     // Bootstrap Symbol well-known symbols as string-valued properties on the Symbol stub.
     // This allows JS code like `obj[Symbol.iterator] = fn` to use the canonical key
     // "Symbol.iterator" that JSSymbols::symbolIterator() also returns.
