@@ -1,4 +1,5 @@
 #include "PromisePrototype.h"
+#include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
@@ -320,6 +321,22 @@ static std::vector<const proto::ProtoObject*> collectIterable(
     std::vector<const proto::ProtoObject*> items;
     if (!iterable || iterable == PROTO_NONE) return items;
 
+    // Fast path: arrays store elements in __elements__ (a ProtoList).
+    // Pre-fix the loop probed for indexed string attributes only and
+    // returned PROTO_NONE for every slot of a real array, which is
+    // why Promise.allSettled / .race / .any silently turned their
+    // input into an array of undefined values.
+    if (const proto::ProtoList* els = getArrayElements(ctx, iterable)) {
+        size_t sz = els->getSize(ctx);
+        items.reserve(sz);
+        for (size_t i = 0; i < sz; ++i) {
+            const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(i));
+            items.push_back(v ? v : PROTO_NONE);
+        }
+        return items;
+    }
+
+    // Legacy / array-like path: read `length` and walk indexed keys.
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return items;
     const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKey, false);
