@@ -151,6 +151,16 @@ static const proto::ProtoObject* mathPow(
 {
     double base = argToDouble(ctx, args, 0);
     double exp  = argToDouble(ctx, args, 1);
+    // ECMA-262 §21.3.2.24 step 5: if exponent is NaN, result is NaN —
+    // independent of base. glibc's std::pow violates this for the
+    // IEEE-754 base==1 special case (pow(1, NaN) == 1). Spec also
+    // requires abs(base) == 1 with ±Infinity exponent to yield NaN.
+    if (std::isnan(exp)) {
+        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    }
+    if (std::isinf(exp) && std::abs(base) == 1.0) {
+        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    }
     return ctx->fromDouble(std::pow(base, exp));
 }
 
