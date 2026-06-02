@@ -1548,6 +1548,15 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!proto) continue;
         proto = proto->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!proto) continue;
+        // ECMA-262 §20.5.5.3: Error.prototype.message === "" (empty
+        // string). Pre-fix the attribute was absent, so
+        // `new Error().message` returned undefined instead of ""
+        // (which user code commonly uses with `+`).
+        {
+            const proto::ProtoObject* mko = ctx->fromUTF8String("message");
+            const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
+            if (mk) proto = proto->setAttribute(ctx, mk, ctx->fromUTF8String(""));
+        }
         // Add toString method to the prototype.
         const proto::ProtoString* toStringKey = JSSymbols::toString(ctx);
         if (toStringKey) {
