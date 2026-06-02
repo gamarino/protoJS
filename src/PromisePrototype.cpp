@@ -694,10 +694,15 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     regProto("finally", promiseFinally);
 
     // Promise.prototype.constructor === Promise per §27.2.5.2.
+    // Non-enumerable: __pd_constructor__ = 0x3 (writable+configurable).
     {
-        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
-        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
-        if (ctorWordKey) proto = proto->setAttribute(ctx, ctorWordKey, ctor);
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
+        if (ctorWordKey) {
+            proto = proto->setAttribute(ctx, ctorWordKey, ctor);
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+        }
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);

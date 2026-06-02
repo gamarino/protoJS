@@ -1396,6 +1396,12 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             if (ctorWordKey) {
                 const proto::ProtoObject* updated =
                     concreteProto->setAttribute(ctx, ctorWordKey, ctor);
+                // Non-enumerable per §22.2.5.2 — 0x3 (writable+configurable).
+                if (updated && updated != PROTO_NONE) {
+                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+                }
                 if (updated && updated != PROTO_NONE) {
                     s_taProtos[i] = updated;
                 }

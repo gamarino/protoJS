@@ -1911,11 +1911,21 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     // test262 case that walks `instance.constructor` to compare against
     // the Object identity.
     if (proto && proto != PROTO_NONE) {
-        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
-        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updatedProto =
                 proto->setAttribute(ctx, ctorWordKey, ctor);
+            // Spec §20.1.3.1: prototype.constructor descriptor is
+            // {writable:true, enumerable:false, configurable:true} → 0x3.
+            // Without the descriptor sidecar `for (k in obj) ...`
+            // emits "constructor" because the default is fully
+            // enumerable.
+            if (updatedProto && updatedProto != PROTO_NONE) {
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) updatedProto = updatedProto->setAttribute(ctx, pdk,
+                    ctx->fromInteger(0x3LL));
+            }
             if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
                 ctx->space->objectPrototype = const_cast<proto::ProtoObject*>(updatedProto);
             }

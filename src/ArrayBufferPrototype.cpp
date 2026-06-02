@@ -260,12 +260,18 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     }
 
     // ArrayBuffer.prototype.constructor === ArrayBuffer per §25.1.4.1.
+    // Non-enumerable per spec (0x3 = writable+configurable).
     {
         const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updated =
                 proto->setAttribute(ctx, ctorWordKey, ctor);
-            if (updated && updated != PROTO_NONE) s_abProto = updated;
+            if (updated && updated != PROTO_NONE) {
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+                s_abProto = updated;
+            }
         }
     }
 

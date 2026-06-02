@@ -511,9 +511,15 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
                                ctx->fromUTF8String("DataView"));
 
     // DataView.prototype.constructor === DataView per §25.3.4.1.
+    // Non-enumerable per spec (0x3 = writable+configurable).
     {
         const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
-        if (ctorWordKey) proto->setAttribute(ctx, ctorWordKey, ctor);
+        if (ctorWordKey) {
+            proto = proto->setAttribute(ctx, ctorWordKey, ctor);
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+        }
     }
 
     root = root->setAttribute(ctx, JSSymbols::DataView(ctx), ctor);

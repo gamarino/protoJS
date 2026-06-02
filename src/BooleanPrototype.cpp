@@ -209,11 +209,17 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     // identity is broken — `b.constructor.prototype` is undefined,
     // every prop-desc test on the constructor reference fails.
     if (boolProto && boolProto != PROTO_NONE) {
-        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
-        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updatedProto =
                 boolProto->setAttribute(ctx, ctorWordKey, ctor);
+            // Non-enumerable per §20.3.2.1 — bits 0x3 (writable+configurable).
+            if (updatedProto && updatedProto != PROTO_NONE) {
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) updatedProto = updatedProto->setAttribute(ctx, pdk,
+                    ctx->fromInteger(0x3LL));
+            }
             if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
                 ctx->space->booleanPrototype = const_cast<proto::ProtoObject*>(updatedProto);
             }

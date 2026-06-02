@@ -863,14 +863,18 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
     }
 
-    // Set.prototype.constructor === Set per §24.2.3.2.
+    // Set.prototype.constructor === Set per §24.2.3.2 (non-enumerable).
     if (s_setPrototype) {
-        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
-        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updated =
                 s_setPrototype->setAttribute(ctx, ctorWordKey, ctor);
-            if (updated && updated != PROTO_NONE) s_setPrototype = updated;
+            if (updated && updated != PROTO_NONE) {
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+                s_setPrototype = updated;
+            }
         }
     }
 

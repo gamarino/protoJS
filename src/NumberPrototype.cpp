@@ -633,11 +633,17 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     // Number.prototype.constructor === Number per §21.1.4.1.
     if (numProto && numProto != PROTO_NONE) {
-        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
-        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updatedProto =
                 numProto->setAttribute(ctx, ctorWordKey, ctor);
+            // Non-enumerable per §21.1.4.1 — bits 0x3.
+            if (updatedProto && updatedProto != PROTO_NONE) {
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) updatedProto = updatedProto->setAttribute(ctx, pdk,
+                    ctx->fromInteger(0x3LL));
+            }
             if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
                 ctx->space->smallIntegerPrototype = const_cast<proto::ProtoObject*>(updatedProto);
             }

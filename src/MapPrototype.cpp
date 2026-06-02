@@ -921,14 +921,18 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         }
     }
 
-    // Map.prototype.constructor === Map per §24.1.3.2.
+    // Map.prototype.constructor === Map per §24.1.3.2 (non-enumerable).
     if (s_mapPrototype) {
-        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
-        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             const proto::ProtoObject* updated =
                 s_mapPrototype->setAttribute(ctx, ctorWordKey, ctor);
-            if (updated && updated != PROTO_NONE) s_mapPrototype = updated;
+            if (updated && updated != PROTO_NONE) {
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+                s_mapPrototype = updated;
+            }
         }
     }
 

@@ -355,6 +355,13 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     if (ctorWordKey) {
                         const proto::ProtoObject* updatedFp =
                             fp->setAttribute(ctx, ctorWordKey, fnCtor);
+                        // Non-enumerable per §20.2.4.1 (0x3 = w+c).
+                        if (updatedFp && updatedFp != PROTO_NONE) {
+                            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                            if (pdk) updatedFp = updatedFp->setAttribute(ctx, pdk,
+                                ctx->fromInteger(0x3LL));
+                        }
                         if (updatedFp && updatedFp != PROTO_NONE) {
                             fp = updatedFp;
                             *globalRoot = (*globalRoot)->setAttribute(ctx, fpKey, fp);
