@@ -530,7 +530,7 @@ static const proto::ProtoObject* promiseRejectNative(
 
 static const proto::ProtoObject* promiseConstructor(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
@@ -561,8 +561,12 @@ static const proto::ProtoObject* promiseConstructor(
     char keyBuf[64];
     std::snprintf(keyBuf, sizeof(keyBuf), "__promise_cell_%llu__", cellId);
 
-    // Create the cell (pending promise with instance methods).
-    const proto::ProtoObject* cell = ctx->newObject(true);
+    // Use the pre-allocated `self` when OP_call_constructor prepared it
+    // (so `new SubPromise(...)` honours [[Prototype]] = SubPromise.prototype
+    // and `sub instanceof SubPromise` is true). Fall back to a fresh
+    // object for direct `new Promise(...)` calls that arrive with self=PROTO_NONE.
+    const proto::ProtoObject* cell = (self && self != PROTO_NONE)
+        ? self : ctx->newObject(true);
     cell = setAttr(ctx, cell, "__promise_state__", ctx->fromInteger(0LL));
     cell = setAttr(ctx, cell, "__promise_value__", PROTO_NONE);
     cell = attachPromiseMethods(ctx, cell);
