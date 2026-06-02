@@ -612,13 +612,12 @@ static const proto::ProtoObject* arraySpeciesCreate(
 static bool arrayThrowIfNullUndefined(proto::ProtoContext* ctx,
                                        const proto::ProtoObject* self) {
     const proto::ProtoObject* nullSentinel = getNullSentinel();
+    const proto::ProtoObject* undefSentinel = getUndefinedSentinel();
     bool isNull = (self == nullSentinel);
-    bool isUndefined = (!self || self == PROTO_NONE);
+    bool isUndefined = (!self || self == PROTO_NONE || self == undefSentinel);
     if (isNull || isUndefined) {
-        const char* msg = isNull
-            ? "Cannot convert undefined or null to object"
-            : "Cannot convert undefined or null to object";
-        signalNativeException(makeNativeError(ctx, "TypeError", msg));
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
         return true;
     }
     return false;
@@ -2151,10 +2150,14 @@ static const proto::ProtoObject* arrayFrom(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return createNewArray(ctx, nullptr);
-    const proto::ProtoObject* src = args->getAt(ctx, 0);
+    // ECMA-262 §23.1.2.1 step 1: Let items be ? ToObject(items).
+    // null / undefined are not coercible — throw TypeError. The
+    // zero-argument case (`Array.from()`) is equivalent to passing
+    // undefined and must throw the same TypeError.
+    const proto::ProtoObject* src = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (arrayThrowIfNullUndefined(ctx, src)) return PROTO_NONE;
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
-    if (!src || src == PROTO_NONE) return result;
 
     // Optional map function (Array.from(src, mapFn[, thisArg])).
     const proto::ProtoObject* mapFn = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : nullptr;
