@@ -5375,6 +5375,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // lookup sees the accessor, not a stale value).
                             const proto::ProtoObject* tmp = obj3->setAttribute(pContext, key3, PROTO_NONE);
                             const proto::ProtoObject* newObj3 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
+                            // Accessor descriptor: bits 0x2 (configurable only,
+                            // not enumerable, writable n/a).
+                            if (newObj3) {
+                                std::string pdName2 = "__pd_" + nameStr + "__";
+                                const proto::ProtoObject* pdo2 = pContext->fromUTF8String(pdName2.c_str());
+                                const proto::ProtoString* pdk2 = pdo2 ? pdo2->asString(pContext) : nullptr;
+                                if (pdk2) newObj3 = newObj3->setAttribute(pContext, pdk2, pContext->fromInteger(0x2LL));
+                            }
                             stackPop(pContext);
                             stackPush(pContext, newObj3 ? newObj3 : obj3);
                             DISPATCH();
@@ -5410,6 +5418,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     const proto::ProtoObject* newObj3 =
                         obj3->setAttribute(pContext, key3, methodVal ? methodVal : PROTO_NONE);
+                    // Class-body methods / accessors are non-enumerable per
+                    // ECMA-262 §10.2.7: { writable:true, enumerable:false,
+                    // configurable:true } for methods → bits 0x3.
+                    if (newObj3 && key3) {
+                        std::string nameStr;
+                        key3->toUTF8String(pContext, nameStr);
+                        std::string pdName = "__pd_" + nameStr + "__";
+                        const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
+                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        if (pdk) newObj3 = newObj3->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
+                    }
                     stackPop(pContext);
                     stackPush(pContext, newObj3 ? newObj3 : obj3);
                 }
@@ -5447,16 +5466,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (!keyStr2) DISPATCH();
                 int flag = op_flags & 0x3;
+                std::string nameStrC;
+                keyStr2->toUTF8String(pContext, nameStrC);
                 if (flag == 1 || flag == 2) {
-                    std::string nameStr;
-                    keyStr2->toUTF8String(pContext, nameStr);
                     const std::string prefix = (flag == 1) ? "__get_" : "__set_";
-                    std::string sidecar = prefix + nameStr + "__";
+                    std::string sidecar = prefix + nameStrC + "__";
                     const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
                     const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
                     if (skp) {
                         const proto::ProtoObject* tmp = obj2->setAttribute(pContext, keyStr2, PROTO_NONE);
                         const proto::ProtoObject* newObj2 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
+                        // Accessor descriptor: bits 0x2 (configurable only).
+                        if (newObj2) {
+                            std::string pdName = "__pd_" + nameStrC + "__";
+                            const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
+                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                            if (pdk) newObj2 = newObj2->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
+                        }
                         stackPop(pContext);
                         stackPush(pContext, newObj2 ? newObj2 : obj2);
                         DISPATCH();
@@ -5464,6 +5490,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* newObj2 =
                     obj2->setAttribute(pContext, keyStr2, methodVal ? methodVal : PROTO_NONE);
+                // Method descriptor: bits 0x3.
+                if (newObj2) {
+                    std::string pdName = "__pd_" + nameStrC + "__";
+                    const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                    if (pdk) newObj2 = newObj2->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
+                }
                 stackPop(pContext);
                 stackPush(pContext, newObj2 ? newObj2 : obj2);
                 DISPATCH();
