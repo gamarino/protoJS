@@ -2684,7 +2684,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_define_class] = &&L_OP_define_class;
     dispatch_table[OP_define_class_computed] = &&L_OP_define_class_computed;
     dispatch_table[OP_check_ctor] = &&L_OP_check_ctor;
+    dispatch_table[OP_check_ctor_return] = &&L_OP_check_ctor_return;
     dispatch_table[OP_init_ctor] = &&L_OP_init_ctor;
+    dispatch_table[OP_eval] = &&L_OP_eval;
     dispatch_table[OP_check_brand] = &&L_OP_check_brand;
     dispatch_table[OP_add_brand] = &&L_OP_add_brand;
     dispatch_table[OP_set_home_object] = &&L_OP_set_home_object;
@@ -3287,6 +3289,51 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // not enforced yet and most tests pass-through.
                 DISPATCH();
             }
+            L_OP_check_ctor_return: {
+                // DEF(check_ctor_return, 1, 1, 2, none)
+                // Stack: [..., retVal] → [..., retVal, useThis(bool)]
+                // For a derived class ctor return:
+                //   - if retVal is undefined → push TRUE (use `this`)
+                //   - if retVal is an object → push FALSE (use retVal)
+                //   - otherwise throw TypeError
+                if (stackEmpty(pContext)) DISPATCH();
+                const proto::ProtoObject* rv = stackTop(pContext);
+                bool isUndef = (!rv || rv == PROTO_NONE || rv == getUndefinedSentinel()
+                                || (rv && rv->isNone(pContext)));
+                bool isObj = false;
+                if (!isUndef && rv && rv != PROTO_NONE) {
+                    isObj = !(rv == PROTO_TRUE || rv == PROTO_FALSE
+                              || rv == t_nullSentinel
+                              || rv->isInteger(pContext)
+                              || rv->isDouble(pContext)
+                              || rv->isBoolean(pContext)
+                              || rv->asString(pContext));
+                }
+                if (!isUndef && !isObj) {
+                    pending_exception = makeError(pContext, "TypeError",
+                        "derived class constructor must return an object or undefined",
+                        pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
+                stackPush(pContext, isUndef ? PROTO_TRUE : PROTO_FALSE);
+                DISPATCH();
+            }
+            L_OP_eval: {
+                // DEF(eval, 7, 1, 1, npop_u16)
+                // We don't implement runtime eval. Pop arguments and
+                // push undefined to keep the stack balanced rather than
+                // bailing out.
+                if (pc + 4 > len) return PROTO_NONE;
+                uint16_t evalArgc = get_u16(buf + pc);
+                pc += 4;
+                for (uint32_t i = 0; i <= static_cast<uint32_t>(evalArgc); ++i) {
+                    if (stackEmpty(pContext)) break;
+                    stackPop(pContext);
+                }
+                stackPush(pContext, PROTO_NONE);
+                DISPATCH();
+            }
             L_OP_init_ctor: {
                 // DEF(init_ctor, 1, 0, 1, none)
                 // Emitted at the start of a default derived-class
@@ -3358,17 +3405,77 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
-                // Dispatch via callJSFunction so the parent ctor's
-                // bytecode runs with newObj as `this`.  Native ctors
-                // (Array, Error, …) are dispatched via __construct__
-                // markers — we don't handle those here.
+                // Dispatch to parent ctor.  Two paths:
+                //   - JS class ctor with __bytecode_id__ → callJSFunction
+                //   - Native ctor with __construct__ (Number, Boolean,
+                //     Map, Set, Promise, ...) → invoke directly
+                // Also handles specialised native markers (arrayCtor, errCtor,
+                // regexpCtor, taCtor, strCtor) — these have specialised paths
+                // in OP_call_constructor that we mirror here for super() with
+                // a built-in parent.
+                const proto::ProtoObject* ret = nullptr;
                 {
                     const proto::ProtoObject* prevActiveI  = t_activeFunc;
                     const proto::ProtoObject* prevNewTgtI  = t_activeNewTgt;
                     const proto::ProtoList*   prevArgsI    = t_activeArgs;
                     t_activeNewTgt = t_activeNewTgt ? t_activeNewTgt : parent;
-                    const proto::ProtoObject* ret =
-                        callJSFunction(pContext, parent, newObj, forwardArgs);
+                    // Check for __construct__ native method first (Number etc).
+                    const proto::ProtoString* ctorKeyL = JSSymbols::construct(pContext);
+                    const proto::ProtoObject* ctorMethodL = (ctorKeyL && parent && parent != PROTO_NONE)
+                        ? parent->getAttribute(pContext, ctorKeyL, false) : nullptr;
+                    if (ctorMethodL && ctorMethodL != PROTO_NONE && ctorMethodL->isMethod(pContext)) {
+                        proto::ProtoMethod nm = ctorMethodL->asMethod(pContext);
+                        ret = nm ? nm(pContext, newObj, nullptr, forwardArgs, nullptr) : nullptr;
+                    } else {
+                        // Specialised: arrayCtor, errCtor, regexpCtor, taCtor, strCtor.
+                        const proto::ProtoString* arrayK = JSSymbols::arrayCtor(pContext);
+                        const proto::ProtoString* errK   = JSSymbols::errorCtor(pContext);
+                        const proto::ProtoString* reK    = JSSymbols::regexpCtor(pContext);
+                        const proto::ProtoString* taK    = JSSymbols::taCtor(pContext);
+                        const proto::ProtoString* strK   = JSSymbols::stringCtor(pContext);
+                        const proto::ProtoObject* arrayAttr = (parent && arrayK)
+                            ? parent->getAttribute(pContext, arrayK, false) : nullptr;
+                        const proto::ProtoObject* errAttr = (parent && errK)
+                            ? parent->getAttribute(pContext, errK, false) : nullptr;
+                        const proto::ProtoObject* reAttr  = (parent && reK)
+                            ? parent->getAttribute(pContext, reK, false) : nullptr;
+                        const proto::ProtoObject* taAttr  = (parent && taK)
+                            ? parent->getAttribute(pContext, taK, false) : nullptr;
+                        const proto::ProtoObject* strAttr = (parent && strK)
+                            ? parent->getAttribute(pContext, strK, false) : nullptr;
+                        if (arrayAttr == PROTO_TRUE) {
+                            const proto::ProtoString* isArrKey2 = JSSymbols::isArray(pContext);
+                            if (isArrKey2) newObj = newObj->setAttribute(pContext, isArrKey2, PROTO_TRUE);
+                            const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
+                            long long flen = forwardArgs ? (long long)forwardArgs->getSize(pContext) : 0;
+                            if (flen == 1 && forwardArgs->getAt(pContext, 0)->isInteger(pContext)) {
+                                newObj = newObj->setAttribute(pContext, lenKey2, forwardArgs->getAt(pContext, 0));
+                            } else if (lenKey2) {
+                                newObj = newObj->setAttribute(pContext, lenKey2, pContext->fromInteger(flen));
+                            }
+                            ret = newObj;
+                        } else if (errAttr && errAttr != PROTO_NONE) {
+                            std::string msg, type;
+                            long long flen = forwardArgs ? (long long)forwardArgs->getSize(pContext) : 0;
+                            if (flen > 0) {
+                                const proto::ProtoObject* mVal = toString(pContext, forwardArgs->getAt(pContext, 0));
+                                if (mVal && mVal->isString(pContext)) mVal->asString(pContext)->toUTF8String(pContext, msg);
+                            }
+                            if (errAttr->isString(pContext)) errAttr->asString(pContext)->toUTF8String(pContext, type);
+                            ret = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
+                        } else if (reAttr == PROTO_TRUE) {
+                            ret = regexpConstructor(pContext, newObj, nullptr, forwardArgs, nullptr);
+                        } else if (strAttr == PROTO_TRUE) {
+                            const proto::ProtoObject* pv = (forwardArgs && forwardArgs->getSize(pContext) > 0)
+                                ? toString(pContext, forwardArgs->getAt(pContext, 0))
+                                : pContext->fromUTF8String("");
+                            newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
+                            ret = newObj;
+                        } else {
+                            // Fallback: callJSFunction (JS bytecode ctor).
+                            ret = callJSFunction(pContext, parent, newObj, forwardArgs);
+                        }
+                    }
                     t_activeFunc = prevActiveI;
                     t_activeNewTgt = prevNewTgtI;
                     t_activeArgs = prevArgsI;
