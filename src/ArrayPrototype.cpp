@@ -695,6 +695,50 @@ static const proto::ProtoObject* arrayToString(
     return arrayJoin(ctx, self, pl, nullptr, kw);
 }
 
+// Array.prototype.toLocaleString — ECMA-262 §23.1.3.31
+// Calls toLocaleString on each element, joined with ",". The
+// locale/options arguments are passed through to each element's
+// toLocaleString (minimal implementation: separator is always ",").
+static const proto::ProtoObject* arrayToLocaleString(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    unsigned long len = arrLen(ctx, self);
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    const proto::ProtoObject* nullSent  = getNullSentinel();
+    std::string result;
+    const proto::ProtoString* tlsKey = nullptr;
+    {
+        const proto::ProtoObject* tlsObj = ctx->fromUTF8String("toLocaleString");
+        if (tlsObj) tlsKey = tlsObj->asString(ctx);
+    }
+    for (unsigned long i = 0; i < len; i++) {
+        if (i > 0) result += ',';
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (!elem || elem == PROTO_NONE
+            || elem == undefSent || elem == nullSent) continue;
+        // Try elem.toLocaleString(); fall back to ToString on failure
+        // (primitives respond to toLocaleString via Number/String
+        // prototypes already).
+        const proto::ProtoObject* tlsFn = tlsKey
+            ? elem->getAttribute(ctx, tlsKey, true) : nullptr;
+        if (tlsFn && tlsFn != PROTO_NONE) {
+            const proto::ProtoObject* r = callJSFunction(ctx, tlsFn, elem,
+                args ? args : ctx->newList());
+            if (r && r != PROTO_NONE) {
+                result += elemToString(ctx, r);
+                continue;
+            }
+        }
+        result += elemToString(ctx, elem);
+    }
+    return ctx->fromUTF8String(result.c_str());
+}
+
 static const proto::ProtoObject* arrayPush(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -2348,6 +2392,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         // Non-callback methods (Phase 9)
         { "join",           arrayJoin,          1 },
         { "toString",       arrayToString,      0 },
+        { "toLocaleString", arrayToLocaleString, 0 },
         { "push",           arrayPush,          1 },
         { "pop",            arrayPop,           0 },
         { "shift",          arrayShift,         0 },

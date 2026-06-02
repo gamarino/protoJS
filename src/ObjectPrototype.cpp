@@ -1681,7 +1681,67 @@ const proto::ProtoObject* installObjectInstanceMethods(
     reg("hasOwnProperty",       objectHasOwnProperty);
     reg("isPrototypeOf",        objectIsPrototypeOf);
     reg("propertyIsEnumerable", objectPropertyIsEnumerable);
-    reg("toLocaleString",       objectToString); // Alias for now
+    // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
+    // Delegate to the receiver's own toString — for a Number this gives the
+    // numeric ToString. For primitive String/Boolean/etc. the toString
+    // attribute lookup can fall over odd code paths, so we special-case
+    // the typed primitives via the same isInteger/isDouble/isBoolean
+    // probes objectToString uses, and route through ToString-style
+    // conversion via fromInteger(...)->asString-ish logic. For
+    // protoCore objects (real objects) we delegate to their toString.
+    static const proto::ProtoMethod objectToLocaleStringFn = [](
+        proto::ProtoContext* ictx,
+        const proto::ProtoObject* self,
+        const proto::ParentLink*,
+        const proto::ProtoList*,
+        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        if (!self || self == PROTO_NONE)
+            return objectToString(ictx, self, nullptr, nullptr, nullptr);
+        // Primitives: synthesise the type's natural ToString. Without
+        // this, the attribute lookup for "toString" on String/Boolean
+        // primitives can fall over (the protoCore primitives don't
+        // expose a callable toString attribute the way wrapper objects
+        // do) and we'd return TypeError mid-locale-formatting.
+        if (self->isString(ictx)) return self;  // strings stringify to themselves
+        if (self->isBoolean(ictx))
+            return ictx->fromUTF8String(self->asBoolean(ictx) ? "true" : "false");
+        if (self->isInteger(ictx)) {
+            const std::string tmp = std::to_string(self->asLong(ictx));
+            return ictx->fromUTF8String(tmp.c_str());
+        }
+        if (self->isDouble(ictx) || self->isFloat(ictx)) {
+            char buf[64];
+            double d = self->asDouble(ictx);
+            if (std::isnan(d))      return ictx->fromUTF8String("NaN");
+            if (std::isinf(d))      return ictx->fromUTF8String(d > 0 ? "Infinity" : "-Infinity");
+            if (d == 0.0)           return ictx->fromUTF8String("0");
+            if (d == std::trunc(d) && std::abs(d) < 1e21) {
+                long long iv = static_cast<long long>(d);
+                if (static_cast<double>(iv) == d)
+                    return ictx->fromUTF8String(std::to_string(iv).c_str());
+            }
+            snprintf(buf, sizeof(buf), "%.15g", d);
+            return ictx->fromUTF8String(buf);
+        }
+        const proto::ProtoString* tsKey = JSSymbols::toString(ictx);
+        if (!tsKey) return objectToString(ictx, self, nullptr, nullptr, nullptr);
+        const proto::ProtoObject* tsFn = self->getAttribute(ictx, tsKey, true);
+        if (!tsFn || tsFn == PROTO_NONE)
+            return objectToString(ictx, self, nullptr, nullptr, nullptr);
+        // tsFn must be callable; if not, just fall back to the [object T]
+        // format rather than throwing TypeError mid-locale formatting.
+        if (!tsFn->isMethod(ictx)) {
+            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ictx);
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ictx);
+            bool callable =
+                (bcKey && tsFn->getAttribute(ictx, bcKey, false) != PROTO_NONE) ||
+                (nfKey && tsFn->getAttribute(ictx, nfKey, false) != PROTO_NONE);
+            if (!callable)
+                return objectToString(ictx, self, nullptr, nullptr, nullptr);
+        }
+        return callJSFunction(ictx, tsFn, self, ictx->newList());
+    };
+    reg("toLocaleString",       objectToLocaleStringFn);
     reg("toString",             objectToString);
     reg("valueOf",              objectValueOf);
     return base;
