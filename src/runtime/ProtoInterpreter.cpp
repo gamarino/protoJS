@@ -730,12 +730,44 @@ static const proto::ProtoObject* globalParseFloat(
     const double nan = std::numeric_limits<double>::quiet_NaN();
     if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
-    if (!strObj || strObj == PROTO_NONE) return ctx->fromDouble(nan);
+    if (!strObj || strObj == PROTO_NONE
+        || strObj == getUndefinedSentinel()) return ctx->fromDouble(nan);
     if (strObj->isInteger(ctx)) return strObj;
     if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) return strObj;
     std::string s;
-    if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
-    else return ctx->fromDouble(nan);
+    if (strObj == getNullSentinel()) { s = "null"; }
+    else if (strObj == PROTO_TRUE)   { s = "true"; }
+    else if (strObj == PROTO_FALSE)  { s = "false"; }
+    else if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
+    else if (strObj->isBoolean(ctx)) { s = strObj->asBoolean(ctx) ? "true" : "false"; }
+    else {
+        // Object: ToString step per §19.2.7 — toString first, valueOf
+        // fallback. Without this, parseFloat([3.14]) and
+        // parseFloat({toString:()=>"3.14"}) silently returned NaN.
+        const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
+        const proto::ProtoString* voKey = JSSymbols::valueOf(ctx);
+        const proto::ProtoObject* prim = nullptr;
+        if (tsKey) {
+            const proto::ProtoObject* tsFn = strObj->getAttribute(ctx, tsKey, true);
+            if (tsFn && tsFn != PROTO_NONE) {
+                const proto::ProtoObject* res = callJSFunction(ctx, tsFn, strObj, ctx->newList());
+                if (res && res != PROTO_NONE && res->isString(ctx)) prim = res;
+            }
+        }
+        if (!prim && voKey) {
+            const proto::ProtoObject* voFn = strObj->getAttribute(ctx, voKey, true);
+            if (voFn && voFn != PROTO_NONE) {
+                const proto::ProtoObject* res = callJSFunction(ctx, voFn, strObj, ctx->newList());
+                if (res && res != PROTO_NONE && res->isString(ctx)) prim = res;
+            }
+        }
+        if (prim && prim->isString(ctx)) {
+            const proto::ProtoString* ps = prim->asString(ctx);
+            if (ps) ps->toUTF8String(ctx, s);
+        } else {
+            return ctx->fromDouble(nan);
+        }
+    }
     // Trim leading whitespace
     size_t j = 0;
     while (j < s.size() && (s[j]==' '||s[j]=='\t'||s[j]=='\n'||s[j]=='\r'||s[j]=='\f'||s[j]=='\v')) j++;
