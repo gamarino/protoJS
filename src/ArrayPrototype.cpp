@@ -959,21 +959,22 @@ static const proto::ProtoObject* arraySlice(
     long long len = static_cast<long long>(arrLen(ctx, self));
     long long start = 0, end = len;
 
+    // ECMA-262 §23.1.3.28: ToIntegerOrInfinity on start/end. NaN → 0;
+    // +Infinity / -Infinity preserved, then clamped to [0, len].
+    auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
+        if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
+        if (o->isInteger(ctx)) return o->asLong(ctx);
+        if (o->isDouble(ctx) || o->isFloat(ctx)) {
+            double d = o->asDouble(ctx);
+            if (std::isnan(d)) return 0;
+            if (std::isinf(d)) return d > 0 ? len : -len - 1;
+            return static_cast<long long>(d);
+        }
+        return defaultV;
+    };
     if (args && args->getSize(ctx) > 0) {
-        const proto::ProtoObject* s = args->getAt(ctx, 0);
-        if (s && s != PROTO_NONE) {
-            if (s->isInteger(ctx)) start = s->asLong(ctx);
-            else if (s->isDouble(ctx) || s->isFloat(ctx))
-                start = static_cast<long long>(s->asDouble(ctx));
-        }
-        if (args->getSize(ctx) > 1) {
-            const proto::ProtoObject* e = args->getAt(ctx, 1);
-            if (e && e != PROTO_NONE) {
-                if (e->isInteger(ctx)) end = e->asLong(ctx);
-                else if (e->isDouble(ctx) || e->isFloat(ctx))
-                    end = static_cast<long long>(e->asDouble(ctx));
-            }
-        }
+        start = toII(args->getAt(ctx, 0), 0);
+        if (args->getSize(ctx) > 1) end = toII(args->getAt(ctx, 1), len);
     }
 
     start = normalizeIdxClamp(start, len);
