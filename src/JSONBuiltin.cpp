@@ -6,6 +6,7 @@
 #include "ProtoNativeModule.h"
 #include "TypeBridge.h"
 #include <protoCore.h>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -77,8 +78,19 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         return;
     }
     if (obj->isDouble(ctx)) {
+        double d = obj->asDouble(ctx);
+        // ECMA-262 §24.5.2 step 10: non-finite numbers serialize as null.
+        if (std::isnan(d) || std::isinf(d)) {
+            out += "null";
+            return;
+        }
+        // ToString(-0) === "0".
+        if (d == 0.0) {
+            out += "0";
+            return;
+        }
         char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", obj->asDouble(ctx));
+        snprintf(buf, sizeof(buf), "%.15g", d);
         out += buf;
         return;
     }
