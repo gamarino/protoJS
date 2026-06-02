@@ -113,6 +113,26 @@ static void collectOwnKeys(
 // ---------------------------------------------------------------------------
 // Object.keys(obj) → array of own enumerable string property names.
 // ---------------------------------------------------------------------------
+// Spec helper: ToObject step in Object.keys / values / entries /
+// getOwnPropertyNames / getOwnPropertyDescriptors. null and undefined
+// must throw TypeError ("not object coercible").
+static bool throwIfNullOrUndefined(proto::ProtoContext* ctx,
+                                   const proto::ProtoObject* obj,
+                                   const char* methodName)
+{
+    if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            (std::string(methodName) + " called on null or undefined").c_str()));
+        return true;
+    }
+    if (obj == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            (std::string(methodName) + " called on null or undefined").c_str()));
+        return true;
+    }
+    return false;
+}
+
 static const proto::ProtoObject* objectKeys(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
@@ -122,6 +142,7 @@ static const proto::ProtoObject* objectKeys(
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
+    if (throwIfNullOrUndefined(ctx, obj, "Object.keys")) return PROTO_NONE;
 
     std::vector<std::string> keys;
     collectOwnKeys(ctx, obj, keys, nullptr);
@@ -152,6 +173,7 @@ static const proto::ProtoObject* objectValues(
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
+    if (throwIfNullOrUndefined(ctx, obj, "Object.values")) return PROTO_NONE;
 
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
@@ -182,6 +204,7 @@ static const proto::ProtoObject* objectEntries(
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
+    if (throwIfNullOrUndefined(ctx, obj, "Object.entries")) return PROTO_NONE;
 
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
