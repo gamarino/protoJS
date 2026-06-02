@@ -283,10 +283,35 @@ void ensureMathObject(proto::ProtoContext* ctx,
     const proto::ProtoObject* math = ctx->newObject(false);
     if (!math) return;
 
-    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+    // Each Math method is exposed through a function-object wrapper so
+    // it carries the spec-mandated `name` and `length` properties (with
+    // descriptor 0x2 = configurable, non-writable, non-enumerable). The
+    // raw ProtoMethod cell can't hold arbitrary attributes, so a thin
+    // wrapper object inheriting Function.prototype is needed instead.
+    auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) math = math->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
-        // ECMA-262 §17: Math methods carry the standard built-in descriptor
+        if (!key) return;
+        const proto::ProtoObject* wrapper = ctx->space->methodPrototype
+            ? ctx->space->methodPrototype->newChild(ctx, true)
+            : ctx->newObject(true);
+        const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+        if (nfk) wrapper = wrapper->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* lenk = JSSymbols::length(ctx);
+        if (lenk) {
+            wrapper = wrapper->setAttribute(ctx, lenk, ctx->fromInteger(length));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmk = JSSymbols::name(ctx);
+        if (nmk) {
+            wrapper = wrapper->setAttribute(ctx, nmk, ctx->fromUTF8String(name));
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+        math = math->setAttribute(ctx, key, wrapper);
+        // Math methods themselves carry the standard built-in descriptor
         // {writable:true, enumerable:false, configurable:true} → 0x3.
         std::string pd = std::string("__pd_") + name + "__";
         const proto::ProtoObject* pko = ctx->fromUTF8String(pd.c_str());
@@ -319,42 +344,44 @@ void ensureMathObject(proto::ProtoContext* ctx,
     setConst("SQRT1_2", M_SQRT1_2);
     setConst("SQRT2",   M_SQRT2);
 
-    // Methods
-    reg("abs",    mathAbs);
-    reg("acos",   mathAcos);
-    reg("acosh",  mathAcosh);
-    reg("asin",   mathAsin);
-    reg("asinh",  mathAsinh);
-    reg("atan",   mathAtan);
-    reg("atanh",  mathAtanh);
-    reg("atan2",  mathAtan2);
-    reg("cbrt",   mathCbrt);
-    reg("ceil",   mathCeil);
-    reg("clz32",  mathClz32);
-    reg("cos",    mathCos);
-    reg("cosh",   mathCosh);
-    reg("exp",    mathExp);
-    reg("expm1",  mathExpm1);
-    reg("floor",  mathFloor);
-    reg("fround", mathFround);
-    reg("hypot",  mathHypot);
-    reg("imul",   mathImul);
-    reg("log",    mathLog);
-    reg("log1p",  mathLog1p);
-    reg("log2",   mathLog2);
-    reg("log10",  mathLog10);
-    reg("max",    mathMax);
-    reg("min",    mathMin);
-    reg("pow",    mathPow);
-    reg("random", mathRandom);
-    reg("round",  mathRound);
-    reg("sign",   mathSign);
-    reg("sin",    mathSin);
-    reg("sinh",   mathSinh);
-    reg("sqrt",   mathSqrt);
-    reg("tan",    mathTan);
-    reg("tanh",   mathTanh);
-    reg("trunc",  mathTrunc);
+    // Methods. Spec lengths per §21.3.2: most unary methods are 1;
+    // atan2/imul/pow are 2; hypot/max/min are 2 (variadic but the
+    // spec's "length" is the formal-parameter count); random is 0.
+    reg("abs",    mathAbs,    1);
+    reg("acos",   mathAcos,   1);
+    reg("acosh",  mathAcosh,  1);
+    reg("asin",   mathAsin,   1);
+    reg("asinh",  mathAsinh,  1);
+    reg("atan",   mathAtan,   1);
+    reg("atanh",  mathAtanh,  1);
+    reg("atan2",  mathAtan2,  2);
+    reg("cbrt",   mathCbrt,   1);
+    reg("ceil",   mathCeil,   1);
+    reg("clz32",  mathClz32,  1);
+    reg("cos",    mathCos,    1);
+    reg("cosh",   mathCosh,   1);
+    reg("exp",    mathExp,    1);
+    reg("expm1",  mathExpm1,  1);
+    reg("floor",  mathFloor,  1);
+    reg("fround", mathFround, 1);
+    reg("hypot",  mathHypot,  2);
+    reg("imul",   mathImul,   2);
+    reg("log",    mathLog,    1);
+    reg("log1p",  mathLog1p,  1);
+    reg("log2",   mathLog2,   1);
+    reg("log10",  mathLog10,  1);
+    reg("max",    mathMax,    2);
+    reg("min",    mathMin,    2);
+    reg("pow",    mathPow,    2);
+    reg("random", mathRandom, 0);
+    reg("round",  mathRound,  1);
+    reg("sign",   mathSign,   1);
+    reg("sin",    mathSin,    1);
+    reg("sinh",   mathSinh,   1);
+    reg("sqrt",   mathSqrt,   1);
+    reg("tan",    mathTan,    1);
+    reg("tanh",   mathTanh,   1);
+    reg("trunc",  mathTrunc,  1);
 
     // Set Symbol.toStringTag so Object.prototype.toString.call(Math) === "[object Math]"
     {
