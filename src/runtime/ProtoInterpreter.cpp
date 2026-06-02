@@ -3527,6 +3527,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 ? toString(pContext, forwardArgs->getAt(pContext, 0))
                                 : pContext->fromUTF8String("");
                             newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
+                            // ECMA-262 §22.1.4: own length, non-writable, non-configurable.
+                            long long slenI = 0;
+                            if (pv && pv->isString(pContext)) {
+                                const proto::ProtoString* ps = pv->asString(pContext);
+                                if (ps) slenI = static_cast<long long>(ps->getSize(pContext));
+                            }
+                            const proto::ProtoString* lenKeyI = JSSymbols::length(pContext);
+                            if (lenKeyI)
+                                newObj = newObj->setAttribute(pContext, lenKeyI, pContext->fromInteger(slenI));
+                            const proto::ProtoObject* pdoI = pContext->fromUTF8String("__pd_length__");
+                            const proto::ProtoString* pdkI = pdoI ? pdoI->asString(pContext) : nullptr;
+                            if (pdkI) newObj = newObj->setAttribute(pContext, pdkI, pContext->fromInteger(0x0LL));
                             ret = newObj;
                         } else {
                             // Fallback: callJSFunction (JS bytecode ctor).
@@ -7901,6 +7913,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ? toString(pContext, argsList->getAt(pContext, 0))
                             : pContext->fromUTF8String("");
                         newObj = newObj->setAttribute(pContext, JSSymbols::primitiveValue(pContext), pv);
+                        // ECMA-262 §22.1.4: String wrapper has own length
+                        // {writable:false, enumerable:false, configurable:false}.
+                        long long slen = 0;
+                        if (pv && pv->isString(pContext)) {
+                            const proto::ProtoString* ps = pv->asString(pContext);
+                            if (ps) slen = static_cast<long long>(ps->getSize(pContext));
+                        }
+                        const proto::ProtoString* lenKey = JSSymbols::length(pContext);
+                        if (lenKey)
+                            newObj = newObj->setAttribute(pContext, lenKey, pContext->fromInteger(slen));
+                        const proto::ProtoObject* pdo2 = pContext->fromUTF8String("__pd_length__");
+                        const proto::ProtoString* pdk2 = pdo2 ? pdo2->asString(pContext) : nullptr;
+                        if (pdk2) newObj = newObj->setAttribute(pContext, pdk2, pContext->fromInteger(0x0LL));
                         result = newObj;
                     } else {
                         // Generic: if the constructor carries a __construct__ native method,
