@@ -189,6 +189,19 @@ static const proto::ProtoObject* mathHypot(
     const proto::ProtoSparseList*)
 {
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
+    // ECMA-262 §21.3.2.18: if ANY coerced argument is ±Infinity,
+    // return +Infinity — even when other arguments are NaN. The
+    // previous summation approach yielded NaN whenever an Infinity
+    // and a NaN both appeared because Infinity² + NaN² = NaN.
+    bool sawNaN = false;
+    bool sawInf = false;
+    for (unsigned long i = 0; i < argc; i++) {
+        double v = argToDouble(ctx, args, static_cast<unsigned>(i), 0.0);
+        if (std::isnan(v)) sawNaN = true;
+        else if (std::isinf(v)) sawInf = true;
+    }
+    if (sawInf) return ctx->fromDouble(std::numeric_limits<double>::infinity());
+    if (sawNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
     double sum = 0.0;
     for (unsigned long i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i), 0.0);
