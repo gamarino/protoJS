@@ -195,10 +195,14 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     // ------------------------------------------------------------------
     // Build ArrayBuffer.prototype (inherits from Object.prototype).
     // ------------------------------------------------------------------
+    // proto is mutable so the recursive `proto.constructor = ctor`
+    // backref (per §25.1.4.1) installs in place — required so that
+    // `new ArrayBuffer(8).constructor === ArrayBuffer` per spec.
+    // See [[feedback_protojs_proto_constructor_backref]].
     const proto::ProtoObject* objectProto = ctx->space->objectPrototype;
     const proto::ProtoObject* proto = objectProto
-        ? objectProto->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? objectProto->newChild(ctx, true)
+        : ctx->newObject(true);
 
     // Register prototype methods.
     struct { const char* name; proto::ProtoMethod fn; long long len; } methods[] = {
@@ -252,6 +256,16 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                 if (nmKey)  fn = fn->setAttribute(ctx, nmKey,   ctx->fromUTF8String("isView"));
             }
             if (fn) ctor = ctor->setAttribute(ctx, isViewKey, fn);
+        }
+    }
+
+    // ArrayBuffer.prototype.constructor === ArrayBuffer per §25.1.4.1.
+    {
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
+        if (ctorWordKey) {
+            const proto::ProtoObject* updated =
+                proto->setAttribute(ctx, ctorWordKey, ctor);
+            if (updated && updated != PROTO_NONE) s_abProto = updated;
         }
     }
 
