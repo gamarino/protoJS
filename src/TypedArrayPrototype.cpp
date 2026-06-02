@@ -1329,8 +1329,11 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
     for (int i = 0; i < 11; i++) {
         const TACtorConfig& cfg = TA_CONFIGS[i];
 
-        // Concrete prototype inherits from base proto (immutable)
-        const proto::ProtoObject* concreteProto = s_taBaseProto->newChild(ctx, false);
+        // Concrete prototype — created mutable so the recursive
+        // `concreteProto.constructor = ctor` install at the bottom of
+        // this iteration does NOT split the prototype into two
+        // distinct identities. See [[feedback_protojs_proto_constructor_backref]].
+        const proto::ProtoObject* concreteProto = s_taBaseProto->newChild(ctx, true);
         concreteProto = concreteProto->setAttribute(
             ctx,
             JSSymbols::BYTES_PER_ELEMENT(ctx),
@@ -1383,6 +1386,21 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         }
         if (globalKey)
             root = root->setAttribute(ctx, globalKey, ctor);
+
+        // <TypedArray>.prototype.constructor === <TypedArray> per
+        // §22.2.5.2 (one for each concrete kind). concreteProto is
+        // mutable, so this setAttribute mutates in place and the
+        // s_taProtos[i] handle remains valid.
+        {
+            const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
+            if (ctorWordKey) {
+                const proto::ProtoObject* updated =
+                    concreteProto->setAttribute(ctx, ctorWordKey, ctor);
+                if (updated && updated != PROTO_NONE) {
+                    s_taProtos[i] = updated;
+                }
+            }
+        }
     }
 
     *globalRoot = root;
