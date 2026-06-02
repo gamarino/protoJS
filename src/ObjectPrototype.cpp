@@ -1150,6 +1150,34 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
 }
 
 // ---------------------------------------------------------------------------
+// Object.getOwnPropertySymbols(obj) — ECMA-262 §20.1.2.12
+// Returns an array of Symbol-keyed own properties. protoJS doesn't yet
+// implement Symbol primitives as attribute keys, so the result is
+// always an empty array — but the function itself must exist and must
+// throw TypeError on null / undefined per ToObject.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectGetOwnPropertySymbols(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !args) return PROTO_NONE;
+    const proto::ProtoObject* target = args->getSize(ctx) > 0
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (throwIfNullOrUndefined(ctx, target, "Object.getOwnPropertySymbols"))
+        return PROTO_NONE;
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    if (isArrKey) result = result->setAttribute(ctx, isArrKey, PROTO_TRUE);
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Object.getOwnPropertyDescriptors(obj) — ECMA-262 §20.1.2.11
 // Returns a new object with one descriptor per own property of obj.
 // ---------------------------------------------------------------------------
@@ -1846,6 +1874,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("defineProperties",         objectDefineProperties,      2);
     reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor, 2);
     reg("getOwnPropertyDescriptors", objectGetOwnPropertyDescriptors, 1);
+    reg("getOwnPropertySymbols",    objectGetOwnPropertySymbols,    1);
 
     // Object.is(a, b) — SameValue per ECMA-262 §7.2.11.  Differs from ===
     // in two ways: NaN is Object.is NaN, and +0 is NOT Object.is -0.
