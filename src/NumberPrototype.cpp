@@ -275,24 +275,42 @@ const proto::ProtoObject* numberToPrecision(
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
-    if (!positionalParameters || positionalParameters->getSize(context) == 0) {
-        return numberToString(context, self, nullptr, nullptr, nullptr);
-    }
-    const proto::ProtoObject* precObj = positionalParameters->getAt(context, 0);
-    int precision = 0;
-    if (precObj && precObj != PROTO_NONE) {
-        if (precObj->isInteger(context)) {
-            precision = static_cast<int>(precObj->asLong(context));
-        } else if (precObj->isDouble(context)) {
-            precision = static_cast<int>(precObj->asDouble(context));
-        }
-    }
-    if (precision < 1 || precision > 100) {
+    // Spec §21.1.3.5 step 2: if precision is undefined, behave as
+    // ToString(this) — no precision check, no RangeError.
+    bool precUndefined = !positionalParameters
+        || positionalParameters->getSize(context) == 0
+        || positionalParameters->getAt(context, 0) == PROTO_NONE
+        || !positionalParameters->getAt(context, 0);
+    if (precUndefined) {
         return numberToString(context, self, nullptr, nullptr, nullptr);
     }
     double value = getNumberValue(context, self);
+    // Spec §21.1.3.5 step 6: NaN -> "NaN" before any precision handling.
+    if (std::isnan(value)) return context->fromUTF8String("NaN");
+    const proto::ProtoObject* precObj = positionalParameters->getAt(context, 0);
+    int precision = 0;
+    if (precObj->isInteger(context)) {
+        precision = static_cast<int>(precObj->asLong(context));
+    } else if (precObj->isDouble(context)) {
+        double d = precObj->asDouble(context);
+        precision = std::isnan(d) ? 0 : static_cast<int>(d);
+    }
+    if (precision < 1 || precision > 100) {
+        signalNativeException(makeNativeError(context, "RangeError",
+            "toPrecision() argument must be between 1 and 100"));
+        return PROTO_NONE;
+    }
+    // Spec step 9: ±Infinity returns the signed string after the NaN
+    // and precision-range guards.
+    if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
     char buf[256];
     snprintf(buf, sizeof(buf), "%.*g", precision, value);
+    // Exponent format: strip leading zero (e.g. "1e+07" -> "1e+7").
+    if (char* e = std::strchr(buf, 'e')) {
+        if (e[1] && e[2] == '0' && e[3]) {
+            std::memmove(e + 2, e + 3, std::strlen(e + 3) + 1);
+        }
+    }
     return context->fromUTF8String(buf);
 }
 
