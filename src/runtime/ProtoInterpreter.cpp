@@ -7275,6 +7275,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 // Spec §13.10.2: If Type(F) is not Object → throw TypeError.
                 bool funcIsPrimitive = (!func || func == PROTO_NONE || func == t_nullSentinel
+                    || func == t_undefinedSentinel
                     || func->isBoolean(pContext) || func->isInteger(pContext) || func->isDouble(pContext)
                     || (func->isString(pContext) && !func->isMethod(pContext)));
                 if (funcIsPrimitive) {
