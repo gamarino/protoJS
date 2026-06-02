@@ -1085,10 +1085,13 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
-    const proto::ProtoObject* target = args->getAt(ctx, 0);
-    const proto::ProtoObject* propNameObj = args->getAt(ctx, 1);
-    if (!target || target == PROTO_NONE) return PROTO_NONE;
+    if (!ctx || !args) return PROTO_NONE;
+    const proto::ProtoObject* target = args->getSize(ctx) > 0 ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* propNameObj = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
+    // ECMA-262 §20.1.2.10 step 1: Let obj be ? ToObject(O).
+    // null / undefined are not Object-coercible — throw TypeError.
+    if (throwIfNullOrUndefined(ctx, target, "Object.getOwnPropertyDescriptor"))
+        return PROTO_NONE;
 
     const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
     if (!k) return PROTO_NONE;
