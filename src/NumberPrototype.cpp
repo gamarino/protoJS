@@ -520,46 +520,19 @@ static const proto::ProtoObject* numberConstruct(
     const proto::ProtoSparseList*)
 {
     if (!ctx || !self || self == PROTO_NONE) return self;
+    // Spec §21.1.1.1: when called as a constructor, the [[NumberData]]
+    // slot is set to ToNumber(value). Delegate to jsToNumber so the
+    // ToPrimitive(valueOf/toString) chain runs for objects — pre-fix
+    // the constructor only handled primitives explicitly and silently
+    // kept val=0 for any object argument.
     double val = 0.0;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
-        // Number(undefined) → NaN per ECMA-262 §7.1.4.  Pre-fix this
-        // branch silently kept val=0 for explicit-undefined input.
-        // protojs has two undefined representations: PROTO_NONE and
-        // t_undefinedSentinel — match both.
-        if (!a || a == PROTO_NONE || a == protojs::getUndefinedSentinel()
-            || a->isNone(ctx)) {
-            val = std::numeric_limits<double>::quiet_NaN();
-        } else if (a && a != PROTO_NONE) {
-            if (a->isInteger(ctx)) val = static_cast<double>(a->asLong(ctx));
-            else if (a->isDouble(ctx) || a->isFloat(ctx)) val = a->asDouble(ctx);
-            else if (a->isBoolean(ctx)) val = (a == PROTO_TRUE) ? 1.0 : 0.0;
-            else if (a->isString(ctx)) {
-                std::string s;
-                const proto::ProtoString* ps = a->asString(ctx);
-                if (ps) {
-                    ps->toUTF8String(ctx, s);
-                    // Trim leading and trailing ASCII whitespace (ES spec ToNumber)
-                    size_t start = s.find_first_not_of(" \t\n\r\f\v");
-                    size_t end   = s.find_last_not_of(" \t\n\r\f\v");
-                    if (start == std::string::npos) {
-                        val = 0.0; // empty or whitespace-only string → 0
-                    } else {
-                        s = s.substr(start, end - start + 1);
-                        if (s == "Infinity" || s == "+Infinity")
-                            val = std::numeric_limits<double>::infinity();
-                        else if (s == "-Infinity")
-                            val = -std::numeric_limits<double>::infinity();
-                        else {
-                            char* endPtr = nullptr;
-                            double parsed = std::strtod(s.c_str(), &endPtr);
-                            val = (endPtr == s.c_str() + s.size())
-                                      ? parsed
-                                      : std::numeric_limits<double>::quiet_NaN();
-                        }
-                    }
-                }
-            }
+        const proto::ProtoObject* coerced = jsToNumber(ctx, a);
+        if (coerced) {
+            if (coerced->isInteger(ctx)) val = static_cast<double>(coerced->asLong(ctx));
+            else if (coerced->isDouble(ctx) || coerced->isFloat(ctx)) val = coerced->asDouble(ctx);
+            else val = std::numeric_limits<double>::quiet_NaN();
         }
     }
     const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
