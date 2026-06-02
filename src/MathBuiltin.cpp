@@ -118,13 +118,23 @@ static const proto::ProtoObject* mathFround(
     return ctx->fromDouble(static_cast<double>(static_cast<float>(x)));
 }
 
+// ECMA-262 §7.1.6 ToUint32: NaN, ±0, ±Infinity all become +0;
+// otherwise truncate toward zero and apply modulo 2^32.
+static uint32_t toUint32(double x) {
+    if (std::isnan(x) || std::isinf(x) || x == 0.0) return 0;
+    double posInt = std::trunc(x);
+    double modVal = std::fmod(posInt, 4294967296.0);
+    if (modVal < 0) modVal += 4294967296.0;
+    return static_cast<uint32_t>(modVal);
+}
+
 static const proto::ProtoObject* mathClz32(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
     double x = argToDouble(ctx, args, 0, 0.0);
-    uint32_t n = static_cast<uint32_t>(static_cast<int32_t>(x));
+    uint32_t n = toUint32(x);
     if (n == 0) return ctx->fromInteger(32);
     int cnt = 0;
     while (!(n & 0x80000000u)) { cnt++; n <<= 1; }
