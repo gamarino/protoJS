@@ -1636,6 +1636,13 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
             if (mk) proto = proto->setAttribute(ctx, mk, ctx->fromUTF8String(""));
         }
+        // Only Error.prototype carries @@toStringTag — subtype
+        // prototypes inherit through the chain (§20.5.5).
+        if (isBaseError) {
+            const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+            if (tagKey) proto = proto->setAttribute(ctx, tagKey,
+                ctx->fromUTF8String("Error"));
+        }
         // Add toString method to the prototype.
         const proto::ProtoString* toStringKey = JSSymbols::toString(ctx);
         if (toStringKey) {
