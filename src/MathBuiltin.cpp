@@ -280,7 +280,12 @@ void ensureMathObject(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyMath, false);
     if (existing && existing != PROTO_NONE) return;
 
-    const proto::ProtoObject* math = ctx->newObject(false);
+    // Mutable so user-level assignments like `Math.x = y` and
+    // `delete Math.sqrt` actually persist. An immutable Math snapshot
+    // would split on every setAttribute, leaving globalRoot.Math
+    // pointing at the original — `delete Math.sqrt` returns true but
+    // Math.sqrt would still be reachable through the old snapshot.
+    const proto::ProtoObject* math = ctx->newObject(true);
     if (!math) return;
 
     // Each Math method is exposed through a function-object wrapper so
