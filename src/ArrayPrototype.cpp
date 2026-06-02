@@ -1007,8 +1007,17 @@ static const proto::ProtoObject* arrayIndexOf(
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
         if (fi && fi != PROTO_NONE) {
             if (fi->isInteger(ctx)) from = fi->asLong(ctx);
-            else if (fi->isDouble(ctx) || fi->isFloat(ctx))
-                from = static_cast<long long>(fi->asDouble(ctx));
+            else if (fi->isDouble(ctx) || fi->isFloat(ctx)) {
+                double d = fi->asDouble(ctx);
+                // ECMA-262 ToIntegerOrInfinity: NaN -> 0,
+                // +Infinity -> length (no match), -Infinity -> 0.
+                if (std::isnan(d)) from = 0;
+                else if (std::isinf(d)) {
+                    if (d > 0) return ctx->fromInteger(-1LL);
+                    from = 0;
+                }
+                else from = static_cast<long long>(d);
+            }
         }
     }
     from = normalizeIdx(from, len);
@@ -1016,8 +1025,6 @@ static const proto::ProtoObject* arrayIndexOf(
     bool needleIsNaN = needle && (needle->isDouble(ctx) || needle->isFloat(ctx)) &&
                        std::isnan(needle->asDouble(ctx));
     if (needleIsNaN) return ctx->fromInteger(-1LL);
-    // Iterate the full array.  The prior 10-iteration cap was a sparse-array
-    // timeout guard but silently truncated indexOf for any 11+ length array.
     for (long long i = from; i < len; i++) {
         if (strictEquals(ctx, arrGet(ctx, self, static_cast<unsigned long>(i)), needle))
             return ctx->fromInteger(i);
