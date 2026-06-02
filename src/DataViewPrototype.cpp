@@ -446,11 +446,14 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
         root->getAttribute(ctx, JSSymbols::DataView(ctx), true);
     if (existing && existing != PROTO_NONE) return;
 
+    // proto created mutable so the recursive `proto.constructor = ctor`
+    // backref (per §25.3.4.1) installs in place.
+    // See [[feedback_protojs_proto_constructor_backref]].
     const proto::ProtoObject* objProto =
         (ctx->space) ? ctx->space->objectPrototype : nullptr;
     const proto::ProtoObject* proto = objProto
-        ? objProto->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? objProto->newChild(ctx, true)
+        : ctx->newObject(true);
 
     // Register prototype methods.
     proto = proto->setAttribute(ctx, JSSymbols::getInt8(ctx),
@@ -506,6 +509,12 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     // Mark as DataView constructor so OP_call_constructor can dispatch.
     ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
                                ctx->fromUTF8String("DataView"));
+
+    // DataView.prototype.constructor === DataView per §25.3.4.1.
+    {
+        const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
+        if (ctorWordKey) proto->setAttribute(ctx, ctorWordKey, ctor);
+    }
 
     root = root->setAttribute(ctx, JSSymbols::DataView(ctx), ctor);
     *globalRoot = root;
