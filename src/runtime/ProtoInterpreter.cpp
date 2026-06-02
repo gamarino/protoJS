@@ -1181,14 +1181,34 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         // as a plain integer literal — both for spec faithfulness and
         // to avoid losing the last digit to %.15g rounding (`%.15g
         // 9007199254740991` prints `9.00719925474099e+15`, dropping
-        // the trailing `1`).  Otherwise fall back to %.17g — the
-        // shortest representation that round-trips for IEEE-754
-        // doubles per the ECMA-262 ToString algorithm.
+        // the trailing `1`).
         if (v == std::trunc(v) && std::abs(v) < 1e21) {
             long long iv = static_cast<long long>(v);
             if (static_cast<double>(iv) == v) {
                 const std::string tmp = std::to_string(iv);
                 return context->fromUTF8String(tmp.c_str());
+            }
+        }
+        // Spec §7.1.12.1 step 5: choose the shortest decimal that
+        // round-trips back to the same IEEE-754 double. Fixed-precision
+        // %.17g over-prints (`3.14` -> `3.1400000000000001`); start at
+        // 1 digit and grow until the parsed value matches the input
+        // exactly. Worst case is 17 digits (Grisu/Ryu equivalence).
+        for (int p = 1; p <= 17; ++p) {
+            snprintf(buf, sizeof(buf), "%.*g", p, v);
+            double check = 0.0;
+            std::sscanf(buf, "%lf", &check);
+            if (check == v) {
+                // glibc's %g emits two-digit exponents ("1e-07", "1e+21");
+                // ECMA-262 ToString uses no leading zero in the exponent
+                // ("1e-7", "1e+21"). Strip a single leading zero that
+                // follows the sign in the exponent part.
+                if (char* e = std::strchr(buf, 'e')) {
+                    if (e[1] && e[2] == '0' && e[3]) {
+                        std::memmove(e + 2, e + 3, std::strlen(e + 3) + 1);
+                    }
+                }
+                return context->fromUTF8String(buf);
             }
         }
         snprintf(buf, sizeof(buf), "%.17g", v);
