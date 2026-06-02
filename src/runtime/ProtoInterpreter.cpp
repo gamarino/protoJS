@@ -2457,8 +2457,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (existing && existing != PROTO_NONE) return;
             const proto::ProtoObject* fnObj = wrapNativeFunction(pContext, fn, name, len, pGlobalRoot);
-            if (fnObj)
+            if (fnObj) {
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, k, fnObj);
+                // Spec §17: built-in global properties have descriptor
+                // {writable:true, enumerable:false, configurable:true}
+                // → 0x3 (no enumerable bit). Without the sidecar
+                // `for (k in globalThis)` would list parseInt/etc.
+                std::string pdStr = std::string("__pd_") + name + "__";
+                const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                if (pdk) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdk,
+                    pContext->fromInteger(0x3LL));
+            }
         };
         // Spec lengths: parseInt(2), parseFloat(1), isNaN(1), isFinite(1),
         // encodeURI(1), encodeURIComponent(1), decodeURI(1), decodeURIComponent(1).
