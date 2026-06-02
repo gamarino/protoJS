@@ -214,23 +214,55 @@ const proto::ProtoObject* numberToExponential(
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
+    double value = getNumberValue(context, self);
+
+    // Step 7 spec: NaN -> "NaN", ±Infinity -> "Infinity" / "-Infinity"
+    // ahead of any fractionDigits handling. glibc's %e formats these as
+    // "nan" / "inf" — spec-incompliant tokens.
+    if (std::isnan(value)) return context->fromUTF8String("NaN");
+    if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
+
+    bool fdUndefined = true;
     int fractionDigits = -1;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
         if (fdObj && fdObj != PROTO_NONE) {
+            fdUndefined = false;
             if (fdObj->isInteger(context)) {
                 fractionDigits = static_cast<int>(fdObj->asLong(context));
             } else if (fdObj->isDouble(context)) {
-                fractionDigits = static_cast<int>(fdObj->asDouble(context));
+                double d = fdObj->asDouble(context);
+                // ToInteger: truncate toward zero (NaN → 0).
+                fractionDigits = std::isnan(d) ? 0 : static_cast<int>(d);
             }
         }
     }
-    double value = getNumberValue(context, self);
+    // Spec §21.1.3.2 step 11: fractionDigits must be in [0, 100].
+    if (!fdUndefined && (fractionDigits < 0 || fractionDigits > 100)) {
+        signalNativeException(makeNativeError(context, "RangeError",
+            "toExponential() argument must be between 0 and 100"));
+        return PROTO_NONE;
+    }
     char buf[256];
-    if (fractionDigits >= 0 && fractionDigits <= 100) {
-        snprintf(buf, sizeof(buf), "%.*e", fractionDigits, value);
+    if (fdUndefined) {
+        // Spec: choose the smallest number of digits that round-trips
+        // through the resulting decimal string back to value.
+        for (int p = 0; p <= 20; ++p) {
+            snprintf(buf, sizeof(buf), "%.*e", p, value);
+            double check = 0.0;
+            std::sscanf(buf, "%lf", &check);
+            if (check == value) break;
+        }
     } else {
-        snprintf(buf, sizeof(buf), "%e", value);
+        snprintf(buf, sizeof(buf), "%.*e", fractionDigits, value);
+    }
+    // ECMA-262 emits "1e+0", "3.14e+0", "1e-7": single-digit exponent,
+    // no leading zero. glibc's %e emits "1e+00" / "1e-07"; strip a
+    // leading zero that immediately follows the exponent sign.
+    if (char* e = std::strchr(buf, 'e')) {
+        if (e[1] && e[2] == '0' && e[3]) {
+            std::memmove(e + 2, e + 3, std::strlen(e + 3) + 1);
+        }
     }
     return context->fromUTF8String(buf);
 }
