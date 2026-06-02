@@ -338,6 +338,22 @@ static const proto::ProtoObject* objectAssign(
                 reinterpret_cast<const proto::ProtoString*>(rawKey);
             if (!propKey) continue;
             if (isInternalKey(ctx, propKey)) continue;
+            // §20.1.2.1 step 4.c.ii.1: only enumerable own properties
+            // are copied. Probe the __pd_<key>__ descriptor sidecar;
+            // when absent the property defaults to fully enumerable
+            // (matches our other descriptor probes).
+            std::string keyStr;
+            propKey->toUTF8String(ctx, keyStr);
+            std::string pdStr = std::string("__pd_") + keyStr + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) {
+                const proto::ProtoObject* pdv = src->getAttribute(ctx, pdk, false);
+                if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                    long long bits = pdv->asLong(ctx);
+                    if ((bits & 0x4) == 0) continue; // not enumerable — skip
+                }
+            }
             target = target->setAttribute(ctx, propKey, val ? val : PROTO_NONE);
         }
     }
