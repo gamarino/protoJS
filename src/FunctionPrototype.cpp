@@ -312,6 +312,26 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     installFpMethod("bind",     fnBind,     1);
     installFpMethod("toString", fnToString, 0);
 
+    // §20.2.3: Function.prototype carries length === 0 and name === ""
+    // with the standard built-in descriptor 0x2 (configurable,
+    // non-writable, non-enumerable).
+    {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            fp = fp->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) fp = fp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmKey = JSSymbols::name(ctx);
+        if (nmKey) {
+            fp = fp->setAttribute(ctx, nmKey, ctx->fromUTF8String(""));
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) fp = fp->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+    }
+
     // Register fp as the ProtoSpace method prototype so that ALL native ProtoMethod
     // objects (e.g. Array.prototype.join, Function.prototype.call itself) inherit
     // from Function.prototype.  This is what makes `fn.bind(...)`, `fn.call(...)`,
