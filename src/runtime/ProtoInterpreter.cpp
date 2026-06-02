@@ -4955,6 +4955,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 auto nameIt = module->atomToProto.find(atomIndex);
                 const proto::ProtoString* name = (nameIt != module->atomToProto.end()) ? nameIt->second : nullptr;
+                // ECMA-262 §13.3.2.1: property access on null/undefined throws TypeError.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                    std::string keyStr;
+                    if (name) name->toUTF8String(pContext, keyStr);
+                    std::string msg = "Cannot read properties of ";
+                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    msg += " (reading '"; msg += keyStr; msg += "')";
+                    pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
+                }
                 // string.length is handled by the dedicated OP_get_length
                 // opcode that QuickJS emits for `.length` accesses; no
                 // length fast path needed here.  The rare `s["length"]`
