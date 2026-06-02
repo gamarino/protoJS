@@ -119,7 +119,15 @@ static const proto::ProtoObject* fnBind(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    // ECMA-262 §20.2.3.2 step 1: if Function.prototype.bind is invoked
+    // on a non-callable receiver, throw TypeError. Pre-fix bind
+    // accepted any receiver and returned a sentinel that broke later
+    // calls.
+    if (!fnIsCallable(ctx, self)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Function.prototype.bind called on non-callable"));
+        return PROTO_NONE;
+    }
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
