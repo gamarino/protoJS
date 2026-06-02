@@ -65,11 +65,28 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     if (!obj || !key || obj == PROTO_NONE) return PROTO_NONE;
     const auto& reg = protojs::BehaviorRegistry::instance();
     const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
+    const proto::ProtoObject* res;
     if (behavior == reg.getDefault()) {
-        return obj->getAttribute(ctx, key, true);
+        res = obj->getAttribute(ctx, key, true);
+    } else {
+        res = behavior->getField(ctx, obj, key);
     }
-    const proto::ProtoObject* res = behavior->getField(ctx, obj, key);
-    // printf("DEBUG: resolveFieldOOP key=%p res=%p\n", key, res);
+    // Extend the chain via t_jsProtoMap when the protoCore walk did not find
+    // the attribute. Object.setPrototypeOf / OP_define_class register
+    // [[Prototype]] overrides here that the protoCore parent walk cannot see.
+    // Bounded loop avoids cycles.
+    if (!res || res == PROTO_NONE) {
+        const proto::ProtoObject* cur = obj;
+        for (int depth = 0; depth < 100; ++depth) {
+            const proto::ProtoObject* override =
+                protojs::getJSProtoOverride(cur);
+            if (!override || override == PROTO_NONE) break;
+            if (override == t_nullSentinel) break;
+            res = override->getAttribute(ctx, key, true);
+            if (res && res != PROTO_NONE) return res;
+            cur = override;
+        }
+    }
     return res;
 }
 
