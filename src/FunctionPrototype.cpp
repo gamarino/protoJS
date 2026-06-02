@@ -15,6 +15,23 @@ namespace {
 // Calls `this` (the function) with the given this-binding and arguments.
 // ---------------------------------------------------------------------------
 
+// IsCallable check used by Function.prototype.{call,apply,bind} entry
+// points. ECMA-262 §19.2.3.3/4/2 step 1: throw TypeError if 'this' is
+// not callable. Accept protoCore methods, QuickJS-compiled closures
+// (__bytecode_id__), native wrappers (__native_fn__), and native ctors
+// (__construct__).
+static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn) {
+    if (!fn || fn == PROTO_NONE) return false;
+    if (fn->isMethod(ctx)) return true;
+    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+    if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+    if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+    const proto::ProtoString* cKey = JSSymbols::construct(ctx);
+    if (cKey && fn->getAttribute(ctx, cKey, false) != PROTO_NONE) return true;
+    return false;
+}
+
 static const proto::ProtoObject* fnCall(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -22,7 +39,11 @@ static const proto::ProtoObject* fnCall(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (!fnIsCallable(ctx, self)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Function.prototype.call called on non-callable"));
+        return PROTO_NONE;
+    }
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
@@ -47,7 +68,11 @@ static const proto::ProtoObject* fnApply(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_NONE;
+    if (!fnIsCallable(ctx, self)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Function.prototype.apply called on non-callable"));
+        return PROTO_NONE;
+    }
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
@@ -251,7 +276,11 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
         if (!mk) return;
 
-        // Raw method object
+        // Raw method object. Wrapping with name/length would orphan the
+        // wrapper from the final Function.prototype (parents get snapshotted
+        // pre-install), so 'Function.prototype.call.bind(...)' would lose
+        // .bind. Raw method handles inherit from methodPrototype lazily —
+        // wrapping breaks that.
         const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
         if (!rawMethod) return;
         fp = fp->setAttribute(ctx, mk, rawMethod);
@@ -261,12 +290,6 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
         const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
         if (pdks) fp = fp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
-
-        // Set .name on the raw method via separate attributes (__fn_name__, __fn_length__)
-        // are not standard — use the length/name keys with a child object if possible,
-        // but raw ProtoMethod objects don't support setAttribute.  The name/length of
-        // Function.prototype.call etc. will be inherited or set via Object.defineProperty
-        // if needed by tests; skip for now as the spec only requires non-enumerability here.
         (void)argc;
     };
 
