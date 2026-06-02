@@ -523,6 +523,83 @@ static const proto::ProtoObject* reflectOwnKeys(
     return PROTO_NONE; // stub — sufficient to not throw
 }
 
+// ECMA-262 §28.1.4: Reflect.deleteProperty(target, key) — delegates to
+// the JS-level `delete target[key]` semantics; returns true on success.
+static const proto::ProtoObject* reflectDeleteProperty(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.deleteProperty")) return PROTO_FALSE;
+    const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key) return PROTO_FALSE;
+    const proto::ProtoString* k = key->asString(ctx);
+    if (!k && key->isInteger(ctx))
+        k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
+    if (!k) return PROTO_FALSE;
+    // protoCore doesn't expose a public deleteAttribute, but our delete
+    // operator's semantics are equivalent to "set to PROTO_NONE" plus a
+    // descriptor mutation. For the simple data-property case this is
+    // sufficient for instanceof / for-in to skip the slot.
+    target->setAttribute(ctx, k, PROTO_NONE);
+    return PROTO_TRUE;
+}
+
+// ECMA-262 §28.1.5: Reflect.getPrototypeOf(target).
+static const proto::ProtoObject* reflectGetPrototypeOf(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.getPrototypeOf")) return PROTO_NONE;
+    const proto::ProtoObject* override_ = protojs::getJSProtoOverride(target);
+    if (override_) return override_;
+    const proto::ProtoObject* p = target->getPrototype(ctx);
+    return (p && p != PROTO_NONE) ? p : getNullSentinel();
+}
+
+// ECMA-262 §28.1.8: Reflect.isExtensible(target).
+static const proto::ProtoObject* reflectIsExtensible(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.isExtensible")) return PROTO_FALSE;
+    // Object.preventExtensions support isn't tracked yet — default true.
+    return PROTO_TRUE;
+}
+
+// ECMA-262 §28.1.10: Reflect.preventExtensions(target).
+static const proto::ProtoObject* reflectPreventExtensions(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.preventExtensions")) return PROTO_FALSE;
+    return PROTO_TRUE; // best-effort stub
+}
+
+// ECMA-262 §28.1.11: Reflect.setPrototypeOf(target, proto).
+static const proto::ProtoObject* reflectSetPrototypeOf(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.setPrototypeOf")) return PROTO_FALSE;
+    const proto::ProtoObject* proto = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (proto == getNullSentinel() || (proto && proto != PROTO_NONE && !proto->isInteger(ctx)
+            && !proto->isDouble(ctx) && !proto->isString(ctx) && !proto->isBoolean(ctx))) {
+        protojs::setJSProtoOverride(target, proto);
+        return PROTO_TRUE;
+    }
+    return PROTO_FALSE;
+}
+
 // Symbol.for(key) — minimal registry.  Symbol.keyFor(sym) — reverse.
 static const proto::ProtoObject* symbolFor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
@@ -2368,11 +2445,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 ? existing : pContext->newObject(true);
             if (reflectStub) {
                 struct { const char* name; proto::ProtoMethod fn; long long length; } rfMeth[] = {
-                    {"apply",   reflectApply,   3},
-                    {"has",     reflectHas,     2},
-                    {"get",     reflectGet,     2},
-                    {"set",     reflectSet,     3},
-                    {"ownKeys", reflectOwnKeys, 1},
+                    {"apply",             reflectApply,             3},
+                    {"has",               reflectHas,               2},
+                    {"get",               reflectGet,               2},
+                    {"set",               reflectSet,               3},
+                    {"ownKeys",           reflectOwnKeys,           1},
+                    {"deleteProperty",    reflectDeleteProperty,    2},
+                    {"getPrototypeOf",    reflectGetPrototypeOf,    1},
+                    {"setPrototypeOf",    reflectSetPrototypeOf,    2},
+                    {"isExtensible",      reflectIsExtensible,      1},
+                    {"preventExtensions", reflectPreventExtensions, 1},
                 };
                 for (auto& m : rfMeth) {
                     const proto::ProtoString* k = pContext->fromUTF8String(m.name)
