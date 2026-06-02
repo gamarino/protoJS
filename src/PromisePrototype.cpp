@@ -539,6 +539,23 @@ static const proto::ProtoObject* promiseConstructor(
     const proto::ProtoObject* executor = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!executor) executor = PROTO_NONE;
 
+    // ECMA-262 §27.2.3.1: Promise(executor) must throw TypeError when executor
+    // is not callable (including the no-arg case where executor is undefined).
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        return false;
+    };
+    if (!isCallable(executor)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Promise resolver is not a function"));
+        return PROTO_NONE;
+    }
+
     // Generate a unique cell key.
     unsigned long long cellId = t_promiseCellNext++;
     char keyBuf[64];

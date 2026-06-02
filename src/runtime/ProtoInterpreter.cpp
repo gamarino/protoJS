@@ -7749,6 +7749,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (func && func->isMethod(pContext)) {
                     const proto::ProtoMethod ctorFn = func->asMethod(pContext);
                     result = ctorFn ? ctorFn(pContext, newObj, nullptr, argsList, nullptr) : PROTO_NONE;
+                    if (t_hasCallException) {
+                        pending_exception = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException = false;
+                        t_callException = nullptr;
+                        DISPATCH();
+                    }
                 } else {
                     // Specialized: Array, Error, RegExp, etc.
                     const proto::ProtoString* arrayK = JSSymbols::arrayCtor(pContext);
@@ -7847,6 +7854,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             proto::ProtoMethod ctorFn = ctorMethod->asMethod(pContext);
                             if (ctorFn)
                                 result = ctorFn(pContext, newObj, nullptr, argsList, nullptr);
+                            if (t_hasCallException) {
+                                pending_exception = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException = nullptr;
+                                DISPATCH();
+                            }
                         } else if (isCtor == PROTO_TRUE) {
                             // Explicitly marked as constructor (e.g. Array).
                             // If no specialized logic above matched (Array matches errAttr etc.), just return newObj.
