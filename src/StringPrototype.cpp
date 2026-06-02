@@ -1621,6 +1621,12 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
     // Set reinstall sentinel.
     if (sentinelKey) sp = sp->setAttribute(ctx, sentinelKey, PROTO_TRUE);
 
+    // §22.1.3 String.prototype.length === 0 per spec — required by
+    // verifyProperty fixtures and by code that probes the empty
+    // String.prototype.length default.
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) sp = sp->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+
     ctx->space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
 }
 
