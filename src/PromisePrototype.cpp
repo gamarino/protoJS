@@ -143,7 +143,31 @@ static const proto::ProtoObject* makeSettledPromise(
     int state,
     const proto::ProtoObject* value)
 {
-    const proto::ProtoObject* p = ctx->newObject(true);
+    // ECMA-262 §27.2.4.1/2/3 — Promise.resolve/reject/all/allSettled return
+    // a Promise whose [[Prototype]] is %Promise.prototype% so that
+    // `p instanceof Promise` is true. Without parenting on Promise.prototype
+    // the returned object only carries direct method attributes and fails
+    // the instanceof check.
+    const proto::ProtoObject* promiseProto = nullptr;
+    if (const proto::ProtoObject** gr = getCurrentGlobalRoot()) {
+        if (gr && *gr) {
+            const proto::ProtoObject* pkObj = ctx->fromUTF8String("Promise");
+            const proto::ProtoString* pks = pkObj ? pkObj->asString(ctx) : nullptr;
+            if (pks) {
+                const proto::ProtoObject* ctor = (*gr)->getAttribute(ctx, pks, false);
+                if (ctor && ctor != PROTO_NONE) {
+                    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+                    if (protoKey) {
+                        const proto::ProtoObject* pp = ctor->getAttribute(ctx, protoKey, false);
+                        if (pp && pp != PROTO_NONE) promiseProto = pp;
+                    }
+                }
+            }
+        }
+    }
+    const proto::ProtoObject* p = promiseProto
+        ? promiseProto->newChild(ctx, true)
+        : ctx->newObject(true);
     p = setAttr(ctx, p, "__promise_state__", ctx->fromInteger(static_cast<long long>(state)));
     p = setAttr(ctx, p, "__promise_value__", value ? value : PROTO_NONE);
     p = attachPromiseMethods(ctx, p);
