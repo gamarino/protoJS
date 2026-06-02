@@ -7955,9 +7955,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* arr = (pr && pr != PROTO_NONE) ? pr->newChild(pContext, true) : pContext->newObject(true);
                         const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
                         if (isArrKey) arr = arr->setAttribute(pContext, isArrKey, PROTO_TRUE);
-                        if (finalArgc == 1 && argsList->getAt(pContext, 0)->isInteger(pContext)) {
-                            // new Array(n) — sparse: length = n, no __elements__.
-                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext), argsList->getAt(pContext, 0));
+                        // ECMA-262 §22.1.1.2 (Array(len)): if argument is a
+                        // single Number, length must be ToUint32(len) AND
+                        // SameValue(len, ToUint32(len)) — otherwise RangeError.
+                        // Catches Array(-1), Array(2.5), Array(2^32),
+                        // Array(NaN), etc.
+                        if (finalArgc == 1 && (argsList->getAt(pContext, 0)->isInteger(pContext) ||
+                                               argsList->getAt(pContext, 0)->isDouble(pContext) ||
+                                               argsList->getAt(pContext, 0)->isFloat(pContext))) {
+                            const proto::ProtoObject* lenArg = argsList->getAt(pContext, 0);
+                            double dlen = lenArg->isInteger(pContext)
+                                ? static_cast<double>(lenArg->asLong(pContext))
+                                : lenArg->asDouble(pContext);
+                            long long ilen = static_cast<long long>(dlen);
+                            if (std::isnan(dlen) || std::isinf(dlen) ||
+                                static_cast<double>(ilen) != dlen ||
+                                ilen < 0 || ilen > 4294967295LL) {
+                                pending_exception = makeError(pContext, "RangeError",
+                                    "Invalid array length", pGlobalRoot);
+                                has_pending_exception = true;
+                                DISPATCH();
+                            }
+                            // Sparse Array(n): length = n, no __elements__.
+                            arr = arr->setAttribute(pContext, JSSymbols::length(pContext),
+                                pContext->fromInteger(ilen));
                         } else {
                             // new Array(v1, v2, ...) — entries go in
                             // __elements__ so iteration / JSON.stringify
