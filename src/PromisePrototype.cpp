@@ -98,14 +98,39 @@ static const proto::ProtoObject* attachPromiseMethods(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* p)
 {
-    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+    // Build a function-object wrapper per ECMA-262 §17 (own 'name' and
+    // 'length' with descriptor {writable:false, enumerable:false,
+    // configurable:true} → 0x2). Plain ctx->fromMethod returns a bare
+    // method handle with no attribute surface, so test262 instance-shape
+    // assertions on Promise.prototype.then / .catch / .finally fail.
+    auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
+        const proto::ProtoObject* wrapper = ctx->space->methodPrototype
+            ? ctx->space->methodPrototype->newChild(ctx, true)
+            : ctx->newObject(true);
+        const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+        if (nfk) wrapper = wrapper->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* lenk = JSSymbols::length(ctx);
+        if (lenk) {
+            wrapper = wrapper->setAttribute(ctx, lenk, ctx->fromInteger(length));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmk = JSSymbols::name(ctx);
+        if (nmk) {
+            wrapper = wrapper->setAttribute(ctx, nmk, ctx->fromUTF8String(name));
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
         const proto::ProtoObject* ko = ctx->fromUTF8String(name);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
-        if (ks) p = p->setAttribute(ctx, ks, ctx->fromMethod(nullptr, fn));
+        if (ks) p = p->setAttribute(ctx, ks, wrapper);
     };
-    reg("then",    promiseThen);
-    reg("catch",   promiseCatch);
-    reg("finally", promiseFinally);
+    // ECMA-262 spec lengths: then=2, catch=1, finally=1.
+    reg("then",    promiseThen,    2);
+    reg("catch",   promiseCatch,   1);
+    reg("finally", promiseFinally, 1);
     return p;
 }
 
