@@ -128,19 +128,44 @@ const proto::ProtoObject* numberToString(
         }
         result = buf;
     } else {
-        long long intVal = static_cast<long long>(value);
-        if (intVal < 0) {
-            result = "-";
-            intVal = -intVal;
-        }
+        // Spec §21.1.3.6: split value into sign, integer, fractional
+        // parts and emit each in the requested radix. Pre-fix the
+        // fractional part was discarded entirely, so
+        //   (0.5).toString(2) -> "0"  (spec: "0.1")
+        //   (0.1).toString(2) -> "0"  (spec: long binary expansion)
+        double absVal = std::fabs(value);
+        bool neg = std::signbit(value) && value != 0.0;
+        double intPart;
+        double fracPart = std::modf(absVal, &intPart);
         const char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-        std::string rev;
-        unsigned long long u = static_cast<unsigned long long>(intVal);
-        do {
-            rev += digits[u % static_cast<unsigned>(radix)];
-            u /= radix;
-        } while (u);
-        result.append(rev.rbegin(), rev.rend());
+        std::string intStr;
+        unsigned long long u = static_cast<unsigned long long>(intPart);
+        if (u == 0) {
+            intStr = "0";
+        } else {
+            std::string rev;
+            do {
+                rev += digits[u % static_cast<unsigned>(radix)];
+                u /= radix;
+            } while (u);
+            intStr.append(rev.rbegin(), rev.rend());
+        }
+        result = neg ? "-" : "";
+        result += intStr;
+        if (fracPart > 0.0) {
+            result += '.';
+            // Emit up to ~52 fractional digits (matches V8's cap for
+            // the long binary expansions of doubles).
+            for (int k = 0; k < 52 && fracPart > 0.0; ++k) {
+                fracPart *= radix;
+                double d;
+                fracPart = std::modf(fracPart, &d);
+                int idx = static_cast<int>(d);
+                if (idx < 0) idx = 0;
+                if (idx >= radix) idx = radix - 1;
+                result += digits[idx];
+            }
+        }
     }
     return context->fromUTF8String(result.c_str());
 }
