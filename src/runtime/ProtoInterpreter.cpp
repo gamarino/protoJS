@@ -1403,24 +1403,25 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     const proto::ProtoString* nameKey  = JSSymbols::name(ctx);
     if (!protoKey || !nameKey) return;
+    // Track the Error.prototype to parent the native error subtypes' prototypes
+    // on it (ECMA-262 §19.5.6.4: TypeError.prototype.__proto__ === Error.prototype).
+    const proto::ProtoObject* errorPrototypeOut = nullptr;
     for (int i = 0; kNames[i]; ++i) {
         const proto::ProtoString* ctorKey = (ctx->fromUTF8String(kNames[i]) ? ctx->fromUTF8String(kNames[i])->asString(ctx) : nullptr);
         if (!ctorKey) continue;
         // Only register if not already present.
         const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ctorKey, false);
         if (existing && existing != PROTO_NONE) continue;
-        // Build prototype object parented at Object.prototype so the standard
-        // instance methods (hasOwnProperty, isPrototypeOf, ...) are reachable
-        // via the attribute walk.  Pre-fix newObject(true) returned a bare
-        // cell with no parent, so `new Err('x').hasOwnProperty` walked the
-        // chain Err.prototype → Error.prototype → <nothing> and returned
-        // undefined — even though Object.getPrototypeOf(Error.prototype)
-        // reported Object.prototype (via t_jsProtoMap override) lying about
-        // the actual lookup chain.
-        const proto::ProtoObject* objProto =
-            (ctx->space) ? ctx->space->objectPrototype : nullptr;
-        const proto::ProtoObject* proto = (objProto && objProto != PROTO_NONE)
-            ? objProto->newChild(ctx, true)
+        // Parent prototype: "Error" inherits Object.prototype (so
+        // hasOwnProperty/isPrototypeOf are reachable); every other entry
+        // inherits Error.prototype so `e instanceof Error` holds for
+        // subclass instances.
+        const bool isBaseError = (i == 0);
+        const proto::ProtoObject* parentProto = isBaseError
+            ? ((ctx->space) ? ctx->space->objectPrototype : nullptr)
+            : errorPrototypeOut;
+        const proto::ProtoObject* proto = (parentProto && parentProto != PROTO_NONE)
+            ? parentProto->newChild(ctx, true)
             : ctx->newObject(true);
         if (!proto) continue;
         proto = proto->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
@@ -1460,6 +1461,9 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (errCtorKey) ctor = ctor->setAttribute(ctx, errCtorKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
         *globalRoot = (*globalRoot)->setAttribute(ctx, ctorKey, ctor);
+        // Capture Error.prototype so subsequent iterations parent their
+        // prototype on it.
+        if (isBaseError) errorPrototypeOut = proto;
     }
 }
 
