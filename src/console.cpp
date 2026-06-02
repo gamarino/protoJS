@@ -494,10 +494,33 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
             const proto::ProtoString* nowKey =
                 ctx->fromUTF8String("now") ? ctx->fromUTF8String("now")->asString(ctx) : nullptr;
             if (nowKey) {
-                const proto::ProtoObject* nowFn =
-                    ctx->fromMethod(nullptr, TimingAPIs::dateNow);
-                if (nowFn)
-                    dateObj = dateObj->setAttribute(ctx, nowKey, nowFn);
+                // Wrap with name/length so Date.now matches the spec
+                // §17 descriptor shape — raw ProtoMethod cells expose
+                // neither, breaking every prop-desc fixture probing
+                // Date.now.
+                const proto::ProtoObject* nowWrapper = ctx->space && ctx->space->methodPrototype
+                    ? ctx->space->methodPrototype->newChild(ctx, true)
+                    : ctx->newObject(true);
+                if (nowWrapper) {
+                    const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+                    if (nfk) nowWrapper = nowWrapper->setAttribute(ctx, nfk,
+                        ctx->fromMethod(nullptr, TimingAPIs::dateNow));
+                    const proto::ProtoString* lenk = JSSymbols::length(ctx);
+                    if (lenk) {
+                        nowWrapper = nowWrapper->setAttribute(ctx, lenk, ctx->fromInteger(0LL));
+                        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                        if (pdlk) nowWrapper = nowWrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+                    }
+                    const proto::ProtoString* nmk = JSSymbols::name(ctx);
+                    if (nmk) {
+                        nowWrapper = nowWrapper->setAttribute(ctx, nmk, ctx->fromUTF8String("now"));
+                        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                        if (pdnk) nowWrapper = nowWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+                    }
+                    dateObj = dateObj->setAttribute(ctx, nowKey, nowWrapper);
+                }
             }
             // __native_fn__ — make typeof Date === 'function'.
             // The cell is reused — Date.now is the canonical \"thing that
