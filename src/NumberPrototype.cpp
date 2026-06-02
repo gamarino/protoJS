@@ -550,6 +550,23 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyNumber, false);
     if (existing && existing != PROTO_NONE) return;
 
+    // BuildNumberPrototype ran before ensureFunctionPrototype, so the
+    // method wrappers there were created with `parent = nullptr` —
+    // they don't inherit .call/.apply/.bind from Function.prototype.
+    // Reinstall the five Number.prototype methods now that
+    // methodPrototype is available.
+    if (ctx->space && ctx->space->smallIntegerPrototype && ctx->space->methodPrototype) {
+        const proto::ProtoObject* np = ctx->space->smallIntegerPrototype;
+        np = installNonEnumerableMethod(ctx, np, "valueOf",       numberValueOf,       0);
+        np = installNonEnumerableMethod(ctx, np, "toString",      numberToString,      1);
+        np = installNonEnumerableMethod(ctx, np, "toFixed",       numberToFixed,       1);
+        np = installNonEnumerableMethod(ctx, np, "toExponential", numberToExponential, 1);
+        np = installNonEnumerableMethod(ctx, np, "toPrecision",   numberToPrecision,   1);
+        ctx->space->smallIntegerPrototype = const_cast<proto::ProtoObject*>(np);
+        ctx->space->largeIntegerPrototype = const_cast<proto::ProtoObject*>(np);
+        ctx->space->doublePrototype       = const_cast<proto::ProtoObject*>(np);
+    }
+
     const proto::ProtoObject* ctorParent =
         (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
     const proto::ProtoObject* ctor = ctorParent
