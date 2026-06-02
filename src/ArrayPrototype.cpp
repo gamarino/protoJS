@@ -624,6 +624,24 @@ static bool arrayThrowIfNullUndefined(proto::ProtoContext* ctx,
     return false;
 }
 
+// Spec helper: callbackfn must be callable. ECMA-262 §22.1.3.18 (map),
+// §22.1.3.7 (filter), §22.1.3.10 (forEach), §22.1.3.8 (find) etc. all
+// step "If IsCallable(callbackfn) is false, throw a TypeError".
+static bool arrayThrowIfCallbackNotCallable(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* fn,
+                                             const char* method) {
+    if (fn && fn != PROTO_NONE) {
+        if (fn->isMethod(ctx)) return false;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return false;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return false;
+    }
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        (std::string(method) + " callback is not a function").c_str()));
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // Array.prototype methods
 // ---------------------------------------------------------------------------
@@ -1319,7 +1337,7 @@ static const proto::ProtoObject* arrayForEach(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.forEach")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
@@ -1342,7 +1360,7 @@ static const proto::ProtoObject* arrayMap(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.map")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
     for (unsigned long i = 0; i < len; i++) {
@@ -1368,7 +1386,7 @@ static const proto::ProtoObject* arrayFilter(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.filter")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
     unsigned long outIdx = 0;
@@ -1397,7 +1415,7 @@ static const proto::ProtoObject* arrayFind(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.find")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
@@ -1422,7 +1440,7 @@ static const proto::ProtoObject* arrayFindIndex(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return ctx->fromInteger(-1LL);
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findIndex")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
@@ -1447,7 +1465,7 @@ static const proto::ProtoObject* arrayFindLast(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLast")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (long long i = (long long)len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
@@ -1472,7 +1490,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return ctx->fromInteger(-1LL);
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLastIndex")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (long long i = (long long)len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
@@ -1497,7 +1515,7 @@ static const proto::ProtoObject* arraySome(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_FALSE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.some")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
@@ -1522,7 +1540,7 @@ static const proto::ProtoObject* arrayEvery(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
-    if (!fn || fn == PROTO_NONE) return PROTO_TRUE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.every")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
@@ -1608,7 +1626,7 @@ static const proto::ProtoObject* arrayReduce(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.reduce")) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
     bool hasInit  = n >= 2;
@@ -1660,7 +1678,7 @@ static const proto::ProtoObject* arrayReduceRight(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
-    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.reduceRight")) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
     bool hasInit  = n >= 2;
