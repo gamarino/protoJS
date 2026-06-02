@@ -93,14 +93,24 @@ const proto::ProtoObject* numberToString(
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
+    // §21.1.3.6 step 3: ToIntegerOrInfinity on radix; undefined defaults
+    // to 10. jsToNumber handles strings ("16" → 16) and ToPrimitive for
+    // objects, after which we truncate.
     int radix = 10;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* radixObj = positionalParameters->getAt(context, 0);
-        if (radixObj && radixObj != PROTO_NONE) {
-            if (radixObj->isInteger(context)) {
-                radix = static_cast<int>(radixObj->asLong(context));
-            } else if (radixObj->isDouble(context)) {
-                radix = static_cast<int>(radixObj->asDouble(context));
+        if (radixObj && radixObj != PROTO_NONE
+            && radixObj != getUndefinedSentinel()) {
+            const proto::ProtoObject* num = jsToNumber(context, radixObj);
+            if (num) {
+                if (num->isInteger(context)) {
+                    radix = static_cast<int>(num->asLong(context));
+                } else if (num->isDouble(context) || num->isFloat(context)) {
+                    double d = num->asDouble(context);
+                    if (std::isnan(d)) radix = 0;
+                    else if (std::isinf(d)) radix = d > 0 ? 1000 : -1000;
+                    else radix = static_cast<int>(d);
+                }
             }
         }
     }
