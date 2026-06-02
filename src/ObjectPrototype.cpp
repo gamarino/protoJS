@@ -1149,6 +1149,45 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     return res;
 }
 
+// ---------------------------------------------------------------------------
+// Object.getOwnPropertyDescriptors(obj) — ECMA-262 §20.1.2.11
+// Returns a new object with one descriptor per own property of obj.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !args) return PROTO_NONE;
+    const proto::ProtoObject* target = args->getSize(ctx) > 0
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (throwIfNullOrUndefined(ctx, target, "Object.getOwnPropertyDescriptors"))
+        return PROTO_NONE;
+
+    std::vector<std::string> keys;
+    collectOwnKeys(ctx, target, keys, nullptr, /*includeNonEnumerable=*/true);
+
+    const proto::ProtoObject* result = ctx->newObject(true);
+    for (const std::string& k : keys) {
+        // Build a per-key argument list and delegate to the existing
+        // getOwnPropertyDescriptor implementation so the data/accessor
+        // branch logic and descriptor sidecar handling stay in one
+        // place.
+        const proto::ProtoList* keyArgs = ctx->newList();
+        keyArgs = keyArgs->appendLast(ctx, target);
+        keyArgs = keyArgs->appendLast(ctx, ctx->fromUTF8String(k.c_str()));
+        const proto::ProtoObject* desc =
+            objectGetOwnPropertyDescriptor(ctx, nullptr, nullptr, keyArgs, nullptr);
+        if (!desc || desc == PROTO_NONE) continue;
+        const proto::ProtoString* kk = ctx->fromUTF8String(k.c_str())->asString(ctx);
+        if (kk) result = result->setAttribute(ctx, kk, desc);
+    }
+    return result;
+}
+
 
 // ---------------------------------------------------------------------------
 // Object.defineProperties(target, props) → apply a map of descriptors
@@ -1806,6 +1845,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("defineProperty",           objectDefineProperty,        3);
     reg("defineProperties",         objectDefineProperties,      2);
     reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor, 2);
+    reg("getOwnPropertyDescriptors", objectGetOwnPropertyDescriptors, 1);
 
     // Object.is(a, b) — SameValue per ECMA-262 §7.2.11.  Differs from ===
     // in two ways: NaN is Object.is NaN, and +0 is NOT Object.is -0.
