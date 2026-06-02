@@ -3180,15 +3180,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* result = PROTO_NONE;
                 if (magic & 1) {
                     // Construct path: synthesise a `new fn(...args)` call.
-                    // Build newObj inheriting from fn.prototype, dispatch
-                    // via callJSFunction with newObj as `this`, then prefer
-                    // the returned object if it's an object, else newObj.
+                    // Build newObj inheriting from NEW_TARGET.prototype (=
+                    // the original derived class's prototype for super()
+                    // call), not fn.prototype.  This keeps `new B()` ending
+                    // up as a B instance even when super(args) dispatches A.
                     const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
-                    const proto::ProtoObject* funcProto = (protoKey && fn && fn != PROTO_NONE)
-                        ? fn->getAttribute(pContext, protoKey, false) : nullptr;
+                    const proto::ProtoObject* ntForProto =
+                        (t_activeNewTgt && t_activeNewTgt != PROTO_NONE)
+                            ? t_activeNewTgt : fn;
+                    const proto::ProtoObject* funcProto = (protoKey && ntForProto && ntForProto != PROTO_NONE)
+                        ? ntForProto->getAttribute(pContext, protoKey, false) : nullptr;
                     const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
                         ? funcProto->newChild(pContext, true)
                         : pContext->newObject(true);
+                    // Parent's __fields_init__ runs on newObj before its body.
+                    const proto::ProtoObject* fnProto = (protoKey && fn && fn != PROTO_NONE)
+                        ? fn->getAttribute(pContext, protoKey, false) : nullptr;
+                    const proto::ProtoObject* parentFI = nullptr;
+                    {
+                        if (fnProto && fnProto != PROTO_NONE) {
+                            const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
+                            const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                            parentFI = fiK
+                                ? fnProto->getAttribute(pContext, fiK, false) : nullptr;
+                            if (parentFI && parentFI != PROTO_NONE) {
+                                const proto::ProtoList* fiArgs = pContext->newList();
+                                callJSFunction(pContext, parentFI, newObj, fiArgs);
+                                if (t_hasCallException) {
+                                    pending_exception = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException = false;
+                                    t_callException = nullptr;
+                                    DISPATCH();
+                                }
+                            }
+                        }
+                    }
                     const proto::ProtoObject* ret =
                         callJSFunction(pContext, fn, newObj, argList);
                     if (t_hasCallException) {
@@ -3197,6 +3224,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         t_hasCallException = false;
                         t_callException = nullptr;
                         DISPATCH();
+                    }
+                    // After parent constructor (super) returns, also invoke
+                    // the CURRENT class's __fields_init__ on `this`.  In an
+                    // explicit `constructor(){ super(); ... }`, the
+                    // standard bytecode emits emit_class_field_init after
+                    // OP_apply, but that path requires closure-capture for
+                    // class_fields_init that protoJS doesn't fully resolve;
+                    // direct dispatch here gives equivalent behavior.
+                    {
+                        const proto::ProtoObject* finalForFields = (ret && ret != PROTO_NONE && !ret->isInteger(pContext)
+                            && !ret->isBoolean(pContext) && !ret->isDouble(pContext)
+                            && !ret->asString(pContext) && ret != t_nullSentinel)
+                            ? ret : newObj;
+                        if (t_activeFunc && t_activeFunc != PROTO_NONE && finalForFields) {
+                            const proto::ProtoObject* afProto = protoKey
+                                ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
+                            if (afProto && afProto != PROTO_NONE) {
+                                const proto::ProtoObject* fiKo2 = pContext->fromUTF8String("__fields_init__");
+                                const proto::ProtoString* fiK2 = fiKo2 ? fiKo2->asString(pContext) : nullptr;
+                                const proto::ProtoObject* fi2 = fiK2
+                                    ? afProto->getAttribute(pContext, fiK2, false) : nullptr;
+                                if (fi2 && fi2 != PROTO_NONE && fi2 != parentFI) {
+                                    const proto::ProtoList* fi2Args = pContext->newList();
+                                    callJSFunction(pContext, fi2, finalForFields, fi2Args);
+                                    if (t_hasCallException) {
+                                        pending_exception = t_callException;
+                                        has_pending_exception = true;
+                                        t_hasCallException = false;
+                                        t_callException = nullptr;
+                                        DISPATCH();
+                                    }
+                                }
+                            }
+                        }
                     }
                     // If constructor returned a non-undefined object, use it; else newObj.
                     if (ret && ret != PROTO_NONE && !ret->isInteger(pContext) &&
@@ -3272,6 +3333,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     : pContext->newObject(true);
                 const proto::ProtoList* forwardArgs = t_activeArgs
                     ? t_activeArgs : pContext->newList();
+                // Run parent's __fields_init__ on newObj BEFORE calling the
+                // parent ctor's bytecode — that lets parent's class fields
+                // (e.g. `class A { x = 10 }`) initialise on `this`.
+                {
+                    const proto::ProtoString* parentProtoKey = JSSymbols::prototype(pContext);
+                    const proto::ProtoObject* parentProto = parentProtoKey
+                        ? parent->getAttribute(pContext, parentProtoKey, false) : nullptr;
+                    if (parentProto && parentProto != PROTO_NONE) {
+                        const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
+                        const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                        const proto::ProtoObject* fi = fiK
+                            ? parentProto->getAttribute(pContext, fiK, false) : nullptr;
+                        if (fi && fi != PROTO_NONE) {
+                            const proto::ProtoList* fiArgs = pContext->newList();
+                            callJSFunction(pContext, fi, newObj, fiArgs);
+                            if (t_hasCallException) {
+                                pending_exception = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException = nullptr;
+                                DISPATCH();
+                            }
+                        }
+                    }
+                }
                 // Dispatch via callJSFunction so the parent ctor's
                 // bytecode runs with newObj as `this`.  Native ctors
                 // (Array, Error, …) are dispatched via __construct__
@@ -3298,7 +3384,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     !ret->isInteger(pContext) && !ret->isDouble(pContext) &&
                                     !ret->isBoolean(pContext) && !ret->asString(pContext) &&
                                     ret != t_nullSentinel;
-                    stackPush(pContext, retIsObj ? ret : newObj);
+                    const proto::ProtoObject* finalThis = retIsObj ? ret : newObj;
+                    // Run THIS class's __fields_init__ on the resulting `this`.
+                    // The parent's fields were already initialised by the
+                    // callJSFunction above (parent's OP_call_constructor or
+                    // its own OP_init_ctor in a deeper chain).  This class's
+                    // fields live on t_activeFunc.prototype.__fields_init__.
+                    if (t_activeFunc && t_activeFunc != PROTO_NONE && finalThis) {
+                        const proto::ProtoString* protoKeyFI = JSSymbols::prototype(pContext);
+                        const proto::ProtoObject* tProto = protoKeyFI
+                            ? t_activeFunc->getAttribute(pContext, protoKeyFI, false) : nullptr;
+                        if (tProto && tProto != PROTO_NONE) {
+                            const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
+                            const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                            const proto::ProtoObject* fi = fiK
+                                ? tProto->getAttribute(pContext, fiK, false) : nullptr;
+                            if (fi && fi != PROTO_NONE) {
+                                const proto::ProtoList* fiArgs = pContext->newList();
+                                callJSFunction(pContext, fi, finalThis, fiArgs);
+                                if (t_hasCallException) {
+                                    pending_exception = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException = false;
+                                    t_callException = nullptr;
+                                    DISPATCH();
+                                }
+                            }
+                        }
+                    }
+                    stackPush(pContext, finalThis);
                 }
                 DISPATCH();
             }
@@ -3325,6 +3439,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // chain.  Net-zero stack effect.  Records __home_object__
                 // on the method; the value is read by OP_special_object
                 // kind=HOME_OBJECT at the start of the method body.
+                //
+                // Side detection: if the next opcode is NOT OP_define_method
+                // or OP_define_method_computed, this is the
+                // class_fields_init closure (QuickJS emits OP_fclosure +
+                // OP_set_home_object + OP_scope_put_var_init for it).
+                // Stash it on the home (prototype) under __fields_init__
+                // so OP_call_constructor can invoke it when the user
+                // ctor body doesn't (e.g., implicit/empty constructor).
                 if (stackSize(pContext) >= 2) {
                     const proto::ProtoObject* method = stackAt(pContext, 0);
                     const proto::ProtoObject* home   = stackAt(pContext, 1);
@@ -3333,12 +3455,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* hoKey = hoKo ? hoKo->asString(pContext) : nullptr;
                         if (hoKey) {
                             const proto::ProtoObject* newMethod = method->setAttribute(pContext, hoKey, home);
-                            // Always update TOS — setAttribute may produce a
-                            // new snapshot pointer that the rest of the
-                            // pipeline (OP_define_method) must use.
                             pAutomaticLocals[currentStackBase + _PF().stackTop - 1] =
                                 newMethod ? newMethod : method;
                             updateMapping(pContext, method, newMethod ? newMethod : method);
+                            // Sniff next opcode for fields_init detection.
+                            if (pc < len) {
+                                uint8_t nextOp = buf[pc];
+                                if (nextOp != OP_define_method && nextOp != OP_define_method_computed) {
+                                    const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
+                                    const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                                    if (fiK) {
+                                        const proto::ProtoObject* newHome = home->setAttribute(pContext, fiK,
+                                            newMethod ? newMethod : method);
+                                        if (newHome && newHome != home) {
+                                            pAutomaticLocals[currentStackBase + _PF().stackTop - 2] = newHome;
+                                            updateMapping(pContext, home, newHome);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -7098,12 +7233,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
 
-                // 1. Create the new object instance using the unwrapped func (which has prototype).
+                // 1. Create the new object instance.  Per ECMA-262 §9.2.2
+                // OrdinaryCallEvaluateBody, the receiver's [[Prototype]]
+                // comes from NEW_TARGET.prototype, not super_func.prototype.
+                // This matters for super() inside a derived class ctor:
+                //   class B extends A { ... super(args); ... }
+                // emits OP_call_constructor with func=A.ctor and
+                // newTarget=B (the original new B()).  newObj must inherit
+                // B.prototype so methods on B.prototype are visible.
                 const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                 const proto::ProtoObject* funcProto = (protoKey && func && func != PROTO_NONE)
                     ? func->getAttribute(pContext, protoKey, false) : nullptr;
-                const proto::ProtoObject* newObj = (funcProto && funcProto != PROTO_NONE)
-                    ? funcProto->newChild(pContext, true)
+                const proto::ProtoObject* newTgtForProto =
+                    (newTarget && newTarget != PROTO_NONE) ? newTarget : func;
+                const proto::ProtoObject* tgtProto = (protoKey && newTgtForProto && newTgtForProto != PROTO_NONE)
+                    ? newTgtForProto->getAttribute(pContext, protoKey, false) : nullptr;
+                if (!tgtProto || tgtProto == PROTO_NONE) tgtProto = funcProto;
+                const proto::ProtoObject* newObj = (tgtProto && tgtProto != PROTO_NONE)
+                    ? tgtProto->newChild(pContext, true)
                     : pContext->newObject(true);
                 
                 if (!newObj) {
@@ -7127,6 +7274,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (cKey) {
                         newObj = newObj->setAttribute(pContext, cKey, func);
                         setNWCDescriptor(pContext, newObj, "constructor");
+                    }
+
+                    // Instance field initialization: if the func's prototype
+                    // has __fields_init__ (a closure stored by OP_set_home_object
+                    // when QuickJS emitted OP_fclosure + OP_set_home_object +
+                    // OP_scope_put_var_init for the class_fields_init), invoke
+                    // it on newObj before the constructor body.  This bypasses
+                    // the standard scope_get_var class_fields_init + call_method
+                    // mechanism which requires closure-capture analysis that
+                    // protoJS doesn't yet fully implement.
+                    {
+                        const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
+                        const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                        const proto::ProtoObject* fieldsInit = (fiK && funcProto && funcProto != PROTO_NONE)
+                            ? funcProto->getAttribute(pContext, fiK, false) : nullptr;
+                        if (fieldsInit && fieldsInit != PROTO_NONE) {
+                            const proto::ProtoList* fiArgs = pContext->newList();
+                            const proto::ProtoObject* fiRet =
+                                callJSFunction(pContext, fieldsInit, newObj, fiArgs);
+                            (void)fiRet;
+                            if (t_hasCallException) {
+                                pending_exception = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException = nullptr;
+                                DISPATCH();
+                            }
+                        }
                     }
 
                     // Publish func + newTarget + args for OP_special_object
@@ -7284,7 +7459,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 // If result is an object, return it; otherwise return the newly created object (spec 9.2.2).
                 bool resultIsObject = result && result != PROTO_NONE && !result->isInteger(pContext) && !result->isDouble(pContext) && !result->asString(pContext) && result != PROTO_TRUE && result != PROTO_FALSE;
-                stackPush(pContext, resultIsObject ? result : newObj);
+                const proto::ProtoObject* finalCtorThis = resultIsObject ? result : newObj;
+
+                // super() field-init follow-up: if this OP_call_constructor
+                // was emitted by QuickJS as a super() call (t_activeFunc is
+                // the CALLER class, which differs from func = parent class),
+                // also run the caller class's __fields_init__ on the result.
+                // The standard bytecode's emit_class_field_init that should
+                // do this isn't resolving the closure-var reference for
+                // class_fields_init; this direct dispatch fills the gap.
+                if (t_activeFunc && t_activeFunc != PROTO_NONE
+                    && t_activeFunc != func && finalCtorThis) {
+                    const proto::ProtoObject* afProto = protoKey
+                        ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
+                    if (afProto && afProto != PROTO_NONE && afProto != funcProto) {
+                        const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
+                        const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                        const proto::ProtoObject* fi = fiK
+                            ? afProto->getAttribute(pContext, fiK, false) : nullptr;
+                        if (fi && fi != PROTO_NONE) {
+                            const proto::ProtoList* fiArgs = pContext->newList();
+                            callJSFunction(pContext, fi, finalCtorThis, fiArgs);
+                            if (t_hasCallException) {
+                                pending_exception = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException = nullptr;
+                                DISPATCH();
+                            }
+                        }
+                    }
+                }
+
+                stackPush(pContext, finalCtorThis);
                 DISPATCH();
             }
             L_OP_tail_call: // tail-call: same encoding as OP_call but the result is
