@@ -713,27 +713,23 @@ static const proto::ProtoObject* globalParseFloat(
     return ctx->fromDouble(result);
 }
 
+// Both globals first apply ToNumber per spec §19.2.4 / §19.2.5 — that
+// means objects route through valueOf/toString (ToPrimitive). The
+// previous implementations only handled primitives directly and returned
+// the boolean default for objects, so isFinite([1]) returned false
+// (spec: true via [1].toString() === "1") and isFinite(null) returned
+// false (spec: true via ToNumber(null) === 0).
 static const proto::ProtoObject* globalIsNaN(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return PROTO_TRUE;
-    const proto::ProtoObject* v = args->getAt(ctx, 0);
-    if (!v || v == PROTO_NONE) return PROTO_TRUE; // ToNumber(undefined) = NaN
-    if (v->isInteger(ctx)) return PROTO_FALSE;
-    if (v->isDouble(ctx) || v->isFloat(ctx)) return std::isnan(v->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
-    if (v->isBoolean(ctx)) return PROTO_FALSE;
-    if (v->isString(ctx)) {
-        const proto::ProtoString* ps = v->asString(ctx);
-        std::string s; if (ps) ps->toUTF8String(ctx, s);
-        size_t lo = s.find_first_not_of(" \t\n\r\f\v");
-        if (lo == std::string::npos) return PROTO_FALSE; // "" → 0 → not NaN
-        size_t hi = s.find_last_not_of(" \t\n\r\f\v");
-        std::string t = s.substr(lo, hi - lo + 1);
-        if (t == "Infinity" || t == "+Infinity" || t == "-Infinity") return PROTO_FALSE;
-        char* end = nullptr; std::strtod(t.c_str(), &end);
-        return (end == t.c_str() || *end != '\0') ? PROTO_TRUE : PROTO_FALSE;
-    }
+    const proto::ProtoObject* arg = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* num = jsToNumber(ctx, arg);
+    if (!num || num == PROTO_NONE) return PROTO_TRUE;
+    if (num->isInteger(ctx)) return PROTO_FALSE;
+    if (num->isDouble(ctx) || num->isFloat(ctx))
+        return std::isnan(num->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
     return PROTO_FALSE;
 }
 
@@ -741,23 +737,13 @@ static const proto::ProtoObject* globalIsFinite(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
-    const proto::ProtoObject* v = args->getAt(ctx, 0);
-    if (!v || v == PROTO_NONE) return PROTO_FALSE;
-    if (v->isInteger(ctx)) return PROTO_TRUE;
-    if (v->isDouble(ctx) || v->isFloat(ctx)) return std::isfinite(v->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
-    if (v->isBoolean(ctx)) return PROTO_TRUE;
-    if (v->isString(ctx)) {
-        const proto::ProtoString* ps = v->asString(ctx);
-        std::string s; if (ps) ps->toUTF8String(ctx, s);
-        size_t lo = s.find_first_not_of(" \t\n\r\f\v");
-        if (lo == std::string::npos) return PROTO_TRUE; // "" → 0 → finite
-        size_t hi = s.find_last_not_of(" \t\n\r\f\v");
-        std::string t = s.substr(lo, hi - lo + 1);
-        char* end = nullptr; double d = std::strtod(t.c_str(), &end);
-        if (end == t.c_str() || *end != '\0') return PROTO_FALSE;
-        return std::isfinite(d) ? PROTO_TRUE : PROTO_FALSE;
-    }
+    const proto::ProtoObject* arg = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* num = jsToNumber(ctx, arg);
+    if (!num || num == PROTO_NONE) return PROTO_FALSE;
+    if (num->isInteger(ctx)) return PROTO_TRUE;
+    if (num->isDouble(ctx) || num->isFloat(ctx))
+        return std::isfinite(num->asDouble(ctx)) ? PROTO_TRUE : PROTO_FALSE;
     return PROTO_FALSE;
 }
 
@@ -1022,10 +1008,13 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         return context->fromDouble(nan);
     };
 
-    if (!value || value == PROTO_NONE || value->isNone(context)) {
-        // ToNumber(undefined) is NaN; ToNumber(null) is +0. We currently
-        // represent both as PROTO_NONE; prefer NaN for safety.
+    // ECMA-262 §7.1.3 (ToNumber): undefined → NaN, null → +0.
+    if (!value || value == PROTO_NONE || value->isNone(context)
+        || value == getUndefinedSentinel()) {
         return makeNaN();
+    }
+    if (value == getNullSentinel()) {
+        return context->fromInteger(0LL);
     }
 
     if (proto::isSmallInt(value)) return value;
