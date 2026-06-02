@@ -1,5 +1,6 @@
 #include "MathBuiltin.h"
 #include "JSSymbols.h"
+#include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 #include <cmath>
 #include <cstdlib>
@@ -19,6 +20,11 @@ static double argToDouble(proto::ProtoContext* ctx, const proto::ProtoList* args
     if (a->isInteger(ctx)) return static_cast<double>(a->asLong(ctx));
     if (a->isDouble(ctx) || a->isFloat(ctx)) return a->asDouble(ctx);
     if (a->isBoolean(ctx)) return a->asBoolean(ctx) ? 1.0 : 0.0;
+    // Fall back to spec ToNumber (valueOf/toString chain for objects).
+    const proto::ProtoObject* n = jsToNumber(ctx, a);
+    if (!n || n == PROTO_NONE) return std::numeric_limits<double>::quiet_NaN();
+    if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
+    if (n->isDouble(ctx) || n->isFloat(ctx)) return n->asDouble(ctx);
     return std::numeric_limits<double>::quiet_NaN();
 }
 
@@ -169,11 +175,21 @@ static const proto::ProtoObject* mathMax(
 {
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    // Spec §20.3.2.24 step 1-2: coerce every argument first via ToNumber,
+    // even when an early NaN would short-circuit the result. Mathematical
+    // pass happens in a separate sweep.
+    bool anyNaN = false;
     double result = -std::numeric_limits<double>::infinity();
+    bool sawPositiveZero = false;
     for (unsigned long i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i));
-        if (std::isnan(v)) return ctx->fromDouble(v);
+        if (std::isnan(v)) { anyNaN = true; continue; }
+        if (v == 0.0 && !std::signbit(v)) sawPositiveZero = true;
         if (v > result) result = v;
+    }
+    if (anyNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (result == 0.0) {
+        return ctx->fromDouble(sawPositiveZero ? 0.0 : -0.0);
     }
     return makeDouble(ctx, result);
 }
@@ -185,11 +201,18 @@ static const proto::ProtoObject* mathMin(
 {
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
     if (argc == 0) return ctx->fromDouble(std::numeric_limits<double>::infinity());
+    bool anyNaN = false;
     double result = std::numeric_limits<double>::infinity();
+    bool sawNegativeZero = false;
     for (unsigned long i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i));
-        if (std::isnan(v)) return ctx->fromDouble(v);
+        if (std::isnan(v)) { anyNaN = true; continue; }
+        if (v == 0.0 && std::signbit(v)) sawNegativeZero = true;
         if (v < result) result = v;
+    }
+    if (anyNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (result == 0.0) {
+        return ctx->fromDouble(sawNegativeZero ? -0.0 : 0.0);
     }
     return makeDouble(ctx, result);
 }

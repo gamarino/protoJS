@@ -1042,7 +1042,40 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         }
     }
 
-    // TODO: Implement full ToPrimitive/ToNumber for objects (valueOf/toString chain).
+    // ToPrimitive(value, "number"): invoke valueOf, fall back to toString.
+    // Symbol.toPrimitive support omitted (not currently emitted by protoJS
+    // class layers); covers the common object-with-valueOf case demanded
+    // by Math.max/Math.min and similar coercions.
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE) return false;
+        if (fn->isMethod(context)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(context);
+        if (bcKey && fn->getAttribute(context, bcKey, false) != PROTO_NONE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(context);
+        if (nfKey && fn->getAttribute(context, nfKey, false) != PROTO_NONE) return true;
+        return false;
+    };
+    auto isPrimitive = [&](const proto::ProtoObject* v) -> bool {
+        if (!v || v == PROTO_NONE) return true;
+        if (v->isInteger(context) || v->isDouble(context) || v->isFloat(context)) return true;
+        if (v->isBoolean(context) || v->isString(context)) return true;
+        if (v == t_nullSentinel || v == t_undefinedSentinel) return true;
+        return false;
+    };
+    const proto::ProtoString* voKey = JSSymbols::valueOf(context);
+    const proto::ProtoObject* voFn = voKey ? value->getAttribute(context, voKey, true) : nullptr;
+    if (isCallable(voFn)) {
+        const proto::ProtoObject* r = callJSFunction(context, voFn, value, context->newList());
+        if (hasCallException()) return PROTO_NONE;
+        if (isPrimitive(r)) return toNumber(context, r);
+    }
+    const proto::ProtoString* tsKey = JSSymbols::toString(context);
+    const proto::ProtoObject* tsFn = tsKey ? value->getAttribute(context, tsKey, true) : nullptr;
+    if (isCallable(tsFn)) {
+        const proto::ProtoObject* r = callJSFunction(context, tsFn, value, context->newList());
+        if (hasCallException()) return PROTO_NONE;
+        if (isPrimitive(r)) return toNumber(context, r);
+    }
     return makeNaN();
 }
 
@@ -10090,6 +10123,11 @@ const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
 
 bool hasCallException() {
     return t_hasCallException;
+}
+
+const proto::ProtoObject* jsToNumber(proto::ProtoContext* context,
+                                     const proto::ProtoObject* value) {
+    return toNumber(context, value);
 }
 
 const proto::ProtoObject* callJSFunctionFromAsync(

@@ -131,6 +131,16 @@ const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
  */
 bool hasCallException();
 
+/**
+ * Spec ToNumber(value): coerces a JS value to a number (Integer/Double).
+ * Invokes valueOf / toString on objects per ToPrimitive(hint:"number").
+ * Returns PROTO_NONE if a callback raised an exception (drain via
+ * hasCallException()). Use this from native methods that need spec-correct
+ * coercion (Math.max/min, etc.).
+ */
+const proto::ProtoObject* jsToNumber(proto::ProtoContext* context,
+                                     const proto::ProtoObject* value);
+
 } // namespace protojs
 
 #endif /* PROTOJS_PROTO_INTERPRETER_H */
