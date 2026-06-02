@@ -75,7 +75,13 @@ static const proto::ProtoObject* mathSign(
 {
     double x = argToDouble(ctx, args, 0);
     if (std::isnan(x)) return ctx->fromDouble(x);
-    return makeDouble(ctx, x > 0.0 ? 1.0 : (x < 0.0 ? -1.0 : 0.0));
+    if (x > 0.0) return makeDouble(ctx, 1.0);
+    if (x < 0.0) return makeDouble(ctx, -1.0);
+    // Spec §20.3.2.29: preserve the sign of zero. signbit catches -0.
+    // Bypass makeDouble for -0.0 because it normalises integral doubles
+    // through fromInteger, which loses the sign bit.
+    if (std::signbit(x)) return ctx->fromDouble(-0.0);
+    return makeDouble(ctx, 0.0);
 }
 
 static const proto::ProtoObject* mathRound(
@@ -215,6 +221,12 @@ void ensureMathObject(proto::ProtoContext* ctx,
     auto reg = [&](const char* name, proto::ProtoMethod fn) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) math = math->setAttribute(ctx, key, ctx->fromMethod(nullptr, fn));
+        // ECMA-262 §17: Math methods carry the standard built-in descriptor
+        // {writable:true, enumerable:false, configurable:true} → 0x3.
+        std::string pd = std::string("__pd_") + name + "__";
+        const proto::ProtoObject* pko = ctx->fromUTF8String(pd.c_str());
+        const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+        if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     };
 
     auto setConst = [&](const char* name, double val) {

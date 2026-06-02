@@ -1675,6 +1675,27 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         const proto::ProtoSparseList*) -> const proto::ProtoObject* {
         const proto::ProtoObject* a = (ia && ia->getSize(ictx) > 0) ? ia->getAt(ictx, 0) : PROTO_NONE;
         const proto::ProtoObject* b = (ia && ia->getSize(ictx) > 1) ? ia->getAt(ictx, 1) : PROTO_NONE;
+        // SameValue must distinguish +0 from -0 even when both numeric
+        // operands collapse to the same protoCore representation. Run the
+        // zero check BEFORE the identity short-circuit; otherwise
+        // Object.is(0, -0) returns true.
+        auto isNumericZero = [&](const proto::ProtoObject* v, bool& negZero) -> bool {
+            if (!v) return false;
+            if (v->isInteger(ictx)) {
+                if (v->asLong(ictx) == 0) { negZero = false; return true; }
+                return false;
+            }
+            if (v->isDouble(ictx) || v->isFloat(ictx)) {
+                double d = v->asDouble(ictx);
+                if (d == 0.0) { negZero = std::signbit(d); return true; }
+                return false;
+            }
+            return false;
+        };
+        bool aNeg = false, bNeg = false;
+        bool aZ = isNumericZero(a, aNeg);
+        bool bZ = isNumericZero(b, bNeg);
+        if (aZ && bZ) return (aNeg == bNeg) ? PROTO_TRUE : PROTO_FALSE;
         if (a == b) return PROTO_TRUE;
         // NaN === NaN check
         if (a && b && (a->isDouble(ictx) || a->isFloat(ictx)) &&
@@ -1682,12 +1703,6 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
             double da = a->asDouble(ictx);
             double db = b->asDouble(ictx);
             if (std::isnan(da) && std::isnan(db)) return PROTO_TRUE;
-            // +0 vs -0 distinction
-            if (da == 0.0 && db == 0.0) {
-                bool aNeg = std::signbit(da);
-                bool bNeg = std::signbit(db);
-                return (aNeg == bNeg) ? PROTO_TRUE : PROTO_FALSE;
-            }
             return (da == db) ? PROTO_TRUE : PROTO_FALSE;
         }
         // Both undefined (any form): SameValue is true.
