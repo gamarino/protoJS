@@ -840,7 +840,25 @@ const proto::ProtoObject* stringSearch(
             return pattern->call(ctx, nullptr, searchKey, pattern, newArgs, nullptr);
         }
     }
-    return ctx->fromInteger(-1LL);
+    // Spec §22.1.3.20: when pattern isn't a regex object it's still
+    // wrapped via RegExpCreate(pattern, undefined). The cheapest
+    // equivalent for a string pattern is std::string::find. Pre-fix
+    // we returned -1 unconditionally for non-regex patterns, so
+    // `"abc".search("b")` was -1 instead of 1.
+    const proto::ProtoObject* patStr = pattern;
+    if (patStr && patStr != PROTO_NONE && !patStr->isString(ctx)) {
+        // Allow null/undefined to fall through as "undefined" search.
+        if (patStr == getNullSentinel())             patStr = ctx->fromUTF8String("null");
+        else if (patStr == getUndefinedSentinel())   patStr = nullptr;
+        else if (patStr->isInteger(ctx))             patStr = ctx->fromUTF8String(std::to_string(patStr->asLong(ctx)).c_str());
+    }
+    if (!patStr) return ctx->fromInteger(0LL); // empty match at position 0
+    std::string s   = objToStr(ctx, self);
+    std::string pat = objToStr(ctx, patStr);
+    if (pat.empty()) return ctx->fromInteger(0LL);
+    size_t pos = s.find(pat);
+    return ctx->fromInteger(pos == std::string::npos
+        ? -1LL : static_cast<long long>(pos));
 }
 
 /** replace(pattern, replacement) — handles string patterns only.
