@@ -693,6 +693,15 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     regProto("catch",   promiseCatch);
     regProto("finally", promiseFinally);
 
+    // Promise.prototype[@@toStringTag] === "Promise" per §27.2.5.5
+    // so Object.prototype.toString.call(promise) returns
+    // "[object Promise]".
+    {
+        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+        if (tagKey) proto = proto->setAttribute(ctx, tagKey,
+            ctx->fromUTF8String("Promise"));
+    }
+
     // Promise.prototype.constructor === Promise per §27.2.5.2.
     // Non-enumerable: __pd_constructor__ = 0x3 (writable+configurable).
     {

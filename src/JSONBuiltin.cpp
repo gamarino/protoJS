@@ -382,6 +382,11 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         };
         patchLen("stringify", 3);
         patchLen("parse",     2);
+        // Symbol.toStringTag = "JSON" per §25.5.4 so
+        // Object.prototype.toString.call(JSON) === "[object JSON]".
+        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+        if (tagKey) jsonObj = jsonObj->setAttribute(ctx, tagKey,
+            ctx->fromUTF8String("JSON"));
     }
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "JSON", jsonObj);
 }
