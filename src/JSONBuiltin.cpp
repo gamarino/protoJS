@@ -61,13 +61,41 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                         const proto::ProtoObject* arrayPrototype,
                         std::vector<const proto::ProtoObject*>& stack,
                         proto::ProtoRootSet* rs) {
-    if (!obj || obj == PROTO_NONE || obj->isNone(ctx)) {
+    // ECMA-262 §25.5.2 step 10 (SerializeJSONProperty): undefined and
+    // function values inside arrays become "null"; inside objects they
+    // are dropped (handled at the parent-object emission site below).
+    // The undefined sentinel must be caught here too — pre-fix only
+    // PROTO_NONE was treated as undefined, so `undefined` literals
+    // serialised through the object-fallback path and rendered as "{}".
+    if (!obj || obj == PROTO_NONE || obj->isNone(ctx)
+        || obj == getUndefinedSentinel()) {
         out += "null";
         return;
     }
     if (obj == getNullSentinel()) {
         out += "null";
         return;
+    }
+    // Callable JS functions (wrappers carrying __bytecode_id__ or
+    // __native_fn__) and raw native methods also serialise as "null"
+    // when they appear inside an array. Without this guard a function
+    // wrapper would drop into the generic-object branch below and emit
+    // its `{name, length, prototype}` shape instead of "null".
+    if (obj->isMethod(ctx)) {
+        out += "null";
+        return;
+    }
+    {
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && obj->getAttribute(ctx, bcKey, false) != PROTO_NONE) {
+            out += "null";
+            return;
+        }
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && obj->getAttribute(ctx, nfKey, false) != PROTO_NONE) {
+            out += "null";
+            return;
+        }
     }
     if (obj->isBoolean(ctx)) {
         out += obj->asBoolean(ctx) ? "true" : "false";
@@ -180,14 +208,28 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     }
                 }
                 
-                // Debug: log progress occasionally
-                static int keyCount = 0;
-                if (++keyCount % 1000 == 0) {
-                    fprintf(stderr, "JSON: stringifying key %s (total %d)\n", key.c_str(), keyCount);
+                // Skip internal keys (__ prefix), functions, and
+                // undefined / none values per §25.5.2 step 7
+                // (SerializeJSONProperty returns undefined → key omitted).
+                bool isCallable = false;
+                if (val && val != PROTO_NONE) {
+                    if (val->isMethod(ctx)) {
+                        isCallable = true;
+                    } else {
+                        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                        if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE)
+                            isCallable = true;
+                        else {
+                            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                            if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE)
+                                isCallable = true;
+                        }
+                    }
                 }
-
-                // Skip internal keys (__ prefix) and functions/none
-                if (!key.empty() && key[0] != '_' && val && val != PROTO_NONE && !val->isMethod(ctx)) {
+                if (!key.empty() && key[0] != '_'
+                    && val && val != PROTO_NONE
+                    && val != getUndefinedSentinel()
+                    && !isCallable) {
                     if (!first) out.push_back(',');
                     jsonEscape(key, out);
                     out.push_back(':');
