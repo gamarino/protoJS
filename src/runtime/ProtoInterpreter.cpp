@@ -4873,13 +4873,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_put_loc_check_init: {
+                // QuickJS emits this opcode ONLY for assignments to the
+                // `this` slot in a derived class constructor.  The spec
+                // (§9.1.1.4.4 InitializeBoundName / §15.7.10) says the
+                // `this` binding can be initialized only once: a second
+                // super() call (e.g. `super(super())`) must throw
+                // ReferenceError "'this' can be initialized only once".
+                //
+                // Pre-fix: this branch unconditionally wrote, so chained
+                // super() calls succeeded and the spec violation slipped
+                // through.
                 if (pc + 2 > len || stackEmpty(pContext)) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
                 const proto::ProtoObject* val = stackTop(pContext);
                 stackPop(pContext);
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* cur = getSlot(pContext, argCount + locIndex);
+                    if (cur && cur != tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError",
+                            "'this' can be initialized only once",
+                            pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
                     setSlot(pContext, argCount + locIndex, val);
+                }
                 DISPATCH();
             }
             L_OP_get_loc_checkthis: {
