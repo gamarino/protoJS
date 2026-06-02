@@ -2480,6 +2480,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         ensureGlobalFn("encodeURIComponent",  globalEncodeURIComponent, 1);
         ensureGlobalFn("decodeURI",           globalDecodeURI,          1);
         ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent, 1);
+        // §21.1.2.12 / §21.1.2.13: Number.parseInt === parseInt and
+        // Number.parseFloat === parseFloat. Number was set up before
+        // the globals here, so finalize the identity now.
+        patchNumberParseFns(pContext, pGlobalRoot);
     }
 
     // Mark the global root as initialised so subsequent runBytecode calls

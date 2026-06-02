@@ -598,6 +598,12 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     reg("isFinite",      numberIsFinite,       1);
     reg("isInteger",     numberIsInteger,      1);
     reg("isSafeInteger", numberIsSafeInteger,  1);
+    // §21.1.2.12 / §21.1.2.13 — Number.parseInt === parseInt and
+    // Number.parseFloat === parseFloat. Final binding happens via
+    // patchNumberParseFns() after the global fns are installed (we
+    // run before them, so the global lookup here would be PROTO_NONE).
+    // Install local copies for now; they're swapped to the canonical
+    // global references at the end of bootstrap.
     reg("parseInt",      numberParseInt,       2);
     reg("parseFloat",    numberParseFloat,     1);
 
@@ -671,6 +677,41 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
+}
+
+// Re-bind Number.parseInt to globalThis.parseInt and Number.parseFloat
+// to globalThis.parseFloat after both have been installed, so the
+// spec-mandated identity `Number.parseInt === parseInt` (§21.1.2.12)
+// holds. Called from runBytecode after ensureGlobalFn registers the
+// global functions.
+void patchNumberParseFns(proto::ProtoContext* ctx,
+                         const proto::ProtoObject** globalRoot) {
+    if (!ctx || !globalRoot || !*globalRoot) return;
+    const proto::ProtoString* keyNumber = JSSymbols::Number(ctx);
+    if (!keyNumber) return;
+    const proto::ProtoObject* num = (*globalRoot)->getAttribute(ctx, keyNumber, false);
+    if (!num || num == PROTO_NONE) return;
+
+    auto getGlobal = [&](const char* name) -> const proto::ProtoObject* {
+        const proto::ProtoObject* o = ctx->fromUTF8String(name);
+        const proto::ProtoString* k = o ? o->asString(ctx) : nullptr;
+        if (!k) return nullptr;
+        const proto::ProtoObject* v = (*globalRoot)->getAttribute(ctx, k, false);
+        return (v && v != PROTO_NONE) ? v : nullptr;
+    };
+    const proto::ProtoObject* gParseInt = getGlobal("parseInt");
+    const proto::ProtoObject* gParseFloat = getGlobal("parseFloat");
+
+    auto patch = [&](const char* name, const proto::ProtoObject* fn) {
+        if (!fn) return;
+        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+        const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+        if (k) num = num->setAttribute(ctx, k, fn);
+    };
+    patch("parseInt", gParseInt);
+    patch("parseFloat", gParseFloat);
+
+    *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, num);
 }
 
 } // namespace protojs
