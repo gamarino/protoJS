@@ -2711,6 +2711,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_add_brand] = &&L_OP_add_brand;
     dispatch_table[OP_set_home_object] = &&L_OP_set_home_object;
     dispatch_table[OP_get_super] = &&L_OP_get_super;
+    dispatch_table[OP_get_super_value] = &&L_OP_get_super_value;
+    dispatch_table[OP_put_super_value] = &&L_OP_put_super_value;
     dispatch_table[OP_private_symbol] = &&L_OP_private_symbol;
     dispatch_table[OP_set_proto] = &&L_OP_set_proto;
     dispatch_table[OP_get_private_field] = &&L_OP_get_private_field;
@@ -3653,6 +3655,59 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (!parent) parent = topObj->getPrototype(pContext);
                 }
                 stackPush(pContext, parent ? parent : PROTO_NONE);
+                DISPATCH();
+            }
+            L_OP_get_super_value: {
+                // DEF(get_super_value, 1, 3, 1, none)
+                // Stack [..., this, super_obj, prop] → [..., value]
+                // Implements `super[prop]` (or computed `super.x`) per
+                // ECMA-262 §13.3.7.3 GetSuperBase / GetValue: look up
+                // `prop` on `super_obj` walking its prototype chain with
+                // `this` as receiver (no receiver semantics implemented
+                // here — we just read the property; getters that consult
+                // `this` would need an explicit receiver-aware lookup).
+                if (stackSize(pContext) < 3) DISPATCH();
+                const proto::ProtoObject* prop  = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* sObj  = stackTop(pContext); stackPop(pContext);
+                /* thisObj */                     stackPop(pContext);
+                const proto::ProtoString* key = nullptr;
+                if (prop && prop != PROTO_NONE) {
+                    key = prop->asString(pContext);
+                    if (!key && prop->isInteger(pContext)) {
+                        long long idx = prop->asLong(pContext);
+                        if (idx >= 0) key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
+                    }
+                }
+                const proto::ProtoObject* val = (sObj && sObj != PROTO_NONE && key)
+                    ? sObj->getAttribute(pContext, key, true) : PROTO_NONE;
+                stackPush(pContext, val ? val : PROTO_NONE);
+                DISPATCH();
+            }
+            L_OP_put_super_value: {
+                // DEF(put_super_value, 1, 4, 0, none)
+                // Stack [..., this, super_obj, prop, value] → []
+                // Implements `super[prop] = value` / `super.x = value`.
+                // Per spec the write targets `this` (NOT super_obj) so the
+                // property lives on the receiver — but the lookup of
+                // existing setters walks super_obj's chain.  Minimal impl
+                // writes to thisObj.
+                if (stackSize(pContext) < 4) DISPATCH();
+                const proto::ProtoObject* val   = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoObject* prop  = stackTop(pContext); stackPop(pContext);
+                /* sObj */                       stackPop(pContext);
+                const proto::ProtoObject* tObj  = stackTop(pContext); stackPop(pContext);
+                const proto::ProtoString* key = nullptr;
+                if (prop && prop != PROTO_NONE) {
+                    key = prop->asString(pContext);
+                    if (!key && prop->isInteger(pContext)) {
+                        long long idx = prop->asLong(pContext);
+                        if (idx >= 0) key = JSSymbols::indexKey(pContext, static_cast<uint32_t>(idx));
+                    }
+                }
+                if (tObj && tObj != PROTO_NONE && key) {
+                    const proto::ProtoObject* updated = tObj->setAttribute(pContext, key, val);
+                    if (updated) updateMapping(pContext, tObj, updated);
+                }
                 DISPATCH();
             }
             L_OP_get_private_field: {
