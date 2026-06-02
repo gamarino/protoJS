@@ -693,6 +693,13 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     regProto("catch",   promiseCatch);
     regProto("finally", promiseFinally);
 
+    // Promise.prototype.constructor === Promise per §27.2.5.2.
+    {
+        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
+        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        if (ctorWordKey) proto = proto->setAttribute(ctx, ctorWordKey, ctor);
+    }
+
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
