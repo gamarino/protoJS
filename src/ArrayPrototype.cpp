@@ -1970,14 +1970,17 @@ static const proto::ProtoObject* arrayFlat(
         if (d && d != PROTO_NONE && d->isInteger(ctx)) depth = (int)d->asLong(ctx);
         else if (d && d != PROTO_NONE && (d->isDouble(ctx) || d->isFloat(ctx))) {
             double dv = d->asDouble(ctx);
-            // Spec: Infinity → integer-valued ∞ (in practice INT_MAX).
-            // Casting double Infinity to int is UB and produced 0 in the
-            // protoJS build, so .flat(Infinity) was effectively .flat(0).
-            if (std::isinf(dv) || dv > 2147483647.0) depth = 2147483647;
-            else if (std::isnan(dv)) depth = 0;
-            else depth = static_cast<int>(dv);
+            // ECMA-262: ToIntegerOrInfinity → ±Infinity preserved
+            // structurally; depth < 1 yields no flattening. Casting
+            // double Infinity to int is UB, so handle the sentinels
+            // explicitly: +Inf → INT_MAX, -Inf → 0, NaN → 0.
+            if (std::isnan(dv))      depth = 0;
+            else if (std::isinf(dv)) depth = (dv > 0) ? 2147483647 : 0;
+            else if (dv > 2147483647.0) depth = 2147483647;
+            else                       depth = static_cast<int>(dv);
         }
     }
+    if (depth < 0) depth = 0;
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     unsigned long outIdx = 0;
     flatInto(ctx, self, result, outIdx, depth);
