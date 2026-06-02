@@ -863,6 +863,17 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
     }
 
+    // Set.prototype.constructor === Set per §24.2.3.2.
+    if (s_setPrototype) {
+        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
+        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        if (ctorWordKey) {
+            const proto::ProtoObject* updated =
+                s_setPrototype->setAttribute(ctx, ctorWordKey, ctor);
+            if (updated && updated != PROTO_NONE) s_setPrototype = updated;
+        }
+    }
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
 }
 

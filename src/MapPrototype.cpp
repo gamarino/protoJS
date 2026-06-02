@@ -921,6 +921,17 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         }
     }
 
+    // Map.prototype.constructor === Map per §24.1.3.2.
+    if (s_mapPrototype) {
+        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
+        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        if (ctorWordKey) {
+            const proto::ProtoObject* updated =
+                s_mapPrototype->setAttribute(ctx, ctorWordKey, ctor);
+            if (updated && updated != PROTO_NONE) s_mapPrototype = updated;
+        }
+    }
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
 }
 
