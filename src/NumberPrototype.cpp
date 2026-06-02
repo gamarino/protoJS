@@ -201,6 +201,10 @@ const proto::ProtoObject* numberToFixed(
         snprintf(buf, sizeof(buf), "%g", value);
         return context->fromUTF8String(buf);
     }
+    // Step 5 normalizes -0: since `-0 < 0` is false, the sign must not
+    // be emitted. printf("-0.0", "%.2f") yields "-0.00"; spec wants
+    // "0.00". Strip the sign by re-assigning the literal +0.
+    if (value == 0.0) value = 0.0;
     char buf[256];
     snprintf(buf, sizeof(buf), "%.*f", fractionDigits, value);
     return context->fromUTF8String(buf);
@@ -308,6 +312,17 @@ const proto::ProtoObject* numberToPrecision(
     // Spec step 9: ±Infinity returns the signed string after the NaN
     // and precision-range guards.
     if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
+    // -0 must emit without sign (step 5: `x < 0` is false for -0).
+    if (value == 0.0) value = 0.0;
+    // Spec step 10: when x = 0, the mantissa is p occurrences of "0".
+    // glibc's %.*g collapses to "0" regardless of precision, dropping
+    // the trailing zeros the spec requires. Special-case zero.
+    if (value == 0.0) {
+        if (precision == 1) return context->fromUTF8String("0");
+        std::string z = "0.";
+        z.append(static_cast<size_t>(precision - 1), '0');
+        return context->fromUTF8String(z.c_str());
+    }
     char buf[256];
     snprintf(buf, sizeof(buf), "%.*g", precision, value);
     // Exponent format: strip leading zero (e.g. "1e+07" -> "1e+7").
