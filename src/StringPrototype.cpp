@@ -39,6 +39,8 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         double d = obj->asDouble(ctx);
         if (std::isnan(d))  return "NaN";
         if (std::isinf(d))  return d > 0 ? "Infinity" : "-Infinity";
+        // ECMA-262 §7.1.12.1 Number::toString: ToString(-0) === "0".
+        if (d == 0.0) return "0";
         char buf[64];
         snprintf(buf, sizeof(buf), "%.15g", d);
         return buf;
