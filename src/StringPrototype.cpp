@@ -891,14 +891,28 @@ const proto::ProtoObject* stringSplit(
     proto::ProtoContext::CriticalSection splitCs(ctx);
     const proto::ProtoList* els = ctx->newList();
 
-    // Determine limit
-    long long limit = std::numeric_limits<long long>::max();
+    // Determine limit. Spec §22.1.3.21 step 8-9: limit = ToUint32(limit)
+    // (so undefined → 2^32-1, false → 0, true → 1, NaN → 0, '0' → 0, etc.).
+    unsigned long long limit = static_cast<unsigned long long>(std::numeric_limits<uint32_t>::max());
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* lim = args->getAt(ctx, 1);
-        if (lim && lim != PROTO_NONE) {
-            if (lim->isInteger(ctx)) limit = lim->asLong(ctx);
-            else if (lim->isDouble(ctx)) limit = static_cast<long long>(lim->asDouble(ctx));
-            if (limit < 0) limit = std::numeric_limits<long long>::max(); // treat negative as no limit
+        if (lim && lim != PROTO_NONE && lim != getUndefinedSentinel()) {
+            const proto::ProtoObject* n = jsToNumber(ctx, lim);
+            if (hasCallException()) return PROTO_NONE;
+            double d = 0.0;
+            if (n && n != PROTO_NONE) {
+                if (n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
+                else if (n->isDouble(ctx) || n->isFloat(ctx)) d = n->asDouble(ctx);
+            }
+            // ToUint32: NaN/Inf -> 0, otherwise mod 2^32.
+            if (std::isnan(d) || std::isinf(d)) limit = 0;
+            else {
+                double trunc = std::trunc(d);
+                if (trunc < 0) trunc += 4294967296.0;
+                trunc = std::fmod(trunc, 4294967296.0);
+                if (trunc < 0) trunc += 4294967296.0;
+                limit = static_cast<unsigned long long>(trunc);
+            }
         }
     }
 
@@ -945,7 +959,7 @@ const proto::ProtoObject* stringSplit(
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(sep);
 
-    long long count = 0;
+    unsigned long long count = 0;
 
     // Empty separator: split into individual UTF-16 code units (JS char-by-char)
     if (se16.empty()) {
@@ -955,7 +969,7 @@ const proto::ProtoObject* stringSplit(
             count++;
         }
         protojs::setArrayElements(ctx, result, els);
-        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(count)));
         return result;
     }
 
@@ -979,7 +993,7 @@ const proto::ProtoObject* stringSplit(
     }
 
     protojs::setArrayElements(ctx, result, els);
-    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(count)));
     return result;
 }
 
