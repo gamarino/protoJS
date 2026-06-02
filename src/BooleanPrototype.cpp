@@ -204,6 +204,22 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
             ctor = ctor->setAttribute(ctx, ctorKey, ctorMethod);
     }
 
+    // Boolean.prototype.constructor === Boolean per §20.3.2.1.
+    // Without this the spec-mandated `b.constructor === Boolean`
+    // identity is broken — `b.constructor.prototype` is undefined,
+    // every prop-desc test on the constructor reference fails.
+    if (boolProto && boolProto != PROTO_NONE) {
+        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
+        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        if (ctorWordKey) {
+            const proto::ProtoObject* updatedProto =
+                boolProto->setAttribute(ctx, ctorWordKey, ctor);
+            if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
+                ctx->space->booleanPrototype = const_cast<proto::ProtoObject*>(updatedProto);
+            }
+        }
+    }
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyBoolean, ctor);
 }
 
