@@ -343,7 +343,30 @@ static const proto::ProtoObject* objectCreate(
     // Second argument: property descriptors object
     if (args->getSize(ctx) >= 2) {
         const proto::ProtoObject* propsObj = args->getAt(ctx, 1);
-        if (propsObj && propsObj != PROTO_NONE) {
+        if (propsObj && propsObj != PROTO_NONE && propsObj != getUndefinedSentinel()) {
+            // ECMA-262 §19.1.2.2 step 3: properties = ToObject(properties).
+            // ToObject(null/undefined) -> TypeError. Then iterate its own
+            // enumerable keys and feed each value to ToPropertyDescriptor
+            // (which itself throws TypeError on non-object descriptors).
+            if (propsObj == getNullSentinel()) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Object.create properties must be an object"));
+                return PROTO_NONE;
+            }
+            // A primitive string is ToObject-coerced to a String wrapper
+            // whose own enumerable keys are the character indices. Each
+            // produced descObj is a one-character string — not an Object —
+            // so the spec's ToPropertyDescriptor immediately throws
+            // TypeError. Short-circuit here rather than fishing for the
+            // implicit iteration semantics.
+            if (propsObj->isString(ctx)) {
+                const proto::ProtoString* ps = propsObj->asString(ctx);
+                if (ps && ps->getSize(ctx) > 0) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Property description must be an object"));
+                    return PROTO_NONE;
+                }
+            }
             const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
             if (own) {
                 const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
