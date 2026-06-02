@@ -4,6 +4,128 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, 2026-06-02)
+
+A ~80-commit sprint dedicated to closing concrete ECMA-262 conformance
+gaps surfaced by test262. Each commit fixes one root cause and
+preserves the protoJS architectural rule that purity wins over
+performance until the community justifies otherwise. Documented by
+category — see `git log c7f7dc9d..` for the full per-commit detail.
+
+**Constructor backref + descriptor (§17, §19.x.4.1):**
+`prototype.constructor` now points at the live constructor object on
+every built-in prototype (Boolean, Number, Object, Function, Promise,
+Map, Set, all 11 TypedArray kinds, ArrayBuffer, DataView, Error +
+each subtype) with the non-enumerable `__pd_constructor__ = 0x3`
+descriptor. Function.prototype was switched to mutable so the
+recursive backref doesn't split it into two identities; the same
+lesson applies to every other built-in prototype and is captured in
+`memory/feedback_protojs_proto_constructor_backref.md`.
+
+**Type coercion via ToObject / ToNumber / ToString / ToPrimitive:**
+- `Object.getOwnPropertyDescriptor`, `getOwnPropertyNames`,
+  `getOwnPropertyDescriptors` (new), `getOwnPropertySymbols` (stub),
+  `Object.fromEntries`, `Array.from`, every `Array.prototype.*`
+  iterator, and all four `Reflect.has/get/set/ownKeys` now throw
+  TypeError on null / undefined / primitive targets per spec §28.1.x
+  step 1 / §20.1.2.x step 1. `arrayThrowIfNullUndefined` now
+  recognises the undefined sentinel uniformly.
+- `ToNumber` distinguishes null (→ +0) from undefined (→ NaN).
+  `globalIsNaN` / `globalIsFinite` route through `jsToNumber` so
+  objects coerce via valueOf/toString.
+- `parseInt` / `parseFloat` apply ToString step (custom toString /
+  valueOf) on object arguments. `decodeURI` /
+  `decodeURIComponent` raise URIError on malformed escapes.
+- `Number` constructor delegates to `jsToNumber`. `String()` no-arg
+  returns `""` (was "undefined"). `objToStr` returns "undefined"
+  for the undefined sentinel and now calls user-defined `toString`
+  via callJSFunction for `'a'.concat([1,2])` style coercion.
+- `Array.prototype.indexOf` / `lastIndexOf` / `slice` / `splice` /
+  `flat` apply ToIntegerOrInfinity to their index arguments
+  (`Infinity` / `-Infinity` / `NaN` handled per spec).
+- Spec-compliant number formatting: `ToString(Number)` and console
+  number printing both use shortest round-trip; `toExponential` /
+  `toPrecision` emit single-digit exponents, handle NaN/Infinity,
+  throw RangeError, and serialise `-0` without sign;
+  `toFixed(-0)` returns `"0.00"`.
+
+**Built-in shape (name / length / descriptor):**
+- Every Math method, JSON.parse / stringify, Date.now,
+  parseInt / parseFloat / isNaN / isFinite / encodeURI /
+  encodeURIComponent / decodeURI / decodeURIComponent, global
+  built-in constructors (Boolean / Number / String / Object /
+  Error + subtypes) now carry the spec-mandated `.name` and
+  `.length` with the §17 descriptor (`writable:false`,
+  `enumerable:false`, `configurable:true` → 0x2).
+  Global functions also carry the §17 wrapper descriptor (0x3) on
+  the globalRoot binding, so `for (k in globalThis)` no longer
+  emits them.
+- `Math` is now mutable so `delete Math.sqrt` and `Math.foo = 1`
+  persist as the spec allows.
+- `Symbol.toStringTag` set on JSON and Promise.prototype so
+  `Object.prototype.toString.call(...)` returns `[object JSON]` /
+  `[object Promise]`.
+- `Error.prototype.message === ""` per §20.5.5.3.
+- `String.prototype.length === 0` per §22.1.3.
+
+**Spec details fixed in built-ins:**
+- `Array(N)` validates length per §22.1.1.2 (RangeError on
+  non-integer / NaN / Infinity / >= 2^32 / negative).
+- `Array.prototype.with` throws RangeError on out-of-range index.
+- `Array.prototype.toString` invokes the receiver's own `join`
+  (now respects user overrides).
+- `Array.prototype.toLocaleString` implemented.
+- `Array.prototype.join` treats null / undefined elements as `""`.
+- `Object.prototype.toLocaleString` delegates to ToString for typed
+  primitives (was aliased to `objectToString`, which gave
+  `[object Number]` for `(1).toLocaleString()`).
+- `Object.assign` honours non-enumerable own properties (skips them
+  per §20.1.2.1 step 4.c.ii.1).
+- `Math.pow(1, NaN) === NaN`, `Math.pow(±1, ±Infinity) === NaN` per
+  §21.3.2.24. `Math.round` preserves `-0`. `Math.clz32` applies
+  ToUint32 (NaN / ±Infinity / 0 / 2^32 → 0). `Math.hypot(NaN,
+  Infinity) === Infinity` (Infinity dominates NaN).
+- `JSON.stringify` indent argument per §25.5.2 step 6; undefined
+  array elements become `null`, undefined object members are
+  dropped, callable values serialise as `null` (arrays) or are
+  dropped (objects).
+- `String.prototype.repeat` / `padStart` / `padEnd` apply ToLength
+  with RangeError on `-1` / `+Infinity` / target > 16M code units.
+- `String.prototype.replace` / `replaceAll` invoke callable
+  replacements; `String.prototype.search` / `match` handle
+  non-regex patterns; indexOf / startsWith / endsWith / includes
+  coerce missing args to "undefined" per ToString rules.
+- `Function.prototype.bind` throws TypeError on non-callable
+  receivers per §20.2.3.2 step 1.
+
+**Promise:**
+- `makeSettledPromise` parents the result on `Promise.prototype` so
+  `Promise.resolve / reject / all / allSettled / race / any`
+  outputs satisfy `p instanceof Promise`.
+- `collectIterable` reads the array's native `__elements__`
+  storage; `Promise.all` / `allSettled` / `race` / `any` no longer
+  collapse their input into an array of undefined values.
+
+**Reflect:** added `deleteProperty`, `getPrototypeOf`,
+`setPrototypeOf`, `isExtensible`, `preventExtensions` (§28.1.4 /
+§28.1.5 / §28.1.8 / §28.1.10 / §28.1.11) — all routed through the
+existing non-object TypeError guard.
+
+**Numeric format:** `ToString(Number)` uses shortest round-trip
+per §7.1.12.1 (`String(3.14)` → `"3.14"`, was
+`"3.1400000000000001"`). `console.log` matches the same algorithm.
+Exponent normalised to single-digit form.
+
+**Other:**
+- `Number.parseInt === parseInt` and `Number.parseFloat ===
+  parseFloat` per §21.1.2.12 / §21.1.2.13 (was two distinct
+  function objects). `patchNumberParseFns` re-binds Number.* to
+  the global references after the global fns are installed.
+- `Number.prototype` methods reinstalled in `ensureNumberConstructor`
+  so they inherit Function.prototype's `.call/.apply/.bind` (build
+  ran before `ensureFunctionPrototype` so the original wrappers
+  had no parent).
+
 ### Fixed
 
 - **Standard benchmark suite restored after silent regression**

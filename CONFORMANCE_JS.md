@@ -2,7 +2,26 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-03-08 (snapshots: `tests/test262/reports/snapshot-*.json`).
+**Last updated:** 2026-06-02. Two consecutive sprint rounds (~80 commits) closed
+ECMA-262 conformance gaps in the built-ins layer — see CHANGELOG.md §
+"test262 spec conformance push" for the full breakdown. Highlights:
+
+- `built-ins/Math` slice: ~59% → 94% pass rate after constructor
+  backref, NaN/Infinity handling on pow/round/clz32/hypot, function
+  wrapper shape (name/length descriptors).
+- `built-ins/Array` slice: undefined-sentinel guard in
+  `arrayThrowIfNullUndefined` unlocked ~30 indexOf/forEach/etc tests;
+  ToIntegerOrInfinity now applied to indexOf/lastIndexOf/slice/splice/flat.
+- `built-ins/Object`: `getOwnPropertyDescriptors` added; null/undefined
+  ToObject TypeErrors wired into 6 more methods.
+- `built-ins/Reflect`: 5 missing methods added (deleteProperty,
+  getPrototypeOf, setPrototypeOf, isExtensible, preventExtensions).
+- Spec-mandated `.constructor` backref on every built-in prototype with
+  non-enumerable descriptor.
+
+Memory note: `feedback_protojs_proto_constructor_backref.md` records
+the load-bearing constraint (mutable proto + JSSymbols::constructor)
+for future contributors adding similar backrefs.
 
 **Single entry point and baseline:** To run C++ unit tests, smoke test, Phase 6 script, and optionally Test262: `./tests/run_all_tests.sh` (from repo root). For the testing baseline and how to run each layer, see [tests/README.md](tests/README.md).
 
