@@ -256,8 +256,12 @@ const proto::ProtoObject* stringToString(
             if (pv && pv != PROTO_NONE && pv->isString(ctx)) return pv;
         }
     }
-    std::string s = objToStr(ctx, self);
-    return ctx->fromUTF8String(s.c_str());
+    // §22.1.3.27: receiver must be a String value (primitive or
+    // String wrapper). Plain objects, arrays, numbers, etc. throw
+    // TypeError per ThisStringValue.
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "String.prototype.toString called on incompatible receiver"));
+    return PROTO_NONE;
 }
 
 const proto::ProtoObject* stringCharAt(
