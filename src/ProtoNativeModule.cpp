@@ -10,11 +10,36 @@ const proto::ProtoObject* ProtoNativeModule::addMethod(
     proto::ProtoMethod fn)
 {
     if (!ctx || !obj || !name || !fn) return obj;
-    const proto::ProtoObject* fnObj = ctx->fromMethod(nullptr, fn);
-    if (!fnObj) return obj;
+    // Wrap in a function-object so the spec-mandated `name` and
+    // `length` properties (descriptor 0x2: configurable, non-writable,
+    // non-enumerable) are visible. Raw ProtoMethod cells expose only
+    // the callable surface. We don't know the spec length from the
+    // NativeEntry signature, so default to 0 — call sites that need a
+    // specific length should install the method through their own
+    // wrapNativeFunction.
+    const proto::ProtoObject* wrapper = ctx->space && ctx->space->methodPrototype
+        ? ctx->space->methodPrototype->newChild(ctx, true)
+        : ctx->newObject(true);
+    if (!wrapper) return obj;
+    const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+    if (nfk) wrapper = wrapper->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
+    const proto::ProtoString* lenk = JSSymbols::length(ctx);
+    if (lenk) {
+        wrapper = wrapper->setAttribute(ctx, lenk, ctx->fromInteger(0LL));
+        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    }
+    const proto::ProtoString* nmk = JSSymbols::name(ctx);
+    if (nmk) {
+        wrapper = wrapper->setAttribute(ctx, nmk, ctx->fromUTF8String(name));
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    }
     const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
     if (!key) return obj;
-    obj = obj->setAttribute(ctx, key, fnObj);
+    obj = obj->setAttribute(ctx, key, wrapper);
     // ECMA-262 §17: built-in methods carry descriptor
     // {writable:true, enumerable:false, configurable:true} → 0x3.
     std::string pdStr = std::string("__pd_") + name + "__";

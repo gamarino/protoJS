@@ -364,6 +364,25 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         NATIVE_MODULE_END
     };
     const proto::ProtoObject* jsonObj = ProtoNativeModule::buildModule(ctx, entries, 2);
+    // Per §25.5.2 / §25.5.1: stringify.length === 3, parse.length === 2.
+    // The generic ProtoNativeModule wrapper defaults to 0; patch each
+    // method's length on the wrapper object.
+    if (jsonObj) {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        auto patchLen = [&](const char* methodName, long long len) {
+            const proto::ProtoObject* mo = ctx->fromUTF8String(methodName);
+            const proto::ProtoString* mk = mo ? mo->asString(ctx) : nullptr;
+            if (!mk) return;
+            const proto::ProtoObject* wrapper = jsonObj->getAttribute(ctx, mk, false);
+            if (wrapper && wrapper != PROTO_NONE && lenKey) {
+                const proto::ProtoObject* updated =
+                    wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(len));
+                jsonObj = jsonObj->setAttribute(ctx, mk, updated);
+            }
+        };
+        patchLen("stringify", 3);
+        patchLen("parse",     2);
+    }
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "JSON", jsonObj);
 }
 
