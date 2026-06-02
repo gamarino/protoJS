@@ -111,6 +111,19 @@ static std::string getStrArg(proto::ProtoContext* ctx, const proto::ProtoList* a
     return objToStr(ctx, a);
 }
 
+/** Extract a string argument applying full ToString semantics. Missing /
+ *  undefined argument becomes literal "undefined"; null becomes "null".
+ *  Required by spec for indexOf/startsWith/endsWith/includes etc.
+ */
+static std::string getStrArgWithUndef(proto::ProtoContext* ctx, const proto::ProtoList* args,
+                                       unsigned idx) {
+    if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return "undefined";
+    const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
+    if (!a || a == PROTO_NONE || a == getUndefinedSentinel()) return "undefined";
+    if (a == getNullSentinel()) return "null";
+    return objToStr(ctx, a);
+}
+
 // ---------------------------------------------------------------------------
 // UTF-8 ↔ UTF-16 conversion (needed for correct JS string indexing semantics)
 // ---------------------------------------------------------------------------
@@ -323,7 +336,10 @@ const proto::ProtoObject* stringIndexOf(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
-    std::string srch = getStrArg(ctx, args, 0);
+    // Spec §22.1.3.7: ToString on searchString; undefined coerces to
+    // the literal "undefined". Pre-fix `"abc".indexOf()` returned 0
+    // because the missing arg defaulted to "".
+    std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     long long fromIdx = getIntArg(ctx, args, 1, 0);
@@ -596,7 +612,7 @@ const proto::ProtoObject* stringStartsWith(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
-    std::string srch = getStrArg(ctx, args, 0);
+    std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     long long pos = getIntArg(ctx, args, 1, 0);
@@ -614,7 +630,7 @@ const proto::ProtoObject* stringEndsWith(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
-    std::string srch = getStrArg(ctx, args, 0);
+    std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     long long endPos = static_cast<long long>(su16.size());
@@ -639,7 +655,7 @@ const proto::ProtoObject* stringIncludes(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
-    std::string srch = getStrArg(ctx, args, 0);
+    std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     long long fromIdx = getIntArg(ctx, args, 1, 0);
