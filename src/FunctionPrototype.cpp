@@ -259,11 +259,17 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     // chain  fn → Function.prototype → Object.prototype  is in place.
     // This gives every function instance access to hasOwnProperty, toString
     // (Object's), valueOf, etc., matching the ES spec prototype hierarchy.
+    // fp is created mutable so that the recursive
+    // Function.prototype.constructor === Function backref can be
+    // installed later in this function without triggering a copy that
+    // would split fp into two distinct objects (the test262 identity
+    // check would then fail). The Error / Boolean / Number constructors
+    // use the same mutable strategy for their prototypes.
     const proto::ProtoObject* objProto =
         ctx->space ? ctx->space->objectPrototype : nullptr;
     const proto::ProtoObject* fp = (objProto && objProto != PROTO_NONE)
-        ? objProto->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? objProto->newChild(ctx, true)
+        : ctx->newObject(true);
     if (!fp) return;
 
     // Install Function.prototype methods as non-enumerable, configurable, writable.
@@ -337,6 +343,26 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                 }
 
                 if (protoKey) fnCtor = fnCtor->setAttribute(ctx, protoKey, fp);
+
+                // Function.prototype.constructor === Function per
+                // §20.2.4.1. Use the canonical interned constructor
+                // symbol so the runtime's getAttribute("constructor")
+                // calls resolve to this exact attribute (an ad-hoc
+                // fromUTF8String key would be a different ProtoString
+                // identity and would not collide on lookup).
+                {
+                    const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
+                    if (ctorWordKey) {
+                        const proto::ProtoObject* updatedFp =
+                            fp->setAttribute(ctx, ctorWordKey, fnCtor);
+                        if (updatedFp && updatedFp != PROTO_NONE) {
+                            fp = updatedFp;
+                            *globalRoot = (*globalRoot)->setAttribute(ctx, fpKey, fp);
+                            if (ctx->space) ctx->space->methodPrototype =
+                                const_cast<proto::ProtoObject*>(fp);
+                        }
+                    }
+                }
                 *globalRoot = (*globalRoot)->setAttribute(ctx, keyFunction, fnCtor);
             }
         }
