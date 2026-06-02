@@ -692,6 +692,33 @@ static const proto::ProtoObject* arrayToString(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* kw)
 {
+    // ECMA-262 §23.1.3.36 step 4-5: look up `join` on the receiver
+    // and invoke it. Only when the receiver has no callable join do
+    // we fall back to Object.prototype.toString. The previous
+    // implementation unconditionally called the built-in arrayJoin,
+    // so overrides like `arr.join = () => "custom"` were ignored.
+    if (self && self != PROTO_NONE) {
+        const proto::ProtoObject* joinObj = ctx->fromUTF8String("join");
+        const proto::ProtoString* joinKey = joinObj ? joinObj->asString(ctx) : nullptr;
+        if (joinKey) {
+            const proto::ProtoObject* joinFn = self->getAttribute(ctx, joinKey, true);
+            if (joinFn && joinFn != PROTO_NONE) {
+                bool callable = joinFn->isMethod(ctx);
+                if (!callable) {
+                    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                    if (bcKey && joinFn->getAttribute(ctx, bcKey, false) != PROTO_NONE) callable = true;
+                    else {
+                        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                        if (nfKey && joinFn->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
+                    }
+                }
+                if (callable) {
+                    return callJSFunction(ctx, joinFn, self,
+                        args ? args : ctx->newList());
+                }
+            }
+        }
+    }
     return arrayJoin(ctx, self, pl, nullptr, kw);
 }
 
