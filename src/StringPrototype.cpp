@@ -804,22 +804,72 @@ const proto::ProtoObject* stringMatch(
     const proto::ProtoSparseList* sparse)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    if (!args || args->getSize(ctx) == 0) {
+        // Spec: match(undefined) wraps via RegExpCreate(undefined) which
+        // becomes /(?:)/, matching the empty string at position 0.
+        const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        if (isArrKey) arr = arr->setAttribute(ctx, isArrKey, PROTO_TRUE);
+        const proto::ProtoList* els = ctx->newList();
+        els = els->appendLast(ctx, ctx->fromUTF8String(""));
+        setArrayElements(ctx, arr, els);
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) arr = arr->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+        return arr;
+    }
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
-    std::cerr << "[String] match called" << std::endl;
     if (isRegExp(ctx, pattern)) {
         const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
         const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
         if (matchFn && matchFn != PROTO_NONE) {
-            std::cerr << "[String] calling pattern[Symbol.match]" << std::endl;
             // Call pattern[Symbol.match](self)
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
             return pattern->call(ctx, nullptr, matchKey, pattern, newArgs, nullptr);
         }
     }
-    // String match: implement simple version for now
-    return PROTO_NONE;
+    // Non-regex pattern: spec wraps via RegExpCreate(pattern). For the
+    // string case the result is the literal pattern matched at the
+    // first occurrence — array of [match] with .index and .input.
+    // Without regex flags (no /g), only the first match is returned.
+    std::string s   = objToStr(ctx, self);
+    std::string pat;
+    if (pattern && pattern != PROTO_NONE) {
+        if (pattern == getNullSentinel())            pat = "null";
+        else if (pattern == getUndefinedSentinel())  pat = "";
+        else                                          pat = objToStr(ctx, pattern);
+    }
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    if (isArrKey) result = result->setAttribute(ctx, isArrKey, PROTO_TRUE);
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (pat.empty()) {
+        const proto::ProtoList* els = ctx->newList();
+        els = els->appendLast(ctx, ctx->fromUTF8String(""));
+        setArrayElements(ctx, result, els);
+        if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+        return result;
+    }
+    size_t pos = s.find(pat);
+    if (pos == std::string::npos) {
+        // Spec: when there's no match and no /g flag, return null.
+        return getNullSentinel();
+    }
+    const proto::ProtoList* els = ctx->newList();
+    els = els->appendLast(ctx, ctx->fromUTF8String(pat.c_str()));
+    setArrayElements(ctx, result, els);
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+    // Attach .index and .input per spec.
+    {
+        const proto::ProtoObject* ixObj = ctx->fromUTF8String("index");
+        const proto::ProtoString* ixK = ixObj ? ixObj->asString(ctx) : nullptr;
+        if (ixK) result = result->setAttribute(ctx, ixK,
+            ctx->fromInteger(static_cast<long long>(pos)));
+        const proto::ProtoObject* inObj = ctx->fromUTF8String("input");
+        const proto::ProtoString* inK = inObj ? inObj->asString(ctx) : nullptr;
+        if (inK) result = result->setAttribute(ctx, inK, ctx->fromUTF8String(s.c_str()));
+    }
+    return result;
 }
 
 const proto::ProtoObject* stringSearch(
