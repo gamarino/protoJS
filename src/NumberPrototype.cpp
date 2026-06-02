@@ -605,6 +605,14 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
+    // Number.length === 1 per §21.1.1.
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) {
+        ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    }
 
     // Number.prototype — point to the number prototype already on space.
     const proto::ProtoString* protoKey2 = JSSymbols::prototype(ctx);

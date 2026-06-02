@@ -173,6 +173,15 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey)
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Boolean"));
+    // Boolean.length === 1 per §20.3.1.1; descriptor non-writable,
+    // non-enumerable, configurable (bits 0x2).
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) {
+        ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    }
 
     // ctor.prototype = Boolean.prototype
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);

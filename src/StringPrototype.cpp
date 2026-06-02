@@ -1681,6 +1681,14 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     // name property
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));
+    // String.length === 1 per §22.1.1.
+    const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
+    if (lenKey2) {
+        ctor = ctor->setAttribute(ctx, lenKey2, ctx->fromInteger(1LL));
+        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey && ctx->space && ctx->space->stringPrototype) {

@@ -1629,6 +1629,8 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // string). Pre-fix the attribute was absent, so
         // `new Error().message` returned undefined instead of ""
         // (which user code commonly uses with `+`).
+        // (length=1 on the ctor itself is set further down where the
+        // ctor object is finalized.)
         {
             const proto::ProtoObject* mko = ctx->fromUTF8String("message");
             const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
@@ -1651,6 +1653,16 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!ctor) continue;
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
+        // <ErrorType>.length === 1 per §20.5.6.x.
+        {
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            if (lenK) {
+                ctor = ctor->setAttribute(ctx, lenK, ctx->fromInteger(1LL));
+                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+            }
+        }
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         if (!ctor) continue;
         // Set prototype.constructor = ctor so `e.constructor === TypeError` identity checks pass.
