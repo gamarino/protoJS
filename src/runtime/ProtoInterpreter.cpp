@@ -434,14 +434,39 @@ static const proto::ProtoObject* reflectApply(
     return callJSFunction(ctx, target, thisArg, callArgs);
 }
 
+// ECMA-262 §28.1: every Reflect.* abstract op begins with
+// `If Type(target) is not Object, throw a TypeError exception`.
+// Primitives, null, and undefined all fail the check; only true
+// object-like ProtoObjects pass.
+static bool reflectThrowIfNotObject(proto::ProtoContext* ctx,
+                                     const proto::ProtoObject* target,
+                                     const char* method)
+{
+    bool isObject = target && target != PROTO_NONE
+        && target != getNullSentinel()
+        && target != getUndefinedSentinel()
+        && !target->isInteger(ctx)
+        && !target->isDouble(ctx)
+        && !target->isFloat(ctx)
+        && !target->isBoolean(ctx)
+        && !target->isString(ctx);
+    if (!isObject) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            (std::string(method) + " called on non-object").c_str()));
+        return true;
+    }
+    return false;
+}
+
 static const proto::ProtoObject* reflectHas(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_FALSE;
-    const proto::ProtoObject* target = args->getAt(ctx, 0);
-    const proto::ProtoObject* key    = args->getAt(ctx, 1);
-    if (!target || target == PROTO_NONE || !key) return PROTO_FALSE;
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.has")) return PROTO_FALSE;
+    const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key) return PROTO_FALSE;
     const proto::ProtoString* k = key->asString(ctx);
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
@@ -454,10 +479,11 @@ static const proto::ProtoObject* reflectGet(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) < 2) return PROTO_NONE;
-    const proto::ProtoObject* target = args->getAt(ctx, 0);
-    const proto::ProtoObject* key    = args->getAt(ctx, 1);
-    if (!target || target == PROTO_NONE || !key) return PROTO_NONE;
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.get")) return PROTO_NONE;
+    const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key) return PROTO_NONE;
     const proto::ProtoString* k = key->asString(ctx);
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
@@ -470,11 +496,13 @@ static const proto::ProtoObject* reflectSet(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) < 3) return PROTO_FALSE;
-    const proto::ProtoObject* target = args->getAt(ctx, 0);
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.set")) return PROTO_FALSE;
+    if (!args || args->getSize(ctx) < 3) return PROTO_FALSE;
     const proto::ProtoObject* key    = args->getAt(ctx, 1);
     const proto::ProtoObject* value  = args->getAt(ctx, 2);
-    if (!target || target == PROTO_NONE || !key) return PROTO_FALSE;
+    if (!key) return PROTO_FALSE;
     const proto::ProtoString* k = key->asString(ctx);
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
@@ -489,7 +517,9 @@ static const proto::ProtoObject* reflectOwnKeys(
 {
     // Minimal: returns the array result of Object.getOwnPropertyNames.
     // We rebuild it here to avoid plumbing through the function pointer.
-    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.ownKeys")) return PROTO_NONE;
     return PROTO_NONE; // stub — sufficient to not throw
 }
 
