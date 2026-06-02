@@ -4,6 +4,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
+#include "TypeBridge.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <algorithm>
@@ -182,6 +183,12 @@ static bool requireStringThis(proto::ProtoContext* ctx,
     }
     const proto::ProtoObject* nullSentinel = getNullSentinel();
     if (nullSentinel && self == nullSentinel) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "String.prototype method called on null or undefined"));
+        return false;
+    }
+    const proto::ProtoObject* undefSentinel = getUndefinedSentinel();
+    if (undefSentinel && self == undefSentinel) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "String.prototype method called on null or undefined"));
         return false;
