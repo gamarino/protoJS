@@ -677,15 +677,38 @@ const proto::ProtoObject* stringIsWellFormed(
     return PROTO_TRUE;
 }
 
-const proto::ProtoObject* stringPadStart(
+// ECMA-262 §22.1.3.13/14 — StringPad. Apply ToLength to maxLength;
+// fall back to the receiver's length when fillString is "". Reject
+// excessive allocations (V8/Node throw RangeError when the requested
+// length is large enough that the allocation would fail).
+static const proto::ProtoObject* stringPadCommon(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* args,
-    const proto::ProtoSparseList*)
+    const proto::ProtoList* args, bool atStart)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
     auto su16 = utf8ToUTF16(s);
-    long long targetLen = getIntArg(ctx, args, 0, static_cast<long long>(su16.size()));
+    // ToLength on the target. NaN → 0. +Infinity is rejected because
+    // the resulting allocation would always fail; matches V8/JSC.
+    double dTarget = 0.0;
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* a = args->getAt(ctx, 0);
+        if (a && a != PROTO_NONE) {
+            const proto::ProtoObject* num = jsToNumber(ctx, a);
+            if (num) {
+                if (num->isInteger(ctx)) dTarget = static_cast<double>(num->asLong(ctx));
+                else if (num->isDouble(ctx) || num->isFloat(ctx)) dTarget = num->asDouble(ctx);
+            }
+        }
+    }
+    if (std::isnan(dTarget)) dTarget = 0.0;
+    if (std::isinf(dTarget) && dTarget > 0) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid string length"));
+        return PROTO_NONE;
+    }
+    if (dTarget < 0) dTarget = 0;
+    long long targetLen = static_cast<long long>(dTarget);
     if (targetLen <= static_cast<long long>(su16.size()))
         return ctx->fromUTF8String(s.c_str());
     std::string padStr = " ";
@@ -695,12 +718,36 @@ const proto::ProtoObject* stringPadStart(
     }
     auto padU16 = utf8ToUTF16(padStr);
     if (padU16.empty()) return ctx->fromUTF8String(s.c_str());
-    std::vector<uint16_t> result;
     long long needed = targetLen - static_cast<long long>(su16.size());
+    // Cap on the output to avoid runaway allocations; legitimate
+    // formatting fits well below.
+    constexpr long long kPadCap = (1LL << 24); // ~16M code units
+    if (needed > kPadCap) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid string length"));
+        return PROTO_NONE;
+    }
+    if (atStart) {
+        std::vector<uint16_t> result;
+        result.reserve(static_cast<size_t>(targetLen));
+        for (long long i = 0; i < needed; i++)
+            result.push_back(padU16[static_cast<size_t>(i) % padU16.size()]);
+        result.insert(result.end(), su16.begin(), su16.end());
+        return ctx->fromUTF8String(utf16ToUTF8(result).c_str());
+    }
+    std::vector<uint16_t> result(su16);
+    result.reserve(static_cast<size_t>(targetLen));
     for (long long i = 0; i < needed; i++)
         result.push_back(padU16[static_cast<size_t>(i) % padU16.size()]);
-    result.insert(result.end(), su16.begin(), su16.end());
     return ctx->fromUTF8String(utf16ToUTF8(result).c_str());
+}
+
+const proto::ProtoObject* stringPadStart(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    return stringPadCommon(ctx, self, args, /*atStart=*/true);
 }
 
 const proto::ProtoObject* stringPadEnd(
@@ -708,24 +755,7 @@ const proto::ProtoObject* stringPadEnd(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    std::string s = objToStr(ctx, self);
-    auto su16 = utf8ToUTF16(s);
-    long long targetLen = getIntArg(ctx, args, 0, static_cast<long long>(su16.size()));
-    if (targetLen <= static_cast<long long>(su16.size()))
-        return ctx->fromUTF8String(s.c_str());
-    std::string padStr = " ";
-    if (args && args->getSize(ctx) > 1) {
-        const proto::ProtoObject* pa = args->getAt(ctx, 1);
-        if (pa && pa != PROTO_NONE) padStr = objToStr(ctx, pa);
-    }
-    auto padU16 = utf8ToUTF16(padStr);
-    if (padU16.empty()) return ctx->fromUTF8String(s.c_str());
-    std::vector<uint16_t> result(su16);
-    long long needed = targetLen - static_cast<long long>(su16.size());
-    for (long long i = 0; i < needed; i++)
-        result.push_back(padU16[static_cast<size_t>(i) % padU16.size()]);
-    return ctx->fromUTF8String(utf16ToUTF8(result).c_str());
+    return stringPadCommon(ctx, self, args, /*atStart=*/false);
 }
 
 static std::string applyStringReplacement(const std::string& s, const std::string& pat, const std::string& rep, size_t pos) {
