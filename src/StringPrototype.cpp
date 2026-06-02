@@ -27,7 +27,7 @@ namespace {
 
 /** Convert any ProtoObject to its string representation. */
 static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
-    if (!obj || obj == PROTO_NONE) return "";
+    if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel()) return "undefined";
     if (obj == getNullSentinel()) return "null";
     std::string r;
     if (obj->isString(ctx)) {
@@ -57,24 +57,35 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             }
         }
     }
-    // Object: try toString() from the prototype chain.
-    // Only native (ProtoMethod) toString can be called directly here; JS-function toString
-    // requires interpreter re-entry (handled separately for template literals).
+    // Object: try toString() from the prototype chain. Handle three
+    // shapes: a raw ProtoMethod (calls directly), a wrapped function
+    // object with __native_fn__ (extract the method and call), or a
+    // JS bytecode closure (requires interpreter re-entry — done via
+    // callJSFunction so template-literal / .concat coercion works
+    // for ANY user-defined toString).
     {
         const proto::ProtoObject* tsKey_o = ctx->fromUTF8String("toString");
         const proto::ProtoString* tsKey = tsKey_o ? tsKey_o->asString(ctx) : nullptr;
         if (tsKey) {
             const proto::ProtoObject* tsFn = obj->getAttribute(ctx, tsKey, true);
-            if (tsFn && tsFn != PROTO_NONE && tsFn->isMethod(ctx)) {
-                proto::ProtoMethod nativeFn = tsFn->asMethod(ctx);
-                if (nativeFn) {
-                    const proto::ProtoObject* result = nativeFn(ctx, obj, nullptr, nullptr, nullptr);
-                    if (result && result != PROTO_NONE) {
-                        const proto::ProtoString* rs = result->asString(ctx);
-                        if (rs) {
-                            rs->toUTF8String(ctx, r);
-                            return r;
-                        }
+            if (tsFn && tsFn != PROTO_NONE) {
+                const proto::ProtoObject* result = nullptr;
+                if (tsFn->isMethod(ctx)) {
+                    proto::ProtoMethod nativeFn = tsFn->asMethod(ctx);
+                    if (nativeFn) {
+                        result = nativeFn(ctx, obj, nullptr, ctx->newList(), nullptr);
+                    }
+                } else {
+                    // Wrapped or JS function — go through the full
+                    // call path so Array.prototype.toString (join) and
+                    // user-defined toString both work.
+                    result = callJSFunction(ctx, tsFn, obj, ctx->newList());
+                }
+                if (result && result != PROTO_NONE) {
+                    const proto::ProtoString* rs = result->asString(ctx);
+                    if (rs) {
+                        rs->toUTF8String(ctx, r);
+                        return r;
                     }
                 }
             }
