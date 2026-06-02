@@ -96,7 +96,16 @@ static const proto::ProtoObject* mathRound(
     const proto::ProtoSparseList*)
 {
     double x = argToDouble(ctx, args, 0);
-    // JS Math.round: ties go toward +Infinity (floor(x + 0.5))
+    // ECMA-262 §21.3.2.28: preserve the sign of -0 and treat the
+    // (-0.5, 0) range as rounding to -0. makeDouble normalises 0
+    // through fromInteger which loses the sign bit, so cases where
+    // the result is -0 must take the fromDouble path explicitly.
+    if (std::isnan(x))   return ctx->fromDouble(x);
+    if (std::isinf(x))   return ctx->fromDouble(x);
+    if (x == 0.0)        return ctx->fromDouble(x);  // preserves -0
+    if (x > 0 && x < 0.5)   return ctx->fromDouble(0.0);
+    if (x < 0 && x >= -0.5) return ctx->fromDouble(-0.0);
+    // Ties go toward +Infinity (floor(x + 0.5)).
     return makeDouble(ctx, std::floor(x + 0.5));
 }
 
