@@ -334,10 +334,6 @@ thread_local const ProtoBytecodeModule* t_rootModule = nullptr;
 // in derived class ctors can resolve `this_active_func`.
 thread_local const proto::ProtoObject* t_activeFunc   = nullptr;
 thread_local const proto::ProtoObject* t_activeNewTgt = nullptr;
-// Args list passed to the currently-running function — used by
-// OP_init_ctor in derived class default constructors to forward
-// arguments to the parent constructor via super(...args).
-thread_local const proto::ProtoList*   t_activeArgs   = nullptr;
 // The JS null sentinel: a stable ProtoObject* representing null.
 // PROTO_NONE continues to represent undefined/absence.
 
@@ -3227,79 +3223,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_init_ctor: {
-                // DEF(init_ctor, 1, 0, 1, none)
-                // Emitted at the start of a default derived-class
-                // constructor body.  Equivalent to constructor(...args)
-                // { super(...args); }.
-                //
-                // QuickJS: super = JS_GetPrototype(func_obj);
-                //          ret = JS_CallConstructor2(super, new_target, argc, argv);
-                //          sp[0] = ret;
-                //
-                // We read t_activeFunc (current ctor) → __class_parent__
-                // → parent constructor.  Forward t_activeArgs to it via
-                // OP_call_constructor-equivalent logic.
-                const proto::ProtoObject* parent = nullptr;
-                if (t_activeFunc && t_activeFunc != PROTO_NONE) {
-                    const proto::ProtoObject* cpo = pContext->fromUTF8String("__class_parent__");
-                    const proto::ProtoString* cpk = cpo ? cpo->asString(pContext) : nullptr;
-                    if (cpk) {
-                        const proto::ProtoObject* cp = t_activeFunc->getAttribute(pContext, cpk, false);
-                        if (cp && cp != PROTO_NONE) parent = cp;
-                    }
-                    if (!parent) parent = t_activeFunc->getPrototype(pContext);
-                }
-                if (!parent || parent == PROTO_NONE) {
-                    stackPush(pContext, PROTO_NONE);
-                    DISPATCH();
-                }
-                // Build newObj inheriting from NEW_TARGET.prototype
-                // (= the original constructor's prototype, B.prototype for
-                // `new B()` even when the parent ctor A is invoked).  Per
-                // ECMA-262 §9.2.2 OrdinaryCallEvaluateBody, the receiver's
-                // [[Prototype]] is new_target.prototype, not super.prototype.
-                // Pre-fix this used parent.prototype, so derived instances
-                // ended up with A.prototype as their chain parent — methods
-                // declared on B.prototype were invisible.
-                const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
-                const proto::ProtoObject* ntForProto =
-                    (t_activeNewTgt && t_activeNewTgt != PROTO_NONE)
-                        ? t_activeNewTgt : parent;
-                const proto::ProtoObject* tgtProto = protoKey
-                    ? ntForProto->getAttribute(pContext, protoKey, false) : nullptr;
-                const proto::ProtoObject* newObj = (tgtProto && tgtProto != PROTO_NONE)
-                    ? tgtProto->newChild(pContext, true)
-                    : pContext->newObject(true);
-                const proto::ProtoList* forwardArgs = t_activeArgs
-                    ? t_activeArgs : pContext->newList();
-                // Dispatch via callJSFunction so the parent ctor's
-                // bytecode runs with newObj as `this`.  Native ctors
-                // (Array, Error, …) are dispatched via __construct__
-                // markers — we don't handle those here.
-                {
-                    const proto::ProtoObject* prevActiveI  = t_activeFunc;
-                    const proto::ProtoObject* prevNewTgtI  = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgsI    = t_activeArgs;
-                    t_activeNewTgt = t_activeNewTgt ? t_activeNewTgt : parent;
-                    const proto::ProtoObject* ret =
-                        callJSFunction(pContext, parent, newObj, forwardArgs);
-                    t_activeFunc = prevActiveI;
-                    t_activeNewTgt = prevNewTgtI;
-                    t_activeArgs = prevArgsI;
-                    if (t_hasCallException) {
-                        pending_exception = t_callException;
-                        has_pending_exception = true;
-                        t_hasCallException = false;
-                        t_callException = nullptr;
-                        DISPATCH();
-                    }
-                    // ret if object, else newObj (spec OrdinaryCallEvaluateBody).
-                    bool retIsObj = ret && ret != PROTO_NONE &&
-                                    !ret->isInteger(pContext) && !ret->isDouble(pContext) &&
-                                    !ret->isBoolean(pContext) && !ret->asString(pContext) &&
-                                    ret != t_nullSentinel;
-                    stackPush(pContext, retIsObj ? ret : newObj);
-                }
+                // Used in derived-class default constructors to invoke
+                // super.  Minimal impl: push undefined to satisfy stack
+                // discipline; explicit `super(...)` calls go through
+                // OP_apply instead.
+                stackPush(pContext, PROTO_NONE);
                 DISPATCH();
             }
             L_OP_check_brand: {
@@ -3546,21 +3474,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (ctor && ctor != PROTO_NONE && proto && proto != PROTO_NONE) {
                     const proto::ProtoString* pkey = JSSymbols::prototype(pContext);
                     if (pkey) ctor = ctor->setAttribute(pContext, pkey, proto);
-                    // ctor.prototype is {writable:false, enumerable:false, configurable:false} → 0x0.
-                    {
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_prototype__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x0LL));
-                    }
 
                     const proto::ProtoString* ckey = JSSymbols::constructor(pContext);
                     if (ckey) proto = proto->setAttribute(pContext, ckey, ctor);
-                    // proto.constructor is {writable:true, enumerable:false, configurable:true} → 0x3.
-                    {
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_constructor__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) proto = proto->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
-                    }
 
                     // Mark as a constructor so OP_call_constructor accepts it.
                     const proto::ProtoString* isCtorKey =
@@ -3593,18 +3509,6 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (ns)
                                 ctor = ctor->setAttribute(pContext, nameKey, ns->asObject(pContext));
                         }
-                        // name is {writable:false, enumerable:false, configurable:true} → 0x2.
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_name__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
-                    }
-                    // length: spec §15.7.10 — set to argCount.  The
-                    // OP_fclosure handler already set length to the
-                    // argCount; ensure descriptor bits are right.
-                    {
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_length__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
-                        if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
                     }
                 }
 
@@ -6913,19 +6817,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
-                    // Active func / args for OP_special_object inside method body.
+                    // Active func for OP_special_object inside method body.
                     const proto::ProtoObject* prevActiveM = t_activeFunc;
                     const proto::ProtoObject* prevTgtM    = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgsM   = t_activeArgs;
                     t_activeFunc = func;
                     t_activeNewTgt = nullptr;
-                    t_activeArgs = argsList;
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, effectiveThis, argsList, pGlobalRoot, &childEx);
                     t_activeFunc = prevActiveM;
                     t_activeNewTgt = prevTgtM;
-                    t_activeArgs = prevArgsM;
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
                         pending_exception = childEx; has_pending_exception = true;
@@ -7108,21 +7009,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         setNWCDescriptor(pContext, newObj, "constructor");
                     }
 
-                    // Publish func + newTarget + args for OP_special_object
-                    // and OP_init_ctor inside the constructor body.
+                    // Publish func + newTarget for OP_special_object kind
+                    // THIS_FUNC / NEW_TARGET inside the constructor body.
                     // RAII restore on exit / exception.
                     const proto::ProtoObject* prevActive  = t_activeFunc;
                     const proto::ProtoObject* prevNewTgt2 = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgs    = t_activeArgs;
                     t_activeFunc   = func;
                     t_activeNewTgt = (newTarget && newTarget != PROTO_NONE) ? newTarget : func;
-                    t_activeArgs   = argsList;
                     struct AfRestore {
                         const proto::ProtoObject* pa;
                         const proto::ProtoObject* pn;
-                        const proto::ProtoList*   pl;
-                        ~AfRestore() { t_activeFunc = pa; t_activeNewTgt = pn; t_activeArgs = pl; }
-                    } _afRestore{prevActive, prevNewTgt2, prevArgs};
+                        ~AfRestore() { t_activeFunc = pa; t_activeNewTgt = pn; }
+                    } _afRestore{prevActive, prevNewTgt2};
 
                     const auto& nf = *resolved;
                     proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
@@ -7379,19 +7277,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
-                    // Publish active func / args for OP_special_object inside body.
+                    // Publish active func for OP_special_object inside body.
                     const proto::ProtoObject* prevActiveC = t_activeFunc;
                     const proto::ProtoObject* prevTgtC    = t_activeNewTgt;
-                    const proto::ProtoList*   prevArgsC   = t_activeArgs;
                     t_activeFunc = func;
+                    // No `new` — new_target is undefined for regular calls.
                     t_activeNewTgt = nullptr;
-                    t_activeArgs = argsList;
                     const proto::ProtoObject* childEx = PROTO_NONE;
                     const proto::ProtoObject* result =
                         runBytecode(&childCtx, &nf, callThisVal, argsList, pGlobalRoot, &childEx);
                     t_activeFunc = prevActiveC;
                     t_activeNewTgt = prevTgtC;
-                    t_activeArgs = prevArgsC;
                     REFRESH_INTERP_STATE();
                     childCtx.returnValue = result;
                     if (childEx && childEx != PROTO_NONE) {
@@ -9395,20 +9291,15 @@ const proto::ProtoObject* callJSFunction(
         if (debugBindEnabled()) {
             printf("[DEBUG] callJSFunction (dispatching to %d): this=%p argc=%u\n", bcId, effectiveThis, argc);
         }
-        // Publish active func / args for OP_special_object kind=THIS_FUNC / kind=HOME_OBJECT
-        // and OP_init_ctor in nested derived ctor invocations.  t_activeNewTgt
-        // is INHERITED from caller, not reset — when OP_init_ctor invokes
-        // callJSFunction(parent_ctor, ...), the parent ctor's body needs to
-        // see the same new_target so its own OP_init_ctor (in a deeper
-        // derivation) targets the right prototype.
+        // Publish active func for OP_special_object kind=THIS_FUNC / kind=HOME_OBJECT.
         const proto::ProtoObject* prevActiveK = t_activeFunc;
-        const proto::ProtoList*   prevArgsK   = t_activeArgs;
+        const proto::ProtoObject* prevTgtK    = t_activeNewTgt;
         t_activeFunc = fn;
-        t_activeArgs = args;
+        t_activeNewTgt = nullptr;
         const proto::ProtoObject* result =
             runBytecode(&childCtx, &nf, effectiveThis, args, globalRoot, &childEx);
         t_activeFunc = prevActiveK;
-        t_activeArgs = prevArgsK;
+        t_activeNewTgt = prevTgtK;
         childCtx.returnValue = result;
         // Propagate exceptions from JS callbacks via thread-local so that
         // iterator-related call sites inside runBytecode can set pending_exception.
