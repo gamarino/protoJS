@@ -8509,9 +8509,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (is_tail_call) return arr;
                             stackPush(pContext, arr);
                         } else if (func && func != PROTO_NONE && strCtorAttr && func->getAttribute(pContext, strCtorAttr, false) == PROTO_TRUE) {
-                            const proto::ProtoObject* arg = (argc > 0) ? stackAt(pContext, argc - 1) : PROTO_NONE;
+                            // ECMA-262 §22.1.1.1 step 1: if no arguments,
+                            // result is the empty string. ToString(undefined)
+                            // would otherwise produce "undefined".
+                            const proto::ProtoObject* s;
+                            if (argc == 0) {
+                                static const proto::ProtoObject* s_empty = nullptr;
+                                if (!s_empty) s_empty = pContext->fromUTF8String("");
+                                s = s_empty;
+                            } else {
+                                const proto::ProtoObject* arg = stackAt(pContext, argc - 1);
+                                s = toString(pContext, arg);
+                            }
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
-                            const proto::ProtoObject* s = toString(pContext, arg);
                             if (is_tail_call) return s;
                             stackPush(pContext, s);
                         } else {
