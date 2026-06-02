@@ -250,9 +250,24 @@ static const proto::ProtoObject* objectAssign(
     const proto::ProtoSparseList*)
 {
     int argc = args ? args->getSize(ctx) : 0;
-    if (argc == 0) return PROTO_NONE;
+    // ECMA-262 §19.1.2.1 step 1: target = ToObject(target). Throws
+    // TypeError for null/undefined.
+    if (argc == 0) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined to object"));
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* target = args->getAt(ctx, 0);
-    if (!target || target == PROTO_NONE) return target ? target : PROTO_NONE;
+    if (!target || target == PROTO_NONE || target == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined to object"));
+        return PROTO_NONE;
+    }
+    if (target == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert null to object"));
+        return PROTO_NONE;
+    }
 
     for (int si = 1; si < argc; si++) {
         const proto::ProtoObject* src = args->getAt(ctx, si);
