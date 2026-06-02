@@ -667,11 +667,18 @@ static const proto::ProtoObject* arrayJoin(
         }
     }
 
+    // Spec §23.1.3.15 step 6.d: both null and undefined elements
+    // contribute an empty string. The undefined sentinel must be
+    // included alongside PROTO_NONE here — pre-fix it fell through to
+    // elemToString and rendered as "[object Object]".
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    const proto::ProtoObject* nullSent  = getNullSentinel();
     std::string result;
     for (unsigned long i = 0; i < len; i++) {
         if (i > 0) result += sep;
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (elem && elem != PROTO_NONE) {
+        if (elem && elem != PROTO_NONE
+            && elem != undefSent && elem != nullSent) {
             result += elemToString(ctx, elem);
         }
     }
