@@ -3974,17 +3974,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                // For derived classes, record the JS [[Prototype]] override
-                // on the ctor so Object.getPrototypeOf(SubClass) === ParentClass
-                // (ECMA-262 §15.7.14, step 6.e: F.[[Prototype]] is set to the
-                // parent class).  When no heritage, the ctor inherits
-                // Function.prototype which protoCore already provides via
-                // the closure path.
-                // When `extends null`, constructorParent is Function.prototype
-                // per the spec (§15.7.14 step 6.e.ii) — leave the default.
-                if (ctor && ctor != PROTO_NONE && hasHeritage && !nullHeritage
-                    && parentClass && parentClass != PROTO_NONE) {
-                    protojs::setJSProtoOverride(ctor, parentClass);
+                // Record the JS [[Prototype]] override on the ctor per
+                // ECMA-262 §15.7.14 step 6:
+                //   - extends X (X non-null): ctor.[[Prototype]] = X
+                //   - extends null         : ctor.[[Prototype]] = Function.prototype
+                //   - no heritage          : ctor.[[Prototype]] = Function.prototype
+                //
+                // Without the no-heritage / null-heritage branch the class
+                // closure inherited the bare Object.prototype that
+                // OP_fclosure leaves behind, so Object.getPrototypeOf(C)
+                // returned Object.prototype rather than Function.prototype.
+                if (ctor && ctor != PROTO_NONE) {
+                    if (hasHeritage && !nullHeritage && parentClass && parentClass != PROTO_NONE) {
+                        protojs::setJSProtoOverride(ctor, parentClass);
+                    } else {
+                        REFRESH_GLOBAL_OBJ();
+                        if (globalObj && globalObj != PROTO_NONE) {
+                            const proto::ProtoString* funcKey =
+                                pContext->fromUTF8String("Function")
+                                ? pContext->fromUTF8String("Function")->asString(pContext)
+                                : nullptr;
+                            const proto::ProtoObject* funcCtor = funcKey
+                                ? globalObj->getAttribute(pContext, funcKey, false) : nullptr;
+                            const proto::ProtoString* protoKey2 = JSSymbols::prototype(pContext);
+                            const proto::ProtoObject* fProto =
+                                (funcCtor && funcCtor != PROTO_NONE && protoKey2)
+                                    ? funcCtor->getAttribute(pContext, protoKey2, false) : nullptr;
+                            if (fProto && fProto != PROTO_NONE)
+                                protojs::setJSProtoOverride(ctor, fProto);
+                        }
+                    }
                 }
 
                 // Replace top 2 stack slots with [ctor, proto].
