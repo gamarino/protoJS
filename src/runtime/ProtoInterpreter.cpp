@@ -879,8 +879,24 @@ static const proto::ProtoObject* globalDecodeURIComponent(
     }
     std::string result;
     for (size_t k = 0; k < s.size(); ) {
-        if (s[k] == '%' && k + 2 < s.size()) {
-            char hex[3] = { s[k+1], s[k+2], 0 };
+        if (s[k] == '%') {
+            // ECMA-262 §19.2.6.2 step 2.h: a "%" must be followed by
+            // exactly two hexadecimal digits — otherwise URIError.
+            if (k + 2 >= s.size()) {
+                signalNativeException(makeNativeError(ctx, "URIError",
+                    "URI malformed"));
+                return PROTO_NONE;
+            }
+            char c1 = s[k+1], c2 = s[k+2];
+            auto isHex = [](char c) {
+                return (c>='0'&&c<='9')||(c>='a'&&c<='f')||(c>='A'&&c<='F');
+            };
+            if (!isHex(c1) || !isHex(c2)) {
+                signalNativeException(makeNativeError(ctx, "URIError",
+                    "URI malformed"));
+                return PROTO_NONE;
+            }
+            char hex[3] = { c1, c2, 0 };
             char* end = nullptr;
             unsigned long val = std::strtoul(hex, &end, 16);
             if (end == hex + 2) { result += static_cast<char>(val); k += 3; continue; }
