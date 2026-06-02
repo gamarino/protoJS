@@ -2447,23 +2447,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
     }
     if (pGlobalRoot && *pGlobalRoot) {
-        auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn) {
+        // Wrap each global fn with a function-object that carries name
+        // and length per spec §19.2 — the raw ProtoMethod cell has
+        // neither, so test262's verifyPrimordialCallableProperty
+        // fixtures fail when probing parseInt.length === 2 etc.
+        auto ensureGlobalFn = [&](const char* name, proto::ProtoMethod fn, long long len) {
             const proto::ProtoString* k = (pContext->fromUTF8String(name) ? pContext->fromUTF8String(name)->asString(pContext) : nullptr);
             if (!k) return;
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (existing && existing != PROTO_NONE) return;
-            const proto::ProtoObject* fnObj = pContext->fromMethod(nullptr, fn);
+            const proto::ProtoObject* fnObj = wrapNativeFunction(pContext, fn, name, len, pGlobalRoot);
             if (fnObj)
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, k, fnObj);
         };
-        ensureGlobalFn("parseInt",            globalParseInt);
-        ensureGlobalFn("parseFloat",          globalParseFloat);
-        ensureGlobalFn("isNaN",               globalIsNaN);
-        ensureGlobalFn("isFinite",            globalIsFinite);
-        ensureGlobalFn("encodeURI",           globalEncodeURI);
-        ensureGlobalFn("encodeURIComponent",  globalEncodeURIComponent);
-        ensureGlobalFn("decodeURI",           globalDecodeURI);
-        ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent);
+        // Spec lengths: parseInt(2), parseFloat(1), isNaN(1), isFinite(1),
+        // encodeURI(1), encodeURIComponent(1), decodeURI(1), decodeURIComponent(1).
+        ensureGlobalFn("parseInt",            globalParseInt,           2);
+        ensureGlobalFn("parseFloat",          globalParseFloat,         1);
+        ensureGlobalFn("isNaN",               globalIsNaN,              1);
+        ensureGlobalFn("isFinite",            globalIsFinite,           1);
+        ensureGlobalFn("encodeURI",           globalEncodeURI,          1);
+        ensureGlobalFn("encodeURIComponent",  globalEncodeURIComponent, 1);
+        ensureGlobalFn("decodeURI",           globalDecodeURI,          1);
+        ensureGlobalFn("decodeURIComponent",  globalDecodeURIComponent, 1);
     }
 
     // Mark the global root as initialised so subsequent runBytecode calls
