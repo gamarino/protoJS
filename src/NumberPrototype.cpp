@@ -153,23 +153,54 @@ const proto::ProtoObject* numberToFixed(
     const proto::ProtoSparseList* /*keywordParameters*/)
 {
     if (!requireNumberThis(context, self)) return PROTO_NONE;
-    int fractionDigits = 0;
+    // ECMA-262 §22.1.3.27 step 2: f = ToIntegerOrInfinity(fractionDigits).
+    // Step 3: if f is +Inf, throw RangeError. Step 5: if f < 0 or f > 100,
+    // throw RangeError. ToIntegerOrInfinity of NaN/undefined/non-numeric
+    // string -> 0; of numeric string -> the rounded integer.
+    double fdDouble = 0.0;
+    bool isInfinite = false;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
         if (fdObj && fdObj != PROTO_NONE) {
             if (fdObj->isInteger(context)) {
-                fractionDigits = static_cast<int>(fdObj->asLong(context));
+                fdDouble = static_cast<double>(fdObj->asLong(context));
             } else if (fdObj->isDouble(context)) {
-                fractionDigits = static_cast<int>(fdObj->asDouble(context));
+                fdDouble = fdObj->asDouble(context);
+            } else if (fdObj->isString(context)) {
+                // ToNumber on the string; non-numeric -> NaN -> 0.
+                std::string s;
+                fdObj->asString(context)->toUTF8String(context, s);
+                char* endp = nullptr;
+                double parsed = std::strtod(s.c_str(), &endp);
+                if (endp == s.c_str()) fdDouble = 0.0; // NaN-like
+                else fdDouble = parsed;
+            } else if (fdObj == PROTO_TRUE) {
+                fdDouble = 1.0;
+            } else if (fdObj == PROTO_FALSE) {
+                fdDouble = 0.0;
             }
+            if (std::isnan(fdDouble)) fdDouble = 0.0;
+            if (std::isinf(fdDouble)) isInfinite = true;
         }
     }
-    if (fractionDigits < 0 || fractionDigits > 100) {
+    if (isInfinite || fdDouble < 0.0 || fdDouble > 100.0) {
         signalNativeException(makeNativeError(context, "RangeError",
             "Number.prototype.toFixed() fractionDigits must be between 0 and 100"));
         return PROTO_NONE;
     }
+    int fractionDigits = static_cast<int>(fdDouble);
     double value = getNumberValue(context, self);
+    // Step 6: NaN -> "NaN".
+    if (std::isnan(value)) return context->fromUTF8String("NaN");
+    // Step 7: +/- Infinity -> "Infinity" / "-Infinity".
+    if (std::isinf(value))
+        return context->fromUTF8String(value < 0 ? "-Infinity" : "Infinity");
+    // Step 9: if |x| >= 1e21, return ToString(x).
+    if (std::fabs(value) >= 1e21) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%g", value);
+        return context->fromUTF8String(buf);
+    }
     char buf[256];
     snprintf(buf, sizeof(buf), "%.*f", fractionDigits, value);
     return context->fromUTF8String(buf);
