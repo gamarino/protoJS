@@ -1180,8 +1180,11 @@ static const proto::ProtoObject* arrayWith(
     long long len = static_cast<long long>(arrLen(ctx, self));
     if (idx < 0) idx += len;
     if (idx < 0 || idx >= len) {
-        // Throw RangeError per spec — minimal: return original copy.
-        return arrayCloneShallow(ctx, self);
+        // Spec §23.1.3.39 step 5: throw RangeError when the actual
+        // index is outside [0, len). Pre-fix we silently cloned.
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid index"));
+        return PROTO_NONE;
     }
     const proto::ProtoObject* val = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
     const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
