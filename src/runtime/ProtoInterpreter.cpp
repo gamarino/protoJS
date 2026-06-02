@@ -1381,7 +1381,16 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     const proto::ProtoString* msgKey  = JSSymbols::message(ctx);
     if (nameKey)       err = err->setAttribute(ctx, nameKey, ctx->fromUTF8String(name    ? name    : "Error"));
-    if (msgKey && err) err = err->setAttribute(ctx, msgKey,  ctx->fromUTF8String(message ? message : ""));
+    // ECMA-262 §19.5.1.1 step 4.c: when message is provided, the .message
+    // property descriptor is { writable:true, enumerable:false,
+    // configurable:true } → bits 0x3.  Only set the property at all when
+    // a non-empty message string was supplied.
+    if (msgKey && err && message && *message) {
+        err = err->setAttribute(ctx, msgKey, ctx->fromUTF8String(message));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_message__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && err) err = err->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+    }
     return err ? err : PROTO_NONE;
 }
 
@@ -3455,14 +3464,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                             ret = newObj;
                         } else if (errAttr && errAttr != PROTO_NONE) {
-                            std::string msg, type;
+                            // Apply the Error constructor body onto the
+                            // newly-allocated newObj (whose [[Prototype]] is
+                            // NEW_TARGET.prototype = SubClass.prototype) so
+                            // SubClass-specific instance methods stay reachable.
+                            // Pre-fix: makeError ignored newObj and built a
+                            // fresh cell parented at Error.prototype, so
+                            // `class Err extends Error {}; new Err().hasOwnProperty`
+                            // walked the wrong chain and returned undefined.
+                            std::string msg;
                             long long flen = forwardArgs ? (long long)forwardArgs->getSize(pContext) : 0;
                             if (flen > 0) {
                                 const proto::ProtoObject* mVal = toString(pContext, forwardArgs->getAt(pContext, 0));
                                 if (mVal && mVal->isString(pContext)) mVal->asString(pContext)->toUTF8String(pContext, msg);
                             }
-                            if (errAttr->isString(pContext)) errAttr->asString(pContext)->toUTF8String(pContext, type);
-                            ret = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
+                            if (!msg.empty()) {
+                                const proto::ProtoString* msgKeyE = JSSymbols::message(pContext);
+                                if (msgKeyE) {
+                                    newObj = newObj->setAttribute(pContext, msgKeyE,
+                                                                  pContext->fromUTF8String(msg.c_str()));
+                                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_message__");
+                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    if (pdk && newObj)
+                                        newObj = newObj->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
+                                }
+                            }
+                            ret = newObj;
                         } else if (reAttr == PROTO_TRUE) {
                             ret = regexpConstructor(pContext, newObj, nullptr, forwardArgs, nullptr);
                         } else if (strAttr == PROTO_TRUE) {
@@ -3763,22 +3790,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // in-place under the new ctor.
 
                 // Resolve parent prototype.
+                //
+                // ECMA-262 §15.7.14 ClassDefinitionEvaluation:
+                //   - no heritage              → protoParent = Object.prototype
+                //   - extends null             → protoParent = null
+                //                                 (constructorParent = Function.prototype)
+                //   - extends value (non-null) → protoParent = value.prototype
                 REFRESH_GLOBAL_OBJ();
                 const proto::ProtoObject* parentProto = nullptr;
-                if (hasHeritage && parentClass && parentClass != PROTO_NONE) {
-                    const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
-                    if (protoKey)
-                        parentProto = parentClass->getAttribute(pContext, protoKey, false);
+                bool nullHeritage = false;
+                if (hasHeritage) {
+                    if (parentClass == getNullSentinel()) {
+                        nullHeritage = true;
+                    } else if (parentClass && parentClass != PROTO_NONE) {
+                        const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+                        if (protoKey)
+                            parentProto = parentClass->getAttribute(pContext, protoKey, false);
+                    }
                 }
-                if (!parentProto || parentProto == PROTO_NONE) {
+                if (!nullHeritage && (!parentProto || parentProto == PROTO_NONE)) {
                     if (pContext->space)
                         parentProto = pContext->space->objectPrototype;
                 }
 
-                // Build proto inheriting parentProto.
-                const proto::ProtoObject* proto = (parentProto && parentProto != PROTO_NONE)
-                    ? parentProto->newChild(pContext, true)
-                    : pContext->newObject(true);
+                // Build proto inheriting parentProto, OR a bare object whose
+                // [[Prototype]] is JS null when heritage is `extends null`.
+                const proto::ProtoObject* proto;
+                if (nullHeritage) {
+                    proto = pContext->newObject(true);
+                    if (proto) protojs::setJSProtoOverride(proto, getNullSentinel());
+                } else if (parentProto && parentProto != PROTO_NONE) {
+                    proto = parentProto->newChild(pContext, true);
+                } else {
+                    proto = pContext->newObject(true);
+                }
 
                 // bfunc IS the ctor (already a closure).  Install
                 // .prototype, .name, and (for derived classes) a
@@ -3869,7 +3914,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // parent class).  When no heritage, the ctor inherits
                 // Function.prototype which protoCore already provides via
                 // the closure path.
-                if (ctor && ctor != PROTO_NONE && hasHeritage
+                // When `extends null`, constructorParent is Function.prototype
+                // per the spec (§15.7.14 step 6.e.ii) — leave the default.
+                if (ctor && ctor != PROTO_NONE && hasHeritage && !nullHeritage
                     && parentClass && parentClass != PROTO_NONE) {
                     protojs::setJSProtoOverride(ctor, parentClass);
                 }
