@@ -49,6 +49,37 @@ static void collectOwnKeys(
 {
     if (!obj || obj == PROTO_NONE) return;
 
+    // ECMA-262 §19.1.2.16: ToObject(string) yields a String wrapper whose
+    // own enumerable keys are the character indices "0".."n-1". A primitive
+    // string here represents the ToObject view directly; expose its chars
+    // as keys.
+    if (obj->isString(ctx)) {
+        const proto::ProtoString* ps = obj->asString(ctx);
+        if (ps) {
+            std::string s;
+            ps->toUTF8String(ctx, s);
+            // Use UTF-16 code-unit indexing per spec.
+            size_t i = 0;
+            size_t idx = 0;
+            while (i < s.size()) {
+                size_t charLen = 1;
+                unsigned char c = static_cast<unsigned char>(s[i]);
+                if      ((c & 0x80) == 0x00) charLen = 1;
+                else if ((c & 0xE0) == 0xC0) charLen = 2;
+                else if ((c & 0xF0) == 0xE0) charLen = 3;
+                else if ((c & 0xF8) == 0xF0) charLen = 4;
+                if (i + charLen > s.size()) break;
+                std::string ch = s.substr(i, charLen);
+                keys.push_back(std::to_string(idx));
+                if (vals) vals->push_back(ctx->fromUTF8String(ch.c_str()));
+                i += charLen;
+                // 4-byte UTF-8 → surrogate pair, counts as 2 UTF-16 units.
+                idx += (charLen == 4) ? 2 : 1;
+            }
+        }
+        return;
+    }
+
     // Detect arrays to suppress the "length" key (length is non-enumerable on arrays).
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     bool isArr = false;
