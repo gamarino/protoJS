@@ -7917,15 +7917,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 } else if (func && func->isMethod(pContext)) {
-                    const proto::ProtoMethod ctorFn = func->asMethod(pContext);
-                    result = ctorFn ? ctorFn(pContext, newObj, nullptr, argsList, nullptr) : PROTO_NONE;
-                    if (t_hasCallException) {
-                        pending_exception = t_callException;
-                        has_pending_exception = true;
-                        t_hasCallException = false;
-                        t_callException = nullptr;
-                        DISPATCH();
-                    }
+                    // Raw protoCore methods (Math.abs, Math.sign, JSON.parse,
+                    // String.fromCharCode, every built-in instance method,
+                    // etc.) are not constructible per ECMA-262 §17. Throw
+                    // TypeError instead of running them as constructors.
+                    pending_exception = makeError(pContext, "TypeError",
+                        "function is not a constructor", pGlobalRoot);
+                    has_pending_exception = true;
+                    DISPATCH();
                 } else {
                     // Specialized: Array, Error, RegExp, etc.
                     const proto::ProtoString* arrayK = JSSymbols::arrayCtor(pContext);
