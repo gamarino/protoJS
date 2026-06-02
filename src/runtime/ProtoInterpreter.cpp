@@ -588,17 +588,59 @@ static const proto::ProtoObject* globalParseInt(
     else if (strObj->isDouble(ctx)) { char buf[64]; snprintf(buf, sizeof(buf), "%.15g", strObj->asDouble(ctx)); s = buf; }
     else return ctx->fromDouble(nan);
 
-    // Trim leading whitespace
-    size_t i = 0;
-    while (i < s.size() && (s[i]==' '||s[i]=='\t'||s[i]=='\n'||s[i]=='\r'||s[i]=='\f'||s[i]=='\v')) i++;
-    s = s.substr(i);
+    // Trim leading whitespace per ECMA-262 §7.1.4.1.1 StringToNumber:
+    // covers WhiteSpace + LineTerminator. Also handle U+00A0 (NBSP),
+    // U+2028 (LS), U+2029 (PS) which are valid leading whitespace.
+    auto isJSWhitespaceByte = [](const std::string& str, size_t pos, size_t& width) -> bool {
+        if (pos >= str.size()) return false;
+        unsigned char c = static_cast<unsigned char>(str[pos]);
+        // ASCII whitespace
+        if (c==' '||c=='\t'||c=='\n'||c=='\r'||c=='\f'||c=='\v') { width = 1; return true; }
+        // U+00A0 (NBSP): 0xC2 0xA0
+        if (c == 0xC2 && pos+1 < str.size() && (unsigned char)str[pos+1] == 0xA0) { width = 2; return true; }
+        // U+1680, U+2000..U+200A, U+202F, U+205F, U+3000, U+FEFF (BOM).
+        // Encoded as 3-byte UTF-8: 0xE1 0x9A 0x80 (U+1680), 0xE2 0x80 0x80..0x8A (U+2000-200A),
+        // 0xE2 0x80 0xAF (U+202F), 0xE2 0x81 0x9F (U+205F), 0xE3 0x80 0x80 (U+3000),
+        // 0xEF 0xBB 0xBF (U+FEFF), 0xE2 0x80 0xA8/0xA9 (U+2028 LS / U+2029 PS).
+        if (pos+2 < str.size()) {
+            unsigned char b1 = (unsigned char)str[pos+1];
+            unsigned char b2 = (unsigned char)str[pos+2];
+            if (c == 0xE1 && b1 == 0x9A && b2 == 0x80) { width = 3; return true; }
+            if (c == 0xE2 && b1 == 0x80 && (b2 >= 0x80 && b2 <= 0x8A)) { width = 3; return true; }
+            if (c == 0xE2 && b1 == 0x80 && (b2 == 0xA8 || b2 == 0xA9 || b2 == 0xAF)) { width = 3; return true; }
+            if (c == 0xE2 && b1 == 0x81 && b2 == 0x9F) { width = 3; return true; }
+            if (c == 0xE3 && b1 == 0x80 && b2 == 0x80) { width = 3; return true; }
+            if (c == 0xEF && b1 == 0xBB && b2 == 0xBF) { width = 3; return true; }
+        }
+        return false;
+    };
+    {
+        size_t i = 0;
+        size_t w = 0;
+        while (i < s.size() && isJSWhitespaceByte(s, i, w)) i += w;
+        s = s.substr(i);
+    }
 
     int radix = 10;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* ro = args->getAt(ctx, 1);
         if (ro && ro != PROTO_NONE) {
-            if (ro->isInteger(ctx)) radix = static_cast<int>(ro->asLong(ctx));
-            else if (ro->isDouble(ctx)) radix = static_cast<int>(ro->asDouble(ctx));
+            // Spec ToInt32 on the radix argument.
+            double rd = 0;
+            if (ro->isInteger(ctx)) rd = static_cast<double>(ro->asLong(ctx));
+            else if (ro->isDouble(ctx)) rd = ro->asDouble(ctx);
+            else if (ro->isFloat(ctx)) rd = ro->asDouble(ctx);
+            else if (ro == PROTO_TRUE) rd = 1;
+            else if (ro == PROTO_FALSE) rd = 0;
+            else if (ro->isString(ctx)) {
+                std::string rs;
+                ro->asString(ctx)->toUTF8String(ctx, rs);
+                char* endp = nullptr;
+                double parsed = std::strtod(rs.c_str(), &endp);
+                rd = (endp == rs.c_str()) ? 0.0 : parsed;
+            }
+            if (std::isnan(rd) || std::isinf(rd)) rd = 0;
+            radix = static_cast<int>(rd);
         }
     }
     // Handle prefixes
