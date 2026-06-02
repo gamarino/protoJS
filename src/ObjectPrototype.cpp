@@ -1227,10 +1227,13 @@ static const proto::ProtoObject* objectFromEntries(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    const proto::ProtoObject* iterable = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    // ECMA-262 §20.1.2.6 step 1: RequireObjectCoercible(iterable).
+    // null / undefined throw TypeError before any iteration begins.
+    if (throwIfNullOrUndefined(ctx, iterable, "Object.fromEntries"))
+        return PROTO_NONE;
     const proto::ProtoObject* result = ctx->newObject(true);
-    if (!args || args->getSize(ctx) == 0) return result;
-    const proto::ProtoObject* iterable = args->getAt(ctx, 0);
-    if (!iterable || iterable == PROTO_NONE) return result;
 
     // Iterable element read: prefer __elements__ first (real arrays
     // and Map.entries() / Set.entries() pair tuples store data there;
