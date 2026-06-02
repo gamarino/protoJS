@@ -5386,12 +5386,43 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // NOT have a `prototype` property — strip the one
                             // OP_fclosure installed so verifyProperty checks
                             // (`'prototype' in desc.get` === false) pass.
+                            // Also set function.name = "get X" / "set X"
+                            // per SetFunctionName(prefix, name) when missing.
                             if (methodVal && methodVal != PROTO_NONE) {
                                 const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
                                 if (protoKeyDel) {
                                     const proto::ProtoObject* stripped =
                                         methodVal->setAttribute(pContext, protoKeyDel, nullptr);
                                     if (stripped) methodVal = stripped;
+                                }
+                                const proto::ProtoString* nameKey = JSSymbols::name(pContext);
+                                if (nameKey) {
+                                    const proto::ProtoObject* curName = methodVal->getAttribute(pContext, nameKey, false);
+                                    bool needs = !curName || curName == PROTO_NONE;
+                                    if (!needs && curName) {
+                                        const proto::ProtoString* ns = curName->asString(pContext);
+                                        if (ns) {
+                                            std::string s;
+                                            ns->toUTF8String(pContext, s);
+                                            needs = s.empty();
+                                        }
+                                    }
+                                    if (needs) {
+                                        std::string prefixed = (flag == 1 ? "get " : "set ") + nameStr;
+                                        const proto::ProtoObject* nv = pContext->fromUTF8String(prefixed.c_str());
+                                        if (nv) {
+                                            const proto::ProtoObject* upd =
+                                                methodVal->setAttribute(pContext, nameKey, nv);
+                                            if (upd) methodVal = upd;
+                                            const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_name__");
+                                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                            if (pdk) {
+                                                const proto::ProtoObject* withPd =
+                                                    methodVal->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
+                                                if (withPd) methodVal = withPd;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             // Drop any pre-existing data key (so prototype-chain
@@ -5417,12 +5448,45 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // installs one; strip it for the method case so
                     // \`Object.prototype.hasOwnProperty.call(method, 'prototype')\`
                     // returns false as the spec requires.
+                    //
+                    // Also set the method's .name to the declared key when it
+                    // is missing or empty — QuickJS emits OP_set_name before
+                    // OP_define_method only for some method shapes; class-body
+                    // shorthand often lacks it, leaving the function nameless.
                     if (flag == 0 && methodVal && methodVal != PROTO_NONE) {
                         const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
                         if (protoKeyDel) {
                             const proto::ProtoObject* stripped =
                                 methodVal->setAttribute(pContext, protoKeyDel, nullptr);
                             if (stripped) methodVal = stripped;
+                        }
+                        const proto::ProtoString* nameKey = JSSymbols::name(pContext);
+                        if (nameKey) {
+                            const proto::ProtoObject* curName = methodVal->getAttribute(pContext, nameKey, false);
+                            bool needs = !curName || curName == PROTO_NONE;
+                            if (!needs && curName) {
+                                const proto::ProtoString* ns = curName->asString(pContext);
+                                if (ns) {
+                                    std::string s;
+                                    ns->toUTF8String(pContext, s);
+                                    needs = s.empty();
+                                }
+                            }
+                            if (needs) {
+                                const proto::ProtoObject* updated =
+                                    methodVal->setAttribute(pContext, nameKey, key3->asObject(pContext));
+                                if (updated) {
+                                    methodVal = updated;
+                                    // name is {writable:false, enumerable:false, configurable:true} → 0x2
+                                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_name__");
+                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    if (pdk) {
+                                        const proto::ProtoObject* withPd =
+                                            methodVal->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
+                                        if (withPd) methodVal = withPd;
+                                    }
+                                }
+                            }
                         }
                     }
                     // Spec js_method_set_home_object: also attach the
