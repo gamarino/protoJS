@@ -639,7 +639,12 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
     const proto::ProtoSparseList*)
 {
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
-        ? args->getAt(ctx, 0) : nullptr;
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+
+    // ECMA-262 §20.1.2.10 step 1: Let obj be ? ToObject(O).
+    // null / undefined throw TypeError.
+    if (throwIfNullOrUndefined(ctx, obj, "Object.getOwnPropertyNames"))
+        return PROTO_NONE;
 
     // Pass includeNonEnumerable=true to collect all own string properties.
     std::vector<std::string> keys;
