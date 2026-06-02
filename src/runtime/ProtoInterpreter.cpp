@@ -3889,6 +3889,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                         if (protoKey)
                             parentProto = parentClass->getAttribute(pContext, protoKey, false);
+                        // ECMA-262 §15.7.14 step 6.f: parentProto must be
+                        // null or an Object — otherwise TypeError. This
+                        // catches `class C extends f.bind()` (bound function:
+                        // prototype is undefined) and similar shapes.
+                        // A primitive parentProto (number, string, boolean)
+                        // also fails the spec's Object check.
+                        bool invalidProto =
+                            !parentProto || parentProto == PROTO_NONE ||
+                            parentProto == t_undefinedSentinel ||
+                            (parentProto != t_nullSentinel &&
+                             (parentProto->isInteger(pContext) ||
+                              parentProto->isDouble(pContext) ||
+                              parentProto->isFloat(pContext) ||
+                              parentProto == PROTO_TRUE ||
+                              parentProto == PROTO_FALSE ||
+                              parentProto->asString(pContext) != nullptr));
+                        if (invalidProto) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "Class extends value does not have valid prototype property",
+                                pGlobalRoot);
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        // Treat the JS null sentinel as null heritage (spec's
+                        // "if parentProto is null" branch).
+                        if (parentProto == t_nullSentinel) {
+                            nullHeritage = true;
+                            parentProto = nullptr;
+                        }
+                    } else {
+                        // hasHeritage && parentClass is undefined/null sentinel-absent:
+                        // QuickJS already produced an undefined parent; treat
+                        // like null heritage to remain permissive — spec calls
+                        // for TypeError if parentValue is not a constructor.
+                        nullHeritage = true;
                     }
                 }
                 if (!nullHeritage && (!parentProto || parentProto == PROTO_NONE)) {
