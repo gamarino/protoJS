@@ -872,13 +872,47 @@ const proto::ProtoObject* stringReplace(
 
     std::string s   = objToStr(ctx, self);
     std::string pat = objToStr(ctx, pattern);
-    
-    const proto::ProtoObject* repObj = args->getAt(ctx, 1);
-    if (repObj && !repObj->isString(ctx) && !repObj->isInteger(ctx) && !repObj->isDouble(ctx)) {
-        return PROTO_NONE;
-    }
-    std::string rep = objToStr(ctx, repObj);
 
+    const proto::ProtoObject* repObj = args->getAt(ctx, 1);
+    // Spec §22.1.3.18 step 7: if replacement is callable, call it with
+    // (match, offset, string) and use the result. Pre-fix non-string
+    // replacements (including functions) returned PROTO_NONE.
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        return false;
+    };
+    bool repCallable = isCallable(repObj);
+    if (!repCallable && repObj && !repObj->isString(ctx)
+        && !repObj->isInteger(ctx) && !repObj->isDouble(ctx)) {
+        // Coerce primitives via objToStr (covers null/boolean/etc.).
+    }
+
+    auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
+        const proto::ProtoList* callArgs = ctx->newList();
+        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(matched.c_str()));
+        callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(offset)));
+        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        const proto::ProtoObject* res = callJSFunction(ctx, repObj, PROTO_NONE, callArgs);
+        return objToStr(ctx, res);
+    };
+
+    if (repCallable) {
+        if (pat.empty()) {
+            // Empty pattern: replace at position 0 with cb("", 0, s).
+            return ctx->fromUTF8String((callReplacement("", 0) + s).c_str());
+        }
+        size_t pos = s.find(pat);
+        if (pos == std::string::npos) return ctx->fromUTF8String(s.c_str());
+        return ctx->fromUTF8String(
+            (s.substr(0, pos) + callReplacement(pat, pos) + s.substr(pos + pat.size())).c_str());
+    }
+
+    std::string rep = objToStr(ctx, repObj);
     if (pat.empty()) return ctx->fromUTF8String((applyStringReplacement(s, pat, rep, 0) + s).c_str());
     size_t pos = s.find(pat);
     if (pos == std::string::npos) return ctx->fromUTF8String(s.c_str());
@@ -900,19 +934,43 @@ const proto::ProtoObject* stringReplaceAll(
 
     std::string s   = objToStr(ctx, self);
     std::string pat = objToStr(ctx, pattern);
-    
+
     const proto::ProtoObject* repObj = args->getAt(ctx, 1);
-    if (repObj && !repObj->isString(ctx) && !repObj->isInteger(ctx) && !repObj->isDouble(ctx)) {
-        return PROTO_NONE;
-    }
-    std::string rep = objToStr(ctx, repObj);
+    // Spec §22.1.3.20 step 8: callable replacement gets (match, offset, string).
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        return false;
+    };
+    bool repCallable = isCallable(repObj);
+    auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
+        const proto::ProtoList* callArgs = ctx->newList();
+        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(matched.c_str()));
+        callArgs = callArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(offset)));
+        callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+        const proto::ProtoObject* res = callJSFunction(ctx, repObj, PROTO_NONE, callArgs);
+        return objToStr(ctx, res);
+    };
 
     if (pat.empty()) {
         std::string result;
-        result += applyStringReplacement(s, pat, rep, 0);
-        for (size_t i = 0; i < s.size(); i++) {
-            result += s[i];
-            result += applyStringReplacement(s, pat, rep, i + 1);
+        if (repCallable) {
+            result += callReplacement("", 0);
+            for (size_t i = 0; i < s.size(); i++) {
+                result += s[i];
+                result += callReplacement("", i + 1);
+            }
+        } else {
+            std::string rep = objToStr(ctx, repObj);
+            result += applyStringReplacement(s, pat, rep, 0);
+            for (size_t i = 0; i < s.size(); i++) {
+                result += s[i];
+                result += applyStringReplacement(s, pat, rep, i + 1);
+            }
         }
         return ctx->fromUTF8String(result.c_str());
     }
@@ -922,7 +980,12 @@ const proto::ProtoObject* stringReplaceAll(
     size_t pos = s.find(pat, lastPos);
     while (pos != std::string::npos) {
         result += s.substr(lastPos, pos - lastPos);
-        result += applyStringReplacement(s, pat, rep, pos);
+        if (repCallable) {
+            result += callReplacement(pat, pos);
+        } else {
+            std::string rep = objToStr(ctx, repObj);
+            result += applyStringReplacement(s, pat, rep, pos);
+        }
         lastPos = pos + pat.size();
         pos = s.find(pat, lastPos);
     }
