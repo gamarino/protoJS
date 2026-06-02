@@ -1722,4 +1722,15 @@ const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj)
     return (it != t_jsProtoMap.end()) ? it->second : nullptr;
 }
 
+void setJSProtoOverride(const proto::ProtoObject* obj,
+                        const proto::ProtoObject* proto)
+{
+    if (!obj) return;
+    if (proto == nullptr) {
+        t_jsProtoMap.erase(obj);
+        return;
+    }
+    t_jsProtoMap[obj] = proto;
+}
+
 } // namespace protojs

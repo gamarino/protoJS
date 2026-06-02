@@ -31,6 +31,14 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
  */
 const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj);
 
+/**
+ * Record an explicit JS [[Prototype]] override for obj. Used by OP_define_class
+ * so Object.getPrototypeOf(DerivedClass) === ParentClass.
+ * Pass nullptr to clear any prior override (equivalent to "no override").
+ */
+void setJSProtoOverride(const proto::ProtoObject* obj,
+                        const proto::ProtoObject* proto);
+
 } // namespace protojs
 
 #endif // PROTOJS_OBJECTPROTOTYPE_H

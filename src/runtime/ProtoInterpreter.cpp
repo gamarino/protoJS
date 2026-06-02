@@ -3863,6 +3863,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
+                // For derived classes, record the JS [[Prototype]] override
+                // on the ctor so Object.getPrototypeOf(SubClass) === ParentClass
+                // (ECMA-262 §15.7.14, step 6.e: F.[[Prototype]] is set to the
+                // parent class).  When no heritage, the ctor inherits
+                // Function.prototype which protoCore already provides via
+                // the closure path.
+                if (ctor && ctor != PROTO_NONE && hasHeritage
+                    && parentClass && parentClass != PROTO_NONE) {
+                    protojs::setJSProtoOverride(ctor, parentClass);
+                }
+
                 // Replace top 2 stack slots with [ctor, proto].
                 _PF().stackTop -= 2;
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = ctor ? ctor : PROTO_NONE;
@@ -5371,6 +5382,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
                         const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
                         if (skp) {
+                            // Per ECMA-262 §14.3.9, getter/setter functions do
+                            // NOT have a `prototype` property — strip the one
+                            // OP_fclosure installed so verifyProperty checks
+                            // (`'prototype' in desc.get` === false) pass.
+                            if (methodVal && methodVal != PROTO_NONE) {
+                                const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
+                                if (protoKeyDel) {
+                                    const proto::ProtoObject* stripped =
+                                        methodVal->setAttribute(pContext, protoKeyDel, nullptr);
+                                    if (stripped) methodVal = stripped;
+                                }
+                            }
                             // Drop any pre-existing data key (so prototype-chain
                             // lookup sees the accessor, not a stale value).
                             const proto::ProtoObject* tmp = obj3->setAttribute(pContext, key3, PROTO_NONE);
@@ -5474,6 +5497,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* sko = pContext->fromUTF8String(sidecar.c_str());
                     const proto::ProtoString* skp = sko ? sko->asString(pContext) : nullptr;
                     if (skp) {
+                        // Strip the spurious .prototype on getter/setter
+                        // functions (ECMA-262 §14.3.9).
+                        if (methodVal && methodVal != PROTO_NONE) {
+                            const proto::ProtoString* protoKeyDel = JSSymbols::prototype(pContext);
+                            if (protoKeyDel) {
+                                const proto::ProtoObject* stripped =
+                                    methodVal->setAttribute(pContext, protoKeyDel, nullptr);
+                                if (stripped) methodVal = stripped;
+                            }
+                        }
                         const proto::ProtoObject* tmp = obj2->setAttribute(pContext, keyStr2, PROTO_NONE);
                         const proto::ProtoObject* newObj2 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
                         // Accessor descriptor: bits 0x2 (configurable only).
