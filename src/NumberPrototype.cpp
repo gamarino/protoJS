@@ -243,6 +243,11 @@ const proto::ProtoObject* numberToExponential(
             "toExponential() argument must be between 0 and 100"));
         return PROTO_NONE;
     }
+    // Spec §21.1.3.2 step 5: if x < 0, prepend "-" and negate x.
+    // Crucially -0 < 0 is FALSE, so -0 must serialise without the
+    // sign. glibc's %e prints "-0e+00" for -0.0; normalise it to +0
+    // before formatting to match the spec.
+    if (value == 0.0) value = 0.0;
     char buf[256];
     if (fdUndefined) {
         // Spec: choose the smallest number of digits that round-trips
