@@ -1846,6 +1846,22 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (constructKey && ctorMethodObj)
         ctor = ctor->setAttribute(ctx, constructKey, ctorMethodObj);
 
+    // Object.prototype.constructor === Object per §20.1.3.1.
+    // Without this `({}).constructor` is undefined, breaking every
+    // test262 case that walks `instance.constructor` to compare against
+    // the Object identity.
+    if (proto && proto != PROTO_NONE) {
+        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
+        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        if (ctorWordKey) {
+            const proto::ProtoObject* updatedProto =
+                proto->setAttribute(ctx, ctorWordKey, ctor);
+            if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
+                ctx->space->objectPrototype = const_cast<proto::ProtoObject*>(updatedProto);
+            }
+        }
+    }
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyObject, ctor);
 }
 
