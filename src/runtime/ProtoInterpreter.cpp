@@ -1317,8 +1317,19 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // Only register if not already present.
         const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ctorKey, false);
         if (existing && existing != PROTO_NONE) continue;
-        // Build prototype object.
-        const proto::ProtoObject* proto = ctx->newObject(true);
+        // Build prototype object parented at Object.prototype so the standard
+        // instance methods (hasOwnProperty, isPrototypeOf, ...) are reachable
+        // via the attribute walk.  Pre-fix newObject(true) returned a bare
+        // cell with no parent, so `new Err('x').hasOwnProperty` walked the
+        // chain Err.prototype → Error.prototype → <nothing> and returned
+        // undefined — even though Object.getPrototypeOf(Error.prototype)
+        // reported Object.prototype (via t_jsProtoMap override) lying about
+        // the actual lookup chain.
+        const proto::ProtoObject* objProto =
+            (ctx->space) ? ctx->space->objectPrototype : nullptr;
+        const proto::ProtoObject* proto = (objProto && objProto != PROTO_NONE)
+            ? objProto->newChild(ctx, true)
+            : ctx->newObject(true);
         if (!proto) continue;
         proto = proto->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!proto) continue;
