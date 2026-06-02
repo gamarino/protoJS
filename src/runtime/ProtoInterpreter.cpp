@@ -3906,8 +3906,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         nullHeritage = true;
                     } else if (parentClass && parentClass != PROTO_NONE) {
                         const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
-                        if (protoKey)
-                            parentProto = parentClass->getAttribute(pContext, protoKey, false);
+                        if (protoKey) {
+                            // Spec Get(parentValue, "prototype"): invoke an
+                            // accessor (getter) if one is installed via
+                            // Object.defineProperty(Base, 'prototype', {get:..})
+                            // before falling back to the raw value.
+                            parentProto = invokeGetterIfPresentFast(parentClass, protoKey);
+                            if (has_pending_exception) DISPATCH();
+                            if (!parentProto || parentProto == PROTO_NONE)
+                                parentProto = parentClass->getAttribute(pContext, protoKey, false);
+                        }
                         // ECMA-262 §15.7.14 step 6.f: parentProto must be
                         // null or an Object — otherwise TypeError. This
                         // catches `class C extends f.bind()` (bound function:
