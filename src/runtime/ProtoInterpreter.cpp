@@ -4817,13 +4817,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_get_loc_checkthis: {
+                // Like OP_get_loc_check but for the derived-class-ctor `this`
+                // slot.  Per ECMA-262 §15.7.10, before super(...) has run the
+                // `this` binding is in the uninitialized state and any read
+                // must throw ReferenceError.  QuickJS represents this by
+                // seeding the slot with the TDZ sentinel at function entry
+                // and clearing it on super() return.
                 if (pc + 2 > len) return PROTO_NONE;
                 uint16_t locIndex = get_u16(buf + pc);
                 pc += 2;
-                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount))
-                    stackPush(pContext, getSlot(pContext, argCount + locIndex));
-                else
-                    stackPush(pContext,PROTO_NONE);
+                if (locIndex < varCount && (argCount + locIndex) < (argCount + varCount)) {
+                    const proto::ProtoObject* val = getSlot(pContext, argCount + locIndex);
+                    if (val == tdzSentinel) {
+                        pending_exception = makeError(pContext, "ReferenceError",
+                            "this is not initialized - super() must be called first",
+                            pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                    stackPush(pContext, val ? val : PROTO_NONE);
+                } else {
+                    stackPush(pContext, PROTO_NONE);
+                }
                 DISPATCH();
             }
             L_OP_get_field: {
