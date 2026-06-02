@@ -492,9 +492,42 @@ const proto::ProtoObject* stringRepeat(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    long long count = getIntArg(ctx, args, 0, 0);
-    if (count <= 0 || s.empty()) return ctx->fromUTF8String("");
-    if (count > 65536) count = 65536; // guard against absurd allocations
+    // ECMA-262 §22.1.3.16: ToInteger(count); negative or +Infinity
+    // throws RangeError. The previous implementation silently treated
+    // negative as "", and capped Infinity to a runaway 65536-character
+    // allocation.
+    double dcount = 0.0;
+    bool sawArg = args && args->getSize(ctx) > 0;
+    if (sawArg) {
+        const proto::ProtoObject* a = args->getAt(ctx, 0);
+        if (a && a != PROTO_NONE) {
+            if (a->isInteger(ctx))       dcount = static_cast<double>(a->asLong(ctx));
+            else if (a->isDouble(ctx) || a->isFloat(ctx)) dcount = a->asDouble(ctx);
+            else if (a == PROTO_TRUE)    dcount = 1.0;
+            else if (a == PROTO_FALSE)   dcount = 0.0;
+            else if (a->isString(ctx)) {
+                const proto::ProtoObject* num = jsToNumber(ctx, a);
+                if (num && (num->isInteger(ctx))) dcount = static_cast<double>(num->asLong(ctx));
+                else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) dcount = num->asDouble(ctx);
+            }
+        }
+    }
+    // ToInteger: NaN → 0, truncate toward zero.
+    if (std::isnan(dcount)) dcount = 0.0;
+    if (dcount < 0.0 || std::isinf(dcount)) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid count value"));
+        return PROTO_NONE;
+    }
+    long long count = static_cast<long long>(dcount);
+    if (count == 0 || s.empty()) return ctx->fromUTF8String("");
+    // Cap real allocation; legitimate uses fall well below this.
+    constexpr size_t kRepeatCap = 1u << 24; // 16 MiB worth of repeats
+    if (s.size() && static_cast<size_t>(count) > kRepeatCap / s.size()) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid string length"));
+        return PROTO_NONE;
+    }
     std::string result;
     result.reserve(s.size() * static_cast<size_t>(count));
     for (long long i = 0; i < count; i++) result += s;
