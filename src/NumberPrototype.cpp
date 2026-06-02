@@ -631,6 +631,19 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
             ctor = ctor->setAttribute(ctx, ctorMethodKey, ctorMethodObj);
     }
 
+    // Number.prototype.constructor === Number per §21.1.4.1.
+    if (numProto && numProto != PROTO_NONE) {
+        const proto::ProtoObject* ctorWordObj = ctx->fromUTF8String("constructor");
+        const proto::ProtoString* ctorWordKey = ctorWordObj ? ctorWordObj->asString(ctx) : nullptr;
+        if (ctorWordKey) {
+            const proto::ProtoObject* updatedProto =
+                numProto->setAttribute(ctx, ctorWordKey, ctor);
+            if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
+                ctx->space->smallIntegerPrototype = const_cast<proto::ProtoObject*>(updatedProto);
+            }
+        }
+    }
+
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
 }
 
