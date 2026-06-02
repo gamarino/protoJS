@@ -583,9 +583,25 @@ static const proto::ProtoObject* objectGetPrototypeOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
+    // ECMA-262 §19.1.2.12 (ES5) / §20.1.2.12 (ES2015+): Object.getPrototypeOf
+    // throws TypeError when called with null/undefined. (Modern spec allows
+    // primitives via ToObject, but null and undefined remain TypeError.)
+    if (!args || args->getSize(ctx) == 0) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined to object"));
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
-    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined to object"));
+        return PROTO_NONE;
+    }
+    if (obj == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert null to object"));
+        return PROTO_NONE;
+    }
     // Check for an explicit JS prototype override first.
     {
         auto it = t_jsProtoMap.find(obj);

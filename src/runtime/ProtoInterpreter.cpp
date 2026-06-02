@@ -1357,8 +1357,13 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             if (toStringMethod) proto = proto->setAttribute(ctx, toStringKey, toStringMethod);
         }
         if (!proto) continue;
-        // Build constructor stub.
-        const proto::ProtoObject* ctor = ctx->newObject(true);
+        // Build constructor stub parented at Function.prototype so that
+        // Object.getPrototypeOf(Error) === Function.prototype per spec.
+        const proto::ProtoObject* fpProto =
+            (ctx->space) ? ctx->space->methodPrototype : nullptr;
+        const proto::ProtoObject* ctor = (fpProto && fpProto != PROTO_NONE)
+            ? fpProto->newChild(ctx, true)
+            : ctx->newObject(true);
         if (!ctor) continue;
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
@@ -1990,12 +1995,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (flag == PROTO_TRUE) needsGlobalInit = false;
     }
   if (needsGlobalInit) {
+    // Register Function.prototype first so that downstream constructors can
+    // parent themselves on it — this makes Object.getPrototypeOf(Error) /
+    // Object.getPrototypeOf(TypeError) etc. resolve to Function.prototype
+    // via the protoCore parent chain without needing per-ctor overrides.
+    ensureFunctionPrototype(pContext, pGlobalRoot);
+
     // Register built-in error constructors once so that `instanceof` works.
     ensureBuiltinErrorConstructors(pContext, pGlobalRoot);
-
-    // Register Function.prototype first so that wrapNativeFunction can use it
-    // as the parent for all native function wrappers registered below.
-    ensureFunctionPrototype(pContext, pGlobalRoot);
 
     // Register Array constructor and Array.prototype (idempotent).
     ensureArrayPrototype(pContext, pGlobalRoot);
