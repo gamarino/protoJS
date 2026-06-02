@@ -2018,26 +2018,39 @@ static const proto::ProtoObject* arraySplice(
     long long len = (long long)arrLen(ctx, self);
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
 
-    // Parse start.
-    long long start = 0;
-    if (n >= 1) {
-        const proto::ProtoObject* sv = args->getAt(ctx, 0);
-        if (sv && sv != PROTO_NONE) {
-            if (sv->isInteger(ctx)) start = sv->asLong(ctx);
-            else if (sv->isDouble(ctx) || sv->isFloat(ctx)) start = (long long)sv->asDouble(ctx);
+    // ECMA-262 §23.1.3.30 step 4: if no arguments, return empty array
+    // without modifying the receiver. Pre-fix splice() collapsed to
+    // delCount=0, insert nothing — same effect on the receiver, but
+    // returned the FULL array via the `removed` collector logic when
+    // delCount > len-start; harmless until you used the return value.
+    if (n == 0) return createNewArray(ctx, nullptr);
+
+    // ECMA-262 §23.1.3.30: ToIntegerOrInfinity on start.
+    auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
+        if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
+        if (o->isInteger(ctx)) return o->asLong(ctx);
+        if (o->isDouble(ctx) || o->isFloat(ctx)) {
+            double d = o->asDouble(ctx);
+            if (std::isnan(d)) return 0;
+            if (std::isinf(d)) return d > 0 ? len : -len - 1;
+            return static_cast<long long>(d);
         }
-    }
+        return defaultV;
+    };
+
+    // Parse start.
+    long long start = n >= 1 ? toII(args->getAt(ctx, 0), 0) : 0;
     if (start < 0) { start += len; if (start < 0) start = 0; }
     if (start > len) start = len;
 
-    // Parse deleteCount.
-    long long delCount = len - start;
-    if (n >= 2) {
-        const proto::ProtoObject* dv = args->getAt(ctx, 1);
-        if (dv && dv != PROTO_NONE) {
-            if (dv->isInteger(ctx)) delCount = dv->asLong(ctx);
-            else if (dv->isDouble(ctx) || dv->isFloat(ctx)) delCount = (long long)dv->asDouble(ctx);
-        }
+    // Parse deleteCount per spec step 7: with exactly one argument
+    // deleteCount = len - start (remove the tail); with two or more
+    // arguments, ToIntegerOrInfinity then clamp to [0, len-start].
+    long long delCount;
+    if (n == 1) {
+        delCount = len - start;
+    } else {
+        delCount = toII(args->getAt(ctx, 1), 0);
         if (delCount < 0) delCount = 0;
         if (delCount > len - start) delCount = len - start;
     }
