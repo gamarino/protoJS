@@ -1856,9 +1856,13 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     // via the standard chain walk (same fix as ArrayPrototype).
     const proto::ProtoObject* ctorParent =
         (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
+    // ctor must be mutable so the constructor backref roundtrip
+    // (Object.prototype.constructor === Object) survives. With an
+    // immutable ctor the final ctor.prototype re-link split it into a
+    // different identity than the one stored at globalRoot.Object.
     const proto::ProtoObject* ctor = ctorParent
-        ? ctorParent->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? ctorParent->newChild(ctx, true)
+        : ctx->newObject(true);
     if (!ctor) return;
 
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
@@ -2021,6 +2025,16 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
             }
             if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
                 ctx->space->objectPrototype = const_cast<proto::ProtoObject*>(updatedProto);
+            }
+            // Re-link ctor.prototype to the post-update prototype.
+            // objectPrototype is created immutable by protoCore, so
+            // setAttribute returned a NEW object — ctor.prototype must
+            // be updated or `Object.prototype.constructor` (which
+            // reads through globalRoot.Object.prototype) still sees
+            // the pre-update proto without the backref.
+            if (updatedProto && updatedProto != PROTO_NONE) {
+                const proto::ProtoString* protoKey2 = JSSymbols::prototype(ctx);
+                if (protoKey2) ctor = ctor->setAttribute(ctx, protoKey2, updatedProto);
             }
         }
     }
