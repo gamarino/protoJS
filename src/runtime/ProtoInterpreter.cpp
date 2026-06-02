@@ -612,11 +612,46 @@ static const proto::ProtoObject* globalParseInt(
     if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
     const proto::ProtoObject* strObj = args->getAt(ctx, 0);
     std::string s;
-    if (!strObj || strObj == PROTO_NONE) return ctx->fromDouble(nan);
-    if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
+    if (!strObj || strObj == PROTO_NONE
+        || strObj == getUndefinedSentinel()) return ctx->fromDouble(nan);
+    if (strObj == getNullSentinel()) { s = "null"; }
+    else if (strObj == PROTO_TRUE)  { s = "true"; }
+    else if (strObj == PROTO_FALSE) { s = "false"; }
+    else if (strObj->isString(ctx)) { const proto::ProtoString* ps = strObj->asString(ctx); if (ps) ps->toUTF8String(ctx, s); }
     else if (strObj->isInteger(ctx)) { s = std::to_string(strObj->asLong(ctx)); }
     else if (strObj->isDouble(ctx)) { char buf[64]; snprintf(buf, sizeof(buf), "%.15g", strObj->asDouble(ctx)); s = buf; }
-    else return ctx->fromDouble(nan);
+    else if (strObj->isBoolean(ctx)) { s = strObj->asBoolean(ctx) ? "true" : "false"; }
+    else {
+        // Object: spec §19.2.6 step 1 wraps the argument with ToString,
+        // which goes through ToPrimitive(hint:"string") — invoke
+        // toString first, fall back to valueOf. Custom toString on
+        // objects (e.g. {toString: () => "42"}) and Array's
+        // join-via-toString both reach parseInt this way. Previously
+        // parseInt silently returned NaN for any non-primitive.
+        const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
+        const proto::ProtoString* voKey = JSSymbols::valueOf(ctx);
+        const proto::ProtoObject* prim = nullptr;
+        if (tsKey) {
+            const proto::ProtoObject* tsFn = strObj->getAttribute(ctx, tsKey, true);
+            if (tsFn && tsFn != PROTO_NONE) {
+                const proto::ProtoObject* res = callJSFunction(ctx, tsFn, strObj, ctx->newList());
+                if (res && res != PROTO_NONE && res->isString(ctx)) prim = res;
+            }
+        }
+        if (!prim && voKey) {
+            const proto::ProtoObject* voFn = strObj->getAttribute(ctx, voKey, true);
+            if (voFn && voFn != PROTO_NONE) {
+                const proto::ProtoObject* res = callJSFunction(ctx, voFn, strObj, ctx->newList());
+                if (res && res != PROTO_NONE && res->isString(ctx)) prim = res;
+            }
+        }
+        if (prim && prim->isString(ctx)) {
+            const proto::ProtoString* ps = prim->asString(ctx);
+            if (ps) ps->toUTF8String(ctx, s);
+        } else {
+            return ctx->fromDouble(nan);
+        }
+    }
 
     // Trim leading whitespace per ECMA-262 §7.1.4.1.1 StringToNumber:
     // covers WhiteSpace + LineTerminator. Also handle U+00A0 (NBSP),
