@@ -785,12 +785,24 @@ static const proto::ProtoObject* globalParseInt(
             radix = static_cast<int>(rd);
         }
     }
-    // Handle prefixes
+    // Spec §19.2.6 step 8: only the "0x"/"0X" prefix triggers an
+    // automatic radix upgrade — and only when radix is unspecified
+    // (defaults to 10 here, distinguished by argSize) OR when radix
+    // is already 16. Other radixes preserve the leading "0" as part
+    // of the parse.
+    bool radixGiven = args->getSize(ctx) > 1
+        && args->getAt(ctx, 1) != PROTO_NONE
+        && args->getAt(ctx, 1) != getUndefinedSentinel();
     bool negative = false;
     if (!s.empty() && (s[0] == '+' || s[0] == '-')) { negative = (s[0] == '-'); s = s.substr(1); }
-    if (s.size() >= 2 && s[0] == '0' && (s[1]=='x'||s[1]=='X') && (radix==10||radix==16)) { radix = 16; s = s.substr(2); }
-    else if (s.size() >= 2 && s[0]=='0' && (s[1]=='b'||s[1]=='B') && radix==2) { s = s.substr(2); }
-    else if (s.size() >= 2 && s[0]=='0' && (s[1]=='o'||s[1]=='O') && radix==8) { s = s.substr(2); }
+    if (s.size() >= 2 && s[0] == '0' && (s[1]=='x'||s[1]=='X')) {
+        if (!radixGiven || radix == 16) {
+            radix = 16;
+            s = s.substr(2);
+        }
+        // Else: explicit radix 10/2/8/etc — leave "0x..." in place;
+        // the strtoull below will parse "0" and stop at 'x'.
+    }
     if (radix < 2 || radix > 36 || s.empty()) return ctx->fromDouble(nan);
 
     char* end = nullptr;
