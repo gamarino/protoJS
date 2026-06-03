@@ -1886,9 +1886,16 @@ static const proto::ProtoObject* arrayReduce(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // ECMA-262 §23.1.3.26 step ordering: LengthOfArrayLike(O)
+    // (which may throw if length is an accessor) precedes the
+    // IsCallable(callbackfn) check.  Pre-fix we reversed that and
+    // surfaced a synthetic TypeError "not callable" whenever the
+    // length getter threw, instead of letting the user's exception
+    // propagate.
+    long long len = (long long)arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.reduce")) return PROTO_NONE;
-    long long len = (long long)arrLen(ctx, self);
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
     bool hasInit  = n >= 2;
     const proto::ProtoObject* acc;
@@ -1938,9 +1945,11 @@ static const proto::ProtoObject* arrayReduceRight(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.27: LengthOfArrayLike precedes IsCallable; see arrayReduce.
+    long long len = (long long)arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.reduceRight")) return PROTO_NONE;
-    long long len = (long long)arrLen(ctx, self);
     long long n   = args ? (long long)args->getSize(ctx) : 0LL;
     bool hasInit  = n >= 2;
     const proto::ProtoObject* acc;
