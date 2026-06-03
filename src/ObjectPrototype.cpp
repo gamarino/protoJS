@@ -2064,7 +2064,21 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
                     ctx->fromInteger(0x3LL));
             }
             if (ctx->space && updatedProto && updatedProto != PROTO_NONE) {
+                const proto::ProtoObject* oldOP = ctx->space->objectPrototype;
                 ctx->space->objectPrototype = const_cast<proto::ProtoObject*>(updatedProto);
+                // ensureFunctionPrototype already parented Function.prototype
+                // at the OLD objectPrototype pointer; that snapshot lacks
+                // the `constructor` backref we just added. Without further
+                // help, `Function.prototype instanceof Object` and
+                // `Array instanceof Object` both return false because the
+                // user-visible Object.prototype (= updatedProto) is not
+                // reachable through Function.prototype's chain. Tie the
+                // two by adding updatedProto as an extra parent of fp
+                // (fp is mutable, so addParent mutates in place).
+                if (oldOP != updatedProto && ctx->space->methodPrototype
+                    && ctx->space->methodPrototype != oldOP) {
+                    ctx->space->methodPrototype->addParent(ctx, updatedProto);
+                }
             }
             // Re-link ctor.prototype to the post-update prototype.
             // objectPrototype is created immutable by protoCore, so
