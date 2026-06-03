@@ -214,9 +214,26 @@ static const proto::ProtoObject* mapSet(
         setMapListInPlace(ctx, self, "__map_vals__", valsList->setAt(ctx, existingIdx, val));
         return self;
     }
-    // New entry.
+    // New entry — pick the slot AFTER the highest currently used slot,
+    // not size, because removeAt leaves sparse-list holes that mean
+    // size != max-slot+1 after any delete. Pre-fix `newIdx = size`
+    // overwrote the entry that previously sat at slot `size` (e.g.
+    // delete 'a' from c,a,b leaves 0=c, 2=b, size=2; re-set 'a' at
+    // slot 2 wiped 'b').
     long sz = getMapSize(ctx, self);
-    unsigned long newIdx = static_cast<unsigned long>(sz);
+    unsigned long newIdx = 0;
+    bool hasAny = false;
+    {
+        const proto::ProtoSparseListIterator* it = keysList->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            unsigned long slot = it->nextKey(ctx);
+            (void)it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (!hasAny || slot >= newIdx) newIdx = slot + 1;
+            hasAny = true;
+        }
+    }
+    if (!hasAny) newIdx = static_cast<unsigned long>(sz);
     keysList = keysList->setAt(ctx, newIdx, key);
     valsList = valsList->setAt(ctx, newIdx, val);
     unsigned long h = szvHash(ctx, key);
@@ -520,7 +537,24 @@ static void mapInsertEntry(proto::ProtoContext* ctx,
     const proto::ProtoSparseList* hl = getMapList(ctx, mapObj, "__map_hash__");
     if (!kl || !vl || !hl) return;
     long sz = getMapSize(ctx, mapObj);
-    unsigned long ni = static_cast<unsigned long>(sz);
+    // ECMA-262 §24.1.3.9: re-adding a key after delete places it at
+    // the END of the insertion order. Pre-fix used `ni = size` as the
+    // sparse-list slot, but after a removeAt the sparse list still has
+    // holes — slot `size` may be occupied by an entry that was at a
+    // higher index pre-delete (e.g. delete 'a' from c,a,b leaves
+    // 0=c, 2=b, size=2; re-setting 'a' at slot 2 overwrote 'b').
+    // Walk the existing keys list and pick max(slotIdx)+1 instead.
+    unsigned long ni = 0;
+    bool hasAny = false;
+    const proto::ProtoSparseListIterator* it = kl->getIterator(ctx);
+    while (it && it->hasNext(ctx)) {
+        unsigned long slot = it->nextKey(ctx);
+        (void)it->nextValue(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        if (!hasAny || slot >= ni) ni = slot + 1;
+        hasAny = true;
+    }
+    if (!hasAny) ni = static_cast<unsigned long>(sz);
     kl = kl->setAt(ctx, ni, key);
     vl = vl->setAt(ctx, ni, val);
     unsigned long h = szvHash(ctx, key);
