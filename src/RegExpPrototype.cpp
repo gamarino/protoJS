@@ -626,11 +626,20 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
     reg("Symbol.split",    regexpSymbolSplit,    2);
     reg("Symbol.matchAll", regexpSymbolMatchAll, 1);
 
-    // Set Symbol.toStringTag so Object.prototype.toString.call(new RegExp()) === "[object RegExp]"
+    // Set Symbol.toStringTag so Object.prototype.toString.call(new RegExp())
+    // === "[object RegExp]". Install under both internal and user-visible
+    // keys (see the Map / Set / Promise / Math / JSON fixes).
     {
         const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
         if (tagKey)
             sp = sp->setAttribute(ctx, tagKey, ctx->fromUTF8String("RegExp"));
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            sp = sp->setAttribute(ctx, userKey, ctx->fromUTF8String("RegExp"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
     }
 
     return sp;

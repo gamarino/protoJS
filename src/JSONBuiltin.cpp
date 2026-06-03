@@ -718,9 +718,18 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         patchLen("parse",     2);
         // Symbol.toStringTag = "JSON" per §25.5.4 so
         // Object.prototype.toString.call(JSON) === "[object JSON]".
+        // Install under both internal sidecar and user-visible key
+        // (see the Map / Set / Promise / Math fixes in this round).
         const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
         if (tagKey) jsonObj = jsonObj->setAttribute(ctx, tagKey,
             ctx->fromUTF8String("JSON"));
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            jsonObj = jsonObj->setAttribute(ctx, userKey, ctx->fromUTF8String("JSON"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) jsonObj = jsonObj->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
     }
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "JSON", jsonObj);
 }
