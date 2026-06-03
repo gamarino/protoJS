@@ -577,18 +577,65 @@ const proto::ProtoObject* stringLocaleCompare(
     return ctx->fromInteger(cmp < 0 ? -1LL : cmp > 0 ? 1LL : 0LL);
 }
 
+// ECMA-262 §22.1.3.32 WhiteSpace + LineTerminator: covers ASCII
+// space/tab/newline/CR/formfeed/vtab AND the higher Unicode
+// whitespace classes including NBSP (U+00A0), BOM (U+FEFF),
+// IDEOGRAPHIC SPACE (U+3000), and U+2028 / U+2029. Returns the
+// width consumed when the position points to a whitespace code
+// point; 0 otherwise.
+static size_t jsWhitespaceWidth(const std::string& s, size_t pos) {
+    if (pos >= s.size()) return 0;
+    unsigned char c = static_cast<unsigned char>(s[pos]);
+    if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') return 1;
+    if (pos + 1 < s.size() && c == 0xC2 &&
+        static_cast<unsigned char>(s[pos + 1]) == 0xA0) return 2; // NBSP
+    if (pos + 2 < s.size()) {
+        unsigned char b1 = static_cast<unsigned char>(s[pos + 1]);
+        unsigned char b2 = static_cast<unsigned char>(s[pos + 2]);
+        if (c == 0xE1 && b1 == 0x9A && b2 == 0x80) return 3; // U+1680
+        if (c == 0xE2 && b1 == 0x80 && (b2 >= 0x80 && b2 <= 0x8A)) return 3; // U+2000-200A
+        if (c == 0xE2 && b1 == 0x80 && (b2 == 0xA8 || b2 == 0xA9 || b2 == 0xAF)) return 3; // U+2028/2029/202F
+        if (c == 0xE2 && b1 == 0x81 && b2 == 0x9F) return 3; // U+205F
+        if (c == 0xE3 && b1 == 0x80 && b2 == 0x80) return 3; // U+3000
+        if (c == 0xEF && b1 == 0xBB && b2 == 0xBF) return 3; // U+FEFF (BOM)
+    }
+    return 0;
+}
+
+// Trim backwards: find the start of any whitespace code point
+// ending at `hi`. Returns the new `hi` after consuming one
+// whitespace code point if present.
+static size_t trimOneCharBackwards(const std::string& s, size_t hi) {
+    if (hi == 0) return 0;
+    // ASCII fast path
+    unsigned char last = static_cast<unsigned char>(s[hi - 1]);
+    if (last == ' ' || last == '\t' || last == '\n' || last == '\r' || last == '\f' || last == '\v')
+        return hi - 1;
+    // 2-byte / 3-byte UTF-8: scan back up to 3 bytes.
+    for (size_t w = 2; w <= 3 && hi >= w; ++w) {
+        size_t consumed = jsWhitespaceWidth(s, hi - w);
+        if (consumed == w) return hi - w;
+    }
+    return hi; // no trim
+}
+
 const proto::ProtoObject* stringTrim(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    auto isWS = [](unsigned char c) {
-        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
-    };
     size_t lo = 0, hi = s.size();
-    while (lo < hi && isWS(static_cast<unsigned char>(s[lo]))) lo++;
-    while (hi > lo && isWS(static_cast<unsigned char>(s[hi - 1]))) hi--;
+    while (lo < hi) {
+        size_t w = jsWhitespaceWidth(s, lo);
+        if (w == 0) break;
+        lo += w;
+    }
+    while (hi > lo) {
+        size_t newHi = trimOneCharBackwards(s, hi);
+        if (newHi == hi) break;
+        hi = newHi;
+    }
     return ctx->fromUTF8String(s.substr(lo, hi - lo).c_str());
 }
 
@@ -598,11 +645,12 @@ const proto::ProtoObject* stringTrimStart(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    auto isWS = [](unsigned char c) {
-        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
-    };
     size_t lo = 0;
-    while (lo < s.size() && isWS(static_cast<unsigned char>(s[lo]))) lo++;
+    while (lo < s.size()) {
+        size_t w = jsWhitespaceWidth(s, lo);
+        if (w == 0) break;
+        lo += w;
+    }
     return ctx->fromUTF8String(s.substr(lo).c_str());
 }
 
@@ -612,11 +660,12 @@ const proto::ProtoObject* stringTrimEnd(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    auto isWS = [](unsigned char c) {
-        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
-    };
     size_t hi = s.size();
-    while (hi > 0 && isWS(static_cast<unsigned char>(s[hi - 1]))) hi--;
+    while (hi > 0) {
+        size_t newHi = trimOneCharBackwards(s, hi);
+        if (newHi == hi) break;
+        hi = newHi;
+    }
     return ctx->fromUTF8String(s.substr(0, hi).c_str());
 }
 
