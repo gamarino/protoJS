@@ -5502,7 +5502,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 const proto::ProtoObject* newObj = resolvePutFieldOOP(pContext, obj, key, val);
                 REFRESH_INTERP_STATE();
-                
+
                 if (hasCallException()) {
                     pending_exception = t_callException;
                     has_pending_exception = true;

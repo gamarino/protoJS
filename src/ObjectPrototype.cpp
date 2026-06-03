@@ -7,6 +7,7 @@
 #include "headers/protoCore.h"
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
+#include "runtime/BehaviorRegistry.h"
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -533,8 +534,16 @@ static const proto::ProtoObject* objectFreeze(
     
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper) {
-        obj->addParent(ctx, wrapper->getFrozenMarker());
+        // Order matters: addParent prepends, so the LAST added shows
+        // up at parents[0]. The composite behavior iterates parents
+        // front-to-back and stops at the first non-null putField; with
+        // NonExtensibleBehavior at parents[0] it would happily forward
+        // existing-key writes to setAttribute, defeating freeze.
+        // Add the non-extensible marker first so the frozen marker
+        // ends up at parents[0] and gets the first say on every write.
         obj->addParent(ctx, wrapper->getNonExtensibleMarker());
+        obj->addParent(ctx, wrapper->getFrozenMarker());
+        BehaviorRegistry::instance().invalidateObjectCache(obj);
     }
     return obj;
 }
@@ -583,6 +592,7 @@ static const proto::ProtoObject* objectSeal(
     if (wrapper) {
         obj->addParent(ctx, wrapper->getSealedMarker());
         obj->addParent(ctx, wrapper->getNonExtensibleMarker());
+        BehaviorRegistry::instance().invalidateObjectCache(obj);
     }
     return obj;
 }
@@ -631,6 +641,7 @@ static const proto::ProtoObject* objectPreventExtensions(
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper) {
         obj->addParent(ctx, wrapper->getNonExtensibleMarker());
+        BehaviorRegistry::instance().invalidateObjectCache(obj);
     }
     return obj;
 }

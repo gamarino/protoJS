@@ -98,6 +98,12 @@ public:
     // Resolve the appropriate behavior for an object based on its inheritance chain.
     const JSObjectBehavior* resolve(proto::ProtoContext* ctx, const proto::ProtoObject* obj) const;
 
+    // Drop the per-object behavior cache entry for `obj`. Call after
+    // Object.{freeze, seal, preventExtensions} mutates the parent chain
+    // — without this the cached "default" behavior from the pre-freeze
+    // lookup keeps winning over the freshly attached marker.
+    void invalidateObjectCache(const proto::ProtoObject* obj) const;
+
     // Get the default behavior (fallback)
     const JSObjectBehavior* getDefault() const { return defaultBehavior.get(); }
 
