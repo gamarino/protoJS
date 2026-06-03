@@ -839,6 +839,22 @@ static const proto::ProtoObject* mapConstruct(
                 "is not iterable"));
             return PROTO_NONE;
         }
+        // §24.1.1.2 step 6 + GetIterator: when @@iterator is explicitly
+        // set to undefined / null, iterable is non-iterable — TypeError.
+        // Pre-fix the impl walked the array-like length path regardless
+        // and silently produced an empty Map.
+        if (iterable && iterable != PROTO_NONE) {
+            const proto::ProtoObject* ito = ctx->fromUTF8String("Symbol.iterator");
+            const proto::ProtoString* its = ito ? ito->asString(ctx) : nullptr;
+            if (its && iterable->hasOwnAttribute(ctx, its) == PROTO_TRUE) {
+                const proto::ProtoObject* fn = iterable->getAttribute(ctx, its, false);
+                if (fn == getUndefinedSentinel() || fn == getNullSentinel()) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Map iterable's @@iterator is not callable"));
+                    return PROTO_NONE;
+                }
+            }
+        }
         if (iterable && iterable != PROTO_NONE) {
             // Element / pair-element read: prefer __elements__ native
             // storage; fall back to indexed-attribute.  Pre-fix
