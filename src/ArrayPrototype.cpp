@@ -567,6 +567,20 @@ static const proto::ProtoObject* arraySpeciesCreate(
     const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
     const proto::ProtoObject* C = originalArray->getAttribute(ctx, ctorKey, true);
 
+    // ECMA-262 §22.1.3.1.1 ArraySpeciesCreate steps 7 / 9: when C is a
+    // primitive that is neither Object nor undefined, throw TypeError.
+    // Pre-fix the value was passed through to the constructor lookup,
+    // which silently returned no constructor and produced a default
+    // Array — matching V8 / SpiderMonkey would have thrown.
+    if (C && C != PROTO_NONE && C != getUndefinedSentinel()) {
+        if (C == getNullSentinel() || C->isInteger(ctx) || C->isDouble(ctx)
+            || C->isFloat(ctx) || C->isBoolean(ctx) || C->isString(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Array species is not an object"));
+            return PROTO_NONE;
+        }
+    }
+
     // If C is a constructor, check its @@species.
     if (C && C != PROTO_NONE) {
         const proto::ProtoString* speciesKey = JSSymbols::symbolSpecies(ctx);
