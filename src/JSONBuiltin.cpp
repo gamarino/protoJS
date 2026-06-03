@@ -307,69 +307,110 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     } else {
         out.push_back('{');
         bool any = false;
+        // Collect own-property names in insertion order, deduplicating
+        // and stripping internal sidecars. For each accessor sidecar
+        // (__get_X__ / __set_X__) the property name 'X' is added once
+        // (its value will be fetched via the getter chain below).
+        std::vector<std::string> keysSeen;
+        auto pushKey = [&](const std::string& s) {
+            for (const auto& e : keysSeen) if (e == s) return;
+            keysSeen.push_back(s);
+        };
         const proto::ProtoSparseList* attrs = obj->getOwnAttributes(ctx);
         if (attrs) {
             ScopedRoot r_attrs(rs, reinterpret_cast<const proto::ProtoObject*>(attrs));
             const proto::ProtoSparseListIterator* it = attrs->getIterator(ctx);
-            bool first = true;
             while (it && it->hasNext(ctx)) {
                 ScopedRoot r_it(rs, reinterpret_cast<const proto::ProtoObject*>(it));
                 unsigned long hash = it->nextKey(ctx);
-                const proto::ProtoObject* val = it->nextValue(ctx);
-                ScopedRoot r_val(rs, val);
-
+                (void)it->nextValue(ctx);
                 std::string key = JSSymbols::getNameFromHash(ctx, hash);
                 if (key.empty()) {
                     const proto::ProtoString* sym = reinterpret_cast<const proto::ProtoString*>(hash);
-                    if (hash > 0x1000) {
-                        sym->toUTF8String(ctx, key);
-                    }
+                    if (hash > 0x1000) sym->toUTF8String(ctx, key);
                 }
-
-                bool isCallable = false;
-                if (val && val != PROTO_NONE) {
-                    if (val->isMethod(ctx)) {
-                        isCallable = true;
-                    } else {
-                        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                        if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE)
-                            isCallable = true;
-                        else {
-                            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                            if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE)
-                                isCallable = true;
-                        }
+                if (!key.empty()) {
+                    // Spec §25.5.2 SerializeJSONObject iterates OWN
+                    // enumerable string-keyed properties — including
+                    // accessor-backed ones. Surface the underlying
+                    // property name by stripping the __get_/__set_
+                    // sidecar prefix. Pre-fix, JSON.stringify({get k(){...}})
+                    // produced '{}' because the getter's storage key
+                    // ('__get_k__') failed the leading-underscore filter
+                    // and the actual 'k' was never recorded.
+                    if (key.size() > 7 && key.compare(0, 6, "__get_") == 0
+                        && key.compare(key.size() - 2, 2, "__") == 0) {
+                        pushKey(key.substr(6, key.size() - 8));
+                    } else if (key.size() > 7 && key.compare(0, 6, "__set_") == 0
+                        && key.compare(key.size() - 2, 2, "__") == 0) {
+                        pushKey(key.substr(6, key.size() - 8));
+                    } else if (key[0] != '_') {
+                        pushKey(key);
                     }
-                }
-                if (!key.empty() && key[0] != '_'
-                    && val && val != PROTO_NONE
-                    && val != getUndefinedSentinel()
-                    && !isCallable
-                    && keyAllowedByFilter(key)) {
-                    // Apply replacer function per §25.5.2 step 3:
-                    // replacer(key, val) — its return replaces val;
-                    // returning undefined drops the property.
-                    const proto::ProtoObject* outVal = val;
-                    if (tlReplacerFn) {
-                        const proto::ProtoList* replArgs = ctx->newList();
-                        replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
-                        replArgs = replArgs->appendLast(ctx, val);
-                        outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
-                        if (!outVal || outVal == PROTO_NONE
-                            || outVal == getUndefinedSentinel()) {
-                            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                            continue;
-                        }
-                    }
-                    if (first) emitOpenLine(); else emitSep();
-                    jsonEscape(key, out);
-                    out.push_back(':');
-                    if (indenting) out.push_back(' ');
-                    stringifyRecursive(ctx, outVal, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
-                    first = false;
-                    any = true;
                 }
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            }
+        }
+        bool first = true;
+        for (const auto& key : keysSeen) {
+            const proto::ProtoString* propKs =
+                ctx->fromUTF8String(key.c_str())->asString(ctx);
+            const proto::ProtoObject* val = propKs
+                ? obj->getAttribute(ctx, propKs, true) : PROTO_NONE;
+            // Accessor lookup: data attribute miss → check __get_<key>__
+            // and invoke. Pre-fix accessor-backed properties came back
+            // as missing because their storage lives at __get_<key>__,
+            // not at <key>. JSON.stringify({get k(){...}}) returned '{}'.
+            if (!val || val == PROTO_NONE) {
+                std::string gkStr = "__get_" + key + "__";
+                const proto::ProtoString* gks =
+                    ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+                if (gks) {
+                    const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        const proto::ProtoList* getterArgs = ctx->newList();
+                        val = callJSFunction(ctx, getter, obj, getterArgs);
+                    }
+                }
+            }
+            ScopedRoot r_val(rs, val);
+            bool isCallable = false;
+            if (val && val != PROTO_NONE) {
+                if (val->isMethod(ctx)) isCallable = true;
+                else {
+                    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                    if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE) isCallable = true;
+                    else {
+                        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                        if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE) isCallable = true;
+                    }
+                }
+            }
+            if (val && val != PROTO_NONE
+                && val != getUndefinedSentinel()
+                && !isCallable
+                && keyAllowedByFilter(key)) {
+                // Apply replacer function per §25.5.2 step 3:
+                // replacer(key, val) — its return replaces val;
+                // returning undefined drops the property.
+                const proto::ProtoObject* outVal = val;
+                if (tlReplacerFn) {
+                    const proto::ProtoList* replArgs = ctx->newList();
+                    replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
+                    replArgs = replArgs->appendLast(ctx, val);
+                    outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
+                    if (!outVal || outVal == PROTO_NONE
+                        || outVal == getUndefinedSentinel()) {
+                        continue;
+                    }
+                }
+                if (first) emitOpenLine(); else emitSep();
+                jsonEscape(key, out);
+                out.push_back(':');
+                if (indenting) out.push_back(' ');
+                stringifyRecursive(ctx, outVal, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
+                first = false;
+                any = true;
             }
         }
         if (any) emitCloseLine();
