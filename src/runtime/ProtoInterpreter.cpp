@@ -438,16 +438,82 @@ static const proto::ProtoObject* reflectApply(
 {
     if (!ctx || !args || args->getSize(ctx) < 1) return PROTO_NONE;
     const proto::ProtoObject* target = args->getAt(ctx, 0);
-    const proto::ProtoObject* thisArg = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
-    const proto::ProtoObject* argsArr  = args->getSize(ctx) > 2 ? args->getAt(ctx, 2) : nullptr;
-    const proto::ProtoList* callArgs = ctx->newList();
-    if (argsArr && argsArr != PROTO_NONE) {
-        const proto::ProtoList* els = protojs::getArrayElements(ctx, argsArr);
-        if (els) {
-            size_t sz = els->getSize(ctx);
-            for (size_t i = 0; i < sz; ++i)
-                callArgs = callArgs->appendLast(ctx, els->getAt(ctx, static_cast<int>(i)));
+    // §28.1.1 step 1: IsCallable(target). Pre-fix Reflect.apply silently
+    // invoked callJSFunction even on non-callable receivers.
+    {
+        bool callable = false;
+        if (target && target != PROTO_NONE) {
+            if (target->isMethod(ctx)) callable = true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (!callable && bcK && target->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (!callable && nfK && target->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+            if (!callable && bfK && target->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
         }
+        if (!callable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Reflect.apply: target is not callable"));
+            return PROTO_NONE;
+        }
+    }
+    const proto::ProtoObject* thisArg = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
+    // §28.1.1 step 3: CreateListFromArrayLike(argumentsList) — argumentsList
+    // must be an Object; primitives throw TypeError. Pre-fix Reflect.apply
+    // silently accepted null / undefined / numbers / strings as
+    // argumentsList and called the function with zero args.
+    const proto::ProtoObject* argsArr = args->getSize(ctx) > 2 ? args->getAt(ctx, 2) : nullptr;
+    if (!argsArr || argsArr == PROTO_NONE
+        || argsArr == getUndefinedSentinel() || argsArr == getNullSentinel()
+        || argsArr == PROTO_TRUE || argsArr == PROTO_FALSE
+        || argsArr->isInteger(ctx) || argsArr->isDouble(ctx)
+        || argsArr->isFloat(ctx) || argsArr->isString(ctx)
+        || argsArr->isBoolean(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Reflect.apply: argumentsList must be an Object"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoList* callArgs = ctx->newList();
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    long long len = 0;
+    if (lenK) {
+        const proto::ProtoObject* lv = argsArr->getAttribute(ctx, lenK, true);
+        if (hasCallException()) return PROTO_NONE;
+        // Accessor-form: defineProperty(o, 'length', {get:...}) stores
+        // the undefined sentinel placeholder at 'length' with the real
+        // getter under __get_length__. Pre-fix the getter never fired
+        // so throwing length accessors were silently zeroed.
+        if (!lv || lv == PROTO_NONE || lv == getUndefinedSentinel()) {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = argsArr->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    lv = callJSFunction(ctx, getter, argsArr, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
+        if (lv && lv != PROTO_NONE) {
+            if (lv->isInteger(ctx)) len = lv->asLong(ctx);
+            else if (lv->isDouble(ctx) || lv->isFloat(ctx)) {
+                double d = lv->asDouble(ctx);
+                if (!std::isnan(d) && d > 0) len = static_cast<long long>(d);
+            }
+        }
+    }
+    if (len < 0) len = 0;
+    const proto::ProtoList* els = protojs::getArrayElements(ctx, argsArr);
+    long long elsSize = els ? static_cast<long long>(els->getSize(ctx)) : 0;
+    for (long long i = 0; i < len; ++i) {
+        const proto::ProtoObject* v = PROTO_NONE;
+        if (els && i < elsSize) v = els->getAt(ctx, static_cast<int>(i));
+        else {
+            const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+            if (ik) v = argsArr->getAttribute(ctx, ik, true);
+            if (hasCallException()) return PROTO_NONE;
+        }
+        callArgs = callArgs->appendLast(ctx, v ? v : PROTO_NONE);
     }
     return callJSFunction(ctx, target, thisArg, callArgs);
 }
