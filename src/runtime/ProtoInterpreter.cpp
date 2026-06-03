@@ -5473,11 +5473,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 auto nameIt = module->atomToProto.find(atomIndex);
                 const proto::ProtoString* name = (nameIt != module->atomToProto.end()) ? nameIt->second : nullptr;
                 // ECMA-262 §13.3.2.1: property access on null/undefined throws TypeError.
-                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                // Both PROTO_NONE (uninitialized var) and t_undefinedSentinel
+                // (the global `undefined` identifier value) must reject —
+                // pre-fix the global `undefined.x` silently returned undefined
+                // because t_undefinedSentinel skipped the guard.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || obj == t_undefinedSentinel) {
                     std::string keyStr;
                     if (name) name->toUTF8String(pContext, keyStr);
                     std::string msg = "Cannot read properties of ";
-                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    msg += (obj == t_nullSentinel) ? "null" : "undefined";
                     msg += " (reading '"; msg += keyStr; msg += "')";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
@@ -5505,12 +5509,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* obj = stackTop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 // Throw TypeError for null/undefined receiver (OP_get_field2 keeps obj on stack).
-                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || obj == t_undefinedSentinel) {
                     stackPop(pContext); // consume obj from stack
                     std::string keyStr;
                     if (key) key->toUTF8String(pContext, keyStr);
                     std::string msg = "Cannot read properties of ";
-                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    msg += (obj == t_nullSentinel) ? "null" : "undefined";
                     msg += " (reading '"; msg += keyStr; msg += "')";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
@@ -6389,10 +6393,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* obj = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 // No zeroing for obj as result will overwrite it.
-                // Throw TypeError for null/undefined receiver.
-                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) {
+                // Throw TypeError for null/undefined receiver. Match
+                // the get_field rule: t_undefinedSentinel (the global
+                // `undefined` identifier) must reject too, otherwise
+                // `undefined['k']` silently returned undefined.
+                if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || obj == t_undefinedSentinel) {
                     std::string msg = "Cannot read properties of ";
-                    msg += (!obj || obj == PROTO_NONE) ? "undefined" : "null";
+                    msg += (obj == t_nullSentinel) ? "null" : "undefined";
                     pending_exception = makeError(pContext, "TypeError", msg.c_str(), pGlobalRoot);
                     has_pending_exception = true;
                     DISPATCH();
