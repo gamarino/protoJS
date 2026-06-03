@@ -1000,9 +1000,17 @@ static const proto::ProtoObject* reflectDefineProperty(
     if (!fn || fn == PROTO_NONE) return PROTO_FALSE;
 
     const proto::ProtoObject* result = callJSFunction(ctx, fn, objCtor, args);
-    if (hasCallException()) return PROTO_FALSE;
-    // Spec: return true on success. Object.defineProperty returns the
-    // target on success and throws on failure (already caught above).
+    // §28.1.3 Reflect.defineProperty step 5: any abrupt completion from
+    // [[DefineOwnProperty]] is swallowed and returned as false (vs
+    // Object.defineProperty which propagates the TypeError). Pre-fix
+    // the exception was left pending on t_callException and bubbled to
+    // the caller, so Reflect.defineProperty(o, ...) on a frozen
+    // receiver still threw.
+    if (t_hasCallException) {
+        t_hasCallException = false;
+        t_callException    = nullptr;
+        return PROTO_FALSE;
+    }
     return (result && result != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
 }
 
