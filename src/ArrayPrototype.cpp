@@ -2363,9 +2363,19 @@ static const proto::ProtoObject* arrayFrom(
     const proto::ProtoObject* lv = src->getAttribute(ctx, lenKey, false);
     if (lv && lv != PROTO_NONE &&
         (lv->isInteger(ctx) || lv->isDouble(ctx) || lv->isFloat(ctx))) {
-        unsigned long n = static_cast<unsigned long>(
-            lv->isInteger(ctx) ? lv->asLong(ctx)
-                               : static_cast<long long>(lv->asDouble(ctx)));
+        // ECMA-262 §23.1.2.1 step 5: ToLength(len). NaN, ±Infinity,
+        // negative values clamp to 0 — pre-fix negative lengths wrapped
+        // to ULONG_MAX via the unsigned cast and hung the for loop.
+        long long nSigned = 0;
+        if (lv->isInteger(ctx)) nSigned = lv->asLong(ctx);
+        else {
+            double d = lv->asDouble(ctx);
+            if (std::isnan(d) || d < 0) nSigned = 0;
+            else if (std::isinf(d)) nSigned = 0; // spec clamps Infinity to 2^53-1 but we cap at 0 here
+            else nSigned = static_cast<long long>(d);
+        }
+        if (nSigned < 0) nSigned = 0;
+        unsigned long n = static_cast<unsigned long>(nSigned);
         for (unsigned long i = 0; i < n; i++) {
             const proto::ProtoObject* v = arrGet(ctx, src, i);
             arrSet(ctx, result, i, applyMap(v, static_cast<long long>(i)));
