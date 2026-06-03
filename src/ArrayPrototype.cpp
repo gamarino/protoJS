@@ -1269,16 +1269,41 @@ static const proto::ProtoObject* arrayConcat(
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, totalLen);
     unsigned long outIdx = 0;
 
-    // Helper: determine if a value should be spread (array-like with "length").
+    // ECMA-262 §22.1.3.1.1 IsConcatSpreadable:
+    //   1. If Type(O) is not Object, return false.
+    //   2. spreadable = Get(O, @@isConcatSpreadable).
+    //   3. If spreadable is not undefined, return ToBoolean(spreadable).
+    //   4. Return IsArray(O).
+    // Pre-fix the lambda used a "has .length" heuristic — arrays were
+    // always spread (even with Symbol.isConcatSpreadable = false) and
+    // array-like objects were always spread (even without the symbol
+    // being explicitly set), both diverging from V8 / SpiderMonkey.
     auto isSpreadable = [&](const proto::ProtoObject* obj) -> bool {
         if (!obj || obj == PROTO_NONE) return false;
         if (obj->isInteger(ctx) || obj->isDouble(ctx) || obj->isFloat(ctx) ||
             obj->isString(ctx) || obj->isBoolean(ctx)) return false;
-        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-        if (!lenKey) return false;
-        const proto::ProtoObject* lv = obj->getAttribute(ctx, lenKey, false);
-        return lv && lv != PROTO_NONE &&
-               (lv->isInteger(ctx) || lv->isDouble(ctx) || lv->isFloat(ctx));
+        // Step 2: probe @@isConcatSpreadable via the WKS string key.
+        const proto::ProtoObject* spreadObj =
+            ctx->fromUTF8String("Symbol.isConcatSpreadable");
+        const proto::ProtoString* spreadKey =
+            spreadObj ? spreadObj->asString(ctx) : nullptr;
+        if (spreadKey) {
+            const proto::ProtoObject* sv = obj->getAttribute(ctx, spreadKey, true);
+            if (sv && sv != PROTO_NONE && sv != getUndefinedSentinel()) {
+                if (sv == PROTO_TRUE) return true;
+                if (sv == PROTO_FALSE) return false;
+                if (sv->isBoolean(ctx)) return sv->asBoolean(ctx);
+                // Truthy non-bool → true (ToBoolean fallback).
+                return sv != getNullSentinel();
+            }
+        }
+        // Step 4: IsArray(O) — probe the __is_array__ marker.
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        if (isArrKey) {
+            const proto::ProtoObject* ia = obj->getAttribute(ctx, isArrKey, true);
+            if (ia == PROTO_TRUE) return true;
+        }
+        return false;
     };
 
     // Spread self.
