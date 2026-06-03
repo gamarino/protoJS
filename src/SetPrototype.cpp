@@ -811,6 +811,21 @@ static bool getSetRecord(proto::ProtoContext* ctx,
     const proto::ProtoString* sizeKs = sizeKo ? sizeKo->asString(ctx) : nullptr;
     const proto::ProtoObject* sizeV = sizeKs
         ? obj->getAttribute(ctx, sizeKs, true) : PROTO_NONE;
+    // Class-defined .size getters install under __get_size__ on the
+    // prototype with the undefined sentinel as the data placeholder.
+    // Pre-fix the validator only consulted the data slot and rejected
+    // any class-style Set-like with "argument lacks a numeric .size".
+    if (!sizeV || sizeV == PROTO_NONE || sizeV == getUndefinedSentinel()) {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
+        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        if (gks) {
+            const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
+            if (getter && getter != PROTO_NONE) {
+                sizeV = callJSFunction(ctx, getter, obj, ctx->newList());
+                if (hasCallException()) return false;
+            }
+        }
+    }
     if (!sizeV || sizeV == PROTO_NONE || sizeV == getUndefinedSentinel()) {
         std::string msg = std::string("Set.prototype.") + methodName +
             ": argument lacks a numeric .size";
