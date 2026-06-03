@@ -2635,9 +2635,31 @@ static const proto::ProtoObject* arrayFrom(
     // If the source has no Symbol.iterator but already exposes .next,
     // it IS an iterator (Set.values(), Map.entries() etc.) — use it
     // directly.  Pre-fix Array.from(iter) returned [] for these.
+    //
+    // ECMA-262 §7.3.10 GetMethod(V, P): invokes [[Get]], which fires
+    // any accessor descriptor.  Probe `__get_<symKey>__` first so a
+    // throwing `get [Symbol.iterator]()` propagates correctly; only
+    // fall back to the raw data slot when no accessor is installed.
+    // Pre-fix the data-only read silently produced the placeholder
+    // and Array.from swallowed the user's abrupt completion.
     const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
-    const proto::ProtoObject* iterFn = symIterKey
-        ? src->getAttribute(ctx, symIterKey, true) : nullptr;
+    const proto::ProtoObject* iterFn = nullptr;
+    if (symIterKey) {
+        std::string keyStr;
+        symIterKey->toUTF8String(ctx, keyStr);
+        std::string gkStr = "__get_" + keyStr + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = src->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                iterFn = callJSFunction(ctx, getter, src, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+        if (!iterFn || iterFn == PROTO_NONE)
+            iterFn = src->getAttribute(ctx, symIterKey, true);
+    }
     const proto::ProtoObject* iter = nullptr;
     if (iterFn && iterFn != PROTO_NONE) {
         const proto::ProtoList* noArgs = ctx->newList();
