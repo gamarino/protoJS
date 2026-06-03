@@ -902,9 +902,13 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) < 3) return PROTO_NONE;
-    const proto::ProtoObject* target = args->getAt(ctx, 0);
-    const proto::ProtoObject* desc = args->getAt(ctx, 2);
+    if (!ctx) return PROTO_NONE;
+    // ECMA-262 §20.1.2.4 step 1: target must be an Object. Treat
+    // missing args as undefined to trigger the same TypeError path.
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* desc = (args && args->getSize(ctx) > 2)
+        ? args->getAt(ctx, 2) : PROTO_NONE;
 
     if (!target || target == PROTO_NONE || target == getNullSentinel() || target == getUndefinedSentinel() ||
         target->isBoolean(ctx) || target->isInteger(ctx) ||
