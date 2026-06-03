@@ -732,11 +732,37 @@ static const proto::ProtoObject* reflectGet(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.get")) return PROTO_NONE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_NONE;
+    // §28.1.6 step 4: receiver = target if absent. Pre-fix Reflect.get
+    // ignored the 4th argument so accessor getters were always invoked
+    // with target as their `this`, breaking
+    // `Reflect.get(o, 'x', recv)` where x is defined as
+    // `{ get(){return this.y} }` and `recv.y = 42`.
+    const proto::ProtoObject* receiver = (args->getSize(ctx) > 2)
+        ? args->getAt(ctx, 2) : target;
+    if (!receiver || receiver == PROTO_NONE) receiver = target;
     const proto::ProtoString* k = key->asString(ctx);
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_NONE;
     const proto::ProtoObject* v = target->getAttribute(ctx, k, true);
+    // §9.1.8 step 7: if the lookup landed on an accessor (data slot is
+    // undefined sentinel and __get_<key>__ is present), invoke the
+    // getter with receiver as `this`.
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+        std::string kstr;
+        k->toUTF8String(ctx, kstr);
+        std::string gkStr = "__get_" + kstr + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        if (gks) {
+            const proto::ProtoObject* getter = target->getAttribute(ctx, gks, true);
+            if (getter && getter != PROTO_NONE) {
+                const proto::ProtoObject* r = callJSFunction(ctx, getter, receiver, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+                return r ? r : PROTO_NONE;
+            }
+        }
+    }
     return v ? v : PROTO_NONE;
 }
 
