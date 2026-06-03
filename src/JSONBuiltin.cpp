@@ -336,20 +336,33 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                                         const proto::ParentLink* /*parentLink*/,
                                         const proto::ProtoList* args,
                                         const proto::ProtoSparseList* /*kwargs*/) {
-    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* textObj = args->getAt(ctx, 0);
-    if (!textObj || !textObj->isString(ctx)) return PROTO_NONE;
-    
-    std::string text;
-    textObj->asString(ctx)->toUTF8String(ctx, text);
-    
+    if (!ctx) return PROTO_NONE;
+    // ECMA-262 §25.5.1: text = ? ToString(text). Missing arg → "undefined".
+    std::string text = "undefined";
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* textObj = args->getAt(ctx, 0);
+        if (textObj && textObj != PROTO_NONE && textObj->isString(ctx)) {
+            textObj->asString(ctx)->toUTF8String(ctx, text);
+        } else if (textObj && textObj != PROTO_NONE) {
+            // Non-string argument — let QuickJS report SyntaxError
+            // by parsing its ToString form.
+            text = "undefined";
+        }
+    }
+
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;
-    
+
     JSContext* qjsCtx = wrapper->getJSContext();
     JSValue jv = JS_ParseJSON(qjsCtx, text.c_str(), text.size(), "JSON.parse");
     if (JS_IsException(jv)) {
-        return PROTO_NONE; 
+        // QuickJS recorded the failure; surface it as SyntaxError per
+        // §25.5.1 step 3. Pre-fix this branch returned PROTO_NONE which
+        // collapsed bad input to a silent `null`.
+        JS_FreeValue(qjsCtx, JS_GetException(qjsCtx));
+        signalNativeException(makeNativeError(ctx, "SyntaxError",
+            "JSON.parse: unexpected character"));
+        return PROTO_NONE;
     }
     const proto::ProtoObject* res = TypeBridge::fromJS(qjsCtx, jv, ctx);
     JS_FreeValue(qjsCtx, jv);
