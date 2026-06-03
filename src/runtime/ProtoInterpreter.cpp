@@ -6493,13 +6493,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                         }
                     }
+                    // String primitives expose .length via the dedicated
+                    // OP_get_length opcode, but the indexed form
+                    // `'abc'['length']` reaches us here with a string
+                    // key. The primitive carries no `length` attribute,
+                    // so the regular prototype walk returned PROTO_NONE
+                    // (rendered as 0 — silently wrong). Resolve the
+                    // length directly from the underlying ProtoString.
+                    if (obj && obj->isString(pContext) && key) {
+                        std::string keyStrTest;
+                        key->toUTF8String(pContext, keyStrTest);
+                        if (keyStrTest == "length") {
+                            const proto::ProtoString* ps = obj->asString(pContext);
+                            if (ps) {
+                                pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                                    pContext->fromInteger(static_cast<long long>(ps->getSize(pContext)));
+                                DISPATCH();
+                            }
+                        }
+                    }
                     if (obj && key) {
                         // Fast path: check own properties first (avoiding BehaviorRegistry/prototype chain)
                         val = obj->getAttribute(pContext, key, false);
                         if (!val || val == PROTO_NONE) {
                             val = resolveFieldOOP(pContext, obj, key);
                         }
-                        
+
                         if (!val || val == PROTO_NONE) {
                             std::string keyStrGAE;
                             key->toUTF8String(pContext, keyStrGAE);
