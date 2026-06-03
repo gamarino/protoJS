@@ -1730,17 +1730,26 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         const proto::ProtoString* tpKs = tpKo ? tpKo->asString(context) : nullptr;
         const proto::ProtoObject* tpFn = tpKs
             ? value->getAttribute(context, tpKs, true) : nullptr;
+        // GetMethod (§7.3.10): present, non-null, non-undefined value
+        // that isn't callable -> TypeError. Pre-fix a numeric
+        // / string / boolean / plain-object Symbol.toPrimitive silently
+        // skipped to the valueOf/toString fallback instead of throwing.
+        if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
+            && tpFn != t_nullSentinel && !isCallable(tpFn)) {
+            signalNativeException(makeNativeError(context, "TypeError",
+                "Symbol.toPrimitive is not a function"));
+            return PROTO_NONE;
+        }
         if (isCallable(tpFn)) {
             const proto::ProtoList* hintArgs = context->newList();
             hintArgs = hintArgs->appendLast(context, context->fromUTF8String("number"));
             const proto::ProtoObject* r = callJSFunction(context, tpFn, value, hintArgs);
             if (hasCallException()) return PROTO_NONE;
             if (isPrimitive(r)) return toNumber(context, r);
-            // Non-primitive Symbol.toPrimitive result is a TypeError per §7.1.1
-            // step 5.b. We don't have a TypeError-throw path inside toNumber
-            // without polluting the signal-exception slot; mirror upstream
-            // behaviour by returning NaN here (the caller's isNaN sees true).
-            return makeNaN();
+            // §7.1.1 step 5.b: non-primitive return is a TypeError.
+            signalNativeException(makeNativeError(context, "TypeError",
+                "Symbol.toPrimitive returned a non-primitive"));
+            return PROTO_NONE;
         }
     }
     const proto::ProtoString* voKey = JSSymbols::valueOf(context);
