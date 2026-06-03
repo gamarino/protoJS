@@ -734,19 +734,25 @@ static const proto::ProtoObject* reflectOwnKeys(
     if (isArrKey) result = result->setAttribute(ctx, isArrKey, PROTO_TRUE);
     const proto::ProtoList* els = ctx->newList();
 
-    // Indexed entries first if present (mirrors spec key ordering).
+    // Per §9.1.11 OrdinaryOwnPropertyKeys: array indices in ascending
+    // numeric order, then other strings in insertion order, then
+    // 'length' for arrays. Collect into separate buckets and assemble.
+    // Pre-fix the impl only consulted __elements__ for indices, missing
+    // sparse-array slots stored as indexed attributes (literal [,,2]),
+    // and dropped 'length' unconditionally so Reflect.ownKeys([]) was
+    // [] instead of ['length'].
+    bool targetIsArr = isArrKey
+        && target->getAttribute(ctx, isArrKey, false) == PROTO_TRUE;
+    std::vector<uint32_t> idxKeys;
+    std::vector<std::string> strKeys;
     const proto::ProtoList* idxList = protojs::getArrayElements(ctx, target);
     if (idxList) {
         long long n = static_cast<long long>(idxList->getSize(ctx));
         for (long long i = 0; i < n; ++i) {
             const proto::ProtoObject* v = idxList->getAt(ctx, static_cast<int>(i));
-            if (v && v != PROTO_NONE) {
-                els = els->appendLast(ctx, ctx->fromUTF8String(std::to_string(i).c_str()));
-            }
+            if (v && v != PROTO_NONE) idxKeys.push_back(static_cast<uint32_t>(i));
         }
     }
-    // Then string-keyed own attributes (skip internal __pd_/__set_/
-    // __get_ sidecars and the JS array bookkeeping helpers).
     const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
     const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
     while (it && it->hasNext(ctx)) {
@@ -758,13 +764,27 @@ static const proto::ProtoObject* reflectOwnKeys(
         std::string ks;
         propKey->toUTF8String(ctx, ks);
         if (ks.compare(0, 2, "__") == 0) continue;
-        if (ks == "length") continue;
-        // Skip numeric indices already emitted by the __elements__ pass.
+        if (ks == "length" && targetIsArr) continue;  // emitted at end
         bool isNumeric = !ks.empty() &&
             std::all_of(ks.begin(), ks.end(),
                 [](unsigned char c){ return c >= '0' && c <= '9'; });
-        if (isNumeric && idxList) continue;
-        els = els->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+        if (isNumeric && (ks.size() == 1 || ks[0] != '0')) {
+            try {
+                uint32_t idx = static_cast<uint32_t>(std::stoul(ks));
+                if (std::find(idxKeys.begin(), idxKeys.end(), idx) == idxKeys.end())
+                    idxKeys.push_back(idx);
+            } catch (...) { strKeys.push_back(ks); }
+            continue;
+        }
+        strKeys.push_back(ks);
+    }
+    std::sort(idxKeys.begin(), idxKeys.end());
+    for (uint32_t i : idxKeys)
+        els = els->appendLast(ctx, ctx->fromUTF8String(std::to_string(i).c_str()));
+    for (const auto& s : strKeys)
+        els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
+    if (targetIsArr) {
+        els = els->appendLast(ctx, ctx->fromUTF8String("length"));
     }
 
     protojs::setArrayElements(ctx, result, els);
