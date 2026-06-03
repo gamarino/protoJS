@@ -1082,6 +1082,12 @@ static const proto::ProtoObject* arrayIndexOf(
     if (!args || args->getSize(ctx) == 0)
         return ctx->fromInteger(-1LL);
     long long len = static_cast<long long>(arrLen(ctx, self));
+    // ECMA-262 §23.1.3.13 step 3: if len is 0, return -1 BEFORE
+    // ToIntegerOrInfinity runs on fromIndex.  Pre-fix the fromIndex
+    // coercion was attempted even on an empty receiver, surfacing
+    // user-visible side effects of `fromIndex.valueOf()` that the
+    // spec explicitly bypasses.
+    if (len == 0) return ctx->fromInteger(-1LL);
     const proto::ProtoObject* needle = args->getAt(ctx, 0);
     long long from = 0;
     if (args->getSize(ctx) > 1) {
@@ -1137,6 +1143,8 @@ static const proto::ProtoObject* arrayLastIndexOf(
     if (!args || args->getSize(ctx) == 0)
         return ctx->fromInteger(-1LL);
     long long len = static_cast<long long>(arrLen(ctx, self));
+    // §23.1.3.16 step 3: empty receiver returns -1 BEFORE ToInteger.
+    if (len == 0) return ctx->fromInteger(-1LL);
     const proto::ProtoObject* needle = args->getAt(ctx, 0);
     long long from = len - 1;
     if (args->getSize(ctx) > 1) {
