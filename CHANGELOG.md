@@ -4,6 +4,110 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 9 — 2026-06-03)
+
+Ninth consecutive 30-commit sprint.  This round widened the
+ToNumber / ToInteger sweep that previous rounds began on
+Array.prototype iteration helpers and extended it across
+Number.prototype, parseInt, parseFloat, JSON, and the array's
+length plumbing.  It also restored the [[BooleanData]] /
+[[NumberData]] / [[StringData]] internal slots on the
+respective prototype objects, plumbed the spec-correct
+non-enumerable `prototype` descriptor across the built-in
+constructors, and brought Array.from in line with the
+"this is the constructor" branch of §23.1.2.1.
+
+**JSON.stringify wrapper / replacer / toJSON discipline:**
+- `SerializeJSONProperty` invokes `valueOf()` on Number wrappers
+  and `toString()` on String wrappers per §25.5.2.2 step 4 — the
+  primitive-value sidecar no longer leaks past replacer-array
+  filtering.
+- `toJSON` receives the current property key per §25.5.2.2 step 3;
+  property iteration tracks the active key in a thread-local
+  `tlCurrentKey` and invokes `toJSON` per property BEFORE the
+  replacer, dropping the property when the result is `undefined`.
+- `InternalizeJSONProperty` reads via the chain
+  (`getAttribute(true)`) and uses `PROTO_NONE` to clear slots
+  per spec-correct `[[Delete]]` — pre-fix the reviver could not
+  see prototype-inherited values after deleting an own slot.
+
+**Array prototype's `length` machinery:**
+- `OP_get_length` invokes `__get_length__` accessor before
+  reading the data slot — `Array.prototype.reduce / filter /
+  map / forEach / every / some` applied to
+  `Object.defineProperty(o, 'length', {get: …})` objects now
+  see the spec-required length.
+- `arrLen` (the bytecode-free length probe) coerces booleans
+  per §7.1.4 ToNumber, clamps +∞ to 2^32-1, and falls back to
+  full ToNumber for non-primitive shapes (objects with
+  valueOf/toString).
+- Mixed-storage arrays (dense `__elements__` prefix + sparse
+  string-keyed tail) now expose the canonical `length` even
+  when the ProtoList size is shorter.  `arrGet` distinguishes
+  out-of-range fast-path reads from "no native storage" so the
+  string-keyed sparse tail is no longer invisible.
+
+**ECMA-262 step ordering across the iteration helpers:**
+- `Array.prototype.reduce / reduceRight / forEach / map /
+  filter / find / findIndex / findLast / findLastIndex / some /
+  every` now run `LengthOfArrayLike(O)` BEFORE `IsCallable`,
+  matching the spec's step 2 → step 3 order.  A throwing
+  `length` accessor now propagates its own exception instead
+  of being masked by a synthetic "not callable" TypeError.
+- `Array.prototype.indexOf / lastIndexOf` short-circuit on
+  an empty receiver before `ToIntegerOrInfinity(fromIndex)`,
+  and coerce non-numeric `fromIndex` values via `jsToNumber`.
+
+**Number / String / Boolean prototype internal slots:**
+- `Number.prototype` carries `__primitive_value__` = +0 per
+  §21.1.4 so `Number.prototype.toFixed(2)` returns "0.00"
+  instead of TypeError.
+- `Boolean.prototype` carries `__primitive_value__` = false
+  per §20.3.3.
+- `String.prototype` carries `__primitive_value__` = ""
+  per §22.1.4.
+- `Object.prototype.toString` now dispatches on
+  `__primitive_value__` so wrappers and the prototype objects
+  themselves return `[object Boolean]` / `[object Number]` /
+  `[object String]` instead of `[object Object]` per §22.1.3.7.
+
+**Number.prototype.toString / toExponential / toPrecision:**
+- `toString` uses a round-trip-shortest mantissa with
+  spec-conformant decimal / scientific selection per
+  §6.1.6.1.13 — `(1000000000000000128).toString()` now
+  yields "1000000000000000100" instead of "1e+18".
+- `toExponential` / `toPrecision` run `ToInteger` on
+  `fractionDigits` / `precision` BEFORE the NaN guard, treat
+  `undefined` as the no-arg case, and emit ±∞ before the
+  range check.
+
+**parseInt / parseFloat / JSON.parse:**
+- `parseInt`'s radix coerces Number wrappers via
+  `jsToNumber` per §19.2.6 step 5 ToInt32.
+- `parseFloat` of -0 returns +0 per ToString(-0) = "0".
+- `JSON.parse` pre-validates the input and rejects raw
+  U+0000..U+001F inside string literals per §24.5, surfacing
+  SyntaxError before reaching QuickJS's permissive parser.
+
+**Built-in constructor `prototype` descriptors:**
+- Boolean / Number / String / Array / Error and every Error
+  subclass now install `prototype` with sidecar bits 0x0 so
+  it's non-writable, non-enumerable, non-configurable per
+  §17 / §19.5 / §20.3.2.1 / §21.1.2.4 / §22.1.2.4 / §23.1.2.2.
+- `AggregateError.length` is 2 per §19.2.1.5 (errors, message).
+
+**Array.from:**
+- When `this` is a constructor distinct from Array, the
+  result is `Construct(C)` per §23.1.2.1 step 4.a / 7.a —
+  `Array.from.call(Object, []).constructor === Object`.
+- `Symbol.iterator` accessor getters fire per §7.3.10
+  GetMethod; abrupt completions propagate.
+
+**Object.getOwnPropertyNames:**
+- Array's `length` slot is included in the result per
+  §23.1.3 — was previously suppressed unconditionally,
+  conflating "non-enumerable" with "non-existent".
+
 ### Fixed (test262 spec conformance push, round 8 — 2026-06-03)
 
 Eighth consecutive 30-commit sprint, doubling down on the Reflect /

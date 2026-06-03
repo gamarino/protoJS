@@ -2,11 +2,55 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-03. Eight consecutive sprint rounds (~260 commits) closed
+**Last updated:** 2026-06-03. Nine consecutive sprint rounds (~290 commits) closed
 ECMA-262 conformance gaps across the language and built-ins layers — see
 CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 8 highlights (this commit batch):**
+**Round 9 highlights (this commit batch):**
+
+- **Number/Boolean/String prototype internal slots:** install
+  `__primitive_value__` on each so `Number.prototype.toFixed`,
+  `Boolean.prototype.toString`, `String.prototype.valueOf` etc.
+  return spec-correct values instead of throwing
+  "incompatible receiver" TypeErrors.
+- **Object.prototype.toString dispatch:** consult
+  `__primitive_value__` so wrappers and the prototype objects
+  report `[object Boolean]` / `[object Number]` / `[object String]`
+  per §22.1.3.7.
+- **Spec step-ordering across Array prototype iteration helpers:**
+  `LengthOfArrayLike` now precedes `IsCallable` in reduce /
+  reduceRight / forEach / map / filter / find / findIndex /
+  findLast / findLastIndex / some / every — a throwing `length`
+  accessor propagates instead of being masked.
+- **arrLen / OP_get_length:** coerce booleans / objects via
+  `jsToNumber` per ToLength; fire `__get_length__` accessor
+  in OP_get_length; clamp +∞ to 2^32-1; respect mixed-storage
+  arrays whose `length` exceeds the `__elements__` size.
+- **arrGet sparse-tail visibility:** distinguish "out-of-range
+  fast-path read" from "no native storage" so sparse literals
+  like `[0, 'foo', , Infinity]` expose every index.
+- **Array.from constructor branch:** `Array.from.call(C, items)`
+  now delegates to `Construct(C)` per §23.1.2.1; the
+  Symbol.iterator accessor getter fires per §7.3.10.
+- **Number.prototype.toString shortest round-trip:** replaces
+  `%.15g` with a round-trip loop + decimal/scientific switch
+  per §6.1.6.1.13, fixing the `(1e18+128).toString()` case.
+- **Number.prototype.toExponential / toPrecision step order:**
+  `ToInteger` on the argument runs before the NaN / ±Infinity
+  guards; `undefined` argument is treated as omitted.
+- **parseInt/radix coercion + parseFloat(-0):** ToInt32 unwraps
+  Number wrappers via `jsToNumber`; parseFloat(-0) emits +0 per
+  ToString(-0) = "0".
+- **JSON pre-validation:** raw control characters U+0000..U+001F
+  inside string literals throw SyntaxError per §24.5.
+- **Built-in constructor `prototype` descriptors:** Boolean /
+  Number / String / Array / Error / Error-subclasses install
+  non-writable, non-enumerable, non-configurable per §17.
+- **AggregateError length = 2** per §19.2.1.5.
+- **Object.getOwnPropertyNames includes array's `length` slot**
+  per §23.1.3.
+
+**Round 8 highlights:**
 
 - **Map/Set methods inherit Function.prototype:** reinstalled in
   ensure*Constructor (post-FunctionPrototype) so `m.set.call`, `s.add.bind`,
