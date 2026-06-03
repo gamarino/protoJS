@@ -515,12 +515,59 @@ static const proto::ProtoObject* reflectOwnKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    // Minimal: returns the array result of Object.getOwnPropertyNames.
-    // We rebuild it here to avoid plumbing through the function pointer.
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.ownKeys")) return PROTO_NONE;
-    return PROTO_NONE; // stub — sufficient to not throw
+
+    // Build a real JS array (with __elements__ + __is_array__ + Array
+    // prototype). Pre-fix this returned PROTO_NONE, so any caller doing
+    // Reflect.ownKeys(o).sort() or .length crashed instead of finding
+    // the keys. Mirrors Object.getOwnPropertyNames (string keys only —
+    // protoJS Symbols are still string-shaped).
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    if (!result) return PROTO_NONE;
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    if (isArrKey) result = result->setAttribute(ctx, isArrKey, PROTO_TRUE);
+    const proto::ProtoList* els = ctx->newList();
+
+    // Indexed entries first if present (mirrors spec key ordering).
+    const proto::ProtoList* idxList = protojs::getArrayElements(ctx, target);
+    if (idxList) {
+        long long n = static_cast<long long>(idxList->getSize(ctx));
+        for (long long i = 0; i < n; ++i) {
+            const proto::ProtoObject* v = idxList->getAt(ctx, static_cast<int>(i));
+            if (v && v != PROTO_NONE) {
+                els = els->appendLast(ctx, ctx->fromUTF8String(std::to_string(i).c_str()));
+            }
+        }
+    }
+    // Then string-keyed own attributes (skip internal __pd_/__set_/
+    // __get_ sidecars and the JS array bookkeeping helpers).
+    const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
+    const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
+    while (it && it->hasNext(ctx)) {
+        unsigned long rawKey = it->nextKey(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        const proto::ProtoString* propKey =
+            reinterpret_cast<const proto::ProtoString*>(rawKey);
+        if (!propKey) continue;
+        std::string ks;
+        propKey->toUTF8String(ctx, ks);
+        if (ks.compare(0, 2, "__") == 0) continue;
+        if (ks == "length") continue;
+        // Skip numeric indices already emitted by the __elements__ pass.
+        bool isNumeric = !ks.empty() &&
+            std::all_of(ks.begin(), ks.end(),
+                [](unsigned char c){ return c >= '0' && c <= '9'; });
+        if (isNumeric && idxList) continue;
+        els = els->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+    }
+
+    protojs::setArrayElements(ctx, result, els);
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) result = result->setAttribute(ctx, lenKey,
+        ctx->fromInteger(static_cast<long long>(els->getSize(ctx))));
+    return result;
 }
 
 // ECMA-262 §28.1.4: Reflect.deleteProperty(target, key) — delegates to
