@@ -919,12 +919,42 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     mapProto = installNonEnumerableMethod(ctx, mapProto, "getOrInsertComputed",  mapGetOrInsertComputed, 2);
 
     // Install 'size' as a getter via __get_size__ (accessed by OP_get_field accessor protocol).
+    // §24.1.3.10 requires the accessor function to expose
+    //   .name   = 'get size'  (descriptor 0x2)
+    //   .length = 0           (descriptor 0x2)
+    // matching the parallel Set.prototype.size install pattern.
     {
         const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
         const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
         if (gks) {
-            const proto::ProtoObject* getter = ctx->fromMethod(nullptr, mapSizeGetter);
-            if (getter) mapProto = mapProto->setAttribute(ctx, gks, getter);
+            const proto::ProtoObject* parent =
+                (ctx->space && ctx->space->methodPrototype)
+                ? ctx->space->methodPrototype : nullptr;
+            const proto::ProtoObject* getter = parent
+                ? parent->newChild(ctx, true) : ctx->newObject(true);
+            if (getter) {
+                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                if (nfKey) {
+                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
+                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, mapSizeGetter);
+                    if (raw) getter = getter->setAttribute(ctx, nfKey, raw);
+                }
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                if (lenKey) {
+                    getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* nmKey = JSSymbols::name(ctx);
+                if (nmKey) {
+                    getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get size"));
+                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+                }
+                mapProto = mapProto->setAttribute(ctx, gks, getter);
+            }
         }
     }
 
