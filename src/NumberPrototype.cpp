@@ -353,16 +353,32 @@ const proto::ProtoObject* numberToPrecision(
         return numberToString(context, self, nullptr, nullptr, nullptr);
     }
     double value = getNumberValue(context, self);
-    // Spec §21.1.3.5 step 6: NaN -> "NaN" before any precision handling.
-    if (std::isnan(value)) return context->fromUTF8String("NaN");
+    // ECMA-262 §21.1.3.5 step ordering: ToInteger(precision) precedes
+    // the NaN/±Infinity guards.  Pre-fix the NaN check ran first and
+    // observable side effects of `precision.valueOf()` were skipped
+    // when `this` was NaN — the test262 nan.js / infinity.js / range.js
+    // tests assert valueOf is invoked exactly once even on NaN.
     const proto::ProtoObject* precObj = positionalParameters->getAt(context, 0);
     int precision = 0;
-    if (precObj->isInteger(context)) {
-        precision = static_cast<int>(precObj->asLong(context));
-    } else if (precObj->isDouble(context)) {
-        double d = precObj->asDouble(context);
-        precision = std::isnan(d) ? 0 : static_cast<int>(d);
+    {
+        const proto::ProtoObject* numObj = precObj;
+        if (precObj && !precObj->isInteger(context) && !precObj->isDouble(context)
+            && !precObj->isFloat(context)) {
+            numObj = jsToNumber(context, precObj);
+            if (hasCallException()) return PROTO_NONE;
+        }
+        if (numObj && numObj != PROTO_NONE) {
+            if (numObj->isInteger(context)) precision = static_cast<int>(numObj->asLong(context));
+            else if (numObj->isDouble(context) || numObj->isFloat(context)) {
+                double d = numObj->asDouble(context);
+                if (std::isnan(d)) precision = 0;
+                else if (std::isinf(d)) precision = (d > 0) ? 101 : 0; // out-of-range
+                else precision = static_cast<int>(d);
+            }
+        }
     }
+    // Step 6: NaN -> "NaN" after ToInteger(precision) has run.
+    if (std::isnan(value)) return context->fromUTF8String("NaN");
     if (precision < 1 || precision > 100) {
         signalNativeException(makeNativeError(context, "RangeError",
             "toPrecision() argument must be between 1 and 100"));
