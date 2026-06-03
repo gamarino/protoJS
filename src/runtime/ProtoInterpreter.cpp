@@ -810,6 +810,7 @@ static const proto::ProtoObject* reflectSet(
     {
         std::string kstr;
         k->toUTF8String(ctx, kstr);
+        // Own non-writable data descriptor on receiver → false.
         if (receiver->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
             std::string pdStr = "__pd_" + kstr + "__";
             const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
@@ -818,8 +819,34 @@ static const proto::ProtoObject* reflectSet(
                 const proto::ProtoObject* pdv = receiver->getAttribute(ctx, pdk, false);
                 if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
                     uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
-                    if (!(bits & 0x1)) return PROTO_FALSE;  // not writable
+                    if (!(bits & 0x1)) return PROTO_FALSE;
                 }
+            }
+        }
+        // Prototype-chain accessor: invoke its setter with receiver as
+        // \`this\`. Per §9.1.9 step 4.c, when target's own descriptor for
+        // the key is undefined we walk the chain; if the chain holds
+        // an accessor, the setter fires. Pre-fix Reflect.set bypassed
+        // the chain and stored a fresh own data property on receiver.
+        std::string skStr = "__set_" + kstr + "__";
+        const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+        const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+        if (sks) {
+            const proto::ProtoObject* setter = target->getAttribute(ctx, sks, true);
+            if (setter && setter != PROTO_NONE) {
+                const proto::ProtoList* callArgs = ctx->newList();
+                callArgs = callArgs->appendLast(ctx, value ? value : PROTO_NONE);
+                callJSFunction(ctx, setter, receiver, callArgs);
+                if (hasCallException()) return PROTO_NONE;
+                return PROTO_TRUE;
+            }
+            // Getter without setter on the chain → write fails.
+            std::string gkStr = "__get_" + kstr + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = target->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) return PROTO_FALSE;
             }
         }
     }
