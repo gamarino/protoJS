@@ -145,8 +145,17 @@ static const proto::ProtoObject* fnBind(
     if (lenKey)
         boundArgsArr = boundArgsArr->setAttribute(ctx, lenKey, ctx->fromInteger(bcount));
 
-    // Build the bound function sentinel object.
-    const proto::ProtoObject* bound = ctx->newObject(true);
+    // Build the bound function sentinel object. Parent at
+    // Function.prototype so `bound instanceof Function` holds and
+    // `boundFn.call / .apply / .bind` resolve through the chain.
+    // Pre-fix bound = ctx->newObject(true) produced an orphan object
+    // that instanceof Function returned false for and whose own .call
+    // was undefined.
+    const proto::ProtoObject* fpParent =
+        ctx->space ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* bound = fpParent
+        ? fpParent->newChild(ctx, true)
+        : ctx->newObject(true);
     const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
     const proto::ProtoString* btKey = JSSymbols::boundThis(ctx);
     const proto::ProtoString* baKey = JSSymbols::boundArgs(ctx);
