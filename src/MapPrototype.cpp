@@ -627,8 +627,30 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
     const proto::ProtoObject* key = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     const proto::ProtoObject* callbackFn = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) key = PROTO_NONE;
-    key = normalizeMapKey(ctx, key);
 
+    // ECMA-262 (upsert proposal) §Map.prototype.getOrInsertComputed
+    // step 3: if IsCallable(callbackfn) is false, throw TypeError.
+    // The check happens BEFORE the map lookup, so even when the key
+    // already exists a non-callable callbackfn must still throw.
+    {
+        bool callable = false;
+        if (callbackFn && callbackFn != PROTO_NONE && callbackFn != getUndefinedSentinel()) {
+            if (callbackFn->isMethod(ctx)) callable = true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (!callable && bcK && callbackFn->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (!callable && nfK && callbackFn->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+            if (!callable && bfK && callbackFn->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+        }
+        if (!callable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Map.prototype.getOrInsertComputed: callbackfn is not a function"));
+            return PROTO_NONE;
+        }
+    }
+
+    key = normalizeMapKey(ctx, key);
     unsigned long foundIdx = 0;
     if (mapFind(ctx, self, key, foundIdx)) {
         const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
@@ -637,13 +659,9 @@ static const proto::ProtoObject* mapGetOrInsertComputed(
             ? valsList->getAt(ctx, foundIdx) : PROTO_NONE;
         return v ? v : PROTO_NONE;
     }
-    // Call callback() to compute default value.
-    if (!callbackFn || callbackFn == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Map.prototype.getOrInsertComputed: callbackFn is not a function"));
-        return PROTO_NONE;
-    }
+    // Call callback(key) to compute default value.
     const proto::ProtoList* cbArgs = ctx->newList();
+    cbArgs = cbArgs->appendLast(ctx, key);
     const proto::ProtoObject* defVal = callJSFunction(ctx, callbackFn, PROTO_NONE, cbArgs);
     if (hasCallException()) return PROTO_NONE;
     if (!defVal) defVal = PROTO_NONE;
