@@ -1464,7 +1464,19 @@ static const proto::ProtoObject* globalParseFloat(
     if (!strObj || strObj == PROTO_NONE
         || strObj == getUndefinedSentinel()) return ctx->fromDouble(nan);
     if (strObj->isInteger(ctx)) return strObj;
-    if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) return strObj;
+    if (strObj->isDouble(ctx) || strObj->isFloat(ctx)) {
+        // ECMA-262 §19.2.7 step 1 runs ToString on the input first,
+        // so the canonical decimal form is what parseFloat sees.
+        // For -0 that is "0" → parsed back to +0.  Pre-fix the
+        // double fast-path returned the original double verbatim,
+        // preserving the negative sign on -0 and breaking
+        // `1 / parseFloat(-0)` (which must be +Infinity per
+        // §6.1.6.1.13 Number::toString).  Cheaper to special-case
+        // -0 inline than route the whole value through ToString.
+        double d = strObj->asDouble(ctx);
+        if (d == 0.0) return ctx->fromInteger(0LL);
+        return strObj;
+    }
     std::string s;
     if (strObj == getNullSentinel()) { s = "null"; }
     else if (strObj == PROTO_TRUE)   { s = "true"; }
