@@ -265,13 +265,30 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     if (isArr) {
         out.push_back('[');
         bool any = false;
+        // §25.5.2.4 SerializeJSONArray step 8: invoke the replacer per
+        // element with (key:str, value) and holder=array as `this`.
+        // Per-element undefined-from-replacer renders as 'null' (vs
+        // dropped, like objects). Pre-fix the replacer was bypassed
+        // for arrays entirely.
+        auto applyReplacer = [&](long long idx, const proto::ProtoObject* v)
+            -> const proto::ProtoObject* {
+            if (!tlReplacerFn) return v;
+            const proto::ProtoList* replArgs = ctx->newList();
+            std::string ks = std::to_string(idx);
+            replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            replArgs = replArgs->appendLast(ctx, v ? v : PROTO_NONE);
+            const proto::ProtoObject* r = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
+            if (hasCallException()) return PROTO_NONE;
+            return r ? r : PROTO_NONE;
+        };
         const proto::ProtoList* els = getArrayElements(ctx, obj);
         if (els) {
             ScopedRoot r_els(rs, els->asObject(ctx));
             size_t size = els->getSize(ctx);
             for (size_t i = 0; i < size; ++i) {
                 if (i == 0) emitOpenLine(); else emitSep();
-                stringifyRecursive(ctx, els->getAt(ctx, static_cast<int>(i)), out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
+                const proto::ProtoObject* v = applyReplacer(static_cast<long long>(i), els->getAt(ctx, static_cast<int>(i)));
+                stringifyRecursive(ctx, v, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
                 any = true;
             }
         } else {
@@ -283,7 +300,8 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 if (i == 0) emitOpenLine(); else emitSep();
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 const proto::ProtoObject* ev = ik ? obj->getAttribute(ctx, ik, false) : nullptr;
-                stringifyRecursive(ctx, ev ? ev : PROTO_NONE, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
+                const proto::ProtoObject* v = applyReplacer(i, ev);
+                stringifyRecursive(ctx, v, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
                 any = true;
             }
         }
