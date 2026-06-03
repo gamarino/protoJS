@@ -100,6 +100,25 @@ static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* arg
     if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return defaultVal;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     if (!a || a == PROTO_NONE) return defaultVal;
+    // Spec ToInteger: string args coerce through ToNumber first
+    // ("1" → 1, "NaN" → 0). Pre-fix the helper short-circuited to
+    // the default for any non-numeric input, so `"abc".charAt("1")`
+    // returned the default-index character instead of the second.
+    if (a->isString(ctx)) {
+        const proto::ProtoObject* num = jsToNumber(ctx, a);
+        if (num) {
+            if (num->isInteger(ctx)) return num->asLong(ctx);
+            if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                double d = num->asDouble(ctx);
+                if (std::isnan(d)) return 0LL;
+                if (std::isinf(d)) return d > 0
+                    ? std::numeric_limits<long long>::max()
+                    : std::numeric_limits<long long>::min();
+                return static_cast<long long>(d);
+            }
+        }
+        return defaultVal;
+    }
     if (a->isInteger(ctx)) return a->asLong(ctx);
     if (a->isDouble(ctx)) {
         double d = a->asDouble(ctx);
