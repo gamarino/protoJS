@@ -1041,24 +1041,45 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                     || v->isString(ctx) || v->isBoolean(ctx);
             };
             const proto::ProtoObject* prim = nullptr;
-            const proto::ProtoString* tsK = JSSymbols::toString(ctx);
-            if (tsK) {
-                const proto::ProtoObject* fn = textObj->getAttribute(ctx, tsK, true);
-                if (isCallable(fn)) {
-                    const proto::ProtoObject* r = callJSFunction(ctx, fn, textObj, ctx->newList());
-                    if (hasCallException()) return PROTO_NONE;
-                    if (isPrim(r)) prim = r;
+            // Helper: resolve a method or accessor — for accessor-form
+            // descriptors invoke the getter so the returned value is
+            // either the function or whatever the getter produces. Pre-
+            // fix `get valueOf(){throw}` came back as the undefined
+            // placeholder so isCallable was false and the abrupt
+            // completion never fired.
+            auto resolveMethod = [&](const char* name) -> const proto::ProtoObject* {
+                const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+                const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+                if (!ks) return nullptr;
+                const proto::ProtoObject* fn = textObj->getAttribute(ctx, ks, true);
+                if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel()) {
+                    std::string gkStr = std::string("__get_") + name + "__";
+                    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                    if (gks) {
+                        const proto::ProtoObject* getter = textObj->getAttribute(ctx, gks, true);
+                        if (getter && getter != PROTO_NONE) {
+                            fn = callJSFunction(ctx, getter, textObj, ctx->newList());
+                            if (hasCallException()) return nullptr;
+                        }
+                    }
                 }
+                return fn;
+            };
+            const proto::ProtoObject* tsFn = resolveMethod("toString");
+            if (hasCallException()) return PROTO_NONE;
+            if (isCallable(tsFn)) {
+                const proto::ProtoObject* r = callJSFunction(ctx, tsFn, textObj, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+                if (isPrim(r)) prim = r;
             }
             if (!prim) {
-                const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
-                if (voK) {
-                    const proto::ProtoObject* fn = textObj->getAttribute(ctx, voK, true);
-                    if (isCallable(fn)) {
-                        const proto::ProtoObject* r = callJSFunction(ctx, fn, textObj, ctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
-                        if (isPrim(r)) prim = r;
-                    }
+                const proto::ProtoObject* voFn = resolveMethod("valueOf");
+                if (hasCallException()) return PROTO_NONE;
+                if (isCallable(voFn)) {
+                    const proto::ProtoObject* r = callJSFunction(ctx, voFn, textObj, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                    if (isPrim(r)) prim = r;
                 }
             }
             if (!prim) {
