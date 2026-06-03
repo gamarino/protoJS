@@ -2058,16 +2058,40 @@ static const proto::ProtoObject* arrayFlat(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // ECMA-262 §23.1.3.10 step 3-4: depth = ToIntegerOrInfinity(arg).
+    // The spec coerces via ToNumber first, so a non-numeric string,
+    // a plain object, true/false, etc. all funnel to NaN → 0. Pre-fix
+    // we only handled Integer/Double and fell through to depth=1 for
+    // everything else, so a.flat("TestString") wrongly flattened
+    // (depth=1) instead of returning a copy (depth=0). Default 1
+    // applies only when the arg is absent or undefined.
     int depth = 1;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* d = args->getAt(ctx, 0);
-        if (d && d != PROTO_NONE && d->isInteger(ctx)) depth = (int)d->asLong(ctx);
-        else if (d && d != PROTO_NONE && (d->isDouble(ctx) || d->isFloat(ctx))) {
-            double dv = d->asDouble(ctx);
-            // ECMA-262: ToIntegerOrInfinity → ±Infinity preserved
-            // structurally; depth < 1 yields no flattening. Casting
-            // double Infinity to int is UB, so handle the sentinels
-            // explicitly: +Inf → INT_MAX, -Inf → 0, NaN → 0.
+        bool isUndef = (!d || d == PROTO_NONE || d == getUndefinedSentinel());
+        if (!isUndef) {
+            double dv = std::nan("");
+            if (d == PROTO_TRUE) dv = 1.0;
+            else if (d == PROTO_FALSE) dv = 0.0;
+            else if (d->isInteger(ctx)) dv = static_cast<double>(d->asLong(ctx));
+            else if (d->isDouble(ctx) || d->isFloat(ctx)) dv = d->asDouble(ctx);
+            else if (d->isString(ctx)) {
+                std::string s;
+                d->asString(ctx)->toUTF8String(ctx, s);
+                // Trim — Number(" 7 ") is 7. Empty/whitespace → 0.
+                size_t b = s.find_first_not_of(" \t\n\r\f\v");
+                size_t e = s.find_last_not_of(" \t\n\r\f\v");
+                if (b == std::string::npos) dv = 0.0;
+                else {
+                    std::string t = s.substr(b, e - b + 1);
+                    try {
+                        size_t idx = 0;
+                        dv = std::stod(t, &idx);
+                        if (idx != t.size()) dv = std::nan("");
+                    } catch (...) { dv = std::nan(""); }
+                }
+            }
+            // Anything else (Object, Symbol) -> NaN -> depth 0.
             if (std::isnan(dv))      depth = 0;
             else if (std::isinf(dv)) depth = (dv > 0) ? 2147483647 : 0;
             else if (dv > 2147483647.0) depth = 2147483647;
