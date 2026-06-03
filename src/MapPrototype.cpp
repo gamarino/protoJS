@@ -749,6 +749,20 @@ static const proto::ProtoObject* mapConstruct(
             for (long i = 0; i < len; i++) {
                 const proto::ProtoObject* pair = readEl(iterable, i);
                 if (!pair || pair == PROTO_NONE) continue;
+                // ECMA-262 §24.1.1.2 AddEntriesFromIterable step 4.a-c:
+                // each entry MUST be an Object, otherwise TypeError.
+                // Pre-fix `new Map([1, 2])` silently produced an empty
+                // Map because primitive entries' readEl(0/1) returned
+                // PROTO_NONE — no throw, no insertion.
+                if (pair->isInteger(ctx) || pair->isDouble(ctx)
+                    || pair->isFloat(ctx) || pair->isString(ctx)
+                    || pair->isBoolean(ctx)
+                    || pair == getNullSentinel()
+                    || pair == getUndefinedSentinel()) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Iterator value is not an entry object"));
+                    return PROTO_NONE;
+                }
                 const proto::ProtoObject* pkey = readEl(pair, 0);
                 const proto::ProtoObject* pval = readEl(pair, 1);
                 {
