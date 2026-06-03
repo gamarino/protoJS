@@ -1813,12 +1813,20 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     regStatic("raw",           stringRaw,           1);
 
     // Set String.prototype.constructor = String (required by ECMAScript).
+    // Descriptor per §22.1.3.1: {writable:true, enumerable:false,
+    // configurable:true} → bits 0x3. Without the sidecar the default
+    // is fully enumerable, surfacing `constructor` in for-in over any
+    // string-wrapper and breaking Object.keys() / dynamic key routing
+    // off a String instance.
     if (ctx->space && ctx->space->stringPrototype) {
         const proto::ProtoObject* sp =
             reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype);
         const proto::ProtoString* ctorKey2 = JSSymbols::constructor(ctx);
         if (ctorKey2) {
             sp = sp->setAttribute(ctx, ctorKey2, ctor);
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) sp = sp->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             ctx->space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
         }
     }

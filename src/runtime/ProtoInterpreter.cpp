@@ -1780,10 +1780,19 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         if (!ctor) continue;
         // Set prototype.constructor = ctor so `e.constructor === TypeError` identity checks pass.
+        // Descriptor per §20.5.6.2: {writable:true, enumerable:false,
+        // configurable:true} → bits 0x3. Without the sidecar the default
+        // is fully enumerable, so for-in over any Error instance lists
+        // 'constructor' alongside `message` and breaks ergonomic
+        // for-in / Object.keys usage.
         {
             const proto::ProtoString* ctorPropKey = JSSymbols::constructor(ctx);
             if (ctorPropKey) {
                 proto = proto->setAttribute(ctx, ctorPropKey, ctor);
+                if (!proto) continue;
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 if (!proto) continue;
                 // Re-link ctor.prototype after proto was updated.
                 ctor = ctor->setAttribute(ctx, protoKey, proto);
