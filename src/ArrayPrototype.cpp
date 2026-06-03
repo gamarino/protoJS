@@ -2564,7 +2564,7 @@ static const proto::ProtoObject* arrayIsArray(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* arrayFrom(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
@@ -2576,7 +2576,42 @@ static const proto::ProtoObject* arrayFrom(
     const proto::ProtoObject* src = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (arrayThrowIfNullUndefined(ctx, src)) return PROTO_NONE;
-    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    // §23.1.2.1 steps 4.a / 7.a: when `this` is a constructor distinct
+    // from Array, the result is `Construct(this)`/`Construct(this, [len])`,
+    // not a fresh Array.  Detect the constructor case by looking for a
+    // `__construct__` method or the generic constructor flag, then
+    // invoke it with no args (matches V8 semantics for both the
+    // iterator and array-like branches).  Pre-fix the path always
+    // produced an Array, so `Array.from.call(Object, []).constructor`
+    // was Array instead of the spec-required Object.
+    const proto::ProtoObject* result = nullptr;
+    {
+        const proto::ProtoObject* ctorFn = nullptr;
+        const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
+        if (self && self != PROTO_NONE && self != getUndefinedSentinel() && constructKey) {
+            ctorFn = self->getAttribute(ctx, constructKey, false);
+            if (ctorFn && ctorFn != PROTO_NONE && !ctorFn->isMethod(ctx))
+                ctorFn = nullptr;
+        }
+        if (ctorFn && ctorFn != PROTO_NONE) {
+            // Build a fresh instance whose [[Prototype]] is C.prototype.
+            const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+            const proto::ProtoObject* cProto = protoKey
+                ? self->getAttribute(ctx, protoKey, false) : nullptr;
+            result = (cProto && cProto != PROTO_NONE)
+                ? cProto->newChild(ctx, true)
+                : ctx->newObject(true);
+            proto::ProtoMethod fn = ctorFn->asMethod(ctx);
+            if (fn) {
+                const proto::ProtoObject* alt = fn(ctx, result, nullptr,
+                    ctx->newList(), nullptr);
+                if (alt && alt != PROTO_NONE && !alt->isInteger(ctx)
+                    && !alt->isDouble(ctx) && !alt->isFloat(ctx))
+                    result = alt;
+            }
+        }
+    }
+    if (!result) result = createNewArray(ctx, nullptr);
 
     // Optional map function (Array.from(src, mapFn[, thisArg])).
     const proto::ProtoObject* mapFn = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : nullptr;
