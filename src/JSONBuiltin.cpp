@@ -649,6 +649,46 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     std::string indentUnit;
     if (args->getSize(ctx) > 2) {
         const proto::ProtoObject* space = args->getAt(ctx, 2);
+        // §25.5.2 step 5: when space is an Object, unbox a Number /
+        // String wrapper (via [[NumberData]] / [[StringData]] internal
+        // slot) before applying the step-6 spacing rules. Pre-fix a
+        // `new Number(1)` space silently fell through to 'no indent'.
+        if (space && space != PROTO_NONE && space != getUndefinedSentinel()) {
+            if (!space->isInteger(ctx) && !space->isDouble(ctx)
+                && !space->isFloat(ctx) && !space->isString(ctx)
+                && !space->isBoolean(ctx)) {
+                const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+                const proto::ProtoObject* pv = pvK
+                    ? space->getAttribute(ctx, pvK, false) : nullptr;
+                if (pv && pv != PROTO_NONE
+                    && (pv->isString(ctx) || pv->isInteger(ctx)
+                        || pv->isDouble(ctx) || pv->isFloat(ctx))) {
+                    // Number wrapper -> ToNumber (valueOf path);
+                    // String wrapper -> ToString.
+                    if (pv->isString(ctx)) {
+                        const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+                        const proto::ProtoObject* fn = tsK
+                            ? space->getAttribute(ctx, tsK, true) : nullptr;
+                        if (fn && fn != PROTO_NONE) {
+                            const proto::ProtoObject* r =
+                                callJSFunction(ctx, fn, space, ctx->newList());
+                            if (hasCallException()) return PROTO_NONE;
+                            if (r && r != PROTO_NONE) space = r;
+                        }
+                    } else {
+                        const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
+                        const proto::ProtoObject* fn = voK
+                            ? space->getAttribute(ctx, voK, true) : nullptr;
+                        if (fn && fn != PROTO_NONE) {
+                            const proto::ProtoObject* r =
+                                callJSFunction(ctx, fn, space, ctx->newList());
+                            if (hasCallException()) return PROTO_NONE;
+                            if (r && r != PROTO_NONE) space = r;
+                        }
+                    }
+                }
+            }
+        }
         if (space && space != PROTO_NONE) {
             long long n = -1;
             if (space->isInteger(ctx)) n = space->asLong(ctx);
