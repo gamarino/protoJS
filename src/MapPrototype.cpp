@@ -382,20 +382,34 @@ static const proto::ProtoObject* mapForEach(
     const proto::ProtoObject* thisArg = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
 
-    const proto::ProtoSparseList* keysList = getMapList(ctx, self, "__map_keys__");
-    const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
-    if (!keysList) return PROTO_NONE;
-
-    const proto::ProtoSparseListIterator* it = keysList->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        unsigned long idx = it->nextKey(ctx);
-        const proto::ProtoObject* k = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        const proto::ProtoObject* v = (valsList && valsList->has(ctx, idx))
-            ? valsList->getAt(ctx, idx) : PROTO_NONE;
+    // ECMA-262 §24.1.3.5 NOTE: same iteration discipline as
+    // Set.prototype.forEach — entries added during the callback are
+    // visited; entries deleted before being visited are not; entries
+    // re-added after deletion are visited again at a fresh slot.
+    // Pre-fix the frozen iterator snapshot missed all three cases.
+    unsigned long pos = 0;
+    while (true) {
+        const proto::ProtoSparseList* keysList = getMapList(ctx, self, "__map_keys__");
+        const proto::ProtoSparseList* valsList = getMapList(ctx, self, "__map_vals__");
+        if (!keysList) break;
+        unsigned long highWater = 0;
+        bool anyEntry = false;
+        const proto::ProtoSparseListIterator* probe = keysList->getIterator(ctx);
+        while (probe && probe->hasNext(ctx)) {
+            unsigned long slot = probe->nextKey(ctx);
+            (void)probe->nextValue(ctx);
+            probe = const_cast<proto::ProtoSparseListIterator*>(probe)->advance(ctx);
+            if (!anyEntry || slot >= highWater) highWater = slot + 1;
+            anyEntry = true;
+        }
+        if (!anyEntry || pos >= highWater) break;
+        if (!keysList->has(ctx, pos)) { ++pos; continue; }
+        const proto::ProtoObject* k = keysList->getAt(ctx, pos);
+        const proto::ProtoObject* v = (valsList && valsList->has(ctx, pos))
+            ? valsList->getAt(ctx, pos) : PROTO_NONE;
+        ++pos;
         if (!k) k = PROTO_NONE;
         if (!v) v = PROTO_NONE;
-        // Call callback(value, key, map) per spec.
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, v);
         cbArgs = cbArgs->appendLast(ctx, k);
