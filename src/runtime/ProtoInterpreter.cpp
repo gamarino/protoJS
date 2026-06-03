@@ -636,12 +636,19 @@ static const proto::ProtoObject* reflectSet(
     if (!args || args->getSize(ctx) < 3) return PROTO_FALSE;
     const proto::ProtoObject* key    = args->getAt(ctx, 1);
     const proto::ProtoObject* value  = args->getAt(ctx, 2);
+    // Per §28.1.13 step 4, if receiver is not present, receiver = target.
+    // Pre-fix Reflect.set ignored the 4th argument entirely and always
+    // mutated target — so the write `Reflect.set(target, p, v, receiver)`
+    // surfaced on target instead of receiver, violating §9.1.9.
+    const proto::ProtoObject* receiver =
+        (args->getSize(ctx) > 3) ? args->getAt(ctx, 3) : target;
+    if (!receiver || receiver == PROTO_NONE) receiver = target;
     if (!key) return PROTO_FALSE;
     const proto::ProtoString* k = key->asString(ctx);
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
-    target->setAttribute(ctx, k, value ? value : PROTO_NONE);
+    receiver->setAttribute(ctx, k, value ? value : PROTO_NONE);
     return PROTO_TRUE;
 }
 
