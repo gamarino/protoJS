@@ -30,6 +30,18 @@ namespace protojs {
 
 namespace {
 
+// Per-call key filter for the replacer-array form of JSON.stringify.
+// Thread-local so concurrent stringify calls (worker threads) don't
+// clobber each other; populated at entry to JSONBuiltin::stringify
+// and cleared on exit.
+static thread_local std::vector<std::string>* tlKeyFilter = nullptr;
+
+static bool keyAllowedByFilter(const std::string& key) {
+    if (!tlKeyFilter) return true;
+    for (const auto& k : *tlKeyFilter) if (k == key) return true;
+    return false;
+}
+
 void jsonEscape(const std::string& s, std::string& out) {
     out.push_back('"');
     for (unsigned char c : s) {
@@ -258,7 +270,8 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 if (!key.empty() && key[0] != '_'
                     && val && val != PROTO_NONE
                     && val != getUndefinedSentinel()
-                    && !isCallable) {
+                    && !isCallable
+                    && keyAllowedByFilter(key)) {
                     if (first) emitOpenLine(); else emitSep();
                     jsonEscape(key, out);
                     out.push_back(':');
@@ -285,6 +298,45 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                                             const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* val = args->getAt(ctx, 0);
+
+    // ECMA-262 §25.5.2 step 4: if arg[1] is an Array, build the
+    // property-keys filter. Strings and numbers in the array are
+    // converted to PropertyKey form. Anything else is ignored.
+    // The replacer-function form (typeof arg[1] === "function") is
+    // not yet supported — fall through (no replacement).
+    std::vector<std::string> keyFilter;
+    bool hasFilter = false;
+    if (args->getSize(ctx) > 1) {
+        const proto::ProtoObject* replacer = args->getAt(ctx, 1);
+        if (replacer && replacer != PROTO_NONE
+            && replacer != getUndefinedSentinel() && replacer != getNullSentinel()) {
+            // Try array form: read its __elements__ list.
+            if (const proto::ProtoList* els = getArrayElements(ctx, replacer)) {
+                hasFilter = true;
+                size_t sz = els->getSize(ctx);
+                for (size_t i = 0; i < sz; ++i) {
+                    const proto::ProtoObject* e = els->getAt(ctx, static_cast<int>(i));
+                    if (!e || e == PROTO_NONE) continue;
+                    if (e->isString(ctx)) {
+                        std::string s;
+                        e->asString(ctx)->toUTF8String(ctx, s);
+                        keyFilter.push_back(std::move(s));
+                    } else if (e->isInteger(ctx)) {
+                        keyFilter.push_back(std::to_string(e->asLong(ctx)));
+                    }
+                }
+            }
+        }
+    }
+    // Pin the filter so stringifyRecursive's object branch can
+    // consult it. RAII guard at the end of the function restores
+    // the previous value.
+    struct FilterGuard {
+        std::vector<std::string>* prev;
+        FilterGuard(std::vector<std::string>* v) : prev(tlKeyFilter) { tlKeyFilter = v; }
+        ~FilterGuard() { tlKeyFilter = prev; }
+    };
+    FilterGuard guard(hasFilter ? &keyFilter : nullptr);
 
     // ECMA-262 §25.5.2 step 6: derive the indent unit from arg[2].
     // - Number: ToInteger, min(10, n) spaces.
