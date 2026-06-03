@@ -655,6 +655,16 @@ void BuildNumberPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     // ensuring attribute lookups on primitive numbers find newly added properties.
     const proto::ProtoObject* numberProto = objectProto->newChild(ctx, true);
 
+    // ECMA-262 §21.1.4: "The Number prototype object is itself an
+    // ordinary object … it has a [[NumberData]] internal slot whose
+    // value is +0."  Install the slot now so methods that consult
+    // thisNumberValue (toString / toFixed / toExponential /
+    // toPrecision) treat `Number.prototype` as the numeric value 0
+    // rather than throwing TypeError.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) numberProto = numberProto->setAttribute(ctx, pvKey, ctx->fromInteger(0LL));
+    }
     numberProto = installNonEnumerableMethod(ctx, numberProto, "valueOf",       numberValueOf,       0);
     numberProto = installNonEnumerableMethod(ctx, numberProto, "toString",      numberToString,      1);
     numberProto = installNonEnumerableMethod(ctx, numberProto, "toFixed",       numberToFixed,       1);
