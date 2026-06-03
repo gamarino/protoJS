@@ -1862,7 +1862,15 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
     if (!ctx || !globalRoot || !*globalRoot) return;
     static const char* kNames[] = {
         "Error", "TypeError", "ReferenceError", "RangeError",
-        "SyntaxError", "URIError", "EvalError", "InternalError", nullptr
+        "SyntaxError", "URIError", "EvalError", "InternalError",
+        // AggregateError (§19.2.1.5) is a real built-in subclass of
+        // Error introduced by Promise.any(). Without an entry here
+        // `new AggregateError([...])` reported 'function is not a
+        // constructor' even though Promise.any already constructed
+        // instances internally via makeNativeError. Listing it here
+        // installs the constructor + prototype + .constructor backref
+        // identically to the other Error subclasses.
+        "AggregateError", nullptr
     };
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     const proto::ProtoString* nameKey  = JSSymbols::name(ctx);
