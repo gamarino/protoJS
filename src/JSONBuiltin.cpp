@@ -41,6 +41,12 @@ static thread_local std::vector<std::string>* tlKeyFilter = nullptr;
 // emission via stringifyRecursive. Same lifecycle as tlKeyFilter.
 static thread_local const proto::ProtoObject* tlReplacerFn = nullptr;
 
+// Current property key for the SerializeJSONProperty invocation.
+// Replaced at every array/object iteration site and consulted by the
+// toJSON / replacer-call helpers so they receive the spec-mandated
+// key argument (e.g. toJSON(key) per §25.5.2.3 step 2.b.i).
+static thread_local std::string tlCurrentKey;
+
 static bool keyAllowedByFilter(const std::string& key) {
     if (!tlKeyFilter) return true;
     for (const auto& k : *tlKeyFilter) if (k == key) return true;
@@ -192,8 +198,16 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     if (!callable && nfKey && tjsFn->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
                 }
                 if (callable) {
+                    // toJSON is called with the current key per
+                    // §25.5.2.3 step 2.b.i. Pre-fix it received no
+                    // argument, so the test262 cases that assert
+                    // _key === '1' / 'key' on the toJSON receiver
+                    // observed undefined.
+                    const proto::ProtoList* tjArgs = ctx->newList();
+                    tjArgs = tjArgs->appendLast(ctx,
+                        ctx->fromUTF8String(tlCurrentKey.c_str()));
                     const proto::ProtoObject* replaced =
-                        callJSFunction(ctx, tjsFn, obj, ctx->newList());
+                        callJSFunction(ctx, tjsFn, obj, tjArgs);
                     if (replaced != obj) {
                         stringifyRecursive(ctx, replaced, out, arrayPrototype, stack, rs, indentUnit, currentIndent);
                         return;
@@ -312,11 +326,16 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             return r ? r : PROTO_NONE;
         };
         const proto::ProtoList* els = getArrayElements(ctx, obj);
+        // Per §25.5.2.4 SerializeJSONArray + §25.5.2.3 SerializeJSONProperty,
+        // each element is published as the current key for the nested
+        // recursion (so toJSON receives ToString(index)).
+        std::string savedKey = tlCurrentKey;
         if (els) {
             ScopedRoot r_els(rs, els->asObject(ctx));
             size_t size = els->getSize(ctx);
             for (size_t i = 0; i < size; ++i) {
                 if (i == 0) emitOpenLine(); else emitSep();
+                tlCurrentKey = std::to_string(i);
                 const proto::ProtoObject* v = applyReplacer(static_cast<long long>(i), els->getAt(ctx, static_cast<int>(i)));
                 stringifyRecursive(ctx, v, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
                 any = true;
@@ -330,11 +349,13 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 if (i == 0) emitOpenLine(); else emitSep();
                 const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 const proto::ProtoObject* ev = ik ? obj->getAttribute(ctx, ik, false) : nullptr;
+                tlCurrentKey = std::to_string(i);
                 const proto::ProtoObject* v = applyReplacer(i, ev);
                 stringifyRecursive(ctx, v, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
                 any = true;
             }
         }
+        tlCurrentKey = savedKey;
         if (any) emitCloseLine();
         out.push_back(']');
     } else if (obj->isTuple(ctx)) {
@@ -452,12 +473,40 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 }
             }
             if (!keyAllowedByFilter(key)) continue;
-            // §25.5.2.4 SerializeJSONProperty: the replacer fires for
-            // EVERY key in the iteration list, even when [[Get]]
-            // returned undefined (e.g. property was deleted during
-            // serialisation). The replacer's return value can rescue
-            // such a missing entry. Pre-fix we silently skipped any
-            // key whose data lookup yielded undefined.
+            // §25.5.2.3 SerializeJSONProperty step 2: toJSON runs
+            // BEFORE the replacer and BEFORE the recursive emission.
+            // If toJSON returns undefined the property is dropped from
+            // the output. Pre-fix toJSON was only invoked from inside
+            // stringifyRecursive (after the colon was already emitted),
+            // so a toJSON returning undefined surfaced as 'null' for
+            // the property instead of dropping it.
+            if (val && val != PROTO_NONE
+                && val != getUndefinedSentinel() && val != getNullSentinel()
+                && val != PROTO_TRUE && val != PROTO_FALSE
+                && !val->isInteger(ctx) && !val->isDouble(ctx)
+                && !val->isFloat(ctx) && !val->isString(ctx)
+                && !val->isBoolean(ctx)) {
+                const proto::ProtoObject* tjKo = ctx->fromUTF8String("toJSON");
+                const proto::ProtoString* tjKs = tjKo ? tjKo->asString(ctx) : nullptr;
+                if (tjKs) {
+                    const proto::ProtoObject* fn = val->getAttribute(ctx, tjKs, true);
+                    bool tjCallable = false;
+                    if (fn && fn != PROTO_NONE) {
+                        if (fn->isMethod(ctx)) tjCallable = true;
+                        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                        if (!tjCallable && bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE) tjCallable = true;
+                        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                        if (!tjCallable && nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE) tjCallable = true;
+                    }
+                    if (tjCallable) {
+                        const proto::ProtoList* tjArgs = ctx->newList();
+                        tjArgs = tjArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
+                        const proto::ProtoObject* r = callJSFunction(ctx, fn, val, tjArgs);
+                        if (hasCallException()) return;
+                        if (r) val = r;
+                    }
+                }
+            }
             const proto::ProtoObject* outVal = (val && val != PROTO_NONE)
                 ? val : getUndefinedSentinel();
             if (tlReplacerFn) {
@@ -483,7 +532,12 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 jsonEscape(key, out);
                 out.push_back(':');
                 if (indenting) out.push_back(' ');
+                // Publish current key so the nested toJSON receives the
+                // spec-mandated string argument.
+                std::string objSavedKey = tlCurrentKey;
+                tlCurrentKey = key;
                 stringifyRecursive(ctx, outVal, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
+                tlCurrentKey = objSavedKey;
                 first = false;
                 any = true;
             }
