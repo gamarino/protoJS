@@ -227,6 +227,27 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
             } catch (...) {}
         }
     }
+    // Fall back to full ToNumber for any other shape (objects with
+    // valueOf/toString, etc.).  ECMA-262 §7.1.20 ToLength is
+    // ToIntegerOrInfinity ∘ ToNumber.  Pre-fix `{length: {toString:
+    // () => '2'}}` was treated as length 0 because the object branch
+    // never reached the coercion logic that `Array.from` etc. already
+    // apply elsewhere in this file.
+    {
+        const proto::ProtoObject* num = jsToNumber(ctx, lenObj);
+        if (hasCallException()) return 0;
+        if (num && num != PROTO_NONE) {
+            if (num->isInteger(ctx)) {
+                long long v = num->asLong(ctx);
+                return (v > 0) ? static_cast<unsigned long>(v) : 0;
+            }
+            if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                double d = num->asDouble(ctx);
+                if (d <= 0 || std::isnan(d) || std::isinf(d)) return 0;
+                return static_cast<unsigned long>(d);
+            }
+        }
+    }
     return 0;
 }
 
