@@ -1239,6 +1239,31 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ks, false);
     if (existing && existing != PROTO_NONE) return;
 
+    // BuildSetPrototype ran before ensureFunctionPrototype, so each
+    // installNonEnumerableMethod call back then saw methodPrototype =
+    // nullptr and stamped a parentless wrapper. Reinstall now that
+    // methodPrototype (=Function.prototype) is available so
+    // s.add.call / s.has.bind / etc. resolve via the standard chain.
+    if (ctx->space && ctx->space->methodPrototype && s_setPrototype) {
+        const proto::ProtoObject* sp = s_setPrototype;
+        sp = installNonEnumerableMethod(ctx, sp, "add",     setAdd,      1);
+        sp = installNonEnumerableMethod(ctx, sp, "has",     setHas,      1);
+        sp = installNonEnumerableMethod(ctx, sp, "delete",  setDeleteFn, 1);
+        sp = installNonEnumerableMethod(ctx, sp, "clear",   setClear,    0);
+        sp = installNonEnumerableMethod(ctx, sp, "forEach", setForEach,  1);
+        sp = installNonEnumerableMethod(ctx, sp, "values",  setValues,   0);
+        sp = installNonEnumerableMethod(ctx, sp, "keys",    setKeys,     0);
+        sp = installNonEnumerableMethod(ctx, sp, "entries", setEntries,  0);
+        sp = installNonEnumerableMethod(ctx, sp, "union",               setUnion,               1);
+        sp = installNonEnumerableMethod(ctx, sp, "intersection",        setIntersection,        1);
+        sp = installNonEnumerableMethod(ctx, sp, "difference",          setDifference,          1);
+        sp = installNonEnumerableMethod(ctx, sp, "symmetricDifference", setSymmetricDifference, 1);
+        sp = installNonEnumerableMethod(ctx, sp, "isSubsetOf",          setIsSubsetOf,          1);
+        sp = installNonEnumerableMethod(ctx, sp, "isSupersetOf",        setIsSupersetOf,        1);
+        sp = installNonEnumerableMethod(ctx, sp, "isDisjointFrom",      setIsDisjointFrom,      1);
+        s_setPrototype = sp;
+    }
+
     const proto::ProtoObject* ctorParent =
         (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
     const proto::ProtoObject* ctor = ctorParent
