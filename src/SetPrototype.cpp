@@ -297,9 +297,30 @@ static const proto::ProtoObject* setForEach(
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* callback = args->getAt(ctx, 0);
-    if (!callback || callback == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* callback = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    // ECMA-262 §24.2.3.6 step 4: if IsCallable(callbackfn) is false,
+    // throw TypeError. Pre-fix any non-callable value silently no-op'd
+    // (boolean, number, null, undefined, string, plain object). The
+    // test262 'Set/prototype/forEach/callback-not-callable-*.js' tests
+    // each pass a different primitive and expect a TypeError throw.
+    {
+        bool callable = false;
+        if (callback && callback != PROTO_NONE && callback != getUndefinedSentinel()) {
+            if (callback->isMethod(ctx)) callable = true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (!callable && bcK && callback->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (!callable && nfK && callback->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+            if (!callable && bfK && callback->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+        }
+        if (!callable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Set.prototype.forEach callback is not callable"));
+            return PROTO_NONE;
+        }
+    }
     const proto::ProtoObject* thisArg = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
 
