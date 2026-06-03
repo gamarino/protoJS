@@ -369,8 +369,22 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             }
         }
+        // §25.5.2.5 SerializeJSONObject step 5.a: when a PropertyList
+        // is supplied, iteration follows ITS order, not the object's
+        // own-key insertion order. Pre-fix the filter was only a
+        // membership test.
+        std::vector<std::string> iterKeys;
+        if (tlKeyFilter) {
+            for (const auto& k : *tlKeyFilter) {
+                bool seen = false;
+                for (const auto& e : iterKeys) if (e == k) { seen = true; break; }
+                if (!seen) iterKeys.push_back(k);
+            }
+        } else {
+            iterKeys = keysSeen;
+        }
         bool first = true;
-        for (const auto& key : keysSeen) {
+        for (const auto& key : iterKeys) {
             const proto::ProtoString* propKs =
                 ctx->fromUTF8String(key.c_str())->asString(ctx);
             const proto::ProtoObject* val = propKs
