@@ -2,11 +2,44 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-03. Five consecutive sprint rounds (~170 commits) closed
+**Last updated:** 2026-06-03. Six consecutive sprint rounds (~200 commits) closed
 ECMA-262 conformance gaps across the language and built-ins layers — see
 CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 5 highlights (this commit batch):**
+**Round 6 highlights (this commit batch):**
+
+- **Map / Set under §17:** Set / Map / Promise constructors carry .length
+  and .name with descriptor 0x2; Set.prototype.size / Map.prototype.size
+  getters wrapped as real Function objects with name = "get size",
+  length = 0; Set / Map / Promise.prototype / Math / JSON / RegExp.prototype
+  `[Symbol.toStringTag]` installed under the user-visible key.
+  `Set` now exposes `get Set[Symbol.species]` returning this.
+- **Map / Set behaviour:** Set / Map forEach visit entries added from
+  inside the callback and revisit values deleted-then-re-added per
+  §24.x.3.x NOTE; both throw TypeError on non-callable callback. Set
+  constructor throws TypeError when `add` is shadowed by a non-callable.
+  Set iterators latch a sticky done = true after exhaustion so later
+  Set.add does NOT resurface through the same iterator.
+- **Set collection methods:** the seven set ops (`union`, `intersection`,
+  `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`,
+  `isDisjointFrom`) validate via GetSetRecord per §24.2.1.2 (TypeError
+  / RangeError for malformed `other`). `intersection` / `difference` /
+  `isSubsetOf` / `isDisjointFrom` now call `other.has(v)` for non-Set
+  set-like arguments, so `{size, has, keys}` objects yield correct
+  results.
+- **Map.prototype.getOrInsertComputed:** validates IsCallable(callbackfn)
+  BEFORE the map lookup and passes the canonical key to the callback.
+- **Array.prototype.flat / flatMap:** depth coercion via ToNumber
+  (non-numeric strings → NaN → 0, numeric strings parse, objects → 0);
+  flat result creation routes through ArraySpeciesCreate (so
+  `a.constructor = null` throws TypeError); arraySpeciesCreate enforces
+  the §22.1.3.1.1 non-Object constructor check.
+- **JSON / Function chain:** JSON.parse results inherit the real
+  Object.prototype; `Object.getPrototypeOf(JSON.parse) === Function.prototype`.
+  `Reflect.construct` implemented per §28.1.2 so the isConstructor
+  harness used by many test262 tests works.
+
+**Round 5 highlights:**
 
 - **Array constructor / prototype:** `Array(N)` function-call validation,
   `.length` setter ToUint32 + SameValue + RangeError, concat

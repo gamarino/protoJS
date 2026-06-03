@@ -4,6 +4,106 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 6 — 2026-06-03)
+
+Sixth consecutive 30-commit sprint, focused on the Map / Set surface
+and on the Array.prototype `flat` / `concat` family that the round-5
+pass had not yet reached. Each commit fixes one root cause; all
+changes remain local to protoJS (no protoCore modifications).
+
+**Map / Set built-ins under §17:**
+- `Set` / `Map` / `Promise` constructors carry `.length` and `.name`
+  with the §17 descriptor (writable:false, enumerable:false,
+  configurable:true).
+- `Set.prototype` / `Map.prototype` `[Symbol.toStringTag]` installed
+  under BOTH the internal `__toStringTag__` key (already present) and
+  the user-visible `"Symbol.toStringTag"` key so
+  `Object.getOwnPropertyDescriptor(Set.prototype, Symbol.toStringTag)`
+  returns the actual descriptor. Same fix for `JSON`, `Math`, and
+  `RegExp.prototype`.
+- `Set.prototype.size` / `Map.prototype.size` getters: wrapped through
+  the methodPrototype chain and stamped with `name = "get size"`,
+  `length = 0`, descriptor 0x2 — they are real Function objects now,
+  not opaque method handles.
+- `Set` constructor: install `get Set[Symbol.species]` per §24.2.2.2,
+  returning `this`. Pre-fix Set had no @@species property at all.
+
+**Map / Set behavioural fixes:**
+- `Set.prototype.forEach` / `Map.prototype.forEach`: per §24.x.3.x NOTE,
+  values added from inside the callback are visited; values deleted
+  before being visited are skipped; values re-added after deletion are
+  revisited. The pre-fix iterator snapshot missed all three cases.
+  Also: both now throw TypeError when the callback is not callable
+  (boolean / null / undefined / number / string / object / Symbol).
+- `Set` constructor: throws TypeError when `Set.prototype.add` (or any
+  shadowing) is not callable, per §24.2.1.1 step 7.a-c, BEFORE the
+  iteration begins.
+- `Set` iterators (`values` / `keys` / `entries`): latch a sticky
+  `done = true` after the iterator hits the end, so additions made to
+  the Set after exhaustion are NOT resurfaced through the same
+  iterator — matching §24.2.5.2.1.
+- `Map.prototype.getOrInsertComputed`: validates IsCallable(callbackfn)
+  BEFORE the map lookup; passes the canonical key to the callback;
+  matches the upsert proposal §Map.prototype.getOrInsertComputed
+  step 3.
+- `Map.groupBy`: rebuilt to route reads through arrayTryFastGet and
+  writes through `__elements__`, so result arrays are real arrays
+  (pre-fix it produced all-null arrays since real Sets/Arrays don't
+  carry string-keyed indexed attributes).
+
+**Set collection methods (`union`, `intersection`, `difference`,
+`symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`):**
+- All seven now begin with a GetSetRecord(other) validator per
+  §24.2.1.2 which throws TypeError for non-Object / non-callable
+  `.has` / non-callable `.keys` and RangeError for negative `.size`.
+  Real native Sets (detected via the __set_order__ slot) skip the
+  validator since their size accessor lives behind __get_size__.
+- `intersection` / `difference` / `isSubsetOf` / `isDisjointFrom`
+  now consult `other.has(v)` for non-Set arguments (via a new
+  setLikeHas helper), so Set-like `{size, has, keys}` objects produce
+  correct results instead of being treated as empty.
+
+**Array.prototype.flat / flatMap:**
+- `flat` coerces non-numeric depth via ToNumber per §23.1.3.10:
+  `"TestString"` / `{}` / non-numeric strings yield NaN → depth 0;
+  numeric strings parse; booleans coerce; undefined keeps the default
+  depth of 1.
+- `flat` now routes result creation through ArraySpeciesCreate per
+  step 5, so `a = []; a.constructor = null` (or any primitive)
+  correctly throws TypeError.
+- `arraySpeciesCreate` enforces the §22.1.3.1.1 step 7/9 non-Object
+  constructor check (TypeError for null / number / string / boolean
+  `.constructor`).
+
+**JSON / Function chain corrections:**
+- `JSON.parse` results inherit the real `Object.prototype`. Pre-fix
+  TypeBridge::fromJS stamped them with the empty seed prototype
+  installed before ensureObjectConstructor populated it.
+- `Object.getPrototypeOf(JSON.parse)` / `JSON.stringify` now equals
+  `Function.prototype` — both wrappers are re-parented and stamped
+  with the JS proto override.
+
+**Reflect.construct:**
+- Implemented per §28.1.2 so the isConstructor harness used by many
+  test262 tests works. The isConstructible probe checks the
+  `__is_arrow__` marker so arrow functions are correctly rejected.
+
+**FlattenIntoArray / arrayThrowIfCallbackNotCallable:**
+- `flat` / `flatMap` skip absent indices per FlattenIntoArray step 3.b
+  (`if (!arrHasProperty) continue`), so a sparse `[1, , 3].flat()`
+  produces `[1, 3]` not `[1, undefined, 3]`.
+- Array callback callability check now includes the `__bound_fn__`
+  sentinel so `arr.map(f.bind(x))` works.
+
+**JSON.stringify (round-6 follow-ups):**
+- Replacer-array number values are routed through Number::toString
+  per §25.5.2 step 4.d, so `JSON.stringify(o, [1e21])` uses the
+  same exponent / -0 handling as the rest of the runtime.
+
+Net code-change summary: 30 commits, ~13 files touched, all changes
+local to protoJS (no protoCore modifications). Cumulative across
+rounds 1-6: ~200 commits.
+
 ### Fixed (test262 spec conformance push, round 5 — 2026-06-03)
 
 Fifth consecutive 30-commit sprint targeting ECMA-262 gaps surfaced by
