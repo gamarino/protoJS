@@ -1232,10 +1232,38 @@ static const proto::ProtoObject* globalParseFloat(
         } else if (prim->isBoolean(ctx)) s = prim->asBoolean(ctx) ? "true" : "false";
         else return ctx->fromDouble(nan);
     }
-    // Trim leading whitespace
-    size_t j = 0;
-    while (j < s.size() && (s[j]==' '||s[j]=='\t'||s[j]=='\n'||s[j]=='\r'||s[j]=='\f'||s[j]=='\v')) j++;
-    s = s.substr(j);
+    // Trim leading whitespace — full ECMA-262 StrWhiteSpace set
+    // (matches toNumber's wsWidth). Pre-fix only ASCII whitespace
+    // was trimmed, so parseFloat('  1.1') returned NaN even
+    // though the spec treats U+2003 (EM SPACE) and the rest of the
+    // USP set as leading whitespace.
+    {
+        auto wsWidth = [&](const std::string& str, size_t pos) -> size_t {
+            if (pos >= str.size()) return 0;
+            unsigned char c = static_cast<unsigned char>(str[pos]);
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') return 1;
+            if (pos + 1 < str.size() && c == 0xC2 &&
+                static_cast<unsigned char>(str[pos + 1]) == 0xA0) return 2;
+            if (pos + 2 < str.size()) {
+                unsigned char b1 = static_cast<unsigned char>(str[pos + 1]);
+                unsigned char b2 = static_cast<unsigned char>(str[pos + 2]);
+                if (c == 0xE1 && b1 == 0x9A && b2 == 0x80) return 3;
+                if (c == 0xE2 && b1 == 0x80 && (b2 >= 0x80 && b2 <= 0x8A)) return 3;
+                if (c == 0xE2 && b1 == 0x80 && (b2 == 0xA8 || b2 == 0xA9 || b2 == 0xAF)) return 3;
+                if (c == 0xE2 && b1 == 0x81 && b2 == 0x9F) return 3;
+                if (c == 0xE3 && b1 == 0x80 && b2 == 0x80) return 3;
+                if (c == 0xEF && b1 == 0xBB && b2 == 0xBF) return 3;
+            }
+            return 0;
+        };
+        size_t j = 0;
+        while (j < s.size()) {
+            size_t w = wsWidth(s, j);
+            if (w == 0) break;
+            j += w;
+        }
+        s = s.substr(j);
+    }
     // Per ECMA-262 §19.2.5 parseFloat consumes the longest prefix that
     // is a StrDecimalLiteral. Two surfaces of strtod misalign:
     //   - strtod is case-insensitive for 'inf'/'infinity' but the spec
