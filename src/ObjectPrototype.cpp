@@ -510,9 +510,16 @@ thread_local std::unordered_map<const proto::ProtoObject*,
 static bool isPrimitive(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE) return true;
     if (obj == getNullSentinel()) return true;   // JS null is a primitive
-    // Fast tagged-pointer checks only; no isString (hangs on plain cells).
-    return obj->isBoolean(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx) ||
-           obj->isFloat(ctx) || obj->isNone(ctx);
+    if (obj == getUndefinedSentinel()) return true;
+    if (obj == PROTO_TRUE || obj == PROTO_FALSE) return true;
+    // Fast tagged-pointer checks first; isString last because it can
+    // require following an indirection on plain cells. Primitive
+    // strings produced by JS literals reach this path as bare
+    // ProtoString cells, so isString returns the right answer here.
+    if (obj->isBoolean(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx)
+        || obj->isFloat(ctx) || obj->isNone(ctx)) return true;
+    if (obj->isString(ctx)) return true;
+    return false;
 }
 
 // ---------------------------------------------------------------------------
