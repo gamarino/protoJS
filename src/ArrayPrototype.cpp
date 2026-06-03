@@ -1732,13 +1732,21 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
         }
     }
 
-    // Native ProtoList storage: in-range index always has a value (PROTO_NONE
-    // for padded slots, real value otherwise) — never a "hole" in the spec
-    // sense.  Out-of-range falls through to the legacy attribute path
-    // because user code may still write `arr[1000] = x` and we then drop
-    // out of fast-path; see arrayTryFastSet's sparse-overflow branch.
+    // Native ProtoList storage: PROTO_NONE represents the simulated
+    // hole that arraySpeciesCreate's pre-pad and the sparse-set
+    // fallback leave behind. Treat such slots as absent so the spec's
+    // HasProperty check returns false — otherwise flat / flatMap /
+    // forEach / etc. revisit padded slots and surface them as
+    // 'undefined' (e.g. flatMap on {length:3, 0:1, 2:21} leaked a
+    // null between the two mapped entries).
     if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
-        if (idx < static_cast<unsigned long>(els->getSize(ctx))) return true;
+        if (idx < static_cast<unsigned long>(els->getSize(ctx))) {
+            const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(idx));
+            if (v && v != PROTO_NONE) return true;
+            // Padded PROTO_NONE — fall through to the attribute probe
+            // so genuine explicit writes (e.g. arr[i] = undefined)
+            // still count via the indexed-attribute sidecar.
+        }
     }
 
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
@@ -1999,11 +2007,16 @@ static void flatInto(proto::ProtoContext* ctx,
                      int depth) {
     unsigned long len = arrLen(ctx, src);
     for (unsigned long i = 0; i < len; i++) {
+        // Per spec FlattenIntoArray step 3.b: skip the source index
+        // when HasProperty returns false. flatMap = map + flat(1),
+        // and map already skips holes — but flat itself was emitting
+        // the hole as undefined / null, so flatMap on an array-like
+        // with gaps (e.g. `{length:3, 0:1, 2:21}`) leaked nulls into
+        // the output. arrHasProperty consults __elements__ + indexed
+        // attribute sidecar so the spec's HasProperty semantics are
+        // approximated.
+        if (!arrHasProperty(ctx, src, i)) continue;
         const proto::ProtoObject* elem = arrGet(ctx, src, i);
-        // Per spec FlattenIntoArray step 5.b: spread when IsArray(elem)
-        // is true. The earlier `arrLen(elem) > 0` short-circuit treated
-        // empty arrays as scalars, so [].flat() preserved empty children
-        // and flatMap(x => []) returned [[],[],[]] instead of [].
         const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
         const proto::ProtoObject* isArrAttr = (elem && isArrKey)
             ? elem->getAttribute(ctx, isArrKey, true) : PROTO_NONE;
