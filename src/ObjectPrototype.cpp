@@ -82,6 +82,21 @@ static void collectOwnKeys(
             std::string s;
             ps->toUTF8String(ctx, s);
             emitStringChars(s);
+            // Per §22.1.4, ToObject(string) exposes 'length' too.
+            // Object.getOwnPropertyNames returns the indices THEN
+            // 'length'; the descriptor for it is non-writable,
+            // non-enumerable, non-configurable.
+            // UTF-16 code-unit count of the same string (4-byte UTF-8 → 2 units).
+            size_t u16 = 0;
+            for (size_t bi = 0; bi < s.size(); ) {
+                unsigned char c = static_cast<unsigned char>(s[bi]);
+                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                if (bi + cl > s.size()) break;
+                u16 += (cl == 4) ? 2 : 1;
+                bi += cl;
+            }
+            keys.push_back("length");
+            if (vals) vals->push_back(ctx->fromInteger(static_cast<long long>(u16)));
         }
         return;
     }
@@ -1286,6 +1301,70 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
 
     const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
     if (!k) return PROTO_NONE;
+
+    // String primitive: per §22.1.4 ToObject promotes to a String
+    // exotic so the per-char and 'length' descriptors materialise.
+    // Pre-fix the primitive path returned undefined for any key —
+    // getOwnPropertyDescriptors('abc') yielded an empty object.
+    if (target && target->isString(ctx)) {
+        std::string kstr2;
+        k->toUTF8String(ctx, kstr2);
+        const proto::ProtoString* ps = target->asString(ctx);
+        std::string sv;
+        if (ps) ps->toUTF8String(ctx, sv);
+        unsigned long len = 0;
+        for (size_t bi = 0; bi < sv.size(); ) {
+            unsigned char c = static_cast<unsigned char>(sv[bi]);
+            size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+            if (bi + cl > sv.size()) break;
+            len += (cl == 4) ? 2 : 1;
+            bi += cl;
+        }
+        JSContextWrapper* w = JSContextWrapper::current();
+        const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
+        auto mk = [&](){ return op ? op->newChild(ctx, true) : ctx->newObject(true); };
+        auto setKV = [&](const proto::ProtoObject*& r, const char* name, const proto::ProtoObject* v){
+            const proto::ProtoString* ks = ctx->fromUTF8String(name)->asString(ctx);
+            if (ks) r = r->setAttribute(ctx, ks, v ? v : getUndefinedSentinel());
+        };
+        if (kstr2 == "length") {
+            const proto::ProtoObject* res = mk();
+            setKV(res, "value",        ctx->fromInteger(static_cast<long long>(len)));
+            setKV(res, "writable",     PROTO_FALSE);
+            setKV(res, "enumerable",   PROTO_FALSE);
+            setKV(res, "configurable", PROTO_FALSE);
+            return res;
+        }
+        bool numeric = !kstr2.empty();
+        for (char c : kstr2) { if (c < '0' || c > '9') { numeric = false; break; } }
+        if (numeric && (kstr2.size() == 1 || kstr2[0] != '0')) {
+            try {
+                unsigned long idx = std::stoul(kstr2);
+                if (idx < len) {
+                    size_t i = 0; unsigned long pos = 0;
+                    while (i < sv.size() && pos < idx) {
+                        unsigned char c = static_cast<unsigned char>(sv[i]);
+                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                        if (i + cl > sv.size()) break;
+                        i += cl;
+                        pos += (cl == 4) ? 2 : 1;
+                    }
+                    if (pos == idx && i < sv.size()) {
+                        unsigned char c = static_cast<unsigned char>(sv[i]);
+                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                        std::string ch = sv.substr(i, cl);
+                        const proto::ProtoObject* res = mk();
+                        setKV(res, "value",        ctx->fromUTF8String(ch.c_str()));
+                        setKV(res, "writable",     PROTO_FALSE);
+                        setKV(res, "enumerable",   PROTO_TRUE);
+                        setKV(res, "configurable", PROTO_FALSE);
+                        return res;
+                    }
+                }
+            } catch (...) {}
+        }
+        return PROTO_NONE;
+    }
 
     // Helper: build result descriptor object.
     auto setAttr = [&](const proto::ProtoObject*& r, const char* name, const proto::ProtoObject* v) {
