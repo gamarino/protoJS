@@ -106,6 +106,15 @@ static const proto::ProtoObject* mathRound(
     if (x == 0.0)        return ctx->fromDouble(x);  // preserves -0
     if (x > 0 && x < 0.5)   return ctx->fromDouble(0.0);
     if (x < 0 && x >= -0.5) return ctx->fromDouble(-0.0);
+    // §21.3.2.28: above the 2^52 boundary every float is an integer
+    // and adding 0.5 loses precision (x + 0.5 either equals x or
+    // rounds up an extra ULP). The spec says return x in that range.
+    // Pre-fix `floor(x + 0.5)` rounded large negative integers up to
+    // the next representable value, breaking Math.round(-(2/EPSILON-1))
+    // === -(2/EPSILON-1) and other ULP-precision identities.
+    if (x >= 4503599627370496.0 || x <= -4503599627370496.0) {
+        return ctx->fromDouble(x);
+    }
     // Ties go toward +Infinity (floor(x + 0.5)).
     return makeDouble(ctx, std::floor(x + 0.5));
 }
