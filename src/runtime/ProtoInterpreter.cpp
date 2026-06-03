@@ -23,6 +23,7 @@
 #include "../GCBridge.h"
 #include "../TypeBridge.h"
 #include "headers/protoCore.h"
+#include <cerrno>
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
@@ -1327,8 +1328,34 @@ static const proto::ProtoObject* globalParseInt(
     if (radix < 2 || radix > 36 || s.empty()) return ctx->fromDouble(nan);
 
     char* end = nullptr;
+    errno = 0;
     unsigned long long uval = std::strtoull(s.c_str(), &end, radix);
     if (end == s.c_str()) return ctx->fromDouble(nan);
+    // Overflow path: strtoull returns ULLONG_MAX and sets errno=ERANGE.
+    // Re-compute as a double over the consumed prefix so very large
+    // magnitudes (\"-10000000000000000000\" beyond INT64_MIN) round to
+    // their nearest IEEE-754 representable value instead of wrapping.
+    // Pre-fix the signed-cast wrapped through INT64_MIN and parseInt of
+    // a 20-digit string surfaced as the bit-pattern interpretation.
+    bool overflow = (errno == ERANGE) || (uval > 9223372036854775807ULL);
+    if (overflow) {
+        size_t consumed = static_cast<size_t>(end - s.c_str());
+        std::string consumedStr = s.substr(0, consumed);
+        double d = 0.0;
+        double mul = 1.0;
+        for (size_t i = consumedStr.size(); i > 0; --i) {
+            char c = consumedStr[i - 1];
+            int digit = -1;
+            if (c >= '0' && c <= '9') digit = c - '0';
+            else if (c >= 'a' && c <= 'z') digit = c - 'a' + 10;
+            else if (c >= 'A' && c <= 'Z') digit = c - 'A' + 10;
+            if (digit < 0 || digit >= radix) break;
+            d += digit * mul;
+            mul *= radix;
+        }
+        if (negative) d = -d;
+        return ctx->fromDouble(d);
+    }
     long long result = negative ? -static_cast<long long>(uval) : static_cast<long long>(uval);
     return ctx->fromInteger(result);
 }
