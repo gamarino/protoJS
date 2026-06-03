@@ -93,24 +93,42 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
     if (!obj || obj == PROTO_NONE || !key) return obj;
 
-    // Accessor setter support: check for __set_<key>__ sidecar.
+    // Accessor setter support: check for __set_<key>__ / __get_<key>__
+    // sidecar along the chain. Pre-fix the walk only stopped when the
+    // CURRENT object had an own data attribute named <key>; getter-only
+    // accessors (Map.prototype.size, Set.prototype.size, etc.) store
+    // only __get_size__, never 'size', so the walk fell through and
+    // the write created a shadowing data property on the instance.
     std::string keyStr;
     key->toUTF8String(ctx, keyStr);
     std::string skStr = "__set_" + keyStr + "__";
+    std::string gkStr = "__get_" + keyStr + "__";
     const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
     const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
-    
-    if (sk) {
+    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+    const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+
+    if (sk || gk) {
         const proto::ProtoObject* curr = obj;
         const proto::ProtoObject* objProto = ctx->space ? ctx->space->objectPrototype : nullptr;
         int depth = 0;
         while (curr && curr != PROTO_NONE && depth < 100) {
-            if (curr->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
-                const proto::ProtoObject* setter = curr->getAttribute(ctx, sk, false);
-                if (setter && setter != PROTO_NONE && setter != t_undefinedSentinel) {
-                    const proto::ProtoList* args = ctx->newList();
-                    const proto::ProtoList* setArgs = args->appendLast(ctx, val ? val : PROTO_NONE);
-                    callJSFunction(ctx, setter, obj, setArgs);
+            bool hasData = curr->hasOwnAttribute(ctx, key) == PROTO_TRUE;
+            bool hasSetter = sk && curr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
+            bool hasGetter = gk && curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
+            if (hasData || hasSetter || hasGetter) {
+                if (hasSetter) {
+                    const proto::ProtoObject* setter = curr->getAttribute(ctx, sk, false);
+                    if (setter && setter != PROTO_NONE && setter != t_undefinedSentinel) {
+                        const proto::ProtoList* args = ctx->newList();
+                        const proto::ProtoList* setArgs = args->appendLast(ctx, val ? val : PROTO_NONE);
+                        callJSFunction(ctx, setter, obj, setArgs);
+                        return obj;
+                    }
+                }
+                if (hasGetter && !hasSetter) {
+                    // Getter-only accessor → write silently fails per
+                    // sloppy-mode OrdinarySet step 5.b.
                     return obj;
                 }
                 break;
