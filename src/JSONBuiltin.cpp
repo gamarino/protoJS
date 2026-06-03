@@ -764,14 +764,37 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         }
     }
 
-    // §25.5.2 step 12: SerializeJSONProperty('', wrapper) — invoke the
-    // replacer once at the top level with key='' and value=val. The
-    // result REPLACES val for the subsequent serialisation, so a
-    // replacer that returns undefined / function / Symbol bottoms out
-    // to the top-level undefined return. Pre-fix the replacer was only
-    // applied to inner properties; the outer call site fed val through
-    // directly so `JSON.stringify(1, function(){})` returned '1'
-    // instead of undefined.
+    // §25.5.2 step 12 → SerializeJSONProperty('', wrapper) invokes
+    // toJSON first (step 2), then the replacer (step 3). Pre-fix
+    // neither was applied at the top level so the wrapper object went
+    // straight into stringifyRecursive.
+    {
+        if (val && val != PROTO_NONE && val != getUndefinedSentinel()
+            && val != getNullSentinel() && val != PROTO_TRUE && val != PROTO_FALSE
+            && !val->isInteger(ctx) && !val->isDouble(ctx) && !val->isFloat(ctx)
+            && !val->isString(ctx) && !val->isBoolean(ctx)) {
+            const proto::ProtoObject* tjKo = ctx->fromUTF8String("toJSON");
+            const proto::ProtoString* tjKs = tjKo ? tjKo->asString(ctx) : nullptr;
+            if (tjKs) {
+                const proto::ProtoObject* fn = val->getAttribute(ctx, tjKs, true);
+                bool callable = false;
+                if (fn && fn != PROTO_NONE) {
+                    if (fn->isMethod(ctx)) callable = true;
+                    const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                    if (!callable && bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+                    const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                    if (!callable && nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+                }
+                if (callable) {
+                    const proto::ProtoList* tjArgs = ctx->newList();
+                    tjArgs = tjArgs->appendLast(ctx, ctx->fromUTF8String(""));
+                    const proto::ProtoObject* r = callJSFunction(ctx, fn, val, tjArgs);
+                    if (hasCallException()) return PROTO_NONE;
+                    if (r) val = r;
+                }
+            }
+        }
+    }
     if (replacerFnLocal) {
         const proto::ProtoList* topArgs = ctx->newList();
         topArgs = topArgs->appendLast(ctx, ctx->fromUTF8String(""));
