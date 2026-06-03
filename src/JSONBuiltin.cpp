@@ -454,6 +454,28 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         keyFilter.push_back(std::move(s));
                     } else if (e->isInteger(ctx)) {
                         keyFilter.push_back(std::to_string(e->asLong(ctx)));
+                    } else if (!e->isInteger(ctx) && !e->isDouble(ctx)
+                               && !e->isFloat(ctx) && !e->isString(ctx)
+                               && !e->isBoolean(ctx)) {
+                        // §25.5.2 step 4.b.e.i: Number-wrapper / String-
+                        // wrapper objects in the replacer array are
+                        // ToString-coerced via their .toString method,
+                        // so a `new Number(10).toString = function(){return 'k'}`
+                        // entry resolves the allow-list to 'k', not '10'.
+                        // Pre-fix only primitives were honoured, so any
+                        // wrapper entry silently dropped from the filter.
+                        const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+                        const proto::ProtoObject* tsFn = tsK
+                            ? e->getAttribute(ctx, tsK, true) : nullptr;
+                        if (tsFn && tsFn != PROTO_NONE) {
+                            const proto::ProtoObject* r =
+                                callJSFunction(ctx, tsFn, e, ctx->newList());
+                            if (r && r != PROTO_NONE && r->isString(ctx)) {
+                                std::string s;
+                                r->asString(ctx)->toUTF8String(ctx, s);
+                                keyFilter.push_back(std::move(s));
+                            }
+                        }
                     } else if (e->isDouble(ctx) || e->isFloat(ctx)) {
                         // Spec §25.5.2 step 4.d: Number primitives in
                         // the replacer array are ToString-coerced via
