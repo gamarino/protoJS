@@ -1274,6 +1274,29 @@ static const proto::ProtoObject* arrayConcat(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // Spec §22.1.3.1 step 1: O = ToObject(this). For primitives the
+    // wrapper participates as a non-spreadable Object so the result
+    // contains the wrapper itself, not the primitive. Pre-fix concat
+    // appended the raw primitive — `Array.prototype.concat.call(101)[0]`
+    // came back as the number 101 instead of `new Number(101)`.
+    auto boxPrimitive = [&](const proto::ProtoObject* v) -> const proto::ProtoObject* {
+        if (!v || v == PROTO_NONE) return v;
+        const proto::ProtoObject* parent = nullptr;
+        if (v->isInteger(ctx)) parent = ctx->space ? ctx->space->smallIntegerPrototype : nullptr;
+        else if (v->isDouble(ctx) || v->isFloat(ctx)) parent = ctx->space ? ctx->space->doublePrototype : nullptr;
+        else if (v->isBoolean(ctx) || v == PROTO_TRUE || v == PROTO_FALSE) parent = ctx->space ? ctx->space->booleanPrototype : nullptr;
+        else if (v->isString(ctx)) parent = ctx->space ? ctx->space->stringPrototype : nullptr;
+        else return v;
+        const proto::ProtoObject* wrap = parent ? parent->newChild(ctx, true) : ctx->newObject(true);
+        if (!wrap) return v;
+        const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+        if (pvK) wrap = wrap->setAttribute(ctx, pvK, v);
+        return wrap;
+    };
+    if (self && (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx)
+                 || self->isString(ctx) || self->isBoolean(ctx))) {
+        self = boxPrimitive(self);
+    }
 
     // Concat length calculation (pre-scan)
     unsigned long totalLen = 0;
