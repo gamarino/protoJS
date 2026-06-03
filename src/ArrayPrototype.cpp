@@ -1318,6 +1318,24 @@ static const proto::ProtoObject* arrayConcat(
             spreadObj ? spreadObj->asString(ctx) : nullptr;
         if (spreadKey) {
             const proto::ProtoObject* sv = obj->getAttribute(ctx, spreadKey, true);
+            // Object.defineProperty(o, Symbol.isConcatSpreadable, {get:...})
+            // stores the undefinedSentinel placeholder under the property
+            // key and the actual getter under __get_Symbol.isConcatSpreadable__.
+            // Pre-fix the accessor went undetected so the throwing getter
+            // never fired and ToBoolean defaulted to false. Invoke the
+            // getter when the placeholder fires (or when no data is found).
+            if (!sv || sv == PROTO_NONE || sv == getUndefinedSentinel()) {
+                const proto::ProtoObject* gko =
+                    ctx->fromUTF8String("__get_Symbol.isConcatSpreadable__");
+                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                if (gks) {
+                    const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        sv = callJSFunction(ctx, getter, obj, ctx->newList());
+                        if (hasCallException()) return false;
+                    }
+                }
+            }
             if (sv && sv != PROTO_NONE && sv != getUndefinedSentinel()) {
                 // §7.1.2 ToBoolean — pre-fix returned true for 0 / NaN
                 // / '' / null because the fallback only excluded the
