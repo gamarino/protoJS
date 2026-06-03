@@ -936,9 +936,28 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         : ctx->newObject(true);
     if (!ctor) return;
 
-    // ctor.name = "Map"
+    // ctor.name = "Map" with §17 built-in descriptor 0x2
+    // (writable:false, enumerable:false, configurable:true)
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Map"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Map"));
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    }
+
+    // Map.length = 0 per §24.1.1.1 with same §17 descriptor.
+    // Pre-fix the attribute was absent so the test262
+    // 'built-ins/Map/length.js' verifyProperty failed.
+    {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+    }
 
     // ctor.prototype = Map.prototype
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
