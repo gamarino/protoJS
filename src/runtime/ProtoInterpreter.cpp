@@ -2903,7 +2903,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         ? pContext->fromUTF8String(m.name)->asString(pContext) : nullptr;
                     if (k) {
                         const proto::ProtoObject* fn = wrapNativeFunction(pContext, m.fn, m.name, m.length, pGlobalRoot);
-                        if (fn) reflectStub = reflectStub->setAttribute(pContext, k, fn);
+                        if (fn) {
+                            reflectStub = reflectStub->setAttribute(pContext, k, fn);
+                            // §17 descriptor 0x3 (writable, !enumerable,
+                            // configurable). Pre-fix Reflect.* methods
+                            // defaulted to enumerable, leaking them into
+                            // Object.keys(Reflect) and reporting wrong
+                            // descriptors via getOwnPropertyDescriptor.
+                            std::string pdStr = std::string("__pd_") + m.name + "__";
+                            const proto::ProtoString* pdk =
+                                pContext->fromUTF8String(pdStr.c_str())->asString(pContext);
+                            if (pdk) reflectStub = reflectStub->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
+                        }
                     }
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, rfKey, reflectStub);
