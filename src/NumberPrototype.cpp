@@ -242,6 +242,17 @@ const proto::ProtoObject* numberToFixed(
     if (value == 0.0) value = 0.0;
     char buf[256];
     snprintf(buf, sizeof(buf), "%.*f", fractionDigits, value);
+    // Step 5 also affects small negative magnitudes that round to 0:
+    //   (-0.4).toFixed(0)  -> "-0"  (printf)  -> "0"  (spec)
+    // Detect "-0" / "-0.0...0" output and strip the leading minus,
+    // matching V8 / SpiderMonkey behaviour.
+    if (buf[0] == '-') {
+        bool allZero = true;
+        for (const char* p = buf + 1; *p; ++p) {
+            if (*p != '0' && *p != '.') { allZero = false; break; }
+        }
+        if (allZero) return context->fromUTF8String(buf + 1);
+    }
     return context->fromUTF8String(buf);
 }
 
