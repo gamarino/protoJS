@@ -1276,10 +1276,24 @@ const proto::ProtoObject* stringSplit(
 /** normalize(form) — NFC/NFD/NFKC/NFKD. Without ICU we only support NFC (identity for ASCII). */
 const proto::ProtoObject* stringNormalize(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* /*args*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    // ECMA-262 §22.1.3.14 step 4: form must be one of "NFC", "NFD",
+    // "NFKC", "NFKD", or undefined (defaults to "NFC"). Anything else
+    // throws RangeError.
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* formArg = args->getAt(ctx, 0);
+        if (formArg && formArg != PROTO_NONE && formArg != getUndefinedSentinel()) {
+            std::string form = objToStr(ctx, formArg);
+            if (form != "NFC" && form != "NFD" && form != "NFKC" && form != "NFKD") {
+                signalNativeException(makeNativeError(ctx, "RangeError",
+                    "Invalid normalization form"));
+                return PROTO_NONE;
+            }
+        }
+    }
     // Without ICU: return string as-is (identity for NFC on ASCII/Latin-1).
     std::string s = objToStr(ctx, self);
     return ctx->fromUTF8String(s.c_str());
