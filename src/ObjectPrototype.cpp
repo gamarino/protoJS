@@ -831,7 +831,28 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     const proto::ProtoObject* obj   = args->getAt(ctx, 0);
     const proto::ProtoObject* proto = args->getAt(ctx, 1);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
-    // Per spec, non-extensible objects throw TypeError — skip that check for now.
+    // §10.1.2.1 SetImmutablePrototype-style check: non-extensible
+    // objects can only accept a SetPrototypeOf when proto matches the
+    // current prototype (no-op). Anything else throws TypeError.
+    // Pre-fix Object.setPrototypeOf silently accepted any prototype
+    // even on non-extensible targets.
+    {
+        JSContextWrapper* w = JSContextWrapper::current();
+        if (w && obj->hasParent(ctx, w->getNonExtensibleMarker())) {
+            const proto::ProtoObject* current = nullptr;
+            auto ovrIt = t_jsProtoMap.find(obj);
+            if (ovrIt != t_jsProtoMap.end()) current = ovrIt->second;
+            else current = obj->getPrototype(ctx);
+            const proto::ProtoObject* requested = proto;
+            if (proto == getNullSentinel()) requested = getNullSentinel();
+            if (current != requested) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Object.setPrototypeOf: target is non-extensible"));
+                return PROTO_NONE;
+            }
+            return obj;
+        }
+    }
     if (proto == getNullSentinel()) {
         // Setting proto to null per spec §20.1.2.21 step 5: STORE the
         // null sentinel (not erase) so subsequent getPrototypeOf

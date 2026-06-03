@@ -954,6 +954,21 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
     const proto::ProtoObject* proto = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (proto == getNullSentinel() || (proto && proto != PROTO_NONE && !proto->isInteger(ctx)
             && !proto->isDouble(ctx) && !proto->isString(ctx) && !proto->isBoolean(ctx))) {
+        // §10.1.2.1 step 4: non-extensible targets reject any
+        // prototype change unless the new proto matches the current.
+        // Reflect.setPrototypeOf returns false here per its spec
+        // surface (vs. Object.setPrototypeOf which throws TypeError).
+        {
+            protojs::JSContextWrapper* w = protojs::JSContextWrapper::current();
+            if (w && target->hasParent(ctx, w->getNonExtensibleMarker())) {
+                const proto::ProtoObject* override =
+                    protojs::getJSProtoOverride(target);
+                const proto::ProtoObject* current = (override && override != PROTO_NONE)
+                    ? override : target->getPrototype(ctx);
+                if (current != proto) return PROTO_FALSE;
+                return PROTO_TRUE;
+            }
+        }
         // §9.1.2 step 8.b: walk the proposed prototype chain looking
         // for target itself; if found, the assignment would create a
         // cycle, so return false without changing anything. Pre-fix
