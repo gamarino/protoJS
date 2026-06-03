@@ -36,6 +36,11 @@ namespace {
 // and cleared on exit.
 static thread_local std::vector<std::string>* tlKeyFilter = nullptr;
 
+// Replacer-function form (typeof arg[1] === 'function'): thread-local
+// pointer to the JS callable, applied at every property / element
+// emission via stringifyRecursive. Same lifecycle as tlKeyFilter.
+static thread_local const proto::ProtoObject* tlReplacerFn = nullptr;
+
 static bool keyAllowedByFilter(const std::string& key) {
     if (!tlKeyFilter) return true;
     for (const auto& k : *tlKeyFilter) if (k == key) return true;
@@ -341,11 +346,26 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     && val != getUndefinedSentinel()
                     && !isCallable
                     && keyAllowedByFilter(key)) {
+                    // Apply replacer function per §25.5.2 step 3:
+                    // replacer(key, val) — its return replaces val;
+                    // returning undefined drops the property.
+                    const proto::ProtoObject* outVal = val;
+                    if (tlReplacerFn) {
+                        const proto::ProtoList* replArgs = ctx->newList();
+                        replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
+                        replArgs = replArgs->appendLast(ctx, val);
+                        outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
+                        if (!outVal || outVal == PROTO_NONE
+                            || outVal == getUndefinedSentinel()) {
+                            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                            continue;
+                        }
+                    }
                     if (first) emitOpenLine(); else emitSep();
                     jsonEscape(key, out);
                     out.push_back(':');
                     if (indenting) out.push_back(' ');
-                    stringifyRecursive(ctx, val, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
+                    stringifyRecursive(ctx, outVal, out, arrayPrototype, stack, rs, indentUnit, nestedIndent);
                     first = false;
                     any = true;
                 }
@@ -375,6 +395,7 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     // not yet supported — fall through (no replacement).
     std::vector<std::string> keyFilter;
     bool hasFilter = false;
+    const proto::ProtoObject* replacerFnLocal = nullptr;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* replacer = args->getAt(ctx, 1);
         if (replacer && replacer != PROTO_NONE
@@ -394,6 +415,19 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         keyFilter.push_back(std::to_string(e->asLong(ctx)));
                     }
                 }
+            } else {
+                // Function form: anything callable goes here. The
+                // replacer is invoked at each property emission with
+                // (key, value) and its return value REPLACES value;
+                // undefined drops the key.
+                bool callable = replacer->isMethod(ctx);
+                if (!callable) {
+                    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                    if (bcKey && replacer->getAttribute(ctx, bcKey, false) != PROTO_NONE) callable = true;
+                    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                    if (!callable && nfKey && replacer->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
+                }
+                if (callable) replacerFnLocal = replacer;
             }
         }
     }
@@ -406,6 +440,12 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         ~FilterGuard() { tlKeyFilter = prev; }
     };
     FilterGuard guard(hasFilter ? &keyFilter : nullptr);
+    struct ReplacerGuard {
+        const proto::ProtoObject* prev;
+        ReplacerGuard(const proto::ProtoObject* v) : prev(tlReplacerFn) { tlReplacerFn = v; }
+        ~ReplacerGuard() { tlReplacerFn = prev; }
+    };
+    ReplacerGuard replGuard(replacerFnLocal);
 
     // ECMA-262 §25.5.2 step 6: derive the indent unit from arg[2].
     // - Number: ToInteger, min(10, n) spaces.
