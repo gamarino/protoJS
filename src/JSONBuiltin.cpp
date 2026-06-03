@@ -413,6 +413,37 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                         keyFilter.push_back(std::move(s));
                     } else if (e->isInteger(ctx)) {
                         keyFilter.push_back(std::to_string(e->asLong(ctx)));
+                    } else if (e->isDouble(ctx) || e->isFloat(ctx)) {
+                        // Spec §25.5.2 step 4.d: Number primitives in
+                        // the replacer array are ToString-coerced via
+                        // Number::toString, so NaN / ±Infinity /
+                        // fractional values become valid PropertyKey
+                        // forms ('NaN' / '-Infinity' / '0.3'). Pre-fix
+                        // only Integers were handled, so doubles and
+                        // NaN / Infinity were silently dropped from
+                        // the filter and their matching object keys
+                        // failed to serialise.
+                        double d = e->asDouble(ctx);
+                        if (std::isnan(d)) {
+                            keyFilter.push_back("NaN");
+                        } else if (std::isinf(d)) {
+                            keyFilter.push_back(d > 0 ? "Infinity" : "-Infinity");
+                        } else if (d == 0.0) {
+                            keyFilter.push_back("0");
+                        } else {
+                            char buf[64];
+                            snprintf(buf, sizeof(buf), "%.15g", d);
+                            // Strip the leading-zero exponent padding
+                            // for consistency with Number.toString.
+                            std::string s = buf;
+                            size_t ePos = s.find('e');
+                            if (ePos != std::string::npos && ePos + 1 < s.size()) {
+                                size_t sp = (s[ePos+1] == '+' || s[ePos+1] == '-')
+                                    ? ePos + 2 : ePos + 1;
+                                while (sp < s.size() - 1 && s[sp] == '0') s.erase(sp, 1);
+                            }
+                            keyFilter.push_back(std::move(s));
+                        }
                     }
                 }
             } else {
