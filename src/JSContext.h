@@ -78,6 +78,17 @@ public:
     const proto::ProtoObject* getJSArrayPrototype() const { return jsPrototypes_.array; }
 
     /**
+     * @brief Override the JS Array prototype after lazy initialization.
+     *
+     * BootstrapJSPrototypes creates an empty `Array.prototype` so TypeBridge
+     * can attach a parent to JS arrays before the populated prototype is
+     * built. ensureArrayPrototype later constructs the real prototype (with
+     * join, push, slice, …) and calls this setter so future fromJS lookups
+     * and JSON.parse() return arrays that actually inherit the methods.
+     */
+    void setJSArrayPrototype(const proto::ProtoObject* p) { jsPrototypes_.array = p; }
+
+    /**
      * @brief Returns the JS Arguments prototype.
      */
     const proto::ProtoObject* getJSArgumentsPrototype() const { return jsPrototypes_.arguments; }

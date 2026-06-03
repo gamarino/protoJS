@@ -1,6 +1,7 @@
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
+#include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
@@ -2564,6 +2565,17 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
 
     // Store in module-level static for createNewArray.
     s_arrayProto = proto;
+
+    // Sync wrapper-level Array prototype so TypeBridge::fromJS and
+    // JSONBuiltin::parse stamp newly imported QuickJS arrays with this
+    // populated proto (instead of the empty placeholder built by
+    // BootstrapJSPrototypes). Without this sync, JSON.parse('[1,2,3]')
+    // returned an array whose prototype was an empty Object child —
+    // so `a.join`, `a.map`, and every other Array.prototype method
+    // surfaced as undefined.
+    if (JSContextWrapper* w = JSContextWrapper::current()) {
+        w->setJSArrayPrototype(s_arrayProto);
+    }
 
     // ------------------------------------------------------------------
     // Build the Array constructor object.
