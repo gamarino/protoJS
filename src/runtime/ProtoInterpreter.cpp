@@ -1193,14 +1193,51 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         if (!s) return makeNaN();
         std::string tmp;
         s->toUTF8String(context, tmp);
-        // Trim whitespace (JS spec: leading/trailing whitespace ignored in ToNumber).
-        size_t start = tmp.find_first_not_of(" \t\n\r\f\v");
-        if (start == std::string::npos) {
-            // Empty or whitespace-only string → +0.
-            return context->fromInteger(0LL);
+        // Trim full ECMA-262 WhiteSpace + LineTerminator set per
+        // §7.1.3 ToNumber (also covers NBSP, BOM, U+2028/2029, etc.).
+        // ASCII fast path plus the multi-byte cases handled inline so
+        // ToNumber doesn't pull in StringPrototype helpers.
+        auto wsWidth = [](const std::string& str, size_t pos) -> size_t {
+            if (pos >= str.size()) return 0;
+            unsigned char c = static_cast<unsigned char>(str[pos]);
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') return 1;
+            if (pos + 1 < str.size() && c == 0xC2 &&
+                static_cast<unsigned char>(str[pos + 1]) == 0xA0) return 2;
+            if (pos + 2 < str.size()) {
+                unsigned char b1 = static_cast<unsigned char>(str[pos + 1]);
+                unsigned char b2 = static_cast<unsigned char>(str[pos + 2]);
+                if (c == 0xE1 && b1 == 0x9A && b2 == 0x80) return 3;
+                if (c == 0xE2 && b1 == 0x80 && (b2 >= 0x80 && b2 <= 0x8A)) return 3;
+                if (c == 0xE2 && b1 == 0x80 && (b2 == 0xA8 || b2 == 0xA9 || b2 == 0xAF)) return 3;
+                if (c == 0xE2 && b1 == 0x81 && b2 == 0x9F) return 3;
+                if (c == 0xE3 && b1 == 0x80 && b2 == 0x80) return 3;
+                if (c == 0xEF && b1 == 0xBB && b2 == 0xBF) return 3;
+            }
+            return 0;
+        };
+        size_t lo = 0;
+        while (lo < tmp.size()) {
+            size_t w = wsWidth(tmp, lo);
+            if (w == 0) break;
+            lo += w;
         }
-        size_t end = tmp.find_last_not_of(" \t\n\r\f\v");
-        std::string trimmed = tmp.substr(start, end - start + 1);
+        if (lo >= tmp.size()) return context->fromInteger(0LL);
+        size_t hi = tmp.size();
+        while (hi > lo) {
+            // try to consume a whitespace code point ending at hi
+            size_t step = 0;
+            unsigned char last = static_cast<unsigned char>(tmp[hi - 1]);
+            if (last == ' ' || last == '\t' || last == '\n' || last == '\r' || last == '\f' || last == '\v')
+                step = 1;
+            else {
+                for (size_t w = 2; w <= 3 && hi >= w; ++w) {
+                    if (wsWidth(tmp, hi - w) == w) { step = w; break; }
+                }
+            }
+            if (step == 0) break;
+            hi -= step;
+        }
+        std::string trimmed = tmp.substr(lo, hi - lo);
         if (trimmed.empty()) return context->fromInteger(0LL);
         // Handle special literals.
         if (trimmed == "Infinity" || trimmed == "+Infinity")
