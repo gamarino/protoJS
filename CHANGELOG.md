@@ -4,7 +4,89 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
-### Fixed (test262 spec conformance push, 2026-06-02)
+### Fixed (test262 spec conformance push, round 3 — 2026-06-02)
+
+Continuation of the prior conformance push. 30 more commits targeting
+concrete ECMA-262 gaps surfaced by deeper test262 traversal. Each
+commit fixes one root cause and remains under the "purity > performance"
+constraint.
+
+**Numerical/string coercion:**
+- `String.prototype.toString` throws TypeError on non-string receivers
+  per §22.1.3.27 / §22.1.3.32 (was returning "[object Object]").
+- `Object.create` throws TypeError on non-Object/non-null prototype
+  arg per §20.1.2.2 step 1 (was returning `{}` for `undefined`,
+  primitives, etc.).
+- `Object.defineProperty` raises TypeError for missing target arg
+  (was silent PROTO_NONE return).
+- `Object.hasOwn` raises TypeError on null/undefined target per
+  §20.1.2.13 step 1.
+- `Array.prototype.sort` rejects non-callable comparefn with TypeError
+  per §23.1.3.30 step 1 (was silently using the string default).
+- `Array.from(src, mapFn, ...)` rejects non-callable mapFn with
+  TypeError per §23.1.2.1 step 2.
+- `JSON.parse` throws SyntaxError on malformed input per §25.5.1
+  step 3 (was returning `null`).
+
+**ToIntegerOrInfinity coverage extended:**
+- `Array.prototype.includes` / `at` / `fill` / `copyWithin` /
+  `lastIndexOf` now apply ToIntegerOrInfinity to their index
+  arguments. NaN → 0, +Infinity past-end returns false / out-of-range,
+  -Infinity clamps to 0. (Companion to the indexOf / slice / splice /
+  flat fixes from the prior round.)
+- `Number.prototype.toString` applies ToIntegerOrInfinity on radix
+  (string "16" coerces correctly; NaN → 0 → RangeError).
+- `ToNumber` trims the full Unicode WhiteSpace + LineTerminator set
+  (NBSP, BOM, U+2028/2029, U+3000, etc.) — not just ASCII.
+
+**Spec details inside built-ins:**
+- `Number.prototype.toString` emits fractional digits for non-base-10
+  radixes (`(0.5).toString(2) === "0.1"`).
+- `String.prototype.normalize` raises RangeError for forms outside
+  {NFC, NFD, NFKC, NFKD}.
+- `String.prototype.trim / trimStart / trimEnd` strip the full
+  Unicode WhiteSpace set (NBSP, BOM, U+2028/2029, U+3000, etc.).
+- `String.fromCodePoint` raises RangeError for NaN, Infinity, negative,
+  > 0x10FFFF, or non-integer code points per §22.1.2.2 step 5.
+- `parseInt` only auto-detects the "0x" prefix when the radix
+  argument is unspecified or 16 — explicit radix 10/8/2 etc. parses
+  "0" and stops at 'x'.
+- `Array.from` clamps NaN / negative array-like lengths to 0
+  (was hanging on negative length via uint wrap-around).
+
+**Built-in shape (name / length / descriptor):**
+- `Function.prototype.length === 0`, `Function.prototype.name === ""`
+  per §20.2.3.
+- `String.prototype.toLocaleString` implemented (identity without
+  ICU) — `"abc".toLocaleString()` no longer throws.
+- `Boolean.prototype.{toString, valueOf}` re-installed with name /
+  length attributes (was empty strings).
+- `Object.prototype.{hasOwnProperty, isPrototypeOf,
+  propertyIsEnumerable}` carry .length === 1 (was 0).
+- `Promise.length === 1` per §27.2.3.
+- `Object.create.length === 2` per §20.1.2.2.
+- `Error.prototype[@@toStringTag] === "Error"` (now
+  `Object.prototype.toString.call(new TypeError())` returns
+  `"[object Error]"`).
+- `Date.parse` and `Date.UTC` implemented per §21.4.3.2 /
+  §21.4.3.4 (ISO 8601 fragments / UTC time component to ms).
+
+**Reflect + Promise:**
+- `Object.create` mutable ctor: the constructor backref / prototype
+  round-trip now preserves identity so `Object.prototype.constructor
+  === Object` holds (was failing after the constructor-backref
+  series due to immutable-ctor splitting).
+- `JSON.stringify` honours the replacer-array form (filters object
+  keys per §25.5.2 step 4) and invokes `toJSON` before serialising
+  per step 3.
+
+**Misc:**
+- `Function.prototype.bind` raises TypeError on non-callable receiver
+  per §20.2.3.2 step 1.
+- `Object.assign` skips non-enumerable own properties per §20.1.2.1
+  step 4.c.ii.1.
+
+### Fixed (test262 spec conformance push, rounds 1+2 — 2026-06-02)
 
 A ~80-commit sprint dedicated to closing concrete ECMA-262 conformance
 gaps surfaced by test262. Each commit fixes one root cause and

@@ -2,7 +2,7 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-02. Two consecutive sprint rounds (~80 commits) closed
+**Last updated:** 2026-06-02. Three consecutive sprint rounds (~110 commits) closed
 ECMA-262 conformance gaps in the built-ins layer — see CHANGELOG.md §
 "test262 spec conformance push" for the full breakdown. Highlights:
 
@@ -12,12 +12,25 @@ ECMA-262 conformance gaps in the built-ins layer — see CHANGELOG.md §
 - `built-ins/Array` slice: undefined-sentinel guard in
   `arrayThrowIfNullUndefined` unlocked ~30 indexOf/forEach/etc tests;
   ToIntegerOrInfinity now applied to indexOf/lastIndexOf/slice/splice/flat.
-- `built-ins/Object`: `getOwnPropertyDescriptors` added; null/undefined
-  ToObject TypeErrors wired into 6 more methods.
+- `built-ins/Object`: `getOwnPropertyDescriptors` and `hasOwn` ToObject
+  TypeError, `defineProperty` no-arg TypeError, `create` TypeError on
+  non-Object/non-null proto. The Object constructor is now mutable so
+  the prototype.constructor backref roundtrips (`Object.prototype.constructor
+  === Object` holds).
 - `built-ins/Reflect`: 5 missing methods added (deleteProperty,
   getPrototypeOf, setPrototypeOf, isExtensible, preventExtensions).
 - Spec-mandated `.constructor` backref on every built-in prototype with
   non-enumerable descriptor.
+- ToIntegerOrInfinity now applied uniformly across every Array.prototype
+  index method (indexOf, lastIndexOf, includes, at, slice, splice,
+  copyWithin, fill, flat). Number.prototype.toString also handles
+  fractional radices and ToInteger on the radix arg.
+- ToNumber and String.prototype.trim variants now match the full
+  Unicode WhiteSpace + LineTerminator set, not just ASCII.
+- `Function.prototype` shape (length=0, name=""), Boolean / Object
+  prototype methods carry their spec name + length attributes, and
+  Date.parse / Date.UTC are implemented as minimal ISO-8601 / UTC
+  builders.
 
 Memory note: `feedback_protojs_proto_constructor_backref.md` records
 the load-bearing constraint (mutable proto + JSSymbols::constructor)
