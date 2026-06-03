@@ -294,7 +294,13 @@ const proto::ProtoObject* numberToExponential(
     int fractionDigits = -1;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
-        if (fdObj && fdObj != PROTO_NONE) {
+        // Spec §21.1.3.2: `fractionDigits === undefined` falls into the
+        // "no-argument" branch (round-trip shortest mantissa).  The
+        // explicit `undefined` value is the language's t_undefinedSentinel
+        // rather than PROTO_NONE — pre-fix passing `undefined` explicitly
+        // was treated as `0`, producing "1e+2" for 123.456 instead of the
+        // shortest round-trip "1.23456e+2".
+        if (fdObj && fdObj != PROTO_NONE && fdObj != getUndefinedSentinel()) {
             fdUndefined = false;
             const proto::ProtoObject* numObj = fdObj;
             if (!fdObj->isInteger(context) && !fdObj->isDouble(context)
@@ -364,10 +370,16 @@ const proto::ProtoObject* numberToPrecision(
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     // Spec §21.1.3.5 step 2: if precision is undefined, behave as
     // ToString(this) — no precision check, no RangeError.
-    bool precUndefined = !positionalParameters
-        || positionalParameters->getSize(context) == 0
-        || positionalParameters->getAt(context, 0) == PROTO_NONE
-        || !positionalParameters->getAt(context, 0);
+    // `precision === undefined` (either omitted or explicitly
+    // passed) skips the rest of §21.1.3.5 and behaves like
+    // ToString(x).  Treat the language's t_undefinedSentinel the
+    // same as PROTO_NONE here.
+    const proto::ProtoObject* rawPrec =
+        (positionalParameters && positionalParameters->getSize(context) > 0)
+            ? positionalParameters->getAt(context, 0) : nullptr;
+    bool precUndefined = !rawPrec
+        || rawPrec == PROTO_NONE
+        || rawPrec == getUndefinedSentinel();
     if (precUndefined) {
         return numberToString(context, self, nullptr, nullptr, nullptr);
     }
