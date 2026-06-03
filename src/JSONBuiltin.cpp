@@ -488,6 +488,29 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     if (!wrapper) wrapper = protojs::JSContextWrapper::current();
     proto::ProtoRootSet* rs = wrapper ? wrapper->getRootSet() : nullptr;
 
+    // ECMA-262 §25.5.2 step 11: if the top-level value would serialise
+    // as "undefined" (i.e. it is undefined / a function / a symbol),
+    // JSON.stringify returns undefined — NOT the literal string 'null'.
+    // Detect this case before invoking stringifyRecursive so the
+    // outer return distinguishes between 'value would be null' (top
+    // level null becomes the string 'null') and 'value is omitted'.
+    if (!val || val == PROTO_NONE || val == getUndefinedSentinel()
+        || (val && val->isMethod(ctx))) {
+        return getUndefinedSentinel();
+    }
+    // User functions and constructor wrappers are detected via the
+    // __bytecode_id__ / __native_fn__ markers used elsewhere.
+    {
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE) {
+            return getUndefinedSentinel();
+        }
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE) {
+            return getUndefinedSentinel();
+        }
+    }
+
     stringifyRecursive(ctx, val, out, arrayProto, stack, rs, indentUnit, "");
     return ctx->fromUTF8String(out.c_str());
 }
