@@ -1203,6 +1203,37 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
         }
     }
 
+    // ECMA-262 §25.5.1.1 JSON.parse uses the strict JSON grammar
+    // (§24.5).  QuickJS's JS_ParseJSON is permissive — it accepts
+    // raw control characters U+0000..U+001F inside string literals,
+    // which the spec rejects.  Pre-validate the input so that those
+    // characters surface a SyntaxError before reaching the QuickJS
+    // parser.  We track three states:
+    //   * outside-string: any control char is fine (parser handles)
+    //   * inside-string:  raw control char → SyntaxError
+    //   * after-backslash: next character is part of an escape; skip
+    //     one byte and resume "inside-string".
+    // No allocation; one linear pass.
+    {
+        bool inString = false;
+        bool inEscape = false;
+        for (size_t i = 0; i < text.size(); ++i) {
+            unsigned char c = static_cast<unsigned char>(text[i]);
+            if (inEscape) { inEscape = false; continue; }
+            if (inString) {
+                if (c == '\\') { inEscape = true; continue; }
+                if (c == '"') { inString = false; continue; }
+                if (c < 0x20) {
+                    signalNativeException(makeNativeError(ctx, "SyntaxError",
+                        "JSON.parse: control character in string"));
+                    return PROTO_NONE;
+                }
+            } else if (c == '"') {
+                inString = true;
+            }
+        }
+    }
+
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (!wrapper) return PROTO_NONE;
 
