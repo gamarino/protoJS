@@ -1907,7 +1907,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("values",                objectValues,                1);
     reg("entries",               objectEntries,               1);
     reg("assign",                objectAssign,                2);
-    reg("create",                objectCreate,                1);
+    reg("create",                objectCreate,                2);
     reg("freeze",                objectFreeze,                1);
     reg("isFrozen",              objectIsFrozen,              1);
     reg("seal",                  objectSeal,                  1);
