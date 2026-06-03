@@ -1873,8 +1873,15 @@ static const proto::ProtoObject* arraySort(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // ECMA-262 §23.1.3.30 step 1: if comparefn is neither undefined
+    // nor callable, throw TypeError. Pre-fix any non-callable
+    // argument was silently treated as "no comparator" and the
+    // string default fired — masking programmer errors.
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
+    if (fn == getUndefinedSentinel()) fn = nullptr;
     bool hasFn = fn && fn != PROTO_NONE;
+    if (hasFn && arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.sort"))
+        return PROTO_NONE;
 
     unsigned long len = arrLen(ctx, self);
     if (len < 2) return self;
