@@ -358,9 +358,27 @@ static const proto::ProtoObject* mapForEach(
     const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     if (!requireMapThis(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* callback = args->getAt(ctx, 0);
-    if (!callback || callback == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* callback = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    // ECMA-262 §24.1.3.5 step 4: IsCallable(callbackfn) must be true,
+    // else throw TypeError. Mirrors the discipline of setForEach.
+    {
+        bool callable = false;
+        if (callback && callback != PROTO_NONE && callback != getUndefinedSentinel()) {
+            if (callback->isMethod(ctx)) callable = true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (!callable && bcK && callback->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (!callable && nfK && callback->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+            const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+            if (!callable && bfK && callback->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+        }
+        if (!callable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Map.prototype.forEach callback is not callable"));
+            return PROTO_NONE;
+        }
+    }
     const proto::ProtoObject* thisArg = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
 
