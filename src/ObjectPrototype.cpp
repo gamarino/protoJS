@@ -960,6 +960,63 @@ static const proto::ProtoObject* objectDefineProperty(
     long existingBits = (existingBitsObj && existingBitsObj->isInteger(ctx)) ? existingBitsObj->asLong(ctx) : 0x7;
 
     if (propExists && !(existingBits & 0x2)) { // configurable=false (bit 1)
+        // ECMA-262 §10.1.6.3 ValidateAndApplyPropertyDescriptor step 3:
+        // an empty descriptor (no fields specified) is always allowed;
+        // a value-only redefine is allowed when SameValue(new, current)
+        // holds — even for non-configurable, non-writable data props.
+        // Pre-fix we rejected every redefine of a non-configurable
+        // property, so Object.defineProperty(o,'a',{value:1}) threw
+        // even when the value matched the existing slot.
+        auto descKeyValue = [&](const char* name) -> const proto::ProtoObject* {
+            const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+            const proto::ProtoString* dk = ko ? ko->asString(ctx) : nullptr;
+            return dk ? desc->getAttribute(ctx, dk, false) : nullptr;
+        };
+        auto descHasField = [&](const char* name) -> bool {
+            const proto::ProtoObject* v = descKeyValue(name);
+            if (v && v != PROTO_NONE) return true;
+            // Accessor sidecar form.
+            std::string nstr = name;
+            std::string gkStr = "__get_" + nstr + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            if (gk && desc->getAttribute(ctx, gk, false) != PROTO_NONE) return true;
+            return false;
+        };
+        bool hasValue = descHasField("value");
+        bool hasWritable = descHasField("writable");
+        bool hasEnum = descHasField("enumerable");
+        bool hasConf = descHasField("configurable");
+        bool hasGet = descHasField("get");
+        bool hasSet = descHasField("set");
+        bool anyField = hasValue || hasWritable || hasEnum || hasConf || hasGet || hasSet;
+        if (!anyField) {
+            return target; // empty descriptor: no-op.
+        }
+        auto sameValue = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
+            if (a == b) return true;
+            if (!a || !b) return false;
+            if (a->isInteger(ctx) && b->isInteger(ctx))
+                return a->asLong(ctx) == b->asLong(ctx);
+            if ((a->isDouble(ctx) || a->isFloat(ctx)) && (b->isDouble(ctx) || b->isFloat(ctx))) {
+                double da = a->asDouble(ctx), db = b->asDouble(ctx);
+                if (std::isnan(da) && std::isnan(db)) return true;
+                if (da == 0.0 && db == 0.0) return std::signbit(da) == std::signbit(db);
+                return da == db;
+            }
+            if (a->isString(ctx) && b->isString(ctx)) {
+                std::string sa, sb;
+                a->asString(ctx)->toUTF8String(ctx, sa);
+                b->asString(ctx)->toUTF8String(ctx, sb);
+                return sa == sb;
+            }
+            return false;
+        };
+        // value-only redefine with same value is allowed.
+        if (hasValue && !hasWritable && !hasEnum && !hasConf && !hasGet && !hasSet) {
+            const proto::ProtoObject* newVal = descKeyValue("value");
+            if (sameValue(newVal, existingVal)) return target;
+        }
         signalNativeException(makeNativeError(ctx, "TypeError", "Cannot redefine non-configurable property"));
         return PROTO_NONE;
     }
