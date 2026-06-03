@@ -665,6 +665,20 @@ static const proto::ProtoObject* setConstruct(
                 "is not iterable"));
             return PROTO_NONE;
         }
+        // §24.2.1.1 step 6 + GetIterator: explicit @@iterator =
+        // undefined / null is a TypeError, not a silent skip.
+        if (iterable && iterable != PROTO_NONE && !iterable->isString(ctx)) {
+            const proto::ProtoObject* ito = ctx->fromUTF8String("Symbol.iterator");
+            const proto::ProtoString* its = ito ? ito->asString(ctx) : nullptr;
+            if (its && iterable->hasOwnAttribute(ctx, its) == PROTO_TRUE) {
+                const proto::ProtoObject* fn = iterable->getAttribute(ctx, its, false);
+                if (fn == getUndefinedSentinel() || fn == getNullSentinel()) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Set iterable's @@iterator is not callable"));
+                    return PROTO_NONE;
+                }
+            }
+        }
         if (iterable && iterable != PROTO_NONE) {
             // Strings iterate per code unit: read length from the
             // ProtoString and emit one single-char string per step.
