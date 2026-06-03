@@ -155,10 +155,15 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         return;
     }
 
-    // Circular check
+    // Spec §25.5.2 SerializeJSONObject step 2 / SerializeJSONArray
+    // step 2: throw TypeError on a cyclic reference. Pre-fix the
+    // recursion emitted 'null' for the back-edge, which both silently
+    // truncated the user's data and contradicted the spec test that
+    // exercises 'TypeError: Converting circular structure to JSON'.
     for (const auto* seen : stack) {
         if (seen == obj) {
-            out += "null";
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Converting circular structure to JSON"));
             return;
         }
     }
