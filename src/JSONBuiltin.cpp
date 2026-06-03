@@ -421,24 +421,34 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     }
                 }
             }
-            if (val && val != PROTO_NONE
-                && val != getUndefinedSentinel()
-                && !isCallable
-                && keyAllowedByFilter(key)) {
-                // Apply replacer function per §25.5.2 step 3:
-                // replacer(key, val) — its return replaces val;
-                // returning undefined drops the property.
-                const proto::ProtoObject* outVal = val;
-                if (tlReplacerFn) {
-                    const proto::ProtoList* replArgs = ctx->newList();
-                    replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
-                    replArgs = replArgs->appendLast(ctx, val);
-                    outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
-                    if (!outVal || outVal == PROTO_NONE
-                        || outVal == getUndefinedSentinel()) {
-                        continue;
-                    }
+            if (!keyAllowedByFilter(key)) continue;
+            // §25.5.2.4 SerializeJSONProperty: the replacer fires for
+            // EVERY key in the iteration list, even when [[Get]]
+            // returned undefined (e.g. property was deleted during
+            // serialisation). The replacer's return value can rescue
+            // such a missing entry. Pre-fix we silently skipped any
+            // key whose data lookup yielded undefined.
+            const proto::ProtoObject* outVal = (val && val != PROTO_NONE)
+                ? val : getUndefinedSentinel();
+            if (tlReplacerFn) {
+                const proto::ProtoList* replArgs = ctx->newList();
+                replArgs = replArgs->appendLast(ctx, ctx->fromUTF8String(key.c_str()));
+                replArgs = replArgs->appendLast(ctx, outVal);
+                outVal = callJSFunction(ctx, tlReplacerFn, obj, replArgs);
+                if (hasCallException()) return;
+                if (!outVal || outVal == PROTO_NONE
+                    || outVal == getUndefinedSentinel()) {
+                    continue;
                 }
+            } else {
+                // No replacer: drop the key entirely when value is
+                // undefined / a function / a Symbol.
+                if (val == PROTO_NONE || !val
+                    || val == getUndefinedSentinel() || isCallable) {
+                    continue;
+                }
+            }
+            {
                 if (first) emitOpenLine(); else emitSep();
                 jsonEscape(key, out);
                 out.push_back(':');
