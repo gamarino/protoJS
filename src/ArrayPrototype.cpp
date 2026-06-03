@@ -659,7 +659,9 @@ static const proto::ProtoObject* arrayJoin(
     std::string sep = ",";
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* sepObj = args->getAt(ctx, 0);
-        if (!sepObj || sepObj == PROTO_NONE) {
+        // The global `undefined` identifier resolves to t_undefinedSentinel,
+        // distinct from PROTO_NONE. Both must default to the spec ',' separator.
+        if (!sepObj || sepObj == PROTO_NONE || sepObj == getUndefinedSentinel()) {
             sep = ",";  // undefined separator → default ","
         } else if (sepObj == protojs::getNullSentinel()) {
             sep = "null";  // null separator → "null" (ToString(null))
