@@ -766,7 +766,7 @@ static const proto::ProtoObject* globalParseInt(
     int radix = 10;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* ro = args->getAt(ctx, 1);
-        if (ro && ro != PROTO_NONE) {
+        if (ro && ro != PROTO_NONE && ro != getUndefinedSentinel()) {
             // Spec ToInt32 on the radix argument.
             double rd = 0;
             if (ro->isInteger(ctx)) rd = static_cast<double>(ro->asLong(ctx));
@@ -793,6 +793,10 @@ static const proto::ProtoObject* globalParseInt(
     bool radixGiven = args->getSize(ctx) > 1
         && args->getAt(ctx, 1) != PROTO_NONE
         && args->getAt(ctx, 1) != getUndefinedSentinel();
+    // Spec step 6: if radix was given but coerced to 0, treat it as
+    // unspecified (defaults to 10, allowing the 0x hex upgrade).
+    // Without this, parseInt('10', 0) returns NaN instead of 10.
+    if (radixGiven && radix == 0) { radixGiven = false; radix = 10; }
     bool negative = false;
     if (!s.empty() && (s[0] == '+' || s[0] == '-')) { negative = (s[0] == '-'); s = s.substr(1); }
     if (s.size() >= 2 && s[0] == '0' && (s[1]=='x'||s[1]=='X')) {
