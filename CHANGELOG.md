@@ -4,6 +4,111 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 4 — 2026-06-02)
+
+Fourth consecutive 30-commit sprint targeting concrete ECMA-262 gaps
+surfaced by deeper test262 traversal. Each commit fixes one root cause
+and remains under the "purity > performance" constraint.
+
+**Sentinel hygiene — the global `undefined` identifier:**
+- `toBool(undefined)` returns false. Pre-fix the heap-allocated
+  undefined sentinel hit the "objects are truthy" tail of toBool, so
+  `if (undefined)`, `undefined || 1`, `!!undefined` all said true.
+- Property access on the undefined sentinel throws TypeError. Pre-fix
+  `undefined.x` and `undefined['k']` silently returned undefined.
+- `Array.prototype.join(undefined)` defaults to ','. Pre-fix the
+  sentinel fell through to elemToString and rendered each separator
+  position as '[object Object]'.
+
+**JS proto-chain reconstruction:**
+- Object.prototype's instance methods (hasOwnProperty / isPrototypeOf /
+  propertyIsEnumerable / toLocaleString) are re-parented at
+  Function.prototype after the latter is built, so
+  `Object.prototype.hasOwnProperty.call(o, 'a')` — the most common
+  defensive idiom in JS — no longer throws "is not a function".
+- Function.prototype is re-tied to the post-constructor-backref
+  Object.prototype so `Array instanceof Object`, `Function instanceof
+  Object`, etc. all hold.
+- `OP_set_proto` honours `__proto__` in object literals via the JS
+  proto-override map, so `{__proto__: p}` actually inherits from p
+  and `{__proto__: null}` produces a null-prototype object.
+
+**Object.freeze / seal / preventExtensions actually enforce writes:**
+- FrozenBehavior / NonExtensibleBehavior return the receiver pointer
+  on rejection (not null) so the caller stops falling back to
+  setAttribute. Composite behaviour forwards putField across all
+  parent markers. Marker installation order is fixed (Frozen first
+  in iteration). Per-object behaviour cache is invalidated on every
+  freeze / seal / preventExtensions. The wrong-behaviour-per-parent
+  cache layer is removed. Net effect: writes to frozen / sealed
+  objects silently no-op and writes that would create new keys on
+  non-extensible objects do likewise — matching the spec.
+
+**JSON.stringify spec details:**
+- Number / String / Boolean wrapper objects unbox to their primitive
+  per §25.5.2.2 step 4.
+- Exponent padding stripped: `1e-7` not `1e-07`. Mirrors the
+  Number.prototype.toString fix.
+- Circular references throw TypeError per §25.5.2 step 2 (was emitting
+  literal "null" for the back-edge, silently truncating data).
+- `JSON.parse(text, reviver)` now applies the reviver recursively
+  through arrays and plain objects per InternalizeJSONProperty.
+- `JSON.parse('[1,2,3]')` returns an array whose prototype IS the
+  populated Array.prototype, so `.join`, `.map`, etc. resolve.
+
+**ToNumber / parseInt / parseFloat spec details:**
+- `Number('0x1A')`, `Number('0b11')`, `Number('0o7')` parse the
+  three prefixed integer forms per §7.1.4.1.1.
+- `Number('-0')` preserves -0 (1/Number('-0') === -Infinity now).
+- `parseInt('10', 0)` / `parseInt('10', undefined)` defaults to base 10
+  with 0x detection (was returning NaN).
+- `parseFloat('infinity')` returns NaN (case-sensitive), `parseFloat
+  ('0x1A')` returns 0 (no hex), `parseFloat('Infinityfoo')` returns
+  Infinity (longest-prefix match).
+
+**Number.toString exponent / toFixed sign:**
+- Exponent padding stripped: `(1e-7).toString() === '1e-7'`.
+- `(-0.4).toFixed(0)` returns '0' (not '-0') per §21.1.3.3 step 8.
+
+**String access / coercion:**
+- `'abc'.charAt('1')` returns 'b' (was 'a'): getIntArg coerces string
+  arguments through ToNumber.
+- `'abc'['length']` returns 3 (was 0): get_array_el short-circuits
+  the literal "length" probe on string receivers.
+- `String.prototype.includes / startsWith / endsWith` throw TypeError
+  on RegExp arguments per §22.1.3.7 / §22.1.3.8 / §22.1.3.22 step 3.
+
+**Spread / iteration:**
+- `[...'abc']` produces ['a','b','c'] (was []): OP_append forces the
+  Symbol.iterator path on string sources.
+- `{...arr}` copies the array's index entries as numeric-string keys
+  in the target literal per §13.2.5 (was emitting `{}`).
+
+**Descriptor housekeeping:**
+- Built-in prototype `constructor` backrefs (Array, String, Error,
+  TypeError, …) are non-enumerable per spec (were defaulting to
+  fully enumerable, surfacing in for-in / Object.keys).
+- Array .length descriptor is `{writable:true, enumerable:false,
+  configurable:false}` per §22.1.5.1, applied to both createNewArray
+  and the OP_array_from hot path.
+- Plain object literals with numeric keys no longer leak a phantom
+  'length' attribute (the OP_define_field length-bump branch now
+  checks `__is_array__`).
+
+**Reflect surface fills:**
+- `Reflect.ownKeys` returns the array of own string keys (was a
+  no-op stub returning PROTO_NONE — `.sort()` / `.length` on the
+  result crashed).
+- `Reflect.defineProperty` / `Reflect.getOwnPropertyDescriptor` added
+  as forwarders to the namesake `Object.*` methods (were absent).
+
+**WeakMap key rule:**
+- `WeakMap.prototype.set` throws TypeError for non-Object keys per
+  §24.3.3.6 step 5 (was silently storing primitives).
+
+Net code-change summary: 30 commits, ~24 files touched, all changes
+local to protoJS (no protoCore modifications).
+
 ### Fixed (test262 spec conformance push, round 3 — 2026-06-02)
 
 Continuation of the prior conformance push. 30 more commits targeting

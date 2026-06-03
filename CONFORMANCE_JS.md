@@ -2,9 +2,37 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-02. Three consecutive sprint rounds (~110 commits) closed
-ECMA-262 conformance gaps in the built-ins layer — see CHANGELOG.md §
-"test262 spec conformance push" for the full breakdown. Highlights:
+**Last updated:** 2026-06-02. Four consecutive sprint rounds (~140 commits) closed
+ECMA-262 conformance gaps across the language and built-ins layers — see
+CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
+
+**Round 4 highlights (this commit batch):**
+
+- **Sentinel hygiene:** the global `undefined` identifier now agrees with
+  `void 0` everywhere — toBool, property access (`undefined.x` throws),
+  `Array.prototype.join(undefined)`, get_field, get_array_el.
+- **Prototype-chain reconstruction:** Object.prototype's instance methods
+  re-parent at Function.prototype, so the
+  `Object.prototype.hasOwnProperty.call(o, 'a')` idiom resolves;
+  `__proto__` in object literals takes effect via `OP_set_proto`;
+  `Array instanceof Object` and friends hold via the
+  Function.prototype-after-Object.prototype-rebuild tie.
+- **Object.freeze / seal / preventExtensions actually enforce writes:**
+  five cooperating bugs in BehaviorRegistry + marker installation
+  fixed in one commit. Writes to frozen / sealed objects silently no-op,
+  new keys on non-extensible objects rejected, existing-key updates
+  still allowed on sealed.
+- **JSON.stringify / JSON.parse fills:** wrapper unboxing, reviver
+  recursion, exponent padding, circular-reference TypeError, array
+  prototype after `JSON.parse('[…]')`.
+- **ToNumber / parseInt / parseFloat:** 0x / 0b / 0o prefix forms,
+  -0 preservation, parseInt radix-0 default, parseFloat case-sensitive
+  Infinity + 0x rejection.
+- **Descriptor housekeeping:** all built-in `constructor` backrefs
+  non-enumerable; Array .length descriptor matches §22.1.5.1; plain
+  object literals no longer leak phantom .length.
+
+**Earlier-round highlights (rounds 1–3, ~110 commits):**
 
 - `built-ins/Math` slice: ~59% → 94% pass rate after constructor
   backref, NaN/Infinity handling on pow/round/clz32/hypot, function
