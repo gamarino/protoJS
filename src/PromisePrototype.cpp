@@ -735,6 +735,17 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Promise"));
+    // §27.2.3: Promise.length === 1 (executor formal-parameter count),
+    // descriptor non-enumerable + non-writable + configurable (0x2).
+    {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+        }
+    }
 
     const proto::ProtoObject* promiseKeyObj = ctx->fromUTF8String("Promise");
     const proto::ProtoString* pk = promiseKeyObj ? promiseKeyObj->asString(ctx) : nullptr;
