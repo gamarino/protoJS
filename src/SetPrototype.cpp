@@ -520,6 +520,33 @@ static const proto::ProtoObject* setConstruct(
         if (iterable == getUndefinedSentinel() || iterable == getNullSentinel()) {
             return self;
         }
+        // §24.2.1.1 step 7.a-c: when iterable is present, Get(set, "add")
+        // and throw TypeError if IsCallable(adder) is false. Pre-fix the
+        // constructor went straight to its internal fast path so users
+        // assigning Set.prototype.add = null saw the iterable silently
+        // ingested without the throw the spec mandates. The check has
+        // to happen before any iteration begins.
+        {
+            const proto::ProtoObject* addKo = ctx->fromUTF8String("add");
+            const proto::ProtoString* addKs = addKo ? addKo->asString(ctx) : nullptr;
+            const proto::ProtoObject* adder = addKs
+                ? self->getAttribute(ctx, addKs, true) : PROTO_NONE;
+            bool callable = false;
+            if (adder && adder != PROTO_NONE && adder != getUndefinedSentinel()) {
+                if (adder->isMethod(ctx)) callable = true;
+                const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                if (!callable && bcK && adder->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+                const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                if (!callable && nfK && adder->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+                const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+                if (!callable && bfK && adder->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+            }
+            if (!callable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Set: 'add' is not callable"));
+                return PROTO_NONE;
+            }
+        }
         if (iterable && (iterable->isInteger(ctx) || iterable->isDouble(ctx)
                          || iterable->isFloat(ctx) || iterable->isBoolean(ctx))) {
             signalNativeException(makeNativeError(ctx, "TypeError",
