@@ -2,11 +2,43 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-02. Four consecutive sprint rounds (~140 commits) closed
+**Last updated:** 2026-06-03. Five consecutive sprint rounds (~170 commits) closed
 ECMA-262 conformance gaps across the language and built-ins layers — see
 CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 4 highlights (this commit batch):**
+**Round 5 highlights (this commit batch):**
+
+- **Array constructor / prototype:** `Array(N)` function-call validation,
+  `.length` setter ToUint32 + SameValue + RangeError, concat
+  Symbol.isConcatSpreadable, flat / flatMap empty children,
+  push on plain-object receivers, Array.from ToLength coercion.
+- **Map / Set:** non-Object entry / non-iterable primitive guards,
+  Set iterates strings per code unit, insertion order across
+  delete + re-set cycles (Map.set / Set.add pick `max(slot)+1`,
+  not `size`).
+- **JSON.stringify / JSON.parse:** replacer-function form,
+  top-level undefined returns undefined (not the literal 'null').
+- **Property descriptors / accessors:** object-literal getter/setter
+  enumerable by default; Object.assign + object spread invoke the
+  source getter; defineProperty no-op + same-value redefine allowed
+  on non-configurable; getter-only accessors reject writes
+  (Map.size / Set.size / user `{ get x() {…} }`).
+- **Object.setPrototypeOf(o, null)** persists the null sentinel.
+  `Object.is{Extensible,Frozen,Sealed}` treat string / undefined /
+  boolean primitives as frozen. Reflect.is{Extensible,
+  preventExtensions} forward to the NonExtensibleMarker path.
+- **String + Number coercion:** replace / replaceAll ToString
+  non-string patterns; case mapping for the Latin-1 supplement;
+  repeat ToNumber on objects; toPrecision exact significant
+  digits; ToNumber preserves -0 / rejects intra-prefix whitespace.
+- **AggregateError** registered as a built-in error constructor;
+  Object.fromEntries TypeError on non-iterable primitives;
+  WeakMap key TypeError; Function.prototype.bind inherits
+  Function.prototype.
+- **hasOwnProperty** treats PROTO_NONE slots as absent (handles
+  the simulated-delete the array prototype uses).
+
+**Round 4 highlights:**
 
 - **Sentinel hygiene:** the global `undefined` identifier now agrees with
   `void 0` everywhere — toBool, property access (`undefined.x` throws),

@@ -4,6 +4,110 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 5 — 2026-06-03)
+
+Fifth consecutive 30-commit sprint targeting ECMA-262 gaps surfaced by
+deeper test262 traversal. Each commit fixes one root cause; all changes
+remain local to protoJS (no protoCore modifications).
+
+**Array constructor + prototype:**
+- `Array(N)` as function call applies the same RangeError validation as
+  `new Array(N)` per §22.1.1.1 (was silently producing a 1-element
+  array for -1 / 2.5 / NaN / Infinity).
+- `Array.length` setter validates via ToUint32 + SameValue: invalid
+  values throw RangeError; coercion from string `'3'` to integer 3
+  now lands a canonical numeric form per §10.4.2.1.
+- `Array.prototype.concat` honours `Symbol.isConcatSpreadable`
+  per §22.1.3.1.1 — arrays with the flag set to false are kept
+  unspread, array-likes without the flag are no longer eagerly spread.
+- `Array.prototype.flat` / `flatMap` flatten empty children per
+  FlattenIntoArray step 5.b (were preserving empty arrays as
+  elements).
+- `Array.prototype.push` updates `.length` on plain-object receivers
+  (`Array.prototype.push.call(arrLike, …)`).
+- `Array.prototype.from` ToLength coerces non-numeric `.length`
+  through ToNumber per §23.1.2.1 step 5.
+
+**Map + Set constructors and ordering:**
+- `Map` constructor throws TypeError on non-Object entries per
+  §24.1.1.2 step 4.a (was silently producing empty maps).
+- `Map` / `Set` constructors throw TypeError on non-iterable
+  primitives (numbers, booleans, strings — strings are iterable but
+  AddEntriesFromIterable would still reject each code point).
+- `Set` constructor iterates strings per code unit per §24.2.1.1.
+- `Map.prototype.set` / `Set.prototype.add` pick `max(slot)+1` for
+  the next sparse-list slot, NOT `size` — fixes insertion order
+  across delete + re-set cycles where the prior code overwrote a
+  still-occupied slot.
+
+**JSON.parse / JSON.stringify:**
+- `JSON.stringify` implements the replacer function form per §25.5.2
+  step 3 (was an explicit TODO that ignored functions).
+- `JSON.stringify(undefined)` / `JSON.stringify(function(){})` returns
+  the JS undefined value per §25.5.2 step 11 (was returning the
+  literal string `'null'`).
+
+**Property descriptors + accessor handling:**
+- Object-literal getter/setter properties are enumerable per
+  §6.2.5 (`{enum:true, config:true}` — bits 0x6, was 0x2).
+- `Object.assign` invokes the source getter via `Get(from, key)` per
+  §20.1.2.1 step 4.c.ii.2 (was reading the data slot only, getting
+  undefined).
+- Object spread `{...src}` invokes the source getter, mirroring the
+  Object.assign fix on the OP_copy_data_properties bytecode path.
+- `Object.defineProperty` allows empty descriptor / same-value
+  redefine on non-configurable per §10.1.6.3
+  ValidateAndApplyPropertyDescriptor step 3 (was rejecting every
+  redefine of a non-configurable property).
+- `resolvePutFieldOOP` silently rejects writes to getter-only
+  accessors per OrdinarySet 5.b — `Map.size`, `Set.size`, and
+  user `{ get x() {…} }` properties no longer accept shadowing
+  data writes.
+
+**Object.setPrototypeOf / preventExtensions surface:**
+- `Object.setPrototypeOf(o, null)` persists the null sentinel
+  per §20.1.2.21 step 5 (was calling `t_jsProtoMap.erase` which
+  silently restored the natural parent).
+- `Object.isExtensible` / `Object.isFrozen` / `Object.isSealed`
+  treat string / undefined / boolean primitives as frozen per
+  §20.1.2.{12,13,14}.
+- `Reflect.isExtensible` / `Reflect.preventExtensions` honour the
+  NonExtensibleMarker (were a stub returning true unconditionally).
+
+**String + Number coercion:**
+- `String.prototype.replace` / `replaceAll` ToString non-string
+  patterns per §22.1.3.18 step 5 — `.replace(undefined, X)` searches
+  for the literal string `'undefined'` instead of returning the
+  word `'undefined'`.
+- `String.prototype.toUpperCase` / `toLowerCase` UTF-8 aware for
+  the Latin-1 supplement (`'café'.toUpperCase() === 'CAFÉ'`).
+- `String.prototype.repeat` routes non-typed arguments through
+  ToNumber per §22.1.3.16 — `'a'.repeat([3]) === 'aaa'`.
+- `Number.prototype.toPrecision` emits exactly p significant digits
+  per §21.1.3.5 step 12 (was using %g which strips trailing zeros).
+- `ToNumber` preserves -0 when parsing `'-0'`; rejects whitespace
+  inside the `0x` / `0b` / `0o` prefix region.
+
+**Reflect / Error / built-ins:**
+- `AggregateError` registered as a built-in Error constructor per
+  §19.2.1.5 (was producible internally by Promise.any but not
+  user-constructible).
+- `Object.fromEntries` throws TypeError on non-iterable primitives
+  per §20.1.2.6 step 3.
+- `WeakMap.prototype.set` throws TypeError on non-Object keys.
+
+**Function.prototype.bind:**
+- The bound function inherits Function.prototype so
+  `bound instanceof Function` holds and `.call/.apply/.bind` resolve.
+
+**hasOwnProperty:**
+- Treats PROTO_NONE attribute as absent — handles the simulated-
+  delete the array prototype uses (no public deleteAttribute in
+  protoCore) without affecting explicit `{ b: undefined }` cases.
+
+Net code-change summary: 30 commits, ~14 files touched, all changes
+local to protoJS (no protoCore modifications).
+
 ### Fixed (test262 spec conformance push, round 4 — 2026-06-02)
 
 Fourth consecutive 30-commit sprint targeting concrete ECMA-262 gaps
