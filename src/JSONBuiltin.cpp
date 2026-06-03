@@ -485,12 +485,33 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                 const proto::ProtoList* els = getArrayElements(ctx, replacer);
                 long elsSize = els ? static_cast<long>(els->getSize(ctx)) : 0;
                 auto fetch = [&](long i) -> const proto::ProtoObject* {
+                    const proto::ProtoObject* v = nullptr;
                     if (els && i < elsSize) {
-                        return els->getAt(ctx, static_cast<int>(i));
+                        v = els->getAt(ctx, static_cast<int>(i));
                     }
-                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                    if (!ik) return PROTO_NONE;
-                    const proto::ProtoObject* v = replacer->getAttribute(ctx, ik, false);
+                    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+                        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                        if (ik) {
+                            v = replacer->getAttribute(ctx, ik, false);
+                        }
+                    }
+                    // Index accessor: when the data slot holds the
+                    // undefined sentinel and __get_<i>__ is present,
+                    // invoke the getter. Object.defineProperty on an
+                    // array index installs the accessor this way, and
+                    // §25.5.2 step 4.a uses [[Get]] which honours it.
+                    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+                        std::string gkStr = "__get_" + std::to_string(i) + "__";
+                        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                        if (gks) {
+                            const proto::ProtoObject* getter = replacer->getAttribute(ctx, gks, true);
+                            if (getter && getter != PROTO_NONE) {
+                                v = callJSFunction(ctx, getter, replacer, ctx->newList());
+                                if (hasCallException()) return PROTO_NONE;
+                            }
+                        }
+                    }
                     return v ? v : PROTO_NONE;
                 };
                 for (long i = 0; i < len; ++i) {
