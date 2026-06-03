@@ -1617,7 +1617,21 @@ static const proto::ProtoObject* objectHasOwnProperty(
     const proto::ProtoString* k = coercePropNameToKey(ctx, key);
     if (!k) return PROTO_FALSE;
 
-    if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) return PROTO_TRUE;
+    if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+        // protoCore has no public deleteAttribute; the array prototype
+        // simulates 'delete arr[i]' by writing PROTO_NONE to the slot.
+        // hasOwnAttribute still reports true, but for spec parity the
+        // user-visible hasOwnProperty must return false once the slot
+        // has been deleted. Probe the value: if it is PROTO_NONE
+        // (and no accessor sidecar exists), treat the property as
+        // absent. This affects Array.prototype.pop / shift / splice
+        // residue checks.
+        const proto::ProtoObject* probe = self->getAttribute(ctx, k, false);
+        if (probe && probe != PROTO_NONE) return PROTO_TRUE;
+        // Allow the accessor-sidecar / array-index fallbacks below to
+        // confirm even when the data slot is PROTO_NONE (accessor-only
+        // properties have no value attribute).
+    }
 
     // Also check accessor sidecars — accessor properties have no data key when
     // defined via Object.defineProperty (the data key is removed on creation).
