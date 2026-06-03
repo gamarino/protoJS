@@ -1422,6 +1422,12 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             int base = (trimmed[1] == 'x' || trimmed[1] == 'X') ? 16
                      : (trimmed[1] == 'b' || trimmed[1] == 'B') ? 2 : 8;
             const char* p = trimmed.c_str() + 2;
+            // ECMA-262 forbids any whitespace inside the literal — only
+            // the surrounding StrWhiteSpace was trimmed up top. strtoull
+            // skips leading whitespace by default, so '0x 1' would parse
+            // as 1; reject this case explicitly.
+            if (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r'
+                || *p == '\f' || *p == '\v') return makeNaN();
             char* end = nullptr;
             unsigned long long uval = std::strtoull(p, &end, base);
             if (end == p || *end != '\0') return makeNaN();
