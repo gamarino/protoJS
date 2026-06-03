@@ -879,12 +879,73 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                 }
             }
         } else {
-            // Object — would coerce via ToPrimitive(hint "string")
-            // calling toString(). We don't synthesise that path here;
-            // fall through to "undefined" so the parser surfaces a
-            // SyntaxError, matching the most common test-262 outcome
-            // (most "object → SyntaxError" cases in the suite).
-            text = "undefined";
+            // Object: ToPrimitive(hint:'string') — toString first, then
+            // valueOf — followed by ToString on the resulting primitive.
+            // Pre-fix the Object branch collapsed to 'undefined' and
+            // surfaced as SyntaxError; now an object with toString
+            // returning a JSON text parses normally.
+            auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+                if (!fn || fn == PROTO_NONE) return false;
+                if (fn->isMethod(ctx)) return true;
+                const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                if (bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE) return true;
+                const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                if (nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE) return true;
+                return false;
+            };
+            auto isPrim = [&](const proto::ProtoObject* v) -> bool {
+                if (!v || v == PROTO_NONE) return true;
+                if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
+                if (v == PROTO_TRUE || v == PROTO_FALSE) return true;
+                return v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)
+                    || v->isString(ctx) || v->isBoolean(ctx);
+            };
+            const proto::ProtoObject* prim = nullptr;
+            const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+            if (tsK) {
+                const proto::ProtoObject* fn = textObj->getAttribute(ctx, tsK, true);
+                if (isCallable(fn)) {
+                    const proto::ProtoObject* r = callJSFunction(ctx, fn, textObj, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                    if (isPrim(r)) prim = r;
+                }
+            }
+            if (!prim) {
+                const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
+                if (voK) {
+                    const proto::ProtoObject* fn = textObj->getAttribute(ctx, voK, true);
+                    if (isCallable(fn)) {
+                        const proto::ProtoObject* r = callJSFunction(ctx, fn, textObj, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                        if (isPrim(r)) prim = r;
+                    }
+                }
+            }
+            if (!prim) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "JSON.parse: cannot convert object to primitive"));
+                return PROTO_NONE;
+            }
+            if (prim == getUndefinedSentinel() || prim == PROTO_NONE) text = "undefined";
+            else if (prim == getNullSentinel()) text = "null";
+            else if (prim == PROTO_TRUE) text = "true";
+            else if (prim == PROTO_FALSE) text = "false";
+            else if (prim->isString(ctx)) {
+                prim->asString(ctx)->toUTF8String(ctx, text);
+            } else if (prim->isInteger(ctx)) text = std::to_string(prim->asLong(ctx));
+            else if (prim->isDouble(ctx) || prim->isFloat(ctx)) {
+                double d = prim->asDouble(ctx);
+                if (std::isnan(d)) text = "NaN";
+                else if (std::isinf(d)) text = (d > 0) ? "Infinity" : "-Infinity";
+                else {
+                    long long ll = static_cast<long long>(d);
+                    if (static_cast<double>(ll) == d) text = std::to_string(ll);
+                    else {
+                        char buf[64]; snprintf(buf, sizeof(buf), "%.17g", d); text = buf;
+                    }
+                }
+            } else if (prim->isBoolean(ctx)) text = prim->asBoolean(ctx) ? "true" : "false";
+            else text = "undefined";
         }
     }
 
