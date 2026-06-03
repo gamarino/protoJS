@@ -1027,6 +1027,28 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, ks, false);
     if (existing && existing != PROTO_NONE) return; // already installed
 
+    // BuildMapPrototype ran before ensureFunctionPrototype, so each
+    // installNonEnumerableMethod call back then saw methodPrototype =
+    // nullptr and stamped a parentless wrapper. Reinstall now that
+    // methodPrototype (=Function.prototype) is available so
+    // m.set.call / m.has.bind / etc. resolve via the standard chain.
+    // Mirrors the parallel fix in ensureNumberConstructor.
+    if (ctx->space && ctx->space->methodPrototype && s_mapPrototype) {
+        const proto::ProtoObject* mp = s_mapPrototype;
+        mp = installNonEnumerableMethod(ctx, mp, "set",     mapSet,     2);
+        mp = installNonEnumerableMethod(ctx, mp, "get",     mapGet,     1);
+        mp = installNonEnumerableMethod(ctx, mp, "has",     mapHas,     1);
+        mp = installNonEnumerableMethod(ctx, mp, "delete",  mapDelete,  1);
+        mp = installNonEnumerableMethod(ctx, mp, "clear",   mapClear,   0);
+        mp = installNonEnumerableMethod(ctx, mp, "forEach", mapForEach, 1);
+        mp = installNonEnumerableMethod(ctx, mp, "keys",    mapKeys,    0);
+        mp = installNonEnumerableMethod(ctx, mp, "values",  mapValues,  0);
+        mp = installNonEnumerableMethod(ctx, mp, "entries", mapEntries, 0);
+        mp = installNonEnumerableMethod(ctx, mp, "getOrInsert",          mapGetOrInsert,         2);
+        mp = installNonEnumerableMethod(ctx, mp, "getOrInsertComputed",  mapGetOrInsertComputed, 2);
+        s_mapPrototype = mp;
+    }
+
     const proto::ProtoObject* ctorParent =
         (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
     const proto::ProtoObject* ctor = ctorParent
