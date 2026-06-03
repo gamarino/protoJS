@@ -909,7 +909,28 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Set"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Set"));
+        // Per §17 every built-in constructor's .name carries
+        // {writable:false, enumerable:false, configurable:true} → 0x2.
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    }
+
+    // Set.length = 0 per §24.2.1.1 — same descriptor as .name above.
+    // Pre-fix the length attribute was absent so test262's
+    // 'built-ins/Set/length.js' (which probes the descriptor via
+    // verifyProperty) failed with 'desc === undefined'.
+    {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+    }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey && s_setPrototype)
