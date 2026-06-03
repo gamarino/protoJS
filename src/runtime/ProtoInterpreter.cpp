@@ -912,8 +912,32 @@ static const proto::ProtoObject* globalParseFloat(
     size_t j = 0;
     while (j < s.size() && (s[j]==' '||s[j]=='\t'||s[j]=='\n'||s[j]=='\r'||s[j]=='\f'||s[j]=='\v')) j++;
     s = s.substr(j);
-    if (s == "Infinity" || s == "+Infinity") return ctx->fromDouble(std::numeric_limits<double>::infinity());
-    if (s == "-Infinity") return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    // Per ECMA-262 §19.2.5 parseFloat consumes the longest prefix that
+    // is a StrDecimalLiteral. Two surfaces of strtod misalign:
+    //   - strtod is case-insensitive for 'inf'/'infinity' but the spec
+    //     mandates exact capitalisation of 'Infinity'.
+    //   - strtod reads '0x...' as a hex literal, but parseFloat must
+    //     consume only the leading '0' and stop at 'x'.
+    // Handle both up front, then fall through to strtod for decimals.
+    {
+        size_t signSkip = (s.size() > 0 && (s[0] == '+' || s[0] == '-')) ? 1 : 0;
+        if (s.size() > signSkip && (s[signSkip] == 'i' || s[signSkip] == 'I')) {
+            // 'Infinity' prefix → consume it; lowercase 'infinity' or
+            // any other partial form is NaN.
+            if (s.compare(signSkip, 8, "Infinity") == 0) {
+                bool neg = signSkip == 1 && s[0] == '-';
+                return ctx->fromDouble(neg
+                    ? -std::numeric_limits<double>::infinity()
+                    :  std::numeric_limits<double>::infinity());
+            }
+            return ctx->fromDouble(nan);
+        }
+        if (s.size() > signSkip + 1 && s[signSkip] == '0' &&
+            (s[signSkip + 1] == 'x' || s[signSkip + 1] == 'X')) {
+            // parseFloat('0x1A') -> 0 (parse '0', stop at 'x').
+            return ctx->fromInteger(0LL);
+        }
+    }
     char* end = nullptr;
     double result = std::strtod(s.c_str(), &end);
     if (end == s.c_str()) return ctx->fromDouble(nan);
