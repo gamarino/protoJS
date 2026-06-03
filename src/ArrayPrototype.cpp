@@ -206,6 +206,13 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
         if (d <= 0 || std::isnan(d) || std::isinf(d)) return 0;
         return static_cast<unsigned long>(d);
     }
+    // Boolean-encoded length: ECMA-262 §7.1.4 ToNumber(true)=1,
+    // ToNumber(false)=0, followed by §7.1.20 ToLength.  Pre-fix
+    // `{length:true}` evaluated to length 0 and every iteration
+    // helper (reduce/forEach/map/filter/etc.) short-circuited
+    // without invoking the callback.
+    if (lenObj == PROTO_TRUE)  return 1;
+    if (lenObj == PROTO_FALSE) return 0;
     // String-encoded length — try parsing, handle hex (e.g. "0x0002").
     if (lenObj->isString(ctx)) {
         const proto::ProtoString* s = lenObj->asString(ctx);
