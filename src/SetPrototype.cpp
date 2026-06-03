@@ -445,7 +445,50 @@ static const proto::ProtoObject* setConstruct(
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc > 0) {
         const proto::ProtoObject* iterable = args->getAt(ctx, 0);
+        // Per ECMA-262 §24.2.1.1 step 5: if iterable is null/undefined,
+        // skip iteration entirely. Primitives (number / boolean) are
+        // not iterable → TypeError. Strings ARE iterable per code unit
+        // (handled via the length+charAt path below).
+        if (iterable == getUndefinedSentinel() || iterable == getNullSentinel()) {
+            return self;
+        }
+        if (iterable && (iterable->isInteger(ctx) || iterable->isDouble(ctx)
+                         || iterable->isFloat(ctx) || iterable->isBoolean(ctx))) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "is not iterable"));
+            return PROTO_NONE;
+        }
         if (iterable && iterable != PROTO_NONE) {
+            // Strings iterate per code unit: read length from the
+            // ProtoString and emit one single-char string per step.
+            if (iterable->isString(ctx)) {
+                if (const proto::ProtoString* ps = iterable->asString(ctx)) {
+                    std::string utf8;
+                    ps->toUTF8String(ctx, utf8);
+                    size_t i = 0;
+                    while (i < utf8.size()) {
+                        unsigned char c = static_cast<unsigned char>(utf8[i]);
+                        size_t len = (c < 0x80) ? 1 : (c < 0xE0) ? 2
+                                  : (c < 0xF0) ? 3 : 4;
+                        if (i + len > utf8.size()) break;
+                        std::string single = utf8.substr(i, len);
+                        const proto::ProtoObject* val =
+                            ctx->fromUTF8String(single.c_str());
+                        val = normalizeSetVal(ctx, val);
+                        if (!setContains(ctx, self, val)) {
+                            const proto::ProtoSet* core = getSetCore(ctx, self);
+                            const proto::ProtoSparseList* order = getSetOrder(ctx, self);
+                            long sz = getSetSize(ctx, self);
+                            if (core) setSetCoreInPlace(ctx, self, core->add(ctx, val));
+                            if (order) setSetOrderInPlace(ctx, self,
+                                order->setAt(ctx, static_cast<unsigned long>(sz), val));
+                            setSetSizeInPlace(ctx, self, sz + 1);
+                        }
+                        i += len;
+                    }
+                }
+                return self;
+            }
             // Element read: prefer the __elements__ native storage for
             // real arrays.  Pre-fix the constructor only read via
             // getAttribute(indexKey, true), so `new Set([1,2,3])`
