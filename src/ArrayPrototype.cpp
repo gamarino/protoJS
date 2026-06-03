@@ -1350,30 +1350,22 @@ static const proto::ProtoObject* arrayCopyWithin(
         return self ? self : PROTO_NONE;
 
     long long len = static_cast<long long>(arrLen(ctx, self));
-    long long target = 0, start = 0, end = len;
-
-    const proto::ProtoObject* tObj = args->getAt(ctx, 0);
-    if (tObj && tObj != PROTO_NONE) {
-        if (tObj->isInteger(ctx)) target = tObj->asLong(ctx);
-        else if (tObj->isDouble(ctx) || tObj->isFloat(ctx))
-            target = static_cast<long long>(tObj->asDouble(ctx));
-    }
-    if (args->getSize(ctx) > 1) {
-        const proto::ProtoObject* sObj = args->getAt(ctx, 1);
-        if (sObj && sObj != PROTO_NONE) {
-            if (sObj->isInteger(ctx)) start = sObj->asLong(ctx);
-            else if (sObj->isDouble(ctx) || sObj->isFloat(ctx))
-                start = static_cast<long long>(sObj->asDouble(ctx));
+    // ECMA-262 §23.1.3.4 steps 4-9: ToIntegerOrInfinity on target,
+    // start, end. Same lambda used by slice/splice/flat/fill.
+    auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
+        if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
+        if (o->isInteger(ctx)) return o->asLong(ctx);
+        if (o->isDouble(ctx) || o->isFloat(ctx)) {
+            double d = o->asDouble(ctx);
+            if (std::isnan(d)) return 0;
+            if (std::isinf(d)) return d > 0 ? len : -len - 1;
+            return static_cast<long long>(d);
         }
-    }
-    if (args->getSize(ctx) > 2) {
-        const proto::ProtoObject* eObj = args->getAt(ctx, 2);
-        if (eObj && eObj != PROTO_NONE) {
-            if (eObj->isInteger(ctx)) end = eObj->asLong(ctx);
-            else if (eObj->isDouble(ctx) || eObj->isFloat(ctx))
-                end = static_cast<long long>(eObj->asDouble(ctx));
-        }
-    }
+        return defaultV;
+    };
+    long long target = toII(args->getAt(ctx, 0), 0);
+    long long start  = (args->getSize(ctx) > 1) ? toII(args->getAt(ctx, 1), 0)   : 0;
+    long long end    = (args->getSize(ctx) > 2) ? toII(args->getAt(ctx, 2), len) : len;
 
     target = normalizeIdxClamp(target, len);
     start  = normalizeIdxClamp(start,  len);
