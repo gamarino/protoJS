@@ -361,7 +361,10 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             // and invoke. Pre-fix accessor-backed properties came back
             // as missing because their storage lives at __get_<key>__,
             // not at <key>. JSON.stringify({get k(){...}}) returned '{}'.
-            if (!val || val == PROTO_NONE) {
+            // Object.defineProperty stores undefinedSentinel under <key>
+            // as the accessor-presence marker, so a sentinel value here
+            // also means 'go check the getter sidecar'.
+            if (!val || val == PROTO_NONE || val == getUndefinedSentinel()) {
                 std::string gkStr = "__get_" + key + "__";
                 const proto::ProtoString* gks =
                     ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
