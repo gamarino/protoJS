@@ -630,6 +630,79 @@ static const proto::ProtoObject* reflectPreventExtensions(
     return PROTO_TRUE; // best-effort stub
 }
 
+// ECMA-262 §28.1.3 Reflect.defineProperty: forward to the runtime's
+// Object.defineProperty (which is registered on the global at bootstrap
+// time) and return a boolean. Pre-fix this was absent, so test262
+// fixtures that probe `typeof Reflect.defineProperty === 'function'`
+// and downstream feature tests both failed.
+static const proto::ProtoObject* reflectDefineProperty(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!ctx) return PROTO_FALSE;
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.defineProperty")) return PROTO_FALSE;
+
+    // Forward to globalThis.Object.defineProperty. The native
+    // implementation lives in ObjectPrototype.cpp; rather than
+    // duplicate the descriptor-normalisation logic, look the function
+    // up through the global. tearing apart what Object.defineProperty
+    // does would create a maintenance burden we don't need here.
+    const proto::ProtoString* objKey = JSSymbols::Object(ctx);
+    const proto::ProtoObject* objCtor = nullptr;
+    if (objKey && JSContextWrapper::current()) {
+        const proto::ProtoObject* global =
+            JSContextWrapper::current()->getNativeGlobal();
+        if (global) objCtor = global->getAttribute(ctx, objKey, false);
+    }
+    if (!objCtor || objCtor == PROTO_NONE) return PROTO_FALSE;
+    const proto::ProtoObject* defPropKeyObj =
+        ctx->fromUTF8String("defineProperty");
+    const proto::ProtoString* defPropKey =
+        defPropKeyObj ? defPropKeyObj->asString(ctx) : nullptr;
+    if (!defPropKey) return PROTO_FALSE;
+    const proto::ProtoObject* fn =
+        objCtor->getAttribute(ctx, defPropKey, false);
+    if (!fn || fn == PROTO_NONE) return PROTO_FALSE;
+
+    const proto::ProtoObject* result = callJSFunction(ctx, fn, objCtor, args);
+    if (hasCallException()) return PROTO_FALSE;
+    // Spec: return true on success. Object.defineProperty returns the
+    // target on success and throws on failure (already caught above).
+    return (result && result != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
+}
+
+// ECMA-262 §28.1.7 Reflect.getOwnPropertyDescriptor — same forwarding
+// pattern as defineProperty above.
+static const proto::ProtoObject* reflectGetOwnPropertyDescriptor(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
+{
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (reflectThrowIfNotObject(ctx, target, "Reflect.getOwnPropertyDescriptor")) return PROTO_NONE;
+
+    const proto::ProtoString* objKey = JSSymbols::Object(ctx);
+    const proto::ProtoObject* objCtor = nullptr;
+    if (objKey && JSContextWrapper::current()) {
+        const proto::ProtoObject* global =
+            JSContextWrapper::current()->getNativeGlobal();
+        if (global) objCtor = global->getAttribute(ctx, objKey, false);
+    }
+    if (!objCtor || objCtor == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* mObj =
+        ctx->fromUTF8String("getOwnPropertyDescriptor");
+    const proto::ProtoString* mk =
+        mObj ? mObj->asString(ctx) : nullptr;
+    if (!mk) return PROTO_NONE;
+    const proto::ProtoObject* fn =
+        objCtor->getAttribute(ctx, mk, false);
+    if (!fn || fn == PROTO_NONE) return PROTO_NONE;
+    return callJSFunction(ctx, fn, objCtor, args);
+}
+
 // ECMA-262 §28.1.11: Reflect.setPrototypeOf(target, proto).
 static const proto::ProtoObject* reflectSetPrototypeOf(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
@@ -2635,6 +2708,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     {"setPrototypeOf",    reflectSetPrototypeOf,    2},
                     {"isExtensible",      reflectIsExtensible,      1},
                     {"preventExtensions", reflectPreventExtensions, 1},
+                    {"defineProperty",    reflectDefineProperty,    3},
+                    {"getOwnPropertyDescriptor", reflectGetOwnPropertyDescriptor, 2},
                 };
                 for (auto& m : rfMeth) {
                     const proto::ProtoString* k = pContext->fromUTF8String(m.name)
