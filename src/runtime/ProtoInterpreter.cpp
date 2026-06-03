@@ -1359,6 +1359,11 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             size_t pos = 0;
             double d = std::stod(trimmed, &pos);
             if (pos != trimmed.size()) return makeNaN();
+            // Preserve -0: collapsing through fromInteger would drop the
+            // sign (long long has no -0), so Number('-0') would return
+            // +0 — 1/Number('-0') would give +Infinity instead of
+            // -Infinity. Keep the IEEE-754 double form in that case.
+            if (d == 0.0 && std::signbit(d)) return context->fromDouble(-0.0);
             // If integral and in range, use integer representation.
             if (d == std::trunc(d) && std::abs(d) < 9.007199254740992e15)
                 return context->fromInteger(static_cast<long long>(d));
