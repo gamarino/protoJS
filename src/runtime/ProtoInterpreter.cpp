@@ -5761,14 +5761,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
 
+                // Strings are iterable per UTF-16 code unit, not via
+                // numeric attributes. Drive them through the
+                // Symbol.iterator path below so each code unit becomes
+                // a single-char string. Pre-fix the array-like branch
+                // claimed string spread and produced an empty array
+                // because getAttribute("0") on a string is undefined.
+                bool apForceIterPath = (apIterable && apIterable != PROTO_NONE
+                    && apIterable->isString(pContext));
+
                 // Case A: array-like with .length — use index-based copy.
                 const proto::ProtoString* apLenKey = JSSymbols::length(pContext);
                 const proto::ProtoObject* apLenObj = apLenKey
                     ? apIterable->getAttribute(pContext, apLenKey, false) : PROTO_NONE;
-                long long apSrcLen = (apLenObj && apLenObj != PROTO_NONE && apLenObj->isInteger(pContext))
+                long long apSrcLen = apForceIterPath ? -1LL :
+                    ((apLenObj && apLenObj != PROTO_NONE && apLenObj->isInteger(pContext))
                     ? apLenObj->asLong(pContext)
                     : (apLenObj && apLenObj != PROTO_NONE && apLenObj->isDouble(pContext))
-                    ? static_cast<long long>(apLenObj->asDouble(pContext)) : -1LL;
+                    ? static_cast<long long>(apLenObj->asDouble(pContext)) : -1LL);
 
                 bool apDone = false;
                 bool apError = false;
