@@ -2655,10 +2655,18 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     }
 
     // Set Array.prototype.constructor = Array (required by ECMAScript).
+    // Descriptor per §22.1.3.2: {writable:true, enumerable:false,
+    // configurable:true} → bits 0x3. Without the sidecar the
+    // default is fully enumerable, so for-in over any array surfaced
+    // `constructor` alongside the indices — breaking idiomatic
+    // numeric-key iteration.
     {
         const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
         if (ctorKey) {
             proto = proto->setAttribute(ctx, ctorKey, ctor);
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             s_arrayProto = proto;
         }
     }
