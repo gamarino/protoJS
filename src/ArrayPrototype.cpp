@@ -1588,10 +1588,14 @@ static const proto::ProtoObject* arrayForEach(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.15 step ordering: LengthOfArrayLike precedes IsCallable
+    // so a throwing `length` accessor surfaces its own exception
+    // instead of a synthetic TypeError.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.forEach")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
@@ -1611,10 +1615,12 @@ static const proto::ProtoObject* arrayMap(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.18: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.map")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
@@ -1637,10 +1643,12 @@ static const proto::ProtoObject* arrayFilter(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.7: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.filter")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
     unsigned long outIdx = 0;
     for (unsigned long i = 0; i < len; i++) {
@@ -1666,10 +1674,12 @@ static const proto::ProtoObject* arrayFind(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.8: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.find")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         const proto::ProtoObject* res  =
@@ -1691,10 +1701,12 @@ static const proto::ProtoObject* arrayFindIndex(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.9: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findIndex")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
         const proto::ProtoObject* res  =
@@ -1716,10 +1728,12 @@ static const proto::ProtoObject* arrayFindLast(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLast")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (long long i = (long long)len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         const proto::ProtoObject* res  =
@@ -1741,10 +1755,12 @@ static const proto::ProtoObject* arrayFindLastIndex(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.11: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLastIndex")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (long long i = (long long)len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
         const proto::ProtoObject* res  =
@@ -1766,10 +1782,12 @@ static const proto::ProtoObject* arraySome(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.28: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.some")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* res =
@@ -1791,10 +1809,12 @@ static const proto::ProtoObject* arrayEvery(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.6: LengthOfArrayLike precedes IsCallable.
+    unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.every")) return PROTO_NONE;
-    unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* res =
