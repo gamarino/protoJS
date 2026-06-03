@@ -734,7 +734,16 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Promise"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Promise"));
+        // Per §17 every built-in's .name carries §17 descriptor 0x2
+        // (writable:false, enumerable:false, configurable:true). Pre-fix
+        // the absent descriptor sidecar defaulted to all-true, which
+        // breaks Object.keys(Promise) checks and verifyProperty.
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    }
     // §27.2.3: Promise.length === 1 (executor formal-parameter count),
     // descriptor non-enumerable + non-writable + configurable (0x2).
     {
