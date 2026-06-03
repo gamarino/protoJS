@@ -133,7 +133,19 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         }
         char buf[64];
         snprintf(buf, sizeof(buf), "%.15g", d);
-        out += buf;
+        // %g pads exponents to at least two digits; ECMA-262 forbids
+        // the leading zero. Strip it so JSON.stringify(1e-7) emits
+        // '1e-7' instead of '1e-07' (matches V8 / SpiderMonkey).
+        std::string s = buf;
+        size_t ePos = s.find('e');
+        if (ePos != std::string::npos && ePos + 1 < s.size()) {
+            size_t signPos = (s[ePos + 1] == '+' || s[ePos + 1] == '-')
+                ? ePos + 2 : ePos + 1;
+            while (signPos < s.size() - 1 && s[signPos] == '0') {
+                s.erase(signPos, 1);
+            }
+        }
+        out += s;
         return;
     }
     if (obj->isString(ctx)) {
