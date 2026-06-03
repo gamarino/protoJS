@@ -8933,10 +8933,33 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             long long arrLength = static_cast<long long>(argc);
                             if (argc == 1) {
                                 const proto::ProtoObject* a0 = argsList->getAt(pContext, 0);
-                                if (a0 && a0->isInteger(pContext)) {
-                                    long long n = a0->asLong(pContext);
-                                    if (n >= 0 && n <= 0xFFFFFFFFLL) arrLength = n;
-                                    // else fall through to element-mode (n elements would error per spec; we just keep argc)
+                                // ECMA-262 §22.1.1.1 (Array() called as
+                                // function — same as constructor §22.1.1.2):
+                                // single-number arg must satisfy
+                                // SameValue(arg, ToUint32(arg)) else throw
+                                // RangeError. Pre-fix the function form
+                                // had no range guard, so Array(-1) /
+                                // Array(2.5) / Array(NaN) silently
+                                // produced a 1-element array containing
+                                // the bad value, diverging from
+                                // new Array(-1) which already threw.
+                                if (a0 && (a0->isInteger(pContext)
+                                           || a0->isDouble(pContext)
+                                           || a0->isFloat(pContext))) {
+                                    double dlen = a0->isInteger(pContext)
+                                        ? static_cast<double>(a0->asLong(pContext))
+                                        : a0->asDouble(pContext);
+                                    long long ilen = static_cast<long long>(dlen);
+                                    if (std::isnan(dlen) || std::isinf(dlen)
+                                        || static_cast<double>(ilen) != dlen
+                                        || ilen < 0 || ilen > 4294967295LL) {
+                                        for (uint32_t i = 0; i <= 0; i++) {} // already popped above
+                                        pending_exception = makeError(pContext, "RangeError",
+                                            "Invalid array length", pGlobalRoot);
+                                        has_pending_exception = true;
+                                        DISPATCH();
+                                    }
+                                    arrLength = ilen;
                                 } else {
                                     // single non-integer arg: treat as one element via __elements__.
                                     const proto::ProtoList* els = pContext->newList();
