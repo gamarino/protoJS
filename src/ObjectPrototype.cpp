@@ -1261,8 +1261,22 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     bool hasPd = pdk && (target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE);
     const proto::ProtoObject* bitsObj = hasPd ? target->getAttribute(ctx, pdk, false) : nullptr;
 
+    // Per ECMA-262 §6.2.5.4 FromPropertyDescriptor, the result must be
+    // an ordinary object — i.e. its [[Prototype]] is the live
+    // Object.prototype. Pre-fix ctx->newObject(true) produced a
+    // parentless object; getPrototypeOf reported Object.prototype via
+    // the override path but live attribute lookups (d.hasOwnProperty,
+    // 'foo' in d, d[key]) never walked the chain — every Object.proto
+    // method came back as undefined.
+    JSContextWrapper* descWrapper = JSContextWrapper::current();
+    const proto::ProtoObject* objProto = descWrapper
+        ? descWrapper->getJSObjectPrototype() : nullptr;
+    auto newDescriptor = [&]() -> const proto::ProtoObject* {
+        return objProto ? objProto->newChild(ctx, true) : ctx->newObject(true);
+    };
+
     if (hasG || hasS) {
-        const proto::ProtoObject* res = ctx->newObject(true);
+        const proto::ProtoObject* res = newDescriptor();
         setAttr(res, "get", gv);
         setAttr(res, "set", sv);
         uint8_t bits = (bitsObj && bitsObj->isInteger(ctx)) ? (uint8_t)bitsObj->asLong(ctx) : 0x7;
@@ -1275,7 +1289,7 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     if (target->hasOwnAttribute(ctx, k) != PROTO_TRUE) return PROTO_NONE; // not found
     const proto::ProtoObject* val = target->getAttribute(ctx, k, false);
 
-    const proto::ProtoObject* res = ctx->newObject(true);
+    const proto::ProtoObject* res = newDescriptor();
     setAttr(res, "value", val);
     uint8_t bits = (bitsObj && bitsObj->isInteger(ctx)) ? (uint8_t)bitsObj->asLong(ctx) : 0x7;
     setAttr(res, "writable",     (bits & 0x1) ? PROTO_TRUE : PROTO_FALSE);
