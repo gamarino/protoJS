@@ -1312,22 +1312,22 @@ static const proto::ProtoObject* arrayFill(
         value = args->getAt(ctx, 0);
         if (!value) value = PROTO_NONE;
     }
-    if (args && args->getSize(ctx) > 1) {
-        const proto::ProtoObject* s = args->getAt(ctx, 1);
-        if (s && s != PROTO_NONE) {
-            if (s->isInteger(ctx)) start = s->asLong(ctx);
-            else if (s->isDouble(ctx) || s->isFloat(ctx))
-                start = static_cast<long long>(s->asDouble(ctx));
+    // ECMA-262 §23.1.3.6: ToIntegerOrInfinity on start/end. NaN → 0;
+    // +Infinity → length (clamp); -Infinity → 0 after the negative
+    // normalisation. The C cast was undefined-behaviour on ±Infinity.
+    auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
+        if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
+        if (o->isInteger(ctx)) return o->asLong(ctx);
+        if (o->isDouble(ctx) || o->isFloat(ctx)) {
+            double d = o->asDouble(ctx);
+            if (std::isnan(d)) return 0;
+            if (std::isinf(d)) return d > 0 ? len : -len - 1;
+            return static_cast<long long>(d);
         }
-    }
-    if (args && args->getSize(ctx) > 2) {
-        const proto::ProtoObject* e = args->getAt(ctx, 2);
-        if (e && e != PROTO_NONE) {
-            if (e->isInteger(ctx)) end = e->asLong(ctx);
-            else if (e->isDouble(ctx) || e->isFloat(ctx))
-                end = static_cast<long long>(e->asDouble(ctx));
-        }
-    }
+        return defaultV;
+    };
+    if (args && args->getSize(ctx) > 1) start = toII(args->getAt(ctx, 1), 0);
+    if (args && args->getSize(ctx) > 2) end   = toII(args->getAt(ctx, 2), len);
 
     start = normalizeIdxClamp(start, len);
     end   = normalizeIdxClamp(end,   len);
