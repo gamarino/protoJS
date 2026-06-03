@@ -1037,14 +1037,23 @@ static const proto::ProtoObject* internalizeJSONProperty(
                 keys.push_back(pk);
             }
             for (auto* pk : keys) {
+                // Spec InternalizeJSONProperty step 2.c.ii.1: [[Get]]
+                // the value (chain-aware). Pre-fix the impl read only
+                // own attributes, so a reviver that deleted its own
+                // key didn't re-read through the prototype.
                 const proto::ProtoObject* item =
-                    val->getAttribute(ctx, pk, false);
+                    val->getAttribute(ctx, pk, true);
                 const proto::ProtoObject* keyObj2 = pk->asObject(ctx);
                 const proto::ProtoObject* newItem =
                     internalizeJSONProperty(
                         ctx, val, keyObj2, item, reviver);
-                val = val->setAttribute(ctx, pk,
-                    newItem ? newItem : getUndefinedSentinel());
+                // step 2.c.ii.2-3: undefined → delete; else CreateDataProperty.
+                if (!newItem || newItem == PROTO_NONE
+                    || newItem == getUndefinedSentinel()) {
+                    val = val->setAttribute(ctx, pk, PROTO_NONE);
+                } else {
+                    val = val->setAttribute(ctx, pk, newItem);
+                }
             }
         }
     }
