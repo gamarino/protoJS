@@ -440,10 +440,28 @@ static const proto::ProtoObject* setIteratorNext(
     const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
     if (!idxKey || !arrKey2 || !kindKey) return makeDone();
 
+    // Sticky-done check: per ECMA-262 §24.2.5.2.1, once a Set iterator
+    // has yielded {done: true} it MUST keep doing so even if entries
+    // are later added. Pre-fix the iterator only tracked __iter_idx__
+    // and would happily resume yielding new entries past the original
+    // 'done' return — set.add(4) after iteration completes would be
+    // visited on the next call.
+    const proto::ProtoObject* doneKo = ctx->fromUTF8String("__iter_done__");
+    const proto::ProtoString* doneKs = doneKo ? doneKo->asString(ctx) : nullptr;
+    if (doneKs) {
+        const proto::ProtoObject* d = self->getAttribute(ctx, doneKs, false);
+        if (d == PROTO_TRUE) return makeDone();
+    }
+
+    auto markDone = [&]() -> const proto::ProtoObject* {
+        if (doneKs) self->setAttribute(ctx, doneKs, PROTO_TRUE);
+        return makeDone();
+    };
+
     const proto::ProtoObject* setObj  = self->getAttribute(ctx, arrKey2, false);
     const proto::ProtoObject* posObj  = self->getAttribute(ctx, idxKey,  false);
     const proto::ProtoObject* kindObj = self->getAttribute(ctx, kindKey, false);
-    if (!setObj || setObj == PROTO_NONE) return makeDone();
+    if (!setObj || setObj == PROTO_NONE) return markDone();
 
     long long pos = (posObj && posObj != PROTO_NONE && posObj->isInteger(ctx))
                     ? posObj->asLong(ctx) : 0LL;
@@ -454,7 +472,7 @@ static const proto::ProtoObject* setIteratorNext(
     }
 
     const proto::ProtoSparseList* order = getSetOrder(ctx, setObj);
-    if (!order) return makeDone();
+    if (!order) return markDone();
 
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
@@ -493,7 +511,7 @@ static const proto::ProtoObject* setIteratorNext(
         if (dk) r = r->setAttribute(ctx, dk, PROTO_FALSE);
         return r;
     }
-    return makeDone();
+    return markDone();
 }
 
 static const proto::ProtoObject* makeSetIterator(
