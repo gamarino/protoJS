@@ -203,7 +203,17 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     }
     if (lenObj->isDouble(ctx) || lenObj->isFloat(ctx)) {
         double d = lenObj->asDouble(ctx);
-        if (d <= 0 || std::isnan(d) || std::isinf(d)) return 0;
+        if (std::isnan(d) || d <= 0) return 0;
+        // ECMA-262 §7.1.20 ToLength clamps to min(len, 2^53-1).
+        // +Infinity should therefore expose the maximum array
+        // length and let the iteration helpers find any present
+        // index (typically very small ones).  Pre-fix `length:
+        // Infinity` collapsed to 0 so `{0:0, length: Infinity}`
+        // never even probed index 0.  Cap at 2^32-1 to match the
+        // standard array-length envelope; nothing useful comes of
+        // larger indices.
+        if (std::isinf(d)) return static_cast<unsigned long>(0xFFFFFFFFul);
+        if (d > static_cast<double>(0xFFFFFFFFul)) return 0xFFFFFFFFul;
         return static_cast<unsigned long>(d);
     }
     // Boolean-encoded length: ECMA-262 §7.1.4 ToNumber(true)=1,
