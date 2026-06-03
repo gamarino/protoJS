@@ -1044,6 +1044,46 @@ static const proto::ProtoObject* objectDefineProperty(
 
     std::string kstr;
     k->toUTF8String(ctx, kstr);
+    // ECMA-262 §10.4.2.1 ArraySetLength: when defining the `length`
+    // property on an Array exotic object, the spec runs the new
+    // value through ToUint32 and SameValue(numberLen, ToNumber(len))
+    // — anything else throws RangeError, NOT TypeError.  Pre-fix the
+    // generic defineProperty path forwarded the invalid value to
+    // setAttribute which surfaced a TypeError ("invalid length"
+    // somewhere down the stack), so test262 tests asserting the
+    // spec's RangeError mistyped the failure.
+    if (kstr == "length") {
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArrV = isArrKey
+            ? target->getAttribute(ctx, isArrKey, true) : PROTO_NONE;
+        if (isArrV == PROTO_TRUE) {
+            const proto::ProtoObject* valKo = ctx->fromUTF8String("value");
+            const proto::ProtoString* valK = valKo ? valKo->asString(ctx) : nullptr;
+            const proto::ProtoObject* newVal = valK
+                ? desc->getAttribute(ctx, valK, false) : nullptr;
+            if (newVal && newVal != PROTO_NONE) {
+                const proto::ProtoObject* numVal = newVal;
+                if (!newVal->isInteger(ctx) && !newVal->isDouble(ctx)
+                    && !newVal->isFloat(ctx)) {
+                    numVal = jsToNumber(ctx, newVal);
+                    if (hasCallException()) return PROTO_NONE;
+                }
+                double d = 0.0;
+                bool gotNum = false;
+                if (numVal) {
+                    if (numVal->isInteger(ctx)) { d = static_cast<double>(numVal->asLong(ctx)); gotNum = true; }
+                    else if (numVal->isDouble(ctx) || numVal->isFloat(ctx)) { d = numVal->asDouble(ctx); gotNum = true; }
+                }
+                if (!gotNum || std::isnan(d) || std::isinf(d)
+                    || d < 0 || d > 4294967295.0
+                    || d != std::trunc(d)) {
+                    signalNativeException(makeNativeError(ctx, "RangeError",
+                        "Invalid array length"));
+                    return PROTO_NONE;
+                }
+            }
+        }
+    }
     std::string pdKeyStr = "__pd_" + kstr + "__";
     const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
