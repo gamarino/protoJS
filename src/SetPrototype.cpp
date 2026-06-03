@@ -166,6 +166,48 @@ static bool setContains(proto::ProtoContext* ctx,
     return false;
 }
 
+// setLikeHas — membership test for the seven Set collection methods'
+// `other` argument. When other is a real native Set, use the fast
+// path (setContains via the __set_core__ slot). Otherwise consult
+// the spec's Set-like protocol by calling other.has(val).
+// getSetRecord has already validated other.has is callable, so the
+// call here is safe; we only have to coerce the result to a bool.
+// Pre-fix the set ops only consulted setContains, which always
+// returned false for any non-native Set, so passing a Set-like
+// {size, has, keys} object produced empty (intersection) / full
+// (difference) / wrong (disjoint/subset) results.
+static bool setLikeHas(proto::ProtoContext* ctx,
+                       const proto::ProtoObject* other,
+                       const proto::ProtoObject* val)
+{
+    if (getSetOrder(ctx, other)) return setContains(ctx, other, val);
+    const proto::ProtoObject* hasKo = ctx->fromUTF8String("has");
+    const proto::ProtoString* hasKs = hasKo ? hasKo->asString(ctx) : nullptr;
+    if (!hasKs) return false;
+    const proto::ProtoObject* hasFn = other->getAttribute(ctx, hasKs, true);
+    if (!hasFn || hasFn == PROTO_NONE) return false;
+    const proto::ProtoList* a = ctx->newList();
+    a = a->appendLast(ctx, val ? val : PROTO_NONE);
+    const proto::ProtoObject* r = callJSFunction(ctx, hasFn, other, a);
+    if (hasCallException()) return false;
+    if (r == PROTO_TRUE) return true;
+    if (r == PROTO_FALSE) return false;
+    if (!r || r == PROTO_NONE || r == getUndefinedSentinel()) return false;
+    if (r->isBoolean(ctx)) return r->asBoolean(ctx);
+    // Truthy coercion fallback — non-empty string / non-zero number.
+    if (r->isInteger(ctx)) return r->asLong(ctx) != 0;
+    if (r->isDouble(ctx) || r->isFloat(ctx)) {
+        double d = r->asDouble(ctx);
+        return d != 0.0 && !std::isnan(d);
+    }
+    if (r->isString(ctx)) {
+        std::string s;
+        r->asString(ctx)->toUTF8String(ctx, s);
+        return !s.empty();
+    }
+    return true;  // any other object → truthy
+}
+
 // ---------------------------------------------------------------------------
 // set.add(val) → set
 // ---------------------------------------------------------------------------
@@ -839,7 +881,7 @@ static const proto::ProtoObject* setIntersection(
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!v) v = PROTO_NONE;
-        if (setContains(ctx, other, v))
+        if (setLikeHas(ctx, other, v))
             setAddValue(ctx, result, v);
     }
     return result;
@@ -863,7 +905,7 @@ static const proto::ProtoObject* setDifference(
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!v) v = PROTO_NONE;
-        if (!setContains(ctx, other, v))
+        if (!setLikeHas(ctx, other, v))
             setAddValue(ctx, result, v);
     }
     return result;
@@ -927,7 +969,7 @@ static const proto::ProtoObject* setIsSubsetOf(
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!v) v = PROTO_NONE;
-        if (!setContains(ctx, other, v)) return PROTO_FALSE;
+        if (!setLikeHas(ctx, other, v)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
 }
@@ -969,7 +1011,7 @@ static const proto::ProtoObject* setIsDisjointFrom(
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!v) v = PROTO_NONE;
-        if (setContains(ctx, other, v)) return PROTO_FALSE;
+        if (setLikeHas(ctx, other, v)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
 }
