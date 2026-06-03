@@ -5708,20 +5708,32 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             std::all_of(keyStr.begin(), keyStr.end(),
                                         [](unsigned char c){ return c >= '0' && c <= '9'; });
                         if (isNumericKey) {
-                            const uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
-                            const proto::ProtoString* lenKey = JSSymbols::length(pContext);
-                            if (lenKey) {
-                                const proto::ProtoObject* curLenObj =
-                                    newObj->getAttribute(pContext, lenKey, false);
-                                const long long curLen =
-                                    (curLenObj && curLenObj != PROTO_NONE && curLenObj->isInteger(pContext))
-                                    ? curLenObj->asLong(pContext) : 0LL;
-                                if (static_cast<long long>(idx) + 1LL > curLen) {
-                                    const proto::ProtoObject* lenNewObj = newObj->setAttribute(
-                                        pContext, lenKey,
-                                        pContext->fromInteger(static_cast<long long>(idx) + 1LL));
-                                    updateMapping(pContext, newObj, lenNewObj);
-                                    newObj = lenNewObj;
+                            // Only bump .length when the receiver is
+                            // actually an Array — plain objects must
+                            // not gain a .length sidecar just because
+                            // they carry numeric keys. Pre-fix
+                            // {1:'a', 2:'b'} leaked length: 3 into the
+                            // user's own keys (and Object.keys leaked
+                            // 'length' in for-in / Object.keys output).
+                            const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                            const proto::ProtoObject* isArrVal = isArrKey
+                                ? newObj->getAttribute(pContext, isArrKey, true) : PROTO_NONE;
+                            if (isArrVal == PROTO_TRUE) {
+                                const uint32_t idx = static_cast<uint32_t>(std::stoul(keyStr));
+                                const proto::ProtoString* lenKey = JSSymbols::length(pContext);
+                                if (lenKey) {
+                                    const proto::ProtoObject* curLenObj =
+                                        newObj->getAttribute(pContext, lenKey, false);
+                                    const long long curLen =
+                                        (curLenObj && curLenObj != PROTO_NONE && curLenObj->isInteger(pContext))
+                                        ? curLenObj->asLong(pContext) : 0LL;
+                                    if (static_cast<long long>(idx) + 1LL > curLen) {
+                                        const proto::ProtoObject* lenNewObj = newObj->setAttribute(
+                                            pContext, lenKey,
+                                            pContext->fromInteger(static_cast<long long>(idx) + 1LL));
+                                        updateMapping(pContext, newObj, lenNewObj);
+                                        newObj = lenNewObj;
+                                    }
                                 }
                             }
                         }
