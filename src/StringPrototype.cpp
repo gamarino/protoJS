@@ -605,10 +605,17 @@ const proto::ProtoObject* stringRepeat(
             else if (a->isDouble(ctx) || a->isFloat(ctx)) dcount = a->asDouble(ctx);
             else if (a == PROTO_TRUE)    dcount = 1.0;
             else if (a == PROTO_FALSE)   dcount = 0.0;
-            else if (a->isString(ctx)) {
+            else {
+                // Route through ToNumber for everything else (strings,
+                // objects with valueOf/toString, etc.). Pre-fix arrays
+                // like [3] hit none of the typed branches and dcount
+                // stayed 0, so 'a'.repeat([3]) returned ''. ToNumber on
+                // [3] runs ToPrimitive→'3'→ToNumber→3.
                 const proto::ProtoObject* num = jsToNumber(ctx, a);
-                if (num && (num->isInteger(ctx))) dcount = static_cast<double>(num->asLong(ctx));
-                else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) dcount = num->asDouble(ctx);
+                if (num) {
+                    if (num->isInteger(ctx)) dcount = static_cast<double>(num->asLong(ctx));
+                    else if (num->isDouble(ctx) || num->isFloat(ctx)) dcount = num->asDouble(ctx);
+                }
             }
         }
     }
