@@ -862,12 +862,25 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     }
 
     // Symbol.toStringTag = "Set": {writable:false, enumerable:false, configurable:true}
-    // bit1=configurable=true → bits = 0x2
+    // bit1=configurable=true → bits = 0x2.
+    // Install under BOTH the internal sidecar (__toStringTag__, used by
+    // Object.prototype.toString's tag probe) AND the user-visible key
+    // ("Symbol.toStringTag", what `Set.prototype[Symbol.toStringTag]`
+    // resolves to in this runtime). Pre-fix only the sidecar was set, so
+    // the test262 'built-ins/Set/prototype/Symbol.toStringTag.js' check
+    // (which reads via the user form) returned undefined.
     {
         const proto::ProtoString* tstKey = JSSymbols::toStringTag(ctx);
         if (tstKey) {
             setProto = setProto->setAttribute(ctx, tstKey, ctx->fromUTF8String("Set"));
             const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd___toStringTag____");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            setProto = setProto->setAttribute(ctx, userKey, ctx->fromUTF8String("Set"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
             const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
             if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
