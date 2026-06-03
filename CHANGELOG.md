@@ -4,6 +4,104 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 7 — 2026-06-03)
+
+Seventh consecutive 30-commit sprint, focused on the broad cleanups
+the prior rounds didn't reach: descriptor surfaces on the global
+namespace and Object / Reflect statics, ToString / ToNumber primitive-
+result coercion across parseInt / parseFloat / JSON.parse, Reflect.*
+spec corrections, and the long-standing 32-element array-literal
+truncation bug.
+
+**Big-impact correctness fix (any user with a 32+ entry array literal):**
+- `OP_get_array_el` now falls back to indexed attributes for arrays
+  past slot 32. QuickJS emits `OP_define_field` for elements 32+ of a
+  literal, storing them as string-keyed attributes ('32', '33', ...).
+  Pre-fix arrayTryFastGet's PROTO_NONE 'out-of-bounds' return was
+  treated as final and `a[32]` read `undefined` despite the descriptor
+  showing the correct value. Affected every consumer of large array
+  literals; surfaced in test262 via parseInt's multi-radix sweep.
+
+**Object descriptor identity for builtins:**
+- `Object.getOwnPropertyDescriptor` result inherits the real
+  `Object.prototype` (was a parentless object — `desc.hasOwnProperty`
+  was undefined despite getPrototypeOf reporting Object.prototype).
+- `Object.getOwnPropertyDescriptor` synthesises descriptors for array
+  index slots (in `__elements__`) and String-wrapper char indices.
+- `Object.getOwnPropertyNames` enumerates String-wrapper char indices
+  alongside user attributes.
+- `new F()` does NOT stamp own `constructor` on the instance —
+  `F.prototype.constructor` is set lazily on first construct when
+  missing (plain function declarations), so the backref still resolves
+  via the chain without leaking into `Object.keys(instance)`.
+- Object static methods + `Object.prototype` carry the §17 descriptor
+  (0x3 / 0x0 respectively) on their installation site, so
+  `Object.keys(Object)` returns `[]`.
+
+**JSON corrections:**
+- `JSON.parse` ToString-coerces primitive arguments (null → "null",
+  true → "true", 3.14 → "3.14", ...) per §25.5.1 step 1.
+- `JSON.parse` Object arguments run through ToPrimitive('string') and
+  ToString of the primitive, so `JSON.parse({toString(){return '"x"'}})`
+  parses to `"x"` instead of throwing SyntaxError.
+- `TypeBridge::fromJS` preserves negative zero: `JSON.parse('-0')` is
+  now `-0` (not `+0`).
+- `JSON.stringify` serialises accessor-backed properties (literal
+  `{get k(){return v}}` AND `Object.defineProperty(o,k,{get:...})`)
+  by invoking the getter. The replacer array probes
+  `__primitive_value__` to ToString-coerce Number / String wrappers
+  per §25.5.2 step 4.b.e.i and skips undefined / null / boolean /
+  Symbol entries per step 4.b.f.
+- `JSON.stringify` replacer-array detects sparse arrays without
+  `__elements__` (`new Array(3); sp[1]='key'`) — falls back to
+  length + indexed attributes.
+- `JSON.stringify` unboxes Number / String wrappers for the space
+  argument per §25.5.2 step 5.
+
+**Reflect surface alignment:**
+- `Reflect.set` honours the receiver (per §28.1.13 step 4) and returns
+  false when receiver is a non-Object primitive.
+- `Reflect.setPrototypeOf` rejects cycle-forming assignments per §9.1.2
+  step 8.b (returns false).
+- `Reflect.setPrototypeOf` / `Object.setPrototypeOf` reject prototype
+  changes on non-extensible targets per §10.1.2.1 step 4 (Reflect →
+  false; Object → TypeError).
+- `Reflect.construct` validates argumentsList via CreateListFromArrayLike
+  (§7.3.17) — primitives throw TypeError. The construct result only
+  replaces newObj when it's an Object (was previously accepting the
+  undefined sentinel and returning undefined for `Reflect.construct(F, [])`
+  where F has no explicit return).
+- `Reflect.ownKeys` orders keys per §9.1.11: indices ascending,
+  then string keys in insertion order, then 'length' for arrays.
+  Pre-fix it dropped 'length' unconditionally and missed sparse
+  indices stored as indexed attributes.
+- `Reflect.*` methods carry the §17 descriptor 0x3 on their install
+  slots; the global Reflect / Math / JSON slots themselves get 0x3,
+  and NaN / Infinity / undefined get the §17 read-only 0x0.
+
+**parseInt / parseFloat / global toNumber:**
+- `parseInt` / `parseFloat` ToString the FULL primitive result of
+  ToPrimitive(hint:'string'), so a numeric / boolean / null return
+  from toString/valueOf renders to its decimal / 'true' / 'null' form
+  before parsing. Pre-fix only string returns were honoured.
+- `parseFloat` recognises the full ECMA-262 StrWhiteSpace set
+  (NBSP, USP, line separators, BOM) — pre-fix only ASCII trimmed.
+- `toNumber` consults `@@toPrimitive('number')` before valueOf/toString
+  per §7.1.1 step 2.
+- `@@toPrimitive` validation: non-callable Symbol.toPrimitive throws
+  TypeError; non-primitive return throws TypeError.
+
+**Other corrections:**
+- `Array.prototype.concat` applies full §7.1.2 ToBoolean to
+  @@isConcatSpreadable; invokes the accessor-form getter when
+  Object.defineProperty stores it under `__get_Symbol.isConcatSpreadable__`.
+- `Math.hypot` coerces every argument once into a vector, propagating
+  the first ToNumber abrupt completion and stopping further valueOf
+  invocations (counter test).
+
+Net code-change summary: 30 commits, ~12 files touched, all changes
+local to protoJS. Cumulative across rounds 1-7: ~230 commits.
+
 ### Fixed (test262 spec conformance push, round 6 — 2026-06-03)
 
 Sixth consecutive 30-commit sprint, focused on the Map / Set surface

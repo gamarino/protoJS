@@ -2,11 +2,52 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-03. Six consecutive sprint rounds (~200 commits) closed
+**Last updated:** 2026-06-03. Seven consecutive sprint rounds (~230 commits) closed
 ECMA-262 conformance gaps across the language and built-ins layers — see
 CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 6 highlights (this commit batch):**
+**Round 7 highlights (this commit batch):**
+
+- **Large array-literal fix:** OP_get_array_el falls back to indexed
+  attributes for slots ≥32, so `[10,11,...,44][32]` correctly returns
+  `42` (was `undefined`). QuickJS uses OP_define_field for elements
+  past slot 32, and the runtime was treating arrayTryFastGet's
+  out-of-bounds PROTO_NONE as the final answer. Affected every
+  consumer of large array literals — silent quiet bug.
+- **Object descriptors are real Objects:** `Object.getOwnPropertyDescriptor`
+  result inherits the live Object.prototype (so `desc.hasOwnProperty('get')`
+  works), synthesises descriptors for array index slots and String-wrapper
+  char indices, and Object static methods + Object.prototype carry the
+  spec §17 descriptors (so `Object.keys(Object)` returns []).
+- **No more own `constructor` on plain `new F()` instances:** the backref
+  is stamped on F.prototype lazily when missing, so the instance inherits
+  it via the chain without leaking into `Object.keys(instance)`.
+- **JSON coverage:** JSON.parse ToString-coerces null/boolean/number
+  arguments AND Object arguments (via ToPrimitive('string')). JSON.stringify
+  serialises accessor-backed properties from BOTH the literal and
+  Object.defineProperty forms, handles sparse replacer arrays, and
+  unboxes Number/String wrappers for the space argument. TypeBridge
+  preserves negative zero across the QuickJS boundary.
+- **Reflect alignment:** Reflect.set honours receiver and rejects
+  non-Object receivers. Reflect.setPrototypeOf rejects cycles AND
+  non-extensible targets (matched on Object.setPrototypeOf). Reflect.construct
+  validates argumentsList per §7.3.17 and discriminates Object returns
+  from undefined. Reflect.ownKeys orders per §9.1.11 (indices, strings,
+  then 'length' for arrays). Reflect / Math / JSON globals carry the
+  §17 descriptors.
+- **ToNumber + parseInt / parseFloat:** parseInt and parseFloat ToString
+  the full primitive result of ToPrimitive('string') — toString returning
+  a number / boolean now parses correctly. parseFloat recognises the
+  full ECMA-262 whitespace set (USP, NBSP, line separators, BOM).
+  toNumber consults @@toPrimitive('number') before valueOf/toString
+  and validates the hook (non-callable / non-primitive return → TypeError).
+- **Array.prototype.concat ToBoolean fix:** @@isConcatSpreadable applies
+  the full ToBoolean ruleset (0 / NaN / '' / null → false) AND invokes
+  the accessor-form getter when present.
+- **Math.hypot:** ToNumber abrupt-completion propagation stops further
+  valueOf invocations on the rest of the argument list.
+
+**Round 6 highlights:**
 
 - **Map / Set under §17:** Set / Map / Promise constructors carry .length
   and .name with descriptor 0x2; Set.prototype.size / Map.prototype.size
