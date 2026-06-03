@@ -764,6 +764,44 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         }
     }
 
+    // §25.5.2 step 12: SerializeJSONProperty('', wrapper) — invoke the
+    // replacer once at the top level with key='' and value=val. The
+    // result REPLACES val for the subsequent serialisation, so a
+    // replacer that returns undefined / function / Symbol bottoms out
+    // to the top-level undefined return. Pre-fix the replacer was only
+    // applied to inner properties; the outer call site fed val through
+    // directly so `JSON.stringify(1, function(){})` returned '1'
+    // instead of undefined.
+    if (replacerFnLocal) {
+        const proto::ProtoList* topArgs = ctx->newList();
+        topArgs = topArgs->appendLast(ctx, ctx->fromUTF8String(""));
+        topArgs = topArgs->appendLast(ctx, val);
+        // Holder is a synthetic { "": val } object per §25.5.2 step 8.
+        const proto::ProtoObject* holder = ctx->newObject(true);
+        if (holder) {
+            const proto::ProtoString* emptyKs =
+                ctx->fromUTF8String("")->asString(ctx);
+            if (emptyKs) holder = holder->setAttribute(ctx, emptyKs, val);
+        }
+        const proto::ProtoObject* newVal =
+            callJSFunction(ctx, replacerFnLocal, holder ? holder : val, topArgs);
+        if (hasCallException()) return PROTO_NONE;
+        if (!newVal || newVal == PROTO_NONE
+            || newVal == getUndefinedSentinel()) {
+            return getUndefinedSentinel();
+        }
+        // Functions / native fns → undefined at top level.
+        if (newVal->isMethod(ctx)) return getUndefinedSentinel();
+        {
+            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+            if (bcKey && newVal->getAttribute(ctx, bcKey, false) != PROTO_NONE)
+                return getUndefinedSentinel();
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            if (nfKey && newVal->getAttribute(ctx, nfKey, false) != PROTO_NONE)
+                return getUndefinedSentinel();
+        }
+        val = newVal;
+    }
     stringifyRecursive(ctx, val, out, arrayProto, stack, rs, indentUnit, "");
     return ctx->fromUTF8String(out.c_str());
 }
