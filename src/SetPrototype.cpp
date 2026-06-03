@@ -324,15 +324,34 @@ static const proto::ProtoObject* setForEach(
     const proto::ProtoObject* thisArg = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
 
-    const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-    if (!order) return PROTO_NONE;
-
-    const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+    // ECMA-262 §24.2.3.6 NOTE: "New values added after the call to
+    // forEach begins are visited." A frozen iterator snapshot misses
+    // them, so instead we walk the order sparse list by slot index
+    // and on every step recompute the high-water mark of occupied
+    // slots — additions always land at max(slot)+1 (see setAdd) so a
+    // value inserted from inside the callback shows up as a fresh
+    // slot above pos and the loop discovers it on the next iteration.
+    // Deletions hole-punch the slot (ProtoSparseList::removeAt) so
+    // order->has(pos) yields false and we skip them.
+    unsigned long pos = 0;
+    while (true) {
+        const proto::ProtoSparseList* order = getSetOrder(ctx, self);
+        if (!order) break;
+        unsigned long highWater = 0;
+        bool anyEntry = false;
+        const proto::ProtoSparseListIterator* probe = order->getIterator(ctx);
+        while (probe && probe->hasNext(ctx)) {
+            unsigned long slot = probe->nextKey(ctx);
+            (void)probe->nextValue(ctx);
+            probe = const_cast<proto::ProtoSparseListIterator*>(probe)->advance(ctx);
+            if (!anyEntry || slot >= highWater) highWater = slot + 1;
+            anyEntry = true;
+        }
+        if (!anyEntry || pos >= highWater) break;
+        if (!order->has(ctx, pos)) { ++pos; continue; }
+        const proto::ProtoObject* v = order->getAt(ctx, pos);
+        ++pos;
         if (!v) v = PROTO_NONE;
-        // Call callback(value, value, set) per spec.
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, v);
         cbArgs = cbArgs->appendLast(ctx, v);
