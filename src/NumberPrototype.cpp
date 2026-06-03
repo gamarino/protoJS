@@ -137,6 +137,19 @@ const proto::ProtoObject* numberToString(
             snprintf(buf, sizeof(buf), "%.15g", value);
         }
         result = buf;
+        // %g emits exponents with at least two digits (e.g. "1e-07"),
+        // but ECMA-262 §6.1.6.1.13 (Number::toString) requires no
+        // leading-zero padding. Strip a single leading zero from the
+        // exponent magnitude so (1e-7).toString() returns '1e-7' to
+        // match V8 / SpiderMonkey.
+        size_t ePos = result.find('e');
+        if (ePos != std::string::npos && ePos + 1 < result.size()) {
+            size_t signPos = (result[ePos + 1] == '+' || result[ePos + 1] == '-')
+                ? ePos + 2 : ePos + 1;
+            while (signPos < result.size() - 1 && result[signPos] == '0') {
+                result.erase(signPos, 1);
+            }
+        }
     } else {
         // Spec §21.1.3.6: split value into sign, integer, fractional
         // parts and emit each in the requested radix. Pre-fix the
