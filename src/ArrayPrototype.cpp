@@ -2099,7 +2099,10 @@ static const proto::ProtoObject* arrayFlat(
         }
     }
     if (depth < 0) depth = 0;
-    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    // §23.1.3.10 step 5: A = ArraySpeciesCreate(O, 0). This is where
+    // a primitive .constructor throws TypeError, matching V8/SpiderMonkey.
+    const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
+    if (!result || result == PROTO_NONE) return PROTO_NONE;
     unsigned long outIdx = 0;
     flatInto(ctx, self, result, outIdx, depth);
     return result;
