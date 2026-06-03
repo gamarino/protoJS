@@ -615,7 +615,14 @@ static const proto::ProtoObject* reflectIsExtensible(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.isExtensible")) return PROTO_FALSE;
-    // Object.preventExtensions support isn't tracked yet — default true.
+    // Honour the NonExtensibleMarker that Object.preventExtensions /
+    // .seal / .freeze attach. Pre-fix this returned true unconditionally,
+    // so the contract Reflect.isExtensible === Object.isExtensible
+    // didn't hold.
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper && target->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+        return PROTO_FALSE;
+    }
     return PROTO_TRUE;
 }
 
@@ -627,7 +634,16 @@ static const proto::ProtoObject* reflectPreventExtensions(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.preventExtensions")) return PROTO_FALSE;
-    return PROTO_TRUE; // best-effort stub
+    // Forward to the same NonExtensibleMarker attachment that
+    // Object.preventExtensions uses, so the marker is observable via
+    // either path. Without this Reflect.preventExtensions silently
+    // returned true while leaving the object freely extensible.
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper) {
+        target->addParent(ctx, wrapper->getNonExtensibleMarker());
+        protojs::BehaviorRegistry::instance().invalidateObjectCache(target);
+    }
+    return PROTO_TRUE;
 }
 
 // ECMA-262 §28.1.3 Reflect.defineProperty: forward to the runtime's
