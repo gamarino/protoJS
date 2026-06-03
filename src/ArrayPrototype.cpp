@@ -131,11 +131,31 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
             }
         }
     }
-    // FAST PATH: native ProtoList-backed dense array.  Length is the list
-    // size; no separate `length` attribute is consulted (or maintained)
-    // when native storage is in use.
+    // FAST PATH: native ProtoList-backed dense array.  The list size
+    // is normally the authoritative length, but mixed literals like
+    // `[a, b, , c]` (holes) and sparse writes (`arr[42] = x`) leave
+    // entries living as string-keyed attributes while __elements__
+    // tracks only the densely-written prefix.  In those cases the
+    // canonical `length` attribute is larger; honour whichever is
+    // bigger so consumers see every index up to the true length.
     if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
-        return static_cast<unsigned long>(els->getSize(ctx));
+        unsigned long elsSize = static_cast<unsigned long>(els->getSize(ctx));
+        const proto::ProtoString* lk = JSSymbols::length(ctx);
+        if (lk) {
+            const proto::ProtoObject* lv = arr->getAttribute(ctx, lk, false);
+            if (lv && lv != PROTO_NONE) {
+                long long lvN = 0;
+                if (lv->isInteger(ctx)) lvN = lv->asLong(ctx);
+                else if (lv->isDouble(ctx) || lv->isFloat(ctx)) {
+                    double d = lv->asDouble(ctx);
+                    if (!std::isnan(d) && !std::isinf(d) && d >= 0)
+                        lvN = static_cast<long long>(d);
+                }
+                if (lvN > static_cast<long long>(elsSize))
+                    return static_cast<unsigned long>(lvN);
+            }
+        }
+        return elsSize;
     }
 
     const proto::ProtoString* key = JSSymbols::length(ctx);
@@ -293,11 +313,14 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
         }
     }
     // FAST PATH: native ProtoList storage.  In-range read returns the
-    // element; out-of-range returns PROTO_NONE (= JS undefined for a
-    // real array, which never inherits indexed properties from any
-    // built-in prototype anyway).
+    // element directly; out-of-range falls through to the string-key
+    // / accessor path below.  Pre-fix the predicate matched both
+    // cases — including the PROTO_NONE sentinel returned for an
+    // out-of-range index — so a sparse-literal value stored as a
+    // string-keyed attribute (e.g. `[0, 'foo', , Infinity]` keeps
+    // index 3 in `attr["3"]`) was masked by the early return.
     if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
-        return fastVal;
+        if (fastVal != PROTO_NONE) return fastVal;
     }
 
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
