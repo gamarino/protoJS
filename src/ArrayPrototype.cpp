@@ -2279,7 +2279,13 @@ static const proto::ProtoObject* arrayFrom(
     // Optional map function (Array.from(src, mapFn[, thisArg])).
     const proto::ProtoObject* mapFn = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : nullptr;
     const proto::ProtoObject* mapThis = (args->getSize(ctx) > 2) ? args->getAt(ctx, 2) : PROTO_NONE;
-    if (mapFn == PROTO_NONE) mapFn = nullptr;
+    if (mapFn == PROTO_NONE || mapFn == getUndefinedSentinel()) mapFn = nullptr;
+    // Spec §23.1.2.1 step 2: if mapFn is not undefined and not
+    // callable, throw TypeError.
+    if (mapFn) {
+        if (arrayThrowIfCallbackNotCallable(ctx, mapFn, "Array.from"))
+            return PROTO_NONE;
+    }
     auto applyMap = [&](const proto::ProtoObject* v, long long idx) -> const proto::ProtoObject* {
         if (!mapFn) return v;
         const proto::ProtoList* margs = ctx->newList();
