@@ -199,10 +199,20 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     }
 
     // ctor.prototype = Boolean.prototype
+    // Per ECMA-262 §20.3.2.1 the `prototype` property of a built-in
+    // constructor has attributes {writable:false, enumerable:false,
+    // configurable:false} — bits 0x0.  Pre-fix the property was
+    // installed without a descriptor sidecar, defaulting to fully
+    // enumerable, so `for-in (Boolean)` listed "prototype" and
+    // `Boolean.propertyIsEnumerable('prototype')` returned true.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     const proto::ProtoObject* boolProto = ctx->space ? ctx->space->booleanPrototype : nullptr;
-    if (protoKey && boolProto && boolProto != PROTO_NONE)
+    if (protoKey && boolProto && boolProto != PROTO_NONE) {
         ctor = ctor->setAttribute(ctx, protoKey, boolProto);
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     // Explicitly mark as a constructor for OP_call_constructor.
     const proto::ProtoObject* isCtorObj = ctx->fromUTF8String("__is_constructor__");

@@ -2532,6 +2532,15 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         }
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         if (!ctor) continue;
+        // §19.5.6.x: <ErrorType>.prototype is { writable:false,
+        // enumerable:false, configurable:false } — bits 0x0.  Pre-fix
+        // the property was fully enumerable so `for (k in Error)`
+        // listed "prototype" and propertyIsEnumerable returned true.
+        {
+            const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+            const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+            if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+        }
         // Set prototype.constructor = ctor so `e.constructor === TypeError` identity checks pass.
         // Descriptor per §20.5.6.2: {writable:true, enumerable:false,
         // configurable:true} → bits 0x3. Without the sidecar the default

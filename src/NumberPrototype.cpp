@@ -885,10 +885,18 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     }
 
     // Number.prototype — point to the number prototype already on space.
+    // §21.1.2.1: the `prototype` property of the Number constructor
+    // is non-writable, non-enumerable, non-configurable.  Pre-fix
+    // it was fully enumerable so `for (k in Number)` listed
+    // "prototype".
     const proto::ProtoString* protoKey2 = JSSymbols::prototype(ctx);
     const proto::ProtoObject* numProto = ctx->space ? ctx->space->smallIntegerPrototype : nullptr;
-    if (protoKey2 && numProto && numProto != PROTO_NONE)
+    if (protoKey2 && numProto && numProto != PROTO_NONE) {
         ctor = ctor->setAttribute(ctx, protoKey2, numProto);
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     // Explicitly mark as a constructor for OP_call_constructor.
     const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);

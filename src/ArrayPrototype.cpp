@@ -2872,9 +2872,16 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     const proto::ProtoString* isCtorKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
     if (isCtorKey) ctor = ctor->setAttribute(ctx, isCtorKey, PROTO_TRUE);
 
+    // §23.1.2.2: Array.prototype is non-writable, non-enumerable,
+    // non-configurable.  Pre-fix the property was fully enumerable.
     const proto::ProtoString* protoKey =
         JSSymbols::prototype(ctx);
-    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
+    if (protoKey) {
+        ctor = ctor->setAttribute(ctx, protoKey, proto);
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {

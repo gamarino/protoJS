@@ -1914,9 +1914,14 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
 
+    // §22.1.2.4: String.prototype is non-writable, non-enumerable,
+    // non-configurable.  Pre-fix the property was fully enumerable.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey && ctx->space && ctx->space->stringPrototype) {
         ctor = ctor->setAttribute(ctx, protoKey, reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype));
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
     }
 
     // Explicitly mark as a constructor for OP_call_constructor.
