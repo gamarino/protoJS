@@ -967,6 +967,21 @@ static const proto::ProtoObject* weakMapSet(
     const proto::ProtoObject* val = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key || key == PROTO_NONE) return const_cast<proto::ProtoObject*>(self);
 
+    // Spec §24.3.3.6 step 5: WeakMap.prototype.set throws TypeError
+    // when the key is not an Object. Primitives, null, undefined are
+    // all rejected. The pre-fix path silently stored primitives,
+    // which made identity-tracked test262 cases pass for the wrong
+    // reasons.
+    if (key->isString(ctx) || key->isInteger(ctx)
+        || key->isDouble(ctx) || key->isFloat(ctx)
+        || key->isBoolean(ctx)
+        || key == getNullSentinel() || key == getUndefinedSentinel()
+        || key == PROTO_TRUE || key == PROTO_FALSE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Invalid value used as weak map key"));
+        return PROTO_NONE;
+    }
+
     long long n = wmGetCount(ctx, self);
     // Search for existing key (identity comparison).
     for (long long i = 0; i < n; i++) {
