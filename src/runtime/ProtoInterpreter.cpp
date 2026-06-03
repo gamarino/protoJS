@@ -478,17 +478,51 @@ static const proto::ProtoObject* reflectConstruct(
         ? args->getAt(ctx, 2) : target;
     if (!newTarget || newTarget == PROTO_NONE) newTarget = target;
 
-    // Gather the argument array.
+    // CreateListFromArrayLike per §7.3.17. The argumentsList must be an
+    // Object; primitives (number / boolean / string / undefined / null)
+    // throw TypeError up front. Length is fetched via [[Get]] — a
+    // throwing length accessor propagates per ReturnIfAbrupt. Pre-fix
+    // Reflect.construct silently ignored a non-Object arg list and
+    // proceeded to construct with zero arguments, never throwing.
     const proto::ProtoList* callArgs = ctx->newList();
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* argsArr = args->getAt(ctx, 1);
-        if (argsArr && argsArr != PROTO_NONE) {
-            const proto::ProtoList* els = protojs::getArrayElements(ctx, argsArr);
-            if (els) {
-                size_t sz = els->getSize(ctx);
-                for (size_t i = 0; i < sz; ++i)
-                    callArgs = callArgs->appendLast(ctx, els->getAt(ctx, static_cast<int>(i)));
+        if (!argsArr || argsArr == PROTO_NONE
+            || argsArr == getUndefinedSentinel() || argsArr == getNullSentinel()
+            || argsArr == PROTO_TRUE || argsArr == PROTO_FALSE
+            || argsArr->isInteger(ctx) || argsArr->isDouble(ctx)
+            || argsArr->isFloat(ctx) || argsArr->isString(ctx)
+            || argsArr->isBoolean(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Reflect.construct: argumentsList must be an Object"));
+            return PROTO_NONE;
+        }
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        long long len = 0;
+        if (lenK) {
+            const proto::ProtoObject* lv = argsArr->getAttribute(ctx, lenK, true);
+            if (hasCallException()) return PROTO_NONE;
+            if (lv && lv != PROTO_NONE) {
+                if (lv->isInteger(ctx)) len = lv->asLong(ctx);
+                else if (lv->isDouble(ctx) || lv->isFloat(ctx)) {
+                    double d = lv->asDouble(ctx);
+                    if (!std::isnan(d) && d > 0) len = static_cast<long long>(d);
+                }
             }
+        }
+        if (len < 0) len = 0;
+        const proto::ProtoList* els = protojs::getArrayElements(ctx, argsArr);
+        long long elsSize = els ? static_cast<long long>(els->getSize(ctx)) : 0;
+        for (long long i = 0; i < len; ++i) {
+            const proto::ProtoObject* v = PROTO_NONE;
+            if (els && i < elsSize) {
+                v = els->getAt(ctx, static_cast<int>(i));
+            } else {
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                if (ik) v = argsArr->getAttribute(ctx, ik, true);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            callArgs = callArgs->appendLast(ctx, v ? v : PROTO_NONE);
         }
     }
 
@@ -551,10 +585,24 @@ static const proto::ProtoObject* reflectConstruct(
     const proto::ProtoObject* newObj = (proto && proto != PROTO_NONE)
         ? proto->newChild(ctx, true) : ctx->newObject(true);
 
+    // Per §10.1.13 / OrdinaryCallEvaluateBody: if the construction call
+    // returns an Object, that becomes the result; otherwise the freshly
+    // allocated newObj is returned. Pre-fix the truthy check accepted
+    // the undefined sentinel as a valid result, so `function F(){this.x=1}`
+    // (no explicit return) gave `Reflect.construct(F, []) === undefined`
+    // instead of the constructed object.
+    auto isObjectResult = [&](const proto::ProtoObject* v) -> bool {
+        if (!v || v == PROTO_NONE) return false;
+        if (v == getUndefinedSentinel() || v == getNullSentinel()) return false;
+        if (v == PROTO_TRUE || v == PROTO_FALSE) return false;
+        if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)
+            || v->isString(ctx) || v->isBoolean(ctx)) return false;
+        return true;
+    };
     if (constructFn && constructFn->isMethod(ctx)) {
         const proto::ProtoObject* res = callJSFunction(ctx, constructFn, newObj, callArgs);
         if (hasCallException()) return PROTO_NONE;
-        return res ? res : newObj;
+        return isObjectResult(res) ? res : newObj;
     }
 
     // Bytecode-function fallback: call the user function with the
@@ -563,7 +611,7 @@ static const proto::ProtoObject* reflectConstruct(
     if (isBytecodeFn) {
         const proto::ProtoObject* res = callJSFunction(ctx, target, newObj, callArgs);
         if (hasCallException()) return PROTO_NONE;
-        return res ? res : newObj;
+        return isObjectResult(res) ? res : newObj;
     }
     return newObj;
 }
