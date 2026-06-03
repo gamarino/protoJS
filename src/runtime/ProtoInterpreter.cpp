@@ -1177,8 +1177,17 @@ static const proto::ProtoObject* globalParseFloat(
     else if (strObj->isBoolean(ctx)) { s = strObj->asBoolean(ctx) ? "true" : "false"; }
     else {
         // Object: ToString step per §19.2.7 — toString first, valueOf
-        // fallback. Without this, parseFloat([3.14]) and
-        // parseFloat({toString:()=>"3.14"}) silently returned NaN.
+        // fallback, then ToString on the primitive (so a numeric
+        // toString return is rendered as decimal text before parsing).
+        // Same pattern as parseInt — pre-fix only String results were
+        // honoured, so toString(){return 1} fell through to NaN.
+        auto isPrim = [&](const proto::ProtoObject* v) -> bool {
+            if (!v || v == PROTO_NONE) return true;
+            if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
+            if (v == PROTO_TRUE || v == PROTO_FALSE) return true;
+            return v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)
+                || v->isString(ctx) || v->isBoolean(ctx);
+        };
         const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
         const proto::ProtoString* voKey = JSSymbols::valueOf(ctx);
         const proto::ProtoObject* prim = nullptr;
@@ -1186,22 +1195,42 @@ static const proto::ProtoObject* globalParseFloat(
             const proto::ProtoObject* tsFn = strObj->getAttribute(ctx, tsKey, true);
             if (tsFn && tsFn != PROTO_NONE) {
                 const proto::ProtoObject* res = callJSFunction(ctx, tsFn, strObj, ctx->newList());
-                if (res && res != PROTO_NONE && res->isString(ctx)) prim = res;
+                if (hasCallException()) return PROTO_NONE;
+                if (isPrim(res)) prim = res;
             }
         }
         if (!prim && voKey) {
             const proto::ProtoObject* voFn = strObj->getAttribute(ctx, voKey, true);
             if (voFn && voFn != PROTO_NONE) {
                 const proto::ProtoObject* res = callJSFunction(ctx, voFn, strObj, ctx->newList());
-                if (res && res != PROTO_NONE && res->isString(ctx)) prim = res;
+                if (hasCallException()) return PROTO_NONE;
+                if (isPrim(res)) prim = res;
             }
         }
-        if (prim && prim->isString(ctx)) {
+        if (!prim) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert object to primitive value"));
+            return PROTO_NONE;
+        }
+        if (prim == getUndefinedSentinel() || prim == PROTO_NONE) s = "undefined";
+        else if (prim == getNullSentinel()) s = "null";
+        else if (prim == PROTO_TRUE) s = "true";
+        else if (prim == PROTO_FALSE) s = "false";
+        else if (prim->isString(ctx)) {
             const proto::ProtoString* ps = prim->asString(ctx);
             if (ps) ps->toUTF8String(ctx, s);
-        } else {
-            return ctx->fromDouble(nan);
-        }
+        } else if (prim->isInteger(ctx)) s = std::to_string(prim->asLong(ctx));
+        else if (prim->isDouble(ctx) || prim->isFloat(ctx)) {
+            double d = prim->asDouble(ctx);
+            if (std::isnan(d)) s = "NaN";
+            else if (std::isinf(d)) s = (d > 0) ? "Infinity" : "-Infinity";
+            else {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%.15g", d);
+                s = buf;
+            }
+        } else if (prim->isBoolean(ctx)) s = prim->asBoolean(ctx) ? "true" : "false";
+        else return ctx->fromDouble(nan);
     }
     // Trim leading whitespace
     size_t j = 0;
