@@ -1077,17 +1077,30 @@ static const proto::ProtoObject* arrayIndexOf(
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
         if (fi && fi != PROTO_NONE) {
-            if (fi->isInteger(ctx)) from = fi->asLong(ctx);
-            else if (fi->isDouble(ctx) || fi->isFloat(ctx)) {
-                double d = fi->asDouble(ctx);
-                // ECMA-262 ToIntegerOrInfinity: NaN -> 0,
-                // +Infinity -> length (no match), -Infinity -> 0.
-                if (std::isnan(d)) from = 0;
-                else if (std::isinf(d)) {
-                    if (d > 0) return ctx->fromInteger(-1LL);
-                    from = 0;
+            // ECMA-262 §23.1.3.13: fromIndex is run through
+            // ToIntegerOrInfinity, which begins with ToNumber.
+            // Pre-fix non-numeric `fromIndex` values silently
+            // collapsed to 0 — `[1,2,1,2].indexOf(2, "2")` returned
+            // 1 instead of the spec-required 3 because "2" never
+            // got coerced.
+            const proto::ProtoObject* num = fi;
+            if (!fi->isInteger(ctx) && !fi->isDouble(ctx) && !fi->isFloat(ctx)) {
+                num = jsToNumber(ctx, fi);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (num && num != PROTO_NONE) {
+                if (num->isInteger(ctx)) from = num->asLong(ctx);
+                else if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                    double d = num->asDouble(ctx);
+                    // ToIntegerOrInfinity: NaN -> 0,
+                    // +Infinity -> length (no match), -Infinity -> 0.
+                    if (std::isnan(d)) from = 0;
+                    else if (std::isinf(d)) {
+                        if (d > 0) return ctx->fromInteger(-1LL);
+                        from = 0;
+                    }
+                    else from = static_cast<long long>(d);
                 }
-                else from = static_cast<long long>(d);
             }
         }
     }
@@ -1119,20 +1132,28 @@ static const proto::ProtoObject* arrayLastIndexOf(
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
         if (fi && fi != PROTO_NONE) {
-            if (fi->isInteger(ctx)) from = fi->asLong(ctx);
-            else if (fi->isDouble(ctx) || fi->isFloat(ctx)) {
-                double d = fi->asDouble(ctx);
-                // ECMA-262 ToIntegerOrInfinity: NaN -> 0,
-                // +Infinity / -Infinity preserved. lastIndexOf then
-                // clamps: +Infinity → len-1 (search whole array),
-                // -Infinity → -1 (no match possible because the
-                // backwards loop starts before index 0).
-                if (std::isnan(d)) from = 0;
-                else if (std::isinf(d)) {
-                    if (d > 0) from = len - 1;
-                    else return ctx->fromInteger(-1LL);
+            // ToIntegerOrInfinity coerces via ToNumber; see indexOf.
+            const proto::ProtoObject* num = fi;
+            if (!fi->isInteger(ctx) && !fi->isDouble(ctx) && !fi->isFloat(ctx)) {
+                num = jsToNumber(ctx, fi);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (num && num != PROTO_NONE) {
+                if (num->isInteger(ctx)) from = num->asLong(ctx);
+                else if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                    double d = num->asDouble(ctx);
+                    // ToIntegerOrInfinity: NaN -> 0,
+                    // +Infinity / -Infinity preserved. lastIndexOf then
+                    // clamps: +Infinity → len-1 (search whole array),
+                    // -Infinity → -1 (no match possible because the
+                    // backwards loop starts before index 0).
+                    if (std::isnan(d)) from = 0;
+                    else if (std::isinf(d)) {
+                        if (d > 0) from = len - 1;
+                        else return ctx->fromInteger(-1LL);
+                    }
+                    else from = static_cast<long long>(d);
                 }
-                else from = static_cast<long long>(d);
             }
         }
     }
