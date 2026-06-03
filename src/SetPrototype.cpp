@@ -277,6 +277,18 @@ static const proto::ProtoObject* setClear(
 }
 
 // ---------------------------------------------------------------------------
+// get Set[Symbol.species] — returns `this` per §24.2.2.2.
+// Used by ArraySpeciesCreate-style derivations in the spec; the
+// presence of the descriptor is what 'built-ins/Set/Symbol.species/*'
+// asserts.
+static const proto::ProtoObject* setSpeciesGetter(
+    proto::ProtoContext* /*ctx*/, const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    return self;
+}
+
 // set.size getter
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* setSizeGetter(
@@ -1121,6 +1133,44 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
                 if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 s_setPrototype = updated;
+            }
+        }
+    }
+
+    // get Set[Symbol.species] — install with §17 name/length descriptors
+    // and the well-known __get_Symbol.species__ accessor key.
+    {
+        const proto::ProtoString* speciesKey = JSSymbols::symbolSpecies(ctx);
+        if (speciesKey) {
+            const proto::ProtoObject* parent =
+                (ctx->space && ctx->space->methodPrototype)
+                ? ctx->space->methodPrototype : nullptr;
+            const proto::ProtoObject* getter = parent
+                ? parent->newChild(ctx, true) : ctx->newObject(true);
+            if (getter) {
+                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                if (nfKey) {
+                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
+                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, setSpeciesGetter);
+                    if (raw) getter = getter->setAttribute(ctx, nfKey, raw);
+                }
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                if (lenKey) {
+                    getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* nmKey = JSSymbols::name(ctx);
+                if (nmKey) {
+                    getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get [Symbol.species]"));
+                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* gksSym =
+                    ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
+                if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
             }
         }
     }
