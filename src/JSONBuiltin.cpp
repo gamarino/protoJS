@@ -839,6 +839,22 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                 }
             }
         }
+        // Post-toJSON: if the result is undefined / a function / a
+        // symbol, the top-level return is undefined per §25.5.2 step 11.
+        // Pre-fix the post-toJSON value fell into stringifyRecursive and
+        // arrays.toJSON returning undefined rendered as 'null'.
+        if (!val || val == PROTO_NONE || val == getUndefinedSentinel()) {
+            return getUndefinedSentinel();
+        }
+        if (val->isMethod(ctx)) return getUndefinedSentinel();
+        {
+            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+            if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE)
+                return getUndefinedSentinel();
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE)
+                return getUndefinedSentinel();
+        }
     }
     if (replacerFnLocal) {
         const proto::ProtoList* topArgs = ctx->newList();
