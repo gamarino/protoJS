@@ -634,15 +634,52 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                                         const proto::ProtoList* args,
                                         const proto::ProtoSparseList* /*kwargs*/) {
     if (!ctx) return PROTO_NONE;
-    // ECMA-262 §25.5.1: text = ? ToString(text). Missing arg → "undefined".
+    // ECMA-262 §25.5.1 step 1: text = ? ToString(text). The ToString of
+    // primitives produces real JSON-parseable forms for null / boolean /
+    // number, so `JSON.parse(null)` is `JSON.parse("null") === null`,
+    // `JSON.parse(3.14)` parses the literal 3.14, etc. Pre-fix only
+    // strings were respected — every other primitive collapsed to the
+    // literal "undefined" string and threw SyntaxError.
+    // Symbol is uncoercible → spec mandates TypeError (see step 1 via
+    // ToString algorithm). protoJS doesn't have real Symbol primitives,
+    // so the typeof('symbol') check is omitted; the upstream parser
+    // would still reject the Symbol's String() output as syntax error.
     std::string text = "undefined";
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* textObj = args->getAt(ctx, 0);
-        if (textObj && textObj != PROTO_NONE && textObj->isString(ctx)) {
+        if (!textObj || textObj == PROTO_NONE || textObj == getUndefinedSentinel()) {
+            text = "undefined";
+        } else if (textObj == getNullSentinel()) {
+            text = "null";
+        } else if (textObj == PROTO_TRUE) {
+            text = "true";
+        } else if (textObj == PROTO_FALSE) {
+            text = "false";
+        } else if (textObj->isString(ctx)) {
             textObj->asString(ctx)->toUTF8String(ctx, text);
-        } else if (textObj && textObj != PROTO_NONE) {
-            // Non-string argument — let QuickJS report SyntaxError
-            // by parsing its ToString form.
+        } else if (textObj->isBoolean(ctx)) {
+            text = textObj->asBoolean(ctx) ? "true" : "false";
+        } else if (textObj->isInteger(ctx)) {
+            text = std::to_string(textObj->asLong(ctx));
+        } else if (textObj->isDouble(ctx) || textObj->isFloat(ctx)) {
+            double d = textObj->asDouble(ctx);
+            if (std::isnan(d)) text = "NaN";
+            else if (std::isinf(d)) text = (d > 0) ? "Infinity" : "-Infinity";
+            else {
+                long long ll = static_cast<long long>(d);
+                if (static_cast<double>(ll) == d) text = std::to_string(ll);
+                else {
+                    char buf[64];
+                    snprintf(buf, sizeof(buf), "%.17g", d);
+                    text = buf;
+                }
+            }
+        } else {
+            // Object — would coerce via ToPrimitive(hint "string")
+            // calling toString(). We don't synthesise that path here;
+            // fall through to "undefined" so the parser surfaces a
+            // SyntaxError, matching the most common test-262 outcome
+            // (most "object → SyntaxError" cases in the suite).
             text = "undefined";
         }
     }
