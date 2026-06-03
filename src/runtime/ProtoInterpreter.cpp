@@ -804,6 +804,25 @@ static const proto::ProtoObject* reflectSet(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    // §9.1.9 step 5.e: when receiver has an own data descriptor that
+    // is non-writable, the write fails. Pre-fix Reflect.set silently
+    // mutated the receiver even on a frozen property.
+    {
+        std::string kstr;
+        k->toUTF8String(ctx, kstr);
+        if (receiver->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+            std::string pdStr = "__pd_" + kstr + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) {
+                const proto::ProtoObject* pdv = receiver->getAttribute(ctx, pdk, false);
+                if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
+                    if (!(bits & 0x1)) return PROTO_FALSE;  // not writable
+                }
+            }
+        }
+    }
     receiver->setAttribute(ctx, k, value ? value : PROTO_NONE);
     return PROTO_TRUE;
 }
