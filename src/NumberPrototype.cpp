@@ -657,9 +657,28 @@ const proto::ProtoObject* numberParseInt(
     int radix = 10;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* radixObj = args->getAt(ctx, 1);
-        if (radixObj && radixObj != PROTO_NONE) {
-            if (radixObj->isInteger(ctx)) radix = static_cast<int>(radixObj->asLong(ctx));
-            else if (radixObj->isDouble(ctx)) radix = static_cast<int>(radixObj->asDouble(ctx));
+        // ECMA-262 §19.2.5 step 4: R = ? ToInt32(radix).  ToInt32
+        // begins with ToNumber, which unwraps Number wrappers via
+        // valueOf and coerces strings / booleans.  Pre-fix the
+        // radix path matched only primitive integers and doubles,
+        // so `parseInt("11", new Number(2))` ignored the wrapper
+        // and defaulted to radix 10.
+        if (radixObj && radixObj != PROTO_NONE
+            && radixObj != getUndefinedSentinel()) {
+            const proto::ProtoObject* num = radixObj;
+            if (!radixObj->isInteger(ctx) && !radixObj->isDouble(ctx)
+                && !radixObj->isFloat(ctx)) {
+                num = jsToNumber(ctx, radixObj);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (num && num != PROTO_NONE) {
+                if (num->isInteger(ctx)) radix = static_cast<int>(num->asLong(ctx));
+                else if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                    double d = num->asDouble(ctx);
+                    // ToInt32: NaN / ±0 / ±Infinity → 0.
+                    radix = (std::isnan(d) || std::isinf(d)) ? 0 : static_cast<int>(d);
+                }
+            }
         }
     }
 

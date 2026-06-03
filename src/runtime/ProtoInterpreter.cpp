@@ -1366,16 +1366,29 @@ static const proto::ProtoObject* globalParseInt(
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* ro = args->getAt(ctx, 1);
         if (ro && ro != PROTO_NONE && ro != getUndefinedSentinel()) {
+            // ECMA-262 §19.2.6 step 5: R = ? ToInt32(radix).  ToInt32
+            // begins with ToNumber, which unwraps Number wrappers /
+            // objects with valueOf / Symbol.toPrimitive.  Pre-fix the
+            // inline branch handled only primitives directly, so
+            // `parseInt("11", new Number(2))` defaulted to radix 10.
+            const proto::ProtoObject* rn = ro;
+            if (!ro->isInteger(ctx) && !ro->isDouble(ctx) && !ro->isFloat(ctx)
+                && ro != PROTO_TRUE && ro != PROTO_FALSE
+                && !ro->isString(ctx)) {
+                rn = jsToNumber(ctx, ro);
+                if (hasCallException()) return PROTO_NONE;
+            }
             // Spec ToInt32 on the radix argument.
             double rd = 0;
-            if (ro->isInteger(ctx)) rd = static_cast<double>(ro->asLong(ctx));
-            else if (ro->isDouble(ctx)) rd = ro->asDouble(ctx);
-            else if (ro->isFloat(ctx)) rd = ro->asDouble(ctx);
-            else if (ro == PROTO_TRUE) rd = 1;
-            else if (ro == PROTO_FALSE) rd = 0;
-            else if (ro->isString(ctx)) {
+            if (!rn || rn == PROTO_NONE) rd = 0;
+            else if (rn->isInteger(ctx)) rd = static_cast<double>(rn->asLong(ctx));
+            else if (rn->isDouble(ctx)) rd = rn->asDouble(ctx);
+            else if (rn->isFloat(ctx)) rd = rn->asDouble(ctx);
+            else if (rn == PROTO_TRUE) rd = 1;
+            else if (rn == PROTO_FALSE) rd = 0;
+            else if (rn->isString(ctx)) {
                 std::string rs;
-                ro->asString(ctx)->toUTF8String(ctx, rs);
+                rn->asString(ctx)->toUTF8String(ctx, rs);
                 char* endp = nullptr;
                 double parsed = std::strtod(rs.c_str(), &endp);
                 rd = (endp == rs.c_str()) ? 0.0 : parsed;
