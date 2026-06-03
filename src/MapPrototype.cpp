@@ -832,6 +832,47 @@ static const proto::ProtoObject* mapConstruct(
         if (iterable == getUndefinedSentinel() || iterable == getNullSentinel()) {
             return self;
         }
+        // §24.1.1.2 step 7.a-c: when iterable is present, [[Get]] the
+        // adder (Map.prototype.set on self). Pre-fix the constructor
+        // ingested its iterable via internal storage and never observed
+        // a thrown .set getter; spec says propagate that abrupt
+        // completion BEFORE the iteration starts.
+        {
+            const proto::ProtoObject* sKo = ctx->fromUTF8String("set");
+            const proto::ProtoString* sKs = sKo ? sKo->asString(ctx) : nullptr;
+            const proto::ProtoObject* setterFn = sKs
+                ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
+            // Accessor: __get_set__ lives behind the undefined sentinel
+            // placeholder. Invoking the getter propagates abrupt completions
+            // and resolves to the actual function value.
+            if (!setterFn || setterFn == PROTO_NONE || setterFn == getUndefinedSentinel()) {
+                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_set__");
+                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                if (gks) {
+                    const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        setterFn = callJSFunction(ctx, getter, self, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
+            if (hasCallException()) return PROTO_NONE;
+            bool callable = false;
+            if (setterFn && setterFn != PROTO_NONE && setterFn != getUndefinedSentinel()) {
+                if (setterFn->isMethod(ctx)) callable = true;
+                const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                if (!callable && bcK && setterFn->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+                const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                if (!callable && nfK && setterFn->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+                const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+                if (!callable && bfK && setterFn->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+            }
+            if (!callable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Map: 'set' is not callable"));
+                return PROTO_NONE;
+            }
+        }
         if (iterable && (iterable->isInteger(ctx) || iterable->isDouble(ctx)
                          || iterable->isFloat(ctx) || iterable->isBoolean(ctx)
                          || iterable->isString(ctx))) {
