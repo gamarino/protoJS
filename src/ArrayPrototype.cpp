@@ -1993,10 +1993,14 @@ static void flatInto(proto::ProtoContext* ctx,
     unsigned long len = arrLen(ctx, src);
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, src, i);
-        bool isArr = elem && elem != PROTO_NONE &&
-                     !elem->isString(ctx) && !elem->isInteger(ctx) &&
-                     !elem->isDouble(ctx) && !elem->isBoolean(ctx) &&
-                     arrLen(ctx, elem) > 0;
+        // Per spec FlattenIntoArray step 5.b: spread when IsArray(elem)
+        // is true. The earlier `arrLen(elem) > 0` short-circuit treated
+        // empty arrays as scalars, so [].flat() preserved empty children
+        // and flatMap(x => []) returned [[],[],[]] instead of [].
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArrAttr = (elem && isArrKey)
+            ? elem->getAttribute(ctx, isArrKey, true) : PROTO_NONE;
+        bool isArr = (isArrAttr == PROTO_TRUE);
         if (isArr && depth > 0)
             flatInto(ctx, elem, dest, outIdx, depth - 1);
         else
