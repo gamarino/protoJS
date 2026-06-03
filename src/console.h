@@ -87,6 +87,14 @@ private:
                                                      const proto::ParentLink*,
                                                      const proto::ProtoList*,
                                                      const proto::ProtoSparseList*);
+    static const proto::ProtoObject* dateParse(proto::ProtoContext*, const proto::ProtoObject*,
+                                                const proto::ParentLink*,
+                                                const proto::ProtoList*,
+                                                const proto::ProtoSparseList*);
+    static const proto::ProtoObject* dateUTC(proto::ProtoContext*, const proto::ProtoObject*,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList*,
+                                              const proto::ProtoSparseList*);
 };
 
 } // namespace protojs

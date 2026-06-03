@@ -7,8 +7,11 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -460,6 +463,86 @@ const proto::ProtoObject* TimingAPIs::performanceNow(proto::ProtoContext* ctx,
     return ctx->fromDouble(ms);
 }
 
+// ECMA-262 §21.4.3.2 — Date.parse(string) returns the number of ms
+// since epoch, or NaN. Minimal implementation: ISO 8601 fragments
+// supported by std::get_time. Anything not parseable returns NaN.
+const proto::ProtoObject* TimingAPIs::dateParse(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* /*self*/,
+                                                 const proto::ParentLink* /*parentLink*/,
+                                                 const proto::ProtoList* args,
+                                                 const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    const proto::ProtoObject* sObj = args->getAt(ctx, 0);
+    if (!sObj || sObj == PROTO_NONE || !sObj->isString(ctx)) return ctx->fromDouble(nan);
+    std::string s;
+    sObj->asString(ctx)->toUTF8String(ctx, s);
+    if (s.empty()) return ctx->fromDouble(nan);
+
+    // Try ISO 8601 / RFC3339 — YYYY-MM-DDTHH:MM:SS[.sss][Z|±HH:MM]
+    // and the YYYY date-only form. Other formats (legacy RFC2822,
+    // locale-specific) are not handled — return NaN, matching V8's
+    // fallback for fully unparseable input.
+    std::tm tmv = {};
+    int subsecMs = 0;
+    bool ok = false;
+    // Try date + time form first
+    {
+        const char* fmts[] = { "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d", nullptr };
+        for (int i = 0; fmts[i]; ++i) {
+            std::istringstream in(s);
+            in >> std::get_time(&tmv, fmts[i]);
+            if (!in.fail()) { ok = true; break; }
+        }
+    }
+    if (!ok) return ctx->fromDouble(nan);
+    // No fractional/timezone parsing in this minimal impl.
+    std::time_t t = timegm(&tmv);
+    if (t == (std::time_t)-1) return ctx->fromDouble(nan);
+    long long ms = static_cast<long long>(t) * 1000 + subsecMs;
+    return ctx->fromLong(ms);
+}
+
+// ECMA-262 §21.4.3.4 — Date.UTC(year, month=0, day=1, hour=0, min=0,
+// sec=0, ms=0) returns the time value in ms.
+const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
+                                               const proto::ProtoObject* /*self*/,
+                                               const proto::ParentLink* /*parentLink*/,
+                                               const proto::ProtoList* args,
+                                               const proto::ProtoSparseList* /*kwargs*/) {
+    if (!ctx) return PROTO_NONE;
+    double nan = std::numeric_limits<double>::quiet_NaN();
+    int argc = args ? args->getSize(ctx) : 0;
+    if (argc == 0) return ctx->fromDouble(nan);
+    auto coerce = [&](int idx, long long defaultV) -> long long {
+        if (idx >= argc) return defaultV;
+        const proto::ProtoObject* v = args->getAt(ctx, idx);
+        if (!v || v == PROTO_NONE) return defaultV;
+        if (v->isInteger(ctx)) return v->asLong(ctx);
+        if (v->isDouble(ctx) || v->isFloat(ctx)) {
+            double d = v->asDouble(ctx);
+            if (std::isnan(d)) return defaultV;
+            return static_cast<long long>(d);
+        }
+        return defaultV;
+    };
+    long long year = coerce(0, 0);
+    // §21.4.3.4 step 7: if 0 ≤ year ≤ 99, year += 1900.
+    if (year >= 0 && year <= 99) year += 1900;
+    std::tm tmv = {};
+    tmv.tm_year  = static_cast<int>(year) - 1900;
+    tmv.tm_mon   = static_cast<int>(coerce(1, 0));
+    tmv.tm_mday  = static_cast<int>(coerce(2, 1));
+    tmv.tm_hour  = static_cast<int>(coerce(3, 0));
+    tmv.tm_min   = static_cast<int>(coerce(4, 0));
+    tmv.tm_sec   = static_cast<int>(coerce(5, 0));
+    long long ms = coerce(6, 0);
+    std::time_t t = timegm(&tmv);
+    if (t == (std::time_t)-1) return ctx->fromDouble(nan);
+    return ctx->fromLong(static_cast<long long>(t) * 1000 + ms);
+}
+
 void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj) {
     if (!ctx || !globalObj) return;
 
@@ -521,6 +604,43 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     }
                     dateObj = dateObj->setAttribute(ctx, nowKey, nowWrapper);
                 }
+            }
+            // §21.4.3.2 Date.parse + §21.4.3.4 Date.UTC. Same wrapper
+            // pattern as Date.now so they pass §17 descriptor probes.
+            auto wrap = [&](const char* name, proto::ProtoMethod fn, long long len) -> const proto::ProtoObject* {
+                const proto::ProtoObject* w = ctx->space && ctx->space->methodPrototype
+                    ? ctx->space->methodPrototype->newChild(ctx, true)
+                    : ctx->newObject(true);
+                if (!w) return nullptr;
+                const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+                if (nfk) w = w->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
+                const proto::ProtoString* lenk = JSSymbols::length(ctx);
+                if (lenk) {
+                    w = w->setAttribute(ctx, lenk, ctx->fromInteger(len));
+                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                    if (pdlk) w = w->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* nmk = JSSymbols::name(ctx);
+                if (nmk) {
+                    w = w->setAttribute(ctx, nmk, ctx->fromUTF8String(name));
+                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                    const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                    if (pdnk) w = w->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+                }
+                return w;
+            };
+            const proto::ProtoString* parseKey =
+                ctx->fromUTF8String("parse") ? ctx->fromUTF8String("parse")->asString(ctx) : nullptr;
+            if (parseKey) {
+                const proto::ProtoObject* w = wrap("parse", TimingAPIs::dateParse, 1);
+                if (w) dateObj = dateObj->setAttribute(ctx, parseKey, w);
+            }
+            const proto::ProtoString* utcKey =
+                ctx->fromUTF8String("UTC") ? ctx->fromUTF8String("UTC")->asString(ctx) : nullptr;
+            if (utcKey) {
+                const proto::ProtoObject* w = wrap("UTC", TimingAPIs::dateUTC, 7);
+                if (w) dateObj = dateObj->setAttribute(ctx, utcKey, w);
             }
             // __native_fn__ — make typeof Date === 'function'.
             // The cell is reused — Date.now is the canonical \"thing that
