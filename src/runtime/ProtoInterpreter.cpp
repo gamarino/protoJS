@@ -1197,6 +1197,13 @@ static bool toBool(proto::ProtoContext* context, const proto::ProtoObject* value
     if (!value || value == PROTO_NONE || value->isNone(context)) return false;
     if (proto::isSmallInt(value)) return proto::asSmallInt(value) != 0;
     if (value == t_nullSentinel) return false;  // JS null is falsy
+    // The global `undefined` identifier resolves to t_undefinedSentinel
+    // (a heap-allocated singleton distinct from PROTO_NONE). Without
+    // this branch every `if (undefined)`, every `undefined || x`, and
+    // every `!!undefined` reached the trailing "Objects are truthy"
+    // fallback and silently returned true — so `undefined || 1`
+    // evaluated to `undefined`.
+    if (value == t_undefinedSentinel) return false;
     if (value == PROTO_TRUE) return true;
     if (value == PROTO_FALSE) return false;
     if (value->isBoolean(context)) return value->asBoolean(context);
