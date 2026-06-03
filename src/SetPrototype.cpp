@@ -1277,6 +1277,11 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 setProto = setProto->setAttribute(ctx, gks, getter);
+                // §24.2.3.10 accessor descriptor 0x2 (non-enumerable,
+                // configurable) on the size slot itself.
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_size__");
+                const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             }
         }
     }

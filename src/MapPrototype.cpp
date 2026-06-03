@@ -968,6 +968,13 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 mapProto = mapProto->setAttribute(ctx, gks, getter);
+                // §24.1.3.10 .size accessor descriptor:
+                // {enumerable:false, configurable:true} → bits 0x2.
+                // Pre-fix no sidecar so Object.getOwnPropertyDescriptor
+                // reported enumerable:true on Map.prototype.size.
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_size__");
+                const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             }
         }
     }
