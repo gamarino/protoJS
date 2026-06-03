@@ -208,6 +208,58 @@ static bool setLikeHas(proto::ProtoContext* ctx,
     return true;  // any other object → truthy
 }
 
+// iterateSetLikeKeys — drive the Set-like iterator protocol over
+// other.keys() and invoke `emit(value)` for each yielded value.
+// Returns false on abrupt completion. Pre-fix Set ops only iterated
+// real native Sets through __set_order__, so union / symmetricDifference
+// / isSupersetOf produced incomplete results for a class-style or
+// plain Set-like.
+template <typename Emit>
+static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
+                                const proto::ProtoObject* other,
+                                Emit emit)
+{
+    // Real native Sets — fast path over __set_order__.
+    if (const proto::ProtoSparseList* order = getSetOrder(ctx, other)) {
+        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            const proto::ProtoObject* v = it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (!emit(v ? v : PROTO_NONE)) return false;
+        }
+        return true;
+    }
+    // Set-like: call other.keys() to obtain an iterator, then loop
+    // calling .next() and reading the {value, done} record.
+    const proto::ProtoObject* keysKo = ctx->fromUTF8String("keys");
+    const proto::ProtoString* keysKs = keysKo ? keysKo->asString(ctx) : nullptr;
+    if (!keysKs) return true;
+    const proto::ProtoObject* keysFn = other->getAttribute(ctx, keysKs, true);
+    if (!keysFn || keysFn == PROTO_NONE) return true;
+    const proto::ProtoObject* iter = callJSFunction(ctx, keysFn, other, ctx->newList());
+    if (hasCallException()) return false;
+    if (!iter || iter == PROTO_NONE) return true;
+    const proto::ProtoObject* nextKo = ctx->fromUTF8String("next");
+    const proto::ProtoString* nextKs = nextKo ? nextKo->asString(ctx) : nullptr;
+    if (!nextKs) return true;
+    const proto::ProtoString* valueKs = JSSymbols::value(ctx);
+    const proto::ProtoString* doneKs  = JSSymbols::done(ctx);
+    for (int safety = 0; safety < 1000000; ++safety) {
+        const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKs, true);
+        if (!nextFn || nextFn == PROTO_NONE) break;
+        const proto::ProtoObject* step = callJSFunction(ctx, nextFn, iter, ctx->newList());
+        if (hasCallException()) return false;
+        if (!step || step == PROTO_NONE) break;
+        const proto::ProtoObject* d = doneKs ? step->getAttribute(ctx, doneKs, false) : nullptr;
+        bool isDone = (d == PROTO_TRUE);
+        if (!isDone && d && d != PROTO_NONE && d->isBoolean(ctx) && d->asBoolean(ctx)) isDone = true;
+        if (isDone) break;
+        const proto::ProtoObject* val = valueKs ? step->getAttribute(ctx, valueKs, false) : nullptr;
+        if (!emit(val ? val : PROTO_NONE)) return false;
+    }
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // set.add(val) → set
 // ---------------------------------------------------------------------------
@@ -891,7 +943,15 @@ static const proto::ProtoObject* setUnion(
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     setAddAllFrom(ctx, result, self);
-    setAddAllFrom(ctx, result, other);
+    // Iterate other via the Set-like keys() protocol so class-style
+    // Set-likes contribute their elements. Real native Sets go through
+    // the __set_order__ fast path inside iterateSetLikeKeys.
+    bool ok = iterateSetLikeKeys(ctx, other,
+        [&](const proto::ProtoObject* v) -> bool {
+            setAddValue(ctx, result, v);
+            return true;
+        });
+    if (!ok) return PROTO_NONE;
     return result;
 }
 
@@ -955,7 +1015,7 @@ static const proto::ProtoObject* setSymmetricDifference(
     if (!getSetRecord(ctx, other, "symmetricDifference")) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
-    // Elements in self but not in other.
+    // Self ∖ other  (consult other.has so set-likes participate).
     {
         const proto::ProtoSparseList* order = getSetOrder(ctx, self);
         if (order) {
@@ -964,25 +1024,19 @@ static const proto::ProtoObject* setSymmetricDifference(
                 const proto::ProtoObject* v = it->nextValue(ctx);
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                 if (!v) v = PROTO_NONE;
-                if (!setContains(ctx, other, v))
+                if (!setLikeHas(ctx, other, v))
                     setAddValue(ctx, result, v);
             }
         }
     }
-    // Elements in other but not in self.
-    {
-        const proto::ProtoSparseList* order = getSetOrder(ctx, other);
-        if (order) {
-            const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-            while (it && it->hasNext(ctx)) {
-                const proto::ProtoObject* v = it->nextValue(ctx);
-                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                if (!v) v = PROTO_NONE;
-                if (!setContains(ctx, self, v))
-                    setAddValue(ctx, result, v);
-            }
-        }
-    }
+    // Other ∖ self via the Set-like keys() iteration protocol.
+    bool ok = iterateSetLikeKeys(ctx, other,
+        [&](const proto::ProtoObject* v) -> bool {
+            if (!setContains(ctx, self, v))
+                setAddValue(ctx, result, v);
+            return true;
+        });
+    if (!ok) return PROTO_NONE;
     return result;
 }
 
@@ -1016,16 +1070,19 @@ static const proto::ProtoObject* setIsSupersetOf(
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!getSetRecord(ctx, other, "isSupersetOf")) return PROTO_NONE;
-    const proto::ProtoSparseList* order = getSetOrder(ctx, other);
-    if (!order) return PROTO_TRUE;
-    const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        if (!v) v = PROTO_NONE;
-        if (!setContains(ctx, self, v)) return PROTO_FALSE;
-    }
-    return PROTO_TRUE;
+    // Iterate other's keys() via the Set-like protocol and bail with
+    // false the first time self doesn't contain a value. Pre-fix this
+    // ran only against real native Sets (via __set_order__) and
+    // returned true for any class-style Set-like.
+    bool isSuperset = true;
+    bool ok = iterateSetLikeKeys(ctx, other,
+        [&](const proto::ProtoObject* v) -> bool {
+            if (!setContains(ctx, self, v)) { isSuperset = false; return false; }
+            return true;
+        });
+    if (!ok && !isSuperset) return PROTO_FALSE;
+    if (!ok) return PROTO_NONE;
+    return isSuperset ? PROTO_TRUE : PROTO_FALSE;
 }
 
 static const proto::ProtoObject* setIsDisjointFrom(
