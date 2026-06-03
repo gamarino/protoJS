@@ -185,8 +185,24 @@ static const proto::ProtoObject* setAdd(
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     long sz = getSetSize(ctx, self);
     if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
-    if (order) setSetOrderInPlace(ctx, self,
-                   order->setAt(ctx, static_cast<unsigned long>(sz), val));
+    if (order) {
+        // Pick max(slot)+1, not size — ProtoSparseList::removeAt
+        // leaves holes after Set.delete, so 'size' may already be
+        // occupied. Pre-fix `add` after a `delete` of a middle entry
+        // wiped the entry that previously sat at slot `size`.
+        unsigned long newIdx = 0;
+        bool hasAny = false;
+        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            unsigned long slot = it->nextKey(ctx);
+            (void)it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (!hasAny || slot >= newIdx) newIdx = slot + 1;
+            hasAny = true;
+        }
+        if (!hasAny) newIdx = static_cast<unsigned long>(sz);
+        setSetOrderInPlace(ctx, self, order->setAt(ctx, newIdx, val));
+    }
     setSetSizeInPlace(ctx, self, sz + 1);
     return self;
 }
