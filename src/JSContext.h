@@ -73,6 +73,19 @@ public:
     const proto::ProtoObject* getJSObjectPrototype() const { return jsPrototypes_.object; }
 
     /**
+     * @brief Override the JS Object prototype after lazy initialization.
+     *
+     * BootstrapJSPrototypes seeds Object.prototype as an empty
+     * placeholder so TypeBridge has a parent to attach. Later
+     * ensureObjectConstructor installs the populated prototype with
+     * the .constructor backref and rebinds space->objectPrototype.
+     * Without this setter, TypeBridge::fromJS keeps stamping JSON-
+     * parsed objects with the stale empty snapshot — their proto !==
+     * the user-visible Object.prototype.
+     */
+    void setJSObjectPrototype(const proto::ProtoObject* p) { jsPrototypes_.object = p; }
+
+    /**
      * @brief Returns the JS Array prototype.
      */
     const proto::ProtoObject* getJSArrayPrototype() const { return jsPrototypes_.array; }

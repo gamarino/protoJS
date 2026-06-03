@@ -2191,6 +2191,15 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
                     && ctx->space->methodPrototype != oldOP) {
                     ctx->space->methodPrototype->addParent(ctx, updatedProto);
                 }
+                // Sync the wrapper-level JS Object prototype too, so
+                // TypeBridge::fromJS stamps JSON-parsed objects with
+                // the populated proto (matches the array fix from
+                // round 4 commit 4b3fde8f). Pre-fix
+                // JSON.parse('{"a":1}') produced an object whose proto
+                // looked like Object.prototype but wasn't ===.
+                if (JSContextWrapper* w = JSContextWrapper::current()) {
+                    w->setJSObjectPrototype(updatedProto);
+                }
             }
             // Re-link ctor.prototype to the post-update prototype.
             // objectPrototype is created immutable by protoCore, so
