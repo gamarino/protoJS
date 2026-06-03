@@ -402,6 +402,38 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
             }
         }
     }
+
+    // Re-parent Object.prototype's instance method wrappers at fp so
+    // their .call / .apply / .bind resolve via the chain. These were
+    // installed during JSPrototypes::BootstrapJSPrototypes — earlier
+    // than ensureFunctionPrototype — when space->methodPrototype still
+    // equalled space->objectPrototype (an empty snapshot), so each
+    // wrapper has the snapshot as its only parent and finds nothing
+    // when the user looks up .call. addParent(fp) leaves the original
+    // parent in place but adds fp to the chain, so attribute lookup
+    // now walks into Function.prototype after Object.prototype.
+    // The wrappers were created with newChild(ctx, true) (mutable), so
+    // addParent mutates them in place.
+    {
+        const proto::ProtoObject* objProto =
+            ctx->space ? ctx->space->objectPrototype : nullptr;
+        if (objProto && objProto != PROTO_NONE) {
+            static const char* kReparentNames[] = {
+                "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable",
+                "toLocaleString", nullptr
+            };
+            for (int i = 0; kReparentNames[i]; ++i) {
+                const proto::ProtoObject* nko = ctx->fromUTF8String(kReparentNames[i]);
+                const proto::ProtoString* nk = nko ? nko->asString(ctx) : nullptr;
+                if (!nk) continue;
+                const proto::ProtoObject* wrapper =
+                    objProto->getAttribute(ctx, nk, false);
+                if (wrapper && wrapper != PROTO_NONE) {
+                    wrapper->addParent(ctx, fp);
+                }
+            }
+        }
+    }
 }
 
 const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
