@@ -5721,6 +5721,50 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !obj) { DISPATCH(); }
 
+                // ECMA-262 §10.4.2.1 ArraySetLength: setting Array
+                // .length validates the new value via ToUint32 +
+                // SameValue check; NaN / Infinity / negative / non-int
+                // / non-coercible values throw RangeError. Pre-fix the
+                // put silently accepted any number, so a.length = -1
+                // / NaN / 2.5 set the slot to whatever junk landed.
+                {
+                    std::string lenProbe;
+                    key->toUTF8String(pContext, lenProbe);
+                    if (lenProbe == "length") {
+                        const proto::ProtoString* isArrK = JSSymbols::isArray(pContext);
+                        const proto::ProtoObject* isArrV = isArrK
+                            ? obj->getAttribute(pContext, isArrK, true) : PROTO_NONE;
+                        if (isArrV == PROTO_TRUE && val && val != PROTO_NONE) {
+                            // Coerce the new value to number via ToNumber
+                            // first (handles string '3' → 3) then check
+                            // SameValue against ToUint32.
+                            const proto::ProtoObject* numVal = val;
+                            if (!val->isInteger(pContext) && !val->isDouble(pContext)
+                                && !val->isFloat(pContext)) {
+                                numVal = jsToNumber(pContext, val);
+                            }
+                            double d = 0.0;
+                            bool gotNum = false;
+                            if (numVal) {
+                                if (numVal->isInteger(pContext)) { d = static_cast<double>(numVal->asLong(pContext)); gotNum = true; }
+                                else if (numVal->isDouble(pContext) || numVal->isFloat(pContext)) { d = numVal->asDouble(pContext); gotNum = true; }
+                            }
+                            if (!gotNum || std::isnan(d) || std::isinf(d)
+                                || d < 0 || d > 4294967295.0
+                                || d != std::trunc(d)) {
+                                pending_exception = makeError(pContext, "RangeError",
+                                    "Invalid array length", pGlobalRoot);
+                                has_pending_exception = true;
+                                DISPATCH();
+                            }
+                            // Substitute the coerced integer so the
+                            // setAttribute below stores the canonical
+                            // numeric form (string '3' → 3).
+                            val = pContext->fromInteger(static_cast<long long>(d));
+                        }
+                    }
+                }
+
                 const proto::ProtoObject* newObj = resolvePutFieldOOP(pContext, obj, key, val);
                 REFRESH_INTERP_STATE();
 
@@ -5735,10 +5779,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     updateMapping(pContext, obj, newObj);
                     updateSpacePrototypeIfMatching(pContext, obj, newObj);
                 }
-                
+
                 std::string keyStr2;
                 key->toUTF8String(pContext, keyStr2);
-                
+
                 // Array length truncation: if we just set .length on a real array to a
                 // smaller value, delete elements at indices >= newLen (ECMAScript 9.4.2.1).
                 if (keyStr2 == "length") {
