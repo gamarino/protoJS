@@ -134,6 +134,15 @@ void BuildBooleanPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     // the newly assigned properties.
     const proto::ProtoObject* bp = objectProto->newChild(ctx, true);
 
+    // ECMA-262 §20.3.3: "The Boolean prototype object is itself an
+    // ordinary object … it has a [[BooleanData]] internal slot whose
+    // value is false."  Install the slot now so methods that consult
+    // thisBooleanValue (valueOf / toString) treat `Boolean.prototype`
+    // as the primitive `false` rather than throwing TypeError.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) bp = bp->setAttribute(ctx, pvKey, PROTO_FALSE);
+    }
     // Install via installNonEnumerableMethod so each method receives
     // the spec name + length attributes. methodPrototype isn't set yet
     // (BuildBooleanPrototype runs before ensureFunctionPrototype), so
