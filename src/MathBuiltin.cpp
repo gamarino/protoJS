@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <limits>
+#include <vector>
 
 namespace protojs {
 
@@ -189,24 +190,30 @@ static const proto::ProtoObject* mathHypot(
     const proto::ProtoSparseList*)
 {
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
-    // ECMA-262 §21.3.2.18: if ANY coerced argument is ±Infinity,
-    // return +Infinity — even when other arguments are NaN. The
-    // previous summation approach yielded NaN whenever an Infinity
-    // and a NaN both appeared because Infinity² + NaN² = NaN.
-    bool sawNaN = false;
-    bool sawInf = false;
+    // ECMA-262 §21.3.2.18 step 2: ToNumber every argument in order,
+    // propagating any abrupt completion. Pre-fix the impl called
+    // argToDouble twice (once for Inf/NaN scan, once for summation)
+    // and didn't propagate exceptions from valueOf — so a throwing
+    // valueOf on argument N was followed by a second pass that
+    // touched argument N+1's valueOf too (counter test).
+    std::vector<double> coerced;
+    coerced.reserve(argc);
     for (unsigned long i = 0; i < argc; i++) {
         double v = argToDouble(ctx, args, static_cast<unsigned>(i), 0.0);
+        if (hasCallException()) return PROTO_NONE;
+        coerced.push_back(v);
+    }
+    // Step 3: scan for ±Infinity / NaN. Inf wins over NaN per spec —
+    // any +/-Infinity yields +Infinity.
+    bool sawNaN = false, sawInf = false;
+    for (double v : coerced) {
         if (std::isnan(v)) sawNaN = true;
         else if (std::isinf(v)) sawInf = true;
     }
     if (sawInf) return ctx->fromDouble(std::numeric_limits<double>::infinity());
     if (sawNaN) return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
     double sum = 0.0;
-    for (unsigned long i = 0; i < argc; i++) {
-        double v = argToDouble(ctx, args, static_cast<unsigned>(i), 0.0);
-        sum += v * v;
-    }
+    for (double v : coerced) sum += v * v;
     return ctx->fromDouble(std::sqrt(sum));
 }
 
