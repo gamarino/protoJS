@@ -775,11 +775,15 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     const proto::ProtoObject* proto = args->getAt(ctx, 1);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     // Per spec, non-extensible objects throw TypeError — skip that check for now.
-    if (!proto || proto == PROTO_NONE || proto == getNullSentinel()) {
-        // Setting proto to null removes any override.
-        t_jsProtoMap.erase(obj);
-    } else {
-        t_jsProtoMap[obj] = proto;
+    if (proto == getNullSentinel()) {
+        // Setting proto to null per spec §20.1.2.21 step 5: STORE the
+        // null sentinel (not erase) so subsequent getPrototypeOf
+        // returns null instead of falling back to the natural parent.
+        // Pre-fix this branch erased the override, so
+        // Object.setPrototypeOf(o, null) had no observable effect.
+        setJSProtoOverride(obj, getNullSentinel());
+    } else if (proto && proto != PROTO_NONE) {
+        setJSProtoOverride(obj, proto);
     }
     // Spec: returns the modified object.
     return obj;
