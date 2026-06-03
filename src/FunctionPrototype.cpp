@@ -442,6 +442,31 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                 }
             }
         }
+
+        // Same re-parenting pass for the JSON namespace's stringify /
+        // parse wrappers. ProtoNativeModule::buildModule allocated them
+        // through methodPrototype which, at JSONBuiltin::init time,
+        // was still objectPrototype. Without this fixup,
+        // Object.getPrototypeOf(JSON.stringify) returned the empty
+        // objectPrototype snapshot (and typeof JSON.stringify.call was
+        // undefined), so the test262 'builtin.js' check failed.
+        const proto::ProtoString* jsonKey =
+            ctx->fromUTF8String("JSON") ? ctx->fromUTF8String("JSON")->asString(ctx) : nullptr;
+        if (jsonKey && globalRoot && *globalRoot) {
+            const proto::ProtoObject* jsonNs =
+                (*globalRoot)->getAttribute(ctx, jsonKey, false);
+            if (jsonNs && jsonNs != PROTO_NONE) {
+                static const char* kJsonNames[] = { "stringify", "parse", nullptr };
+                for (int i = 0; kJsonNames[i]; ++i) {
+                    const proto::ProtoObject* mko = ctx->fromUTF8String(kJsonNames[i]);
+                    const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
+                    if (!mk) continue;
+                    const proto::ProtoObject* w =
+                        jsonNs->getAttribute(ctx, mk, false);
+                    if (w && w != PROTO_NONE) w->addParent(ctx, fp);
+                }
+            }
+        }
     }
 }
 
