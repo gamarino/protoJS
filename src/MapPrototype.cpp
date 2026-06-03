@@ -898,13 +898,20 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         }
     }
 
-    // Symbol.toStringTag = "Map": {writable:false, enumerable:false, configurable:true}
-    // bit1=configurable=true → bits = 0x2
+    // Symbol.toStringTag = "Map": install under both internal and
+    // user-visible keys (see the Set fix one commit prior).
     {
         const proto::ProtoString* tstKey = JSSymbols::toStringTag(ctx);
         if (tstKey) {
             mapProto = mapProto->setAttribute(ctx, tstKey, ctx->fromUTF8String("Map"));
             const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd___toStringTag____");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            mapProto = mapProto->setAttribute(ctx, userKey, ctx->fromUTF8String("Map"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
             const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
             if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
