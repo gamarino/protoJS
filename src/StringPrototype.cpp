@@ -1652,6 +1652,19 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     // the object in-place, keeping space->stringPrototype consistent and
     // ensuring attribute lookups on primitive strings find newly added properties.
     const proto::ProtoObject* sp = baseProto->newChild(ctx, true);
+    // ECMA-262 §22.1.4: "The String prototype object is itself a
+    // String exotic object … it has a [[StringData]] internal slot
+    // whose value is the empty String."  Install the slot now so
+    // ThisStringValue consumers (toString / valueOf / charAt / …)
+    // treat `String.prototype` as the empty string instead of
+    // throwing "incompatible receiver".
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* emptyStr = ctx->fromUTF8String("");
+            if (emptyStr) sp = sp->setAttribute(ctx, pvKey, emptyStr);
+        }
+    }
     proto::ProtoObject* mp = const_cast<proto::ProtoObject*>(sp);
 
     // Helper lambda to register one method with correct .length and .name descriptors.
