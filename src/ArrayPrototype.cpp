@@ -2403,27 +2403,37 @@ static const proto::ProtoObject* arrayFrom(
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (!lenKey) return result;
     const proto::ProtoObject* lv = src->getAttribute(ctx, lenKey, false);
-    if (lv && lv != PROTO_NONE &&
-        (lv->isInteger(ctx) || lv->isDouble(ctx) || lv->isFloat(ctx))) {
-        // ECMA-262 §23.1.2.1 step 5: ToLength(len). NaN, ±Infinity,
-        // negative values clamp to 0 — pre-fix negative lengths wrapped
-        // to ULONG_MAX via the unsigned cast and hung the for loop.
-        long long nSigned = 0;
-        if (lv->isInteger(ctx)) nSigned = lv->asLong(ctx);
+    if (lv && lv != PROTO_NONE) {
+        // ECMA-262 §23.1.2.1 step 5: ToLength(len) runs ToInteger which
+        // first calls ToNumber — so a string length like {length: '3'}
+        // must coerce to 3, and {length: null} to 0. Pre-fix the
+        // attribute path only matched numeric types directly, so any
+        // non-numeric length produced an empty result.
+        double d = 0.0;
+        bool ok = false;
+        if (lv->isInteger(ctx))       { d = static_cast<double>(lv->asLong(ctx)); ok = true; }
+        else if (lv->isDouble(ctx) || lv->isFloat(ctx)) { d = lv->asDouble(ctx); ok = true; }
         else {
-            double d = lv->asDouble(ctx);
+            const proto::ProtoObject* num = jsToNumber(ctx, lv);
+            if (num) {
+                if (num->isInteger(ctx)) { d = static_cast<double>(num->asLong(ctx)); ok = true; }
+                else if (num->isDouble(ctx) || num->isFloat(ctx)) { d = num->asDouble(ctx); ok = true; }
+            }
+        }
+        if (ok) {
+            long long nSigned = 0;
             if (std::isnan(d) || d < 0) nSigned = 0;
-            else if (std::isinf(d)) nSigned = 0; // spec clamps Infinity to 2^53-1 but we cap at 0 here
+            else if (std::isinf(d)) nSigned = 0;
             else nSigned = static_cast<long long>(d);
+            if (nSigned < 0) nSigned = 0;
+            unsigned long n = static_cast<unsigned long>(nSigned);
+            for (unsigned long i = 0; i < n; i++) {
+                const proto::ProtoObject* v = arrGet(ctx, src, i);
+                arrSet(ctx, result, i, applyMap(v, static_cast<long long>(i)));
+            }
+            result = arrSetLen(ctx, result, n);
+            return result;
         }
-        if (nSigned < 0) nSigned = 0;
-        unsigned long n = static_cast<unsigned long>(nSigned);
-        for (unsigned long i = 0; i < n; i++) {
-            const proto::ProtoObject* v = arrGet(ctx, src, i);
-            arrSet(ctx, result, i, applyMap(v, static_cast<long long>(i)));
-        }
-        result = arrSetLen(ctx, result, n);
-        return result;
     }
 
     // String: iterate characters.
