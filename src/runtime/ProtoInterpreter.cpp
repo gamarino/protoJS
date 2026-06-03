@@ -2515,11 +2515,16 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!ctor) continue;
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
-        // <ErrorType>.length === 1 per §20.5.6.x.
+        // <ErrorType>.length === 1 per §20.5.6.x.  AggregateError is
+        // the lone exception (§19.2.1.5): its constructor accepts two
+        // named arguments (errors, message), so its length is 2.
         {
             const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            const bool isAggregate =
+                (kNames[i] && std::string(kNames[i]) == "AggregateError");
+            const long long arity = isAggregate ? 2LL : 1LL;
             if (lenK) {
-                ctor = ctor->setAttribute(ctx, lenK, ctx->fromInteger(1LL));
+                ctor = ctor->setAttribute(ctx, lenK, ctx->fromInteger(arity));
                 const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
                 const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
                 if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
