@@ -1314,6 +1314,22 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             return context->fromDouble(std::numeric_limits<double>::infinity());
         if (trimmed == "-Infinity")
             return context->fromDouble(-std::numeric_limits<double>::infinity());
+        // ECMA-262 §7.1.4.1.1 NumericLiteral / StrNumericLiteral
+        // accepts `0b`, `0o`, `0x` integer prefixes (note: BinaryDigits
+        // and OctalDigits — std::stod doesn't recognize them).
+        // The leading sign is not permitted with these prefixes.
+        if (trimmed.size() >= 3 && trimmed[0] == '0' &&
+            (trimmed[1] == 'x' || trimmed[1] == 'X' ||
+             trimmed[1] == 'b' || trimmed[1] == 'B' ||
+             trimmed[1] == 'o' || trimmed[1] == 'O')) {
+            int base = (trimmed[1] == 'x' || trimmed[1] == 'X') ? 16
+                     : (trimmed[1] == 'b' || trimmed[1] == 'B') ? 2 : 8;
+            const char* p = trimmed.c_str() + 2;
+            char* end = nullptr;
+            unsigned long long uval = std::strtoull(p, &end, base);
+            if (end == p || *end != '\0') return makeNaN();
+            return context->fromInteger(static_cast<long long>(uval));
+        }
         // Try parsing as number; any parse error → NaN.
         try {
             size_t pos = 0;
