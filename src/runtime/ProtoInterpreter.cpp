@@ -1644,10 +1644,12 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         }
     }
 
-    // ToPrimitive(value, "number"): invoke valueOf, fall back to toString.
-    // Symbol.toPrimitive support omitted (not currently emitted by protoJS
-    // class layers); covers the common object-with-valueOf case demanded
-    // by Math.max/Math.min and similar coercions.
+    // ToPrimitive(value, "number"): try @@toPrimitive first (with hint
+    // "number"), then valueOf, then toString. Symbol.toPrimitive support
+    // is required by §7.1.1 ToPrimitive step 2 — the spec runs the
+    // exotic-toPrim path before the OrdinaryToPrimitive fallback. Pre-fix
+    // toNumber jumped straight to valueOf, so isNaN({ [Symbol.toPrimitive](){...} })
+    // never invoked the user's method.
     auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
         if (!fn || fn == PROTO_NONE) return false;
         if (fn->isMethod(context)) return true;
@@ -1664,6 +1666,24 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         if (v == t_nullSentinel || v == t_undefinedSentinel) return true;
         return false;
     };
+    {
+        const proto::ProtoObject* tpKo = context->fromUTF8String("Symbol.toPrimitive");
+        const proto::ProtoString* tpKs = tpKo ? tpKo->asString(context) : nullptr;
+        const proto::ProtoObject* tpFn = tpKs
+            ? value->getAttribute(context, tpKs, true) : nullptr;
+        if (isCallable(tpFn)) {
+            const proto::ProtoList* hintArgs = context->newList();
+            hintArgs = hintArgs->appendLast(context, context->fromUTF8String("number"));
+            const proto::ProtoObject* r = callJSFunction(context, tpFn, value, hintArgs);
+            if (hasCallException()) return PROTO_NONE;
+            if (isPrimitive(r)) return toNumber(context, r);
+            // Non-primitive Symbol.toPrimitive result is a TypeError per §7.1.1
+            // step 5.b. We don't have a TypeError-throw path inside toNumber
+            // without polluting the signal-exception slot; mirror upstream
+            // behaviour by returning NaN here (the caller's isNaN sees true).
+            return makeNaN();
+        }
+    }
     const proto::ProtoString* voKey = JSSymbols::valueOf(context);
     const proto::ProtoObject* voFn = voKey ? value->getAttribute(context, voKey, true) : nullptr;
     if (isCallable(voFn)) {
