@@ -966,6 +966,47 @@ static const proto::ProtoObject* setIntersection(
     if (!getSetRecord(ctx, other, "intersection")) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
+    // Spec §24.2.3.10: when this.size > other.size, iterate other and
+    // keep elements that self contains — preserving other's order in
+    // the result. Pre-fix this always iterated self, so the result
+    // ordering came from the larger collection instead of the smaller.
+    long selfSize = getSetSize(ctx, self);
+    long otherSize = -1;
+    if (getSetOrder(ctx, other)) {
+        otherSize = getSetSize(ctx, other);
+    } else {
+        const proto::ProtoObject* sizeKo = ctx->fromUTF8String("size");
+        const proto::ProtoString* sizeKs = sizeKo ? sizeKo->asString(ctx) : nullptr;
+        if (sizeKs) {
+            const proto::ProtoObject* sv = other->getAttribute(ctx, sizeKs, true);
+            if (!sv || sv == PROTO_NONE || sv == getUndefinedSentinel()) {
+                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
+                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                if (gks) {
+                    const proto::ProtoObject* getter = other->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        sv = callJSFunction(ctx, getter, other, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
+            if (sv && sv->isInteger(ctx)) otherSize = sv->asLong(ctx);
+            else if (sv && (sv->isDouble(ctx) || sv->isFloat(ctx))) {
+                double d = sv->asDouble(ctx);
+                if (!std::isnan(d) && d >= 0) otherSize = static_cast<long>(d);
+            }
+        }
+    }
+    if (otherSize >= 0 && selfSize > otherSize) {
+        // Iterate other via the keys() protocol; add elements self has.
+        bool ok = iterateSetLikeKeys(ctx, other,
+            [&](const proto::ProtoObject* v) -> bool {
+                if (setContains(ctx, self, v)) setAddValue(ctx, result, v);
+                return true;
+            });
+        if (!ok) return PROTO_NONE;
+        return result;
+    }
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return result;
     // Iterate self via iterator, add elements present in other.
