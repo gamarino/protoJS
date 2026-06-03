@@ -646,6 +646,14 @@ static bool arrayThrowIfCallbackNotCallable(proto::ProtoContext* ctx,
         if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return false;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
         if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return false;
+        // Bound functions wrap a target callable behind a __bound_fn__
+        // sentinel. callJSFunction unwraps them transparently, but the
+        // callability probe missed the sentinel, so
+        //   [0,0].flatMap(function(){return this;}.bind([1,2]))
+        // threw 'callback is not a function' even though the bound
+        // function IS callable.
+        const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+        if (bfKey && fn->getAttribute(ctx, bfKey, false) != PROTO_NONE) return false;
     }
     signalNativeException(makeNativeError(ctx, "TypeError",
         (std::string(method) + " callback is not a function").c_str()));
