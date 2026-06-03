@@ -719,6 +719,22 @@ static const proto::ProtoObject* mapConstruct(
     int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
     if (argc > 0) {
         const proto::ProtoObject* iterable = args->getAt(ctx, 0);
+        // Per ECMA-262 §24.1.1.1 step 5: if iterable is null/undefined,
+        // skip iteration. Primitives that aren't strings throw
+        // 'X is not iterable'. Strings ARE iterable but each code point
+        // is a string scalar that fails the AddEntriesFromIterable
+        // 'entry must be an Object' check — emit TypeError for them
+        // too, matching V8 / SpiderMonkey.
+        if (iterable == getUndefinedSentinel() || iterable == getNullSentinel()) {
+            return self;
+        }
+        if (iterable && (iterable->isInteger(ctx) || iterable->isDouble(ctx)
+                         || iterable->isFloat(ctx) || iterable->isBoolean(ctx)
+                         || iterable->isString(ctx))) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "is not iterable"));
+            return PROTO_NONE;
+        }
         if (iterable && iterable != PROTO_NONE) {
             // Element / pair-element read: prefer __elements__ native
             // storage; fall back to indexed-attribute.  Pre-fix
