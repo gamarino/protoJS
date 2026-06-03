@@ -8556,7 +8556,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 const proto::ProtoString* lk = JSSymbols::length(pContext);
-                const proto::ProtoObject* len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
+                // ECMA-262 §10.1.8 / §13.3.2.1: a user-defined
+                // `length` accessor (`Object.defineProperty(o, 'length',
+                // {get: …})`) must fire on every `o.length` read,
+                // including via OP_get_length.  Pre-fix this opcode
+                // skipped accessor lookup entirely and read whatever
+                // landed in the `length` data slot — for accessor
+                // descriptors that slot is the undefined sentinel,
+                // so `o.length` evaluated to `undefined` and
+                // Array.prototype.reduce / filter / map applied to
+                // such objects saw len = 0.
+                const proto::ProtoObject* len_val = (obj && lk)
+                    ? invokeGetterIfPresentFast(obj, lk) : PROTO_NONE;
+                if (has_pending_exception) DISPATCH();
+                if (!len_val || len_val == PROTO_NONE) {
+                    len_val = (obj && lk) ? obj->getAttribute(pContext, lk, true) : PROTO_NONE;
+                }
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = (len_val ? len_val : PROTO_NONE);
                 DISPATCH();
             }
