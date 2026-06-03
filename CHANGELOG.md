@@ -4,6 +4,113 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 8 — 2026-06-03)
+
+Eighth consecutive 30-commit sprint, doubling down on the Reflect /
+Set-like / JSON surfaces that the prior rounds opened and adding
+several new architectural fixes. Each commit fixes one root cause;
+all changes remain local to protoJS.
+
+**Set-like protocol — class-style and order semantics:**
+- `getSetRecord` invokes the .size / .has / .keys accessor getters
+  when those properties are class-defined (the data slot then holds
+  the undefined sentinel placeholder). Abrupt completions propagate.
+- `Set.prototype.union` / `symmetricDifference` / `isSupersetOf`
+  drive the Set-like protocol's keys() iterator for non-Set
+  arguments, calling `result.next()` until done. Real native Sets
+  keep the `__set_order__` fast path.
+- `Set.prototype.intersection` picks the smaller side and returns
+  results in its iteration order per §24.2.3.10 — pre-fix always
+  ran self-side, so `new Set([1,3,5,7]).intersection(new Set([3,2,1]))`
+  came back in self order instead of `[3, 1]`.
+
+**Map / Set prototype methods inherit Function.prototype:**
+- `Map.prototype.*` and `Set.prototype.*` are now reinstalled in
+  `ensureMapConstructor` / `ensureSetConstructor` (which run at
+  first eval, after `space->methodPrototype` is published) so the
+  wrappers' `__proto__` resolves to `Function.prototype`. Pre-fix
+  every method was stamped parentless during BootstrapJSPrototypes —
+  `m.set.call`, `s.add.bind`, etc. were `undefined`, blocking the
+  test262 'm.method.call(badThis, …)' family entirely.
+- `Map.prototype.size` / `Set.prototype.size` accessor slot now
+  carries descriptor 0x2 (non-enumerable, configurable) so
+  `Object.keys(Map.prototype)` drops it.
+- `Map` exposes `get Map[Symbol.species]` returning `this` per §24.1.2.2,
+  mirroring the round-6 Set install.
+
+**Reflect.* method completeness:**
+- `Reflect.apply` enforces IsCallable(target) and runs
+  CreateListFromArrayLike on argumentsList (§28.1.1 step 1, step 3 +
+  §7.3.17). Pre-fix a non-callable target / null / 1 as args silently
+  invoked with zero args and returned undefined.
+- `Reflect.get` honours the receiver argument and invokes
+  accessor-form getters with it as `this` (§28.1.6 step 4 + §9.1.8
+  step 7). Pre-fix Reflect.get(o, 'x', recv) returned undefined for
+  accessor-backed properties.
+- `Reflect.set` writes onto the receiver, rejects non-Object
+  receivers, returns false when the receiver's own data descriptor
+  is non-writable (§9.1.9 step 5.e), and walks the prototype chain
+  to invoke accessor setters with the receiver as `this`. Pre-fix
+  any of these silently succeeded and stored a fresh own slot on
+  the receiver.
+- `Reflect.defineProperty` swallows abrupt completions and returns
+  false (vs Object.defineProperty which throws). Pre-fix the pending
+  exception bubbled to the caller for the same operation.
+- `Reflect.deleteProperty` rejects deletion on frozen and sealed
+  targets and on non-configurable property slots. Pre-fix it
+  silently cleared the slot regardless.
+
+**Object / global descriptors:**
+- `Date.now` / `Date.parse` / `Date.UTC` carry §17 descriptor 0x3
+  on their global slots so `Object.keys(Date)` drops them.
+- `Object.getOwnPropertyDescriptor` / `getOwnPropertyDescriptors`
+  synthesise per-char and 'length' descriptors for string primitives.
+  Pre-fix `Object.getOwnPropertyDescriptors('abc')` was an empty
+  object.
+
+**JSON behaviour:**
+- `JSON.stringify` invokes the replacer function for array elements
+  with `(ToString(index), value)` and holder=array as `this`.
+- `JSON.stringify` runs the top-level toJSON before the replacer
+  per §25.5.2 step 12 → SerializeJSONProperty(''). If the post-toJSON
+  result is undefined / a function / a Symbol, JSON.stringify
+  returns undefined.
+- `JSON.stringify` replacer-array determines property iteration
+  order (§25.5.2.5 step 5.a): the user's array order wins, not the
+  object's own insertion order.
+- `JSON.stringify` invokes the replacer even when [[Get]] returned
+  undefined (e.g. a getter deleted the slot during serialisation) —
+  the replacer's return can rescue such a key.
+- `JSON.stringify` replacer-array scan invokes accessor getters
+  (e.g. Object.defineProperty(arr, '0', {get(){throw}})) and
+  propagates abrupt completions.
+- `JSON.parse` invokes the accessor-form toString / valueOf getters
+  when coercing an Object argument; abrupt completions propagate.
+
+**Map / Set constructor spec gaps:**
+- `Map` and `Set` constructors throw TypeError when the iterable's
+  @@iterator is explicitly undefined / null (§24.x.1 step 6 +
+  GetIterator).
+- `Map` constructor invokes the `set` accessor when looking up the
+  adder per §24.1.1.2 step 7.a-c; abrupt completions propagate
+  before iteration starts.
+
+**Array.prototype.concat + Math.round:**
+- `Array.prototype.concat` ToObject-boxes the primitive `this` per
+  §22.1.3.1 step 1 — so `Array.prototype.concat.call(101)[0]
+  instanceof Number === true`.
+- `Math.round` short-circuits |x| >= 2^52 to return x unchanged.
+  Pre-fix `floor(x + 0.5)` walked off the next-representable double
+  for large negative integers.
+
+**parseInt:**
+- `parseInt` routes overflow through double accumulation so
+  `parseInt('-10000000000000000000', 10) === -1e19` instead of the
+  signed-cast wrap-around bit pattern.
+
+Net code-change summary: 30 commits, ~10 files touched, all changes
+local to protoJS. Cumulative across rounds 1-8: ~260 commits.
+
 ### Fixed (test262 spec conformance push, round 7 — 2026-06-03)
 
 Seventh consecutive 30-commit sprint, focused on the broad cleanups

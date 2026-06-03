@@ -2,11 +2,51 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-03. Seven consecutive sprint rounds (~230 commits) closed
+**Last updated:** 2026-06-03. Eight consecutive sprint rounds (~260 commits) closed
 ECMA-262 conformance gaps across the language and built-ins layers — see
 CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 7 highlights (this commit batch):**
+**Round 8 highlights (this commit batch):**
+
+- **Map/Set methods inherit Function.prototype:** reinstalled in
+  ensure*Constructor (post-FunctionPrototype) so `m.set.call`, `s.add.bind`,
+  etc. resolve. Pre-fix every Map/Set method was parentless — blocking
+  every test262 case that used `m.method.call(badThis, …)`.
+- **Set-like accessor + iteration:** GetSetRecord invokes class-style
+  .size / .has / .keys getters; union / symDiff / isSupersetOf drive
+  the spec's keys() iterator for non-Set arguments; intersection picks
+  the smaller side and preserves its iteration order per §24.2.3.10.
+- **Reflect.* completeness:** Reflect.apply enforces IsCallable +
+  CreateListFromArrayLike. Reflect.get honours receiver and invokes
+  accessor getters. Reflect.set walks the prototype chain for setters
+  with receiver as `this` and returns false on non-writable receiver
+  slots. Reflect.defineProperty swallows abrupt completions
+  → false. Reflect.deleteProperty rejects delete on frozen / sealed
+  / non-configurable.
+- **JSON behaviour:** stringify invokes the replacer for array
+  elements with holder=array as `this`; runs the top-level toJSON
+  before the replacer; replacer-array order wins; the replacer fires
+  even when [[Get]] returned undefined; the replacer-array scan
+  invokes accessor getters. parse routes Object arguments through
+  the accessor-form toString / valueOf getters.
+- **Map / Set iterable semantics:** both throw TypeError when
+  @@iterator is explicitly undefined / null per §24.x.1 step 6 +
+  GetIterator. Map constructor invokes the .set accessor when
+  resolving the adder.
+- **Map[Symbol.species]:** added, returns `this`. Map / Set .size
+  accessor slot now carries descriptor 0x2 so it drops out of
+  Object.keys(Map.prototype).
+- **Date / Object descriptors:** Date.now / Date.parse / Date.UTC
+  carry §17 descriptor 0x3. Object.getOwnPropertyDescriptor /
+  getOwnPropertyDescriptors synthesise per-char and 'length'
+  descriptors for string primitives.
+- **Array.prototype.concat:** ToObject-boxes the primitive `this`
+  (so `Array.prototype.concat.call(101)[0] instanceof Number`).
+- **Math.round:** short-circuits |x| >= 2^52 to return x unchanged.
+- **parseInt:** routes overflow through double accumulation so
+  `parseInt('-1e19') === -1e19` instead of the signed-cast wrap.
+
+**Round 7 highlights:**
 
 - **Large array-literal fix:** OP_get_array_el falls back to indexed
   attributes for slots ≥32, so `[10,11,...,44][32]` correctly returns
