@@ -382,15 +382,67 @@ const proto::ProtoObject* numberToPrecision(
         z.append(static_cast<size_t>(precision - 1), '0');
         return context->fromUTF8String(z.c_str());
     }
-    char buf[256];
-    snprintf(buf, sizeof(buf), "%.*g", precision, value);
-    // Exponent format: strip leading zero (e.g. "1e+07" -> "1e+7").
-    if (char* e = std::strchr(buf, 'e')) {
-        if (e[1] && e[2] == '0' && e[3]) {
-            std::memmove(e + 2, e + 3, std::strlen(e + 3) + 1);
+    // Spec §21.1.3.5 step 12 requires EXACTLY `precision` significant
+    // digits — %g strips trailing zeros, so (3.14).toPrecision(5)
+    // returned '3.14' instead of '3.1400'. Format via %e first to lock
+    // in `precision` digits, then decide between exponent and fixed
+    // notation based on the spec's [-6, p) window on the decimal
+    // exponent.
+    char ebuf[256];
+    snprintf(ebuf, sizeof(ebuf), "%.*e", precision - 1, value);
+    // %e shape: "[-]d.ddd...e[+-]NN". Extract mantissa digits + sign +
+    // exponent.
+    std::string mant;
+    int expVal = 0;
+    bool negative = false;
+    {
+        const char* p = ebuf;
+        if (*p == '-') { negative = true; ++p; }
+        // Skip the leading integer digit.
+        if (*p) { mant.push_back(*p); ++p; }
+        if (*p == '.') {
+            ++p;
+            while (*p && *p != 'e') { mant.push_back(*p); ++p; }
+        }
+        if (*p == 'e') {
+            ++p;
+            int sgn = 1;
+            if (*p == '+') ++p;
+            else if (*p == '-') { sgn = -1; ++p; }
+            while (*p >= '0' && *p <= '9') { expVal = expVal * 10 + (*p - '0'); ++p; }
+            expVal *= sgn;
         }
     }
-    return context->fromUTF8String(buf);
+    // mant currently has exactly `precision` digits.
+    std::string result;
+    if (expVal < -6 || expVal >= precision) {
+        // Exponent form: m[0] '.' m[1..p-1] 'e' sign exp
+        result.push_back(mant[0]);
+        if (precision > 1) {
+            result.push_back('.');
+            result.append(mant.substr(1));
+        }
+        result.push_back('e');
+        result.push_back(expVal >= 0 ? '+' : '-');
+        char ebuf2[32];
+        snprintf(ebuf2, sizeof(ebuf2), "%d", std::abs(expVal));
+        result.append(ebuf2);
+    } else if (expVal >= 0) {
+        // Fixed form, exponent in [0, p-1]: integer part = mant[0..exp],
+        // fractional = mant[exp+1..]
+        result.append(mant.substr(0, static_cast<size_t>(expVal + 1)));
+        if (static_cast<int>(mant.size()) > expVal + 1) {
+            result.push_back('.');
+            result.append(mant.substr(static_cast<size_t>(expVal + 1)));
+        }
+    } else {
+        // Fixed form, exponent in [-6, -1]: "0." + (-expVal-1) zeros + mant
+        result.append("0.");
+        for (int i = 0; i < -expVal - 1; ++i) result.push_back('0');
+        result.append(mant);
+    }
+    if (negative) result.insert(0, "-");
+    return context->fromUTF8String(result.c_str());
 }
 
 // ---------------------------------------------------------------------------
