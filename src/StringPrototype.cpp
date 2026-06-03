@@ -577,6 +577,27 @@ const proto::ProtoObject* stringLocaleCompare(
     return ctx->fromInteger(cmp < 0 ? -1LL : cmp > 0 ? 1LL : 0LL);
 }
 
+// ECMA-262 §22.1.3.30 String.prototype.toLocaleString — without ICU
+// we return the same String value. The wrapper ensures
+// `"abc".toLocaleString()` doesn't throw and matches the expected
+// shape (length === 0, name === "toLocaleString").
+const proto::ProtoObject* stringToLocaleString(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    if (self->isString(ctx)) return self;
+    // String wrapper: unwrap.
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+    if (pvKey) {
+        const proto::ProtoObject* pv = self->getAttribute(ctx, pvKey, false);
+        if (pv && pv != PROTO_NONE && pv->isString(ctx)) return pv;
+    }
+    // Fall back to ToString.
+    std::string s = objToStr(ctx, self);
+    return ctx->fromUTF8String(s.c_str());
+}
+
 // ECMA-262 §22.1.3.32 WhiteSpace + LineTerminator: covers ASCII
 // space/tab/newline/CR/formfeed/vtab AND the higher Unicode
 // whitespace classes including NBSP (U+00A0), BOM (U+FEFF),
@@ -1580,6 +1601,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     reg("toLocaleUpperCase", stringToUpperCase,   0);
     reg("repeat",            stringRepeat,        1);
     reg("localeCompare",     stringLocaleCompare, 1);
+    reg("toLocaleString",    stringToLocaleString, 0);
     reg("trim",              stringTrim,          0);
     reg("trimStart",         stringTrimStart,     0);
     reg("trimLeft",          stringTrimStart,     0);
@@ -1659,6 +1681,7 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
         { "toLocaleUpperCase", stringToUpperCase,   0 },
         { "repeat",            stringRepeat,        1 },
         { "localeCompare",     stringLocaleCompare, 1 },
+        { "toLocaleString",    stringToLocaleString, 0 },
         { "trim",              stringTrim,          0 },
         { "trimStart",         stringTrimStart,     0 },
         { "trimLeft",          stringTrimStart,     0 },
