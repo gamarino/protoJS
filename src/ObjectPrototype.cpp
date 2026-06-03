@@ -3,6 +3,7 @@
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
+#include "PrototypeUtils.h"
 #include "headers/protoCore.h"
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
@@ -1780,9 +1781,12 @@ const proto::ProtoObject* installObjectInstanceMethods(
                     ctx->fromInteger(0x3LL)); // writable+configurable, not enumerable
         }
     };
-    reg("hasOwnProperty",       objectHasOwnProperty);
-    reg("isPrototypeOf",        objectIsPrototypeOf);
-    reg("propertyIsEnumerable", objectPropertyIsEnumerable);
+    // installNonEnumerableMethod (Function.prototype-parented wrapper)
+    // gives the methods the spec-mandated name + length attributes.
+    base = installNonEnumerableMethod(ctx, base, "hasOwnProperty",      objectHasOwnProperty,      1);
+    base = installNonEnumerableMethod(ctx, base, "isPrototypeOf",        objectIsPrototypeOf,        1);
+    base = installNonEnumerableMethod(ctx, base, "propertyIsEnumerable", objectPropertyIsEnumerable, 1);
+    (void)reg; // legacy raw-method installer kept for the special-case branches below
     // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
     // Delegate to the receiver's own toString — for a Number this gives the
     // numeric ToString. For primitive String/Boolean/etc. the toString
