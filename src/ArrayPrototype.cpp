@@ -1319,11 +1319,25 @@ static const proto::ProtoObject* arrayConcat(
         if (spreadKey) {
             const proto::ProtoObject* sv = obj->getAttribute(ctx, spreadKey, true);
             if (sv && sv != PROTO_NONE && sv != getUndefinedSentinel()) {
+                // §7.1.2 ToBoolean — pre-fix returned true for 0 / NaN
+                // / '' / null because the fallback only excluded the
+                // null sentinel. Now apply the full ToBoolean ruleset.
                 if (sv == PROTO_TRUE) return true;
                 if (sv == PROTO_FALSE) return false;
+                if (sv == getNullSentinel()) return false;
                 if (sv->isBoolean(ctx)) return sv->asBoolean(ctx);
-                // Truthy non-bool → true (ToBoolean fallback).
-                return sv != getNullSentinel();
+                if (sv->isInteger(ctx)) return sv->asLong(ctx) != 0;
+                if (sv->isDouble(ctx) || sv->isFloat(ctx)) {
+                    double d = sv->asDouble(ctx);
+                    return d != 0.0 && !std::isnan(d);
+                }
+                if (sv->isString(ctx)) {
+                    const proto::ProtoString* ps = sv->asString(ctx);
+                    if (!ps) return false;
+                    std::string s; ps->toUTF8String(ctx, s);
+                    return !s.empty();
+                }
+                return true;  // Objects coerce to true.
             }
         }
         // Step 4: IsArray(O) — probe the __is_array__ marker.
