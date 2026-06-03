@@ -1354,12 +1354,28 @@ const proto::ProtoObject* stringFromCodePoint(
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
     for (unsigned long i = 0; i < argc; i++) {
         const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(i));
-        uint32_t cp = 0;
+        // ECMA-262 §22.1.2.2 step 5: each code point must be a
+        // non-negative integer < 0x110000. Non-integer doubles,
+        // negative values, NaN, Infinity all throw RangeError.
+        double dcp = 0.0;
         if (a && a != PROTO_NONE) {
-            if (a->isInteger(ctx)) cp = static_cast<uint32_t>(a->asLong(ctx));
-            else if (a->isDouble(ctx)) cp = static_cast<uint32_t>(
-                static_cast<long long>(a->asDouble(ctx)));
+            if (a->isInteger(ctx)) dcp = static_cast<double>(a->asLong(ctx));
+            else if (a->isDouble(ctx) || a->isFloat(ctx)) dcp = a->asDouble(ctx);
+            else {
+                const proto::ProtoObject* num = jsToNumber(ctx, a);
+                if (num) {
+                    if (num->isInteger(ctx)) dcp = static_cast<double>(num->asLong(ctx));
+                    else if (num->isDouble(ctx) || num->isFloat(ctx)) dcp = num->asDouble(ctx);
+                }
+            }
         }
+        if (std::isnan(dcp) || std::isinf(dcp) || dcp < 0 || dcp > 0x10FFFF
+            || dcp != std::trunc(dcp)) {
+            signalNativeException(makeNativeError(ctx, "RangeError",
+                "Invalid code point"));
+            return PROTO_NONE;
+        }
+        uint32_t cp = static_cast<uint32_t>(dcp);
         std::vector<uint16_t> tmp;
         if (cp < 0x10000) {
             tmp.push_back(static_cast<uint16_t>(cp));
