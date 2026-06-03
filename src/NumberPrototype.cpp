@@ -279,27 +279,46 @@ const proto::ProtoObject* numberToExponential(
     if (!requireNumberThis(context, self)) return PROTO_NONE;
     double value = getNumberValue(context, self);
 
-    // Step 7 spec: NaN -> "NaN", ±Infinity -> "Infinity" / "-Infinity"
-    // ahead of any fractionDigits handling. glibc's %e formats these as
-    // "nan" / "inf" — spec-incompliant tokens.
-    if (std::isnan(value)) return context->fromUTF8String("NaN");
-    if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
-
+    // ECMA-262 §21.1.3.2 specifies step ordering:
+    //   1. Let x be ? thisNumberValue(this value).
+    //   2. Let f be ? ToInteger(fractionDigits).
+    //   3. If x is NaN, return "NaN".
+    //   4. If x < 0, …
+    //   5. If x is +∞ or -∞, return "Infinity" / "-Infinity".
+    // ToInteger(fractionDigits) runs before any of the NaN / ±Infinity
+    // shortcuts.  Pre-fix the NaN / Inf checks were hoisted above the
+    // f conversion so user-visible side effects of
+    // `fractionDigits.valueOf()` and `fractionDigits.toString()` were
+    // silently swallowed when `this` was NaN or ±Infinity.
     bool fdUndefined = true;
     int fractionDigits = -1;
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
         if (fdObj && fdObj != PROTO_NONE) {
             fdUndefined = false;
-            if (fdObj->isInteger(context)) {
-                fractionDigits = static_cast<int>(fdObj->asLong(context));
-            } else if (fdObj->isDouble(context)) {
-                double d = fdObj->asDouble(context);
-                // ToInteger: truncate toward zero (NaN → 0).
-                fractionDigits = std::isnan(d) ? 0 : static_cast<int>(d);
+            const proto::ProtoObject* numObj = fdObj;
+            if (!fdObj->isInteger(context) && !fdObj->isDouble(context)
+                && !fdObj->isFloat(context)) {
+                numObj = jsToNumber(context, fdObj);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (numObj && numObj != PROTO_NONE) {
+                if (numObj->isInteger(context)) {
+                    fractionDigits = static_cast<int>(numObj->asLong(context));
+                } else if (numObj->isDouble(context) || numObj->isFloat(context)) {
+                    double d = numObj->asDouble(context);
+                    // ToInteger: truncate toward zero (NaN → 0).
+                    if (std::isnan(d)) fractionDigits = 0;
+                    else if (std::isinf(d)) fractionDigits = (d > 0) ? 101 : 0;
+                    else fractionDigits = static_cast<int>(d);
+                }
             }
         }
     }
+    // Step 3 spec: NaN -> "NaN" AFTER f has been computed.
+    if (std::isnan(value)) return context->fromUTF8String("NaN");
+    // glibc's %e formats ±Infinity as "inf" — spec-incompliant tokens.
+    if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
     // Spec §21.1.3.2 step 11: fractionDigits must be in [0, 100].
     if (!fdUndefined && (fractionDigits < 0 || fractionDigits > 100)) {
         signalNativeException(makeNativeError(context, "RangeError",
