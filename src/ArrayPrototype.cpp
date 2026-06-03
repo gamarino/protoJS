@@ -822,15 +822,22 @@ static const proto::ProtoObject* arrayPush(
         return ctx->fromInteger(static_cast<long long>(list->getSize(ctx)));
     }
 
-    // Plain object used as an array-like — keep legacy semantics (write
-    // string-keyed indices and bump `length` once).  This path is rare;
-    // it only fires for `Array.prototype.push.call(plainObj, ...)`.
+    // Plain object used as an array-like — write string-keyed indices
+    // and bump `length` once at the end. Pre-fix arrSet only updated
+    // length on real arrays, so Array.prototype.push.call(plainObj, …)
+    // wrote the new indices but left plainObj.length stale.
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < argc; i++) {
         const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
         arrSet(ctx, self, len + i, item);
     }
-    return ctx->fromInteger(static_cast<long long>(len + argc));
+    unsigned long newLen = len + argc;
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (lenKey) {
+        self->setAttribute(ctx, lenKey,
+            ctx->fromInteger(static_cast<long long>(newLen)));
+    }
+    return ctx->fromInteger(static_cast<long long>(newLen));
 }
 
 // Helper: detect "real array" with native ProtoList storage in one shot.
