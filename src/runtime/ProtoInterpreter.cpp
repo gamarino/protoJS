@@ -948,10 +948,37 @@ static const proto::ProtoObject* reflectDeleteProperty(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
-    // protoCore doesn't expose a public deleteAttribute, but our delete
-    // operator's semantics are equivalent to "set to PROTO_NONE" plus a
-    // descriptor mutation. For the simple data-property case this is
-    // sufficient for instanceof / for-in to skip the slot.
+    // §10.1.10 step 5: own non-configurable data / accessor descriptor
+    // cannot be deleted — return false. Frozen and sealed objects
+    // install behaviour markers (FrozenBehavior / NonExtensibleBehavior)
+    // that block descriptor mutation; reject delete when either parent
+    // is on the chain. Pre-fix Reflect.deleteProperty cleared the slot
+    // even on a frozen receiver and returned true.
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (wrapper) {
+        const proto::ProtoObject* frozenM = wrapper->getFrozenMarker();
+        const proto::ProtoObject* sealedM = wrapper->getSealedMarker();
+        if ((frozenM && target->hasParent(ctx, frozenM)) ||
+            (sealedM && target->hasParent(ctx, sealedM))) {
+            return PROTO_FALSE;
+        }
+    }
+    {
+        std::string kstr;
+        k->toUTF8String(ctx, kstr);
+        if (target->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+            std::string pdStr = "__pd_" + kstr + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) {
+                const proto::ProtoObject* pdv = target->getAttribute(ctx, pdk, false);
+                if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
+                    if (!(bits & 0x2)) return PROTO_FALSE;
+                }
+            }
+        }
+    }
     target->setAttribute(ctx, k, PROTO_NONE);
     return PROTO_TRUE;
 }
