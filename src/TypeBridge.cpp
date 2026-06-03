@@ -6,6 +6,7 @@
 #include "ProtoArgumentsAdapter.h"
 #include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -43,8 +44,13 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     if (JS_IsNumber(val)) {
         double d;
         JS_ToFloat64(ctx, &d, val);
-        // Integers use ProtoInteger (SmallInteger or LargeInteger via fromInteger/fromLong).
-        // Non-integer numbers use ProtoDouble (context->fromDouble).
+        // Preserve negative zero — collapsing -0.0 to (long long)0 and
+        // then fromInteger destroys the sign, so JSON.parse('-0') was
+        // returning +0. The signbit test catches -0 specifically; all
+        // other integer doubles go through the SmallInteger fast path.
+        if (d == 0.0 && std::signbit(d)) {
+            return pContext->fromDouble(d);
+        }
         if (d == (long long)d) {
             return pContext->fromInteger((long long)d);
         }
