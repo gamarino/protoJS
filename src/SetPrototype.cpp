@@ -905,20 +905,39 @@ static bool getSetRecord(proto::ProtoContext* ctx,
         signalNativeException(makeNativeError(ctx, "RangeError", msg.c_str()));
         return false;
     }
-    const proto::ProtoObject* hasKo = ctx->fromUTF8String("has");
-    const proto::ProtoString* hasKs = hasKo ? hasKo->asString(ctx) : nullptr;
-    const proto::ProtoObject* hasV = hasKs
-        ? obj->getAttribute(ctx, hasKs, true) : PROTO_NONE;
+    // Resolve .has — accessor descriptors install the getter at
+    // __get_has__ with the undefined sentinel as the data placeholder.
+    // Pre-fix the validator only consulted the data slot and rejected
+    // any class-style Set-like whose .has is a getter.
+    auto resolveAttr = [&](const char* key) -> const proto::ProtoObject* {
+        const proto::ProtoObject* ko = ctx->fromUTF8String(key);
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) return PROTO_NONE;
+        const proto::ProtoObject* v = obj->getAttribute(ctx, ks, true);
+        if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+            std::string gkStr = std::string("__get_") + key + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    v = callJSFunction(ctx, getter, obj, ctx->newList());
+                    if (hasCallException()) return nullptr;
+                }
+            }
+        }
+        return v ? v : PROTO_NONE;
+    };
+    const proto::ProtoObject* hasV = resolveAttr("has");
+    if (!hasV) return false;  // abrupt completion
     if (!isCallableValue(ctx, hasV)) {
         std::string msg = std::string("Set.prototype.") + methodName +
             ": .has is not callable";
         signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
         return false;
     }
-    const proto::ProtoObject* keysKo = ctx->fromUTF8String("keys");
-    const proto::ProtoString* keysKs = keysKo ? keysKo->asString(ctx) : nullptr;
-    const proto::ProtoObject* keysV = keysKs
-        ? obj->getAttribute(ctx, keysKs, true) : PROTO_NONE;
+    const proto::ProtoObject* keysV = resolveAttr("keys");
+    if (!keysV) return false;
     if (!isCallableValue(ctx, keysV)) {
         std::string msg = std::string("Set.prototype.") + methodName +
             ": .keys is not callable";
