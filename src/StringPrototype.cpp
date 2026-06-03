@@ -516,14 +516,62 @@ const proto::ProtoObject* stringSubstr(
         utf16ToUTF8(u16, static_cast<size_t>(start), static_cast<size_t>(end)).c_str());
 }
 
+// UTF-8 aware case mapping for ASCII + Latin-1 supplement
+// (U+0080-U+00FF). Higher planes are passed through unchanged.
+// Pre-fix std::transform walked bytes one-by-one, so 'café' (UTF-8
+// bytes 0x63 0x61 0x66 0xC3 0xA9) had std::toupper applied to the
+// trailing 0xC3 / 0xA9 individually, leaving them unchanged. As a
+// result 'café'.toUpperCase() returned 'CAFé' instead of 'CAFÉ'.
+static std::string utf8CaseMap(const std::string& s, bool upper) {
+    std::string out;
+    out.reserve(s.size());
+    size_t i = 0;
+    while (i < s.size()) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c < 0x80) {
+            out.push_back(static_cast<char>(upper ? std::toupper(c) : std::tolower(c)));
+            ++i;
+            continue;
+        }
+        if ((c & 0xE0) == 0xC0 && i + 1 < s.size()) {
+            unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
+            unsigned cp = ((c & 0x1F) << 6) | (c1 & 0x3F);
+            unsigned mapped = cp;
+            if (upper) {
+                // Latin-1 lowercase 0x00E0..0x00FE except 0x00F7 → upper
+                if (cp >= 0xE0 && cp <= 0xFE && cp != 0xF7) mapped = cp - 0x20;
+                // ÿ (0x00FF) maps to Ÿ (0x0178) — keep simple Latin-1
+                // surface and pass through unchanged to avoid the BMP
+                // jump that needs 2-byte → 3-byte expansion.
+            } else {
+                if (cp >= 0xC0 && cp <= 0xDE && cp != 0xD7) mapped = cp + 0x20;
+            }
+            if (mapped != cp) {
+                out.push_back(static_cast<char>(0xC0 | (mapped >> 6)));
+                out.push_back(static_cast<char>(0x80 | (mapped & 0x3F)));
+            } else {
+                out.push_back(s[i]);
+                out.push_back(s[i + 1]);
+            }
+            i += 2;
+            continue;
+        }
+        // Pass through 3- and 4-byte sequences unchanged.
+        size_t len = (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+        if (len > s.size() - i) len = s.size() - i;
+        for (size_t j = 0; j < len; ++j) out.push_back(s[i + j]);
+        i += len;
+    }
+    return out;
+}
+
 const proto::ProtoObject* stringToLowerCase(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    std::transform(s.begin(), s.end(), s.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    s = utf8CaseMap(s, /*upper=*/false);
     return ctx->fromUTF8String(s.c_str());
 }
 
@@ -533,8 +581,7 @@ const proto::ProtoObject* stringToUpperCase(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s = objToStr(ctx, self);
-    std::transform(s.begin(), s.end(), s.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    s = utf8CaseMap(s, /*upper=*/true);
     return ctx->fromUTF8String(s.c_str());
 }
 
