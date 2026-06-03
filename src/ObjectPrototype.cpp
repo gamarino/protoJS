@@ -1316,8 +1316,80 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     }
 
     // 2. Data property.
-    if (target->hasOwnAttribute(ctx, k) != PROTO_TRUE) return PROTO_NONE; // not found
-    const proto::ProtoObject* val = target->getAttribute(ctx, k, false);
+    const proto::ProtoObject* val = nullptr;
+    bool found = (target->hasOwnAttribute(ctx, k) == PROTO_TRUE);
+    if (found) {
+        val = target->getAttribute(ctx, k, false);
+    } else {
+        // Array index stored in __elements__ — not an own attribute,
+        // but spec-wise it IS an own property of the Array exotic
+        // object. Pre-fix Object.getOwnPropertyDescriptor(arr, "0")
+        // returned undefined for index 0 of a non-empty array because
+        // the value lives in the native ProtoList storage, not in the
+        // sparse-list attribute map. Similar for String-wrapper char
+        // indices ("0"..."n-1").
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        bool isArr = isArrKey
+            && (target->getAttribute(ctx, isArrKey, false) == PROTO_TRUE);
+        if (isArr) {
+            // Parse k as a uint32 index. Per spec only "canonical
+            // numeric indices" qualify — leading zero / signs / dots
+            // do NOT match.
+            bool numeric = !kstr.empty();
+            for (char c : kstr) { if (c < '0' || c > '9') { numeric = false; break; } }
+            if (numeric && (kstr.size() == 1 || kstr[0] != '0')) {
+                try {
+                    unsigned long idx = std::stoul(kstr);
+                    const proto::ProtoObject* v =
+                        arrayTryFastGet(ctx, target, idx);
+                    if (v && v != PROTO_NONE) { val = v; found = true; }
+                } catch (...) {}
+            }
+        }
+        if (!found) {
+            // String wrapper char-index lookup.
+            const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+            if (pvKey) {
+                const proto::ProtoObject* pv = target->getAttribute(ctx, pvKey, false);
+                if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                    bool numeric = !kstr.empty();
+                    for (char c : kstr) { if (c < '0' || c > '9') { numeric = false; break; } }
+                    if (numeric && (kstr.size() == 1 || kstr[0] != '0')) {
+                        try {
+                            unsigned long idx = std::stoul(kstr);
+                            const proto::ProtoString* ps = pv->asString(ctx);
+                            if (ps) {
+                                std::string s;
+                                ps->toUTF8String(ctx, s);
+                                // Walk UTF-16 code units.
+                                size_t i = 0;
+                                unsigned long pos = 0;
+                                while (i < s.size() && pos < idx) {
+                                    unsigned char c = static_cast<unsigned char>(s[i]);
+                                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                                    if (i + cl > s.size()) break;
+                                    i += cl;
+                                    pos += (cl == 4) ? 2 : 1;
+                                }
+                                if (pos == idx && i < s.size()) {
+                                    unsigned char c = static_cast<unsigned char>(s[i]);
+                                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                                    if (i + cl <= s.size()) {
+                                        val = ctx->fromUTF8String(s.substr(i, cl).c_str());
+                                        found = true;
+                                        // String index slots are non-writable, non-configurable, enumerable per §22.1.3.
+                                        // Override bits explicitly.
+                                        if (!hasPd) bitsObj = ctx->fromInteger(0x4LL);
+                                    }
+                                }
+                            }
+                        } catch (...) {}
+                    }
+                }
+            }
+        }
+    }
+    if (!found) return PROTO_NONE;
 
     const proto::ProtoObject* res = newDescriptor();
     setAttr(res, "value", val);
