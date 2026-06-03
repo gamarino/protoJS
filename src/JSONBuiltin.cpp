@@ -146,8 +146,38 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     // Circular check
     for (const auto* seen : stack) {
         if (seen == obj) {
-            out += "null"; 
+            out += "null";
             return;
+        }
+    }
+
+    // ECMA-262 §25.5.2 step 3 (SerializeJSONProperty): if the value
+    // has a callable toJSON method, replace the value with its result
+    // before further serialisation. Skips arrays whose toJSON would
+    // recurse on themselves; primitive-only check above already
+    // handled.
+    {
+        const proto::ProtoObject* tjsObj = ctx->fromUTF8String("toJSON");
+        const proto::ProtoString* tjsKey = tjsObj ? tjsObj->asString(ctx) : nullptr;
+        if (tjsKey) {
+            const proto::ProtoObject* tjsFn = obj->getAttribute(ctx, tjsKey, true);
+            if (tjsFn && tjsFn != PROTO_NONE) {
+                bool callable = tjsFn->isMethod(ctx);
+                if (!callable) {
+                    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                    if (bcKey && tjsFn->getAttribute(ctx, bcKey, false) != PROTO_NONE) callable = true;
+                    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                    if (!callable && nfKey && tjsFn->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
+                }
+                if (callable) {
+                    const proto::ProtoObject* replaced =
+                        callJSFunction(ctx, tjsFn, obj, ctx->newList());
+                    if (replaced != obj) {
+                        stringifyRecursive(ctx, replaced, out, arrayPrototype, stack, rs, indentUnit, currentIndent);
+                        return;
+                    }
+                }
+            }
         }
     }
     stack.push_back(obj);
