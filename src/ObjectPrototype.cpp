@@ -384,17 +384,32 @@ static const proto::ProtoObject* objectCreate(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) == 0) return ctx->newObject(true);
+    // ECMA-262 §20.1.2.2 step 1: if O is neither Object nor null,
+    // throw TypeError. Pre-fix the no-args call returned a plain
+    // empty object (spec: TypeError because undefined is neither),
+    // and primitives (1 / "x" / true) silently routed through
+    // newChild, producing degenerate objects.
+    const proto::ProtoObject* protoArg = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* nullSent = getNullSentinel();
+    if (!protoArg || protoArg == PROTO_NONE
+        || protoArg == getUndefinedSentinel()
+        || protoArg->isInteger(ctx) || protoArg->isDouble(ctx)
+        || protoArg->isFloat(ctx)   || protoArg->isBoolean(ctx)
+        || protoArg->isString(ctx)) {
+        // The null sentinel is the only "primitive" accepted.
+        if (protoArg != nullSent) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object prototype may only be an Object or null"));
+            return PROTO_NONE;
+        }
+    }
 
-    const proto::ProtoObject* protoArg = args->getAt(ctx, 0);
     const proto::ProtoObject* result;
-
-    if (!protoArg || protoArg == PROTO_NONE || protoArg == getNullSentinel()) {
+    if (protoArg == nullSent) {
         // Object.create(null) → plain object with no prototype.
         // Record the override in t_jsProtoMap so Object.getPrototypeOf
         // returns null (not the protoCore-default Object.prototype).
-        // The actual newObject still has a C++ parent chain, but the
-        // override takes precedence in getPrototypeOf and instanceof.
         result = ctx->newObject(true);
         if (result) t_jsProtoMap[result] = getNullSentinel();
     } else {
