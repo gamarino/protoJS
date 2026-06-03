@@ -444,13 +444,102 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         const proto::ProtoObject* replacer = args->getAt(ctx, 1);
         if (replacer && replacer != PROTO_NONE
             && replacer != getUndefinedSentinel() && replacer != getNullSentinel()) {
+            // Replacer-array detection: arrays carry __is_array__ marker.
+            // Some real arrays don't (yet) have a __elements__ ProtoList
+            // — e.g. \`new Array(3)\` stores its slots as indexed
+            // attribute keys plus an explicit length, NOT in
+            // __elements__. Pre-fix the replacer scan only handled the
+            // ProtoList form, so a length-only sparse replacer fell
+            // through and disabled the filter, leaking every key of the
+            // value object into the output.
+            const proto::ProtoString* isArrKs = JSSymbols::isArray(ctx);
+            bool isArr = isArrKs &&
+                replacer->getAttribute(ctx, isArrKs, false) == PROTO_TRUE;
+            if (isArr) {
+                hasFilter = true;
+                long len = 0;
+                const proto::ProtoString* lenK = JSSymbols::length(ctx);
+                if (lenK) {
+                    const proto::ProtoObject* lv = replacer->getAttribute(ctx, lenK, false);
+                    if (lv && lv != PROTO_NONE && lv->isInteger(ctx))
+                        len = lv->asLong(ctx);
+                }
+                const proto::ProtoList* els = getArrayElements(ctx, replacer);
+                long elsSize = els ? static_cast<long>(els->getSize(ctx)) : 0;
+                auto fetch = [&](long i) -> const proto::ProtoObject* {
+                    if (els && i < elsSize) {
+                        return els->getAt(ctx, static_cast<int>(i));
+                    }
+                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                    if (!ik) return PROTO_NONE;
+                    const proto::ProtoObject* v = replacer->getAttribute(ctx, ik, false);
+                    return v ? v : PROTO_NONE;
+                };
+                for (long i = 0; i < len; ++i) {
+                    const proto::ProtoObject* e = fetch(i);
+                    if (!e || e == PROTO_NONE || e == getUndefinedSentinel()
+                        || e == getNullSentinel() || e == PROTO_TRUE || e == PROTO_FALSE
+                        || (e->isBoolean(ctx))) continue;
+                    if (e->isString(ctx)) {
+                        std::string s;
+                        e->asString(ctx)->toUTF8String(ctx, s);
+                        keyFilter.push_back(std::move(s));
+                    } else if (e->isInteger(ctx)) {
+                        keyFilter.push_back(std::to_string(e->asLong(ctx)));
+                    } else if (e->isDouble(ctx) || e->isFloat(ctx)) {
+                        double d = e->asDouble(ctx);
+                        if (std::isnan(d)) keyFilter.push_back("NaN");
+                        else if (std::isinf(d)) keyFilter.push_back(d > 0 ? "Infinity" : "-Infinity");
+                        else if (d == 0.0) keyFilter.push_back("0");
+                        else {
+                            char buf[64];
+                            snprintf(buf, sizeof(buf), "%.15g", d);
+                            std::string s = buf;
+                            size_t ePos = s.find('e');
+                            if (ePos != std::string::npos && ePos + 1 < s.size()) {
+                                size_t sp = (s[ePos+1] == '+' || s[ePos+1] == '-')
+                                    ? ePos + 2 : ePos + 1;
+                                while (sp < s.size() - 1 && s[sp] == '0') s.erase(sp, 1);
+                            }
+                            keyFilter.push_back(std::move(s));
+                        }
+                    } else {
+                        const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+                        const proto::ProtoObject* pv = pvK
+                            ? e->getAttribute(ctx, pvK, false) : nullptr;
+                        if (!pv || pv == PROTO_NONE) continue;
+                        bool wrap = pv->isString(ctx) || pv->isInteger(ctx)
+                                    || pv->isDouble(ctx) || pv->isFloat(ctx);
+                        if (!wrap) continue;
+                        const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+                        const proto::ProtoObject* tsFn = tsK
+                            ? e->getAttribute(ctx, tsK, true) : nullptr;
+                        if (tsFn && tsFn != PROTO_NONE) {
+                            const proto::ProtoObject* r =
+                                callJSFunction(ctx, tsFn, e, ctx->newList());
+                            if (r && r != PROTO_NONE && r->isString(ctx)) {
+                                std::string s;
+                                r->asString(ctx)->toUTF8String(ctx, s);
+                                keyFilter.push_back(std::move(s));
+                            }
+                        }
+                    }
+                }
+            } else
             // Try array form: read its __elements__ list.
             if (const proto::ProtoList* els = getArrayElements(ctx, replacer)) {
                 hasFilter = true;
                 size_t sz = els->getSize(ctx);
                 for (size_t i = 0; i < sz; ++i) {
                     const proto::ProtoObject* e = els->getAt(ctx, static_cast<int>(i));
-                    if (!e || e == PROTO_NONE) continue;
+                    // §25.5.2 step 4.b.f: undefined entries (including
+                    // sparse-array holes that materialise as undefined),
+                    // null, booleans, and Symbols are silently ignored.
+                    // Only String / Number / String-wrapper / Number-wrapper
+                    // produce property-key entries.
+                    if (!e || e == PROTO_NONE || e == getUndefinedSentinel()
+                        || e == getNullSentinel() || e == PROTO_TRUE || e == PROTO_FALSE
+                        || (e->isBoolean(ctx) && !e->isString(ctx))) continue;
                     if (e->isString(ctx)) {
                         std::string s;
                         e->asString(ctx)->toUTF8String(ctx, s);
@@ -462,11 +551,20 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                                && !e->isBoolean(ctx)) {
                         // §25.5.2 step 4.b.e.i: Number-wrapper / String-
                         // wrapper objects in the replacer array are
-                        // ToString-coerced via their .toString method,
-                        // so a `new Number(10).toString = function(){return 'k'}`
-                        // entry resolves the allow-list to 'k', not '10'.
-                        // Pre-fix only primitives were honoured, so any
-                        // wrapper entry silently dropped from the filter.
+                        // ToString-coerced via their .toString method.
+                        // Other Object types (plain {}, undefined / null
+                        // sentinels with surprising parent chains, etc.)
+                        // are silently ignored. Restrict the toString
+                        // invocation to entries that actually carry a
+                        // __primitive_value__ — that's our wrapper marker.
+                        const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+                        const proto::ProtoObject* pv = pvK
+                            ? e->getAttribute(ctx, pvK, false) : nullptr;
+                        if (!pv || pv == PROTO_NONE) continue;
+                        bool isNumOrStrWrapper =
+                            pv->isString(ctx) || pv->isInteger(ctx)
+                            || pv->isDouble(ctx) || pv->isFloat(ctx);
+                        if (!isNumOrStrWrapper) continue;
                         const proto::ProtoString* tsK = JSSymbols::toString(ctx);
                         const proto::ProtoObject* tsFn = tsK
                             ? e->getAttribute(ctx, tsK, true) : nullptr;
