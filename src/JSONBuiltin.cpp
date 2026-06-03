@@ -218,6 +218,36 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     || prim->isDouble(ctx) || prim->isFloat(ctx)
                     || prim->isBoolean(ctx)
                     || prim == PROTO_TRUE || prim == PROTO_FALSE)) {
+                // §25.5.2.2 step 4.a: Number wrapper → ToNumber(value),
+                // which invokes valueOf; §25.5.2.2 step 4.b: String
+                // wrapper → ToString, invoking toString. Pre-fix the
+                // wrapper's static __primitive_value__ snapshot was used
+                // directly, so `new Number(42)` with an overridden
+                // valueOf() (returning 2) still serialised as 42.
+                if (prim->isString(ctx)) {
+                    const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+                    const proto::ProtoObject* fn = tsK
+                        ? obj->getAttribute(ctx, tsK, true) : nullptr;
+                    if (fn && fn != PROTO_NONE) {
+                        const proto::ProtoObject* r =
+                            callJSFunction(ctx, fn, obj, ctx->newList());
+                        if (hasCallException()) return;
+                        if (r && r != PROTO_NONE && r->isString(ctx)) prim = r;
+                    }
+                } else {
+                    const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
+                    const proto::ProtoObject* fn = voK
+                        ? obj->getAttribute(ctx, voK, true) : nullptr;
+                    if (fn && fn != PROTO_NONE) {
+                        const proto::ProtoObject* r =
+                            callJSFunction(ctx, fn, obj, ctx->newList());
+                        if (hasCallException()) return;
+                        if (r && r != PROTO_NONE
+                            && (r->isInteger(ctx) || r->isDouble(ctx)
+                                || r->isFloat(ctx) || r->isBoolean(ctx)
+                                || r == PROTO_TRUE || r == PROTO_FALSE)) prim = r;
+                    }
+                }
                 stringifyRecursive(ctx, prim, out, arrayPrototype, stack, rs, indentUnit, currentIndent);
                 return;
             }
