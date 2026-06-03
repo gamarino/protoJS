@@ -2074,6 +2074,33 @@ static const proto::ProtoObject* objectToString(
         }
     }
 
+    // ECMA-262 §22.1.3.7 Object.prototype.toString: when O has an
+    // internal-slot match the spec dispatches by slot before the
+    // generic [[Class]] / Symbol.toStringTag walk.  Boolean / Number
+    // / String prototypes (and any wrapper produced by `new Boolean(x)`
+    // / `new Number(x)` / `new String(x)`) carry their primitive
+    // value in the protoJS `__primitive_value__` sidecar.  Pre-fix
+    // we only inspected the primitive types of `self` itself and
+    // fell through to "[object Object]" for the prototypes — so
+    // after `delete Boolean.prototype.toString` the call to
+    // `Boolean.prototype.toString()` (which resolves to
+    // Object.prototype.toString) returned "[object Object]"
+    // instead of the spec-required "[object Boolean]".
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = self->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE) {
+                if (pv->isBoolean(ctx))
+                    return ctx->fromUTF8String("[object Boolean]");
+                if (pv->isInteger(ctx) || pv->isDouble(ctx) || pv->isFloat(ctx))
+                    return ctx->fromUTF8String("[object Number]");
+                if (pv->isString(ctx))
+                    return ctx->fromUTF8String("[object String]");
+            }
+        }
+    }
+
     // Symbol.toStringTag lookup: check both the internal sidecar key "__toStringTag__"
     // (used by built-in class prototypes) and the WKS string key "Symbol.toStringTag"
     // (used by user code writing `obj[Symbol.toStringTag] = 'tag'`, because
