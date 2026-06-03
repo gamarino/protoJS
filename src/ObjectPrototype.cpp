@@ -1454,10 +1454,16 @@ static const proto::ProtoObject* objectHasOwn(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) < 2) return PROTO_FALSE;
-    const proto::ProtoObject* obj = args->getAt(ctx, 0);
-    const proto::ProtoObject* key = args->getAt(ctx, 1);
-    if (!obj || obj == PROTO_NONE || !key || key == PROTO_NONE) return PROTO_FALSE;
+    // ECMA-262 §20.1.2.13 step 1: ToObject(target). null / undefined
+    // throw TypeError. Pre-fix the implementation returned false
+    // silently for any non-object first arg.
+    const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (throwIfNullOrUndefined(ctx, obj, "Object.hasOwn"))
+        return PROTO_NONE;
+    const proto::ProtoObject* key = (args && args->getSize(ctx) > 1)
+        ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (!key || key == PROTO_NONE) return PROTO_FALSE;
 
     std::string keyStr;
     if (key->isString(ctx)) {
