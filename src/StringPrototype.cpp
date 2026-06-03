@@ -94,6 +94,9 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
     return "[object Object]";
 }
 
+// Forward declaration — defined further below.
+static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj);
+
 /** Extract a numeric argument.  NaN → 0; ±Infinity → LLONG extremes. */
 static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* args,
                             unsigned idx, long long defaultVal) {
@@ -715,6 +718,15 @@ const proto::ProtoObject* stringStartsWith(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    // Spec §22.1.3.22 step 3: if searchString is a RegExp, throw
+    // TypeError. The regex must be rejected before ToString coerces
+    // it into "/pattern/" — silent acceptance breaks the rule that
+    // .startsWith/.endsWith/.includes do not interpret regex syntax.
+    if (args && args->getSize(ctx) > 0 && isRegExp(ctx, args->getAt(ctx, 0))) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "First argument to String.prototype.startsWith must not be a regular expression"));
+        return PROTO_NONE;
+    }
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -733,6 +745,11 @@ const proto::ProtoObject* stringEndsWith(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    if (args && args->getSize(ctx) > 0 && isRegExp(ctx, args->getAt(ctx, 0))) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "First argument to String.prototype.endsWith must not be a regular expression"));
+        return PROTO_NONE;
+    }
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -758,6 +775,11 @@ const proto::ProtoObject* stringIncludes(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    if (args && args->getSize(ctx) > 0 && isRegExp(ctx, args->getAt(ctx, 0))) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "First argument to String.prototype.includes must not be a regular expression"));
+        return PROTO_NONE;
+    }
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -913,9 +935,7 @@ static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
     if (!matchKey) return false;
     const proto::ProtoObject* m = obj->getAttribute(ctx, matchKey, true);
-    bool result = m && m != PROTO_NONE;
-    if (result) std::cerr << "[String] isRegExp: YES" << std::endl;
-    return result;
+    return m && m != PROTO_NONE;
 }
 
 const proto::ProtoObject* stringMatch(
