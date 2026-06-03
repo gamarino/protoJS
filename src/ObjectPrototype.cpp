@@ -356,7 +356,27 @@ static const proto::ProtoObject* objectAssign(
                     if ((bits & 0x4) == 0) continue; // not enumerable — skip
                 }
             }
-            target = target->setAttribute(ctx, propKey, val ? val : PROTO_NONE);
+            // Spec §20.1.2.1 step 4.c.ii.2: Get(from, key) — must invoke
+            // the getter when the property is an accessor. The iterator
+            // yields the data slot only (typically PROTO_NONE for
+            // accessor entries), so probe the __get_<key>__ sidecar and
+            // call it on src. Pre-fix accessor properties were copied as
+            // undefined.
+            std::string gkStr = std::string("__get_") + keyStr + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoObject* effective = val;
+            if (gk) {
+                const proto::ProtoObject* getter = src->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE
+                    && getter != getUndefinedSentinel()) {
+                    const proto::ProtoList* emptyArgs = ctx->newList();
+                    effective = callJSFunction(ctx, getter, src, emptyArgs);
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+            target = target->setAttribute(ctx, propKey,
+                effective ? effective : PROTO_NONE);
         }
     }
     return target;

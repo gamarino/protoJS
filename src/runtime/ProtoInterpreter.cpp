@@ -6337,13 +6337,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // lookup sees the accessor, not a stale value).
                             const proto::ProtoObject* tmp = obj3->setAttribute(pContext, key3, PROTO_NONE);
                             const proto::ProtoObject* newObj3 = tmp->setAttribute(pContext, skp, methodVal ? methodVal : PROTO_NONE);
-                            // Accessor descriptor: bits 0x2 (configurable only,
-                            // not enumerable, writable n/a).
+                            // Accessor descriptor per ECMA-262 §6.2.5
+                            // PropertyDefinitionEvaluation for getter /
+                            // setter in object literals: {enumerable:true,
+                            // configurable:true} → bits 0x6 (bit 1
+                            // configurable + bit 2 enumerable). Class
+                            // bodies want enumerable:false (bits 0x2) —
+                            // QuickJS sets a high bit on op_flags to flag
+                            // the class context. Bit 5 (METHOD_IS_CLASS)
+                            // is the conventional QuickJS marker. When
+                            // present, fall back to 0x2; otherwise use
+                            // the object-literal enumerable form.
                             if (newObj3) {
                                 std::string pdName2 = "__pd_" + nameStr + "__";
                                 const proto::ProtoObject* pdo2 = pContext->fromUTF8String(pdName2.c_str());
                                 const proto::ProtoString* pdk2 = pdo2 ? pdo2->asString(pContext) : nullptr;
-                                if (pdk2) newObj3 = newObj3->setAttribute(pContext, pdk2, pContext->fromInteger(0x2LL));
+                                long long pdBits = (op_flags & 0x10) ? 0x2LL : 0x6LL;
+                                if (pdk2) newObj3 = newObj3->setAttribute(pContext, pdk2, pContext->fromInteger(pdBits));
                             }
                             stackPop(pContext);
                             stackPush(pContext, newObj3 ? newObj3 : obj3);
