@@ -192,6 +192,28 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             }
         }
     }
+    // Spec §25.5.2.2 SerializeJSONProperty step 4: unbox Number /
+    // String / Boolean wrapper objects to their primitive value
+    // before falling through to the primitive serialisation arms.
+    // Pre-fix `JSON.stringify(new Number(5))` produced '{}' because
+    // the wrapper object was treated as a regular object with no own
+    // enumerable props.
+    {
+        const proto::ProtoObject* pvObj = ctx->fromUTF8String("__primitive_value__");
+        const proto::ProtoString* pvKey = pvObj ? pvObj->asString(ctx) : nullptr;
+        if (pvKey) {
+            const proto::ProtoObject* prim = obj->getAttribute(ctx, pvKey, false);
+            if (prim && prim != PROTO_NONE
+                && (prim->isString(ctx) || prim->isInteger(ctx)
+                    || prim->isDouble(ctx) || prim->isFloat(ctx)
+                    || prim->isBoolean(ctx)
+                    || prim == PROTO_TRUE || prim == PROTO_FALSE)) {
+                stringifyRecursive(ctx, prim, out, arrayPrototype, stack, rs, indentUnit, currentIndent);
+                return;
+            }
+        }
+    }
+
     stack.push_back(obj);
 
     // Array check: Fast path via prototype check
