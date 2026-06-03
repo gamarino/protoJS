@@ -535,7 +535,17 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
         : ctx->newObject(true);
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     if (isArrKey) arr = arr->setAttribute(ctx, isArrKey, PROTO_TRUE);
-    return arrSetLen(ctx, arr, 0);
+    arr = arrSetLen(ctx, arr, 0);
+    // ECMA-262 §22.1.5.1: Array's own .length descriptor is
+    // {writable:true, enumerable:false, configurable:false} — bits 0x1.
+    // Without the sidecar the default is fully enumerable+configurable,
+    // surfacing 'length' in for-in / Object.keys output and making
+    // delete arr.length succeed silently. Apply the sidecar once at
+    // creation so every fresh array honours the spec descriptor.
+    const proto::ProtoObject* pdLenObj = ctx->fromUTF8String("__pd_length__");
+    const proto::ProtoString* pdLen = pdLenObj ? pdLenObj->asString(ctx) : nullptr;
+    if (pdLen) arr = arr->setAttribute(ctx, pdLen, ctx->fromInteger(0x1LL));
+    return arr;
 }
 
 /**

@@ -9436,6 +9436,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 for (uint16_t i = 0; i < count; i++) stackPop(pContext);
                 if (list) protojs::setArrayElements(pContext, arr, list);
+                // ECMA-262 §22.1.5.1: Array.length descriptor is
+                // {writable:true, enumerable:false, configurable:false}
+                // (bits 0x1). OP_array_from is the hot path for array
+                // literals; without this sidecar 'length' enumerated in
+                // for-in and getOwnPropertyDescriptor reported enumerable
+                // true instead of false.
+                {
+                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                    if (pdk) arr = arr->setAttribute(pContext, pdk, pContext->fromInteger(0x1LL));
+                }
                 stackPush(pContext, arr ? arr : PROTO_NONE);
                 DISPATCH();
             }
