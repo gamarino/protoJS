@@ -6206,13 +6206,63 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         unsigned long attrRawKey = cdpIt->nextKey(pContext);
                         const proto::ProtoObject* attrVal = cdpIt->nextValue(pContext);
                         cdpIt = const_cast<proto::ProtoSparseListIterator*>(cdpIt)->advance(pContext);
-                        if (!attrVal || attrVal == PROTO_NONE) continue;
                         const proto::ProtoString* propKey =
                             reinterpret_cast<const proto::ProtoString*>(attrRawKey);
                         if (!propKey) continue;
-                        // Skip internal bookkeeping keys (__name__ pattern).
                         std::string cdpKstr;
                         propKey->toUTF8String(pContext, cdpKstr);
+                        // Accessor sidecar: __get_<name>__ produces the
+                        // logical property <name>. Invoke the getter and
+                        // emit <name>: result on the target. Pre-fix the
+                        // sidecar was skipped by the internal-key filter
+                        // and the original <name> key carried no data
+                        // value, so spread of an accessor source silently
+                        // emitted nothing.
+                        if (cdpKstr.size() > 7 &&
+                            cdpKstr.compare(0, 6, "__get_") == 0 &&
+                            cdpKstr.compare(cdpKstr.size() - 2, 2, "__") == 0) {
+                            std::string accName =
+                                cdpKstr.substr(6, cdpKstr.size() - 8);
+                            const proto::ProtoObject* nko =
+                                pContext->fromUTF8String(accName.c_str());
+                            const proto::ProtoString* nameKey =
+                                nko ? nko->asString(pContext) : nullptr;
+                            if (!nameKey || !attrVal || attrVal == PROTO_NONE)
+                                continue;
+                            // enumerable check on the logical property's
+                            // __pd_<name>__ descriptor.
+                            std::string pdName = "__pd_" + accName + "__";
+                            const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName.c_str());
+                            const proto::ProtoString* pdkA = pdo ? pdo->asString(pContext) : nullptr;
+                            if (pdkA) {
+                                const proto::ProtoObject* pdv =
+                                    cdpSource->getAttribute(pContext, pdkA, false);
+                                if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
+                                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
+                                    if (!(bits & 0x4)) continue;
+                                }
+                            }
+                            const proto::ProtoList* emptyArgs = pContext->newList();
+                            const proto::ProtoObject* getRes =
+                                callJSFunction(pContext, attrVal, cdpSource, emptyArgs);
+                            if (t_hasCallException) {
+                                pending_exception  = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException = false;
+                                t_callException    = nullptr;
+                                DISPATCH();
+                            }
+                            if (cdpHasExcl) {
+                                const proto::ProtoObject* exclCheck =
+                                    cdpExcl->getAttribute(pContext, nameKey, false);
+                                if (exclCheck && exclCheck != PROTO_NONE) continue;
+                            }
+                            cdpTarget = cdpTarget->setAttribute(pContext, nameKey,
+                                getRes ? getRes : PROTO_NONE);
+                            continue;
+                        }
+                        if (!attrVal || attrVal == PROTO_NONE) continue;
+                        // Skip internal bookkeeping keys (__name__ pattern).
                         if (cdpKstr.size() >= 4 && cdpKstr[0]=='_' && cdpKstr[1]=='_'
                             && cdpKstr[cdpKstr.size()-1]=='_' && cdpKstr[cdpKstr.size()-2]=='_') continue;
                         // Respect enumerable descriptor flag (bit 2 of __pd_<key>__).
@@ -6235,7 +6285,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 cdpExcl->getAttribute(pContext, propKey, false);
                             if (exclCheck && exclCheck != PROTO_NONE) continue;
                         }
-                        cdpTarget = cdpTarget->setAttribute(pContext, propKey, attrVal);
+                        // Spec §13.2.5.5: object spread reads each
+                        // source property via Get(from, key) — accessor
+                        // properties must invoke the getter. Probe the
+                        // __get_<key>__ sidecar and substitute the
+                        // return value before writing to the target.
+                        // Pre-fix accessor sources copied undefined.
+                        std::string gkStr = std::string("__get_") + cdpKstr + "__";
+                        const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
+                        const proto::ProtoString* gk = gko ? gko->asString(pContext) : nullptr;
+                        const proto::ProtoObject* effective = attrVal;
+                        if (gk) {
+                            const proto::ProtoObject* getter =
+                                cdpSource->getAttribute(pContext, gk, true);
+                            if (getter && getter != PROTO_NONE
+                                && getter != getUndefinedSentinel()) {
+                                const proto::ProtoList* emptyArgs = pContext->newList();
+                                effective = callJSFunction(pContext, getter, cdpSource, emptyArgs);
+                                if (t_hasCallException) {
+                                    pending_exception  = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException = false;
+                                    t_callException    = nullptr;
+                                    DISPATCH();
+                                }
+                            }
+                        }
+                        cdpTarget = cdpTarget->setAttribute(pContext, propKey,
+                            effective ? effective : PROTO_NONE);
                     }
                 }
 
