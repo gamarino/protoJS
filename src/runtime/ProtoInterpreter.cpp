@@ -4332,12 +4332,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_set_proto: {
                 // DEF(set_proto, 1, 2, 1, none)
                 // Stack [..., obj, proto] → [..., obj]
-                // Sets obj's [[Prototype]] to proto.  Minimal impl:
-                // just pop proto and leave obj on the stack (the
-                // structural prototype-chain change isn't trivially
-                // expressible on already-allocated protoCore cells).
+                //
+                // Emitted by QuickJS for object literals carrying
+                // __proto__ (e.g. `{ __proto__: p, y: 2 }` and
+                // `{ __proto__: null }`). Pre-fix this opcode popped
+                // proto and threw it away, so the literal kept its
+                // default Object.prototype parent — `q.__proto__ === p`
+                // was false and `q.x` (inherited from p) was undefined.
+                //
+                // Use the JS proto-override map so getPrototypeOf /
+                // attribute walks honour the requested chain without
+                // having to surgically remove the original parent.
+                // The default proto-chain walk (chainWalkParent at the
+                // top of this file) already consults getJSProtoOverride.
                 if (stackSize(pContext) >= 2) {
+                    const proto::ProtoObject* proto = stackTop(pContext);
                     stackPop(pContext);
+                    const proto::ProtoObject* obj = stackTop(pContext);
+                    if (obj && obj != PROTO_NONE) {
+                        // Per spec ToObject step: only Object or null
+                        // values are accepted; anything else (string,
+                        // number, boolean, undefined) is silently
+                        // ignored.
+                        if (proto == getNullSentinel()) {
+                            protojs::setJSProtoOverride(obj, getNullSentinel());
+                        } else if (proto && proto != PROTO_NONE
+                                   && proto != getUndefinedSentinel()
+                                   && !proto->isString(pContext)
+                                   && !proto->isInteger(pContext)
+                                   && !proto->isDouble(pContext)
+                                   && !proto->isFloat(pContext)
+                                   && !proto->isBoolean(pContext)) {
+                            protojs::setJSProtoOverride(obj, proto);
+                        }
+                    }
                 }
                 DISPATCH();
             }
