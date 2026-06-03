@@ -1351,6 +1351,16 @@ static const proto::ProtoObject* objectFromEntries(
     // null / undefined throw TypeError before any iteration begins.
     if (throwIfNullOrUndefined(ctx, iterable, "Object.fromEntries"))
         return PROTO_NONE;
+    // GetIterator(iterable) per step 3: primitives that don't carry
+    // @@iterator throw 'X is not iterable'. Pre-fix the iterator-first
+    // path silently fell through to the empty-result branch, so
+    // Object.fromEntries(1) returned {} instead of throwing.
+    if (iterable && (iterable->isInteger(ctx) || iterable->isDouble(ctx)
+                     || iterable->isFloat(ctx) || iterable->isBoolean(ctx))) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "is not iterable"));
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* result = ctx->newObject(true);
 
     // Iterable element read: prefer __elements__ first (real arrays
