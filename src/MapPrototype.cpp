@@ -669,9 +669,16 @@ static const proto::ProtoObject* mapGroupBy(
     long len = lenObj->asLong(ctx);
 
     for (long i = 0; i < len; i++) {
-        const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-        if (!ik) continue;
-        const proto::ProtoObject* elem = iterable->getAttribute(ctx, ik, true);
+        // Real arrays keep data in __elements__; legacy plain-objects
+        // use indexed string attributes. Probe both. Pre-fix the
+        // getAttribute-only path always failed on real arrays and
+        // groupBy collected three nulls per group.
+        const proto::ProtoObject* elem =
+            arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
+        if (!elem) {
+            const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+            elem = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
+        }
         if (!elem) elem = PROTO_NONE;
 
         // Call keyFn(element, index).
@@ -686,30 +693,34 @@ static const proto::ProtoObject* mapGroupBy(
         // Find or create the group array for this key.
         unsigned long foundIdx = 0;
         if (mapFind(ctx, result, groupKey, foundIdx)) {
-            // Append elem to existing array.
             const proto::ProtoSparseList* vl = getMapList(ctx, result, "__map_vals__");
             if (vl && vl->has(ctx, foundIdx)) {
                 const proto::ProtoObject* arr = vl->getAt(ctx, foundIdx);
                 if (arr && arr != PROTO_NONE) {
+                    // Append to __elements__ so Array.prototype.* sees
+                    // it (pre-fix used setAttribute(indexKey) which
+                    // bypassed __elements__).
+                    const proto::ProtoList* els = getArrayElements(ctx, arr);
+                    if (!els) els = ctx->newList();
+                    els = els->appendLast(ctx, elem);
+                    setArrayElements(ctx, arr, els);
                     const proto::ProtoString* lk = JSSymbols::length(ctx);
-                    const proto::ProtoObject* arrLen = lk ? arr->getAttribute(ctx, lk, false) : nullptr;
-                    long al = (arrLen && arrLen->isInteger(ctx)) ? arrLen->asLong(ctx) : 0L;
-                    const proto::ProtoString* newIdx = JSSymbols::indexKey(ctx, static_cast<uint32_t>(al));
-                    if (newIdx) arr = arr->setAttribute(ctx, newIdx, elem);
-                    if (lk) arr = arr->setAttribute(ctx, lk, ctx->fromInteger(al + 1));
+                    if (lk) arr = arr->setAttribute(ctx, lk,
+                        ctx->fromInteger(static_cast<long long>(els->getSize(ctx))));
                     setMapListInPlace(ctx, result, "__map_vals__",
                         vl->setAt(ctx, foundIdx, arr));
                 }
             }
         } else {
-            // Create new array [elem] and insert into result map.
+            // Create a real array [elem] (createNewArray ensures the
+            // proto chain / __is_array__ / length descriptor / etc.
+            // are all aligned with Array.prototype).
             const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
-            const proto::ProtoString* k0  = JSSymbols::indexKey(ctx, 0);
-            const proto::ProtoString* lk  = JSSymbols::length(ctx);
-            const proto::ProtoString* ia  = JSSymbols::isArray(ctx);
-            if (k0) arr = arr->setAttribute(ctx, k0, elem);
+            const proto::ProtoList* els = ctx->newList();
+            els = els->appendLast(ctx, elem);
+            setArrayElements(ctx, arr, els);
+            const proto::ProtoString* lk = JSSymbols::length(ctx);
             if (lk) arr = arr->setAttribute(ctx, lk, ctx->fromInteger(1LL));
-            if (ia) arr = arr->setAttribute(ctx, ia, ctx->fromInteger(1LL));
 
             const proto::ProtoSparseList* kl = getMapList(ctx, result, "__map_keys__");
             const proto::ProtoSparseList* vl = getMapList(ctx, result, "__map_vals__");
