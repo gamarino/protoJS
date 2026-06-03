@@ -388,11 +388,20 @@ void ensureMathObject(proto::ProtoContext* ctx,
     reg("tanh",   mathTanh,   1);
     reg("trunc",  mathTrunc,  1);
 
-    // Set Symbol.toStringTag so Object.prototype.toString.call(Math) === "[object Math]"
+    // Set Symbol.toStringTag so Object.prototype.toString.call(Math)
+    // === "[object Math]". Install under both the internal sidecar
+    // and the user-visible key (see Set / Map / Promise fixes).
     {
         const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
         if (tagKey)
             math = math->setAttribute(ctx, tagKey, ctx->fromUTF8String("Math"));
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            math = math->setAttribute(ctx, userKey, ctx->fromUTF8String("Math"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) math = math->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyMath, math);

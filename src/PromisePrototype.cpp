@@ -710,13 +710,22 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     regProto("catch",   promiseCatch);
     regProto("finally", promiseFinally);
 
-    // Promise.prototype[@@toStringTag] === "Promise" per §27.2.5.5
-    // so Object.prototype.toString.call(promise) returns
-    // "[object Promise]".
+    // Promise.prototype[@@toStringTag] === "Promise" per §27.2.5.5.
+    // Install under both the internal sidecar (used by
+    // Object.prototype.toString's tag probe) and the user-visible
+    // 'Symbol.toStringTag' key (what `Promise.prototype[Symbol.toStringTag]`
+    // resolves to), each with §17 descriptor 0x2.
     {
         const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
         if (tagKey) proto = proto->setAttribute(ctx, tagKey,
             ctx->fromUTF8String("Promise"));
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            proto = proto->setAttribute(ctx, userKey, ctx->fromUTF8String("Promise"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) proto = proto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
     }
 
     // Promise.prototype.constructor === Promise per §27.2.5.2.
