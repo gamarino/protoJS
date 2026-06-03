@@ -5998,6 +5998,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     cdpHasExcl = cdpExcl && cdpExcl != PROTO_NONE && cdpExcl != t_nullSentinel;
                 }
 
+                // Array sources store their indexed entries in __elements__,
+                // not as own string-keyed attributes. Spread of an array
+                // into an object literal must therefore copy each index
+                // as a numeric-string key. Pre-fix `{...[10,20]}` yielded
+                // {} because the array's index slots were invisible to
+                // getOwnAttributes.
+                if (const proto::ProtoList* spreadEls =
+                        protojs::getArrayElements(pContext, cdpSource)) {
+                    long long n = static_cast<long long>(spreadEls->getSize(pContext));
+                    for (long long i = 0; i < n; ++i) {
+                        const proto::ProtoObject* item =
+                            spreadEls->getAt(pContext, static_cast<int>(i));
+                        if (!item || item == PROTO_NONE) continue;
+                        const proto::ProtoString* idxKey =
+                            JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
+                        if (!idxKey) continue;
+                        if (cdpHasExcl) {
+                            const proto::ProtoObject* exclCheck =
+                                cdpExcl->getAttribute(pContext, idxKey, false);
+                            if (exclCheck && exclCheck != PROTO_NONE) continue;
+                        }
+                        cdpTarget = cdpTarget->setAttribute(pContext, idxKey, item);
+                    }
+                }
+
                 // Iterate own enumerable properties of source and copy to target.
                 const proto::ProtoSparseList* ownAttrs = cdpSource->getOwnAttributes(pContext);
                 if (ownAttrs) {
