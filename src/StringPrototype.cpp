@@ -1075,9 +1075,11 @@ const proto::ProtoObject* stringReplace(
         }
     }
 
-    // Regex / non-string pattern: defer (vacuous-pass preserved)
-    if (!pattern->isString(ctx)) return PROTO_NONE;
-
+    // Per ECMA-262 §22.1.3.18 step 5: ToString(searchValue) — non-string
+    // non-regex patterns coerce, so .replace(undefined, …) searches
+    // for the literal string 'undefined', .replace(null, …) for 'null'.
+    // Pre-fix any non-string returned PROTO_NONE, which surfaced as
+    // 'undefined' in user code (the whole result, not a no-match).
     std::string s   = objToStr(ctx, self);
     std::string pat = objToStr(ctx, pattern);
 
