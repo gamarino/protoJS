@@ -640,9 +640,24 @@ static const proto::ProtoObject* reflectSet(
     // Pre-fix Reflect.set ignored the 4th argument entirely and always
     // mutated target — so the write `Reflect.set(target, p, v, receiver)`
     // surfaced on target instead of receiver, violating §9.1.9.
-    const proto::ProtoObject* receiver =
-        (args->getSize(ctx) > 3) ? args->getAt(ctx, 3) : target;
-    if (!receiver || receiver == PROTO_NONE) receiver = target;
+    bool receiverProvided = (args->getSize(ctx) > 3);
+    const proto::ProtoObject* receiver = receiverProvided
+        ? args->getAt(ctx, 3) : target;
+    if (!receiver) receiver = receiverProvided ? PROTO_NONE : target;
+    if (!receiverProvided && (!receiver || receiver == PROTO_NONE)) receiver = target;
+    // §9.1.9 step 5.b — IsDataDescriptor true + Type(receiver) not Object
+    // → return false. Same outcome for any explicit non-Object receiver:
+    // we have nowhere ordinary to land the write.
+    if (receiverProvided) {
+        if (!receiver || receiver == PROTO_NONE ||
+            receiver == getUndefinedSentinel() || receiver == getNullSentinel() ||
+            receiver == PROTO_TRUE || receiver == PROTO_FALSE ||
+            receiver->isInteger(ctx) || receiver->isDouble(ctx) ||
+            receiver->isFloat(ctx) || receiver->isString(ctx) ||
+            receiver->isBoolean(ctx)) {
+            return PROTO_FALSE;
+        }
+    }
     if (!key) return PROTO_FALSE;
     const proto::ProtoString* k = key->asString(ctx);
     if (!k && key->isInteger(ctx))
