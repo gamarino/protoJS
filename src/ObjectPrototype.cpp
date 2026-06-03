@@ -2137,8 +2137,21 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
-            if (wrapped && wrapped != PROTO_NONE)
+            if (wrapped && wrapped != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, wrapped);
+                // §17 says built-in methods are
+                //   {writable:true, enumerable:false, configurable:true} → 0x3.
+                // Pre-fix no sidecar was set so the default
+                //   {writable:true, enumerable:true, configurable:true}
+                // bled through — making Object.getOwnPropertyDescriptors,
+                // Object.assign, Object.keys, Object.create, etc.
+                // enumerate as own properties of the Object constructor
+                // (and visible in for-in / Object.keys(Object)).
+                std::string pdStr = std::string("__pd_") + name + "__";
+                const proto::ProtoString* pdk =
+                    ctx->fromUTF8String(pdStr.c_str())->asString(ctx);
+                if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+            }
         }
     };
 
@@ -2217,13 +2230,27 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* key = ctx->fromUTF8String("is")->asString(ctx);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, objectIsFn, "is", 2, globalRoot);
-            if (wrapped && wrapped != PROTO_NONE)
+            if (wrapped && wrapped != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, wrapped);
+                // §17 descriptor 0x3 — same as the `reg` lambda.
+                const proto::ProtoString* pdk =
+                    ctx->fromUTF8String("__pd_is__")->asString(ctx);
+                if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+            }
         }
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
+    if (protoKey) {
+        ctor = ctor->setAttribute(ctx, protoKey, proto);
+        // §20.1.2.{17} Object.prototype is {writable:false,
+        // enumerable:false, configurable:false} → bits 0x0. Pre-fix
+        // no sidecar so the default 0x7 (full enumerable) leaked it
+        // into Object.keys(Object).
+        const proto::ProtoString* pdk =
+            ctx->fromUTF8String("__pd_prototype__")->asString(ctx);
+        if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x0LL));
+    }
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
     // Object.length === 1 per §20.1.1.
