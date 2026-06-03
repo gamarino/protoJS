@@ -1,5 +1,6 @@
 #include "BooleanPrototype.h"
 #include "JSSymbols.h"
+#include "PrototypeUtils.h"
 #include "TypeBridge.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
@@ -132,19 +133,13 @@ void BuildBooleanPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     // attribute lookups on primitive booleans (PROTO_TRUE/PROTO_FALSE) to miss
     // the newly assigned properties.
     const proto::ProtoObject* bp = objectProto->newChild(ctx, true);
-    proto::ProtoObject* mutableBp = const_cast<proto::ProtoObject*>(bp);
 
-    const proto::ProtoObject* keyValueOfObj  = ctx->fromUTF8String("valueOf");
-    const proto::ProtoString* keyValueOf     = keyValueOfObj ? keyValueOfObj->asString(ctx) : nullptr;
-    const proto::ProtoObject* keyToStringObj = ctx->fromUTF8String("toString");
-    const proto::ProtoString* keyToString    = keyToStringObj ? keyToStringObj->asString(ctx) : nullptr;
-
-    if (keyValueOf)
-        bp = bp->setAttribute(ctx, keyValueOf,
-            ctx->fromMethod(mutableBp, booleanValueOf));
-    if (keyToString)
-        bp = bp->setAttribute(ctx, keyToString,
-            ctx->fromMethod(mutableBp, booleanToString));
+    // Install via installNonEnumerableMethod so each method receives
+    // the spec name + length attributes. methodPrototype isn't set yet
+    // (BuildBooleanPrototype runs before ensureFunctionPrototype), so
+    // ensureBooleanConstructor re-installs to attach .call/.apply/.bind.
+    bp = installNonEnumerableMethod(ctx, bp, "valueOf",  booleanValueOf,  0);
+    bp = installNonEnumerableMethod(ctx, bp, "toString", booleanToString, 0);
 
     space->booleanPrototype = const_cast<proto::ProtoObject*>(bp);
 }
@@ -160,6 +155,17 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
 
     const proto::ProtoObject* existing = (*globalRoot)->getAttribute(ctx, keyBoolean, false);
     if (existing && existing != PROTO_NONE) return;
+
+    // BuildBooleanPrototype ran before ensureFunctionPrototype, so the
+    // method wrappers have parent=null and don't inherit .call/.apply/
+    // .bind from Function.prototype. Re-install now that
+    // methodPrototype is available.
+    if (ctx->space && ctx->space->booleanPrototype && ctx->space->methodPrototype) {
+        const proto::ProtoObject* bp = ctx->space->booleanPrototype;
+        bp = installNonEnumerableMethod(ctx, bp, "valueOf",  booleanValueOf,  0);
+        bp = installNonEnumerableMethod(ctx, bp, "toString", booleanToString, 0);
+        ctx->space->booleanPrototype = const_cast<proto::ProtoObject*>(bp);
+    }
 
     // Create constructor as child of methodPrototype (Function.prototype)
     const proto::ProtoObject* ctorParent =
