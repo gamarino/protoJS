@@ -7050,6 +7050,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!val && arrIdxFast >= 0) {
                     val = arrayTryFastGet(pContext, obj, static_cast<unsigned long>(arrIdxFast));
                 }
+                // Array literals >32 elements: QuickJS emits OP_array_from
+                // for the first 32 elements, then OP_define_field for
+                // each remaining position — those tail entries live in
+                // string-keyed attributes ('32', '33', ...) NOT in
+                // __elements__. arrayTryFastGet returns PROTO_NONE for
+                // out-of-bounds, which means the indexed-attribute
+                // fallback below was skipped and a[32] read as undefined.
+                // Force the fallback when arrayTryFastGet's miss is the
+                // out-of-bounds variety (PROTO_NONE), preserving the
+                // TypedArray semantics where PROTO_NONE IS the final
+                // result.
+                if (val == PROTO_NONE && arrIdxFast >= 0) {
+                    const proto::ProtoString* isArrKey = JSSymbols::isArray(pContext);
+                    if (isArrKey
+                        && obj->getAttribute(pContext, isArrKey, false) == PROTO_TRUE) {
+                        val = nullptr;
+                    }
+                }
                 if (!val) {
                     const proto::ProtoString* key = nullptr;
                     if (arrIdxFast >= 0) {
