@@ -471,16 +471,19 @@ const proto::ProtoObject* numberToPrecision(
             }
         }
     }
-    // Step 6: NaN -> "NaN" after ToInteger(precision) has run.
+    // Step 4: NaN -> "NaN" after ToInteger(precision) has run.
     if (std::isnan(value)) return context->fromUTF8String("NaN");
+    // Step 7: ±Infinity -> "Infinity" / "-Infinity" BEFORE the
+    // precision-range guard at step 8.  Pre-fix the range check
+    // ran first, so `Infinity.toPrecision(1000)` threw RangeError
+    // even though the spec emits "Infinity" without consulting
+    // precision.
+    if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
     if (precision < 1 || precision > 100) {
         signalNativeException(makeNativeError(context, "RangeError",
             "toPrecision() argument must be between 1 and 100"));
         return PROTO_NONE;
     }
-    // Spec step 9: ±Infinity returns the signed string after the NaN
-    // and precision-range guards.
-    if (std::isinf(value)) return context->fromUTF8String(value > 0 ? "Infinity" : "-Infinity");
     // -0 must emit without sign (step 5: `x < 0` is false for -0).
     if (value == 0.0) value = 0.0;
     // Spec step 10: when x = 0, the mantissa is p occurrences of "0".
