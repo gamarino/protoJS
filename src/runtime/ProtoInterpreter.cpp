@@ -8728,10 +8728,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     resolved = &t_rootModule->nestedFunctions[bcId];
 
                 if (resolved) {
-                    const proto::ProtoString* cKey = JSSymbols::constructor(pContext);
-                    if (cKey) {
-                        newObj = newObj->setAttribute(pContext, cKey, func);
-                        setNWCDescriptor(pContext, newObj, "constructor");
+                    // §9.1.13 OrdinaryCreateFromConstructor does NOT stamp
+                    // an own `constructor` slot on the instance — the
+                    // backref lives on F.prototype, and the instance picks
+                    // it up via the chain. Pre-fix this site unconditionally
+                    // stamped own `constructor` on newObj, leaking it into
+                    // Object.keys / getOwnPropertyNames / Object.getOwnPropertyDescriptors.
+                    //
+                    // We DO need to ensure F.prototype.constructor === F is
+                    // set, because plain `function F(){}` declarations
+                    // create F.prototype lazily without the backref (the
+                    // ES6 class path at L_OP_fclosure already sets it).
+                    // So we stamp the chain's `prototype` slot here, only
+                    // when needed, with the §17 descriptor 0x3
+                    // (writable / configurable / non-enumerable).
+                    {
+                        const proto::ProtoString* cKey = JSSymbols::constructor(pContext);
+                        const proto::ProtoObject* protoForCtor = funcProto;
+                        if (cKey && protoForCtor && protoForCtor != PROTO_NONE) {
+                            const proto::ProtoObject* existing =
+                                protoForCtor->getAttribute(pContext, cKey, false);
+                            if (existing != func) {
+                                const proto::ProtoObject* updated =
+                                    protoForCtor->setAttribute(pContext, cKey, func);
+                                if (updated && updated != PROTO_NONE) {
+                                    const proto::ProtoObject* pdo =
+                                        pContext->fromUTF8String("__pd_constructor__");
+                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    if (pdk) updated = updated->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
+                                    // Re-publish the prototype on func so subsequent
+                                    // `new F()` calls see the backref-bearing snapshot.
+                                    if (protoKey && func && func != PROTO_NONE)
+                                        const_cast<proto::ProtoObject*>(func)->setAttribute(pContext, protoKey, updated);
+                                }
+                            }
+                        }
                     }
 
                     // Instance field initialization: if the func's prototype
