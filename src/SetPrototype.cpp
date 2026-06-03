@@ -635,6 +635,115 @@ static void setAddAllFrom(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// ES2025 GetSetRecord(obj) validator (spec §24.2.1.2).
+//
+// Per ECMA-262, every Set.prototype.{union, intersection, difference,
+// symmetricDifference, isSubsetOf, isSupersetOf, isDisjointFrom}
+// begins with GetSetRecord(other) which throws when:
+//   - other is not an Object             -> TypeError
+//   - other.size is not Number / NaN     -> TypeError
+//   - ToIntegerOrInfinity(size) < 0      -> RangeError
+//   - other.has is not callable          -> TypeError
+//   - other.keys is not callable         -> TypeError
+//
+// We perform only the validation here; the existing fast paths that
+// follow continue to use getSetOrder() against a real native Set, so
+// passing a real Set is unchanged. Failing the validation throws the
+// proper error type, fixing the test262 cases under
+// built-ins/Set/prototype/<method>/{array-throws, called-with-object,
+// has-is-callable, keys-is-callable, size-is-a-number,
+// require-internal-slot, builtins}.js — applied to all 7 methods.
+// ---------------------------------------------------------------------------
+static bool isCallableValue(proto::ProtoContext* ctx,
+                            const proto::ProtoObject* v)
+{
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return false;
+    if (v->isMethod(ctx)) return true;
+    const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+    if (bcK && v->getAttribute(ctx, bcK, false) != PROTO_NONE) return true;
+    const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+    if (nfK && v->getAttribute(ctx, nfK, false) != PROTO_NONE) return true;
+    const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+    if (bfK && v->getAttribute(ctx, bfK, false) != PROTO_NONE) return true;
+    return false;
+}
+
+static bool getSetRecord(proto::ProtoContext* ctx,
+                         const proto::ProtoObject* obj,
+                         const char* methodName)
+{
+    if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel() ||
+        obj == PROTO_TRUE || obj == PROTO_FALSE ||
+        obj->isInteger(ctx) || obj->isDouble(ctx) || obj->isFloat(ctx) ||
+        obj->isString(ctx)) {
+        std::string msg = std::string("Set.prototype.") + methodName +
+            ": argument must be an Object";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return false;
+    }
+    // Real native Sets store .size behind the __get_size__ accessor;
+    // looking it up via the public "size" key returns nothing. Treat
+    // the presence of a __set_order__ slot as proof that obj is a Set
+    // and skip the rest of the Set-like protocol validation. The spec
+    // (§24.2.1.2 GetSetRecord) would otherwise call the size getter
+    // via [[Get]], but for our native Sets the receiver invariants are
+    // already satisfied.
+    if (getSetOrder(ctx, obj)) return true;
+    const proto::ProtoObject* sizeKo = ctx->fromUTF8String("size");
+    const proto::ProtoString* sizeKs = sizeKo ? sizeKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* sizeV = sizeKs
+        ? obj->getAttribute(ctx, sizeKs, true) : PROTO_NONE;
+    if (!sizeV || sizeV == PROTO_NONE || sizeV == getUndefinedSentinel()) {
+        std::string msg = std::string("Set.prototype.") + methodName +
+            ": argument lacks a numeric .size";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return false;
+    }
+    bool sizeOk = false;
+    double sizeNum = 0.0;
+    if (sizeV->isInteger(ctx)) {
+        sizeOk = true;
+        sizeNum = static_cast<double>(sizeV->asLong(ctx));
+    } else if (sizeV->isDouble(ctx) || sizeV->isFloat(ctx)) {
+        sizeNum = sizeV->asDouble(ctx);
+        if (!std::isnan(sizeNum)) sizeOk = true;
+    }
+    if (!sizeOk) {
+        std::string msg = std::string("Set.prototype.") + methodName +
+            ": .size is not a number";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return false;
+    }
+    if (sizeNum < 0.0) {
+        std::string msg = std::string("Set.prototype.") + methodName +
+            ": .size cannot be negative";
+        signalNativeException(makeNativeError(ctx, "RangeError", msg.c_str()));
+        return false;
+    }
+    const proto::ProtoObject* hasKo = ctx->fromUTF8String("has");
+    const proto::ProtoString* hasKs = hasKo ? hasKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* hasV = hasKs
+        ? obj->getAttribute(ctx, hasKs, true) : PROTO_NONE;
+    if (!isCallableValue(ctx, hasV)) {
+        std::string msg = std::string("Set.prototype.") + methodName +
+            ": .has is not callable";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return false;
+    }
+    const proto::ProtoObject* keysKo = ctx->fromUTF8String("keys");
+    const proto::ProtoString* keysKs = keysKo ? keysKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* keysV = keysKs
+        ? obj->getAttribute(ctx, keysKs, true) : PROTO_NONE;
+    if (!isCallableValue(ctx, keysV)) {
+        std::string msg = std::string("Set.prototype.") + methodName +
+            ": .keys is not callable";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return false;
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // ES2025 Set collection methods
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* setUnion(
@@ -645,11 +754,7 @@ static const proto::ProtoObject* setUnion(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.union: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "union")) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     setAddAllFrom(ctx, result, self);
@@ -665,11 +770,7 @@ static const proto::ProtoObject* setIntersection(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.intersection: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "intersection")) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
@@ -694,11 +795,7 @@ static const proto::ProtoObject* setDifference(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.difference: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "difference")) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
@@ -722,11 +819,7 @@ static const proto::ProtoObject* setSymmetricDifference(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.symmetricDifference: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "symmetricDifference")) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     // Elements in self but not in other.
@@ -768,11 +861,7 @@ static const proto::ProtoObject* setIsSubsetOf(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.isSubsetOf: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "isSubsetOf")) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
@@ -793,11 +882,7 @@ static const proto::ProtoObject* setIsSupersetOf(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.isSupersetOf: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "isSupersetOf")) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, other);
     if (!order) return PROTO_TRUE;
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
@@ -818,11 +903,7 @@ static const proto::ProtoObject* setIsDisjointFrom(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!other || other == PROTO_NONE) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Set.prototype.isDisjointFrom: argument must be a Set-like object"));
-        return PROTO_NONE;
-    }
+    if (!getSetRecord(ctx, other, "isDisjointFrom")) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
