@@ -164,8 +164,14 @@ static void collectOwnKeys(
             reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!propKey) continue;
         if (isInternalKey(ctx, propKey)) continue;
-        // Suppress "length" on arrays (matches spec: array length is non-enumerable).
-        if (isArr && lenSymbol && propKey == lenSymbol) continue;
+        // Array's "length" is non-enumerable but IS an own property.
+        // Object.keys / values / entries (includeNonEnumerable=false)
+        // must skip it; Object.getOwnPropertyNames
+        // (includeNonEnumerable=true) per §23.1.3 must include it.
+        // Pre-fix the suppression fired unconditionally so the
+        // getOwnPropertyNames path lost the slot.
+        if (isArr && lenSymbol && propKey == lenSymbol && !includeNonEnumerable)
+            continue;
         std::string kstr;
         propKey->toUTF8String(ctx, kstr);
         // Respect the enumerable descriptor flag (bit 2 of __pd_<key>__).
