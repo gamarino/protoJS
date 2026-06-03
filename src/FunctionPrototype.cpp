@@ -1,5 +1,7 @@
 #include "FunctionPrototype.h"
+#include "JSContext.h"
 #include "JSSymbols.h"
+#include "ObjectPrototype.h"
 #include "PrototypeUtils.h"
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
@@ -450,6 +452,10 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         // Object.getPrototypeOf(JSON.stringify) returned the empty
         // objectPrototype snapshot (and typeof JSON.stringify.call was
         // undefined), so the test262 'builtin.js' check failed.
+        //
+        // addParent fixes the chain walk so .call/.apply/.bind resolve;
+        // setJSProtoOverride aligns Object.getPrototypeOf(...) with
+        // Function.prototype, which the spec / test262 check directly.
         const proto::ProtoString* jsonKey =
             ctx->fromUTF8String("JSON") ? ctx->fromUTF8String("JSON")->asString(ctx) : nullptr;
         if (jsonKey && globalRoot && *globalRoot) {
@@ -463,7 +469,10 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     if (!mk) continue;
                     const proto::ProtoObject* w =
                         jsonNs->getAttribute(ctx, mk, false);
-                    if (w && w != PROTO_NONE) w->addParent(ctx, fp);
+                    if (w && w != PROTO_NONE) {
+                        w->addParent(ctx, fp);
+                        protojs::setJSProtoOverride(w, fp);
+                    }
                 }
             }
         }
