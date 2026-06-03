@@ -2117,12 +2117,19 @@ static const proto::ProtoObject* arrayAt(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
+    // ECMA-262 §23.1.3.1 step 2: relativeIndex = ToIntegerOrInfinity(index).
+    // NaN → 0, ±Infinity preserved (and rejected below as out-of-range).
     long long idx = 0;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
-        if (a && a != PROTO_NONE) {
+        if (a && a != PROTO_NONE && a != getUndefinedSentinel()) {
             if (a->isInteger(ctx)) idx = a->asLong(ctx);
-            else if (a->isDouble(ctx) || a->isFloat(ctx)) idx = (long long)a->asDouble(ctx);
+            else if (a->isDouble(ctx) || a->isFloat(ctx)) {
+                double d = a->asDouble(ctx);
+                if (std::isnan(d)) idx = 0;
+                else if (std::isinf(d)) return PROTO_NONE; // ±Inf is out of range
+                else idx = (long long)d;
+            }
         }
     }
     if (idx < 0) idx += len;
