@@ -973,6 +973,14 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         }
     }
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "JSON", jsonObj);
+    // Spec §17: globalThis.JSON's slot is {writable:true, enumerable:false,
+    // configurable:true} → 0x3. Pre-fix no sidecar so the default 0x7
+    // (full enumerable) leaked JSON into for-in / Object.keys(globalThis).
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_JSON__");
+        const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdks && globalObj) globalObj = globalObj->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs

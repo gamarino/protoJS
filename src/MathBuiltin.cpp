@@ -412,6 +412,15 @@ void ensureMathObject(proto::ProtoContext* ctx,
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyMath, math);
+    // Spec §17 descriptor on the global slot: {writable:true,
+    // enumerable:false, configurable:true} → 0x3. Pre-fix no sidecar
+    // so the default 0x7 (full enumerable) leaked Math into for-in
+    // and Object.keys(globalThis).
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Math__");
+        const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdks) *globalRoot = (*globalRoot)->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs

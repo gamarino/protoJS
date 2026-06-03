@@ -2971,6 +2971,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* existing = (*pGlobalRoot)->getAttribute(pContext, k, false);
             if (!existing) // absent means not yet set
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, k, val);
+            // Per §17, NaN / Infinity / undefined are
+            // {writable:false, enumerable:false, configurable:false} → 0x0.
+            // Pre-fix no sidecar so the default 0x7 (full enumerable +
+            // writable) leaked them into Object.keys(globalThis) and
+            // allowed reassignment.
+            std::string pdStr = std::string("__pd_") + name + "__";
+            const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdks = pdo ? pdo->asString(pContext) : nullptr;
+            if (pdks) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdks, pContext->fromInteger(0x0LL));
         };
         ensureGlobalConst("Infinity",
             pContext->fromDouble(std::numeric_limits<double>::infinity()));
@@ -3137,6 +3146,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, rfKey, reflectStub);
+                // §17 descriptor 0x3 on globalThis.Reflect — pre-fix the
+                // global slot defaulted to enumerable.
+                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Reflect__");
+                const proto::ProtoString* pdks = pdo ? pdo->asString(pContext) : nullptr;
+                if (pdks) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdks, pContext->fromInteger(0x3LL));
             }
         }
     }
