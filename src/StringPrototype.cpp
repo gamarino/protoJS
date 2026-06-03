@@ -1140,8 +1140,10 @@ const proto::ProtoObject* stringReplaceAll(
     if (!args || args->getSize(ctx) < 2) return self;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
-    if (!pattern->isString(ctx)) return PROTO_NONE;
-
+    // Per ECMA-262 §22.1.3.20 step 5: ToString(searchValue) when the
+    // pattern is not a regex. Pre-fix non-string patterns returned
+    // PROTO_NONE (surfacing as 'undefined' in user code); now they
+    // coerce so .replaceAll(undefined, x) searches for 'undefined'.
     std::string s   = objToStr(ctx, self);
     std::string pat = objToStr(ctx, pattern);
 
