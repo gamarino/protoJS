@@ -886,6 +886,26 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
     const proto::ProtoObject* proto = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (proto == getNullSentinel() || (proto && proto != PROTO_NONE && !proto->isInteger(ctx)
             && !proto->isDouble(ctx) && !proto->isString(ctx) && !proto->isBoolean(ctx))) {
+        // §9.1.2 step 8.b: walk the proposed prototype chain looking
+        // for target itself; if found, the assignment would create a
+        // cycle, so return false without changing anything. Pre-fix
+        // Reflect.setPrototypeOf(o, o) wired o.__proto__ = o and
+        // returned true, breaking subsequent property reads.
+        if (proto != getNullSentinel()) {
+            const proto::ProtoObject* walk = proto;
+            int depth = 0;
+            while (walk && walk != PROTO_NONE && walk != getNullSentinel() && depth < 1024) {
+                if (walk == target) return PROTO_FALSE;
+                const proto::ProtoObject* override =
+                    protojs::getJSProtoOverride(walk);
+                if (override && override != PROTO_NONE) {
+                    walk = override;
+                } else {
+                    walk = walk->getPrototype(ctx);
+                }
+                ++depth;
+            }
+        }
         protojs::setJSProtoOverride(target, proto);
         return PROTO_TRUE;
     }
