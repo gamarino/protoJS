@@ -413,6 +413,88 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(out.c_str());
 }
 
+// Spec §25.5.1.1 InternalizeJSONProperty — recursively walks the
+// parsed structure, calls reviver(key, val) bottom-up, and uses the
+// return value to replace each property. Returning undefined deletes
+// the property.
+//
+// protoJS arrays/objects produced by TypeBridge::fromJS are mutable
+// children of their prototypes, so setAttribute / setArrayElements
+// mutate them in place — which is what the spec needs (the holder
+// passed to the reviver must show prior replacements).
+static const proto::ProtoObject* internalizeJSONProperty(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* holder,
+    const proto::ProtoObject* keyObj,
+    const proto::ProtoObject* val,
+    const proto::ProtoObject* reviver)
+{
+    if (val && val != PROTO_NONE
+        && val != getNullSentinel() && val != getUndefinedSentinel()
+        && !val->isString(ctx) && !val->isInteger(ctx)
+        && !val->isDouble(ctx) && !val->isFloat(ctx)
+        && !val->isBoolean(ctx)) {
+        const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArr = isArrKey
+            ? val->getAttribute(ctx, isArrKey, true) : PROTO_NONE;
+        if (isArr == PROTO_TRUE) {
+            const proto::ProtoList* els = getArrayElements(ctx, val);
+            if (els) {
+                long long n = static_cast<long long>(els->getSize(ctx));
+                for (long long i = 0; i < n; ++i) {
+                    const proto::ProtoObject* item =
+                        els->getAt(ctx, static_cast<int>(i));
+                    char idxBuf[32];
+                    snprintf(idxBuf, sizeof(idxBuf), "%lld", i);
+                    const proto::ProtoObject* idxObj =
+                        ctx->fromUTF8String(idxBuf);
+                    const proto::ProtoObject* newItem =
+                        internalizeJSONProperty(
+                            ctx, val, idxObj, item, reviver);
+                    els = els->setAt(ctx, static_cast<int>(i),
+                        newItem ? newItem : getUndefinedSentinel());
+                }
+                protojs::setArrayElements(ctx, val, els);
+            }
+        } else {
+            // Snapshot keys before mutation — iterator state would
+            // otherwise drift when setAttribute rewrites the chain.
+            const proto::ProtoSparseList* own = val->getOwnAttributes(ctx);
+            std::vector<const proto::ProtoString*> keys;
+            const proto::ProtoSparseListIterator* it =
+                own ? own->getIterator(ctx) : nullptr;
+            while (it && it->hasNext(ctx)) {
+                unsigned long rawKey = it->nextKey(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)
+                        ->advance(ctx);
+                auto* pk =
+                    reinterpret_cast<const proto::ProtoString*>(rawKey);
+                if (!pk) continue;
+                std::string ks;
+                pk->toUTF8String(ctx, ks);
+                if (ks.compare(0, 2, "__") == 0) continue;
+                keys.push_back(pk);
+            }
+            for (auto* pk : keys) {
+                const proto::ProtoObject* item =
+                    val->getAttribute(ctx, pk, false);
+                const proto::ProtoObject* keyObj2 = pk->asObject(ctx);
+                const proto::ProtoObject* newItem =
+                    internalizeJSONProperty(
+                        ctx, val, keyObj2, item, reviver);
+                val = val->setAttribute(ctx, pk,
+                    newItem ? newItem : getUndefinedSentinel());
+            }
+        }
+    }
+    const proto::ProtoList* callArgs = ctx->newList();
+    callArgs = callArgs->appendLast(ctx,
+        keyObj ? keyObj : ctx->fromUTF8String(""));
+    callArgs = callArgs->appendLast(ctx,
+        val ? val : getUndefinedSentinel());
+    return callJSFunction(ctx, reviver, holder, callArgs);
+}
+
 const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* /*self*/,
                                         const proto::ParentLink* /*parentLink*/,
@@ -448,6 +530,30 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
     }
     const proto::ProtoObject* res = TypeBridge::fromJS(qjsCtx, jv, ctx);
     JS_FreeValue(qjsCtx, jv);
+
+    // Spec §25.5.1 step 7: if reviver is callable, wrap `res` in a
+    // synthetic { "": res } holder and run InternalizeJSONProperty.
+    // Non-callable reviver is silently ignored (callJSFunction would
+    // detect that path; we mirror the spec by skipping when the arg
+    // is null/undefined or has no callable shape).
+    if (args && args->getSize(ctx) > 1) {
+        const proto::ProtoObject* reviver = args->getAt(ctx, 1);
+        if (reviver && reviver != PROTO_NONE
+            && reviver != getUndefinedSentinel()
+            && reviver != getNullSentinel()) {
+            const proto::ProtoObject* holder = ctx->newObject(true);
+            const proto::ProtoObject* emptyKeyObj =
+                ctx->fromUTF8String("");
+            const proto::ProtoString* emptyKey =
+                emptyKeyObj ? emptyKeyObj->asString(ctx) : nullptr;
+            if (emptyKey) {
+                holder = holder->setAttribute(ctx, emptyKey,
+                    res ? res : getUndefinedSentinel());
+            }
+            res = internalizeJSONProperty(
+                ctx, holder, emptyKeyObj, res, reviver);
+        }
+    }
     return res;
 }
 
