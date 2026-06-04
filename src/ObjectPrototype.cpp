@@ -694,12 +694,45 @@ static const proto::ProtoObject* objectSeal(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
-    
+
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper) {
         obj->addParent(ctx, wrapper->getSealedMarker());
         obj->addParent(ctx, wrapper->getNonExtensibleMarker());
         BehaviorRegistry::instance().invalidateObjectCache(obj);
+    }
+    // §7.3.16 SetIntegrityLevel("sealed"): walk each own property and
+    // clear the configurable bit. Pre-fix the markers above prevented
+    // future delete / redefine, but getOwnPropertyDescriptor still
+    // read the original sidecar bits and reported configurable:true,
+    // so verifyProperty fixtures (built-ins/Object/seal/*) failed.
+    {
+        const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
+        if (own) {
+            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+            std::vector<std::string> keysToUpdate;
+            while (it && it->hasNext(ctx)) {
+                unsigned long raw = it->nextKey(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                const proto::ProtoString* k =
+                    reinterpret_cast<const proto::ProtoString*>(raw);
+                if (!k || isInternalKey(ctx, k)) continue;
+                std::string ks;
+                k->toUTF8String(ctx, ks);
+                keysToUpdate.push_back(std::move(ks));
+            }
+            for (const auto& ks : keysToUpdate) {
+                std::string pdStr = std::string("__pd_") + ks + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (!pdk) continue;
+                const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
+                long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
+                    ? cur->asLong(ctx) : 0x7LL; // default {w, c, e}
+                bits &= ~0x2LL; // clear configurable
+                obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
+            }
+        }
     }
     return obj;
 }
