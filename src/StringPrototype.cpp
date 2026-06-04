@@ -1043,7 +1043,23 @@ static const proto::ProtoObject* stringPadCommon(
     std::string padStr = " ";
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* pa = args->getAt(ctx, 1);
-        if (pa && pa != PROTO_NONE) padStr = objToStr(ctx, pa);
+        if (pa && pa != PROTO_NONE && pa != getUndefinedSentinel()) {
+            // §22.1.3.{15,16} padStart / padEnd step 5 calls
+            // ToString(fillString); a Symbol value raises TypeError per
+            // §7.1.17. The pre-fix objToStr path silently coerced via
+            // the Symbol's toString and produced a useless "Symbol(...)"
+            // pad — built-ins/String/prototype/padStart/exception-fill-
+            // string-symbol verified the throw.
+            const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+            const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+            if (symK && pa->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot convert a Symbol value to a string"));
+                return PROTO_NONE;
+            }
+            padStr = objToStr(ctx, pa);
+            if (hasCallException()) return PROTO_NONE;
+        }
     }
     auto padU16 = utf8ToUTF16(padStr);
     if (padU16.empty()) return ctx->fromUTF8String(s.c_str());
