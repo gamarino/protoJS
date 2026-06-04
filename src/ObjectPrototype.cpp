@@ -1506,30 +1506,58 @@ static const proto::ProtoObject* objectDefineProperty(
             target = target->setAttribute(ctx, sk, sVal);
         }
     } else {
-        const proto::ProtoObject* val = nullptr;
-        if (descHasKey("value")) {
-            const proto::ProtoObject* koV = ctx->fromUTF8String("value");
-            val = jsGetAttribute(desc, koV ? koV->asString(ctx) : nullptr);
-            if (hasCallException()) return PROTO_NONE;
+        // §10.1.6.3 step 4: a redefine that touches NEITHER value /
+        // writable nor get / set is a "generic" descriptor — only the
+        // enumerable / configurable bits change. Pre-fix this branch
+        // unconditionally stripped __get_<key>__ / __set_<key>__ even
+        // when the descriptor lacked those fields, so
+        //   Object.defineProperty(o, 'foo', { get, set, enumerable:true });
+        //   Object.defineProperty(o, 'foo', { enumerable:false });
+        // turned an accessor into a plain `undefined` data slot
+        // (built-ins/Object/defineProperty/15.2.3.6-4-82-7 caught this).
+        const bool descTouchesData = descHasKey("value") || descHasKey("writable");
+        bool propExistsAsAccessor = false;
+        if (propExists && !descTouchesData) {
+            std::string gkStr = "__get_" + kstr + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            std::string skStr = "__set_" + kstr + "__";
+            const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+            const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+            if ((gk && target->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                || (sk && target->hasOwnAttribute(ctx, sk) == PROTO_TRUE)) {
+                propExistsAsAccessor = true;
+            }
         }
-        
-        const proto::ProtoObject* storedVal = nullptr;
-        if (val) {
-            storedVal = (val == PROTO_NONE) ? getUndefinedSentinel() : val;
-        } else if (propExists) {
-            storedVal = existingVal;
+        if (propExistsAsAccessor) {
+            // Generic redefine over an existing accessor: keep the
+            // accessor in place; only the descriptor bits change below.
         } else {
-            storedVal = getUndefinedSentinel();
+            const proto::ProtoObject* val = nullptr;
+            if (descHasKey("value")) {
+                const proto::ProtoObject* koV = ctx->fromUTF8String("value");
+                val = jsGetAttribute(desc, koV ? koV->asString(ctx) : nullptr);
+                if (hasCallException()) return PROTO_NONE;
+            }
+
+            const proto::ProtoObject* storedVal = nullptr;
+            if (val) {
+                storedVal = (val == PROTO_NONE) ? getUndefinedSentinel() : val;
+            } else if (propExists) {
+                storedVal = existingVal;
+            } else {
+                storedVal = getUndefinedSentinel();
+            }
+            target = target->setAttribute(ctx, k, storedVal);
+
+            // Remove accessor sidecars if transitioning to data property.
+            std::string gkStr = "__get_" + kstr + "__";
+            const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+            if (gk) target = target->setAttribute(ctx, gk, nullptr);
+            std::string skStr = "__set_" + kstr + "__";
+            const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
+            if (sk) target = target->setAttribute(ctx, sk, nullptr);
         }
-        target = target->setAttribute(ctx, k, storedVal);
-        
-        // Remove accessor sidecars if transitioning to data property.
-        std::string gkStr = "__get_" + kstr + "__";
-        const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
-        if (gk) target = target->setAttribute(ctx, gk, nullptr);
-        std::string skStr = "__set_" + kstr + "__";
-        const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
-        if (sk) target = target->setAttribute(ctx, sk, nullptr);
     }
 
     uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
