@@ -410,6 +410,11 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     }
                 }
                 *globalRoot = (*globalRoot)->setAttribute(ctx, keyFunction, fnCtor);
+                // §17 globalThis.Function descriptor 0x3.
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Function__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+                    ctx->fromInteger(0x3LL));
             }
         }
     }

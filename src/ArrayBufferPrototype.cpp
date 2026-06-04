@@ -279,6 +279,13 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     // Register on global root.
     // ------------------------------------------------------------------
     *globalRoot = (*globalRoot)->setAttribute(ctx, abKey, ctor);
+    // §17 globalThis.ArrayBuffer descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_ArrayBuffer__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs

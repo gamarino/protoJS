@@ -3443,6 +3443,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (rawM) stub = stub->setAttribute(pContext, nfKey3, rawM);
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
+                // §17 globalThis.<Ctor> descriptor 0x3.
+                std::string pdStr = std::string("__pd_") + ctorName + "__";
+                const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                if (pdk) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdk,
+                    pContext->fromInteger(0x3LL));
             }
         }
         // Non-constructor globals stubbed as PROTO_NONE to prevent ReferenceError.
