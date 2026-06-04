@@ -2785,7 +2785,32 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         //     '[object Object]0' instead of 5.
         if (!args || args->getSize(ctx) == 0) return self;
         const proto::ProtoObject* val = args->getAt(ctx, 0);
-        if (!val || val == PROTO_NONE) return self;
+        if (!val || val == PROTO_NONE
+            || val == getUndefinedSentinel() || val == getNullSentinel())
+            return self;
+        // §19.1.1 Object(value): primitive boxed via the matching
+        // wrapper prototype (Boolean / Number / String) so
+        //   Object(0).valueOf() === 0, Object(0).constructor === Number
+        // (the spec-required identity check). Pre-fix the boxed
+        // wrapper inherited Object.prototype directly, so `.valueOf()`
+        // returned the object itself and `.constructor` was Object.
+        const proto::ProtoObject* wrapProto = nullptr;
+        if (ctx->space) {
+            if (val == PROTO_TRUE || val == PROTO_FALSE || val->isBoolean(ctx))
+                wrapProto = ctx->space->booleanPrototype;
+            else if (val->isInteger(ctx) || val->isDouble(ctx) || val->isFloat(ctx))
+                wrapProto = ctx->space->doublePrototype;
+            else if (val->isString(ctx))
+                wrapProto = ctx->space->stringPrototype;
+        }
+        if (wrapProto && wrapProto != PROTO_NONE) {
+            const proto::ProtoObject* boxed = wrapProto->newChild(ctx, true);
+            if (boxed) {
+                const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+                if (pvKey) boxed = boxed->setAttribute(ctx, pvKey, val);
+                return boxed;
+            }
+        }
         if (val->isBoolean(ctx) || val->isInteger(ctx) || val->isDouble(ctx) ||
             val->isString(ctx)) {
             const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
