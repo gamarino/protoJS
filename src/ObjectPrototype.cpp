@@ -1909,14 +1909,48 @@ static const proto::ProtoObject* objectDefineProperties(
         if (descObj && descObj != PROTO_NONE) {
             std::string keyStr;
             propKey->toUTF8String(ctx, keyStr);
-            if (keyStr != "length") {
-                const proto::ProtoList* dpArgs = ctx->newList();
-                dpArgs = dpArgs->appendLast(ctx, target);
-                dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
-                dpArgs = dpArgs->appendLast(ctx, descObj);
-                const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
-                if (newTarget && newTarget != PROTO_NONE) target = newTarget;
+            if (keyStr == "length") continue;
+            // §19.1.2.3 step 5.b.iii: only enumerable own properties
+            // contribute. Pre-fix the iterator surfaced non-enumerable
+            // entries too, so `Object.defineProperties(o, propsWithGetter)`
+            // tried to apply non-Object descriptors and surfaced a
+            // spurious TypeError (built-ins/Object/defineProperties/
+            // 15.2.3.7-3-7 covers the omission).
+            std::string pdStr = std::string("__pd_") + keyStr + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) {
+                const proto::ProtoObject* pdv = propsObj->getAttribute(ctx, pdk, false);
+                if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                    long long bits = pdv->asLong(ctx);
+                    if ((bits & 0x4) == 0) continue; // skip non-enumerable
+                }
             }
+            // If the descriptor entry is an accessor (sidecar getter
+            // present), resolve the value via the getter before
+            // dispatching to defineProperty.
+            {
+                std::string gkStr = std::string("__get_") + keyStr + "__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                if (gk) {
+                    const proto::ProtoObject* getter =
+                        propsObj->getAttribute(ctx, gk, false);
+                    if (getter && getter != PROTO_NONE
+                        && getter != getUndefinedSentinel()) {
+                        const proto::ProtoList* noArgs = ctx->newList();
+                        descObj = callJSFunction(ctx, getter, propsObj, noArgs);
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
+            const proto::ProtoList* dpArgs = ctx->newList();
+            dpArgs = dpArgs->appendLast(ctx, target);
+            dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
+            dpArgs = dpArgs->appendLast(ctx, descObj);
+            const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+            if (hasCallException()) return PROTO_NONE;
+            if (newTarget && newTarget != PROTO_NONE) target = newTarget;
         }
     }
     return target;
