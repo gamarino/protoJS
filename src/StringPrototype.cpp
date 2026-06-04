@@ -344,6 +344,18 @@ static bool requireStringThis(proto::ProtoContext* ctx,
             "String.prototype method called on null or undefined"));
         return false;
     }
+    // §21.1.3.* step 2 ToString(O); a Symbol value raises TypeError
+    // per §7.1.17. Pre-fix String.prototype.{includes, indexOf,
+    // startsWith, endsWith, ...} routed Symbol receivers through
+    // objToStr, which coerced via the Symbol's own toString and
+    // produced "Symbol(<desc>)" instead of the spec-required abrupt.
+    const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+    const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+    if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert a Symbol value to a string"));
+        return false;
+    }
     return true;
 }
 
