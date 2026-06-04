@@ -3787,6 +3787,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (obj->isBoolean(pContext) || obj->isInteger(pContext) ||
             obj->isDouble(pContext) || obj->isFloat(pContext) ||
             obj->asString(pContext)) return obj;
+        // §7.1.1 ToPrimitive: a Symbol IS a primitive — it should
+        // short-circuit here so the downstream ToNumber pass sees the
+        // Symbol and raises the spec-required TypeError, instead of the
+        // ToPrimitive dance running the Object.prototype valueOf /
+        // toString fallback and silently flattening the Symbol to
+        // [object Symbol] (which then coerces to NaN with no throw).
+        {
+            const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
+            const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+            if (symK && obj->getAttribute(pContext, symK, true) == PROTO_TRUE)
+                return obj;
+        }
         auto isPrimitive = [&](const proto::ProtoObject* v) -> bool {
             return v && v != PROTO_NONE &&
                    (v->isBoolean(pContext) || v->isInteger(pContext) ||
@@ -8946,7 +8958,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (a == PROTO_FALSE || a == t_nullSentinel) { stackPush(pContext, proto::makeSmallInt(0)); DISPATCH(); }
                 { const proto::ProtoObject* pv = toPrimIfObject(a);
                   if (has_pending_exception) DISPATCH();
-                  stackPush(pContext, toNumber(pContext, pv)); }
+                  const proto::ProtoObject* num = toNumber(pContext, pv);
+                  // §7.1.4 ToNumber on a Symbol throws TypeError; the
+                  // throw is recorded as t_callException by toNumber.
+                  // Promote to pending_exception so the surrounding try
+                  // block actually catches it (pre-fix `+Symbol()` ran
+                  // through, pushed PROTO_NONE / undefined, and the
+                  // exception was discovered out-of-band on the next
+                  // operation).
+                  if (t_hasCallException) {
+                      pending_exception     = t_callException;
+                      has_pending_exception = true;
+                      t_hasCallException    = false;
+                      t_callException       = nullptr;
+                      DISPATCH();
+                  }
+                  stackPush(pContext, num);
+                }
                 DISPATCH();
             }
             L_OP_typeof: {
