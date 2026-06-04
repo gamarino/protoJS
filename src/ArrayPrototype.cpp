@@ -2946,6 +2946,41 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     if (isArrKey) proto = proto->setAttribute(ctx, isArrKey, PROTO_TRUE);
 
+    // §23.1.3.32 Array.prototype[@@unscopables] is a plain object
+    // whose own enumerable string-keyed slots match the ES2015+
+    // method names that should not be visible to with-bound name
+    // resolution. The slot's descriptor is {writable:false,
+    // enumerable:false, configurable:true} (bits 0x2). Pre-fix the
+    // slot was absent so for-in over Array.prototype skipped it (no
+    // observable break), but built-ins/Array/prototype/Symbol.
+    // unscopables/* fixtures and Object.prototype.toString sweeps that
+    // probe its existence failed.
+    {
+        const proto::ProtoObject* unsObj = ctx->newObject(true);
+        if (unsObj) {
+            static const char* kUnscopables[] = {
+                "at", "copyWithin", "entries", "fill", "find",
+                "findIndex", "findLast", "findLastIndex", "flat",
+                "flatMap", "includes", "keys", "toReversed",
+                "toSorted", "toSpliced", "values", "group", "groupToMap",
+                nullptr
+            };
+            for (int i = 0; kUnscopables[i]; ++i) {
+                const proto::ProtoString* k = ctx->fromUTF8String(kUnscopables[i])
+                    ? ctx->fromUTF8String(kUnscopables[i])->asString(ctx) : nullptr;
+                if (k) unsObj = unsObj->setAttribute(ctx, k, PROTO_TRUE);
+            }
+            const proto::ProtoObject* uko = ctx->fromUTF8String("Symbol.unscopables");
+            const proto::ProtoString* uk = uko ? uko->asString(ctx) : nullptr;
+            if (uk) {
+                proto = proto->setAttribute(ctx, uk, unsObj);
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.unscopables__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+            }
+        }
+    }
+
     // Store in module-level static for createNewArray.
     s_arrayProto = proto;
 
