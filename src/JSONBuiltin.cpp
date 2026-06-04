@@ -6,6 +6,7 @@
 #include "ProtoNativeModule.h"
 #include "TypeBridge.h"
 #include <protoCore.h>
+#include "ObjectPrototype.h"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -1384,6 +1385,14 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
     const proto::ProtoObject* mk = ctx->fromUTF8String("__is_raw_json__");
     const proto::ProtoString* mks = mk ? mk->asString(ctx) : nullptr;
     if (mks) wrap = wrap->setAttribute(ctx, mks, PROTO_TRUE);
+    // Spec (JSON.parse / rawJSON proposal): the returned wrapper has
+    // [[Prototype]] = null. Pre-fix the bare newObject inherited the
+    // protoCore default (== Object.prototype), so
+    // Object.getPrototypeOf(JSON.rawJSON("1")) returned Object.prototype
+    // instead of null (built-ins/JSON/rawJSON/returns-expected-object.js).
+    // Publish through the shared override consulted by
+    // Object.getPrototypeOf.
+    setJSProtoOverride(wrap, getNullSentinel());
     return wrap;
 }
 
