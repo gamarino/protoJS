@@ -2452,12 +2452,24 @@ static const proto::ProtoObject* objectToString(
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoObject* objectValueOf(
-    proto::ProtoContext* /*ctx*/,
+    proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
+    // §20.1.3.7 step 1: O = ToObject(this); null / undefined raise
+    // TypeError before the slot is read. Pre-fix the trivial passthrough
+    // returned the sentinel unchanged, so
+    //   Object.prototype.valueOf.call(null);
+    // produced null instead of the spec-required TypeError abrupt
+    // (Sputnik S15.2.4.4_A13).
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
     return self;
 }
 
