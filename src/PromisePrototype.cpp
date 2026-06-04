@@ -701,14 +701,37 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
 
     // Promise.prototype.
     const proto::ProtoObject* proto = ctx->newObject(true);
-    auto regProto = [&](const char* name, proto::ProtoMethod fn) {
+    auto regProto = [&](const char* name, proto::ProtoMethod fn, long long arity) {
         const proto::ProtoObject* ko = ctx->fromUTF8String(name);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
-        if (ks) proto = proto->setAttribute(ctx, ks, ctx->fromMethod(nullptr, fn));
+        if (!ks) return;
+        // §17 + §27.2.5.{4,5,6}: the prototype methods are
+        // {writable:true, enumerable:false, configurable:true} and
+        // each method's length matches the spec arity. The raw
+        // ProtoMethod handle exposed length=0 with no descriptor; tag
+        // both directly on the method object before installing.
+        const proto::ProtoObject* m = ctx->fromMethod(nullptr, fn);
+        if (m) {
+            const proto::ProtoString* lk = JSSymbols::length(ctx);
+            if (lk) m = m->setAttribute(ctx, lk, ctx->fromInteger(arity));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdlk) m = m->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+            const proto::ProtoString* nk = JSSymbols::name(ctx);
+            if (nk) m = m->setAttribute(ctx, nk, ctx->fromUTF8String(name));
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) m = m->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+        proto = proto->setAttribute(ctx, ks, m);
+        std::string pdStr = std::string("__pd_") + name + "__";
+        const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     };
-    regProto("then",    promiseThen);
-    regProto("catch",   promiseCatch);
-    regProto("finally", promiseFinally);
+    regProto("then",    promiseThen,    2);
+    regProto("catch",   promiseCatch,   1);
+    regProto("finally", promiseFinally, 1);
 
     // Promise.prototype[@@toStringTag] === "Promise" per §27.2.5.5.
     // Install under both the internal sidecar (used by
