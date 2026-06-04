@@ -1308,7 +1308,24 @@ static const proto::ProtoObject* objectDefineProperty(
                     ? lenV->asLong(ctx) : -1;
                 if (len >= 0 && v < len) {
                     propExists = true;
-                    existingVal = target->getAttribute(ctx, k, false);
+                    // Pull the value from __elements__ first (where
+                    // Array indices actually live); fall back to a
+                    // sparse / own-attribute slot only when the
+                    // native list lacks that index. Pre-fix this read
+                    // came from `getAttribute("0", false)` which
+                    // returned PROTO_NONE for materialised entries
+                    // and then stored undefined back over the
+                    // __elements__ value (built-ins/Object/
+                    // defineProperties/15.2.3.7-6-a-251 expected the
+                    // 12 to survive an enumerable-only redefine).
+                    const proto::ProtoList* els =
+                        protojs::getArrayElements(ctx, target);
+                    if (els && v < static_cast<long long>(els->getSize(ctx))) {
+                        existingVal = els->getAt(ctx, static_cast<int>(v));
+                    }
+                    if (!existingVal || existingVal == PROTO_NONE) {
+                        existingVal = target->getAttribute(ctx, k, false);
+                    }
                     if (!existingVal) existingVal = getUndefinedSentinel();
                 }
             }
