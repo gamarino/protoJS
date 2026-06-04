@@ -1571,12 +1571,21 @@ static const proto::ProtoObject* arrayCopyWithin(
 
     long long len = static_cast<long long>(arrLen(ctx, self));
     // ECMA-262 §23.1.3.4 steps 4-9: ToIntegerOrInfinity on target,
-    // start, end. Same lambda used by slice/splice/flat/fill.
+    // start, end. Same lambda used by slice/splice/flat/fill.  Non-
+    // numeric inputs route through jsToNumber so a Symbol (or other
+    // un-coerceable value) raises the spec-required TypeError instead
+    // of silently defaulting to 0 (built-ins/Array/prototype/copyWithin
+    // /return-abrupt-from-target-as-symbol).
     auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
         if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
-        if (o->isInteger(ctx)) return o->asLong(ctx);
-        if (o->isDouble(ctx) || o->isFloat(ctx)) {
-            double d = o->asDouble(ctx);
+        const proto::ProtoObject* num = o;
+        if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
+            num = jsToNumber(ctx, o);
+            if (hasCallException() || !num) return defaultV;
+        }
+        if (num->isInteger(ctx)) return num->asLong(ctx);
+        if (num->isDouble(ctx) || num->isFloat(ctx)) {
+            double d = num->asDouble(ctx);
             if (std::isnan(d)) return 0;
             if (std::isinf(d)) return d > 0 ? len : -len - 1;
             return static_cast<long long>(d);
@@ -1584,8 +1593,11 @@ static const proto::ProtoObject* arrayCopyWithin(
         return defaultV;
     };
     long long target = toII(args->getAt(ctx, 0), 0);
+    if (hasCallException()) return PROTO_NONE;
     long long start  = (args->getSize(ctx) > 1) ? toII(args->getAt(ctx, 1), 0)   : 0;
+    if (hasCallException()) return PROTO_NONE;
     long long end    = (args->getSize(ctx) > 2) ? toII(args->getAt(ctx, 2), len) : len;
+    if (hasCallException()) return PROTO_NONE;
 
     target = normalizeIdxClamp(target, len);
     start  = normalizeIdxClamp(start,  len);

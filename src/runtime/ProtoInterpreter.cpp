@@ -2048,6 +2048,24 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         }
     }
 
+    // §7.1.4 ToNumber: Symbol → TypeError abrupt completion. protoJS
+    // represents Symbols as objects carrying the __is_symbol__ marker
+    // (so isSymbol-style dispatch survives the chain walk).  Detect
+    // that marker before any ToPrimitive coercion so
+    //   isNaN(Symbol()) / Array.prototype.copyWithin.call([], Symbol(),0)
+    // and the wider "ToNumber on Symbol throws" surface succeed
+    // (built-ins/Array/prototype/copyWithin/return-abrupt-from-target-
+    // as-symbol, built-ins/isNaN/toprimitive-result-is-symbol-throws,
+    // built-ins/String/prototype/padStart/exception-fill-string-symbol).
+    {
+        const proto::ProtoObject* symKo = context->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* symK = symKo ? symKo->asString(context) : nullptr;
+        if (symK && value->getAttribute(context, symK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(context, "TypeError",
+                "Cannot convert a Symbol value to a number"));
+            return PROTO_NONE;
+        }
+    }
     // ToPrimitive(value, "number"): try @@toPrimitive first (with hint
     // "number"), then valueOf, then toString. Symbol.toPrimitive support
     // is required by §7.1.1 ToPrimitive step 2 — the spec runs the
