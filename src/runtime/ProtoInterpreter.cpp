@@ -3559,6 +3559,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Build a minimal constructor stub with a prototype so instanceof doesn't throw,
                 // plus a __native_fn__ backing so typeof returns 'function'.
                 const proto::ProtoObject* stubProto = pContext->newObject(true);
+                // §22.3.3.* / §24.* etc: every built-in's prototype carries
+                // Symbol.toStringTag = the constructor name. Object.prototype
+                // .toString.call(new Stub()) must yield "[object Stub]"; pre-
+                // fix the stub prototype was bare, so WeakSet.prototype[
+                // Symbol.toStringTag] surfaced undefined (built-ins/WeakSet/
+                // prototype/Symbol.toStringTag.js — also covers WeakRef,
+                // FinalizationRegistry).  Install under the internal AND
+                // user-visible Symbol.toStringTag keys per protoJS convention.
+                if (stubProto) {
+                    const proto::ProtoString* tstK = JSSymbols::toStringTag(pContext);
+                    if (tstK) stubProto = stubProto->setAttribute(pContext, tstK,
+                        pContext->fromUTF8String(ctorName));
+                    const proto::ProtoString* userK = JSSymbols::symbolToStringTag(pContext);
+                    if (userK) {
+                        stubProto = stubProto->setAttribute(pContext, userK,
+                            pContext->fromUTF8String(ctorName));
+                        const proto::ProtoObject* pdttO = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
+                        const proto::ProtoString* pdttK = pdttO ? pdttO->asString(pContext) : nullptr;
+                        if (pdttK) stubProto = stubProto->setAttribute(pContext, pdttK,
+                            pContext->fromInteger(0x2LL));
+                    }
+                }
                 const proto::ProtoObject* stub = pContext->newObject(true);
                 if (nameKey2) stub = stub->setAttribute(pContext, nameKey2, pContext->fromUTF8String(ctorName));
                 if (protoKey2) {

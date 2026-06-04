@@ -1463,9 +1463,26 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
         proto = installNonEnumerableMethod(ctx, proto, kMethods[i].name,
                                            kMethods[i].fn, kMethods[i].argc);
 
-    // Symbol.toStringTag = "WeakMap"
-    const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
-    if (tagKey) proto = proto->setAttribute(ctx, tagKey, ctx->fromUTF8String("WeakMap"));
+    // Symbol.toStringTag = "WeakMap": install under both the internal
+    // "__toStringTag__" key (used by Object.prototype.toString's
+    // own probe) and the user-visible "Symbol.toStringTag" key (what
+    // `WeakMap.prototype[Symbol.toStringTag]` resolves to). Without
+    // the user-visible install the test262 'built-ins/WeakMap/
+    // prototype/Symbol.toStringTag.js' check failed because the value
+    // was looked up under the spec-name string, not the internal
+    // shortcut. Stamp descriptor 0x2 (writable=false, enumerable=false,
+    // configurable=true) per §17.
+    {
+        const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
+        if (tagKey) proto = proto->setAttribute(ctx, tagKey, ctx->fromUTF8String("WeakMap"));
+        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+        if (userKey) {
+            proto = proto->setAttribute(ctx, userKey, ctx->fromUTF8String("WeakMap"));
+            const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+            const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdks) proto = proto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+        }
+    }
 
     // Build the constructor object.
     const proto::ProtoObject* ctor =
