@@ -82,21 +82,25 @@ static void collectOwnKeys(
             std::string s;
             ps->toUTF8String(ctx, s);
             emitStringChars(s);
-            // Per §22.1.4, ToObject(string) exposes 'length' too.
-            // Object.getOwnPropertyNames returns the indices THEN
-            // 'length'; the descriptor for it is non-writable,
-            // non-enumerable, non-configurable.
-            // UTF-16 code-unit count of the same string (4-byte UTF-8 → 2 units).
-            size_t u16 = 0;
-            for (size_t bi = 0; bi < s.size(); ) {
-                unsigned char c = static_cast<unsigned char>(s[bi]);
-                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
-                if (bi + cl > s.size()) break;
-                u16 += (cl == 4) ? 2 : 1;
-                bi += cl;
+            // Per §22.1.4 ToObject(string) the per-char indexed
+            // properties are enumerable, but "length" is
+            // non-enumerable. Object.keys / values / entries (which
+            // pass includeNonEnumerable=false) MUST omit it;
+            // Object.getOwnPropertyNames passes includeNonEnumerable=
+            // true and DOES include it after the chars (built-ins/
+            // Object/values/primitive-strings expected length 3, not 4).
+            if (includeNonEnumerable) {
+                size_t u16 = 0;
+                for (size_t bi = 0; bi < s.size(); ) {
+                    unsigned char c = static_cast<unsigned char>(s[bi]);
+                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                    if (bi + cl > s.size()) break;
+                    u16 += (cl == 4) ? 2 : 1;
+                    bi += cl;
+                }
+                keys.push_back("length");
+                if (vals) vals->push_back(ctx->fromInteger(static_cast<long long>(u16)));
             }
-            keys.push_back("length");
-            if (vals) vals->push_back(ctx->fromInteger(static_cast<long long>(u16)));
         }
         return;
     }
