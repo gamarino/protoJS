@@ -1219,12 +1219,17 @@ static const proto::ProtoObject* arrayIncludes(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) == 0)
-        return PROTO_FALSE;
     long long len = static_cast<long long>(arrLen(ctx, self));
-    const proto::ProtoObject* needle = args->getAt(ctx, 0);
+    // §23.1.3.13 step 5: searchElement defaults to undefined when no
+    // argument is supplied. Pre-fix arrayIncludes early-returned false
+    // on no-arg, so `[undefined].includes()` reported false instead of
+    // the spec-required true via SameValueZero(undefined, undefined)
+    // (built-ins/Array/prototype/includes/no-arg.js).
+    const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0)
+        : getUndefinedSentinel();
     long long from = 0;
-    if (args->getSize(ctx) > 1) {
+    if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
         if (fi && fi != PROTO_NONE) {
             if (fi->isInteger(ctx)) from = fi->asLong(ctx);
@@ -1253,6 +1258,14 @@ static const proto::ProtoObject* arrayIncludes(
         // at index 2 fired even after index 1's throw.
         const proto::ProtoObject* el = arrGet(ctx, self, static_cast<unsigned long>(i));
         if (hasCallException()) return PROTO_NONE;
+        // §23.1.3.13 step 7.a: Get(O, ToString(k)). For a hole, Get
+        // returns undefined (after walking the prototype chain). Our
+        // arrGet maps both "real hole + no proto fallback" AND
+        // "explicit undefined" to PROTO_NONE — but PROTO_NONE
+        // compares as !== to the undefined sentinel under
+        // SameValueZero. Normalise so [ , , , ].includes(undefined)
+        // surfaces true (built-ins/Array/prototype/includes/sparse.js).
+        if (!el || el == PROTO_NONE) el = getUndefinedSentinel();
         if (sameValueZero(ctx, el, needle))
             return PROTO_TRUE;
     }
