@@ -1398,13 +1398,24 @@ const proto::ProtoObject* stringReplaceAll(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 2) return self;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
-    if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
-    // Per ECMA-262 §22.1.3.20 step 5: ToString(searchValue) when the
-    // pattern is not a regex. Pre-fix non-string patterns returned
-    // PROTO_NONE (surfacing as 'undefined' in user code); now they
-    // coerce so .replaceAll(undefined, x) searches for 'undefined'.
+    if (!pattern || pattern == PROTO_NONE) {
+        std::string sOnly = objToStr(ctx, self);
+        if (hasCallException()) return PROTO_NONE;
+        return ctx->fromUTF8String(sOnly.c_str());
+    }
+    // Per ECMA-262 §22.1.3.20 step 3: ToString(O) PRECEDES every other
+    // observable side effect (searchValue/replaceValue coercions or
+    // their string forms). The pre-fix sequence ran objToStr on
+    // self / pattern / repObj back-to-back without an abrupt check
+    // between them, so when thisValue.toString threw, the searchValue
+    // and replaceValue toString invocations still ran and the LAST
+    // exception overwrote the first (built-ins/String/prototype/
+    // replaceAll/this-tostring-abrupt.js — Test262Error was swallowed
+    // by a "Should not call toString on replaceValue" primitive).
     std::string s   = objToStr(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     std::string pat = objToStr(ctx, pattern);
+    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     // Spec §22.1.3.20 step 8: callable replacement gets (match, offset, string).
@@ -1437,6 +1448,7 @@ const proto::ProtoObject* stringReplaceAll(
             }
         } else {
             std::string rep = objToStr(ctx, repObj);
+            if (hasCallException()) return PROTO_NONE;
             result += applyStringReplacement(s, pat, rep, 0);
             for (size_t i = 0; i < s.size(); i++) {
                 result += s[i];
@@ -1453,8 +1465,10 @@ const proto::ProtoObject* stringReplaceAll(
         result += s.substr(lastPos, pos - lastPos);
         if (repCallable) {
             result += callReplacement(pat, pos);
+            if (hasCallException()) return PROTO_NONE;
         } else {
             std::string rep = objToStr(ctx, repObj);
+            if (hasCallException()) return PROTO_NONE;
             result += applyStringReplacement(s, pat, rep, pos);
         }
         lastPos = pos + pat.size();
