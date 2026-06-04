@@ -2427,17 +2427,33 @@ static const proto::ProtoObject* arrayAt(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     // ECMA-262 §23.1.3.1 step 2: relativeIndex = ToIntegerOrInfinity(index).
-    // NaN → 0, ±Infinity preserved (and rejected below as out-of-range).
+    // Route every non-integer / non-double through jsToNumber so:
+    //   • booleans coerce via ToNumber (true → 1, false → 0)
+    //   • {valueOf(){...}} fires its valueOf
+    //   • Symbol throws TypeError (jsToNumber raises a callable
+    //     exception we propagate)
+    // Pre-fix the helper only handled raw integer/double, so a.at(true)
+    // returned a[0] (undefined) instead of a[1], a.at({valueOf:()=>1})
+    // similarly returned a[0], and a.at(Symbol()) silently returned
+    // undefined (built-ins/Array/prototype/at/index-non-numeric-
+    // argument-tointeger{,-invalid}.js).
     long long idx = 0;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
         if (a && a != PROTO_NONE && a != getUndefinedSentinel()) {
-            if (a->isInteger(ctx)) idx = a->asLong(ctx);
-            else if (a->isDouble(ctx) || a->isFloat(ctx)) {
-                double d = a->asDouble(ctx);
-                if (std::isnan(d)) idx = 0;
-                else if (std::isinf(d)) return PROTO_NONE; // ±Inf is out of range
-                else idx = (long long)d;
+            const proto::ProtoObject* num = a;
+            if (!a->isInteger(ctx) && !a->isDouble(ctx) && !a->isFloat(ctx)) {
+                num = jsToNumber(ctx, a);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (num) {
+                if (num->isInteger(ctx)) idx = num->asLong(ctx);
+                else if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                    double d = num->asDouble(ctx);
+                    if (std::isnan(d)) idx = 0;
+                    else if (std::isinf(d)) return PROTO_NONE; // ±Inf out of range
+                    else idx = (long long)d;
+                }
             }
         }
     }
