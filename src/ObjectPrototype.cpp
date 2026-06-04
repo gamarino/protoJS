@@ -194,7 +194,30 @@ static void collectOwnKeys(
             }
         }
         keys.push_back(kstr);
-        if (vals) vals->push_back(val ? val : PROTO_NONE);
+        if (vals) {
+            // §7.3.1 Get(O, P): if the slot is an accessor, invoke the
+            // getter to produce the value. Pre-fix vals always pushed
+            // the iterator's raw data slot — for accessor entries that
+            // slot is undefined / PROTO_NONE, so
+            //   Object.values({get b(){return 'B'}}) returned [undefined]
+            // (built-ins/Object/values/getter-adding-key caught this).
+            std::string gkStr = "__get_" + kstr + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoObject* getter = (gk && obj->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                ? obj->getAttribute(ctx, gk, false) : nullptr;
+            if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
+                const proto::ProtoList* noArgs = ctx->newList();
+                const proto::ProtoObject* gres = callJSFunction(ctx, getter, obj, noArgs);
+                if (hasCallException()) {
+                    vals->push_back(PROTO_NONE);
+                    return;
+                }
+                vals->push_back(gres ? gres : PROTO_NONE);
+            } else {
+                vals->push_back(val ? val : PROTO_NONE);
+            }
+        }
     }
 }
 
