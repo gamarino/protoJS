@@ -352,6 +352,30 @@ static const proto::ProtoObject* objectAssign(
             "Cannot convert null to object"));
         return PROTO_NONE;
     }
+    // §19.1.2.1 step 1: To = ToObject(target). For primitives the spec
+    // produces the corresponding wrapper (String / Number / Boolean /
+    // Symbol). Pre-fix Object.assign("a") returned the raw "a" primitive,
+    // so typeof === "string" (built-ins/Object/assign/OnlyOneArgument
+    // expected "object" and `.valueOf()` access).
+    JSContextWrapper* aw = JSContextWrapper::current();
+    auto wrapPrimitive = [&](const proto::ProtoObject* prim,
+                              const proto::ProtoObject* protoForWrapper) -> const proto::ProtoObject* {
+        const proto::ProtoObject* wrap = (protoForWrapper && protoForWrapper != PROTO_NONE)
+            ? protoForWrapper->newChild(ctx, true)
+            : ctx->newObject(true);
+        if (wrap) {
+            const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+            if (pvK) wrap = wrap->setAttribute(ctx, pvK, prim);
+        }
+        return wrap ? wrap : target;
+    };
+    if (target->isString(ctx) && ctx->space && aw) {
+        target = wrapPrimitive(target, ctx->space->stringPrototype);
+    } else if (target->isInteger(ctx) || target->isDouble(ctx) || target->isFloat(ctx)) {
+        if (ctx->space) target = wrapPrimitive(target, ctx->space->doublePrototype);
+    } else if (target == PROTO_TRUE || target == PROTO_FALSE) {
+        if (ctx->space) target = wrapPrimitive(target, ctx->space->booleanPrototype);
+    }
 
     for (int si = 1; si < argc; si++) {
         const proto::ProtoObject* src = args->getAt(ctx, si);
