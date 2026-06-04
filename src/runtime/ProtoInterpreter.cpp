@@ -1394,7 +1394,16 @@ static const proto::ProtoObject* globalParseInt(
                 rd = (endp == rs.c_str()) ? 0.0 : parsed;
             }
             if (std::isnan(rd) || std::isinf(rd)) rd = 0;
-            radix = static_cast<int>(rd);
+            // ECMA-262 §7.1.6 ToInt32: int32bit = sign(int) * floor(|int|) mod 2^32,
+            // then map [2^31, 2^32) onto [-2^31, 0). Casting a double > INT_MAX
+            // to int is implementation-defined; without this normalisation
+            // parseInt("11", 4294967298) read radix as an INT_MAX-clamped value
+            // and returned NaN where the spec demands parseInt("11", 2) === 3.
+            double rd_int = (rd < 0 ? -std::floor(-rd) : std::floor(rd));
+            double rd_mod = std::fmod(rd_int, 4294967296.0);
+            if (rd_mod < 0) rd_mod += 4294967296.0;
+            if (rd_mod >= 2147483648.0) rd_mod -= 4294967296.0;
+            radix = static_cast<int>(rd_mod);
         }
     }
     // Spec §19.2.6 step 8: only the "0x"/"0X" prefix triggers an
