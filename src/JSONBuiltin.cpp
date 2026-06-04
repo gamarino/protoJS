@@ -54,26 +54,87 @@ static bool keyAllowedByFilter(const std::string& key) {
 }
 
 void jsonEscape(const std::string& s, std::string& out) {
+    // ECMA-262 §25.5.2.2 QuoteJSONString + the well-formed-json-stringify
+    // proposal (now standard): lone UTF-16 surrogate code units must be
+    // emitted as \uXXXX, not as raw bytes.  Pre-fix the encoder copied
+    // each UTF-8 byte through individually, so a lone high surrogate
+    // (U+D834, UTF-8: ED A0 B4) leaked the three replacement bytes and
+    // JSON.stringify("\uD834") produced "\"\xEF\xBF\xBD\"" instead of
+    // the spec-required "\"\\ud834\"".
+    auto emit_u_escape = [&](uint32_t cp) {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned int>(cp & 0xFFFF));
+        out += buf;
+    };
     out.push_back('"');
-    for (unsigned char c : s) {
-        switch (c) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            case '\b': out += "\\b"; break;
-            case '\f': out += "\\f"; break;
-            default:
-                if (c < 32) {
-                    char buf[7];
-                    snprintf(buf, sizeof(buf), "\\u%04x", (unsigned int)c);
-                    out += buf;
-                } else {
-                    out.push_back(c);
-                }
-                break;
+    const size_t n = s.size();
+    for (size_t i = 0; i < n; ) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        // ASCII fast path.
+        if (c < 0x80) {
+            switch (c) {
+                case '"':  out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\n': out += "\\n";  break;
+                case '\r': out += "\\r";  break;
+                case '\t': out += "\\t";  break;
+                case '\b': out += "\\b";  break;
+                case '\f': out += "\\f";  break;
+                default:
+                    if (c < 0x20) emit_u_escape(c);
+                    else          out.push_back(static_cast<char>(c));
+                    break;
+            }
+            ++i;
+            continue;
         }
+        // Decode the next UTF-8 sequence to a codepoint so that lone
+        // surrogate ranges (U+D800–U+DFFF) can be escaped per spec.
+        // Invalid sequences fall back to the raw bytes so they remain
+        // visible (rather than silently dropping data).
+        uint32_t cp = 0;
+        size_t width = 1;
+        bool valid = false;
+        if ((c & 0xE0) == 0xC0 && i + 1 < n) {
+            unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
+            if ((c1 & 0xC0) == 0x80) {
+                cp = ((c & 0x1F) << 6) | (c1 & 0x3F);
+                width = 2; valid = (cp >= 0x80);
+            }
+        } else if ((c & 0xF0) == 0xE0 && i + 2 < n) {
+            unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
+            unsigned char c2 = static_cast<unsigned char>(s[i + 2]);
+            if ((c1 & 0xC0) == 0x80 && (c2 & 0xC0) == 0x80) {
+                cp = ((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F);
+                width = 3; valid = (cp >= 0x800);
+            }
+        } else if ((c & 0xF8) == 0xF0 && i + 3 < n) {
+            unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
+            unsigned char c2 = static_cast<unsigned char>(s[i + 2]);
+            unsigned char c3 = static_cast<unsigned char>(s[i + 3]);
+            if ((c1 & 0xC0) == 0x80 && (c2 & 0xC0) == 0x80 && (c3 & 0xC0) == 0x80) {
+                cp = ((c & 0x07) << 18) | ((c1 & 0x3F) << 12)
+                   | ((c2 & 0x3F) << 6)  |  (c3 & 0x3F);
+                width = 4; valid = (cp >= 0x10000 && cp <= 0x10FFFF);
+            }
+        }
+        if (!valid) {
+            // Malformed prefix — copy this byte verbatim, advance one.
+            out.push_back(static_cast<char>(c));
+            ++i;
+            continue;
+        }
+        // Lone surrogate (CESU-8 / WTF-8 carries them in 3-byte form):
+        // re-emit as \uXXXX so the JSON output is well-formed UTF-16.
+        if (cp >= 0xD800 && cp <= 0xDFFF) {
+            emit_u_escape(cp);
+        } else {
+            // Pass valid scalar values through as their original UTF-8
+            // sequence (no escape — the JSON spec accepts raw UTF-8 for
+            // non-ASCII printable characters).
+            out.append(s, i, width);
+        }
+        i += width;
     }
     out.push_back('"');
 }
