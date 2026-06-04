@@ -1073,6 +1073,21 @@ static const proto::ProtoObject* objectDefineProperty(
         signalNativeException(makeNativeError(ctx, "TypeError", "Property description must be an object"));
         return PROTO_NONE;
     }
+    // §20.1.2.4 step 2 invokes ToPropertyDescriptor which gates on
+    // Type(O) === Object; a Symbol primitive (carried in protoJS as an
+    // object with the __is_symbol__ marker) is treated as Object by
+    // the type system but the spec rejects it as a descriptor —
+    // built-ins/Object/defineProperty/property-description-must-be-an-
+    // object-not-symbol.js expects the TypeError abrupt.
+    {
+        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        if (symK && desc->getAttribute(ctx, symK, false) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Property description must be an object"));
+            return PROTO_NONE;
+        }
+    }
 
     bool propExists = (target->hasOwnAttribute(ctx, k) == PROTO_TRUE);
     const proto::ProtoObject* existingVal = propExists ? target->getAttribute(ctx, k, false) : nullptr;
