@@ -2508,10 +2508,19 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
                 ctx->fromUTF8String("Error"));
         }
         // Add toString method to the prototype.
+        // §20.5.5.4 marks Error.prototype.toString as
+        // {writable:true, enumerable:false, configurable:true} (descriptor
+        // bits 0x3). Pre-fix the descriptor sidecar was missing, so
+        // the slot defaulted to fully-enumerable and the test262
+        // verifyProperty check (built-ins/Error/prototype/toString/
+        // prop-desc) saw enumerable:true.
         const proto::ProtoString* toStringKey = JSSymbols::toString(ctx);
         if (toStringKey) {
             const proto::ProtoObject* toStringMethod = ctx->fromMethod(nullptr, errorPrototypeToString);
             if (toStringMethod) proto = proto->setAttribute(ctx, toStringKey, toStringMethod);
+            const proto::ProtoObject* pdto = ctx->fromUTF8String("__pd_toString__");
+            const proto::ProtoString* pdtk = pdto ? pdto->asString(ctx) : nullptr;
+            if (pdtk) proto = proto->setAttribute(ctx, pdtk, ctx->fromInteger(0x3LL));
         }
         if (!proto) continue;
         // Build constructor stub parented at Function.prototype so that
