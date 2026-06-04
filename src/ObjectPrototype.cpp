@@ -1355,11 +1355,48 @@ static const proto::ProtoObject* objectDefineProperty(
         const bool curConfigurable = (existingBits & 0x2) != 0;
         const bool curEnumerable   = (existingBits & 0x4) != 0;
         if (hasGet || hasSet) {
-            // §10.1.6.3 step 4.c: redefining a non-configurable data
-            // property as an accessor is rejected.
-            signalNativeException(makeNativeError(ctx, "TypeError",
-                "Cannot redefine non-configurable property"));
-            return PROTO_NONE;
+            // §10.1.6.3 step 4.c rejects converting a data property
+            // into an accessor (or replacing the accessor functions
+            // themselves) on a non-configurable slot — UNLESS the
+            // specified get / set are SameValue with the existing ones
+            // (built-ins/Object/defineProperty/15.2.3.6-4-257 redefines
+            // {get:undefined} on an already-undefined-getter accessor
+            // and expects success). Probe the existing __get_<key>__ /
+            // __set_<key>__ sidecars and compare.
+            auto fetchExisting = [&](const std::string& prefix) -> const proto::ProtoObject* {
+                std::string sk = prefix + kstr + "__";
+                const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+                const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+                if (!sks) return nullptr;
+                return target->getAttribute(ctx, sks, false);
+            };
+            auto fetchDesc = [&](const char* name) -> const proto::ProtoObject* {
+                const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+                const proto::ProtoString* dk = ko ? ko->asString(ctx) : nullptr;
+                return dk ? desc->getAttribute(ctx, dk, false) : nullptr;
+            };
+            auto normaliseAccessorFn = [&](const proto::ProtoObject* v) -> const proto::ProtoObject* {
+                if (!v || v == PROTO_NONE || v == getUndefinedSentinel())
+                    return getUndefinedSentinel();
+                return v;
+            };
+            bool ok = true;
+            if (hasGet) {
+                const proto::ProtoObject* existingGet = normaliseAccessorFn(fetchExisting("__get_"));
+                const proto::ProtoObject* descGet = normaliseAccessorFn(fetchDesc("get"));
+                if (!sameValue(descGet, existingGet)) ok = false;
+            }
+            if (ok && hasSet) {
+                const proto::ProtoObject* existingSet = normaliseAccessorFn(fetchExisting("__set_"));
+                const proto::ProtoObject* descSet = normaliseAccessorFn(fetchDesc("set"));
+                if (!sameValue(descSet, existingSet)) ok = false;
+            }
+            if (!ok) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot redefine non-configurable property"));
+                return PROTO_NONE;
+            }
+            return target; // accept the no-op redefine
         }
         bool ok = true;
         if (hasValue) {
