@@ -1871,7 +1871,20 @@ static const proto::ProtoObject* objectHasOwnProperty(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    // §20.1.3.2 step 1 calls ToObject(this) before any property test;
+    // null / undefined make ToObject throw TypeError. Pre-fix the
+    // method returned false silently, breaking
+    // Object.prototype.hasOwnProperty.call(null, 'foo') and a string of
+    // built-ins/Object/prototype/* tests that depend on the abrupt.
+    // §20.1.3.2 step 1 calls ToObject(this); null / undefined throw
+    // TypeError before any property lookup (built-ins/Object/prototype/
+    // hasOwnProperty/this-not-object-coercible).
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
@@ -1949,7 +1962,15 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return PROTO_FALSE;
+    // §20.1.3.4 step 1: ToObject(this); null / undefined throw TypeError
+    // before any inspection (built-ins/Object/prototype/
+    // propertyIsEnumerable/S15.2.4.7_A13).
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
