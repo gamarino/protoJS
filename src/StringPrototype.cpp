@@ -397,14 +397,37 @@ const proto::ProtoObject* stringLastIndexOf(
     std::string srch = getStrArg(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
+    // §21.1.3.10 lastIndexOf step 5: numPos = ToNumber(position); NaN →
+    // +Infinity; otherwise pos = ToIntegerOrInfinity(numPos). The pre-
+    // fix branch only inspected primitive integers/doubles and treated
+    // NaN-valued primitives as 0, so "ABBABABAB".lastIndexOf("AB",
+    // {valueOf(){return NaN;}}) started at 0 and returned -1 instead of
+    // the spec's 7 (search from string length backwards).
     long long fromIdx = static_cast<long long>(su16.size());
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* fa = args->getAt(ctx, 1);
-        if (fa && fa != PROTO_NONE) {
-            double d = fa->isDouble(ctx)  ? fa->asDouble(ctx)
-                     : fa->isInteger(ctx) ? static_cast<double>(fa->asLong(ctx))
-                     : 0.0;
-            if (!std::isnan(d)) fromIdx = static_cast<long long>(d);
+        if (fa && fa != PROTO_NONE && fa != getUndefinedSentinel()) {
+            const proto::ProtoObject* num = fa;
+            if (!fa->isInteger(ctx) && !fa->isDouble(ctx) && !fa->isFloat(ctx)) {
+                num = jsToNumber(ctx, fa);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (num) {
+                double d = num->isInteger(ctx)
+                    ? static_cast<double>(num->asLong(ctx))
+                    : (num->isDouble(ctx) || num->isFloat(ctx))
+                        ? num->asDouble(ctx)
+                        : 0.0;
+                if (std::isnan(d)) {
+                    fromIdx = static_cast<long long>(su16.size());
+                } else if (std::isinf(d)) {
+                    fromIdx = d > 0
+                        ? static_cast<long long>(su16.size())
+                        : 0;
+                } else {
+                    fromIdx = static_cast<long long>(d);
+                }
+            }
         }
     }
     if (fromIdx < 0) fromIdx = 0;
