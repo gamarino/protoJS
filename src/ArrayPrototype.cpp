@@ -2938,11 +2938,18 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     // invisible to it.  Number / Boolean / String constructors
     // already follow this pattern; this fix brings Array in line.
     // ------------------------------------------------------------------
+    // §17: built-in constructor objects are extensible. Pre-fix the
+    // Array constructor was created immutable (newChild(ctx, false)),
+    // so `Array.myProperty = 1` produced a fresh detached copy that
+    // the global root could not see — `Array.myProperty` always read
+    // undefined on the next access, breaking S15.4.3_A1.1 and the
+    // `Function.prototype` inheritance check (a property installed on
+    // Function.prototype was visible only on the orphan copy).
     const proto::ProtoObject* ctorParent =
         (ctx->space && ctx->space->methodPrototype) ? ctx->space->methodPrototype : nullptr;
     const proto::ProtoObject* ctor = ctorParent
-        ? ctorParent->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? ctorParent->newChild(ctx, true)
+        : ctx->newObject(true);
 
     const proto::ProtoString* markerKey =
         JSSymbols::arrayCtor(ctx);
