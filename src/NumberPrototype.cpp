@@ -827,12 +827,22 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
         : ctx->newObject(true);
     if (!ctor) return;
 
+    // §17: every built-in static method is
+    // {writable:true, enumerable:false, configurable:true} → bits 0x3.
+    // Pre-fix the slot defaulted to fully enumerable, leaking isNaN /
+    // isInteger / isFinite / isSafeInteger / parseInt / parseFloat in
+    // for-in over Number (built-ins/Number/<Name>/prop-desc.js).
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length = 1) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* wrapped = wrapNativeFunction(ctx, fn, name, length, globalRoot);
-            if (wrapped && wrapped != PROTO_NONE)
+            if (wrapped && wrapped != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, wrapped);
+                std::string pdStr = std::string("__pd_") + name + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+            }
         }
     };
 
