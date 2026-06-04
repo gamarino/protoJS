@@ -1399,14 +1399,58 @@ static const proto::ProtoObject* objectDefineProperty(
             return target; // accept the no-op redefine
         }
         bool ok = true;
-        if (hasValue) {
+        // §10.1.6.3 step 4.h: a value change on a non-configurable but
+        // WRITABLE data property is allowed even when SameValue would
+        // fail (this is what makes `arr.length = 5` and
+        // `Object.defineProperty(arr, 'length', {value:5})` work — the
+        // length slot is non-configurable but writable). Without this
+        // branch the all-field SameValue gate rejected every Array-
+        // length growth (built-ins/Object/defineProperty/15.2.3.6-4-
+        // 159 and the wider "writable but non-configurable" set).
+        if (hasValue && !curWritable) {
             const proto::ProtoObject* newVal = descKeyValue("value");
             if (!sameValue(newVal, existingVal)) ok = false;
         }
-        if (ok && hasWritable && descBoolField("writable", false) != curWritable)     ok = false;
+        // Writable can only transition false → true when configurable;
+        // false ↔ false / true ↔ true are SameValue ok'd by descBoolField.
+        if (ok && hasWritable) {
+            bool newW = descBoolField("writable", false);
+            if (curWritable && !newW) {
+                // true → false is allowed even when non-configurable.
+            } else if (newW != curWritable) {
+                ok = false; // false → true not allowed on non-configurable
+            }
+        }
         if (ok && hasEnum     && descBoolField("enumerable", false) != curEnumerable) ok = false;
-        if (ok && hasConf     && descBoolField("configurable", false) != curConfigurable) ok = false;
-        if (ok) return target;
+        if (ok && hasConf) {
+            bool newC = descBoolField("configurable", false);
+            // Going to non-configurable is fine; going to configurable
+            // from non-configurable is forbidden.
+            if (newC && !curConfigurable) ok = false;
+        }
+        if (ok) {
+            // Apply the in-place updates (value change + bit toggles).
+            if (hasValue) {
+                const proto::ProtoObject* newVal = descKeyValue("value");
+                if (newVal && newVal != PROTO_NONE) {
+                    target = target->setAttribute(ctx, k, newVal);
+                }
+            }
+            long long newBits = existingBits;
+            if (hasWritable) {
+                if (descBoolField("writable", false)) newBits |= 0x1; else newBits &= ~0x1;
+            }
+            if (hasConf) {
+                if (descBoolField("configurable", false)) newBits |= 0x2; else newBits &= ~0x2;
+            }
+            if (hasEnum) {
+                if (descBoolField("enumerable", false)) newBits |= 0x4; else newBits &= ~0x4;
+            }
+            if (pdk && newBits != existingBits) {
+                target = target->setAttribute(ctx, pdk, ctx->fromInteger(newBits));
+            }
+            return target;
+        }
         signalNativeException(makeNativeError(ctx, "TypeError", "Cannot redefine non-configurable property"));
         return PROTO_NONE;
     }
