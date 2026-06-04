@@ -6483,6 +6483,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     protojs::setArrayElements(pContext, newObj, grown);
                                 }
                             }
+                            // ECMA-262 §10.4.2.1 ArraySetLength step 16
+                            // demands a true [[Delete]] on each removed
+                            // own index — not a write of `undefined`.
+                            // Storing PROTO_NONE leaves a tombstone that
+                            // shadows the inherited Array.prototype slot
+                            // for the same index, so
+                            //   Array.prototype[2] = -1;
+                            //   var x = [0,1,2]; x.length = 2;
+                            //   x[2]
+                            // read undefined instead of the spec-required
+                            // -1 (built-ins/Array S15.4.5.1_A1.2_T2).
+                            // removeAttribute drops the own slot so the
+                            // prototype chain becomes visible again.
                             int misses = 0;
                             for (long long i = newLen; i < newLen + 100000LL && misses < 8; i++) {
                                 const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i));
@@ -6494,7 +6507,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 }
                                 misses = 0;
                                 const proto::ProtoObject* prevObj = newObj;
-                                newObj = newObj->setAttribute(pContext, idxKey, PROTO_NONE);
+                                newObj = newObj->removeAttribute(pContext, idxKey);
                                 if (newObj != prevObj) updateMapping(pContext, prevObj, newObj);
                             }
                         }
