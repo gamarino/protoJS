@@ -3665,6 +3665,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                     *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolCtor);
+                    // §17 globalThis.Symbol descriptor 0x3.
+                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol__");
+                    const proto::ProtoString* pdkk = pdo ? pdo->asString(pContext) : nullptr;
+                    if (pdkk) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdkk,
+                        pContext->fromInteger(0x3LL));
                 }
             }
         }

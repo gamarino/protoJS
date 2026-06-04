@@ -1439,6 +1439,16 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
+    // §17 constructor-of-the-global table: the slot is
+    // {writable:true, enumerable:false, configurable:true} (bits 0x3).
+    // Pre-fix the slot defaulted to fully enumerable, leaking "Set"
+    // through for-in over globalThis.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Set__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs

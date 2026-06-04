@@ -1250,6 +1250,13 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, ks, ctor);
+    // §17 globalThis.Map descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Map__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 // ---------------------------------------------------------------------------

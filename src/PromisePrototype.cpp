@@ -767,7 +767,14 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
 
     const proto::ProtoObject* promiseKeyObj = ctx->fromUTF8String("Promise");
     const proto::ProtoString* pk = promiseKeyObj ? promiseKeyObj->asString(ctx) : nullptr;
-    if (pk) *globalRoot = (*globalRoot)->setAttribute(ctx, pk, ctor);
+    if (pk) {
+        *globalRoot = (*globalRoot)->setAttribute(ctx, pk, ctor);
+        // §17 globalThis.Promise descriptor 0x3.
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Promise__");
+        const proto::ProtoString* pdkk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdkk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdkk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 // ---------------------------------------------------------------------------
