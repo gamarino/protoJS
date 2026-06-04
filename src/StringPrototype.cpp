@@ -75,12 +75,15 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             size_t z = 0;
             while (z + 1 < exp.size() && exp[z] == '0') ++z;
             exp.erase(0, z);
-            // §6.1.6.1.13 uses decimal form when -6 < expDecimal ≤ 21.
-            // Convert the scientific form back to decimal when it falls
-            // in that window so we get "100000" rather than "1e5".
+            // §6.1.6.1.13 uses decimal form when -6 < n ≤ 21, where n
+            // is the position of the leading digit (n = exp + 1 in
+            // scientific form). The boundary on the raw exponent is
+            // therefore -7 < e10 ≤ 20. Pre-fix the comparison used
+            // -6 < e10 ≤ 21 and Sputnik S9.8.1_A10 caught the boundary
+            // mismatch.
             int e10 = exp.empty() ? 0 : std::atoi(exp.c_str());
             if (negExp) e10 = -e10;
-            if (e10 > -6 && e10 <= 21) {
+            if (e10 > -7 && e10 <= 20) {
                 // Build decimal representation by walking mant and shifting.
                 bool negMant = !mant.empty() && mant[0] == '-';
                 std::string sign = negMant ? "-" : "";
