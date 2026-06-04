@@ -85,6 +85,32 @@ numericArrayIndexOrNeg(proto::ProtoContext* ctx,
         long long v = static_cast<long long>(d);
         return (static_cast<double>(v) == d) ? v : -1;
     }
+    // §7.1.21 CanonicalNumericIndexString: string keys that round-trip
+    // through ToString(ToUint32) ARE valid array indices and must hit
+    // the native fast path. Pre-fix arr["0"] / arr["1" + ""] missed
+    // the indexed slot (returned undefined) because they fell into the
+    // string-keyed attribute path, while arr[0] / arr[0|0] worked —
+    // observed in built-ins/Object/getOwnPropertyNames/15.2.3.4-4-42
+    // (for-in iteration of a result array yields string indices).
+    if (idx->isString(ctx)) {
+        const proto::ProtoString* s = idx->asString(ctx);
+        if (!s) return -1;
+        std::string buf;
+        s->toUTF8String(ctx, buf);
+        if (buf.empty()) return -1;
+        // Disallow leading zeros (other than "0" itself) and signs;
+        // the canonical numeric string for n>=0 is std::to_string(n).
+        if (buf[0] == '0' && buf.size() > 1) return -1;
+        if (buf[0] < '0' || buf[0] > '9') return -1;
+        long long v = 0;
+        for (char c : buf) {
+            if (c < '0' || c > '9') return -1;
+            if (v > 0xFFFFFFFFLL / 10) return -1;
+            v = v * 10 + (c - '0');
+            if (v >= 0xFFFFFFFFLL) return -1;
+        }
+        return v;
+    }
     return -1;
 }
 
