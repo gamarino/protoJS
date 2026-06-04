@@ -41,9 +41,81 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         if (std::isinf(d))  return d > 0 ? "Infinity" : "-Infinity";
         // ECMA-262 §7.1.12.1 Number::toString: ToString(-0) === "0".
         if (d == 0.0) return "0";
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.15g", d);
-        return buf;
+        // §6.1.6.1.13 shortest-round-trip: try ever more precise
+        // %.<n>g until round-trip equality holds; then post-process
+        // into the spec form. Pre-fix the bare "%.15g" leaked C's
+        // exponent format ("1e-07" / "1e+21") with leading zeros and
+        // explicit "+", so String.prototype.trim.call(1e-7) returned
+        // "1e-07" where the spec / String(1e-7) demand "1e-7"
+        // (built-ins/String/prototype/trim/15.5.4.20-2-21).
+        std::string r;
+        for (int p = 1; p <= 17; ++p) {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "%.*g", p, d);
+            double rd = std::strtod(buf, nullptr);
+            if (rd == d) { r = buf; break; }
+        }
+        if (r.empty()) {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "%.17g", d);
+            r = buf;
+        }
+        // Normalise the exponent: "e[+-]?0*<digits>" → "e[+-]?<digits>"
+        // (strip the "+" sign when present and any leading zeros from
+        // the magnitude — the spec format never carries leading zeros).
+        size_t ePos = r.find('e');
+        if (ePos != std::string::npos) {
+            std::string mant = r.substr(0, ePos);
+            std::string exp  = r.substr(ePos + 1);
+            bool negExp = false;
+            if (!exp.empty() && (exp[0] == '+' || exp[0] == '-')) {
+                negExp = (exp[0] == '-');
+                exp.erase(0, 1);
+            }
+            size_t z = 0;
+            while (z + 1 < exp.size() && exp[z] == '0') ++z;
+            exp.erase(0, z);
+            // §6.1.6.1.13 uses decimal form when -6 < expDecimal ≤ 21.
+            // Convert the scientific form back to decimal when it falls
+            // in that window so we get "100000" rather than "1e5".
+            int e10 = exp.empty() ? 0 : std::atoi(exp.c_str());
+            if (negExp) e10 = -e10;
+            if (e10 > -6 && e10 <= 21) {
+                // Build decimal representation by walking mant and shifting.
+                bool negMant = !mant.empty() && mant[0] == '-';
+                std::string sign = negMant ? "-" : "";
+                std::string digits;
+                size_t dot = mant.find('.');
+                int mantExp = 0; // exponent of leading digit relative to "."
+                if (dot == std::string::npos) {
+                    digits = negMant ? mant.substr(1) : mant;
+                    mantExp = static_cast<int>(digits.size()) - 1;
+                } else {
+                    std::string head = negMant ? mant.substr(1, dot - 1)
+                                               : mant.substr(0, dot);
+                    std::string tail = mant.substr(dot + 1);
+                    digits = head + tail;
+                    mantExp = static_cast<int>(head.size()) - 1;
+                }
+                int total = mantExp + e10; // exponent of leading digit
+                // total points to the digit position (10^total).
+                // We want: digits[0].digits[1..] * 10^total.
+                if (total >= static_cast<int>(digits.size()) - 1) {
+                    // Pad zeros on the right.
+                    int pad = total - (static_cast<int>(digits.size()) - 1);
+                    digits.append(pad, '0');
+                    return sign + digits;
+                } else if (total >= 0) {
+                    return sign + digits.substr(0, total + 1) + "." + digits.substr(total + 1);
+                } else {
+                    // Leading "0."
+                    int leadingZeros = -total - 1;
+                    return sign + "0." + std::string(leadingZeros, '0') + digits;
+                }
+            }
+            r = mant + "e" + (negExp ? "-" : "+") + exp;
+        }
+        return r;
     }
     if (obj->isBoolean(ctx)) return obj->asBoolean(ctx) ? "true" : "false";
     // String wrapper object: unwrap __primitive_value__ before falling back.
