@@ -2532,6 +2532,18 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!proto) continue;
         proto = proto->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!proto) continue;
+        // §20.5.6.2 / §20.5.5.2 Error.prototype.name is
+        // {writable:true, enumerable:false, configurable:true} —
+        // descriptor bits 0x3. Subtype prototypes (TypeError, RangeError,
+        // ...) inherit the same descriptor profile per §19.5.6.2. The
+        // sidecar was absent so for-in over an instance leaked "name"
+        // (built-ins/NativeErrors/<Type>/prototype/name.js).
+        {
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
+            if (!proto) continue;
+        }
         // ECMA-262 §20.5.5.3: Error.prototype.message === "" (empty
         // string). Pre-fix the attribute was absent, so
         // `new Error().message` returned undefined instead of ""
