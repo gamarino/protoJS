@@ -9753,6 +9753,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoObject* errsKo = pContext->fromUTF8String("errors");
                             const proto::ProtoString* errsK = errsKo ? errsKo->asString(pContext) : nullptr;
                             if (errsK) result = result->setAttribute(pContext, errsK, errArr);
+                            // §19.5.7.4 AggregateError instance's
+                            // "errors" descriptor is
+                            // {writable:true, enumerable:false,
+                            // configurable:true} (bits 0x3).
+                            const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_errors__");
+                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                            if (pdk) result = result->setAttribute(pContext, pdk,
+                                pContext->fromInteger(0x3LL));
                         }
                     } else if (reAttr == PROTO_TRUE) {
                         const proto::ProtoString* pk = JSSymbols::prototype(pContext);
