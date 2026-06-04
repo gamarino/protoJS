@@ -153,6 +153,15 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                     // user-defined toString both work.
                     result = callJSFunction(ctx, tsFn, obj, ctx->newList());
                 }
+                // §7.1.1 OrdinaryToPrimitive step 4.b.iii: ReturnIfAbrupt
+                // when a coercion method throws. Pre-fix objToStr
+                // swallowed the throw and dropped to the fallback
+                // "[object Object]", so a String.prototype.lastIndexOf
+                // call whose searchString's toString threw "intostr"
+                // proceeded to read position and surfaced "intoint"
+                // instead (Sputnik S15.5.4.8_A4_T4 / equivalents on
+                // every coercing String.prototype method).
+                if (hasCallException()) return "";
                 if (result && result != PROTO_NONE) {
                     const proto::ProtoString* rs = result->asString(ctx);
                     if (rs) {
@@ -466,7 +475,14 @@ const proto::ProtoObject* stringLastIndexOf(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     std::string srch = getStrArg(ctx, args, 0);
+    // §21.1.3.10 step 4 ToString(searchString) is an abrupt-completion
+    // site that MUST precede the ToNumber(position) work. Pre-fix the
+    // method swallowed a throwing toString and proceeded to position,
+    // surfacing "intoint" before the spec-required "intostr"
+    // (Sputnik S15.5.4.8_A4_T4 verified the ordering).
+    if (hasCallException()) return PROTO_NONE;
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     // §21.1.3.10 lastIndexOf step 5: numPos = ToNumber(position); NaN →
