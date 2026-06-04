@@ -1610,7 +1610,19 @@ static const proto::ProtoObject* arrayCopyWithin(
 // JS truthiness helper used by callback-taking methods.
 // ---------------------------------------------------------------------------
 static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    // §7.1.1 ToBoolean: undefined and null are falsy. PROTO_NONE
+    // doubles as protoJS's internal "absent" marker; both the
+    // user-visible undefined sentinel (the `undefined` identifier) and
+    // the null sentinel must also map to false.  Pre-fix isTruthy
+    // dropped through to the generic "objects are truthy" branch for
+    // both sentinels, so every Array.prototype.{every, some, find,
+    // findIndex, filter, ...} callback that returned `undefined`
+    // looked truthy — `[1,2,3].every(x => undefined)` evaluated to
+    // true where the spec demands false (built-ins/Array/prototype/
+    // every/15.4.4.16-7-c-iii-1 caught this).
     if (!v || v == PROTO_NONE) return false;
+    if (v == getUndefinedSentinel()) return false;
+    if (v == getNullSentinel()) return false;
     if (v == PROTO_TRUE) return true;
     if (v == PROTO_FALSE) return false;
     if (v->isBoolean(ctx)) return v->asBoolean(ctx);
