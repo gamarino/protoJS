@@ -844,6 +844,27 @@ static const proto::ProtoObject* objectSeal(
             }
         }
     }
+    // Same fix for Array indices stored in __elements__.
+    {
+        const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+        if (isArrK && obj->getAttribute(ctx, isArrK, true) == PROTO_TRUE) {
+            const proto::ProtoList* els = getArrayElements(ctx, obj);
+            if (els) {
+                size_t n = els->getSize(ctx);
+                for (size_t i = 0; i < n; ++i) {
+                    std::string pdStr = std::string("__pd_") + std::to_string(i) + "__";
+                    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    if (!pdk) continue;
+                    const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
+                    long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
+                        ? cur->asLong(ctx) : 0x7LL;
+                    bits &= ~0x2LL;
+                    obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
+                }
+            }
+        }
+    }
     return obj;
 }
 
