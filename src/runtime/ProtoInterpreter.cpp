@@ -1244,21 +1244,101 @@ static const proto::ProtoObject* symbolConstructor(
     if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* d = args->getAt(ctx, 0);
-        if (d && d != PROTO_NONE) {
+        // Spec §20.4.1 step 3: if description is undefined, descString
+        // is undefined; otherwise descString = ? ToString(description).
+        // The undefined sentinel falls into the "undefined" branch
+        // (no description attribute is recorded). Pre-fix only the
+        // raw primitive types were handled — Objects fell through with
+        // empty `s` and the description was lost, so
+        //   Symbol({toString(){...}}) -> Symbol descriptor "" and the
+        //   spec-required toString/valueOf side effects never fired
+        // (built-ins/Symbol/desc-to-string.js).
+        if (d && d != PROTO_NONE && d != getUndefinedSentinel()) {
             std::string s;
-            if (d->isString(ctx)) {
-                if (const proto::ProtoString* ps = d->asString(ctx))
+            bool gotString = false;
+            if (d == getNullSentinel()) {
+                s = "null"; gotString = true;
+            } else if (d->isString(ctx)) {
+                if (const proto::ProtoString* ps = d->asString(ctx)) {
                     ps->toUTF8String(ctx, s);
+                    gotString = true;
+                }
             } else if (d->isInteger(ctx)) {
-                s = std::to_string(d->asLong(ctx));
+                s = std::to_string(d->asLong(ctx)); gotString = true;
             } else if (d->isDouble(ctx)) {
-                char buf[64]; snprintf(buf, sizeof(buf), "%.15g", d->asDouble(ctx)); s = buf;
+                char buf[64]; snprintf(buf, sizeof(buf), "%.15g", d->asDouble(ctx));
+                s = buf; gotString = true;
             } else if (d == PROTO_TRUE) {
-                s = "true";
+                s = "true"; gotString = true;
             } else if (d == PROTO_FALSE) {
-                s = "false";
+                s = "false"; gotString = true;
+            } else {
+                // Object: spec routes ToString → OrdinaryToPrimitive
+                // ("string") — try toString then valueOf, raising
+                // TypeError if both yield Objects. Mirror the spec
+                // exactly here (the file-local toString helper sits
+                // far below this function so a forward call would
+                // require a header-level declaration; the loop is
+                // short enough to inline).
+                auto isPrimSym = [&](const proto::ProtoObject* v) -> bool {
+                    // PROTO_NONE arises from a callable returning
+                    // nothing — equivalent to `return undefined`.
+                    if (!v || v == PROTO_NONE) return true;
+                    return v->isString(ctx)
+                        || v->isInteger(ctx) || v->isDouble(ctx)
+                        || v->isFloat(ctx) || v->isBoolean(ctx)
+                        || v == PROTO_TRUE || v == PROTO_FALSE
+                        || v == t_undefinedSentinel
+                        || v == getUndefinedSentinel()
+                        || v == t_nullSentinel;
+                };
+                const char* methods[] = {"toString", "valueOf"};
+                const proto::ProtoObject* prim = nullptr;
+                bool gotPrim = false;
+                for (int mi = 0; mi < 2; ++mi) {
+                    const proto::ProtoObject* mko = ctx->fromUTF8String(methods[mi]);
+                    const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
+                    if (!mk) continue;
+                    const proto::ProtoObject* fn = d->getAttribute(ctx, mk, true);
+                    if (!fn || fn == PROTO_NONE) continue;
+                    if (!fn->isMethod(ctx)) {
+                        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                        bool callable = bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE;
+                        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                        callable = callable
+                            || (nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE);
+                        if (!callable) continue;
+                    }
+                    const proto::ProtoList* noArgs = ctx->newList();
+                    const proto::ProtoObject* r = callJSFunction(ctx, fn, d, noArgs);
+                    if (hasCallException()) return PROTO_NONE;
+                    if (isPrimSym(r)) { prim = r; gotPrim = true; break; }
+                }
+                if (!gotPrim) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot convert object to primitive value"));
+                    return PROTO_NONE;
+                }
+                // ToString of the primitive.
+                if (!prim || prim == PROTO_NONE
+                    || prim == t_undefinedSentinel || prim == getUndefinedSentinel()) {
+                    s = "undefined"; gotString = true;
+                } else if (prim == t_nullSentinel) {
+                    s = "null"; gotString = true;
+                } else if (prim == PROTO_TRUE) { s = "true"; gotString = true; }
+                else if (prim == PROTO_FALSE) { s = "false"; gotString = true; }
+                else if (prim->isString(ctx)) {
+                    if (const proto::ProtoString* ps = prim->asString(ctx)) {
+                        ps->toUTF8String(ctx, s); gotString = true;
+                    }
+                } else if (prim->isInteger(ctx)) {
+                    s = std::to_string(prim->asLong(ctx)); gotString = true;
+                } else if (prim->isDouble(ctx) || prim->isFloat(ctx)) {
+                    char buf[64]; snprintf(buf, sizeof(buf), "%.15g", prim->asDouble(ctx));
+                    s = buf; gotString = true;
+                }
             }
-            if (!s.empty()) {
+            if (gotString) {
                 const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
                 const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
                 if (descKey)
