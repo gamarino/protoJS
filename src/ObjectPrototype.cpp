@@ -2468,19 +2468,34 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    // §20.1.3.3 step 1: ToObject(this); null / undefined throw TypeError
-    // before any prototype-chain walk.
+    if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    const proto::ProtoObject* arg = args->getAt(ctx, 0);
+    // §20.1.3.3 step 1 returns false WHEN V is not an Object, BEFORE
+    // step 2 invokes ToObject on this. Pre-fix the previous patch
+    // reordered the null/undefined-this check ahead of the V check, so
+    //   Object.prototype.isPrototypeOf.call(null, undefined)
+    // raised TypeError instead of returning false
+    // (built-ins/Object/prototype/isPrototypeOf/null-this-and-
+    // primitive-arg-returns-false caught this).
+    if (!arg || arg == PROTO_NONE || arg->isNone(ctx)
+        || arg == getUndefinedSentinel() || arg == getNullSentinel()
+        || arg->isInteger(ctx) || arg->isDouble(ctx) || arg->isFloat(ctx)
+        || arg->asString(ctx) || arg == PROTO_TRUE || arg == PROTO_FALSE)
+        return PROTO_FALSE;
+    // Symbol primitive is also "not an Object" here.
+    {
+        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        if (symK && arg->getAttribute(ctx, symK, true) == PROTO_TRUE)
+            return PROTO_FALSE;
+    }
+    // §20.1.3.3 step 2: ToObject(this); null / undefined throw TypeError.
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Cannot convert undefined or null to object"));
         return PROTO_NONE;
     }
-    if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
-    const proto::ProtoObject* arg = args->getAt(ctx, 0);
-    // If arg is not an object, return false
-    if (!arg || arg == PROTO_NONE || arg->isNone(ctx) || arg->isInteger(ctx) || arg->isDouble(ctx) || arg->asString(ctx) || arg == PROTO_TRUE || arg == PROTO_FALSE)
-        return PROTO_FALSE;
 
     // Walk the prototype chain of arg
     const proto::ProtoObject* curr = arg->getFirstParent(ctx);
