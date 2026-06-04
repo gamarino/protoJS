@@ -1047,9 +1047,42 @@ static const proto::ProtoObject* objectDefineProperty(
 
     bool propExists = (target->hasOwnAttribute(ctx, k) == PROTO_TRUE);
     const proto::ProtoObject* existingVal = propExists ? target->getAttribute(ctx, k, false) : nullptr;
-
     std::string kstr;
     k->toUTF8String(ctx, kstr);
+    // ECMA-262 §10.4.2.4 ArraySetLength considers each indexed element
+    // (k in [0, length)) an own data property. protoJS keeps these in
+    // the native __elements__ ProtoList, NOT as string-keyed own
+    // attributes, so hasOwnAttribute("0") returns false on
+    // `[undefined]`. The descriptor-merge path below would then treat
+    // the property as "newly created", default writable / enumerable /
+    // configurable to false, and Object.defineProperty(arr, "0",
+    // {value:100}) returned a non-enumerable, non-writable,
+    // non-configurable slot (built-ins/Object/defineProperty/15.2.3.6-
+    // 4-260 and a long tail of the "data descriptor partial redefine"
+    // tests caught this).  Recognise indexed entries on arrays as own
+    // data properties whose default descriptor matches the spec
+    // ({writable, enumerable, configurable}).
+    if (!propExists) {
+        const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArrV = isArrK
+            ? target->getAttribute(ctx, isArrK, true) : nullptr;
+        if (isArrV == PROTO_TRUE && !kstr.empty()) {
+            char* end = nullptr;
+            long long v = std::strtoll(kstr.c_str(), &end, 10);
+            if (end && *end == '\0' && v >= 0 && std::to_string(v) == kstr) {
+                const proto::ProtoString* lenK = JSSymbols::length(ctx);
+                const proto::ProtoObject* lenV = lenK
+                    ? target->getAttribute(ctx, lenK, false) : nullptr;
+                long long len = (lenV && lenV != PROTO_NONE && lenV->isInteger(ctx))
+                    ? lenV->asLong(ctx) : -1;
+                if (len >= 0 && v < len) {
+                    propExists = true;
+                    existingVal = target->getAttribute(ctx, k, false);
+                    if (!existingVal) existingVal = getUndefinedSentinel();
+                }
+            }
+        }
+    }
     // ECMA-262 §10.4.2.1 ArraySetLength: when defining the `length`
     // property on an Array exotic object, the spec runs the new
     // value through ToUint32 and SameValue(numberLen, ToNumber(len))
