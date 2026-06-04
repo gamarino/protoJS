@@ -2420,6 +2420,49 @@ static void setNWCDescriptor(proto::ProtoContext* ctx,
     if (pdk) obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
 }
 
+/** Native ProtoMethod for Error.isError(value) — stage-4 proposal,
+ *  ECMA-262 §20.5.2.1. Returns true iff `value` has an Error internal
+ *  slot (i.e. inherits Error.prototype on the protoJS side).
+ */
+static const proto::ProtoObject* errorIsError(
+        proto::ProtoContext* context,
+        const proto::ProtoObject* /*self*/,
+        const proto::ParentLink* /*parentLink*/,
+        const proto::ProtoList* params,
+        const proto::ProtoSparseList* /*kw*/) {
+    if (!context || !params || params->getSize(context) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = params->getAt(context, 0);
+    if (!v || v == PROTO_NONE) return PROTO_FALSE;
+    if (v->isInteger(context) || v->isDouble(context) || v->isFloat(context)
+        || v->isString(context) || v == PROTO_TRUE || v == PROTO_FALSE)
+        return PROTO_FALSE;
+    if (v == getNullSentinel() || v == getUndefinedSentinel())
+        return PROTO_FALSE;
+    // Walk parent chain looking for an entry whose `name` matches a
+    // known Error type — this matches the spec's "has an Error internal
+    // slot" check via the prototype chain that all Error.* constructors
+    // share.
+    const proto::ProtoString* nameKey = JSSymbols::name(context);
+    if (!nameKey) return PROTO_FALSE;
+    static const char* kErrorNames[] = {
+        "Error", "EvalError", "RangeError", "ReferenceError",
+        "SyntaxError", "TypeError", "URIError", "AggregateError", nullptr
+    };
+    const proto::ProtoObject* cur = v;
+    for (int depth = 0; cur && cur != PROTO_NONE && depth < 100; ++depth) {
+        const proto::ProtoObject* nv = cur->getAttribute(context, nameKey, false);
+        if (nv && nv != PROTO_NONE && nv->isString(context)) {
+            std::string nameStr;
+            nv->asString(context)->toUTF8String(context, nameStr);
+            for (int i = 0; kErrorNames[i]; ++i) {
+                if (nameStr == kErrorNames[i]) return PROTO_TRUE;
+            }
+        }
+        cur = cur->getFirstParent(context);
+    }
+    return PROTO_FALSE;
+}
+
 /** Native ProtoMethod for Error.prototype.toString(). Returns "name: message" or just "name". */
 static const proto::ProtoObject* errorPrototypeToString(
         proto::ProtoContext* context,
@@ -2583,6 +2626,22 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         const proto::ProtoString* errCtorKey = JSSymbols::errorCtor(ctx);
         if (errCtorKey) ctor = ctor->setAttribute(ctx, errCtorKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
+        // §20.5.2.1 Error.isError(value) — Stage 4 proposal. Static
+        // method on the base Error constructor only; subtype
+        // constructors (TypeError, RangeError, etc.) inherit nothing.
+        if (isBaseError) {
+            const proto::ProtoString* ieK =
+                ctx->fromUTF8String("isError") ? ctx->fromUTF8String("isError")->asString(ctx) : nullptr;
+            if (ieK) {
+                const proto::ProtoObject* fn = wrapNativeFunction(ctx, errorIsError, "isError", 1, globalRoot);
+                if (fn && fn != PROTO_NONE) {
+                    ctor = ctor->setAttribute(ctx, ieK, fn);
+                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_isError__");
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+                }
+            }
+        }
         *globalRoot = (*globalRoot)->setAttribute(ctx, ctorKey, ctor);
         // Capture Error.prototype so subsequent iterations parent their
         // prototype on it.
