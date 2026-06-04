@@ -737,6 +737,31 @@ static const proto::ProtoObject* objectFreeze(
             }
         }
     }
+    // Array indices live in __elements__, not in the own-attribute
+    // SparseList, so the loop above misses them. Stamp a per-index
+    // descriptor sidecar for each materialised element so
+    // verifyProperty(arrObj, "0", {writable:false, configurable:false})
+    // sees the frozen bits (built-ins/Object/freeze/15.2.3.9-2-a-14).
+    {
+        const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+        if (isArrK && obj->getAttribute(ctx, isArrK, true) == PROTO_TRUE) {
+            const proto::ProtoList* els = getArrayElements(ctx, obj);
+            if (els) {
+                size_t n = els->getSize(ctx);
+                for (size_t i = 0; i < n; ++i) {
+                    std::string pdStr = std::string("__pd_") + std::to_string(i) + "__";
+                    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    if (!pdk) continue;
+                    const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
+                    long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
+                        ? cur->asLong(ctx) : 0x7LL;
+                    bits &= ~0x3LL;
+                    obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
+                }
+            }
+        }
+    }
     return obj;
 }
 
