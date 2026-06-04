@@ -2773,14 +2773,49 @@ static const proto::ProtoObject* arrayFrom(
             const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKey, true);
             const proto::ProtoList* resultEls = ctx->newList();
             long long idx = 0;
+            // §23.1.2.1 step 6.h.ii / 6.h.v: every iterator step is
+            // an abrupt-completion site — both the IteratorNext call
+            // and the Get(result, "value") read MUST propagate any
+            // throw. Pre-fix the loop swallowed exceptions: a poisoned
+            // .value getter threw Test262Error but Array.from kept
+            // looping, then returned the partially-built array
+            // (built-ins/Array/from/iter-get-iter-val-err.js).
+            //
+            // Two additions per iteration:
+            //   - hasCallException check after callJSFunction(nextFn)
+            //   - probe __get_value__ / __get_done__ accessors before
+            //     the raw getAttribute so a throwing getter surfaces
+            //     correctly, and check again after the invocation.
+            auto invokeAccessor = [&](const proto::ProtoObject* obj,
+                                       const proto::ProtoString* key)
+                -> const proto::ProtoObject* {
+                if (!key) return PROTO_NONE;
+                std::string keyStr;
+                key->toUTF8String(ctx, keyStr);
+                std::string gkStr = "__get_" + keyStr + "__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                if (!gk) return PROTO_NONE;
+                const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+                if (!getter || getter == PROTO_NONE) return PROTO_NONE;
+                return callJSFunction(ctx, getter, obj, ctx->newList());
+            };
             while (nextFn && nextFn != PROTO_NONE) {
                 const proto::ProtoList* nArgs = ctx->newList();
                 const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
+                if (hasCallException()) return PROTO_NONE;
                 if (!res || res == PROTO_NONE) break;
-                const proto::ProtoObject* dv = res->getAttribute(ctx, doneKey, false);
+                const proto::ProtoObject* dv = invokeAccessor(res, doneKey);
+                if (hasCallException()) return PROTO_NONE;
+                if (!dv || dv == PROTO_NONE)
+                    dv = res->getAttribute(ctx, doneKey, false);
                 if (dv == PROTO_TRUE) break;
-                const proto::ProtoObject* vv = res->getAttribute(ctx, valueKey, false);
+                const proto::ProtoObject* vv = invokeAccessor(res, valueKey);
+                if (hasCallException()) return PROTO_NONE;
+                if (!vv || vv == PROTO_NONE)
+                    vv = res->getAttribute(ctx, valueKey, false);
                 const proto::ProtoObject* mapped = applyMap(vv, idx);
+                if (hasCallException()) return PROTO_NONE;
                 resultEls = resultEls->appendLast(ctx, mapped ? mapped : PROTO_NONE);
                 idx++;
                 if (idx > 100000) break; // safety
