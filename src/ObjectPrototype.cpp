@@ -506,6 +506,29 @@ static const proto::ProtoObject* objectAssign(
                     if (hasCallException()) return PROTO_NONE;
                 }
             }
+            // §19.1.2.1 step 5.c.iv: Set(to, nextKey, propValue, true).
+            // The trailing "true" is Throw — a non-writable target slot
+            // raises TypeError. Probe the target's __pd_<key>__ sidecar
+            // (default 0x7 = writable+configurable+enumerable when
+            // absent); refuse the write when bit 0 (writable) is clear.
+            {
+                std::string tk;
+                propKey->toUTF8String(ctx, tk);
+                std::string pdStr = std::string("__pd_") + tk + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk && target->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
+                    const proto::ProtoObject* pdv = target->getAttribute(ctx, pdk, false);
+                    if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+                        long long bits = pdv->asLong(ctx);
+                        if (!(bits & 0x1)) {
+                            signalNativeException(makeNativeError(ctx, "TypeError",
+                                "Cannot assign to read only property"));
+                            return PROTO_NONE;
+                        }
+                    }
+                }
+            }
             target = target->setAttribute(ctx, propKey,
                 effective ? effective : PROTO_NONE);
         }
