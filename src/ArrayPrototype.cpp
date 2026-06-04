@@ -1297,9 +1297,22 @@ static const proto::ProtoObject* arrayCloneShallow(proto::ProtoContext* ctx,
     const proto::ProtoObject* dst = arraySpeciesCreate(ctx, self, len);
     if (!dst) return PROTO_NONE;
     const proto::ProtoList* els = ctx->newList();
+    // ECMA-262 §23.1.3.{toReversed,toSorted,toSpliced,with} all step
+    // through "Let fromValue be ? Get(O, from); CreateDataProperty-
+    // OrThrow(A, Pk, fromValue)" for every index in [0, len). A hole
+    // (Get returns undefined) still gets an EXPLICIT own undefined
+    // property on the destination, distinct from "no value" — so
+    // hasOwnProperty(k) on the result must return true even when the
+    // source had a hole or returned undefined via the prototype chain.
+    // Pre-fix the clone stored PROTO_NONE for an undefined read, and
+    // that aliased the destination slot to "fall through to the
+    // prototype" on subsequent reads. (built-ins/Array/prototype/
+    // toReversed/holes-not-preserved.js + toSorted/toSpliced/with
+    // variants.)
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* v = arrGet(ctx, self, i);
-        els = els->appendLast(ctx, v ? v : PROTO_NONE);
+        if (!v || v == PROTO_NONE) v = getUndefinedSentinel();
+        els = els->appendLast(ctx, v);
     }
     setArrayElements(ctx, dst, els);
     const proto::ProtoString* lk = JSSymbols::length(ctx);
