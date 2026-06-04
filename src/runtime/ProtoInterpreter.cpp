@@ -2366,6 +2366,21 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                 prim = callJSFunction(context, tfn, value, noArgs);
             }
             if (hasCallException()) return PROTO_NONE;
+            // §7.1.1 step 4.b: a non-Object return is a primitive,
+            // including undefined / null. Pre-fix the isStringPrim
+            // gate only accepted "real" primitive types so a toString
+            // that returned undefined fell through to valueOf instead
+            // of producing "undefined" (built-ins/String/prototype/
+            // lastIndexOf/S15.5.4.8_A1_T8). PROTO_NONE arises when a
+            // function body completes without an explicit `return`
+            // (ECMA-262 §10.2.1.4 — the implicit completion is
+            // undefined); treat it identically to the undefined
+            // sentinel here so wrapper-Object coercion produces
+            // "undefined", not "[object Object]".
+            if (prim == getUndefinedSentinel() || prim == t_undefinedSentinel
+                || prim == PROTO_NONE || !prim)
+                return context->fromUTF8String("undefined");
+            if (prim == t_nullSentinel) return context->fromUTF8String("null");
             if (isStringPrim(prim)) return prim;
         }
     }
