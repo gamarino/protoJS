@@ -2068,6 +2068,20 @@ static const proto::ProtoObject* objectToString(
             if (bfVal && bfVal != PROTO_NONE)
                 return ctx->fromUTF8String("[object Function]");
         }
+        // Built-in constructor objects (Array, Object, Number, Boolean,
+        // String, Error, ...) are callable via the spec's [[Call]] /
+        // [[Construct]] internal methods. They expose neither
+        // __native_fn__ nor __bytecode_id__ — dispatch goes through the
+        // dedicated __<name>_ctor__ marker — so a pre-fix lookup
+        // produced "[object Object]" instead of the spec-required
+        // "[object Function]" (Object.prototype.toString.call(Array)
+        // and the Sputnik S15.4.3_A1.1_T2 conformance check both broke).
+        const proto::ProtoString* icKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+        if (icKey) {
+            const proto::ProtoObject* icVal = self->getAttribute(ctx, icKey, false);
+            if (icVal == PROTO_TRUE)
+                return ctx->fromUTF8String("[object Function]");
+        }
     }
 
     // Array: has __is_array__ as an own attribute (moved from prototype in Phase 7).
