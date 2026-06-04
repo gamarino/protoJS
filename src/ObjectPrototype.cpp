@@ -2668,6 +2668,19 @@ static const proto::ProtoObject* objectToString(
             if (bfVal && bfVal != PROTO_NONE)
                 return ctx->fromUTF8String("[object Function]");
         }
+        // Function.prototype itself is a function per §20.2.3 (calling
+        // it returns undefined) but is allocated as a plain object
+        // newChild of Object.prototype and carries none of the standard
+        // callable markers. Function.prototype is stamped with
+        // __is_function_prototype__ specifically so toString can
+        // dispatch it (Sputnik S15.3.4_A1).
+        const proto::ProtoObject* fpmo = ctx->fromUTF8String("__is_function_prototype__");
+        const proto::ProtoString* fpms = fpmo ? fpmo->asString(ctx) : nullptr;
+        if (fpms) {
+            const proto::ProtoObject* fpv = self->getAttribute(ctx, fpms, false);
+            if (fpv == PROTO_TRUE)
+                return ctx->fromUTF8String("[object Function]");
+        }
         // Built-in constructor objects (Array, Object, Number, Boolean,
         // String, Error, ...) are callable via the spec's [[Call]] /
         // [[Construct]] internal methods. They expose neither

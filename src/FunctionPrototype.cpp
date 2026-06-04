@@ -323,6 +323,20 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     installFpMethod("bind",     fnBind,     1);
     installFpMethod("toString", fnToString, 0);
 
+    // §20.2.3: Function.prototype itself is a function (calling it
+    // returns undefined). Object.prototype.toString.call(Function
+    // .prototype) must therefore yield "[object Function]". Because
+    // Function.prototype is built as a plain newChild of Object
+    // .prototype, it carries none of the standard callable markers
+    // (__bytecode_id__ / __native_fn__ / __is_constructor__) and
+    // toString fell through to "[object Object]" (Sputnik S15.3.4_A1).
+    // Stamp __is_function_prototype__ so objectToString can dispatch.
+    {
+        const proto::ProtoObject* fpmo = ctx->fromUTF8String("__is_function_prototype__");
+        const proto::ProtoString* fpms = fpmo ? fpmo->asString(ctx) : nullptr;
+        if (fpms) fp = fp->setAttribute(ctx, fpms, PROTO_TRUE);
+    }
+
     // §20.2.3: Function.prototype carries length === 0 and name === ""
     // with the standard built-in descriptor 0x2 (configurable,
     // non-writable, non-enumerable).
