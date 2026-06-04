@@ -9895,6 +9895,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             } else result = createTypedArrayFromLength(pContext, pr, et, 0);
                         }
                     } else if (strAttr == PROTO_TRUE) {
+                        // §22.1.1.1 String(value): when NewTarget is
+                        // defined and value is a Symbol, ToString
+                        // raises TypeError per §7.1.17 (built-ins/
+                        // String/symbol-wrapping). Probe the Symbol
+                        // marker BEFORE the toString coercion path.
+                        if (finalArgc > 0) {
+                            const proto::ProtoObject* v0 = argsList->getAt(pContext, 0);
+                            const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
+                            const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+                            if (v0 && v0 != PROTO_NONE && symK
+                                && v0->getAttribute(pContext, symK, true) == PROTO_TRUE) {
+                                pending_exception = makeError(pContext, "TypeError",
+                                    "Cannot convert a Symbol value to a string", pGlobalRoot);
+                                has_pending_exception = true;
+                                DISPATCH();
+                            }
+                        }
                         // String wrapper constructor: new String("hello") → object with [[PrimitiveValue]].
                         // No args → empty string (spec 22.1.2.1: new String() has value "").
                         const proto::ProtoObject* pv = finalArgc > 0
