@@ -273,21 +273,28 @@ const proto::ProtoObject* numberToFixed(
     if (positionalParameters && positionalParameters->getSize(context) > 0) {
         const proto::ProtoObject* fdObj = positionalParameters->getAt(context, 0);
         if (fdObj && fdObj != PROTO_NONE) {
-            if (fdObj->isInteger(context)) {
-                fdDouble = static_cast<double>(fdObj->asLong(context));
-            } else if (fdObj->isDouble(context)) {
-                fdDouble = fdObj->asDouble(context);
-            } else if (fdObj->isString(context)) {
-                // ToNumber on the string; non-numeric -> NaN -> 0.
-                std::string s;
-                fdObj->asString(context)->toUTF8String(context, s);
-                char* endp = nullptr;
-                double parsed = std::strtod(s.c_str(), &endp);
-                if (endp == s.c_str()) fdDouble = 0.0; // NaN-like
-                else fdDouble = parsed;
-            } else if (fdObj == PROTO_TRUE) {
+            // §22.1.3.27 step 2 requires ToIntegerOrInfinity, whose
+            // first step is ToNumber. Routing every non-primitive arg
+            // through jsToNumber lets the Symbol / object / BigInt
+            // rejection (built-ins/Number/prototype/toFixed/toFixed-
+            // tonumber-throws-typeerror-{symbol,bigint,toprimitive})
+            // and the ToPrimitive-via-valueOf integer extraction share
+            // one code path.
+            const proto::ProtoObject* num = fdObj;
+            if (!fdObj->isInteger(context) && !fdObj->isDouble(context)
+                && !fdObj->isFloat(context) && fdObj != PROTO_TRUE
+                && fdObj != PROTO_FALSE) {
+                num = jsToNumber(context, fdObj);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (!num) num = fdObj;
+            if (num->isInteger(context)) {
+                fdDouble = static_cast<double>(num->asLong(context));
+            } else if (num->isDouble(context) || num->isFloat(context)) {
+                fdDouble = num->asDouble(context);
+            } else if (num == PROTO_TRUE) {
                 fdDouble = 1.0;
-            } else if (fdObj == PROTO_FALSE) {
+            } else if (num == PROTO_FALSE) {
                 fdDouble = 0.0;
             }
             if (std::isnan(fdDouble)) fdDouble = 0.0;
