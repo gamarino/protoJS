@@ -168,6 +168,15 @@ static void collectOwnKeys(
             reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!propKey) continue;
         if (isInternalKey(ctx, propKey)) continue;
+        // ECMA-262 §7.3.23 EnumerableOwnProperties step 4.a — at each
+        // step re-check that [[GetOwnProperty]] still returns a
+        // descriptor for this key on `obj`. The iterator returned by
+        // getOwnAttributes is a snapshot of the moment of capture; if
+        // a getter invoked during the loop deletes a later key, our
+        // snapshot still surfaces it (`Object.entries({a, get b(){
+        // delete this.c}, c}).length` must be 2, not 3 — built-ins/
+        // Object/{entries,values}/getter-removing-future-key.js).
+        if (obj->hasOwnAttribute(ctx, propKey) != PROTO_TRUE) continue;
         // Array's "length" is non-enumerable but IS an own property.
         // Object.keys / values / entries (includeNonEnumerable=false)
         // must skip it; Object.getOwnPropertyNames
