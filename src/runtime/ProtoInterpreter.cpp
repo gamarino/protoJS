@@ -3612,8 +3612,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                     if (protoKey) {
                         const proto::ProtoObject* symProto = pContext->newObject(true);
-                        if (symProto)
+                        if (symProto) {
+                            // §20.4.3.4 Symbol.prototype[@@toStringTag]
+                            // === "Symbol" with {writable:false,
+                            // enumerable:false, configurable:true}
+                            // (bits 0x2). The slot was absent so
+                            // Object.prototype.toString.call(Symbol())
+                            // fell through to the marker probe (and
+                            // emitted "[object Symbol]" only after the
+                            // explicit primitive check added separately).
+                            const proto::ProtoString* ttKey = JSSymbols::symbolToStringTag(pContext);
+                            if (ttKey) {
+                                symProto = symProto->setAttribute(pContext, ttKey,
+                                    pContext->fromUTF8String("Symbol"));
+                                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
+                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                if (pdk) symProto = symProto->setAttribute(pContext, pdk,
+                                    pContext->fromInteger(0x2LL));
+                            }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
+                        }
                     }
                     // Static methods: Symbol.for, Symbol.keyFor.  §17 marks
                     // each as {writable:true, enumerable:false, configurable:
