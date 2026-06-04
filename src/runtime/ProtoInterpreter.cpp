@@ -2256,16 +2256,66 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
             double check = 0.0;
             std::sscanf(buf, "%lf", &check);
             if (check == v) {
-                // glibc's %g emits two-digit exponents ("1e-07", "1e+21");
-                // ECMA-262 ToString uses no leading zero in the exponent
-                // ("1e-7", "1e+21"). Strip a single leading zero that
-                // follows the sign in the exponent part.
-                if (char* e = std::strchr(buf, 'e')) {
-                    if (e[1] && e[2] == '0' && e[3]) {
-                        std::memmove(e + 2, e + 3, std::strlen(e + 3) + 1);
+                std::string out(buf);
+                // glibc's %g picks scientific for very small / very
+                // large values, but §6.1.6.1.13 prefers decimal in the
+                // window -6 < expDec ≤ 21. Reparse the exponent and
+                // re-render to decimal when it lands in that window.
+                // Pre-fix String(0.000012345) returned "1.2345e-5"
+                // instead of the spec's "0.000012345" (Sputnik
+                // S9.8.1_A10).
+                size_t ePos = out.find('e');
+                if (ePos != std::string::npos) {
+                    std::string mant = out.substr(0, ePos);
+                    std::string exp  = out.substr(ePos + 1);
+                    bool negExp = false;
+                    if (!exp.empty() && (exp[0] == '+' || exp[0] == '-')) {
+                        negExp = (exp[0] == '-');
+                        exp.erase(0, 1);
+                    }
+                    size_t z = 0;
+                    while (z + 1 < exp.size() && exp[z] == '0') ++z;
+                    exp.erase(0, z);
+                    int e10 = exp.empty() ? 0 : std::atoi(exp.c_str());
+                    if (negExp) e10 = -e10;
+                    // §6.1.6.1.13 decimal window: -6 < n ≤ 21 where
+                    // n = exp + 1 for the canonical 1.x form. Off by
+                    // one from the raw scientific exponent.
+                    if (e10 > -7 && e10 <= 20) {
+                        bool negMant = !mant.empty() && mant[0] == '-';
+                        std::string sign = negMant ? "-" : "";
+                        std::string digits;
+                        size_t dot = mant.find('.');
+                        int mantExp = 0;
+                        if (dot == std::string::npos) {
+                            digits = negMant ? mant.substr(1) : mant;
+                            mantExp = static_cast<int>(digits.size()) - 1;
+                        } else {
+                            std::string head = negMant ? mant.substr(1, dot - 1)
+                                                       : mant.substr(0, dot);
+                            std::string tail = mant.substr(dot + 1);
+                            digits = head + tail;
+                            mantExp = static_cast<int>(head.size()) - 1;
+                        }
+                        int total = mantExp + e10;
+                        if (total >= static_cast<int>(digits.size()) - 1) {
+                            int pad = total - (static_cast<int>(digits.size()) - 1);
+                            digits.append(pad, '0');
+                            out = sign + digits;
+                        } else if (total >= 0) {
+                            out = sign + digits.substr(0, total + 1) + "." + digits.substr(total + 1);
+                        } else {
+                            int leadingZeros = -total - 1;
+                            out = sign + "0." + std::string(leadingZeros, '0') + digits;
+                        }
+                    } else {
+                        // Outside the decimal window — keep scientific
+                        // form but strip the spec-disallowed leading
+                        // zero from the exponent ("1e-07" → "1e-7").
+                        out = mant + "e" + (negExp ? "-" : "+") + exp;
                     }
                 }
-                return context->fromUTF8String(buf);
+                return context->fromUTF8String(out.c_str());
             }
         }
         snprintf(buf, sizeof(buf), "%.17g", v);
