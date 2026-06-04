@@ -3510,7 +3510,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* stubProto = pContext->newObject(true);
                 const proto::ProtoObject* stub = pContext->newObject(true);
                 if (nameKey2) stub = stub->setAttribute(pContext, nameKey2, pContext->fromUTF8String(ctorName));
-                if (protoKey2) stub = stub->setAttribute(pContext, protoKey2, stubProto ? stubProto : PROTO_NONE);
+                if (protoKey2) {
+                    stub = stub->setAttribute(pContext, protoKey2, stubProto ? stubProto : PROTO_NONE);
+                    // §17 / §20.4.5: every built-in constructor's
+                    // "prototype" property is
+                    // {writable:false, enumerable:false,
+                    //  configurable:false} (bits 0x0). The stub
+                    // pre-fix defaulted to fully writable / configurable
+                    // (built-ins/Object/getOwnPropertyDescriptor/
+                    // 15.2.3.3-4-210 covers Date.prototype).
+                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_prototype__");
+                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                    if (pdk) stub = stub->setAttribute(pContext, pdk, pContext->fromInteger(0x0LL));
+                }
                 if (nfKey3) {
                     const proto::ProtoObject* rawM = pContext->fromMethod(nullptr, unimplementedCtorStub);
                     if (rawM) stub = stub->setAttribute(pContext, nfKey3, rawM);
