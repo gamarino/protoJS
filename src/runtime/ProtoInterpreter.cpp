@@ -2099,7 +2099,9 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
     }
     const proto::ProtoString* voKey = JSSymbols::valueOf(context);
     const proto::ProtoObject* voFn = voKey ? value->getAttribute(context, voKey, true) : nullptr;
+    bool tried = false;
     if (isCallable(voFn)) {
+        tried = true;
         const proto::ProtoObject* r = callJSFunction(context, voFn, value, context->newList());
         if (hasCallException()) return PROTO_NONE;
         if (isPrimitive(r)) return toNumber(context, r);
@@ -2107,9 +2109,28 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
     const proto::ProtoString* tsKey = JSSymbols::toString(context);
     const proto::ProtoObject* tsFn = tsKey ? value->getAttribute(context, tsKey, true) : nullptr;
     if (isCallable(tsFn)) {
+        tried = true;
         const proto::ProtoObject* r = callJSFunction(context, tsFn, value, context->newList());
         if (hasCallException()) return PROTO_NONE;
         if (isPrimitive(r)) return toNumber(context, r);
+    }
+    // §7.1.1 OrdinaryToPrimitive step 5: if neither valueOf nor toString
+    // returned a primitive value, throw TypeError. Pre-fix toNumber
+    // silently returned NaN, so
+    //   Array.prototype.push.call({push: Array.prototype.push,
+    //                              length:{valueOf(){return{}},
+    //                                      toString(){return{}}}});
+    // and Array.prototype.lastIndexOf with a similar fromIndex
+    // returned NaN/no throw where the spec demands a TypeError abrupt
+    // (built-ins/Array/prototype/lastIndexOf/15.4.4.15-5-24,
+    // built-ins/Array/prototype/push/S15.4.4.7_A2_T3).  Only throw
+    // when at least one method was actually called; an object with
+    // neither valueOf nor toString stays NaN per the legacy
+    // Object.prototype walk.
+    if (tried) {
+        signalNativeException(makeNativeError(context, "TypeError",
+            "Cannot convert object to primitive value"));
+        return PROTO_NONE;
     }
     return makeNaN();
 }
