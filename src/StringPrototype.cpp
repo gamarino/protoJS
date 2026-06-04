@@ -103,35 +103,28 @@ static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* arg
     if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return defaultVal;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     if (!a || a == PROTO_NONE) return defaultVal;
-    // Spec ToInteger: string args coerce through ToNumber first
-    // ("1" → 1, "NaN" → 0). Pre-fix the helper short-circuited to
-    // the default for any non-numeric input, so `"abc".charAt("1")`
-    // returned the default-index character instead of the second.
-    if (a->isString(ctx)) {
-        const proto::ProtoObject* num = jsToNumber(ctx, a);
-        if (num) {
-            if (num->isInteger(ctx)) return num->asLong(ctx);
-            if (num->isDouble(ctx) || num->isFloat(ctx)) {
-                double d = num->asDouble(ctx);
-                if (std::isnan(d)) return 0LL;
-                if (std::isinf(d)) return d > 0
-                    ? std::numeric_limits<long long>::max()
-                    : std::numeric_limits<long long>::min();
-                return static_cast<long long>(d);
-            }
-        }
-        return defaultVal;
+    // ECMA-262 §7.1.5 ToIntegerOrInfinity: ToNumber(arg) first, then
+    // truncate toward zero (NaN → 0, ±∞ → ±∞).  Pre-fix the helper only
+    // handled string / integer / double values directly; any
+    // non-primitive (Boolean wrapper, Number wrapper, plain object with
+    // valueOf, Array, ...) fell through to defaultVal, so
+    // `'false'.substring(0, new Boolean(1))` returned the full string
+    // ("end" defaulted to length) instead of 'f'.  Route everything
+    // else through jsToNumber for the spec coercion.
+    const proto::ProtoObject* num = a;
+    if (!a->isInteger(ctx) && !a->isDouble(ctx) && !a->isFloat(ctx)) {
+        num = jsToNumber(ctx, a);
+        if (hasCallException() || !num) return defaultVal;
     }
-    if (a->isInteger(ctx)) return a->asLong(ctx);
-    if (a->isDouble(ctx)) {
-        double d = a->asDouble(ctx);
-        if (std::isnan(d))  return 0LL;
-        if (std::isinf(d))  return d > 0
+    if (num->isInteger(ctx)) return num->asLong(ctx);
+    if (num->isDouble(ctx) || num->isFloat(ctx)) {
+        double d = num->asDouble(ctx);
+        if (std::isnan(d)) return 0LL;
+        if (std::isinf(d)) return d > 0
             ? std::numeric_limits<long long>::max()
             : std::numeric_limits<long long>::min();
         return static_cast<long long>(d);
     }
-    // String argument: try parsing as integer
     return defaultVal;
 }
 
