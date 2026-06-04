@@ -7603,18 +7603,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                     if (obj && key) {
-                        // Fast path: check own properties first (avoiding BehaviorRegistry/prototype chain)
-                        val = obj->getAttribute(pContext, key, false);
-                        if (!val || val == PROTO_NONE) {
-                            val = resolveFieldOOP(pContext, obj, key);
-                        }
-
-                        if (!val || val == PROTO_NONE) {
+                        // §10.5.5 OrdinaryGet: an accessor descriptor
+                        // takes precedence over the (typically
+                        // undefined-sentinel) data slot stored
+                        // alongside the __get_<key>__ sidecar.  Probe
+                        // the getter FIRST so an accessor redefine
+                        // (Object.defineProperty(arr, "0",
+                        // {get: () => 100})) actually invokes the new
+                        // getter on read.  Pre-fix the data-slot fast
+                        // path returned the undefined sentinel and the
+                        // later `if (!val || val == PROTO_NONE)` guard
+                        // skipped the getter probe, so the redefined
+                        // accessor was unreachable
+                        // (built-ins/Object/defineProperty/15.2.3.6-4-
+                        // 265, -253, -278 and friends).
+                        {
                             std::string keyStrGAE;
                             key->toUTF8String(pContext, keyStrGAE);
-                            const proto::ProtoObject* gval = invokeGetterIfPresent(obj, keyStrGAE);
+                            const proto::ProtoObject* gval =
+                                invokeGetterIfPresent(obj, keyStrGAE);
                             if (has_pending_exception) DISPATCH();
-                            if (gval && gval != PROTO_NONE) val = gval;
+                            if (gval && gval != PROTO_NONE) {
+                                val = gval;
+                            }
+                        }
+                        // Fast path: check own properties first (avoiding BehaviorRegistry/prototype chain)
+                        if (!val) {
+                            val = obj->getAttribute(pContext, key, false);
+                        }
+                        if (!val || val == PROTO_NONE) {
+                            val = resolveFieldOOP(pContext, obj, key);
                         }
                     }
                 }
