@@ -699,6 +699,17 @@ static bool reflectThrowIfNotObject(proto::ProtoContext* ctx,
         && !target->isFloat(ctx)
         && !target->isBoolean(ctx)
         && !target->isString(ctx);
+    // Symbol carriers are Objects to the type checks above but Symbols
+    // are primitives per §6.1.5. Reflect.set / Reflect.get / etc. all
+    // reject Symbol targets with TypeError. Pre-fix the bare object
+    // check accepted them and the operations silently no-oped
+    // (built-ins/Reflect/set/target-is-symbol-throws.js).
+    if (isObject) {
+        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        if (symK && target->getAttribute(ctx, symK, true) == PROTO_TRUE)
+            isObject = false;
+    }
     if (!isObject) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             (std::string(method) + " called on non-object").c_str()));
