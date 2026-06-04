@@ -2026,6 +2026,23 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             return context->fromDouble(std::numeric_limits<double>::infinity());
         if (trimmed == "-Infinity")
             return context->fromDouble(-std::numeric_limits<double>::infinity());
+        // §7.1.4.1.1 StrNumericLiteral is case-sensitive: only the
+        // exact spelling "Infinity" / "+Infinity" / "-Infinity" is
+        // accepted. std::stod (next branch) is case-insensitive for
+        // "inf" / "infinity" / "nan", so a string like "INFINITY"
+        // or "Inf" silently parsed as ±Infinity / NaN. Pre-empt
+        // those forms here (built-ins/Number/string-numeric-literal
+        // -case-sensitivity / Sputnik S11.4.6_A3_T3
+        // `+"INFINITY" === NaN`).
+        {
+            size_t signSkip = (!trimmed.empty() && (trimmed[0] == '+' || trimmed[0] == '-'))
+                ? 1 : 0;
+            if (trimmed.size() > signSkip) {
+                char c0 = trimmed[signSkip];
+                if (c0 == 'i' || c0 == 'I' || c0 == 'n' || c0 == 'N')
+                    return makeNaN();
+            }
+        }
         // §7.1.4.1.1 StrNumericLiteral := StrDecimalLiteral |
         // NonDecimalIntegerLiteral. Non-decimal forms (0b / 0o / 0x)
         // MUST appear without a sign — "+0x10" / "-0x10" are not
