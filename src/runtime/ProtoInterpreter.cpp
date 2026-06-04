@@ -3562,6 +3562,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
                 }
+                // §28.1.5 Reflect [@@toStringTag] === "Reflect" with
+                // {writable:false, enumerable:false, configurable:true}
+                // (bits 0x2). The slot was absent so verifyProperty
+                // checks (built-ins/Reflect/Symbol.toStringTag.js) and
+                // Object.prototype.toString.call(Reflect) returned the
+                // generic "[object Object]" tag.
+                {
+                    // The user-facing access path goes through
+                    // Symbol.toStringTag (string form) — see
+                    // JSSymbols::symbolToStringTag — so install the slot
+                    // under that key rather than the internal sidecar.
+                    const proto::ProtoString* ttKey = JSSymbols::symbolToStringTag(pContext);
+                    if (ttKey) {
+                        reflectStub = reflectStub->setAttribute(pContext, ttKey,
+                            pContext->fromUTF8String("Reflect"));
+                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
+                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        if (pdk) reflectStub = reflectStub->setAttribute(pContext, pdk,
+                            pContext->fromInteger(0x2LL));
+                    }
+                }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, rfKey, reflectStub);
                 // §17 descriptor 0x3 on globalThis.Reflect — pre-fix the
                 // global slot defaulted to enumerable.
