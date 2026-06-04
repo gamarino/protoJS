@@ -1295,11 +1295,53 @@ static const proto::ProtoObject* objectDefineProperty(
             }
             return false;
         };
-        // value-only redefine with same value is allowed.
-        if (hasValue && !hasWritable && !hasEnum && !hasConf && !hasGet && !hasSet) {
-            const proto::ProtoObject* newVal = descKeyValue("value");
-            if (sameValue(newVal, existingVal)) return target;
+        // §10.1.6.3 ValidateAndApplyPropertyDescriptor step 4:
+        // every specified field must match the existing slot for the
+        // redefine to be permitted. Pre-fix only the value-only case
+        // was honoured, so
+        //   Object.defineProperty(o,'f',{value:undefined,
+        //                                writable:false,
+        //                                configurable:false});
+        //   Object.defineProperty(o,'f',{value:undefined,
+        //                                writable:false,
+        //                                configurable:false});
+        // threw on the redefine even though both descriptors agreed
+        // with the slot.  Extend the equality check across writable /
+        // enumerable / configurable so any explicit redefine that
+        // agrees with the current bits is allowed.
+        auto descBoolField = [&](const char* name, bool defaultV) -> bool {
+            const proto::ProtoObject* v = descKeyValue(name);
+            if (!v || v == PROTO_NONE) return defaultV;
+            if (v == PROTO_TRUE) return true;
+            if (v == PROTO_FALSE) return false;
+            if (v == getUndefinedSentinel() || v == getNullSentinel()) return false;
+            if (v->isBoolean(ctx)) return v->asBoolean(ctx);
+            if (v->isInteger(ctx)) return v->asLong(ctx) != 0;
+            if (v->isString(ctx)) {
+                const proto::ProtoString* s = v->asString(ctx);
+                return s && s->getSize(ctx) > 0;
+            }
+            return true;
+        };
+        const bool curWritable     = (existingBits & 0x1) != 0;
+        const bool curConfigurable = (existingBits & 0x2) != 0;
+        const bool curEnumerable   = (existingBits & 0x4) != 0;
+        if (hasGet || hasSet) {
+            // §10.1.6.3 step 4.c: redefining a non-configurable data
+            // property as an accessor is rejected.
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot redefine non-configurable property"));
+            return PROTO_NONE;
         }
+        bool ok = true;
+        if (hasValue) {
+            const proto::ProtoObject* newVal = descKeyValue("value");
+            if (!sameValue(newVal, existingVal)) ok = false;
+        }
+        if (ok && hasWritable && descBoolField("writable", false) != curWritable)     ok = false;
+        if (ok && hasEnum     && descBoolField("enumerable", false) != curEnumerable) ok = false;
+        if (ok && hasConf     && descBoolField("configurable", false) != curConfigurable) ok = false;
+        if (ok) return target;
         signalNativeException(makeNativeError(ctx, "TypeError", "Cannot redefine non-configurable property"));
         return PROTO_NONE;
     }
