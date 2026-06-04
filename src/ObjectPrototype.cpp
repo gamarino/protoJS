@@ -2560,8 +2560,17 @@ const proto::ProtoObject* installObjectInstanceMethods(
         const proto::ParentLink*,
         const proto::ProtoList*,
         const proto::ProtoSparseList*) -> const proto::ProtoObject* {
-        if (!self || self == PROTO_NONE)
-            return objectToString(ictx, self, nullptr, nullptr, nullptr);
+        // §20.1.3.5 step 1 invokes ToObject(this) before reading the
+        // toString slot; null / undefined must raise TypeError. Pre-
+        // fix the entry routed null / undefined into objectToString
+        // which produces "[object Null]" / "[object Undefined]" — the
+        // spec demands an abrupt completion.
+        if (!self || self == PROTO_NONE
+            || self == getNullSentinel() || self == getUndefinedSentinel()) {
+            signalNativeException(makeNativeError(ictx, "TypeError",
+                "Cannot convert undefined or null to object"));
+            return PROTO_NONE;
+        }
         // Primitives: synthesise the type's natural ToString. Without
         // this, the attribute lookup for "toString" on String/Boolean
         // primitives can fall over (the protoCore primitives don't
