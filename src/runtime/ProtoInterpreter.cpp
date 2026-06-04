@@ -3564,19 +3564,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (symProto)
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
                     }
-                    // Static methods: Symbol.for, Symbol.keyFor.
+                    // Static methods: Symbol.for, Symbol.keyFor.  §17 marks
+                    // each as {writable:true, enumerable:false, configurable:
+                    // true} (bits 0x3); the sidecar was absent so the
+                    // method slot defaulted to fully enumerable and
+                    // for-in over Symbol leaked the entries.
                     {
                         const proto::ProtoString* fk = pContext->fromUTF8String("for")
                             ? pContext->fromUTF8String("for")->asString(pContext) : nullptr;
                         if (fk) {
                             const proto::ProtoObject* fn = wrapNativeFunction(pContext, symbolFor, "for", 1, pGlobalRoot);
-                            if (fn) symbolCtor = symbolCtor->setAttribute(pContext, fk, fn);
+                            if (fn) {
+                                symbolCtor = symbolCtor->setAttribute(pContext, fk, fn);
+                                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_for__");
+                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                if (pdk) symbolCtor = symbolCtor->setAttribute(pContext, pdk,
+                                    pContext->fromInteger(0x3LL));
+                            }
                         }
                         const proto::ProtoString* kfk = pContext->fromUTF8String("keyFor")
                             ? pContext->fromUTF8String("keyFor")->asString(pContext) : nullptr;
                         if (kfk) {
                             const proto::ProtoObject* fn = wrapNativeFunction(pContext, symbolKeyFor, "keyFor", 1, pGlobalRoot);
-                            if (fn) symbolCtor = symbolCtor->setAttribute(pContext, kfk, fn);
+                            if (fn) {
+                                symbolCtor = symbolCtor->setAttribute(pContext, kfk, fn);
+                                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_keyFor__");
+                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                if (pdk) symbolCtor = symbolCtor->setAttribute(pContext, pdk,
+                                    pContext->fromInteger(0x3LL));
+                            }
                         }
                     }
                     *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolCtor);
