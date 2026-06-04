@@ -652,6 +652,40 @@ static const proto::ProtoObject* objectFreeze(
         obj->addParent(ctx, wrapper->getFrozenMarker());
         BehaviorRegistry::instance().invalidateObjectCache(obj);
     }
+    // §7.3.16 SetIntegrityLevel("frozen") clears both the writable AND
+    // configurable bits on every own property. Pre-fix the markers
+    // blocked writes / deletes but the per-property descriptor sidecar
+    // still reported writable:true, configurable:true via
+    // Object.getOwnPropertyDescriptor (built-ins/Object/freeze/*
+    // verifyProperty fixtures).
+    {
+        const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
+        if (own) {
+            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+            std::vector<std::string> keysToUpdate;
+            while (it && it->hasNext(ctx)) {
+                unsigned long raw = it->nextKey(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                const proto::ProtoString* k =
+                    reinterpret_cast<const proto::ProtoString*>(raw);
+                if (!k || isInternalKey(ctx, k)) continue;
+                std::string ks;
+                k->toUTF8String(ctx, ks);
+                keysToUpdate.push_back(std::move(ks));
+            }
+            for (const auto& ks : keysToUpdate) {
+                std::string pdStr = std::string("__pd_") + ks + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (!pdk) continue;
+                const proto::ProtoObject* cur = obj->getAttribute(ctx, pdk, false);
+                long long bits = (cur && cur != PROTO_NONE && cur->isInteger(ctx))
+                    ? cur->asLong(ctx) : 0x7LL;
+                bits &= ~0x3LL; // clear writable and configurable
+                obj->setAttribute(ctx, pdk, ctx->fromInteger(bits));
+            }
+        }
+    }
     return obj;
 }
 
