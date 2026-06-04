@@ -3087,6 +3087,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     // Register on global root.
     // ------------------------------------------------------------------
     *globalRoot = (*globalRoot)->setAttribute(ctx, arrayKey, ctor);
+    // §17 globalThis.Array descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Array__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 
     // Fast-path key "__array_proto__" for OP_array_from lookup.
     const proto::ProtoString* fastProtoKey =

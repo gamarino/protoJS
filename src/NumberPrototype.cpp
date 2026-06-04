@@ -954,6 +954,13 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyNumber, ctor);
+    // §17 globalThis.Number descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Number__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 // Re-bind Number.parseInt to globalThis.parseInt and Number.parseFloat

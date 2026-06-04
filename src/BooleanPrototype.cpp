@@ -261,6 +261,13 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyBoolean, ctor);
+    // §17 globalThis.Boolean descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Boolean__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs

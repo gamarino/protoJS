@@ -2105,6 +2105,13 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     if (markerKey) ctor = ctor->setAttribute(ctx, markerKey, PROTO_TRUE);
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyString, ctor);
+    // §17 globalThis.String descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_String__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs

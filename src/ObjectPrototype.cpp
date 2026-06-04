@@ -2817,6 +2817,13 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyObject, ctor);
+    // §17 globalThis.Object descriptor 0x3.
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Object__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+            ctx->fromInteger(0x3LL));
+    }
 }
 
 const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj)
