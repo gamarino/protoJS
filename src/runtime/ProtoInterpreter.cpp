@@ -9000,6 +9000,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (v->isBoolean(pContext)) typeStr = "boolean";
                     else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
                     else if (v->asString(pContext)) typeStr = "string";
+                    else if ([&]() -> bool {
+                        // §7.1.13.1 typeof: a Symbol value yields "symbol".
+                        // protoJS carries Symbols as objects with the
+                        // __is_symbol__ marker.  Probe the chain (the marker
+                        // is on the prototype for cached symbols).
+                        const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
+                        const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+                        return symK && v->getAttribute(pContext, symK, true) == PROTO_TRUE;
+                    }()) {
+                        typeStr = "symbol";
+                    }
                     else if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
                     else {
                         // Check for __native_fn__ wrapper (native function with .length/.name).
