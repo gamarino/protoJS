@@ -11076,6 +11076,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             }
                         }
                     }
+                    // §7.4.2 IteratorNext step 4: if Type(result) is not
+                    // Object, throw a TypeError. Pre-fix for-of silently
+                    // proceeded with a primitive result and the body
+                    // looped on stale `done`/`value` reads (language/
+                    // statements/for-of/iterator-next-result-type.js
+                    // expects bool / string / number / Symbol returns
+                    // to throw).
+                    {
+                        bool isPrimResult = !resultFO || resultFO == PROTO_NONE
+                            || resultFO->isString(pContext)
+                            || resultFO->isInteger(pContext)
+                            || resultFO->isDouble(pContext)
+                            || resultFO->isFloat(pContext)
+                            || resultFO->isBoolean(pContext)
+                            || resultFO == t_nullSentinel
+                            || resultFO == t_undefinedSentinel
+                            || resultFO == getUndefinedSentinel()
+                            || resultFO == PROTO_TRUE
+                            || resultFO == PROTO_FALSE;
+                        if (!isPrimResult && resultFO) {
+                            // Symbol carrier objects look like Objects to
+                            // the type checks above but are primitives
+                            // per §6.1.5.
+                            const proto::ProtoObject* symKo =
+                                pContext->fromUTF8String("__is_symbol__");
+                            const proto::ProtoString* symK = symKo
+                                ? symKo->asString(pContext) : nullptr;
+                            if (symK && resultFO->getAttribute(pContext, symK, true)
+                                == PROTO_TRUE) isPrimResult = true;
+                        }
+                        if (isPrimResult) {
+                            pending_exception = makeNativeError(
+                                pContext, "TypeError",
+                                "Iterator result is not an object");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                    }
                     const proto::ProtoString* doneKeyFO  = JSSymbols::done(pContext);
                     const proto::ProtoString* valueKeyFO = JSSymbols::value(pContext);
                     const proto::ProtoObject* doneFO = (resultFO && resultFO != PROTO_NONE && doneKeyFO)
@@ -11281,6 +11319,46 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     stackPush(pContext, catchOffIN ? catchOffIN : pContext->fromInteger(0LL));
                                     DISPATCH();
                                 }
+                            }
+                        }
+                        // §7.4.2 IteratorNext step 4: if Type(result) is
+                        // not Object, throw a TypeError.  Pre-fix the
+                        // dispatch silently proceeded, read undefined for
+                        // `done`, and the for-of body looped on a stale
+                        // value (language/statements/for-of/
+                        // iterator-next-result-type.js verifies bool /
+                        // string / number / Symbol returns from next()
+                        // throw).
+                        {
+                            bool isPrimRes = !resultObjIN || resultObjIN == PROTO_NONE
+                                || resultObjIN->isString(pContext)
+                                || resultObjIN->isInteger(pContext)
+                                || resultObjIN->isDouble(pContext)
+                                || resultObjIN->isFloat(pContext)
+                                || resultObjIN->isBoolean(pContext)
+                                || resultObjIN == t_nullSentinel
+                                || resultObjIN == t_undefinedSentinel
+                                || resultObjIN == getUndefinedSentinel()
+                                || resultObjIN == PROTO_TRUE
+                                || resultObjIN == PROTO_FALSE;
+                            if (!isPrimRes && resultObjIN) {
+                                const proto::ProtoObject* symKo2 =
+                                    pContext->fromUTF8String("__is_symbol__");
+                                const proto::ProtoString* symK2 = symKo2
+                                    ? symKo2->asString(pContext) : nullptr;
+                                if (symK2 && resultObjIN->getAttribute(pContext, symK2, true)
+                                    == PROTO_TRUE) isPrimRes = true;
+                            }
+                            if (isPrimRes) {
+                                pending_exception = makeNativeError(
+                                    pContext, "TypeError",
+                                    "Iterator result is not an object");
+                                has_pending_exception = true;
+                                stackPush(pContext, iterObjIN);
+                                stackPush(pContext, nextMethodIN);
+                                stackPush(pContext, catchOffIN ? catchOffIN
+                                    : pContext->fromInteger(0LL));
+                                DISPATCH();
                             }
                         }
                         // Track done state in slot bsIN+2 so OP_iterator_close can decide
