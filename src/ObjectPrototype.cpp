@@ -2197,6 +2197,14 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    // §20.1.3.3 step 1: ToObject(this); null / undefined throw TypeError
+    // before any prototype-chain walk.
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
     if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
     const proto::ProtoObject* arg = args->getAt(ctx, 0);
     // If arg is not an object, return false
