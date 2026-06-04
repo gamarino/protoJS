@@ -294,6 +294,14 @@ const proto::ProtoObject* numberToFixed(
             if (std::isinf(fdDouble)) isInfinite = true;
         }
     }
+    // ECMA-262 §22.1.3.27 step 2 applies ToIntegerOrInfinity BEFORE
+    // the range gate; pre-fix the gate compared the raw double, so
+    //   (0).toFixed(-0.1)  // ToInteger -> 0 → spec-valid
+    // raised RangeError instead of returning "0".  ToInteger truncates
+    // toward zero (-0.1 → 0, 99.9 → 99); only ±Infinity is preserved.
+    if (!isInfinite) {
+        fdDouble = (fdDouble < 0 ? -std::floor(-fdDouble) : std::floor(fdDouble));
+    }
     if (isInfinite || fdDouble < 0.0 || fdDouble > 100.0) {
         signalNativeException(makeNativeError(context, "RangeError",
             "Number.prototype.toFixed() fractionDigits must be between 0 and 100"));
