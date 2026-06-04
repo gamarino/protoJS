@@ -2007,6 +2007,19 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             return context->fromDouble(std::numeric_limits<double>::infinity());
         if (trimmed == "-Infinity")
             return context->fromDouble(-std::numeric_limits<double>::infinity());
+        // §7.1.4.1.1 StrNumericLiteral := StrDecimalLiteral |
+        // NonDecimalIntegerLiteral. Non-decimal forms (0b / 0o / 0x)
+        // MUST appear without a sign — "+0x10" / "-0x10" are not
+        // valid hex literals and ToNumber must return NaN.
+        // Pre-fix std::stod happily parsed them as ±16
+        // (built-ins/Number/string-hex-literal-invalid).
+        if (trimmed.size() >= 4 && (trimmed[0] == '+' || trimmed[0] == '-')
+            && trimmed[1] == '0'
+            && (trimmed[2] == 'x' || trimmed[2] == 'X'
+                || trimmed[2] == 'b' || trimmed[2] == 'B'
+                || trimmed[2] == 'o' || trimmed[2] == 'O')) {
+            return makeNaN();
+        }
         // ECMA-262 §7.1.4.1.1 NumericLiteral / StrNumericLiteral
         // accepts `0b`, `0o`, `0x` integer prefixes (note: BinaryDigits
         // and OctalDigits — std::stod doesn't recognize them).
