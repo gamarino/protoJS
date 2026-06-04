@@ -9264,7 +9264,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (pdv && pdv != PROTO_NONE && pdv->isInteger(pContext)) {
                                 uint8_t bits = static_cast<uint8_t>(pdv->asLong(pContext));
                                 if (!(bits & 0x2)) {
-                                    // Non-configurable: silently return false, property is retained.
+                                    // §13.5.1.2 step 5.a: in strict mode
+                                    // a delete on a non-configurable
+                                    // property throws TypeError; sloppy
+                                    // mode returns false silently. Pre-
+                                    // fix the opcode always returned
+                                    // false (built-ins/Boolean/prototype
+                                    // /S15.6.3.1_A3 and similar strict-
+                                    // mode tests on built-in prototype
+                                    // slots caught the missing throw).
+                                    if (module && module->isStrict) {
+                                        pending_exception = makeError(pContext, "TypeError",
+                                            "Cannot delete non-configurable property", pGlobalRoot);
+                                        has_pending_exception = true;
+                                        DISPATCH();
+                                    }
+                                    // Non-configurable, sloppy mode:
+                                    // silently return false.
                                     stackPush(pContext, PROTO_FALSE);
                                     DISPATCH();
                                 }
