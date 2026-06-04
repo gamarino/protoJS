@@ -228,6 +228,29 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         return;
     }
 
+    // §25.5.2.2 SerializeJSONProperty step 4 (rawJSON proposal): when
+    // value carries the [[IsRawJSON]] internal slot, emit
+    // value.[[RawJSON]] verbatim without re-escaping. Pre-fix the
+    // wrapper was treated as a plain object, so JSON.stringify(
+    // JSON.rawJSON("1")) produced '{"rawJSON":"1"}' instead of '1'
+    // (built-ins/JSON/rawJSON/basic.js).
+    {
+        const proto::ProtoObject* mkO = ctx->fromUTF8String("__is_raw_json__");
+        const proto::ProtoString* mkK = mkO ? mkO->asString(ctx) : nullptr;
+        if (mkK && obj->getAttribute(ctx, mkK, false) == PROTO_TRUE) {
+            const proto::ProtoObject* rkO = ctx->fromUTF8String("rawJSON");
+            const proto::ProtoString* rkK = rkO ? rkO->asString(ctx) : nullptr;
+            const proto::ProtoObject* raw = rkK
+                ? obj->getAttribute(ctx, rkK, false) : PROTO_NONE;
+            if (raw && raw != PROTO_NONE && raw->isString(ctx)) {
+                std::string text;
+                raw->asString(ctx)->toUTF8String(ctx, text);
+                out += text;
+                return;
+            }
+        }
+    }
+
     // Spec §25.5.2 SerializeJSONObject step 2 / SerializeJSONArray
     // step 2: throw TypeError on a cyclic reference. Pre-fix the
     // recursion emitted 'null' for the back-edge, which both silently
@@ -1364,8 +1387,31 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
     if (v->isString(ctx)) v->asString(ctx)->toUTF8String(ctx, text);
     else if (v->isInteger(ctx)) text = std::to_string(v->asLong(ctx));
     else if (v->isDouble(ctx) || v->isFloat(ctx)) {
-        char buf[32]; snprintf(buf, sizeof(buf), "%.17g", v->asDouble(ctx));
-        text = buf;
+        // ECMA-262 §6.1.6.1.13 ToString(Number): shortest decimal that
+        // round-trips back to the input double. Pre-fix the fixed
+        // %.17g format produced 1.1 → "1.1000000000000001" so
+        // JSON.stringify(JSON.rawJSON(1.1)) emitted the noisy form
+        // instead of the spec's "1.1" (built-ins/JSON/rawJSON/basic.js).
+        double d = v->asDouble(ctx);
+        char buf[64];
+        if (d == std::trunc(d) && std::abs(d) < 1e21) {
+            long long iv = static_cast<long long>(d);
+            if (static_cast<double>(iv) == d) {
+                text = std::to_string(iv);
+            }
+        }
+        if (text.empty()) {
+            for (int p = 1; p <= 17; ++p) {
+                snprintf(buf, sizeof(buf), "%.*g", p, d);
+                double check = 0.0;
+                std::sscanf(buf, "%lf", &check);
+                if (check == d) { text = buf; break; }
+            }
+            if (text.empty()) {
+                snprintf(buf, sizeof(buf), "%.17g", d);
+                text = buf;
+            }
+        }
     }
     else if (v == PROTO_TRUE)  text = "true";
     else if (v == PROTO_FALSE) text = "false";
