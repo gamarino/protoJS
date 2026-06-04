@@ -2696,6 +2696,21 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             }
         }
         *globalRoot = (*globalRoot)->setAttribute(ctx, ctorKey, ctor);
+        // §19 / §17 constructor-of-the-global-object table: every
+        // constructor entry on the global is
+        // {writable:true, enumerable:false, configurable:true} —
+        // descriptor bits 0x3. Pre-fix the slot lacked a __pd_<Name>__
+        // sidecar so it defaulted to fully enumerable, leaking Error,
+        // TypeError, RangeError, ... into for-in over globalThis
+        // (built-ins/Error/prop-desc.js and the equivalent for each
+        // NativeError subtype caught this).
+        {
+            std::string pdNameStr = std::string("__pd_") + kNames[i] + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdNameStr.c_str());
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk,
+                ctx->fromInteger(0x3LL));
+        }
         // Capture Error.prototype and the Error constructor so
         // subsequent iterations parent their prototype / ctor on them.
         if (isBaseError) {
