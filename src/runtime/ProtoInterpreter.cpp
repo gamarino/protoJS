@@ -7702,7 +7702,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     if (newObj) {
                         if (newObj != obj) updateMapping(pContext, obj, newObj);
-                        // TypedArray store complete; spec says no push.
+                        // ECMA-262 §10.4.2.4 ArraySetLength: writing an
+                        // own indexed property at idx ≥ length must
+                        // bump length to idx + 1. When the array carries
+                        // no native __elements__ (Array(N) leaves the
+                        // pre-sized slot sparse to avoid materialising
+                        // N×undefined entries), arrayTryFastSet returned
+                        // false and dispatch landed here through
+                        // resolvePutElementOOP — a non-null newObj used
+                        // to DISPATCH directly, skipping the length
+                        // bump (built-ins/Array S15.4.5.1_A2.3_T1 saw
+                        // length stay at 100 after x[100]=1).
+                        // Fall through to the length-update label for
+                        // arrays; TypedArrays are short-circuited by
+                        // their bounds-checked behavior so the same
+                        // pass-through is harmless there.
+                        const proto::ProtoString* isArrK = JSSymbols::isArray(pContext);
+                        const proto::ProtoObject* isArrV = isArrK
+                            ? newObj->getAttribute(pContext, isArrK, true) : nullptr;
+                        if (isArrV == PROTO_TRUE) goto put_array_el_update_length;
                         DISPATCH();
                     }
                 } else {
