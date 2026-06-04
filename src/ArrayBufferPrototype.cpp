@@ -239,10 +239,28 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         ctor = ctor->setAttribute(ctx, taCtorKey,
                                   ctx->fromUTF8String("ArrayBuffer"));
 
-    // Set constructor name.
+    // Set constructor name with the §17 standard descriptor
+    // {writable:false, enumerable:false, configurable:true} → 0x2.
+    // Pre-fix the bare setAttribute defaulted to fully writable +
+    // enumerable, so ArrayBuffer.name failed the prop-desc test
+    // (built-ins/ArrayBuffer/name.js).
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey)
+    if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("ArrayBuffer"));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
+    // §25.1.4: ArrayBuffer.length === 1, same standard descriptor 0x2.
+    // Pre-fix the constructor exposed no `length` slot, so
+    // built-ins/ArrayBuffer/length.js failed verifyProperty.
+    const proto::ProtoString* ctorLenKey = JSSymbols::length(ctx);
+    if (ctorLenKey) {
+        ctor = ctor->setAttribute(ctx, ctorLenKey, ctx->fromInteger(1LL));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
 
     // Add static method: isView.
     {
