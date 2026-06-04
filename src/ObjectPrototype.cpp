@@ -2239,6 +2239,15 @@ static const proto::ProtoObject* objectToString(
                 return ctx->fromUTF8String("[object Array]");
         }
     }
+    // Symbol primitive: protoJS carries Symbols with the __is_symbol__
+    // marker. §20.1.3.6 dispatches them to the built-in tag "Symbol"
+    // before the generic Object fallback.
+    {
+        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE)
+            return ctx->fromUTF8String("[object Symbol]");
+    }
 
     // ECMA-262 §22.1.3.7 Object.prototype.toString: when O has an
     // internal-slot match the spec dispatches by slot before the
