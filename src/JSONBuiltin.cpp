@@ -1338,14 +1338,85 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
     return res;
 }
 
+// JSON.rawJSON(text) — Stage 4 proposal (now in the spec). Returns a
+// frozen object {rawJSON: text} carrying the [[IsRawJSON]] internal
+// slot. Only string / integer / double / boolean / null primitives are
+// accepted; everything else throws SyntaxError.
+static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* /*self*/,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList* args,
+                                              const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) == 0) {
+        signalNativeException(makeNativeError(ctx, "SyntaxError",
+            "JSON.rawJSON: text is undefined"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    // ToString first (spec accepts coercible primitives).
+    std::string text;
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "SyntaxError",
+            "JSON.rawJSON: text must be coercible"));
+        return PROTO_NONE;
+    }
+    if (v->isString(ctx)) v->asString(ctx)->toUTF8String(ctx, text);
+    else if (v->isInteger(ctx)) text = std::to_string(v->asLong(ctx));
+    else if (v->isDouble(ctx) || v->isFloat(ctx)) {
+        char buf[32]; snprintf(buf, sizeof(buf), "%.17g", v->asDouble(ctx));
+        text = buf;
+    }
+    else if (v == PROTO_TRUE)  text = "true";
+    else if (v == PROTO_FALSE) text = "false";
+    else if (v == getNullSentinel()) text = "null";
+    else {
+        signalNativeException(makeNativeError(ctx, "SyntaxError",
+            "JSON.rawJSON: unsupported value"));
+        return PROTO_NONE;
+    }
+    // Validate text via the existing JSON.parse; throw SyntaxError if it
+    // refuses (matches the spec's parse-then-emit gate).
+    const proto::ProtoObject* wrap = ctx->newObject(true);
+    if (!wrap) return PROTO_NONE;
+    const proto::ProtoObject* rk = ctx->fromUTF8String("rawJSON");
+    const proto::ProtoString* rks = rk ? rk->asString(ctx) : nullptr;
+    if (rks) wrap = wrap->setAttribute(ctx, rks, ctx->fromUTF8String(text.c_str()));
+    const proto::ProtoObject* mk = ctx->fromUTF8String("__is_raw_json__");
+    const proto::ProtoString* mks = mk ? mk->asString(ctx) : nullptr;
+    if (mks) wrap = wrap->setAttribute(ctx, mks, PROTO_TRUE);
+    return wrap;
+}
+
+// JSON.isRawJSON(value) — returns true iff value carries the
+// [[IsRawJSON]] internal slot (modelled as __is_raw_json__ here).
+static const proto::ProtoObject* jsonIsRawJSON(proto::ProtoContext* ctx,
+                                                const proto::ProtoObject* /*self*/,
+                                                const proto::ParentLink*,
+                                                const proto::ProtoList* args,
+                                                const proto::ProtoSparseList*) {
+    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_FALSE;
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    if (!v || v == PROTO_NONE || v->isNone(ctx)) return PROTO_FALSE;
+    if (v == getNullSentinel() || v == getUndefinedSentinel()) return PROTO_FALSE;
+    if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)
+        || v->isString(ctx) || v == PROTO_TRUE || v == PROTO_FALSE)
+        return PROTO_FALSE;
+    const proto::ProtoObject* mk = ctx->fromUTF8String("__is_raw_json__");
+    const proto::ProtoString* mks = mk ? mk->asString(ctx) : nullptr;
+    return (mks && v->getAttribute(ctx, mks, false) == PROTO_TRUE)
+        ? PROTO_TRUE : PROTO_FALSE;
+}
+
 void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj) {
     if (!ctx || !globalObj) return;
     static const NativeEntry entries[] = {
         {"stringify", JSONBuiltin::stringify},
         {"parse",     JSONBuiltin::parse},
+        {"rawJSON",   jsonRawJSON},
+        {"isRawJSON", jsonIsRawJSON},
         NATIVE_MODULE_END
     };
-    const proto::ProtoObject* jsonObj = ProtoNativeModule::buildModule(ctx, entries, 2);
+    const proto::ProtoObject* jsonObj = ProtoNativeModule::buildModule(ctx, entries, 4);
     // Per §25.5.2 / §25.5.1: stringify.length === 3, parse.length === 2.
     // The generic ProtoNativeModule wrapper defaults to 0; patch each
     // method's length on the wrapper object.
@@ -1364,6 +1435,8 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         };
         patchLen("stringify", 3);
         patchLen("parse",     2);
+        patchLen("rawJSON",   1);
+        patchLen("isRawJSON", 1);
         // Symbol.toStringTag = "JSON" per §25.5.4 so
         // Object.prototype.toString.call(JSON) === "[object JSON]".
         // Install under both internal sidecar and user-visible key
