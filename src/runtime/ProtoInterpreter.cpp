@@ -2604,7 +2604,16 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         {
             const proto::ProtoObject* mko = ctx->fromUTF8String("message");
             const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
-            if (mk) proto = proto->setAttribute(ctx, mk, ctx->fromUTF8String(""));
+            if (mk) {
+                proto = proto->setAttribute(ctx, mk, ctx->fromUTF8String(""));
+                // §20.5.6.3 / §20.5.5.3 Error.prototype.message
+                // descriptor is {writable:true, enumerable:false,
+                // configurable:true} (bits 0x3). Subtype prototypes
+                // inherit the same profile per §19.5.6.3.
+                const proto::ProtoObject* pdmo = ctx->fromUTF8String("__pd_message__");
+                const proto::ProtoString* pdmk = pdmo ? pdmo->asString(ctx) : nullptr;
+                if (pdmk) proto = proto->setAttribute(ctx, pdmk, ctx->fromInteger(0x3LL));
+            }
         }
         // Only Error.prototype carries @@toStringTag — subtype
         // prototypes inherit through the chain (§20.5.5).
@@ -2761,19 +2770,22 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     }
     const proto::ProtoObject* err = base ? base->newChild(ctx, true) : ctx->newObject(true);
     if (!err) return PROTO_NONE;
-    const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     const proto::ProtoString* msgKey  = JSSymbols::message(ctx);
-    if (nameKey)       err = err->setAttribute(ctx, nameKey, ctx->fromUTF8String(name    ? name    : "Error"));
-    // ECMA-262 §19.5.1.1 step 4.c: when message is provided, the .message
-    // property descriptor is { writable:true, enumerable:false,
-    // configurable:true } → bits 0x3.  Only set the property at all when
-    // a non-empty message string was supplied.
+    // §20.5.1.1 Error constructor only writes the `message` slot on the
+    // new instance; `name` is inherited from the chosen prototype
+    // (Error / TypeError / RangeError / ...). Pre-fix makeError also
+    // stamped an own `name` on the instance, so
+    //   Object.getOwnPropertyDescriptor(new Error('x'), 'name')
+    // returned a fully-enumerable own slot rather than the spec-required
+    // undefined (it should resolve via prototype only).  The slot
+    // pre-empted the prototype walk for every `e.name` read too.
     if (msgKey && err && message && *message) {
         err = err->setAttribute(ctx, msgKey, ctx->fromUTF8String(message));
         const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_message__");
         const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
         if (pdk && err) err = err->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     }
+    (void)name; // name flows through the prototype chain only.
     return err ? err : PROTO_NONE;
 }
 
