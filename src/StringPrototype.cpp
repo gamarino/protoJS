@@ -1993,9 +1993,17 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
 
     // §22.1.3 String.prototype.length === 0 per spec — required by
     // verifyProperty fixtures and by code that probes the empty
-    // String.prototype.length default.
+    // String.prototype.length default. Descriptor (§22.1.3): bits 0x0
+    // (non-writable, non-enumerable, non-configurable). Pre-fix the
+    // sidecar was absent and the slot defaulted to enumerable, so
+    // `for-in` over String.prototype leaked "length".
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey) sp = sp->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+    if (lenKey) {
+        sp = sp->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        if (pdlk) sp = sp->setAttribute(ctx, pdlk, ctx->fromInteger(0x0LL));
+    }
 
     ctx->space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
 }
