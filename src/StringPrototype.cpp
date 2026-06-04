@@ -551,12 +551,17 @@ const proto::ProtoObject* stringLastIndexOf(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
     if (hasCallException()) return PROTO_NONE;
-    std::string srch = getStrArg(ctx, args, 0);
-    // §21.1.3.10 step 4 ToString(searchString) is an abrupt-completion
-    // site that MUST precede the ToNumber(position) work. Pre-fix the
-    // method swallowed a throwing toString and proceeded to position,
-    // surfacing "intoint" before the spec-required "intostr"
-    // (Sputnik S15.5.4.8_A4_T4 verified the ordering).
+    // §21.1.3.10 step 4 ToString(searchString) — applies the full
+    // ToString algorithm, so a missing/undefined arg becomes literal
+    // "undefined" (S15.5.4.8_A1_T8: "undefined".lastIndexOf(void 0) === 0).
+    // Pre-fix getStrArg short-circuited undefined to "" and the search
+    // emptied out, returning str.length instead of locating "undefined".
+    std::string srch = getStrArgWithUndef(ctx, args, 0);
+    // §21.1.3.10 step 4 is also an abrupt-completion site that MUST
+    // precede the ToNumber(position) work. Pre-fix the method swallowed
+    // a throwing toString and proceeded to position, surfacing "intoint"
+    // before the spec-required "intostr" (Sputnik S15.5.4.8_A4_T4
+    // verified the ordering).
     if (hasCallException()) return PROTO_NONE;
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
