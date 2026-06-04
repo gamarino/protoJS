@@ -2533,6 +2533,11 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
     // Track the Error.prototype to parent the native error subtypes' prototypes
     // on it (ECMA-262 §19.5.6.4: TypeError.prototype.__proto__ === Error.prototype).
     const proto::ProtoObject* errorPrototypeOut = nullptr;
+    // §19.5.6.2 also pins Object.getPrototypeOf(TypeError) === Error,
+    // i.e. the subtype CONSTRUCTOR inherits Error itself rather than
+    // bare Function.prototype. Capture the base Error ctor so the
+    // subtype-iteration step below can newChild on it.
+    const proto::ProtoObject* errorCtorOut = nullptr;
     for (int i = 0; kNames[i]; ++i) {
         const proto::ProtoString* ctorKey = (ctx->fromUTF8String(kNames[i]) ? ctx->fromUTF8String(kNames[i])->asString(ctx) : nullptr);
         if (!ctorKey) continue;
@@ -2599,12 +2604,20 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             if (pdtk) proto = proto->setAttribute(ctx, pdtk, ctx->fromInteger(0x3LL));
         }
         if (!proto) continue;
-        // Build constructor stub parented at Function.prototype so that
-        // Object.getPrototypeOf(Error) === Function.prototype per spec.
-        const proto::ProtoObject* fpProto =
-            (ctx->space) ? ctx->space->methodPrototype : nullptr;
-        const proto::ProtoObject* ctor = (fpProto && fpProto != PROTO_NONE)
-            ? fpProto->newChild(ctx, true)
+        // Build the constructor.  Parent: §19.5.6.2 requires subtype
+        // constructors to inherit from the base Error constructor —
+        // Object.getPrototypeOf(TypeError) === Error — while Error
+        // itself inherits Function.prototype per §20.5.6 (so
+        // Object.getPrototypeOf(Error) === Function.prototype).
+        // Pre-fix every native-error subtype inherited Function.prototype,
+        // so the identity check (built-ins/Object/getPrototypeOf/
+        // 15.2.3.2-2-13 and friends, and `class Foo extends TypeError`
+        // walks) failed.
+        const proto::ProtoObject* ctorParent = isBaseError
+            ? ((ctx->space) ? ctx->space->methodPrototype : nullptr)
+            : errorCtorOut;
+        const proto::ProtoObject* ctor = (ctorParent && ctorParent != PROTO_NONE)
+            ? ctorParent->newChild(ctx, true)
             : ctx->newObject(true);
         if (!ctor) continue;
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
@@ -2676,9 +2689,12 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             }
         }
         *globalRoot = (*globalRoot)->setAttribute(ctx, ctorKey, ctor);
-        // Capture Error.prototype so subsequent iterations parent their
-        // prototype on it.
-        if (isBaseError) errorPrototypeOut = proto;
+        // Capture Error.prototype and the Error constructor so
+        // subsequent iterations parent their prototype / ctor on them.
+        if (isBaseError) {
+            errorPrototypeOut = proto;
+            errorCtorOut      = ctor;
+        }
     }
 }
 
