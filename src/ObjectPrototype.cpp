@@ -1736,6 +1736,50 @@ static const proto::ProtoObject* objectDefineProperty(
     uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
     if (pdk) target = target->setAttribute(ctx, pdk, ctx->fromInteger((long long)bits));
 
+    // §10.4.2.4 ArraySetLength: shrinking Array.length via
+    // defineProperty truncates __elements__ and removes own
+    // numeric-key entries at the trailing indices. Pre-fix
+    //   Object.defineProperty(arr, "length", { value: 1 })
+    // updated the stored length but left __elements__ at its old
+    // size, so iteration / hasOwnProperty / length comparisons still
+    // saw the trailing entries (built-ins/Object/defineProperties/
+    // 15.2.3.7-6-a-157 expected hasOwn("1") false after length=1).
+    if (kstr == "length") {
+        const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArrV = isArrK
+            ? target->getAttribute(ctx, isArrK, true) : nullptr;
+        if (isArrV == PROTO_TRUE) {
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            const proto::ProtoObject* newLenV = lenK
+                ? target->getAttribute(ctx, lenK, false) : nullptr;
+            long long newLen = (newLenV && newLenV != PROTO_NONE && newLenV->isInteger(ctx))
+                ? newLenV->asLong(ctx) : -1;
+            if (newLen >= 0) {
+                const proto::ProtoList* curEls = protojs::getArrayElements(ctx, target);
+                if (curEls) {
+                    size_t curSz = curEls->getSize(ctx);
+                    if (static_cast<long long>(curSz) > newLen) {
+                        const proto::ProtoList* trimmed = ctx->newList();
+                        for (long long i = 0; i < newLen; ++i)
+                            trimmed = trimmed->appendLast(ctx, curEls->getAt(ctx, static_cast<int>(i)));
+                        protojs::setArrayElements(ctx, target, trimmed);
+                    }
+                }
+                // Also delete any indexed string-keyed slots beyond newLen.
+                int misses = 0;
+                for (long long i = newLen; i < newLen + 1000LL && misses < 8; ++i) {
+                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                    if (!ik) break;
+                    if (target->hasOwnAttribute(ctx, ik) == PROTO_TRUE) {
+                        target = target->removeAttribute(ctx, ik);
+                        misses = 0;
+                    } else {
+                        misses++;
+                    }
+                }
+            }
+        }
+    }
     // ECMA-262 §10.4.2.4 ArraySetLength step 6.f: if the redefine adds
     // (or replaces) an indexed property at i ≥ length, length must be
     // updated to i + 1. The OP_put_array_el path already bumps length;
@@ -2110,7 +2154,19 @@ static const proto::ProtoObject* objectDefineProperties(
         if (descObj && descObj != PROTO_NONE) {
             std::string keyStr;
             propKey->toUTF8String(ctx, keyStr);
-            if (keyStr == "length") continue;
+            // Skip "length" only when the Properties argument is
+            // itself an Array (whose own "length" slot is just
+            // metadata, not a descriptor entry). Plain-object props
+            // legitimately use { length: {...} } to alter the
+            // target's length descriptor — built-ins/Object/
+            // defineProperties/15.2.3.7-6-a-157 sets arr.length via
+            // a plain props object and expected the array to shrink.
+            if (keyStr == "length") {
+                const proto::ProtoString* propsIsArrK = JSSymbols::isArray(ctx);
+                const proto::ProtoObject* propsIsArrV = propsIsArrK
+                    ? propsObj->getAttribute(ctx, propsIsArrK, true) : nullptr;
+                if (propsIsArrV == PROTO_TRUE) continue;
+            }
             // §19.1.2.3 step 5.b.iii: only enumerable own properties
             // contribute. Pre-fix the iterator surfaced non-enumerable
             // entries too, so `Object.defineProperties(o, propsWithGetter)`
