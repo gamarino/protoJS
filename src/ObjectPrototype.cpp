@@ -356,6 +356,35 @@ static const proto::ProtoObject* objectAssign(
     for (int si = 1; si < argc; si++) {
         const proto::ProtoObject* src = args->getAt(ctx, si);
         if (!src || src == PROTO_NONE) continue;
+        // §19.1.2.1 step 4.a: undefined / null sources are skipped; any
+        // other value is ToObject-coerced. The primitive coercions of
+        // interest here are Strings (own indexed character properties)
+        // and Numbers / Booleans (no own enumerable properties).
+        if (src == getNullSentinel() || src == getUndefinedSentinel()) continue;
+        if (src->isInteger(ctx) || src->isDouble(ctx) || src->isFloat(ctx)
+            || src == PROTO_TRUE || src == PROTO_FALSE) {
+            continue; // wrapper has no own enumerable properties
+        }
+        if (src->isString(ctx)) {
+            // §22.1.4 String exotic: own enumerable data properties
+            // "0".."len-1" expose each UTF-16 code unit as a 1-char
+            // string. Walk the UTF-8 buffer codepoint-by-codepoint.
+            std::string sv;
+            src->asString(ctx)->toUTF8String(ctx, sv);
+            uint32_t cpIdx = 0;
+            for (size_t bi = 0; bi < sv.size(); ) {
+                unsigned char c = static_cast<unsigned char>(sv[bi]);
+                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                if (bi + cl > sv.size()) break;
+                std::string ch = sv.substr(bi, cl);
+                const proto::ProtoString* k = JSSymbols::indexKey(ctx, cpIdx);
+                if (k) target = target->setAttribute(ctx, k,
+                    ctx->fromUTF8String(ch.c_str()));
+                bi += cl;
+                ++cpIdx;
+            }
+            continue;
+        }
         // If src is an array, copy __elements__ first so that
         // numeric-index iteration sees the data.
         const proto::ProtoList* srcEls = getArrayElements(ctx, src);
