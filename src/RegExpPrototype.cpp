@@ -674,6 +674,14 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyRegExp, ctor);
+    // §17: every built-in constructor on globalThis is
+    // { writable: true, enumerable: false, configurable: true }.
+    // Pre-fix the bare setAttribute fell through to default enumerable=true,
+    // and Object.getOwnPropertyDescriptor(globalThis, "RegExp").enumerable
+    // surfaced as true (built-ins/RegExp/prop-desc.js).
+    const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_RegExp__");
+    const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+    if (pdks) *globalRoot = (*globalRoot)->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
 }
 
 } // namespace protojs
