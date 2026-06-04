@@ -1985,7 +1985,14 @@ static const proto::ProtoObject* objectHasOwnProperty(
     // returns false for "0" on `[101]` even though spec-wise the element
     // is an own data property.  Synthesise the check: if self is an
     // array and the key parses as a valid non-negative integer index
-    // strictly less than the array's length, the property exists.
+    // strictly less than the array's length AND the slot is not the
+    // PROTO_NONE deletion marker, the property exists.  Pre-fix the
+    // length check alone treated `delete a[0]` followed by
+    // hasOwnProperty(0) as "still present" because OP_delete writes
+    // PROTO_NONE into __elements__ in place rather than shrinking the
+    // list; the verifyProperty harness's isConfigurable probe (delete
+    // then hasOwnProperty) then incorrectly reported the property as
+    // non-configurable.
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     const proto::ProtoObject* isArr = isArrKey ? self->getAttribute(ctx, isArrKey, true) : nullptr;
     if (isArr == PROTO_TRUE) {
@@ -2004,7 +2011,20 @@ static const proto::ProtoObject* objectHasOwnProperty(
                 ? self->getAttribute(ctx, lenKey, false) : nullptr;
             if (lenVal && lenVal != PROTO_NONE && lenVal->isInteger(ctx)) {
                 long long len = lenVal->asLong(ctx);
-                if (idx < len) return PROTO_TRUE;
+                if (idx < len) {
+                    const proto::ProtoList* els =
+                        protojs::getArrayElements(ctx, self);
+                    if (els && idx < static_cast<long long>(els->getSize(ctx))) {
+                        const proto::ProtoObject* slot = els->getAt(ctx, static_cast<int>(idx));
+                        if (slot && slot != PROTO_NONE) return PROTO_TRUE;
+                        // PROTO_NONE → deleted hole; fall through.
+                    } else {
+                        // Sparse pre-allocated tail (Array(n) without
+                        // __elements__ materialised) keeps the indices
+                        // logically present.
+                        return PROTO_TRUE;
+                    }
+                }
             }
         }
     }
