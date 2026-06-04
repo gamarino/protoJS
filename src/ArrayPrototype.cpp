@@ -1245,7 +1245,15 @@ static const proto::ProtoObject* arrayIncludes(
     }
     from = normalizeIdx(from, len);
     for (long long i = from; i < len; i++) {
-        if (sameValueZero(ctx, arrGet(ctx, self, static_cast<unsigned long>(i)), needle))
+        // §22.1.3.11 step 7.a Get(O, ! ToString(k)) is the abrupt-
+        // completion site: when an own accessor throws, includes must
+        // forward the exception and NOT continue probing later
+        // indices.  Pre-fix arrGet stashed the throw in t_callException
+        // but the loop kept advancing, so the test's stopped++ getter
+        // at index 2 fired even after index 1's throw.
+        const proto::ProtoObject* el = arrGet(ctx, self, static_cast<unsigned long>(i));
+        if (hasCallException()) return PROTO_NONE;
+        if (sameValueZero(ctx, el, needle))
             return PROTO_TRUE;
     }
     return PROTO_FALSE;
