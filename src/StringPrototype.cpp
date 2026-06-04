@@ -2008,12 +2008,22 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
     proto::ProtoObject* mCtor = const_cast<proto::ProtoObject*>(ctor);
 
+    // §17: every built-in method is
+    // {writable:true, enumerable:false, configurable:true} (bits 0x3).
+    // Pre-fix String.fromCharCode / fromCodePoint / raw lacked the
+    // descriptor sidecar and leaked through for-in over String
+    // (built-ins/String/<Method>/prop-desc.js).
     auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
         if (key) {
             const proto::ProtoObject* mObj = wrapNativeFunction(ctx, fn, name, length, globalRoot);
-            if (mObj && mObj != PROTO_NONE)
+            if (mObj && mObj != PROTO_NONE) {
                 ctor = ctor->setAttribute(ctx, key, mObj);
+                std::string pdStr = std::string("__pd_") + name + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+            }
         }
     };
 
