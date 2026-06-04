@@ -2193,13 +2193,22 @@ static const proto::ProtoObject* arraySort(
     unsigned long holeCount = 0;
 
     defined.reserve(len);
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHas(ctx, self, i)) {
             holeCount++;
             continue;
         }
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
-        if (!elem || elem == PROTO_NONE) {
+        // ECMA-262 §23.1.3.30 SortCompare: a value of Type undefined
+        // sorts AFTER all defined values, regardless of whether it
+        // was a hole, a PROTO_NONE-padded slot, or an explicit user
+        // `undefined`. Pre-fix only PROTO_NONE was bucketed as
+        // undefined, so `new Array(undefined, 1).sort()` saw the
+        // explicit undefined as a "real" string-keyed value and the
+        // result was [undefined, 1] instead of [1, undefined]
+        // (Sputnik S15.4.4.11_A1.4_T2).
+        if (!elem || elem == PROTO_NONE || elem == undefSent) {
             undefinedCount++;
         } else {
             defined.push_back(elem);
@@ -2227,13 +2236,23 @@ static const proto::ProtoObject* arraySort(
     // Write back: sorted defined values, then undefined, then holes (as undefined,
     // since protoCore has no attribute-delete; absent vs explicit-undefined is
     // indistinguishable via x[i] access anyway).
+    //
+    // PROTO_NONE in __elements__ is interpreted by arrGet as a hole and
+    // falls through to the string-key sidecar / prototype chain.  For
+    // a previously sparse array (e.g. `new Array(2); x[1] = 1`) the
+    // sidecar attribute "1" carries the old value, so writing
+    // PROTO_NONE to __elements__[1] caused x[1] to surface the stale
+    // 1 after sort (Sputnik S15.4.4.11_A1.2_T1).  Use the user-visible
+    // undefined sentinel for the explicit-undefined trailing slots —
+    // arrGet sees the sentinel as a non-hole and returns it directly.
     unsigned long writeIdx = 0;
     for (const auto* v : defined)
         arrSet(ctx, self, writeIdx++, v);
+    const proto::ProtoObject* undefMarker = getUndefinedSentinel();
     for (unsigned long i = 0; i < undefinedCount; i++)
-        arrSet(ctx, self, writeIdx++, PROTO_NONE);
+        arrSet(ctx, self, writeIdx++, undefMarker);
     for (unsigned long i = 0; i < holeCount; i++)
-        arrSet(ctx, self, writeIdx++, PROTO_NONE);
+        arrSet(ctx, self, writeIdx++, undefMarker);
 
     return self;
 }
