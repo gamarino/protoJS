@@ -1354,6 +1354,34 @@ static const proto::ProtoObject* objectDefineProperty(
     uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
     if (pdk) target = target->setAttribute(ctx, pdk, ctx->fromInteger((long long)bits));
 
+    // ECMA-262 §10.4.2.4 ArraySetLength step 6.f: if the redefine adds
+    // (or replaces) an indexed property at i ≥ length, length must be
+    // updated to i + 1. The OP_put_array_el path already bumps length;
+    // Object.defineProperty(arr, "5", { value: 3 }) reaches us through
+    // the generic setAttribute path and used to leave length stuck at
+    // its prior value (built-ins/Object/defineProperty/15.2.3.6-4-276,
+    // and built-ins/Object/defineProperties/15.2.3.7-{5-b-103,6-a-144,
+    // 6-a-291}).
+    if (!kstr.empty()) {
+        char* end = nullptr;
+        long long iv = std::strtoll(kstr.c_str(), &end, 10);
+        if (end && *end == '\0' && iv >= 0 && iv < 4294967295LL
+            && std::to_string(iv) == kstr) {
+            const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+            const proto::ProtoObject* isArrV = isArrK
+                ? target->getAttribute(ctx, isArrK, true) : nullptr;
+            if (isArrV == PROTO_TRUE) {
+                const proto::ProtoString* lenK = JSSymbols::length(ctx);
+                const proto::ProtoObject* lenV = lenK
+                    ? target->getAttribute(ctx, lenK, false) : nullptr;
+                long long curLen = (lenV && lenV != PROTO_NONE && lenV->isInteger(ctx))
+                    ? lenV->asLong(ctx) : 0;
+                if (iv + 1 > curLen)
+                    target = target->setAttribute(ctx, lenK,
+                        ctx->fromInteger(iv + 1));
+            }
+        }
+    }
     return target;
 }
 
