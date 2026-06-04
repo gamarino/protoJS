@@ -4,6 +4,125 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 10 — 2026-06-04)
+
+Tenth consecutive sprint, doubled to 100 commits.  This round
+worked breadth-first across the built-in surface: every constructor
+that exposes itself on `globalThis` now carries the §17 standard
+descriptor on `name` / `length` / `prototype` and the matching
+`Symbol.toStringTag` on its prototype; the
+OrdinaryToPrimitive / ToString / ToNumber abrupt-completion channel
+is checked at every observable step; and Array.prototype's
+copying-methods + sort + includes uniformly bucket holes,
+PROTO_NONE, and the explicit undefined sentinel as "undefined".
+
+**§17 descriptor sweep across built-in constructors and prototypes:**
+- **globalThis.<Ctor> descriptor 0x3** (writable, configurable,
+  non-enumerable) on every built-in: Array, Object, Boolean, Number,
+  String, Set, Map, WeakMap, Promise, Symbol, RegExp, AggregateError,
+  NativeError, ArrayBuffer (plus length=1).
+- **Constructor stub family** (Date, BigInt, Proxy, WeakRef, WeakSet,
+  FinalizationRegistry, Iterator, Generator, GeneratorFunction,
+  AsyncFunction, AsyncGenerator, AsyncGeneratorFunction,
+  SharedArrayBuffer): every stub installs `Symbol.toStringTag` on
+  its prototype under both the internal `__toStringTag__` and the
+  user-visible `Symbol.toStringTag` keys.
+- **Built-in constructor `prototype` is non-writable** (descriptor
+  0x0 per §17): the kUnimplementedCtors stub honours it.
+- **`name`, `length` slots on Number/String static methods,
+  Symbol.for / Symbol.keyFor, AggregateError, NativeError, String
+  .fromCharCode / fromCodePoint / raw** are non-enumerable.
+- **Error.prototype.toString, Error.prototype.message,
+  prototype.constructor (Error subtypes), Promise.prototype.then /
+  catch / finally, Reflect[@@toStringTag], Symbol.prototype[@@
+  toStringTag]** all stamp the non-enumerable descriptor.
+
+**Abrupt-completion propagation across helpers:**
+- The static `toString` helper used by `String(value)` and
+  ToPropertyKey now propagates throws from a user-defined
+  `toString()`; treats a function that completes without an explicit
+  `return` (PROTO_NONE) as the undefined sentinel; and emits
+  `"undefined"` instead of `"[object Object]"`.
+- `String.prototype.lastIndexOf` uses `getStrArgWithUndef` so
+  `"undefined".lastIndexOf(void 0) === 0` per §22.1.3.10.
+- `String.prototype.replaceAll` guards every `objToStr` /
+  callReplacement with `hasCallException` per §22.1.3.20 — the
+  first thrown value propagates instead of being overwritten by
+  the searchValue / replaceValue stringifications.
+- `String.prototype.replace`, `String.prototype.lastIndexOf`,
+  `objToStr`, and the `toString` helper itself forward toString /
+  valueOf abrupts and follow the spec's
+  `OrdinaryToPrimitive(hint:string)` order (toString first, then
+  valueOf, then TypeError if both return Objects).
+- `Array.from` iterator loop guards every `callJSFunction` with
+  `hasCallException` and invokes `__get_value__` /
+  `__get_done__` accessors on the iterator-result object so a
+  throwing getter propagates per §23.1.2.1 step 6.h.ii / 6.h.v.
+- `for-of` (`L_OP_for_of_next`) and `L_OP_iterator_next` enforce
+  §7.4.2 step 4: if `next()` returns a non-Object (Symbol included),
+  throw TypeError instead of looping on a stale `done`.
+- `Symbol(description)` runs the full `OrdinaryToPrimitive(hint:
+  "string")` loop on Object arguments — toString first, then
+  valueOf, with TypeError when both return Objects.
+
+**Array.prototype hole / undefined / explicit-undefined unification:**
+- `Array.prototype.sort` buckets PROTO_NONE, the user-visible
+  undefined sentinel, AND source holes uniformly as "undefined"
+  trailing slots; the write-back uses the undefined sentinel
+  (not PROTO_NONE) so a previously-sparse array no longer surfaces
+  the stale string-key sidecar after sort.
+- `arrayCloneShallow` (used by `toReversed`, `toSorted`,
+  `toSpliced`, `with`) stores `getUndefinedSentinel()` for hole-
+  style PROTO_NONE reads so every destination index carries an
+  explicit own data property — `hasOwnProperty(k) === true` for
+  every k in `[0, len)`.
+- `Array.prototype.includes` searches for `undefined` when called
+  with no argument; PROTO_NONE in `__elements__` is normalised to
+  the undefined sentinel before SameValueZero — `[ , , , ].includes
+  (undefined) === true`.
+- `Array.prototype.at` routes non-primitive arguments through
+  `jsToNumber` per ToIntegerOrInfinity: boolean coercion, valueOf
+  delegation, Symbol → TypeError.
+
+**Reflect.* §28.1 surface:**
+- Every entry point (`Reflect.set`, `get`, `has`, `ownKeys`,
+  `defineProperty`, `deleteProperty`, `getOwnPropertyDescriptor`,
+  `getPrototypeOf`) rejects Symbol targets with TypeError.
+- `Reflect.set` reorders its accessor / writable-bit checks per
+  §9.1.9 [[Set]] step 5/7: an own accessor's setter fires before
+  the writable-bit gate so `Object.defineProperty(o, 'p',
+  {set: fn})` followed by `Reflect.set(o, 'p', v)` invokes the
+  setter and returns `true`.
+
+**Object.{keys, values, entries, getOwnPropertyNames}:**
+- `EnumerableOwnProperties` (§7.3.23) re-checks
+  `[[GetOwnProperty]]` between iteration steps so a getter that
+  deletes a later key during iteration is observed and the
+  deleted key excluded from the result.
+
+**JSON.rawJSON / JSON.stringify (Stage 4):**
+- `JSON.rawJSON(x)` wrapper has null `[[Prototype]]` per spec.
+- `JSON.stringify` emits the wrapper's `rawJSON` text verbatim
+  (no jsonEscape) per the rawJSON proposal §25.5.2.2 step 4.
+- `JSON.rawJSON` converts Number arguments via shortest-decimal
+  round-trip — `JSON.rawJSON(1.1)` records `"1.1"`, not
+  `"1.1000000000000001"`.
+
+**Function.prototype / Symbol / for-of / globalThis.RegExp:**
+- `Function.prototype` carries `__is_function_prototype__` so
+  `Object.prototype.toString.call(Function.prototype)` returns
+  `[object Function]` per §20.2.3.
+- `for-of` IteratorNext result type check emits TypeError on
+  Symbol carriers per §6.1.5.
+- `globalThis.RegExp` descriptor 0x3 per §17.
+
+**ToNumber(String) case sensitivity:**
+- §7.1.4.1.1 StrNumericLiteral is case-sensitive: only
+  `Infinity` / `+Infinity` / `-Infinity` produces the literal
+  value. `INFINITY`, `Inf`, `infinity`, `NaN` (parsed as a string)
+  all return NaN. `std::stod`'s locale-insensitive but case-
+  insensitive `inf` / `nan` recognition no longer leaks through.
+
 ### Fixed (test262 spec conformance push, round 9 — 2026-06-03)
 
 Ninth consecutive 30-commit sprint.  This round widened the

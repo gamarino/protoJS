@@ -2,11 +2,81 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-03. Nine consecutive sprint rounds (~290 commits) closed
+**Last updated:** 2026-06-04. Ten consecutive sprint rounds (~390 commits) closed
 ECMA-262 conformance gaps across the language and built-ins layers — see
 CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 9 highlights (this commit batch):**
+**Round 10 highlights (this 100-commit batch):**
+
+- **Built-in constructor descriptors per §17:** Array / Object / Boolean
+  / Number / String / Set / Map / Promise / Symbol / RegExp / Date /
+  AggregateError / NativeError / ArrayBuffer / WeakMap / WeakRef /
+  WeakSet / FinalizationRegistry / Iterator / Generator /
+  GeneratorFunction / SharedArrayBuffer (and every other constructor
+  stub) all install the
+  `{writable, !enumerable, configurable}` descriptor on their
+  `name`, `length`, and the `prototype` slot. Prototype objects for
+  Stage-4 / yet-to-be-implemented constructors stamp
+  `Symbol.toStringTag` so `Object.prototype.toString.call(...)`
+  reports the correct `[object Xxx]`.
+- **OrdinaryToPrimitive abrupt-completion propagation:** ToString
+  helpers in the interpreter, `String.prototype.replaceAll`,
+  `Array.from` iterator loop, `for-of` IteratorNext, and
+  `Symbol(description)` now check the call-exception channel
+  between every observable step, so a throwing user-side `toString`
+  / `valueOf` / `next` propagates the original abrupt instead of
+  being overwritten by a later helper's exception.
+- **ToNumber / ToInteger sweep:** `Array.prototype.at`, `includes`,
+  `lastIndexOf`, and the `Number.prototype.toFixed` argument all
+  route non-primitive arguments through `jsToNumber` so an Object
+  with `valueOf` / `Symbol.toPrimitive` is honoured and a Symbol
+  argument throws TypeError. `ToNumber(String)` rejects
+  case-insensitive `Infinity` / `Inf` / `NaN` per
+  §7.1.4.1.1 (only the exact spelling produces the literal value).
+- **Array.prototype hole-aware semantics:** `Array.prototype.sort`
+  buckets PROTO_NONE, the explicit undefined sentinel, and source
+  holes uniformly as "undefined" trailing values; `toReversed`,
+  `toSorted`, `toSpliced`, and `with` materialise holes as own
+  undefined data properties on the destination (`hasOwnProperty(k)`
+  is true for every k in `[0, len)`). `Array.prototype.includes`
+  searches for `undefined` when called with no argument and treats
+  PROTO_NONE in `__elements__` as the undefined sentinel under
+  `SameValueZero`.
+- **Object.{keys, values, entries} re-check own-property per §7.3.23
+  step 4.a:** a getter that deletes a later key during iteration
+  is now observed — the deleted key is excluded from the result.
+- **for-of / OP_iterator_next §7.4.2 step 4:** if the iterator
+  `next()` return is not an Object (Symbol, primitive, null,
+  undefined), throw TypeError — pre-fix the loop would silently
+  read a stale `done` and iterate on garbage.
+- **Reflect.* §28.1 Type(target) check:** every entry point rejects
+  Symbol targets with TypeError; `Reflect.set` now dispatches
+  accessor descriptors BEFORE the writable-bit gate (§9.1.9
+  [[Set]] step 5 / 7 ordering).
+- **JSON.rawJSON / JSON.stringify stage-4 polish:** the wrapper
+  has null `[[Prototype]]`; `JSON.stringify` emits the rawJSON
+  text verbatim per §25.5.2.2 step 4; the Number-to-text
+  conversion inside `JSON.rawJSON` uses the shortest-decimal
+  round-trip so `JSON.rawJSON(1.1)` records `"1.1"`, not the
+  noisy `1.1000000000000001`.
+- **Function.prototype is callable per §20.2.3:**
+  `Object.prototype.toString.call(Function.prototype)` returns
+  `[object Function]` via a new `__is_function_prototype__` probe.
+- **String.prototype.lastIndexOf / replaceAll ToString discipline:**
+  `lastIndexOf` uses `getStrArgWithUndef` so a missing/undefined
+  search argument becomes the literal `"undefined"`;
+  `replaceAll` gates every `objToStr` / replacer invocation with
+  `hasCallException()` so a throwing `thisValue.toString`
+  propagates instead of being overwritten by the searchValue or
+  replaceValue stringification.
+- **for-of `IteratorNext` PROTO_NONE = undefined for the static
+  ToString helper:** a JS function that completes without an
+  explicit `return` surfaces as PROTO_NONE in `callJSFunction`'s
+  return path. The OrdinaryToPrimitive helper now normalises it to
+  the undefined sentinel so wrapper-Object coercion produces
+  `"undefined"` instead of `"[object Object]"`.
+
+**Round 9 highlights:**
 
 - **Number/Boolean/String prototype internal slots:** install
   `__primitive_value__` on each so `Number.prototype.toFixed`,
