@@ -1681,11 +1681,24 @@ const proto::ProtoObject* stringRaw(
         if (idxKey) {
             const proto::ProtoObject* seg = rawArr->getAttribute(ctx, idxKey, true);
             if (seg && seg != PROTO_NONE) {
+                // §22.1.2.4 step 12.c ToString(seg): a Symbol value
+                // raises TypeError per §7.1.17 (built-ins/String/raw/
+                // nextkey-is-symbol-throws.js).
+                {
+                    const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
+                    const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+                    if (symK && seg->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot convert a Symbol value to a string"));
+                        return PROTO_NONE;
+                    }
+                }
                 std::string sv;
                 if (seg->isString(ctx) && seg->asString(ctx))
                     seg->asString(ctx)->toUTF8String(ctx, sv);
                 else
                     sv = objToStr(ctx, seg);
+                if (hasCallException()) return PROTO_NONE;
                 result += sv;
             }
         }
