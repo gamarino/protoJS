@@ -171,6 +171,35 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 }
             }
         }
+        // §7.1.1 OrdinaryToPrimitive(hint="string") step 4.c: when
+        // toString returned a non-primitive (e.g. an object), try
+        // valueOf; only after both fail does the literal
+        // "[object Object]" apply. Pre-fix objToStr short-circuited
+        // to the literal even when valueOf would have thrown (Sputnik
+        // S15.5.4.11_A1_T12 — searchValue.valueOf throws
+        // "insearchValue" but objToStr returned "[object Object]" so
+        // replace silently fell through to the replacement coercion).
+        const proto::ProtoObject* voKey_o = ctx->fromUTF8String("valueOf");
+        const proto::ProtoString* voKey = voKey_o ? voKey_o->asString(ctx) : nullptr;
+        if (voKey) {
+            const proto::ProtoObject* voFn = obj->getAttribute(ctx, voKey, true);
+            if (voFn && voFn != PROTO_NONE) {
+                const proto::ProtoObject* result = nullptr;
+                if (voFn->isMethod(ctx)) {
+                    proto::ProtoMethod nativeFn = voFn->asMethod(ctx);
+                    if (nativeFn) result = nativeFn(ctx, obj, nullptr, ctx->newList(), nullptr);
+                } else {
+                    result = callJSFunction(ctx, voFn, obj, ctx->newList());
+                }
+                if (hasCallException()) return "";
+                if (result && result != PROTO_NONE) {
+                    const proto::ProtoString* rs = result->asString(ctx);
+                    if (rs) { rs->toUTF8String(ctx, r); return r; }
+                    if (result->isInteger(ctx)) return std::to_string(result->asLong(ctx));
+                    if (result->isBoolean(ctx)) return result->asBoolean(ctx) ? "true" : "false";
+                }
+            }
+        }
     }
     return "[object Object]";
 }
@@ -1239,7 +1268,12 @@ const proto::ProtoObject* stringReplace(
     // Pre-fix any non-string returned PROTO_NONE, which surfaced as
     // 'undefined' in user code (the whole result, not a no-match).
     std::string s   = objToStr(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
+    // §22.1.3.18 step 5 must precede step 6: a throwing
+    // searchValue.toString needs to surface before replacement is
+    // coerced (Sputnik S15.5.4.11_A1_T12).
     std::string pat = objToStr(ctx, pattern);
+    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     // Spec §22.1.3.18 step 7: if replacement is callable, call it with

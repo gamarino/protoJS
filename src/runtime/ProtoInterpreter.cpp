@@ -2266,6 +2266,11 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
     // caller dispatches via callJSFunction — but the receivers in this
     // file's call sites uniformly check has_pending_exception after the
     // call returns, so an uncaught throw will surface there.
+    // §7.1.1 OrdinaryToPrimitive(hint="string"): toString then valueOf.
+    // Each step is an abrupt-completion site that must propagate; pre-
+    // fix the helper swallowed throws and dropped to "[object Object]"
+    // (Sputnik S15.5.4.11_A1_T12 / equivalents on every method that
+    // coerces a search argument before processing replacement).
     const proto::ProtoString* tk = JSSymbols::toString(context);
     if (tk) {
         const proto::ProtoObject* tfn = value->getAttribute(context, tk, true);
@@ -2279,6 +2284,7 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                 const proto::ProtoList* noArgs = context->newList();
                 prim = callJSFunction(context, tfn, value, noArgs);
             }
+            if (hasCallException()) return PROTO_NONE;
             if (isStringPrim(prim)) return prim;
         }
     }
@@ -2294,6 +2300,7 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                 const proto::ProtoList* noArgs = context->newList();
                 prim = callJSFunction(context, vfn, value, noArgs);
             }
+            if (hasCallException()) return PROTO_NONE;
             if (isStringPrim(prim)) return prim;
         }
     }
