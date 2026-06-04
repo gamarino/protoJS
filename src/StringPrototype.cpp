@@ -201,6 +201,37 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             }
         }
     }
+    // §7.1.1 step 5 OrdinaryToPrimitive — when both toString AND
+    // valueOf produced a non-primitive, the spec throws TypeError.
+    // protoJS previously returned the literal "[object Object]" which
+    // silently masked the abrupt (built-ins/String/prototype/trimStart
+    // /this-value-object-{tostring,valueof}-returns-object-err).
+    // Only raise when both candidate methods were callable yet
+    // returned non-primitives — plain objects without either method
+    // continue to fall through to the literal.
+    {
+        const proto::ProtoObject* tsKo2 = ctx->fromUTF8String("toString");
+        const proto::ProtoString* tsK2 = tsKo2 ? tsKo2->asString(ctx) : nullptr;
+        const proto::ProtoObject* voKo2 = ctx->fromUTF8String("valueOf");
+        const proto::ProtoString* voK2 = voKo2 ? voKo2->asString(ctx) : nullptr;
+        auto isCallableAny = [&](const proto::ProtoObject* fn) -> bool {
+            if (!fn || fn == PROTO_NONE) return false;
+            if (fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
+            if (fn->isMethod(ctx)) return true;
+            const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+            if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+            return false;
+        };
+        const proto::ProtoObject* tsFn = tsK2 ? obj->getAttribute(ctx, tsK2, true) : nullptr;
+        const proto::ProtoObject* voFn = voK2 ? obj->getAttribute(ctx, voK2, true) : nullptr;
+        if (isCallableAny(tsFn) || isCallableAny(voFn)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert object to primitive value"));
+            return "";
+        }
+    }
     return "[object Object]";
 }
 
