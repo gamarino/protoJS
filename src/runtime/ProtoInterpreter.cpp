@@ -10290,7 +10290,30 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 s = s_empty;
                             } else {
                                 const proto::ProtoObject* arg = stackAt(pContext, argc - 1);
-                                s = toString(pContext, arg);
+                                // §22.1.1.1 step 2.a: when NewTarget is
+                                // undefined AND Type(value) is Symbol,
+                                // return SymbolDescriptiveString(value)
+                                // — "Symbol(<desc>)". Pre-fix the
+                                // Symbol routed through toString which
+                                // returned "[object Object]". Probe
+                                // the marker first.
+                                const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
+                                const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+                                if (arg && symK && arg->getAttribute(pContext, symK, true) == PROTO_TRUE) {
+                                    const proto::ProtoObject* descKo = pContext->fromUTF8String("__symbol_desc__");
+                                    const proto::ProtoString* descK = descKo ? descKo->asString(pContext) : nullptr;
+                                    std::string desc;
+                                    if (descK) {
+                                        const proto::ProtoObject* descVal = arg->getAttribute(pContext, descK, true);
+                                        if (descVal && descVal != PROTO_NONE && descVal->isString(pContext)) {
+                                            descVal->asString(pContext)->toUTF8String(pContext, desc);
+                                        }
+                                    }
+                                    std::string out = "Symbol(" + desc + ")";
+                                    s = pContext->fromUTF8String(out.c_str());
+                                } else {
+                                    s = toString(pContext, arg);
+                                }
                             }
                             for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                             if (is_tail_call) return s;
