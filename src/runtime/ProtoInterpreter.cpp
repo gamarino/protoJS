@@ -2656,6 +2656,16 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         if (!ctor) continue;
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String(kNames[i]));
         if (!ctor) continue;
+        // §17 Built-in Function name descriptor:
+        // {writable:false, enumerable:false, configurable:true} (bits 0x2).
+        // The Error / NativeError constructors lacked the sidecar so
+        // the slot defaulted to fully writable / enumerable and built-
+        // ins/NativeErrors/<Type>/name.js verifyProperty checks failed.
+        {
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
         // <ErrorType>.length === 1 per §20.5.6.x.  AggregateError is
         // the lone exception (§19.2.1.5): its constructor accepts two
         // named arguments (errors, message), so its length is 2.
