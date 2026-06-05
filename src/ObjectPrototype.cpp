@@ -3068,9 +3068,16 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
             if (std::isnan(da) && std::isnan(db)) return PROTO_TRUE;
             return (da == db) ? PROTO_TRUE : PROTO_FALSE;
         }
-        // Both undefined (any form): SameValue is true.
+        // Both undefined (any form): SameValue is true.  §7.2.10 step 4
+        // collapses ALL undefined values; the explicit-undefined argument
+        // and the missing-argument sentinel must compare equal.  Pre-fix
+        // Object.is(undefined) returned false because the explicit
+        // undefined surfaced as t_undefinedSentinel while the missing
+        // second argument defaulted to PROTO_NONE — isNone() rejected
+        // the sentinel and a == b also did not match.
         auto isUndef = [&](const proto::ProtoObject* x) {
-            return !x || x == PROTO_NONE || (x && x->isNone(ictx));
+            return !x || x == PROTO_NONE || x == getUndefinedSentinel()
+                   || (x && x->isNone(ictx));
         };
         if (isUndef(a) && isUndef(b)) return PROTO_TRUE;
         if (a && b) {
