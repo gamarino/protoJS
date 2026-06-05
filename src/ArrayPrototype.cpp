@@ -1468,7 +1468,15 @@ static const proto::ProtoObject* arrayLastIndexOf(
                        std::isnan(needle->asDouble(ctx));
     if (needleIsNaN) return ctx->fromInteger(-1LL);
     for (long long i = from; i >= 0; i--) {
-        if (strictEquals(ctx, arrGet(ctx, self, static_cast<unsigned long>(i)), needle))
+        const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<unsigned long>(i));
+        // §23.1.3.18 step 7.a Get(O, Pk) is the abrupt-completion site
+        // — an accessor at the current index must terminate iteration
+        // (built-ins/Array/prototype/lastIndexOf/15.4.4.15-8-b-i-31
+        // probes that the earlier index 1 getter must NEVER fire when
+        // index 2's getter threw).  Pre-fix the loop swallowed the
+        // throw and kept descending.
+        if (hasCallException()) return PROTO_NONE;
+        if (strictEquals(ctx, elem, needle))
             return ctx->fromInteger(i);
     }
     return ctx->fromInteger(-1LL);
