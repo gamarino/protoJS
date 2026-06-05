@@ -557,6 +557,27 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
 
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return arr;
+
+    // §9.1.9 OrdinarySet: if the receiver carries (own or inherited) a
+    // __set_length__ accessor, dispatch through it instead of writing a
+    // raw data slot.  The Array-like methods (splice / push / pop /
+    // shift / unshift) must drive this user setter so that
+    // `Object.defineProperty(obj, 'length', {set: f})` observes every
+    // length write — built-ins/Array/prototype/splice/set_length_no_args
+    // probes that splice() with no args still calls Set('length', len).
+    const proto::ProtoObject* sko = ctx->fromUTF8String("__set_length__");
+    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+    if (sk) {
+        const proto::ProtoObject* setter = arr->getAttribute(ctx, sk, true);
+        if (setter && setter != PROTO_NONE) {
+            const proto::ProtoList* sargs = ctx->newList();
+            sargs = sargs->appendLast(ctx,
+                       ctx->fromInteger(static_cast<long long>(newLen)));
+            callJSFunction(ctx, setter, arr, sargs);
+            return arr;
+        }
+    }
+
     return arr->setAttribute(ctx, key,
                              ctx->fromInteger(static_cast<long long>(newLen)));
 }
@@ -3007,6 +3028,12 @@ static const proto::ProtoObject* arraySplice(
         // the throw was lost (built-ins/Array/prototype/splice/
         // create-ctor-non-object).
         const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
+        if (hasCallException()) return PROTO_NONE;
+        // §23.1.3.29 step 24: Set(O, 'length', len – 0 + 0, true) still
+        // runs — a user setter on 'length' observes every splice call
+        // even when no mutation occurs (built-ins/Array/prototype/
+        // splice/set_length_no_args).
+        arrSetLen(ctx, self, (unsigned long)(len > 0 ? len : 0));
         if (hasCallException()) return PROTO_NONE;
         return result ? result : PROTO_NONE;
     }
