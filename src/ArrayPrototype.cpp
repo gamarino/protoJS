@@ -1594,6 +1594,9 @@ static const proto::ProtoObject* arrayFill(
     return self;
 }
 
+static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self);
+
 static const proto::ProtoObject* arrayCopyWithin(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -1602,8 +1605,13 @@ static const proto::ProtoObject* arrayCopyWithin(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.4 step 1: Let O be ? ToObject(this value). step 14 returns O.
+    // Pre-fix copyWithin returned the bare primitive (Array.prototype.
+    // copyWithin.call(true) returned true), so user code probing
+    // `instanceof Boolean` saw false against the spec's true.
+    const proto::ProtoObject* O = iterReceiver(ctx, self);
     if (!args || args->getSize(ctx) == 0)
-        return self ? self : PROTO_NONE;
+        return O ? O : PROTO_NONE;
 
     long long len = static_cast<long long>(arrLen(ctx, self));
     // ECMA-262 §23.1.3.4 steps 4-9: ToIntegerOrInfinity on target,
@@ -1640,7 +1648,7 @@ static const proto::ProtoObject* arrayCopyWithin(
     end    = normalizeIdxClamp(end,    len);
 
     long long count = std::min(end - start, len - target);
-    if (count <= 0) return self;
+    if (count <= 0) return O;
 
     // Read source range into a temporary buffer to handle overlaps.
     std::vector<const proto::ProtoObject*> tmp;
@@ -1651,7 +1659,7 @@ static const proto::ProtoObject* arrayCopyWithin(
         arrSet(ctx, self, static_cast<unsigned long>(target + i),
                tmp[static_cast<size_t>(i)]);
 
-    return self;
+    return O;
 }
 
 // ---------------------------------------------------------------------------
@@ -1698,19 +1706,46 @@ static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
 // We don't actually retarget the read path through the wrapper —
 // arrLen / arrGet already handle the primitive directly — we only
 // need the wrapper as the value visible to user code as the third
-// callback argument.  Number / Boolean / Symbol primitives are rare
-// receivers for Array methods so we leave them as-is; if they ever
-// surface they remain valid Array-like at length 0.
+// callback argument.  Symbol primitives are rare receivers for
+// Array methods so we leave them as-is; if they ever surface they
+// remain valid Array-like at length 0.
+//
+// Boolean / Number primitives are wrapped too so that
+// Array.prototype.copyWithin.call(true) instanceof Boolean === true
+// (built-ins/Array/prototype/copyWithin/call-with-boolean).
 static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self) {
     if (!self || self == PROTO_NONE) return self;
-    if (!self->isString(ctx)) return self;
-    if (!ctx->space || !ctx->space->stringPrototype) return self;
-    const proto::ProtoObject* wrap = ctx->space->stringPrototype->newChild(ctx, true);
-    if (!wrap) return self;
-    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
-    if (pvKey) wrap = wrap->setAttribute(ctx, pvKey, self);
-    return wrap;
+    if (self->isString(ctx)) {
+        if (!ctx->space || !ctx->space->stringPrototype) return self;
+        const proto::ProtoObject* wrap = ctx->space->stringPrototype->newChild(ctx, true);
+        if (!wrap) return self;
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) wrap = wrap->setAttribute(ctx, pvKey, self);
+        return wrap;
+    }
+    if (self->isBoolean(ctx)) {
+        if (!ctx->space || !ctx->space->booleanPrototype) return self;
+        const proto::ProtoObject* wrap = ctx->space->booleanPrototype->newChild(ctx, true);
+        if (!wrap) return self;
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) wrap = wrap->setAttribute(ctx, pvKey, self);
+        return wrap;
+    }
+    if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx)) {
+        if (!ctx->space || (!ctx->space->smallIntegerPrototype
+                             && !ctx->space->doublePrototype)) return self;
+        const proto::ProtoObject* parent = self->isInteger(ctx)
+            ? ctx->space->smallIntegerPrototype
+            : ctx->space->doublePrototype;
+        if (!parent) return self;
+        const proto::ProtoObject* wrap = parent->newChild(ctx, true);
+        if (!wrap) return self;
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) wrap = wrap->setAttribute(ctx, pvKey, self);
+        return wrap;
+    }
+    return self;
 }
 
 // Helper: build the three-argument list [element, index, array] for iteration callbacks.
