@@ -1156,11 +1156,34 @@ static const proto::ProtoObject* arrayShift(
         return PROTO_NONE;
     }
 
+    // §23.1.3.27 step 3.a: when len = 0, Set(O, 'length', +0, Throw=true)
+    // still runs.  An empty frozen array has the writable bit cleared
+    // on __pd_length__, so the Set fails and abrupts as TypeError.
+    // Pre-fix the native-list size==0 fast path returned undefined
+    // without exercising the Set (built-ins/Array/prototype/shift/
+    // set-length-zero-array-is-frozen).
+    auto throwIfShiftLengthFrozen = [&]() -> bool {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot assign to read-only property 'length'"));
+                return true;
+            }
+        }
+        return false;
+    };
+
     // Native ProtoList path: removeFirst is O(log N) and preserves all
     // remaining elements without the manual shift loop.
     if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
         unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
-        if (size == 0) return PROTO_NONE;
+        if (size == 0) {
+            if (throwIfShiftLengthFrozen()) return PROTO_NONE;
+            return PROTO_NONE;
+        }
         const proto::ProtoObject* first = list->getAt(ctx, 0);
         const proto::ProtoList* shrunk = list->removeFirst(ctx);
         if (shrunk) setArrayElements(ctx, self, shrunk);
