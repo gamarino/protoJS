@@ -759,21 +759,63 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     // Build constructor object with static methods.
     const proto::ProtoObject* ctor = ctx->newObject(true);
 
-    auto reg = [&](const char* name, proto::ProtoMethod fn) {
+    // Raw __construct__ stays a bare ProtoMethod — OP_call_constructor
+    // dispatches it directly, never reading name / length.
+    auto regRaw = [&](const char* name, proto::ProtoMethod fn) {
         const proto::ProtoObject* ko = ctx->fromUTF8String(name);
         const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
         if (ks) ctor = ctor->setAttribute(ctx, ks, ctx->fromMethod(nullptr, fn));
     };
+    // Static methods (Promise.resolve / .reject / .all / .race / .any /
+    // .allSettled) are visible JS-side via verifyProperty(Promise.<m>,
+    // "name", ...).  §17 mandates name (writable:false, enumerable:false,
+    // configurable:true, descriptor 0x2) and length matching the spec
+    // arity.  Pre-fix regStatic installed the bare ProtoMethod whose
+    // length=0 with no descriptor sidecar (built-ins/Promise/all/name).
+    auto regStatic = [&](const char* name, proto::ProtoMethod fn, long long arity) {
+        const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) return;
+        // Build the same mutable-wrapper shape that
+        // installNonEnumerableMethod uses for prototype methods.  A bare
+        // ProtoMethod cell can't carry attributes (setAttribute on it
+        // does not persist), so the name / length descriptors live on
+        // a child of methodPrototype with __native_fn__ pointing to the
+        // raw method.
+        const proto::ProtoObject* wrapper = ctx->space && ctx->space->methodPrototype
+            ? ctx->space->methodPrototype->newChild(ctx, true)
+            : ctx->newObject(true);
+        if (!wrapper) return;
+        const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+        if (nfk) wrapper = wrapper->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* lk = JSSymbols::length(ctx);
+        if (lk) {
+            wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(arity));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nk = JSSymbols::name(ctx);
+        if (nk) {
+            wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String(name));
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+        ctor = ctor->setAttribute(ctx, ks, wrapper);
+        std::string pdStr = std::string("__pd_") + name + "__";
+        const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    };
 
-    // The constructor itself is stored as __construct__ so OP_call_constructor
-    // can invoke it via the normal constructor-dispatch mechanism.
-    reg("__construct__", promiseConstructor);
-    reg("resolve",       promiseStaticResolve);
-    reg("reject",        promiseStaticReject);
-    reg("all",           promiseAll);
-    reg("allSettled",    promiseAllSettled);
-    reg("race",          promiseRace);
-    reg("any",           promiseAny);
+    regRaw   ("__construct__", promiseConstructor);
+    regStatic("resolve",       promiseStaticResolve, 1);
+    regStatic("reject",        promiseStaticReject,  1);
+    regStatic("all",           promiseAll,           1);
+    regStatic("allSettled",    promiseAllSettled,    1);
+    regStatic("race",          promiseRace,          1);
+    regStatic("any",           promiseAny,           1);
 
     // Promise.prototype.
     const proto::ProtoObject* proto = ctx->newObject(true);
