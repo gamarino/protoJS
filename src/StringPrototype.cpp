@@ -29,6 +29,25 @@ namespace {
 static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel()) return "undefined";
     if (obj == getNullSentinel()) return "null";
+    // §7.1.17 ToString on a Symbol value throws TypeError abrupt
+    // completion.  protoJS carries Symbols as objects with
+    // __is_symbol__ = PROTO_TRUE; route the marker before any chain
+    // walk so eager coercions (Sputnik 'a' + Symbol(), the wider
+    // String.prototype.{includes,startsWith,endsWith,…} family) emit
+    // the spec-required TypeError instead of silently rendering
+    // 'Symbol(<desc>)'.
+    {
+        const proto::ProtoObject* isSymKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* isSymKey = isSymKo ? isSymKo->asString(ctx) : nullptr;
+        if (isSymKey && obj->hasAttribute(ctx, isSymKey) == PROTO_TRUE) {
+            const proto::ProtoObject* mv = obj->getAttribute(ctx, isSymKey, true);
+            if (mv == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot convert a Symbol value to a string"));
+                return "";
+            }
+        }
+    }
     std::string r;
     if (obj->isString(ctx)) {
         obj->asString(ctx)->toUTF8String(ctx, r);
