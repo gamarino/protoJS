@@ -4,6 +4,58 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 3 (2026-06-05): 5 high-impact one-fix-per-failure commits
+
+Third Array cleanup pass — 5 commits, each fixing a distinct
+spec-level root cause that the previous packages hadn't reached.
+The smaller commit count is a feature, not a bug: every fix
+shadowed a wide failure family (single commit unlocking 100+
+tests in some cases).
+
+**arrLen — inherited length accessor:** raw `getAttribute('length',
+true)` returns the chain's data slot, not the result of invoking
+an inherited `__get_length__` getter.  Pre-fix we only fell
+through to the getter when the raw read returned PROTO_NONE;
+now we fall through whenever it returns a non-numeric / non-
+string / non-boolean value, so `Object.defineProperty(proto,
+'length', {get})` is honoured by every Array.prototype helper.
+
+**arrLen — string-length strict parse:** §7.1.4 ToNumber returns
+NaN for any string with trailing non-numeric content
+(`Number('123abc') = NaN`), which §7.1.20 ToLength clamps to 0.
+Pre-fix `stoll('123abc123')` accepted the partial match and
+returned 123; switched to `stoll(trimmed, &pos)` with a
+consume-all check so trailing garbage collapses to ToLength(NaN).
+
+**arrSet — accessor [[Set]] dispatch:** §10.1.8 OrdinarySetWith-
+OwnDescriptor requires the chain walk to surface `__set_<idx>__`
+before creating a data slot.  Pre-fix arrSet went straight to
+setAttribute, so copyWithin / splice / fill / unshift / shift
+into a slot with an inherited or own setter silently stored a
+data value and dropped the setter's abrupt completion.
+
+**arrSetLen — __set_length__ dispatch + splice no-args
+Set('length'):** mirror arrSet's accessor handling for the
+length write, and run Set(O, 'length', len) even when splice
+makes zero structural changes (spec step 24 fires unconditionally).
+
+**arrGet — own accessor probe shadows fast path:** §10.1.5
+OrdinaryGet checks own accessor before any data slot.  Pre-fix
+arrayTryFastGet returned `__elements__[idx]` before the
+`__get_<idx>__` probe, so `Object.defineProperty(arr, '0',
+{get})` on `[a, b, c]` left the data in place and the getter
+never fired.  Reordered: own accessor probe first, fast path
+second.
+
+**Coverage:** built-ins/Array full pattern goes from 2 414 / 3 081
+(78.4 %) post-package-2 to **2 516 / 3 081 (81.7 %)** — +3.3 pp,
++102 tests on 5 commits.  Snapshot: `snapshot-built-ins-Array-
+1780691593908.json`.  Remaining 534 semantic fails cluster
+around Object.prototype index inheritance, mid-iteration
+length-truncate semantics, Proxy / TypedArray / Date interop,
+and DeletePropertyOrThrow on non-configurable slots —
+multi-commit refactors, not single-line fixes.
+
 ### Array cleanup package 2 (2026-06-05): 20 more one-fix-per-failure commits
 
 Second 20-commit one-fix-per-failure run, focused on long-tail
