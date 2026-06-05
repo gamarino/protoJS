@@ -2721,8 +2721,26 @@ static const proto::ProtoObject* errorPrototypeToString(
     }
     if (msgKey && self && self != PROTO_NONE) {
         const proto::ProtoObject* mv = self->getAttribute(context, msgKey, true);
-        if (mv && mv != PROTO_NONE && mv->isString(context))
-            mv->asString(context)->toUTF8String(context, msgStr);
+        if (mv && mv != PROTO_NONE) {
+            // §20.5.3.4 step 6: If msg is undefined the empty String;
+            // otherwise ToString(msg).  §7.1.17 ToString throws TypeError
+            // on Symbol.  Pre-fix Error.prototype.toString silently
+            // skipped non-string message values (including Symbols), so
+            // {message: Symbol()} stringified to just "Error" instead of
+            // throwing.
+            const proto::ProtoObject* isSymKo = context->fromUTF8String("__is_symbol__");
+            const proto::ProtoString* isSymKey = isSymKo ? isSymKo->asString(context) : nullptr;
+            if (isSymKey) {
+                const proto::ProtoObject* isSym = mv->getAttribute(context, isSymKey, false);
+                if (isSym == PROTO_TRUE) {
+                    signalNativeException(makeNativeError(context, "TypeError",
+                        "Cannot convert a Symbol value to a string"));
+                    return PROTO_NONE;
+                }
+            }
+            if (mv->isString(context))
+                mv->asString(context)->toUTF8String(context, msgStr);
+        }
     }
     std::string result = msgStr.empty() ? nameStr : (nameStr + ": " + msgStr);
     return context->fromUTF8String(result.c_str());
