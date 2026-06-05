@@ -531,13 +531,21 @@ const proto::ProtoObject* stringIndexOf(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string s    = objToStr(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     // Spec §22.1.3.7: ToString on searchString; undefined coerces to
     // the literal "undefined". Pre-fix `"abc".indexOf()` returned 0
-    // because the missing arg defaulted to "".
+    // because the missing arg defaulted to "".  §22.1.3.7 step 4
+    // ToString(searchString) precedes step 5 ToIntegerOrInfinity(position) —
+    // a throwing searchString.toString must abort before position's
+    // valueOf can fire (Sputnik S15.5.4.7_A4_T4 surfaced 'intoint'
+    // from position instead of the spec-required 'intostr' from
+    // searchString).
     std::string srch = getStrArgWithUndef(ctx, args, 0);
+    if (hasCallException()) return PROTO_NONE;
     auto su16 = utf8ToUTF16(s);
     auto se16 = utf8ToUTF16(srch);
     long long fromIdx = getIntArg(ctx, args, 1, 0);
+    if (hasCallException()) return PROTO_NONE;
     if (fromIdx < 0) fromIdx = 0;
     size_t pos = static_cast<size_t>(fromIdx);
     if (se16.empty()) {
