@@ -3234,7 +3234,16 @@ static const proto::ProtoObject* makeArrayIterator(
 static const proto::ProtoObject* arrayEntries(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
-{ return makeArrayIterator(ctx, self, "entries"); }
+{
+    // §23.1.3.4 step 1: Let O be ? ToObject(this value).
+    // ReturnIfAbrupt on null/undefined — mirrors the keys/values
+    // fix from the prior round.  Pre-fix Array.prototype.entries
+    // .call(null) silently produced an iterator with a PROTO_NONE
+    // backing array (built-ins/Array/prototype/entries/return-
+    // abrupt-from-this).
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    return makeArrayIterator(ctx, self, "entries");
+}
 
 static const proto::ProtoObject* arrayKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
