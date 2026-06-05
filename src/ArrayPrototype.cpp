@@ -1844,10 +1844,16 @@ static const proto::ProtoObject* arrayCopyWithin(
     // copyWithin.call(true) returned true), so user code probing
     // `instanceof Boolean` saw false against the spec's true.
     const proto::ProtoObject* O = iterReceiver(ctx, self);
+    // §23.1.3.4 step 3 runs len := ToLength(? Get(O, 'length')) BEFORE
+    // any arg processing — a throwing length accessor must surface its
+    // abrupt completion even on a no-arg call.  Pre-fix the empty-args
+    // fast path returned O without exercising the length read, so the
+    // user's getter never fired (built-ins/Array/prototype/copyWithin/
+    // return-abrupt-from-this-length).
+    long long len = static_cast<long long>(arrLen(ctx, self));
+    if (hasCallException()) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0)
         return O ? O : PROTO_NONE;
-
-    long long len = static_cast<long long>(arrLen(ctx, self));
     // ECMA-262 §23.1.3.4 steps 4-9: ToIntegerOrInfinity on target,
     // start, end. Same lambda used by slice/splice/flat/fill.  Non-
     // numeric inputs route through jsToNumber so a Symbol (or other
