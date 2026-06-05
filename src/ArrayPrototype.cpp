@@ -2176,6 +2176,12 @@ static const proto::ProtoObject* arrayReduce(
             return PROTO_NONE;
         }
     }
+    // §23.1.3.26 step 6.b passes O (= ToObject(this)) as the
+    // callback's fourth argument.  Wrap primitive receivers so
+    // Array.prototype.reduce.call('abc', cb, init) hands cb a String
+    // wrapper rather than the raw primitive (built-ins/Array/
+    // prototype/reduce/15.4.4.21-1-7).
+    const proto::ProtoObject* O = iterReceiver(ctx, self);
     for (long long i = start; i < len; i++) {
         // Skip holes — use HasProperty (includes prototype chain) per spec.
         if (!arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
@@ -2184,7 +2190,7 @@ static const proto::ProtoObject* arrayReduce(
         cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
-        cbArgs = cbArgs->appendLast(ctx, self);
+        cbArgs = cbArgs->appendLast(ctx, O);
         acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
         if (hasCallException()) return PROTO_NONE;
     }
