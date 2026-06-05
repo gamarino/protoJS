@@ -4874,8 +4874,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             argsObj = argsObj->setAttribute(pContext, idxKey, argVal ? argVal : PROTO_NONE);
                     }
                     const proto::ProtoString* lenKey2 = JSSymbols::length(pContext);
-                    if (lenKey2 && argsObj)
+                    if (lenKey2 && argsObj) {
                         argsObj = argsObj->setAttribute(pContext, lenKey2, pContext->fromInteger(static_cast<long long>(argc2)));
+                        // §10.4.4.7 CreateUnmappedArgumentsObject step 4:
+                        // arguments.length is {writable:true, enumerable:false,
+                        // configurable:true} → 0x3.  Pre-fix the slot
+                        // defaulted to fully enumerable (0x7), so Object.keys
+                        // (arguments) leaked 'length' alongside the indices
+                        // (built-ins/Object/keys/15.2.3.14-3-4).
+                        const proto::ProtoObject* pdlo = pContext->fromUTF8String("__pd_length__");
+                        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(pContext) : nullptr;
+                        if (pdlk) argsObj = argsObj->setAttribute(pContext, pdlk, pContext->fromInteger(0x3LL));
+                    }
                     // Set Symbol.toStringTag so Object.prototype.toString.call(arguments) === "[object Arguments]"
                     {
                         const proto::ProtoString* tagKey = JSSymbols::toStringTag(pContext);
