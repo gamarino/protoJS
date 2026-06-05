@@ -197,6 +197,28 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
                         } catch (...) {}
                     }
                 }
+                // §7.1.20 ToLength = ToIntegerOrInfinity ∘ ToNumber.
+                // When the length getter returns an Object (e.g. an
+                // {valueOf: …} wrapper), ToNumber must invoke that
+                // valueOf to extract the spec-required numeric value.
+                // Pre-fix the getter-result path returned 0 without
+                // running ToNumber, so step 5 indexOf-side effects
+                // never observed step 3 (built-ins/Array/prototype/
+                // indexOf/15.4.4.14-5-27).
+                {
+                    const proto::ProtoObject* num = jsToNumber(ctx, fromGetter);
+                    if (hasCallException() || !num || num == PROTO_NONE) return 0;
+                    if (num->isInteger(ctx)) {
+                        long long v = num->asLong(ctx);
+                        return (v > 0) ? static_cast<unsigned long>(v) : 0;
+                    }
+                    if (num->isDouble(ctx) || num->isFloat(ctx)) {
+                        double d = num->asDouble(ctx);
+                        if (d <= 0 || std::isnan(d)) return 0;
+                        if (std::isinf(d)) return static_cast<unsigned long>(0xFFFFFFFFul);
+                        return static_cast<unsigned long>(d);
+                    }
+                }
                 return 0;
             }
             // Own setter-only "length" accessor — no getter → length is undefined → treat as 0.
