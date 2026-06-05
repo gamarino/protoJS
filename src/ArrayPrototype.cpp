@@ -2236,6 +2236,11 @@ static const proto::ProtoObject* arrayReduceRight(
             return PROTO_NONE;
         }
     }
+    // §23.1.3.27 step 6.b passes O as the callback's array argument
+    // (parallel to reduce).  Pre-fix reduceRight forwarded self
+    // verbatim — primitive-string receivers showed as 'string', not
+    // a String wrapper, in the callback.
+    const proto::ProtoObject* ORr = iterReceiver(ctx, self);
     for (long long i = start; i >= 0; i--) {
         // Skip holes — use HasProperty (includes prototype chain) per spec.
         if (!arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
@@ -2244,7 +2249,7 @@ static const proto::ProtoObject* arrayReduceRight(
         cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(i));
-        cbArgs = cbArgs->appendLast(ctx, self);
+        cbArgs = cbArgs->appendLast(ctx, ORr);
         acc = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
         if (hasCallException()) return PROTO_NONE;
     }
