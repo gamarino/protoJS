@@ -1561,7 +1561,16 @@ static const proto::ProtoObject* arrayWith(
     // RangeError from the empty-range check instead of the user's
     // MyError (built-ins/Array/prototype/with/index-throw-completion).
     if (iv && iv->isInteger(ctx)) idx = iv->asLong(ctx);
-    else if (iv && iv->isDouble(ctx)) idx = static_cast<long long>(iv->asDouble(ctx));
+    else if (iv && iv->isDouble(ctx)) {
+        double d = iv->asDouble(ctx);
+        // §7.1.5 ToIntegerOrInfinity: NaN → 0.  Pre-fix the bare cast
+        // produced LLONG_MIN on a NaN argument and arrayWith then
+        // raised a spurious RangeError (built-ins/Array/prototype/
+        // with/index-casted-to-number).
+        if (std::isnan(d)) idx = 0;
+        else if (std::isinf(d)) idx = d > 0 ? LLONG_MAX : LLONG_MIN;
+        else idx = static_cast<long long>(d);
+    }
     else if (iv && iv != PROTO_NONE && iv != getUndefinedSentinel()) {
         const proto::ProtoObject* num = jsToNumber(ctx, iv);
         if (hasCallException()) return PROTO_NONE;
