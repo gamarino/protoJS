@@ -189,8 +189,16 @@ static const proto::ProtoObject* promiseThen(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE || !isPromise(ctx, self))
-        return makeSettledPromise(ctx, 2, PROTO_NONE);
+    // §27.2.5.4 step 2 + §27.2.1.6 IsPromise: receivers without
+    // [[PromiseState]] must throw TypeError, not silently produce a
+    // rejected promise.  Pre-fix Promise.prototype.then.call
+    // (Promise.prototype, ...) returned a rejected promise instead
+    // of throwing (built-ins/Promise/prototype/no-promise-state).
+    if (!self || self == PROTO_NONE || !isPromise(ctx, self)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Promise.prototype.then called on non-promise"));
+        return PROTO_NONE;
+    }
 
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* onFulfilled = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
