@@ -3126,6 +3126,30 @@ static const proto::ProtoObject* arraySplice(
 
     // Update length.
     long long newLen = len - delCount + insertCount;
+
+    // §23.1.3.29 step 21.d: when insertCount < deleteCount, delete the
+    // now-vacated tail indices via DeletePropertyOrThrow(O, k).  For
+    // real arrays, arrSetLen below truncates __elements__ and that
+    // implicitly clears the data; for non-array array-likes the
+    // legacy length-setAttribute path leaves obj[newLen..len-1]
+    // observable as their original values.  Mirror the spec by
+    // removing the string-keyed attributes explicitly.
+    // Sputnik S15.4.4.12_A2_T1 (obj.splice(0,3,4,5) on
+    // {0:0,1:1,2:2,3:3, length:4}) probed that obj[3] is undefined
+    // post-splice.
+    if (newLen < len) {
+        for (long long k = len - 1; k >= newLen; k--) {
+            const proto::ProtoString* delKey =
+                JSSymbols::indexKey(ctx, static_cast<uint32_t>(k));
+            if (delKey) {
+                // setAttribute(PROTO_NONE) is the protoCore-canonical
+                // "delete own data attribute" path used elsewhere in
+                // this file (mirrors arrayPop's last-index clear).
+                self->setAttribute(ctx, delKey, PROTO_NONE);
+            }
+        }
+    }
+
     arrSetLen(ctx, self, (unsigned long)(newLen > 0 ? newLen : 0));
 
     return removed;
