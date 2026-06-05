@@ -564,9 +564,26 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
         if (dateObj) {
             const proto::ProtoString* nameKey =
                 ctx->fromUTF8String("name") ? ctx->fromUTF8String("name")->asString(ctx) : nullptr;
-            if (nameKey)
+            if (nameKey) {
                 dateObj = dateObj->setAttribute(ctx, nameKey,
                                                 ctx->fromUTF8String("Date"));
+                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                if (pdnk) dateObj = dateObj->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+            }
+            // §21.4.2: Date.length = 7 with §17 descriptor 0x2
+            // (writable:false, enumerable:false, configurable:true).
+            // Pre-fix the early TimingAPIs-installed Date had no length
+            // own property (built-ins/Date/length.js: "obj should have
+            // an own property length").
+            const proto::ProtoString* lenKeyDate =
+                ctx->fromUTF8String("length") ? ctx->fromUTF8String("length")->asString(ctx) : nullptr;
+            if (lenKeyDate) {
+                dateObj = dateObj->setAttribute(ctx, lenKeyDate, ctx->fromInteger(7LL));
+                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                if (pdlk) dateObj = dateObj->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+            }
             const proto::ProtoString* protoKey =
                 ctx->fromUTF8String("prototype") ? ctx->fromUTF8String("prototype")->asString(ctx) : nullptr;
             if (protoKey) {

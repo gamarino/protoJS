@@ -3611,27 +3611,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // Constructor-type globals get minimal stub objects (with name + prototype attributes)
         // so that `x instanceof StubbedConstructor` does not throw TypeError.
         // Non-constructor globals (eval, globalThis, etc.) are stubbed as PROTO_NONE.
-        static const char* kUnimplementedCtors[] = {
-            // Unimplemented standard JS built-in constructors.
-            // NOTE: "Function" is intentionally omitted — wired via ensureFunctionPrototype.
-            // NOTE: "Symbol" is intentionally omitted — wired via the
-            //       symbolConstructor native fn below so `Symbol(desc)`
-            //       is callable.  The minimal stub leaves Symbol(...)
-            //       throwing \"is not a function\".
-            "Date",
-            "BigInt", "AggregateError",
-            "Proxy", "WeakRef", "WeakSet",
-            "FinalizationRegistry", "Iterator", "Generator", "GeneratorFunction",
-            "AsyncFunction", "AsyncGenerator", "AsyncGeneratorFunction",
-            "SharedArrayBuffer",
-            nullptr
+        struct UnimplementedCtor { const char* name; long long length; };
+        static const UnimplementedCtor kUnimplementedCtors[] = {
+            // Unimplemented standard JS built-in constructors with their
+            // §17 spec length.  NOTE: "Function" is intentionally omitted —
+            // wired via ensureFunctionPrototype.  NOTE: "Symbol" is
+            // intentionally omitted — wired via the symbolConstructor
+            // native fn below so `Symbol(desc)` is callable.  The minimal
+            // stub leaves Symbol(...) throwing \"is not a function\".
+            {"Date", 7},
+            {"BigInt", 1}, {"AggregateError", 2},
+            {"Proxy", 2}, {"WeakRef", 1}, {"WeakSet", 0},
+            {"FinalizationRegistry", 1}, {"Iterator", 0}, {"Generator", 0},
+            {"GeneratorFunction", 1},
+            {"AsyncFunction", 1}, {"AsyncGenerator", 0}, {"AsyncGeneratorFunction", 1},
+            {"SharedArrayBuffer", 1},
+            {nullptr, 0}
         };
         if (pGlobalRoot && *pGlobalRoot) {
             const proto::ProtoString* nameKey2 = JSSymbols::name(pContext);
             const proto::ProtoString* protoKey2 = JSSymbols::prototype(pContext);
             const proto::ProtoString* nfKey3 = JSSymbols::nativeFn(pContext);
-            for (int gi = 0; kUnimplementedCtors[gi]; ++gi) {
-                const char* ctorName = kUnimplementedCtors[gi];
+            const proto::ProtoString* lenKey3 = JSSymbols::length(pContext);
+            for (int gi = 0; kUnimplementedCtors[gi].name; ++gi) {
+                const char* ctorName = kUnimplementedCtors[gi].name;
+                const long long ctorLen = kUnimplementedCtors[gi].length;
                 const proto::ProtoString* ck = (pContext->fromUTF8String(ctorName) ? pContext->fromUTF8String(ctorName)->asString(pContext) : nullptr);
                 if (!ck) continue;
                 const proto::ProtoObject* ex = (*pGlobalRoot)->getAttribute(pContext, ck, false);
@@ -3679,6 +3683,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (nfKey3) {
                     const proto::ProtoObject* rawM = pContext->fromMethod(nullptr, unimplementedCtorStub);
                     if (rawM) stub = stub->setAttribute(pContext, nfKey3, rawM);
+                }
+                // §17: every built-in constructor has a "length" own
+                // property with the spec-mandated arity and descriptor
+                // {writable:false, enumerable:false, configurable:true} → 0x2.
+                // Pre-fix the stub had no length, so verifyProperty(Date,
+                // "length", ...) failed with "obj should have an own
+                // property length" across the unimplemented-ctor family.
+                if (lenKey3) {
+                    stub = stub->setAttribute(pContext, lenKey3, pContext->fromInteger(ctorLen));
+                    const proto::ProtoObject* pdlO = pContext->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdlK = pdlO ? pdlO->asString(pContext) : nullptr;
+                    if (pdlK) stub = stub->setAttribute(pContext, pdlK, pContext->fromInteger(0x2LL));
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
                 // §17 globalThis.<Ctor> descriptor 0x3.
