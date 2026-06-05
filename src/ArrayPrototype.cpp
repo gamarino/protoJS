@@ -1573,6 +1573,13 @@ static const proto::ProtoObject* arrayIncludes(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
+    // §23.1.3.13 step 3: if len is 0, return false BEFORE the
+    // fromIndex coercion runs.  Pre-fix arrayIncludes flowed into the
+    // ToInteger(fromIndex) step even on an empty receiver — a
+    // throwing valueOf was therefore invoked needlessly (built-ins/
+    // Array/prototype/includes/length-zero-returns-false reports
+    // calls=1 instead of 0).
+    if (len == 0) return PROTO_FALSE;
     // §23.1.3.13 step 5: searchElement defaults to undefined when no
     // argument is supplied. Pre-fix arrayIncludes early-returned false
     // on no-arg, so `[undefined].includes()` reported false instead of
