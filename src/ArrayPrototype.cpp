@@ -1248,8 +1248,6 @@ static const proto::ProtoObject* arrayIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) == 0)
-        return ctx->fromInteger(-1LL);
     long long len = static_cast<long long>(arrLen(ctx, self));
     // ECMA-262 §23.1.3.13 step 3: if len is 0, return -1 BEFORE
     // ToIntegerOrInfinity runs on fromIndex.  Pre-fix the fromIndex
@@ -1257,7 +1255,14 @@ static const proto::ProtoObject* arrayIndexOf(
     // user-visible side effects of `fromIndex.valueOf()` that the
     // spec explicitly bypasses.
     if (len == 0) return ctx->fromInteger(-1LL);
-    const proto::ProtoObject* needle = args->getAt(ctx, 0);
+    // §23.1.3.13 step 5: searchElement defaults to undefined when no
+    // argument is supplied.  Pre-fix indexOf returned -1 unconditionally
+    // on no-arg, so [undefined].indexOf() failed to locate idx 0
+    // (built-ins/Array/prototype/indexOf/15.4.4.14-9-b-ii-2).
+    const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0)
+        : getUndefinedSentinel();
+    if (!args || args->getSize(ctx) == 0) args = ctx->newList(); // ensure non-null below
     long long from = 0;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
