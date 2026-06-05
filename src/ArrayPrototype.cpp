@@ -2266,7 +2266,12 @@ static const proto::ProtoObject* arrayFilter(
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.filter")) return PROTO_NONE;
+    // §22.1.3.1.1 ArraySpeciesCreate raises TypeError when a custom
+    // .constructor is a non-Object primitive — propagate the abrupt
+    // before the iteration starts (parallel to the map fix in this
+    // round).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
+    if (hasCallException()) return PROTO_NONE;
     unsigned long outIdx = 0;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
