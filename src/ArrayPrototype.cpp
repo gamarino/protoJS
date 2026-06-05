@@ -1765,6 +1765,9 @@ static const proto::ProtoObject* arrayConcat(
     return result;
 }
 
+static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self);
+
 static const proto::ProtoObject* arrayFill(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
