@@ -2310,8 +2310,13 @@ static const proto::ProtoObject* arraySort(
     if (hasFn && arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.sort"))
         return PROTO_NONE;
 
+    // §23.1.3.30 step 1: Let obj be ? ToObject(this value), step 12
+    // returns obj.  Pre-fix sort returned the bare primitive
+    // receiver, so [].sort.call(false) instanceof Boolean was false
+    // (built-ins/Array/prototype/sort/call-with-primitive).
+    const proto::ProtoObject* O = iterReceiver(ctx, self);
     unsigned long len = arrLen(ctx, self);
-    if (len < 2) return self;
+    if (len < 2) return O;
 
     // Separate elements into three categories per ECMAScript spec:
     //   1. Defined values  — present AND not undefined
@@ -2384,7 +2389,7 @@ static const proto::ProtoObject* arraySort(
     for (unsigned long i = 0; i < holeCount; i++)
         arrSet(ctx, self, writeIdx++, undefMarker);
 
-    return self;
+    return O;
 }
 
 // ---------------------------------------------------------------------------
