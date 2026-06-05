@@ -810,6 +810,21 @@ static const proto::ProtoObject* arrayToString(
     const proto::ProtoList* args,
     const proto::ProtoSparseList* kw)
 {
+    // §23.1.3.36 step 1: Let array be ? ToObject(this value).  When
+    // 'this' is a primitive (boolean / number / string), the resulting
+    // wrapper has no callable 'join' method (Boolean.prototype etc.
+    // don't override join), so step 3 falls back to
+    // %Object.prototype.toString%.  Pre-fix arrayJoin was invoked on
+    // the raw primitive and silently returned the empty string
+    // (built-ins/Array/prototype/toString/call-with-boolean).  Emit
+    // the spec-mandated '[object <Type>]' literal directly for
+    // primitives instead of routing through the arrayJoin fallback.
+    if (self && self != PROTO_NONE) {
+        if (self->isBoolean(ctx)) return ctx->fromUTF8String("[object Boolean]");
+        if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
+            return ctx->fromUTF8String("[object Number]");
+        if (self->isString(ctx)) return ctx->fromUTF8String("[object String]");
+    }
     // ECMA-262 §23.1.3.36 step 4-5: look up `join` on the receiver
     // and invoke it. Only when the receiver has no callable join do
     // we fall back to Object.prototype.toString. The previous
