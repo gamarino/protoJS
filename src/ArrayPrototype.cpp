@@ -244,11 +244,23 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     if (lenObj == PROTO_TRUE)  return 1;
     if (lenObj == PROTO_FALSE) return 0;
     // String-encoded length — try parsing, handle hex (e.g. "0x0002").
+    // §7.1.4 ToNumber + §7.1.20 ToLength also accepts the literal
+    // 'Infinity' / '+Infinity' / '-Infinity' forms.  Pre-fix the
+    // stoll parse threw on those and the value collapsed to 0
+    // (built-ins/Array/prototype/indexOf/15.4.4.14-3-14 with
+    // length: 'Infinity' / '+Infinity' / '-Infinity').
     if (lenObj->isString(ctx)) {
         const proto::ProtoString* s = lenObj->asString(ctx);
         if (s) {
             std::string sv;
             s->toUTF8String(ctx, sv);
+            // Trim leading whitespace per §7.1.4 StringToNumber.
+            size_t firstNonWS = sv.find_first_not_of(" \t\n\r\v\f");
+            std::string trimmed = (firstNonWS == std::string::npos) ? "" : sv.substr(firstNonWS);
+            if (trimmed == "Infinity" || trimmed == "+Infinity")
+                return static_cast<unsigned long>(0xFFFFFFFFul);
+            if (trimmed == "-Infinity")
+                return 0;
             try {
                 long long v = (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'x' || sv[1] == 'X'))
                     ? std::stoll(sv, nullptr, 16)
