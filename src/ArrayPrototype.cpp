@@ -2768,12 +2768,46 @@ static const proto::ProtoObject* arrayIteratorNext(
 }
 
 /** Create an iterator object for the given array and kind. */
+// %ArrayIteratorPrototype% — shared parent object for the iterators
+// returned by Array.prototype.{keys,values,entries}.  Lazily created.
+// §22.1.5.2.2: carries Symbol.toStringTag = 'Array Iterator' with
+// descriptor {writable:false, enumerable:false, configurable:true}
+// (sidecar bits 0x2).  Pre-fix every iterator was a bare newObject
+// child of Object.prototype, so Object.getPrototypeOf(iter)[Symbol
+// .toStringTag] surfaced undefined (built-ins/ArrayIteratorPrototype/
+// Symbol.toStringTag/property-descriptor).
+static const proto::ProtoObject* s_arrayIteratorProto = nullptr;
+
+static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx) {
+    if (s_arrayIteratorProto) return s_arrayIteratorProto;
+    const proto::ProtoObject* objProto =
+        ctx->space ? ctx->space->objectPrototype : nullptr;
+    const proto::ProtoObject* proto = objProto
+        ? objProto->newChild(ctx, true) : ctx->newObject(true);
+    if (!proto) return nullptr;
+    const proto::ProtoString* tagInt = JSSymbols::toStringTag(ctx);
+    if (tagInt) proto = proto->setAttribute(ctx, tagInt,
+        ctx->fromUTF8String("Array Iterator"));
+    const proto::ProtoString* tagUser = JSSymbols::symbolToStringTag(ctx);
+    if (tagUser) {
+        proto = proto->setAttribute(ctx, tagUser,
+            ctx->fromUTF8String("Array Iterator"));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
+    s_arrayIteratorProto = proto;
+    return s_arrayIteratorProto;
+}
+
 static const proto::ProtoObject* makeArrayIterator(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* arr,
     const char* kind)
 {
-    const proto::ProtoObject* iter = ctx->newObject(true);
+    const proto::ProtoObject* protoParent = getArrayIteratorProto(ctx);
+    const proto::ProtoObject* iter = protoParent
+        ? protoParent->newChild(ctx, true) : ctx->newObject(true);
     const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
     const proto::ProtoString* refKey  = JSSymbols::iterArr(ctx);
     const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
