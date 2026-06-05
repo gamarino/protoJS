@@ -174,12 +174,12 @@ void stringifyRecursive(proto::ProtoContext* ctx,
     }
     {
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && obj->getAttribute(ctx, bcKey, false) != PROTO_NONE) {
+        if (bcKey && obj->hasAttribute(ctx, bcKey) == PROTO_TRUE) {
             out += "null";
             return;
         }
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && obj->getAttribute(ctx, nfKey, false) != PROTO_NONE) {
+        if (nfKey && obj->hasAttribute(ctx, nfKey) == PROTO_TRUE) {
             out += "null";
             return;
         }
@@ -278,9 +278,9 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 bool callable = tjsFn->isMethod(ctx);
                 if (!callable) {
                     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                    if (bcKey && tjsFn->getAttribute(ctx, bcKey, false) != PROTO_NONE) callable = true;
+                    if (bcKey && tjsFn->hasAttribute(ctx, bcKey) == PROTO_TRUE) callable = true;
                     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                    if (!callable && nfKey && tjsFn->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
+                    if (!callable && nfKey && tjsFn->hasAttribute(ctx, nfKey) == PROTO_TRUE) callable = true;
                 }
                 if (callable) {
                     // toJSON is called with the current key per
@@ -550,10 +550,10 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                 if (val->isMethod(ctx)) isCallable = true;
                 else {
                     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                    if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE) isCallable = true;
+                    if (bcKey && val->hasAttribute(ctx, bcKey) == PROTO_TRUE) isCallable = true;
                     else {
                         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                        if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE) isCallable = true;
+                        if (nfKey && val->hasAttribute(ctx, nfKey) == PROTO_TRUE) isCallable = true;
                     }
                 }
             }
@@ -579,9 +579,9 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     if (fn && fn != PROTO_NONE) {
                         if (fn->isMethod(ctx)) tjCallable = true;
                         const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-                        if (!tjCallable && bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE) tjCallable = true;
+                        if (!tjCallable && bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) tjCallable = true;
                         const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-                        if (!tjCallable && nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE) tjCallable = true;
+                        if (!tjCallable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) tjCallable = true;
                     }
                     if (tjCallable) {
                         const proto::ProtoList* tjArgs = ctx->newList();
@@ -850,9 +850,9 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                 bool callable = replacer->isMethod(ctx);
                 if (!callable) {
                     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                    if (bcKey && replacer->getAttribute(ctx, bcKey, false) != PROTO_NONE) callable = true;
+                    if (bcKey && replacer->hasAttribute(ctx, bcKey) == PROTO_TRUE) callable = true;
                     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                    if (!callable && nfKey && replacer->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
+                    if (!callable && nfKey && replacer->hasAttribute(ctx, nfKey) == PROTO_TRUE) callable = true;
                 }
                 if (callable) replacerFnLocal = replacer;
             }
@@ -969,11 +969,11 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
     // __bytecode_id__ / __native_fn__ markers used elsewhere.
     {
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE) {
+        if (bcKey && val->hasAttribute(ctx, bcKey) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE) {
+        if (nfKey && val->hasAttribute(ctx, nfKey) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
     }
@@ -995,9 +995,9 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
                 if (fn && fn != PROTO_NONE) {
                     if (fn->isMethod(ctx)) callable = true;
                     const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-                    if (!callable && bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+                    if (!callable && bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
                     const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-                    if (!callable && nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+                    if (!callable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
                 }
                 if (callable) {
                     const proto::ProtoList* tjArgs = ctx->newList();
@@ -1018,10 +1018,10 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         if (val->isMethod(ctx)) return getUndefinedSentinel();
         {
             const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-            if (bcKey && val->getAttribute(ctx, bcKey, false) != PROTO_NONE)
+            if (bcKey && val->hasAttribute(ctx, bcKey) == PROTO_TRUE)
                 return getUndefinedSentinel();
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-            if (nfKey && val->getAttribute(ctx, nfKey, false) != PROTO_NONE)
+            if (nfKey && val->hasAttribute(ctx, nfKey) == PROTO_TRUE)
                 return getUndefinedSentinel();
         }
     }
@@ -1047,10 +1047,10 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         if (newVal->isMethod(ctx)) return getUndefinedSentinel();
         {
             const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-            if (bcKey && newVal->getAttribute(ctx, bcKey, false) != PROTO_NONE)
+            if (bcKey && newVal->hasAttribute(ctx, bcKey) == PROTO_TRUE)
                 return getUndefinedSentinel();
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-            if (nfKey && newVal->getAttribute(ctx, nfKey, false) != PROTO_NONE)
+            if (nfKey && newVal->hasAttribute(ctx, nfKey) == PROTO_TRUE)
                 return getUndefinedSentinel();
         }
         val = newVal;
@@ -1206,9 +1206,9 @@ const proto::ProtoObject* JSONBuiltin::parse(proto::ProtoContext* ctx,
                 if (!fn || fn == PROTO_NONE) return false;
                 if (fn->isMethod(ctx)) return true;
                 const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-                if (bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE) return true;
+                if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
                 const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-                if (nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE) return true;
+                if (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
                 return false;
             };
             auto isPrim = [&](const proto::ProtoObject* v) -> bool {

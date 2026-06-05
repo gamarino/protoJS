@@ -169,9 +169,9 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 if (fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
                 if (fn->isMethod(ctx)) return true;
                 const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+                if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
                 const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+                if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
                 return false;
             };
             if (isCallable(tpFn)) {
@@ -295,9 +295,9 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             if (fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
             if (fn->isMethod(ctx)) return true;
             const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-            if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+            if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-            if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+            if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
             return false;
         };
         const proto::ProtoObject* tsFn = tsK2 ? obj->getAttribute(ctx, tsK2, true) : nullptr;
@@ -1473,9 +1473,9 @@ const proto::ProtoObject* stringReplace(
         if (!fn || fn == PROTO_NONE) return false;
         if (fn->isMethod(ctx)) return true;
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
         return false;
     };
     bool repCallable = isCallable(repObj);
@@ -1546,9 +1546,9 @@ const proto::ProtoObject* stringReplaceAll(
         if (!fn || fn == PROTO_NONE) return false;
         if (fn->isMethod(ctx)) return true;
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
         return false;
     };
     bool repCallable = isCallable(repObj);

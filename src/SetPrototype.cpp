@@ -415,11 +415,11 @@ static const proto::ProtoObject* setForEach(
         if (callback && callback != PROTO_NONE && callback != getUndefinedSentinel()) {
             if (callback->isMethod(ctx)) callable = true;
             const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-            if (!callable && bcK && callback->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+            if (!callable && bcK && callback->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
             const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-            if (!callable && nfK && callback->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+            if (!callable && nfK && callback->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
             const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
-            if (!callable && bfK && callback->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+            if (!callable && bfK && callback->hasAttribute(ctx, bfK) == PROTO_TRUE) callable = true;
         }
         if (!callable) {
             signalNativeException(makeNativeError(ctx, "TypeError",
@@ -647,11 +647,11 @@ static const proto::ProtoObject* setConstruct(
             if (adder && adder != PROTO_NONE && adder != getUndefinedSentinel()) {
                 if (adder->isMethod(ctx)) callable = true;
                 const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-                if (!callable && bcK && adder->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+                if (!callable && bcK && adder->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
                 const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-                if (!callable && nfK && adder->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+                if (!callable && nfK && adder->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
                 const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
-                if (!callable && bfK && adder->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+                if (!callable && bfK && adder->hasAttribute(ctx, bfK) == PROTO_TRUE) callable = true;
             }
             if (!callable) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
@@ -844,11 +844,11 @@ static bool isCallableValue(proto::ProtoContext* ctx,
     if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return false;
     if (v->isMethod(ctx)) return true;
     const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-    if (bcK && v->getAttribute(ctx, bcK, false) != PROTO_NONE) return true;
+    if (bcK && v->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
     const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-    if (nfK && v->getAttribute(ctx, nfK, false) != PROTO_NONE) return true;
+    if (nfK && v->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
     const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
-    if (bfK && v->getAttribute(ctx, bfK, false) != PROTO_NONE) return true;
+    if (bfK && v->hasAttribute(ctx, bfK) == PROTO_TRUE) return true;
     return false;
 }
 

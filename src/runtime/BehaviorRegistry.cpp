@@ -26,7 +26,7 @@ namespace protojs {
     // convention as FrozenBehavior.
     const proto::ProtoObject* NonExtensibleBehavior::putField(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) const {
         if (!obj || !key) return obj;
-        if (obj->getAttribute(ctx, key, false) != PROTO_NONE) {
+        if (obj->hasAttribute(ctx, key) == PROTO_TRUE) {
             return obj->setAttribute(ctx, key, val);
         }
         return obj;

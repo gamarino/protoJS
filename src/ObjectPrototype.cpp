@@ -1135,9 +1135,9 @@ static const proto::ProtoString* coercePropNameToKey(
             if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
             if (fn->isMethod(ctx)) return true;
             const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-            if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+            if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-            if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+            if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
             return false;
         };
 
@@ -1409,7 +1409,7 @@ static const proto::ProtoObject* objectDefineProperty(
             std::string gkStr = "__get_" + nstr + "__";
             const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
-            if (gk && desc->getAttribute(ctx, gk, false) != PROTO_NONE) return true;
+            if (gk && desc->hasAttribute(ctx, gk) == PROTO_TRUE) return true;
             return false;
         };
         bool hasValue = descHasField("value");
@@ -1582,11 +1582,11 @@ static const proto::ProtoObject* objectDefineProperty(
         std::string nstr = name;
         std::string gkStr = "__get_" + nstr + "__";
         const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
-        if (gk && desc->getAttribute(ctx, gk, false) != PROTO_NONE) return true;
+        if (gk && desc->hasAttribute(ctx, gk) == PROTO_TRUE) return true;
         
         std::string skStr = "__set_" + nstr + "__";
         const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
-        if (sk && desc->getAttribute(ctx, sk, false) != PROTO_NONE) return true;
+        if (sk && desc->hasAttribute(ctx, sk) == PROTO_TRUE) return true;
         
         return false;
     };
@@ -1643,9 +1643,9 @@ static const proto::ProtoObject* objectDefineProperty(
         if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
         if (fn->isMethod(ctx)) return true;
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
         return false;
     };
 
@@ -2944,8 +2944,8 @@ const proto::ProtoObject* installObjectInstanceMethods(
             const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ictx);
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ictx);
             bool callable =
-                (bcKey && tsFn->getAttribute(ictx, bcKey, false) != PROTO_NONE) ||
-                (nfKey && tsFn->getAttribute(ictx, nfKey, false) != PROTO_NONE);
+                (bcKey && tsFn->hasAttribute(ictx, bcKey) == PROTO_TRUE) ||
+                (nfKey && tsFn->hasAttribute(ictx, nfKey) == PROTO_TRUE);
             if (!callable)
                 return objectToString(ictx, self, nullptr, nullptr, nullptr);
         }

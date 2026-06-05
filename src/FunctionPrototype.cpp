@@ -26,11 +26,11 @@ static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn)
     if (!fn || fn == PROTO_NONE) return false;
     if (fn->isMethod(ctx)) return true;
     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-    if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+    if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-    if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+    if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
     const proto::ProtoString* cKey = JSSymbols::construct(ctx);
-    if (cKey && fn->getAttribute(ctx, cKey, false) != PROTO_NONE) return true;
+    if (cKey && fn->hasAttribute(ctx, cKey) == PROTO_TRUE) return true;
     return false;
 }
 

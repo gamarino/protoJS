@@ -728,9 +728,9 @@ static bool arrayThrowIfCallbackNotCallable(proto::ProtoContext* ctx,
     if (fn && fn != PROTO_NONE) {
         if (fn->isMethod(ctx)) return false;
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return false;
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return false;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return false;
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return false;
         // Bound functions wrap a target callable behind a __bound_fn__
         // sentinel. callJSFunction unwraps them transparently, but the
         // callability probe missed the sentinel, so
@@ -738,7 +738,7 @@ static bool arrayThrowIfCallbackNotCallable(proto::ProtoContext* ctx,
         // threw 'callback is not a function' even though the bound
         // function IS callable.
         const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
-        if (bfKey && fn->getAttribute(ctx, bfKey, false) != PROTO_NONE) return false;
+        if (bfKey && fn->hasAttribute(ctx, bfKey) == PROTO_TRUE) return false;
     }
     signalNativeException(makeNativeError(ctx, "TypeError",
         (std::string(method) + " callback is not a function").c_str()));
@@ -812,10 +812,10 @@ static const proto::ProtoObject* arrayToString(
                 bool callable = joinFn->isMethod(ctx);
                 if (!callable) {
                     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                    if (bcKey && joinFn->getAttribute(ctx, bcKey, false) != PROTO_NONE) callable = true;
+                    if (bcKey && joinFn->hasAttribute(ctx, bcKey) == PROTO_TRUE) callable = true;
                     else {
                         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                        if (nfKey && joinFn->getAttribute(ctx, nfKey, false) != PROTO_NONE) callable = true;
+                        if (nfKey && joinFn->hasAttribute(ctx, nfKey) == PROTO_TRUE) callable = true;
                     }
                 }
                 if (callable) {

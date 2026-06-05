@@ -695,9 +695,9 @@ static const proto::ProtoObject* promiseConstructor(
         if (!fn || fn == PROTO_NONE) return false;
         if (fn->isMethod(ctx)) return true;
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
         return false;
     };
     if (!isCallable(executor)) {

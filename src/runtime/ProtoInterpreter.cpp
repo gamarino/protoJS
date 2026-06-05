@@ -446,11 +446,11 @@ static const proto::ProtoObject* reflectApply(
         if (target && target != PROTO_NONE) {
             if (target->isMethod(ctx)) callable = true;
             const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-            if (!callable && bcK && target->getAttribute(ctx, bcK, false) != PROTO_NONE) callable = true;
+            if (!callable && bcK && target->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
             const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
-            if (!callable && nfK && target->getAttribute(ctx, nfK, false) != PROTO_NONE) callable = true;
+            if (!callable && nfK && target->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
             const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
-            if (!callable && bfK && target->getAttribute(ctx, bfK, false) != PROTO_NONE) callable = true;
+            if (!callable && bfK && target->hasAttribute(ctx, bfK) == PROTO_TRUE) callable = true;
         }
         if (!callable) {
             signalNativeException(makeNativeError(ctx, "TypeError",
@@ -619,7 +619,7 @@ static const proto::ProtoObject* reflectConstruct(
         const proto::ProtoString* strK = JSSymbols::stringCtor(ctx);
         if (strK && t->getAttribute(ctx, strK, false) == PROTO_TRUE) return true;
         const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-        if (bcK && t->getAttribute(ctx, bcK, false) != PROTO_NONE) {
+        if (bcK && t->hasAttribute(ctx, bcK) == PROTO_TRUE) {
             // Bytecode function — constructible UNLESS it's an arrow.
             const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
             const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
@@ -640,7 +640,7 @@ static const proto::ProtoObject* reflectConstruct(
     bool isBytecodeFn = false;
     {
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-        if (bcKey && target->getAttribute(ctx, bcKey, false) != PROTO_NONE)
+        if (bcKey && target->hasAttribute(ctx, bcKey) == PROTO_TRUE)
             isBytecodeFn = true;
     }
 
@@ -1303,10 +1303,10 @@ static const proto::ProtoObject* symbolConstructor(
                     if (!fn || fn == PROTO_NONE) continue;
                     if (!fn->isMethod(ctx)) {
                         const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
-                        bool callable = bcK && fn->getAttribute(ctx, bcK, false) != PROTO_NONE;
+                        bool callable = bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE;
                         const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
                         callable = callable
-                            || (nfK && fn->getAttribute(ctx, nfK, false) != PROTO_NONE);
+                            || (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE);
                         if (!callable) continue;
                     }
                     const proto::ProtoList* noArgs = ctx->newList();
@@ -2205,9 +2205,9 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         if (!fn || fn == PROTO_NONE) return false;
         if (fn->isMethod(context)) return true;
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(context);
-        if (bcKey && fn->getAttribute(context, bcKey, false) != PROTO_NONE) return true;
+        if (bcKey && fn->hasAttribute(context, bcKey) == PROTO_TRUE) return true;
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(context);
-        if (nfKey && fn->getAttribute(context, nfKey, false) != PROTO_NONE) return true;
+        if (nfKey && fn->hasAttribute(context, nfKey) == PROTO_TRUE) return true;
         return false;
     };
     auto isPrimitive = [&](const proto::ProtoObject* v) -> bool {
@@ -9370,9 +9370,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // __construct__ is used by Object, Number, Boolean, Map, Set, Promise, etc.
                                 const proto::ProtoString* conK = JSSymbols::construct(pContext);
                                 bool isCtor = (acK && v->getAttribute(pContext, acK, false) == PROTO_TRUE)
-                                          || (ecK && v->getAttribute(pContext, ecK, false) && v->getAttribute(pContext, ecK, false) != PROTO_NONE)
+                                          || (ecK && v->hasAttribute(pContext, ecK) == PROTO_TRUE)
                                           || (reK && v->getAttribute(pContext, reK, false) == PROTO_TRUE)
-                                          || (taK && v->getAttribute(pContext, taK, false) && v->getAttribute(pContext, taK, false) != PROTO_NONE)
+                                          || (taK && v->hasAttribute(pContext, taK) == PROTO_TRUE)
                                           || (scK && v->getAttribute(pContext, scK, false) == PROTO_TRUE)
                                           || (conK && v->getAttribute(pContext, conK, false) && v->getAttribute(pContext, conK, false)->isMethod(pContext));
                                 typeStr = isCtor ? "function" : "object";
@@ -10985,9 +10985,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
                             const proto::ProtoString* conK = JSSymbols::construct(pContext);
                             isFunc = (acK && val->getAttribute(pContext, acK, false) == PROTO_TRUE)
-                                  || (ecK && val->getAttribute(pContext, ecK, false) && val->getAttribute(pContext, ecK, false) != PROTO_NONE)
+                                  || (ecK && val->hasAttribute(pContext, ecK) == PROTO_TRUE)
                                   || (reK && val->getAttribute(pContext, reK, false) == PROTO_TRUE)
-                                  || (taK && val->getAttribute(pContext, taK, false) && val->getAttribute(pContext, taK, false) != PROTO_NONE)
+                                  || (taK && val->hasAttribute(pContext, taK) == PROTO_TRUE)
                                   || (scK && val->getAttribute(pContext, scK, false) == PROTO_TRUE)
                                   || (conK && val->getAttribute(pContext, conK, false) && val->getAttribute(pContext, conK, false)->isMethod(pContext));
                         }
