@@ -1074,11 +1074,21 @@ static const proto::ProtoObject* arraySlice(
 
     // ECMA-262 §23.1.3.28: ToIntegerOrInfinity on start/end. NaN → 0;
     // +Infinity / -Infinity preserved, then clamped to [0, len].
+    // Non-primitive arguments (objects with valueOf, Boolean / Number
+    // wrappers, ...) route through jsToNumber for the spec coercion;
+    // pre-fix the helper returned defaultV and Sputnik
+    // S15.4.4.10_A2.2_T5 produced len instead of 3 for
+    // x.slice(0, {valueOf:()=>3, toString:()=>0}).
     auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
         if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
-        if (o->isInteger(ctx)) return o->asLong(ctx);
-        if (o->isDouble(ctx) || o->isFloat(ctx)) {
-            double d = o->asDouble(ctx);
+        const proto::ProtoObject* num = o;
+        if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
+            num = jsToNumber(ctx, o);
+            if (hasCallException() || !num) return defaultV;
+        }
+        if (num->isInteger(ctx)) return num->asLong(ctx);
+        if (num->isDouble(ctx) || num->isFloat(ctx)) {
+            double d = num->asDouble(ctx);
             if (std::isnan(d)) return 0;
             if (std::isinf(d)) return d > 0 ? len : -len - 1;
             return static_cast<long long>(d);
@@ -1087,7 +1097,9 @@ static const proto::ProtoObject* arraySlice(
     };
     if (args && args->getSize(ctx) > 0) {
         start = toII(args->getAt(ctx, 0), 0);
+        if (hasCallException()) return PROTO_NONE;
         if (args->getSize(ctx) > 1) end = toII(args->getAt(ctx, 1), len);
+        if (hasCallException()) return PROTO_NONE;
     }
 
     start = normalizeIdxClamp(start, len);
