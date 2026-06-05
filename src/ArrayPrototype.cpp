@@ -2965,12 +2965,23 @@ static const proto::ProtoObject* arraySplice(
         }
     }
 
-    // ECMA-262 §23.1.3.30: ToIntegerOrInfinity on start.
+    // ECMA-262 §23.1.3.29 step 3 / 10.a: ToIntegerOrInfinity on
+    // start / deleteCount.  ToIntegerOrInfinity begins with ToNumber,
+    // which exercises valueOf / Symbol.toPrimitive / toString.  Pre-fix
+    // the helper only honoured raw integer / double cells, so a
+    // {valueOf:()=>3, toString:()=>0} deleteCount silently defaulted
+    // to 0 (Sputnik S15.4.4.12_A2.2_T5).  Route non-numeric values
+    // through jsToNumber and propagate any abrupt.
     auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
         if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
-        if (o->isInteger(ctx)) return o->asLong(ctx);
-        if (o->isDouble(ctx) || o->isFloat(ctx)) {
-            double d = o->asDouble(ctx);
+        const proto::ProtoObject* num = o;
+        if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
+            num = jsToNumber(ctx, o);
+            if (hasCallException() || !num) return defaultV;
+        }
+        if (num->isInteger(ctx)) return num->asLong(ctx);
+        if (num->isDouble(ctx) || num->isFloat(ctx)) {
+            double d = num->asDouble(ctx);
             if (std::isnan(d)) return 0;
             if (std::isinf(d)) return d > 0 ? len : -len - 1;
             return static_cast<long long>(d);
