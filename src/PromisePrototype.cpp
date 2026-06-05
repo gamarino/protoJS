@@ -825,23 +825,36 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
         if (!ks) return;
         // §17 + §27.2.5.{4,5,6}: the prototype methods are
         // {writable:true, enumerable:false, configurable:true} and
-        // each method's length matches the spec arity. The raw
-        // ProtoMethod handle exposed length=0 with no descriptor; tag
-        // both directly on the method object before installing.
-        const proto::ProtoObject* m = ctx->fromMethod(nullptr, fn);
-        if (m) {
+        // each method's length matches the spec arity.  Bare
+        // ProtoMethod cells cannot carry name / length attribute
+        // sidecars (setAttribute on a raw method does not persist),
+        // so wrap the method in a mutable child of methodPrototype
+        // and install the descriptors on the wrapper — matching the
+        // installNonEnumerableMethod shape used by every other
+        // built-in prototype method.  Pre-fix Promise.prototype.
+        // {then,catch,finally}.name surfaced as undefined.
+        const proto::ProtoObject* wrapper = ctx->space && ctx->space->methodPrototype
+            ? ctx->space->methodPrototype->newChild(ctx, true)
+            : ctx->newObject(true);
+        if (wrapper) {
+            const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+            if (nfk) wrapper = wrapper->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
             const proto::ProtoString* lk = JSSymbols::length(ctx);
-            if (lk) m = m->setAttribute(ctx, lk, ctx->fromInteger(arity));
-            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
-            if (pdlk) m = m->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+            if (lk) {
+                wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(arity));
+                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+            }
             const proto::ProtoString* nk = JSSymbols::name(ctx);
-            if (nk) m = m->setAttribute(ctx, nk, ctx->fromUTF8String(name));
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
-            if (pdnk) m = m->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+            if (nk) {
+                wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String(name));
+                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+            }
         }
-        proto = proto->setAttribute(ctx, ks, m);
+        proto = proto->setAttribute(ctx, ks, wrapper);
         std::string pdStr = std::string("__pd_") + name + "__";
         const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
         const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
