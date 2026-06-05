@@ -303,17 +303,66 @@ static const proto::ProtoObject* promiseFinally(
     return makeSettledPromise(ctx, state, value);
 }
 
+// §27.2 NewPromiseCapability(C): IsConstructor(C) → TypeError when false.
+// Used by Promise.resolve / reject / all / allSettled / race / any
+// before any further work runs.
+//
+// Presence probes go through hasAttribute, not getAttribute(...) !=
+// PROTO_NONE — PROTO_NONE doubles as the "no value" return AND as a
+// legitimate stored value, so the latter pattern false-negatives on
+// attributes whose stored value is actually PROTO_NONE.
+static bool throwIfNotPromiseConstructor(proto::ProtoContext* ctx,
+                                         const proto::ProtoObject* self) {
+    // Reject the obvious non-constructors first: null / undefined /
+    // primitives leave no [[Construct]] internal method.  PROTO_NONE
+    // here means the static method was invoked without an explicit
+    // receiver (e.g. via `.call(undefined)` or against a global stub
+    // that resolved to PROTO_NONE such as `eval`).
+    if (!self || self == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Promise.* invoked on non-constructor"));
+        return true;
+    }
+    if (self->isInteger(ctx) || self->isDouble(ctx)
+        || self->isBoolean(ctx) || self->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Promise.* invoked on non-constructor"));
+        return true;
+    }
+    // Callable / constructable objects accepted here.  The protoJS
+    // Promise constructor itself is a plain object holding a
+    // __construct__ method plus static helpers — it has no
+    // __native_fn__ on the ctor object directly, so the probe must
+    // cover that shape too.  JS user code that subclasses Promise
+    // via `class X extends Promise` produces a bytecode closure
+    // (__bytecode_id__) tagged __is_constructor__.
+    const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+    const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+    const proto::ProtoString* csK = JSSymbols::construct(ctx);
+    bool callable = self->isMethod(ctx)
+        || (nfK && self->hasAttribute(ctx, nfK) == PROTO_TRUE)
+        || (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE)
+        || (csK && self->hasAttribute(ctx, csK) == PROTO_TRUE);
+    if (!callable) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Promise.* invoked on non-constructor"));
+        return true;
+    }
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // Promise.resolve(value) — static method.
 // If value is already a promise, return it as-is.
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* promiseStaticResolve(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (throwIfNotPromiseConstructor(ctx, self)) return PROTO_NONE;
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* val = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!val) val = PROTO_NONE;
@@ -326,11 +375,12 @@ static const proto::ProtoObject* promiseStaticResolve(
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* promiseStaticReject(
     proto::ProtoContext* ctx,
-    const proto::ProtoObject* /*self*/,
+    const proto::ProtoObject* self,
     const proto::ParentLink*,
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    if (throwIfNotPromiseConstructor(ctx, self)) return PROTO_NONE;
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* reason = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!reason) reason = PROTO_NONE;
