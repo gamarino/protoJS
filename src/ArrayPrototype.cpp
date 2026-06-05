@@ -458,6 +458,32 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
 
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return arr;
+
+    // §9.1.9 OrdinarySet → §10.1.8 OrdinarySetWithOwnDescriptor: an
+    // accessor descriptor on the prototype chain whose [[Set]] is
+    // defined must be invoked instead of creating an own data slot.
+    // Pre-fix arrSet went straight to setAttribute, which stored the
+    // value at the data key and silently dropped the setter call —
+    // copyWithin / splice / shift / unshift / fill into a slot with
+    // an inherited or own setter never propagated the setter's abrupt
+    // completion (built-ins/Array/prototype/copyWithin/return-abrupt-
+    // from-set-target-value and the wider 'set-target-value' family).
+    std::string skStr = "__set_" + std::to_string(idx) + "__";
+    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+    if (sk) {
+        const proto::ProtoObject* setter = arr->getAttribute(ctx, sk, true);
+        if (setter && setter != PROTO_NONE) {
+            const proto::ProtoList* sargs = ctx->newList();
+            sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
+            callJSFunction(ctx, setter, arr, sargs);
+            if (hasCallException()) return arr;
+            // Setter handled the assignment — do NOT also write a data
+            // slot or bump length.
+            return arr;
+        }
+    }
+
     arr = arr->setAttribute(ctx, key, val ? val : PROTO_NONE);
     unsigned long curLen = arrLen(ctx, arr);
     if (idx + 1 > curLen) {
