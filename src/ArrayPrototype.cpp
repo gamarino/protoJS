@@ -1151,6 +1151,36 @@ static const proto::ProtoObject* arrayPush(
     // and bump `length` once at the end. Pre-fix arrSet only updated
     // length on real arrays, so Array.prototype.push.call(plainObj, …)
     // wrote the new indices but left plainObj.length stale.
+
+    // §23.1.3.20 step 5: If len + argCount > 2^53 - 1, throw TypeError.
+    // arrLen clamps Infinity to 2^32-1 (so iteration helpers behave),
+    // which hides the overflow.  Read the raw length attribute and
+    // check for Infinity / >2^53-1 before falling back to arrLen.
+    // Sputnik S15.4.4.7_A2_T2 probes that
+    //   obj.length = +Infinity; obj.push(-4)
+    // throws TypeError without mutating obj.length.
+    {
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        if (lenK) {
+            const proto::ProtoObject* raw = self->getAttribute(ctx, lenK, false);
+            if (raw && raw != PROTO_NONE && (raw->isDouble(ctx) || raw->isFloat(ctx))) {
+                double d = raw->asDouble(ctx);
+                constexpr double kMaxSafeInt = 9007199254740991.0; // 2^53 - 1
+                // Only the POSITIVE side blows out — NEGATIVE infinity and
+                // negative finite values clamp to 0 via ToLength, and NaN
+                // clamps to 0 too (NaN > anything is false).  Both shapes
+                // must keep flowing into the normal arrLen path so the
+                // spec'd "push appends at index 0" semantics hold.
+                if ((std::isinf(d) && d > 0) ||
+                    d > kMaxSafeInt - static_cast<double>(argc)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Invalid array length"));
+                    return PROTO_NONE;
+                }
+            }
+        }
+    }
+
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < argc; i++) {
         const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
