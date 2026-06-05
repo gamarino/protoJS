@@ -1166,6 +1166,15 @@ static const proto::ProtoObject* arrayPop(
     unsigned long len = arrLen(ctx, self);
     if (len == 0) {
         if (throwIfLengthFrozen()) return PROTO_NONE;
+        // §23.1.3.21 step 3.a: actually perform Set(O, 'length', 0).
+        // ToUint32(arrLen) clamps NaN / negative / non-integer lengths
+        // to 0 — the spec then writes the clamped value back so
+        // subsequent reads see 0 rather than the raw input.  Pre-fix
+        // the early empty return left obj.length unchanged
+        // (Sputnik S15.4.4.6_A2_T2: obj.length = NaN; obj.pop();
+        // obj.length is still NaN).
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        if (lenK) self->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
         return PROTO_NONE;
     }
     unsigned long lastIdx = len - 1;
