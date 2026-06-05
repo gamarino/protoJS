@@ -2685,12 +2685,23 @@ static const proto::ProtoObject* arrayEntries(
 static const proto::ProtoObject* arrayKeys(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
-{ return makeArrayIterator(ctx, self, "keys"); }
+{
+    // §23.1.3.16 step 1: Let O be ? ToObject(this value).
+    // ReturnIfAbrupt on null/undefined.  Pre-fix Array.prototype.keys
+    // .call(undefined) silently produced an iterator over a
+    // PROTO_NONE receiver instead of throwing (built-ins/Array/
+    // prototype/keys/return-abrupt-from-this).
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    return makeArrayIterator(ctx, self, "keys");
+}
 
 static const proto::ProtoObject* arrayValues(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
-{ return makeArrayIterator(ctx, self, "values"); }
+{
+    if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    return makeArrayIterator(ctx, self, "values");
+}
 
 /** get Array[Symbol.species] */
 static const proto::ProtoObject* arraySpeciesGetter(
