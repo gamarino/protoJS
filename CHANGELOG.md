@@ -4,6 +4,72 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 2 (2026-06-05): 20 more one-fix-per-failure commits
+
+Second 20-commit one-fix-per-failure run, focused on long-tail
+gaps the first Array package didn't touch.  Highlights by theme:
+
+**ToObject(this) for primitive receivers:** fill returns the
+Boolean / Number / String wrapper so `.fill.call(true) instanceof
+Boolean` is true (parallel of round-11 sort / copyWithin).
+
+**LengthOfArrayLike unconditional read:** copyWithin runs
+ToLength(Get(O, 'length')) BEFORE the no-args fast path, so a
+throwing length getter surfaces the abrupt; entries throws
+TypeError on null/undefined this (mirrors keys/values).
+
+**ToPrimitive completion in elemToString:** non-array Objects now
+go through OrdinaryToPrimitive(hint='string') — user toString first,
+then valueOf, TypeError when both return non-primitives.  Fixes
+join / toString for receivers with custom valueOf+toString.
+
+**Length write-back on clamped lengths:** shift / pop now Set
+length=0 even when ToUint32(length) is 0 (NaN / negative / non-
+integer cases were silently leaving obj.length unchanged).
+
+**Length descriptor / frozen-length checks (continued):** shift's
+native-list empty fast path now checks __pd_length__ writable bit;
+pop's string-receiver early-throw; pop's empty length writeback;
+splice routes the no-args path through arraySpeciesCreate.
+
+**Sticky-done for Array iterators:** array.values() / keys() /
+entries() now stamp __iter_done__ on first exhaustion so a post-
+done push() does not re-enable iteration.
+
+**ArrayIteratorPrototype.next:** installed on the shared parent
+with §17 name=length descriptors (was a per-iterator bare
+ProtoMethod with no surface).
+
+**Array.prototype[@@unscopables]:** carries a null [[Prototype]]
+override via setJSProtoOverride so Object.getPrototypeOf
+(unscopables) === null per §23.1.3.32 step 2.
+
+**Accessor-throw early-exit in indexOf / lastIndexOf:** loops
+honour t_callException after each arrGet so subsequent indices
+are not probed.
+
+**arrLen own-getter ToLength fallback:** when an own length
+accessor returns a value-of-style Object wrapper, route the
+result through jsToNumber so step-5 side effects observe step 3
+(built-ins/Array/prototype/indexOf/15.4.4.14-5-27).
+
+**ArraySpeciesCreate abrupt propagation:** map / filter / slice
+/ concat / splice / arrayCloneShallow (shared by toReversed /
+toSorted / toSpliced / with) now propagate the TypeError when a
+custom .constructor is a non-Object primitive — including Symbol
+receivers, added to the species check.
+
+**Misc:** splice ToIntegerOrInfinity via jsToNumber on
+start / deleteCount; includes early-return false on empty
+receiver (no fromIndex coercion side effects).
+
+### Test coverage stats (2026-06-05, post 2nd 20-fix Array package)
+
+| Sample | Total | Passed | Pass rate | Notes |
+|--------|-------|--------|-----------|-------|
+| `built-ins/Array` full (2026-06-05) | 3 081 | **2 414** | **78.4 %** | Post-2nd-20-fix Array cleanup.  Snapshot: `snapshot-built-ins-Array-1780677665005.json`.  +1.1 pp over the 77.3 % baseline from the first Array package (still 636 semantic fails, 31 timeouts). |
+| `built-ins/Array` full (2026-06-05, prior) | 3 081 | 2 380 | 77.3 % | Pre-2nd-package reference point.  Snapshot: `snapshot-built-ins-Array-1780675824848.json`. |
+
 ### Array cleanup package (2026-06-05): 20 one-fix-per-failure commits
 
 Focused 20-commit run isolating one Array failure per commit, fixing
