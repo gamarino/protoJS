@@ -3031,6 +3031,24 @@ static const proto::ProtoObject* arrayIteratorNext(
 
     if (!idxKey || !refKey || !kindKey || !valueK || !doneK) return PROTO_NONE;
 
+    // Sticky-done guard per ECMA-262 §23.1.5.2.1: once a CreateArrayIterator
+    // result has yielded {done: true} every subsequent call must keep
+    // doing so even if the underlying array grows.  Pre-fix the
+    // iterator only tracked idx/length, so push() after exhaustion
+    // re-enabled iteration (built-ins/Array/prototype/values/iteration-
+    // mutable observed the second 'b' surface after done).
+    const proto::ProtoObject* doneKo = ctx->fromUTF8String("__iter_done__");
+    const proto::ProtoString* doneKs = doneKo ? doneKo->asString(ctx) : nullptr;
+    if (doneKs && self->hasAttribute(ctx, doneKs) == PROTO_TRUE) {
+        const proto::ProtoObject* d = self->getAttribute(ctx, doneKs, false);
+        if (d == PROTO_TRUE) {
+            const proto::ProtoObject* r = ctx->newObject(true);
+            r = r->setAttribute(ctx, valueK, PROTO_NONE);
+            r = r->setAttribute(ctx, doneK,  PROTO_TRUE);
+            return r;
+        }
+    }
+
     const proto::ProtoObject* arrRef  = self->getAttribute(ctx, refKey,  false);
     const proto::ProtoObject* idxVal  = self->getAttribute(ctx, idxKey,  false);
     const proto::ProtoObject* kindObj = self->getAttribute(ctx, kindKey, false);
@@ -3043,7 +3061,8 @@ static const proto::ProtoObject* arrayIteratorNext(
     const proto::ProtoObject* r = ctx->newObject(true);
 
     if ((unsigned long)idx >= arrLen_) {
-        // Iteration done.
+        // Iteration done — mark sticky so future calls stay done.
+        if (doneKs) self->setAttribute(ctx, doneKs, PROTO_TRUE);
         r = r->setAttribute(ctx, valueK, PROTO_NONE);
         r = r->setAttribute(ctx, doneK,  PROTO_TRUE);
         return r;
