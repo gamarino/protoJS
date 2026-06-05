@@ -3126,6 +3126,43 @@ static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx)
         const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
+    // §22.1.5.2.1 + §17: %ArrayIteratorPrototype%.next has the §17
+    // function-shape with name='next' / length=0 own properties and
+    // {writable:true, enumerable:false, configurable:true} on its
+    // installed slot (0x3).  Pre-fix every iterator received its own
+    // copy via a bare ProtoMethod, so ArrayIteratorProto.next had no
+    // descriptor surface (built-ins/ArrayIteratorPrototype/next/name).
+    // Install once on the shared parent here.
+    {
+        const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+        if (nextKey && ctx->space && ctx->space->methodPrototype) {
+            const proto::ProtoObject* wrapper =
+                ctx->space->methodPrototype->newChild(ctx, true);
+            if (wrapper) {
+                const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+                if (nfk) wrapper = wrapper->setAttribute(ctx, nfk,
+                    ctx->fromMethod(nullptr, arrayIteratorNext));
+                const proto::ProtoString* lk = JSSymbols::length(ctx);
+                if (lk) {
+                    wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(0LL));
+                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                    if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* nk = JSSymbols::name(ctx);
+                if (nk) {
+                    wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String("next"));
+                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                    const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                    if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+                }
+                proto = proto->setAttribute(ctx, nextKey, wrapper);
+                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
+                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
+            }
+        }
+    }
     s_arrayIteratorProto = proto;
     return s_arrayIteratorProto;
 }
