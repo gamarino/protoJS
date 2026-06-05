@@ -1657,7 +1657,19 @@ const proto::ProtoObject* stringFromCharCode(
         }
         units.push_back(static_cast<uint16_t>(code & 0xFFFF));
     }
-    return ctx->fromUTF8String(utf16ToUTF8(units).c_str());
+    // §22.1.2.1 ToUint16 lets code=0 through, producing a U+0000 string
+    // of length 1.  Pre-fix routing the UTF-8 bytes through the C-string
+    // path of ctx->fromUTF8String(c_str()) truncated the embedded NUL,
+    // so String.fromCharCode(0) was the empty string and its charCodeAt
+    // returned NaN instead of 0 (Sputnik S9.7_A2.1).  fromStdString
+    // preserves the byte length explicitly.
+    std::string bytes = utf16ToUTF8(units);
+    uint8_t remainder[4];
+    uint8_t remCount = 0;
+    const proto::ProtoString* ps = proto::ProtoString::fromUTF8Buffer(
+        ctx, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),
+        nullptr, 0, remainder, &remCount);
+    return ps ? ps->asObject(ctx) : ctx->fromUTF8String("");
 }
 
 /** String.fromCodePoint(...codePoints) */
