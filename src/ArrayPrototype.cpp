@@ -1057,6 +1057,28 @@ static const proto::ProtoObject* arrayUnshift(
     // Legacy string-keyed path.
     unsigned long len = arrLen(ctx, self);
     if (argc == 0) return ctx->fromInteger(static_cast<long long>(len));
+    // §23.1.3.32 step 4.e.i Set(O, ToString(j), E, true) raises TypeError
+    // when the target slot is a getter-only accessor (no [[Set]]).
+    // Pre-fix the legacy arrSet path silently dropped the write on
+    // such slots, so Array.prototype.unshift.call({get 0(){}}, 0)
+    // succeeded instead of throwing (built-ins/Array/prototype/
+    // unshift/read-only-property).  Probe the destination indices
+    // for a getter without a paired setter before any work runs.
+    for (unsigned long i = 0; i < argc; i++) {
+        std::string gkStr = "__get_" + std::to_string(i) + "__";
+        std::string skStr = "__set_" + std::to_string(i) + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+        const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+        bool hasGetter = gk && self->hasAttribute(ctx, gk) == PROTO_TRUE;
+        bool hasSetter = sk && self->hasAttribute(ctx, sk) == PROTO_TRUE;
+        if (hasGetter && !hasSetter) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot assign to read-only property"));
+            return PROTO_NONE;
+        }
+    }
     for (long long i = static_cast<long long>(len) - 1; i >= 0; i--) {
         arrSet(ctx, self, static_cast<unsigned long>(i) + argc,
                arrGet(ctx, self, static_cast<unsigned long>(i)));
