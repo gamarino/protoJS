@@ -229,7 +229,30 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         };
         const proto::ProtoObject* tsFn = tsK2 ? obj->getAttribute(ctx, tsK2, true) : nullptr;
         const proto::ProtoObject* voFn = voK2 ? obj->getAttribute(ctx, voK2, true) : nullptr;
-        if (isCallableAny(tsFn) || isCallableAny(voFn)) {
+        bool tsCallable = isCallableAny(tsFn);
+        bool voCallable = isCallableAny(voFn);
+        // OrdinaryToPrimitive (§7.1.1) requires both methods to be
+        // tried; if at least one was callable yet both returned a
+        // non-primitive the call sites already raised above this
+        // block.  When NEITHER is callable (e.g. the receiver has
+        // explicit toString: undefined / valueOf: undefined own
+        // properties shadowing the chain — built-ins/String/prototype/
+        // replace/tostring-this-throws-toprimitive.js), the loop hits
+        // step 6 "throw a new TypeError" with no method ever invoked.
+        // Pre-fix this fell through to '[object Object]' and silenced
+        // the abrupt the spec demands.
+        if ((tsFn || voFn) && !tsCallable && !voCallable) {
+            const proto::ProtoString* tsHasK = tsK2;
+            const proto::ProtoString* voHasK = voK2;
+            bool tsOwnPresent = tsHasK && obj->hasAttribute(ctx, tsHasK) == PROTO_TRUE;
+            bool voOwnPresent = voHasK && obj->hasAttribute(ctx, voHasK) == PROTO_TRUE;
+            if (tsOwnPresent || voOwnPresent) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot convert object to primitive value"));
+                return "";
+            }
+        }
+        if (tsCallable || voCallable) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Cannot convert object to primitive value"));
             return "";
@@ -1330,7 +1353,17 @@ const proto::ProtoObject* stringReplace(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) < 2) return self;
+    // §22.1.3.18 step 3 ToString(this value) runs BEFORE the per-arg
+    // branches.  Pre-fix the short-circuit `args->getSize() < 2`
+    // bailed out before coercing the receiver, so
+    // String.prototype.replace.call({toString: undefined, valueOf:
+    // undefined}) silently returned the receiver instead of throwing
+    // the spec-required TypeError from OrdinaryToPrimitive.
+    if (!args || args->getSize(ctx) < 2) {
+        std::string coerced = objToStr(ctx, self);
+        if (hasCallException()) return PROTO_NONE;
+        return ctx->fromUTF8String(coerced.c_str());
+    }
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
     if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
 
