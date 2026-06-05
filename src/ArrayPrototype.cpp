@@ -227,7 +227,18 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
     }
 
     const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, true);
-    if (!lenObj || lenObj == PROTO_NONE) {
+    // §10.4.2 LengthOfArrayLike + §6.2.5 IsAccessorDescriptor: when
+    // length is an accessor descriptor stored on the prototype chain,
+    // the raw getAttribute returns the descriptor's data slot (which
+    // is empty / a marker), NOT the getter's invocation result.
+    // Probe __get_length__ on the chain too and route through it
+    // whenever the data slot does not surface a numeric / string /
+    // boolean value (built-ins/Array/prototype/indexOf/15.4.4.14-2-10
+    // and the wider 'length is inherited accessor' family).
+    bool lenIsUsable = lenObj && (lenObj->isInteger(ctx) || lenObj->isDouble(ctx)
+                                  || lenObj->isFloat(ctx) || lenObj->isString(ctx)
+                                  || lenObj == PROTO_TRUE || lenObj == PROTO_FALSE);
+    if (!lenIsUsable) {
         // Check for inherited length accessor getter: __get_length__
         const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
         const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
