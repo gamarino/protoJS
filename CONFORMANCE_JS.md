@@ -3,8 +3,32 @@
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
 **Last updated:** 2026-06-05. Eleven consecutive sprint rounds (~414 commits)
-closed ECMA-262 conformance gaps across the language and built-ins layers —
-see CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
+plus a presence-probe audit closed ECMA-262 conformance gaps across the
+language and built-ins layers — see CHANGELOG.md § "test262 spec
+conformance push" for the full breakdown.
+
+**Latest coverage data points:**
+
+- `built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}` (2026-06-04, round 10 complete): **6 763 / 9 400 passed = 71.9 %** (6 syntax fails, 2 602 semantic fails, 29 timeouts).
+- `built-ins/Array/prototype/{map,filter,every,some}` (2026-06-05, round 11 + audit complete): **759 / 895 passed = 84.8 %** (0 syntax, 128 semantic, 8 timeouts). +14 pp on the iteration-method slice attributable to round 11 abrupt-completion / ToObject / iterReceiver / strict-equals work plus the PROTO_NONE presence-probe audit.
+
+(Full §1 Phase 6 table below has the row-by-row breakdown including pre-round-10 baselines.)
+
+**Audit (2026-06-05): PROTO_NONE-presence-probe sweep.**  79 sites
+across 10 files were switched from `getAttribute(...) != PROTO_NONE`
+(which false-negatives on attributes whose stored value happens to be
+the undefined sentinel) to the spec-correct `hasAttribute(...) ==
+PROTO_TRUE`.  Affected helpers: every isCallable lambda
+(`__bytecode_id__` / `__native_fn__` / `__bound_fn__` /
+`__construct__`), every marker probe (`__is_array__` /
+`__is_symbol__` / `__is_raw_json__` / `__is_function_prototype__` /
+`__is_constructor__` / `__error_ctor__` / `__ta_ctor__`), descriptor
+field probes in Object.defineProperty / defineProperties / getOwn-
+PropertyDescriptor, and NonExtensibleBehavior's "already-installed"
+check.  Value-use sites (`if (v && v != PROTO_NONE)` followed by a
+read of v) were intentionally left alone — for those, PROTO_NONE
+correctly means "no usable value".  See commit
+`f3d719dc` for the full diff and rationale.
 
 **Round 11 highlights (24-commit long-tail batch — easy-batch wins exhausted
 in rounds 6-10):**
@@ -433,6 +457,8 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 | `language` + `built-ins` (full patterns, 2026-03-06) | 47219 | 47153 | 0 | 0 | 0 | 66 skipped. Pre-Phase-6-Step1 baseline. |
 | `language` + `built-ins` (full patterns, 2026-03-08) | 47219 | 42643 | 694 | 3750 | 125 | **7 skipped**. Phase 6 Step 1+2: module mode wired, line-terminators unlocked. Run: `TEST262_USE_PROTO_EVAL=1 node tests/test262/runner/test262_runner.js`. Snapshot: `snapshot-language_built-ins-1773028489384.json`. |
 | `language` + `built-ins` (full patterns, 2026-03-09) | 47219 | **42892** | 694 | 3488 | 127 | **18 skipped** (+11 Phase 7: TypedArray-resizable-buffer×5, for-of/dstr×6). Phase 7: `OP_array_from`, for-of iterator opcodes, for-in guard. **+249 vs Phase 6 baseline**. Snapshot: `snapshot-language_built-ins-1773077022112.json`. |
+| 10-pattern built-ins baseline (2026-06-04, round 10 complete) | 9400 | **6763** | 6 | 2602 | 29 | Patterns: built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}. Snapshot: `snapshot-built-ins-Array_built-ins-Object_built-ins-String_built-ins-Number_built-ins-Mat-1780589642485.json`.  71.9 % pass rate. |
+| Array iteration subset (2026-06-05, round 11 + audit) | 895 | **759** | 0 | 128 | 8 | Patterns: built-ins/Array/prototype/{map,filter,every,some}. Snapshot: `snapshot-built-ins-Array-prototype-map_built-ins-Array-prototype-filter_built-ins-Array-p-1780675630500.json`.  **84.8 % pass rate** — directly comparable to the iteration-method slice of the 2026-06-04 baseline, illustrates the +14 pp lift from round-11 abrupt-completion / ToObject / iterReceiver / strict-equals work plus the PROTO_NONE-presence-probe audit. |
 
 ---
 

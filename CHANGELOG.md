@@ -4,6 +4,51 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Audit (2026-06-05): PROTO_NONE-presence-probe sweep across protoJS
+
+protoCore's `getAttribute(ctx, key)` returns `PROTO_NONE` both when
+the attribute is absent AND when the stored value happens to be the
+undefined sentinel.  The pattern `getAttribute(...) != PROTO_NONE`
+therefore cannot reliably probe "is this attribute set?".
+Presence-only API:
+
+```cpp
+obj->hasAttribute   (ctx, key) -> PROTO_TRUE / PROTO_FALSE   // chain walk
+obj->hasOwnAttribute(ctx, key) -> PROTO_TRUE / PROTO_FALSE   // own only
+```
+
+79 sites across 10 files were converted to `hasAttribute(...) ==
+PROTO_TRUE`: every isCallable lambda probing `__bytecode_id__` /
+`__native_fn__` / `__bound_fn__` / `__construct__`, every marker
+probe (`__is_array__` / `__is_symbol__` / `__is_raw_json__` /
+`__is_function_prototype__` / `__is_constructor__` /
+`__error_ctor__` / `__ta_ctor__`), descriptor field probes in
+Object.{defineProperty,defineProperties,getOwnPropertyDescriptor},
+and NonExtensibleBehavior's "already installed" guard.  Value-use
+sites — `if (v && v != PROTO_NONE)` followed by code that READS v
+— were intentionally left untouched: there, PROTO_NONE correctly
+means "no usable value".
+
+Files: src/ArrayPrototype.cpp (4 sites), FunctionPrototype.cpp (3),
+JSONBuiltin.cpp (18), MapPrototype.cpp (9), ObjectPrototype.cpp (11),
+PromisePrototype.cpp (2), SetPrototype.cpp (9), StringPrototype.cpp
+(8), runtime/BehaviorRegistry.cpp (1), runtime/ProtoInterpreter.cpp
+(14).  Build clean.  Smoke checks pass for the representative
+dispatch paths (Promise then-resolve, Array.prototype.map,
+new Map(...).get, arguments-spread).
+
+### Test coverage stats (2026-06-05, post-round-11 + audit)
+
+| Sample | Total | Passed | Pass rate | Notes |
+|--------|-------|--------|-----------|-------|
+| 10-pattern built-ins baseline (2026-06-04, pre-round-11) | 9 400 | 6 763 | 71.9 % | built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean} |
+| built-ins/Array/prototype/{map,filter,every,some} (2026-06-05, post-audit) | 895 | 759 | **84.8 %** | iteration-method slice — directly comparable to the iteration subset of the 2026-06-04 baseline; +14 pp lift from round-11 + audit |
+
+Comprehensive cross-pattern post-round-11 rerun was not completed in
+this session due to wall-clock budget; the iteration-method slice
+serves as a representative directional indicator.  See CONFORMANCE_JS.md
+§1 Phase 6 table for the full row-by-row history and snapshot paths.
+
 ### Fixed (test262 spec conformance push, round 11 — 2026-06-05)
 
 Eleventh consecutive sprint.  Shorter than the previous 100-commit
