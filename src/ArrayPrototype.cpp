@@ -2533,6 +2533,27 @@ static const proto::ProtoObject* arraySplice(
     // delCount > len-start; harmless until you used the return value.
     if (n == 0) return createNewArray(ctx, nullptr);
 
+    // §23.1.3.29 step 16 ends with Set(O, 'length', ..., true).  If
+    // length is non-writable the abrupt completion bubbles out as
+    // TypeError BEFORE any user-visible mutation lands.  Pre-fix
+    // splice silently proceeded on a frozen-length array
+    // (built-ins/Array/prototype/splice/S15.4.4.12_A6.1_T2).
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx)) {
+                long long bits = pdv->asLong(ctx);
+                if ((bits & 0x1) == 0) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot assign to read-only property 'length'"));
+                    return PROTO_NONE;
+                }
+            }
+        }
+    }
+
     // ECMA-262 §23.1.3.30: ToIntegerOrInfinity on start.
     auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
         if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
