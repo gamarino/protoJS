@@ -1040,6 +1040,17 @@ static const proto::ProtoObject* arrayShift(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.27 step 3.a + step 8 both call Set(O, 'length', ...,
+    // Throw=true).  A primitive-string receiver has a non-writable
+    // 'length' on its String wrapper, so either Set fails — TypeError.
+    // Pre-fix shift silently succeeded on '' / 'abc' / function(){} etc.
+    // (built-ins/Array/prototype/shift/throws-when-this-value-length-is-
+    // writable-false).
+    if (self && self->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot assign to read-only property 'length' of String"));
+        return PROTO_NONE;
+    }
 
     // Native ProtoList path: removeFirst is O(log N) and preserves all
     // remaining elements without the manual shift loop.
@@ -1054,7 +1065,25 @@ static const proto::ProtoObject* arrayShift(
 
     // Legacy string-keyed path.
     unsigned long len = arrLen(ctx, self);
-    if (len == 0) return PROTO_NONE;
+    if (len == 0) {
+        // §23.1.3.27 step 3.a runs Set(O, 'length', 0, Throw=true) even
+        // on an empty receiver.  A non-writable length descriptor on a
+        // function / frozen array-like raises TypeError there.  Pre-fix
+        // the early empty-return swallowed that Set
+        // (built-ins/Array/prototype/shift/throws-when-this-value-length-
+        // is-writable-false).
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot assign to read-only property 'length'"));
+                return PROTO_NONE;
+            }
+        }
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* first = arrGet(ctx, self, 0);
     for (unsigned long i = 1; i < len; i++) {
         arrSet(ctx, self, i - 1, arrGet(ctx, self, i));
