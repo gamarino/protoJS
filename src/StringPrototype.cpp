@@ -508,10 +508,19 @@ const proto::ProtoObject* stringConcat(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    // §22.1.3.4 step 2 sequencing: ToString(this) runs BEFORE any arg
+    // ToString.  Pre-fix the loop kept appending after a throwing
+    // self.toString, so an abrupt in arg[0].toString surfaced first
+    // (Sputnik S15.5.4.6_A4_T2 expected 'intostring' from self but
+    // saw 'infirstarg' from arg[0] because the abrupt from self was
+    // silently dropped).
     std::string result = objToStr(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
-    for (unsigned long i = 0; i < argc; i++)
+    for (unsigned long i = 0; i < argc; i++) {
         result += objToStr(ctx, args->getAt(ctx, static_cast<int>(i)));
+        if (hasCallException()) return PROTO_NONE;
+    }
     return ctx->fromUTF8String(result.c_str());
 }
 
