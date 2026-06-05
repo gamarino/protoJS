@@ -151,6 +151,60 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             }
         }
     }
+    // §7.1.1 ToPrimitive step 2: exoticToPrim := GetMethod(input,
+    // @@toPrimitive).  If callable, invoke with hint 'string' and
+    // ReturnIfAbrupt; a non-primitive return throws TypeError.  Pre-fix
+    // objToStr skipped Symbol.toPrimitive entirely and fell through to
+    // OrdinaryToPrimitive — so a receiver whose [Symbol.toPrimitive]
+    // returned an object never raised the spec's TypeError
+    // (built-ins/String/prototype/trimEnd/this-value-object-toprimitive-
+    // returns-object-err and the wider trim* / replace / slice family).
+    {
+        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+        const proto::ProtoString* tpKey = tpKo ? tpKo->asString(ctx) : nullptr;
+        if (tpKey) {
+            const proto::ProtoObject* tpFn = obj->getAttribute(ctx, tpKey, true);
+            auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+                if (!fn || fn == PROTO_NONE) return false;
+                if (fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
+                if (fn->isMethod(ctx)) return true;
+                const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+                if (bcKey && fn->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+                const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                if (nfKey && fn->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+                return false;
+            };
+            if (isCallable(tpFn)) {
+                const proto::ProtoList* hintArgs = ctx->newList();
+                hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
+                const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, obj, hintArgs);
+                if (hasCallException()) return "";
+                bool isPrim = !prim || prim == PROTO_NONE
+                    || prim == getUndefinedSentinel() || prim == getNullSentinel()
+                    || prim->isInteger(ctx) || prim->isDouble(ctx)
+                    || prim->isFloat(ctx)   || prim->isBoolean(ctx)
+                    || prim->isString(ctx);
+                if (!isPrim) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Symbol.toPrimitive returned a non-primitive"));
+                    return "";
+                }
+                if (prim && prim != PROTO_NONE
+                    && prim != getUndefinedSentinel() && prim != getNullSentinel()) {
+                    if (prim->isString(ctx)) {
+                        prim->asString(ctx)->toUTF8String(ctx, r);
+                        return r;
+                    }
+                    if (prim->isInteger(ctx)) return std::to_string(prim->asLong(ctx));
+                    if (prim->isBoolean(ctx)) return prim->asBoolean(ctx) ? "true" : "false";
+                    // Doubles fall through to recursive coercion via objToStr.
+                    return objToStr(ctx, prim);
+                }
+                if (prim == getUndefinedSentinel() || prim == PROTO_NONE || !prim) return "undefined";
+                if (prim == getNullSentinel()) return "null";
+            }
+        }
+    }
     // Object: try toString() from the prototype chain. Handle three
     // shapes: a raw ProtoMethod (calls directly), a wrapped function
     // object with __native_fn__ (extract the method and call), or a
