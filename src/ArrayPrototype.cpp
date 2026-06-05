@@ -2390,13 +2390,25 @@ static const proto::ProtoObject* arraySort(
         }
     }
 
-    // Sort only the defined elements.
+    // Sort only the defined elements.  §23.1.3.30 SortIndexedProperties
+    // step 5: 'If any such call returns an abrupt completion, stop
+    // before performing any further calls'.  Pre-fix the lambda
+    // swallowed the abrupt and returned false, so toSorted /
+    // toSorted-via-sort kept hammering the comparator after the
+    // first throw (built-ins/Array/prototype/toSorted/comparefn-
+    // stop-after-error).  std::stable_sort cannot be cancelled
+    // mid-call, so use a sticky abort flag — once set, the lambda
+    // short-circuits and we propagate the exception after the sort
+    // returns.
+    bool comparatorAborted = false;
     auto less = [&](const proto::ProtoObject* a, const proto::ProtoObject* b) -> bool {
+        if (comparatorAborted) return false;
         if (hasFn) {
             const proto::ProtoList* cbArgs = ctx->newList();
             cbArgs = cbArgs->appendLast(ctx, a ? a : PROTO_NONE);
             cbArgs = cbArgs->appendLast(ctx, b ? b : PROTO_NONE);
             const proto::ProtoObject* res = callJSFunction(ctx, fn, PROTO_NONE, cbArgs);
+            if (hasCallException()) { comparatorAborted = true; return false; }
             if (!res || res == PROTO_NONE) return false;
             if (res->isInteger(ctx)) return res->asLong(ctx) < 0;
             if (res->isDouble(ctx) || res->isFloat(ctx)) return res->asDouble(ctx) < 0.0;
@@ -2407,6 +2419,7 @@ static const proto::ProtoObject* arraySort(
     };
 
     std::stable_sort(defined.begin(), defined.end(), less);
+    if (comparatorAborted) return PROTO_NONE;
 
     // Write back: sorted defined values, then undefined, then holes (as undefined,
     // since protoCore has no attribute-delete; absent vs explicit-undefined is
