@@ -1418,6 +1418,7 @@ static const proto::ProtoObject* arraySlice(
     end   = normalizeIdxClamp(end,   len);
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<unsigned long>(end - start));
+    if (hasCallException()) return PROTO_NONE;
     long long outIdx = 0;
     for (long long i = start; i < end; i++) {
         arrSet(ctx, result,
@@ -1680,7 +1681,12 @@ static const proto::ProtoObject* arrayCloneShallow(proto::ProtoContext* ctx,
 {
     if (!self || self == PROTO_NONE) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
+    // §22.1.3.1.1 ArraySpeciesCreate raises TypeError on non-Object /
+    // non-undefined custom .constructor.  Pre-fix arrayCloneShallow
+    // ignored the abrupt completion and the toReversed / toSorted /
+    // toSpliced / with shim built on top of it proceeded silently.
     const proto::ProtoObject* dst = arraySpeciesCreate(ctx, self, len);
+    if (hasCallException()) return PROTO_NONE;
     if (!dst) return PROTO_NONE;
     const proto::ProtoList* els = ctx->newList();
     // ECMA-262 §23.1.3.{toReversed,toSorted,toSpliced,with} all step
@@ -1843,6 +1849,7 @@ static const proto::ProtoObject* arrayConcat(
     }
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, totalLen);
+    if (hasCallException()) return PROTO_NONE;
     unsigned long outIdx = 0;
 
     // ECMA-262 §22.1.3.1.1 IsConcatSpreadable:
