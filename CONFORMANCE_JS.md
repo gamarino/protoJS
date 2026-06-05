@@ -2,11 +2,60 @@
 
 **Runtime:** protoJS on protoCore (immutable backend)  
 **Status:** Test262 conformance tracked; `language/expressions` (11,093) and `built-ins/Array` (3,081) full subsets pass on protoCore. Full `language` + `built-ins` run passes with parse-negative leniency. See Phase 6 table and §2–§3 for current numbers.  
-**Last updated:** 2026-06-04. Ten consecutive sprint rounds (~390 commits) closed
-ECMA-262 conformance gaps across the language and built-ins layers — see
-CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
+**Last updated:** 2026-06-05. Eleven consecutive sprint rounds (~414 commits)
+closed ECMA-262 conformance gaps across the language and built-ins layers —
+see CHANGELOG.md § "test262 spec conformance push" for the full breakdown.
 
-**Round 10 highlights (this 100-commit batch):**
+**Round 11 highlights (24-commit long-tail batch — easy-batch wins exhausted
+in rounds 6-10):**
+
+- §17 length descriptor on every unimplemented-ctor stub with the spec
+  arity and 0x2 sidecar (Date / BigInt / Proxy / WeakRef / WeakSet /
+  FinalizationRegistry / Iterator / Generator / GeneratorFunction /
+  AsyncFunction / AsyncGenerator / AsyncGeneratorFunction /
+  AggregateError / SharedArrayBuffer).
+- Symbol.toPrimitive completion in objToStr — trim* / replace / slice /
+  concat / includes raise the spec TypeError when the receiver's
+  `[Symbol.toPrimitive]` returns a non-primitive.
+- Symbol-receiver ToString throws TypeError via objToStr per §7.1.17.
+- Promise.* static and prototype methods gained name / length own
+  descriptors through a mutable wrapper (raw ProtoMethod cells cannot
+  carry sidecars); Promise.{resolve,reject,all,allSettled,race,any}
+  throw on non-constructor receivers per §27.2;
+  Promise.prototype.then throws on non-Promise receivers;
+  Promise.prototype.finally checks SpeciesConstructor.
+- Array strict-equals collapses PROTO_NONE and t_undefinedSentinel —
+  indexOf / lastIndexOf / includes locate the FIRST implicit / explicit
+  undefined slot consistently.
+- Array.prototype.copyWithin returns ToObject(this) so primitive
+  boolean receivers wrap into a Boolean object.
+- Array.prototype.{keys,values} ReturnIfAbrupt ToObject(this).
+- Array.prototype.slice ToIntegerOrInfinity via jsToNumber.
+- Array iteration receiver wrapping — callback's third argument is a
+  String wrapper when this is a primitive string.
+- Function.prototype.apply TypeError when argsArray is primitive /
+  Symbol / null per §20.2.3.1.
+- String.fromCharCode preserves embedded NUL by routing through
+  ProtoString::fromUTF8Buffer; non-primitive args coerce via
+  jsToNumber per §22.1.2.1.
+- String.prototype.{indexOf,concat} propagate ToString abrupts before
+  subsequent coercions (eager throw order).
+- arguments.length non-enumerable per §10.4.4.7.
+- Object.is treats t_undefinedSentinel / PROTO_NONE / missing arg as
+  one undefined.
+- Object.defineProperties({}, undefined) throws TypeError.
+- Error.prototype.toString raises TypeError on Symbol message per
+  §20.5.3.4.
+- Number.prototype.toLocaleString own property per §21.1.3.4 with
+  no-Intl toString fallback.
+
+Also: feedback memory documenting the protoCore PROTO_NONE ambiguity —
+`getAttribute` → PROTO_NONE doubles as "absent" AND a possible stored
+value; presence probes use `hasOwnAttribute` / `hasAttribute` so the
+distinction is preserved.  Several round-11 commits explicitly lean on
+this pattern.
+
+**Round 10 highlights (100-commit batch):**
 
 - **Built-in constructor descriptors per §17:** Array / Object / Boolean
   / Number / String / Set / Map / Promise / Symbol / RegExp / Date /

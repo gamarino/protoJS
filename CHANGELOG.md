@@ -4,6 +4,95 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (test262 spec conformance push, round 11 — 2026-06-05)
+
+Eleventh consecutive sprint.  Shorter than the previous 100-commit
+batch — each remaining failure required deeper investigation per
+fix; the easy-batch wins were largely mined out in rounds 6-10.
+24 substantive commits focused on long-tail conformance gaps that
+had survived the breadth-first passes.
+
+Highlights by subsystem:
+
+- **§17 built-in constructor `length` descriptors**: every
+  kUnimplementedCtors stub (Date, BigInt, Proxy, WeakRef, WeakSet,
+  FinalizationRegistry, Iterator, Generator, GeneratorFunction,
+  AsyncFunction, AsyncGenerator, AsyncGeneratorFunction,
+  AggregateError, SharedArrayBuffer) now carries the spec-mandated
+  `length` own property with descriptor 0x2.  The kUnimplementedCtors
+  array becomes a {name, length} pair; the early TimingAPIs::init
+  Date global gained the matching name/length descriptors.
+
+- **§7.1.1 ToPrimitive completion in objToStr**: (a) honours
+  Symbol.toPrimitive with hint 'string', raising TypeError on a
+  non-primitive return, (b) raises TypeError when toString/valueOf
+  attributes are present-but-shadowed-to-undefined, (c) raises
+  TypeError on Symbol receivers per §7.1.17.  Closes the trim* /
+  replace / slice / includes / startsWith / endsWith ToPrimitive
+  abrupt-completion surface.
+
+- **Promise.* IsConstructor + descriptors**: Promise.{resolve,
+  reject,all,allSettled,race,any} now throw TypeError on
+  non-constructor receivers (§27.2 NewPromiseCapability).  All
+  static methods and Promise.prototype.{then,catch,finally} gained
+  §17 name + length own descriptors via a mutable wrapper child of
+  methodPrototype — raw ProtoMethod cells cannot carry attribute
+  sidecars.  Promise.prototype.then throws TypeError on non-Promise
+  receivers per §27.2.5.4.  Promise.prototype.finally checks
+  SpeciesConstructor.
+
+- **Array §23.1.3.* abrupt + ToObject completion**: strictEquals
+  collapses PROTO_NONE and t_undefinedSentinel (indexOf / lastIndexOf
+  / includes find first undefined slot consistently).  copyWithin
+  step 1 ToObject(this) wraps primitive booleans / numbers / strings
+  so the return chain's `instanceof Boolean` succeeds.  slice's
+  ToIntegerOrInfinity bounds route through jsToNumber for
+  non-primitive args.  Array.prototype.{keys,values} ReturnIfAbrupt
+  ToObject(this) on null/undefined.  Iteration receiver wraps
+  primitive strings into String wrappers for the callback's third
+  argument.
+
+- **Function.prototype.apply argsArray check**: §20.2.3.1 +
+  CreateListFromArrayLike throws TypeError when argsArray is a
+  primitive (number / boolean / string), Symbol, or the null
+  sentinel.
+
+- **String.prototype.{indexOf,concat} step-order propagation**:
+  ToString(this) and ToString(searchString) abrupts propagate
+  before later ToInteger coercions — Sputnik
+  S15.5.4.{6,7}_A4_T2/4 surfaced the wrong abrupt pre-fix.
+
+- **String.fromCharCode**: routes the UTF-8 bytes through
+  fromUTF8Buffer to preserve embedded NUL (the C-string path
+  truncated `String.fromCharCode(0)` to the empty string).  Non-
+  primitive arguments route through jsToNumber per §22.1.2.1
+  ToUint16.
+
+- **Number.prototype.toLocaleString**: own property per §21.1.3.4
+  (no-Intl fallback to toString).
+
+- **arguments object**: length is non-enumerable per §10.4.4.7
+  (Object.keys(arguments) no longer leaks 'length').
+
+- **Object.is / Object.defineProperties**: the explicit-undefined
+  argument and the missing-argument sentinel share one equivalence
+  class, so Object.is(undefined) returns true and Object.
+  defineProperties({}, undefined) throws.
+
+- **Error.prototype.toString**: TypeError when message is a Symbol
+  per §20.5.3.4 step 6 + §7.1.17.
+
+### Memory note
+
+Added a feedback memory documenting the protoCore PROTO_NONE
+ambiguity — `getAttribute` returns PROTO_NONE both when the
+attribute is absent AND when the stored value happens to be
+PROTO_NONE.  Presence probes use `hasOwnAttribute` /
+`hasAttribute` so the distinction is preserved.  Several round-11
+commits explicitly use this pattern (Promise constructor check,
+Object.defineProperties undefined-Properties guard, objToStr
+Symbol/toString shadow check).
+
 ### Fixed (test262 spec conformance push, round 10 — 2026-06-04)
 
 Tenth consecutive sprint, doubled to 100 commits.  This round
