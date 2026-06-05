@@ -2,6 +2,7 @@
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSContext.h"
+#include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSSymbols.h"
 #include "headers/protoCore.h"
@@ -3555,6 +3556,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     {
         const proto::ProtoObject* unsObj = ctx->newObject(true);
         if (unsObj) {
+            // §23.1.3.32 step 2: OrdinaryObjectCreate(null) — the
+            // unscopables list has a null [[Prototype]].  Pre-fix the
+            // newObject parented on Object.prototype, so
+            // Object.getPrototypeOf(unscopables) returned the object
+            // prototype instead of null (built-ins/Array/prototype/
+            // Symbol.unscopables/array-find-from-last and friends).
+            setJSProtoOverride(unsObj, getNullSentinel());
             static const char* kUnscopables[] = {
                 "at", "copyWithin", "entries", "fill", "find",
                 "findIndex", "findLast", "findLastIndex", "flat",
