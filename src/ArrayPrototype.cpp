@@ -966,10 +966,36 @@ static const proto::ProtoObject* arrayPop(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
 
+    // §23.1.3.21 step 3.a: when len = 0, the spec still runs
+    // Set(O, 'length', +0, Throw=true).  A frozen array has non-
+    // writable length, so that Set raises TypeError even though the
+    // array is empty (built-ins/Array/prototype/pop/set-length-zero-
+    // array-is-frozen).  Pre-fix the empty-array branch returned
+    // undefined without exercising the Set, so the throw never fired.
+    auto throwIfLengthFrozen = [&]() -> bool {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx)) {
+                long long bits = pdv->asLong(ctx);
+                if ((bits & 0x1) == 0) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot assign to read-only property 'length'"));
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
     // Native ProtoList path.
     if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
         unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
-        if (size == 0) return PROTO_NONE;
+        if (size == 0) {
+            if (throwIfLengthFrozen()) return PROTO_NONE;
+            return PROTO_NONE;
+        }
         const proto::ProtoObject* removed = list->getAt(ctx, static_cast<int>(size - 1));
         const proto::ProtoList* shrunk = list->removeLast(ctx);
         if (shrunk) setArrayElements(ctx, self, shrunk);
@@ -978,7 +1004,10 @@ static const proto::ProtoObject* arrayPop(
 
     // Legacy string-keyed path (array-likes only).
     unsigned long len = arrLen(ctx, self);
-    if (len == 0) return PROTO_NONE;
+    if (len == 0) {
+        if (throwIfLengthFrozen()) return PROTO_NONE;
+        return PROTO_NONE;
+    }
     unsigned long lastIdx = len - 1;
     const proto::ProtoObject* removed = arrGet(ctx, self, lastIdx);
     const proto::ProtoString* idxKey =
