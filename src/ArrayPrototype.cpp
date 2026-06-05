@@ -1115,6 +1115,16 @@ static const proto::ProtoObject* arrayPop(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.21 step 3.a + step 4.f both run Set(O, 'length', ...,
+    // Throw=true).  §10.4.3 marks 'length' on the String exotic
+    // wrapper as non-writable, so the Set fails and TypeError fires
+    // even on '' / 'abc' (built-ins/Array/prototype/pop/throws-with-
+    // string-receiver).  Mirror the parallel guard in push / shift.
+    if (self && self->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot assign to read-only property 'length' of String"));
+        return PROTO_NONE;
+    }
 
     // §23.1.3.21 step 3.a: when len = 0, the spec still runs
     // Set(O, 'length', +0, Throw=true).  A frozen array has non-
