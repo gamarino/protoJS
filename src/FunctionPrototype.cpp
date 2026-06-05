@@ -79,6 +79,33 @@ static const proto::ProtoObject* fnApply(
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
     const proto::ProtoObject* argsArray = (argc > 1) ? args->getAt(ctx, 1) : nullptr;
+    // §20.2.3.1 step 4 + §7.3.18 CreateListFromArrayLike: argArray must
+    // be an Object — primitives (boolean, number, string, symbol) and
+    // null throw TypeError before length is read.  Pre-fix the
+    // null/undefined branch silently produced an empty arg list and the
+    // primitive branch fell through to a length read that returned 0,
+    // so fn.apply(null, true) / .apply(null, NaN) / etc. called fn
+    // with no args instead of throwing.
+    if (argsArray && argsArray != PROTO_NONE && argsArray != getUndefinedSentinel()) {
+        if (argsArray == getNullSentinel()
+            || argsArray->isInteger(ctx) || argsArray->isDouble(ctx)
+            || argsArray->isFloat(ctx)   || argsArray->isBoolean(ctx)
+            || argsArray->isString(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Function.prototype.apply argsArray must be an Object"));
+            return PROTO_NONE;
+        }
+        const proto::ProtoObject* isSymKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* isSymK = isSymKo ? isSymKo->asString(ctx) : nullptr;
+        if (isSymK && argsArray->hasAttribute(ctx, isSymK) == PROTO_TRUE) {
+            const proto::ProtoObject* mv = argsArray->getAttribute(ctx, isSymK, true);
+            if (mv == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Function.prototype.apply argsArray must be an Object"));
+                return PROTO_NONE;
+            }
+        }
+    }
 
     const proto::ProtoList* callArgs = ctx->newList();
     if (argsArray && argsArray != PROTO_NONE) {
