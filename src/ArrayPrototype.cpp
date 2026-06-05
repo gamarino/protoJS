@@ -2932,7 +2932,17 @@ static const proto::ProtoObject* arraySplice(
     // delCount=0, insert nothing — same effect on the receiver, but
     // returned the FULL array via the `removed` collector logic when
     // delCount > len-start; harmless until you used the return value.
-    if (n == 0) return createNewArray(ctx, nullptr);
+    if (n == 0) {
+        // §23.1.3.29 step 9: A := ? ArraySpeciesCreate(O, 0).  Even
+        // when n = 0 the constructor lookup must run — a primitive
+        // .constructor surfaces TypeError per §22.1.3.1.1 steps 7/9.
+        // Pre-fix the no-args fast path skipped the species check and
+        // the throw was lost (built-ins/Array/prototype/splice/
+        // create-ctor-non-object).
+        const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
+        if (hasCallException()) return PROTO_NONE;
+        return result ? result : PROTO_NONE;
+    }
 
     // §23.1.3.29 step 16 ends with Set(O, 'length', ..., true).  If
     // length is non-writable the abrupt completion bubbles out as
