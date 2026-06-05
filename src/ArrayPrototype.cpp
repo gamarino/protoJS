@@ -369,23 +369,18 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
             }
         }
     }
-    // FAST PATH: native ProtoList storage.  In-range read returns the
-    // element directly; out-of-range falls through to the string-key
-    // / accessor path below.  Pre-fix the predicate matched both
-    // cases — including the PROTO_NONE sentinel returned for an
-    // out-of-range index — so a sparse-literal value stored as a
-    // string-keyed attribute (e.g. `[0, 'foo', , Infinity]` keeps
-    // index 3 in `attr["3"]`) was masked by the early return.
-    if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
-        if (fastVal != PROTO_NONE) return fastVal;
-    }
-
+    // Build accessor sidecar keys up-front so we can shadow the fast
+    // path when an own accessor is installed.  §10.1.5 OrdinaryGet:
+    // an own accessor descriptor takes precedence over any data slot
+    // — including the native ProtoList storage real arrays use.
+    // Pre-fix Object.defineProperty(arr, '0', {get:...}) on
+    // arr=[0,1,2,'last'] left __elements__[0]=0 in place, so
+    // arrayTryFastGet returned 0 and the getter never fired; tests
+    // like every / indexOf / forEach with a length-truncating getter
+    // on index 0 silently iterated all four slots
+    // (built-ins/Array/prototype/indexOf/15.4.4.14-9-a-17 + family).
     const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
     if (!key) return PROTO_NONE;
-
-    // Build accessor sidecar keys.
-    // NOTE: getAttribute() always walks the prototype chain regardless of the 'callbacks'
-    // flag. Use hasOwnAttribute() to check for OWN accessors specifically.
     std::string gkStr = "__get_" + std::to_string(idx) + "__";
     std::string skStr = "__set_" + std::to_string(idx) + "__";
     const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
@@ -393,28 +388,35 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
     const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
     const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
 
-    // Step 1: Check for an OWN accessor (getter or setter-only) before reading data.
-    // This ensures an own accessor-without-getter shadows an inherited getter.
-    // Use hasOwnAttribute to restrict to own property — getAttribute always inherits.
+    // Step 1: OWN accessor probe BEFORE the data fast path.  hasOwnAttribute
+    // hits the per-thread accessor cache after the first probe, so the
+    // perf cost on hot reads is one branch — negligible compared to a
+    // mis-ordered semantic that loses the getter call entirely.
     bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
     bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
 
     if (hasOwnGetter) {
-        // Own getter found — invoke it.
         const proto::ProtoObject* ownGetter = arr->getAttribute(ctx, gk, true);
         const proto::ProtoObject* result = callJSFunction(ctx, ownGetter, arr, ctx->newList());
         return (hasCallException() || !result || result == PROTO_NONE) ? PROTO_NONE : result;
     }
     if (hasOwnSetter) {
-        // Setter-only own accessor (no getter) — accessing returns undefined.
+        // Setter-only own accessor — read returns undefined.
         return PROTO_NONE;
     }
 
-    // Step 2: Read data value from own or inherited chain.
+    // Step 2: FAST PATH (no own accessor) — native ProtoList storage.
+    // In-range read returns the element directly; out-of-range falls
+    // through to the string-key / accessor path below.
+    if (const proto::ProtoObject* fastVal = arrayTryFastGet(ctx, arr, idx)) {
+        if (fastVal != PROTO_NONE) return fastVal;
+    }
+
+    // Step 3: Read data value from own or inherited chain.
     const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
     if (val && val != PROTO_NONE) return val;
 
-    // Step 3: Check for inherited accessor getter (no own accessor found above).
+    // Step 4: Check for inherited accessor getter (no own accessor found above).
     if (gk) {
         const proto::ProtoObject* inheritedGetter = arr->getAttribute(ctx, gk, true);
         if (inheritedGetter && inheritedGetter != PROTO_NONE) {
