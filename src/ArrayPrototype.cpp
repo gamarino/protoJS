@@ -1642,22 +1642,36 @@ static const proto::ProtoObject* arrayFill(
         value = args->getAt(ctx, 0);
         if (!value) value = PROTO_NONE;
     }
-    // ECMA-262 §23.1.3.6: ToIntegerOrInfinity on start/end. NaN → 0;
+    // ECMA-262 §23.1.3.6: ToIntegerOrInfinity on start/end.  NaN → 0;
     // +Infinity → length (clamp); -Infinity → 0 after the negative
-    // normalisation. The C cast was undefined-behaviour on ±Infinity.
+    // normalisation.  Non-primitive arguments route through
+    // jsToNumber so a Symbol surfaces the spec-required TypeError
+    // (built-ins/Array/prototype/fill/return-abrupt-from-end-as-symbol)
+    // instead of silently collapsing to len.
     auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
         if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
-        if (o->isInteger(ctx)) return o->asLong(ctx);
-        if (o->isDouble(ctx) || o->isFloat(ctx)) {
-            double d = o->asDouble(ctx);
+        const proto::ProtoObject* num = o;
+        if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
+            num = jsToNumber(ctx, o);
+            if (hasCallException() || !num) return defaultV;
+        }
+        if (num->isInteger(ctx)) return num->asLong(ctx);
+        if (num->isDouble(ctx) || num->isFloat(ctx)) {
+            double d = num->asDouble(ctx);
             if (std::isnan(d)) return 0;
             if (std::isinf(d)) return d > 0 ? len : -len - 1;
             return static_cast<long long>(d);
         }
         return defaultV;
     };
-    if (args && args->getSize(ctx) > 1) start = toII(args->getAt(ctx, 1), 0);
-    if (args && args->getSize(ctx) > 2) end   = toII(args->getAt(ctx, 2), len);
+    if (args && args->getSize(ctx) > 1) {
+        start = toII(args->getAt(ctx, 1), 0);
+        if (hasCallException()) return PROTO_NONE;
+    }
+    if (args && args->getSize(ctx) > 2) {
+        end   = toII(args->getAt(ctx, 2), len);
+        if (hasCallException()) return PROTO_NONE;
+    }
 
     start = normalizeIdxClamp(start, len);
     end   = normalizeIdxClamp(end,   len);
