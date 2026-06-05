@@ -11,6 +11,7 @@ conformance push" for the full breakdown.
 
 - `built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}` (2026-06-04, round 10 complete): **6 763 / 9 400 passed = 71.9 %** (6 syntax fails, 2 602 semantic fails, 29 timeouts).
 - `built-ins/Array/prototype/{map,filter,every,some}` (2026-06-05, round 11 + audit complete): **759 / 895 passed = 84.8 %** (0 syntax, 128 semantic, 8 timeouts). +14 pp on the iteration-method slice attributable to round 11 abrupt-completion / ToObject / iterReceiver / strict-equals work plus the PROTO_NONE presence-probe audit.
+- `built-ins/Array` full pattern (2026-06-05, post 20-fix Array cleanup): **2 380 / 3 081 passed = 77.3 %** (0 syntax, 670 semantic, 31 timeouts).  Snapshot: `snapshot-built-ins-Array-1780675824848.json`.  Reflects the 20-commit one-fix-per-failure Array package described in CHANGELOG.md.
 
 (Full §1 Phase 6 table below has the row-by-row breakdown including pre-round-10 baselines.)
 
@@ -459,6 +460,7 @@ The runner then passes `PROTOJS_USE_PROTO_EVAL=1` to the protojs process. Result
 | `language` + `built-ins` (full patterns, 2026-03-09) | 47219 | **42892** | 694 | 3488 | 127 | **18 skipped** (+11 Phase 7: TypedArray-resizable-buffer×5, for-of/dstr×6). Phase 7: `OP_array_from`, for-of iterator opcodes, for-in guard. **+249 vs Phase 6 baseline**. Snapshot: `snapshot-language_built-ins-1773077022112.json`. |
 | 10-pattern built-ins baseline (2026-06-04, round 10 complete) | 9400 | **6763** | 6 | 2602 | 29 | Patterns: built-ins/{Array,Object,String,Number,Math,JSON,Error,NativeErrors,Promise,Boolean}. Snapshot: `snapshot-built-ins-Array_built-ins-Object_built-ins-String_built-ins-Number_built-ins-Mat-1780589642485.json`.  71.9 % pass rate. |
 | Array iteration subset (2026-06-05, round 11 + audit) | 895 | **759** | 0 | 128 | 8 | Patterns: built-ins/Array/prototype/{map,filter,every,some}. Snapshot: `snapshot-built-ins-Array-prototype-map_built-ins-Array-prototype-filter_built-ins-Array-p-1780675630500.json`.  **84.8 % pass rate** — directly comparable to the iteration-method slice of the 2026-06-04 baseline, illustrates the +14 pp lift from round-11 abrupt-completion / ToObject / iterReceiver / strict-equals work plus the PROTO_NONE-presence-probe audit. |
+| `built-ins/Array` full (2026-06-05, post 20-fix Array package) | 3 081 | **2 380** | 0 | 670 | 31 | Patterns: built-ins/Array.  Snapshot: `snapshot-built-ins-Array-1780675824848.json`.  **77.3 % pass rate** post-cleanup of the long-tail Array-specific failures (push / pop / shift / unshift / splice frozen-length, ToInteger via jsToNumber on with / fill / includes / slice, ArrayIteratorPrototype.Symbol.toStringTag, sort comparator abrupt, indexOf no-arg / Infinity string length, flat Symbol/null-proto depth, arrayToString primitive receivers). |
 
 ---
 

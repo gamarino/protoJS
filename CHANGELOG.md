@@ -4,6 +4,64 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package (2026-06-05): 20 one-fix-per-failure commits
+
+Focused 20-commit run isolating one Array failure per commit, fixing
+the long-tail conformance gaps that survived the breadth-first
+rounds.  Grouped by theme:
+
+**Length-Set throw on frozen-length receivers (§§23.1.3.20-32):**
+push / pop / shift / unshift / splice now raise TypeError when the
+receiver's `__pd_length__` has the writable bit cleared — even on
+empty receivers / zero-arg calls.  The spec's Set(O, 'length', ...,
+Throw=true) closes those paths and the abrupt must fire before any
+mutation lands.
+
+**Primitive-string receivers throw on push / shift (§10.4.3):**
+String exotic objects have a non-writable 'length', so
+Array.prototype.{push,shift}.call('') / .call('abc') now raise
+TypeError instead of silently no-op'ing.
+
+**ToObject(this) wrapping for primitive returns / callback receivers
+(§23.1.3.*):** sort returns the wrapped boolean / number / string
+receiver; reduce / reduceRight pass O (= ToObject(this)) as the
+callback's fourth argument — `obj instanceof String` in the
+callback now matches the spec.
+
+**ToIntegerOrInfinity via jsToNumber for non-numeric index args:**
+slice / fill / includes / with / flat now route their bound
+arguments through jsToNumber to honour ToNumber's side effects
+(throwing valueOf, Symbol → TypeError, null-prototype object →
+TypeError via OrdinaryToPrimitive).  NaN explicitly maps to 0 (was
+LLONG_MIN through the bare cast, surfacing a spurious RangeError
+in arrayWith).
+
+**Spec-mandated abrupt-completion propagation:** sort / toSorted
+now stop comparator calls after the first throw via a sticky
+abort flag (std::stable_sort cannot be cancelled mid-call).
+
+**Discovery surface:** %ArrayIteratorPrototype% is lazily created
+as a shared parent carrying Symbol.toStringTag = 'Array Iterator'
+with the §17 descriptor 0x2 — was a bare newObject(true) per
+iterator.
+
+**Misc:** arrLen accepts 'Infinity' / '+Infinity' / '-Infinity'
+literal strings per §7.1.4 StringToNumber; indexOf defaults
+searchElement to undefined on no-arg per §23.1.3.13 step 5;
+unshift's getter-only target-index check pre-empts the spec's
+'Set with no setter throws' rule before any element shift runs;
+arrayToString emits '[object Boolean]' / '[object Number]' /
+'[object String]' directly for primitive receivers (per
+§23.1.3.36 step 3 falling back to Object.prototype.toString when
+join is not callable).
+
+### Test coverage stats (2026-06-05, post 20-fix Array package)
+
+| Sample | Total | Passed | Pass rate | Notes |
+|--------|-------|--------|-----------|-------|
+| `built-ins/Array` full (2026-06-05) | 3 081 | **2 380** | **77.3 %** | Post-20-fix Array package.  Snapshot: `snapshot-built-ins-Array-1780675824848.json` (670 semantic fails, 31 timeouts). |
+| 10-pattern built-ins baseline (2026-06-04, round 10 complete) | 9 400 | 6 763 | 71.9 % | Pre-round-11 baseline retained for cross-pattern reference. |
+
 ### Audit (2026-06-05): PROTO_NONE-presence-probe sweep across protoJS
 
 protoCore's `getAttribute(ctx, key)` returns `PROTO_NONE` both when
