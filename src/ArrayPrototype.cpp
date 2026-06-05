@@ -2609,6 +2609,7 @@ static const proto::ProtoObject* arrayFlat(
             else if (d->isInteger(ctx)) dv = static_cast<double>(d->asLong(ctx));
             else if (d->isDouble(ctx) || d->isFloat(ctx)) dv = d->asDouble(ctx);
             else if (d->isString(ctx)) {
+                // String coercion handled directly below.
                 std::string s;
                 d->asString(ctx)->toUTF8String(ctx, s);
                 // Trim — Number(" 7 ") is 7. Empty/whitespace → 0.
@@ -2624,7 +2625,21 @@ static const proto::ProtoObject* arrayFlat(
                     } catch (...) { dv = std::nan(""); }
                 }
             }
-            // Anything else (Object, Symbol) -> NaN -> depth 0.
+            // §23.1.3.10 step 3 ToIntegerOrInfinity(depthNum) per
+            // §7.1.5 begins with ToNumber.  Object / Symbol arguments
+            // must take the §7.1.4 abrupt-completion branch (Symbol →
+            // TypeError, Object.create(null) → TypeError because
+            // neither toString nor valueOf is callable).  Pre-fix the
+            // 'anything else' silently collapsed to NaN → depth 0
+            // (built-ins/Array/prototype/flat/symbol-object-create-
+            // null-depth-throws).
+            if (std::isnan(dv) && d && !d->isString(ctx)
+                && d != PROTO_TRUE && d != PROTO_FALSE) {
+                const proto::ProtoObject* num = jsToNumber(ctx, d);
+                if (hasCallException()) return PROTO_NONE;
+                if (num && num->isInteger(ctx)) dv = static_cast<double>(num->asLong(ctx));
+                else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) dv = num->asDouble(ctx);
+            }
             if (std::isnan(dv))      depth = 0;
             else if (std::isinf(dv)) depth = (dv > 0) ? 2147483647 : 0;
             else if (dv > 2147483647.0) depth = 2147483647;
