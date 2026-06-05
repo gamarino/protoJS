@@ -261,7 +261,33 @@ static const proto::ProtoObject* promiseFinally(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!self || self == PROTO_NONE) return makeSettledPromise(ctx, 2, PROTO_NONE);
+    // §27.2.5.3: 2. If Type(this value) is not Object, throw TypeError.
+    if (!self || self == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Promise.prototype.finally called on non-object"));
+        return PROTO_NONE;
+    }
+    // §27.2.5.3 step 3: SpeciesConstructor(promise, %Promise%).
+    // SpeciesConstructor reads obj.constructor; if undefined return
+    // %Promise%, else if not an Object throw TypeError.  Pre-fix
+    // .finally accepted ANY constructor value, so the species check
+    // never fired (built-ins/Promise/prototype/finally/species-
+    // constructor-throws.js: SpeciesConstructor TypeError missing).
+    {
+        const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
+        if (ctorKey) {
+            const proto::ProtoObject* c = self->getAttribute(ctx, ctorKey, true);
+            if (c && c != PROTO_NONE) {
+                bool isPrim = c->isInteger(ctx) || c->isDouble(ctx) ||
+                              c->isString(ctx) || c->isBoolean(ctx);
+                if (isPrim) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "SpeciesConstructor: constructor is not an Object"));
+                    return PROTO_NONE;
+                }
+            }
+        }
+    }
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* onFinally = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!onFinally) onFinally = PROTO_NONE;
