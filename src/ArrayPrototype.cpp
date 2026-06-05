@@ -1468,8 +1468,26 @@ static const proto::ProtoObject* arrayWith(
     if (!args || args->getSize(ctx) < 1) return arrayCloneShallow(ctx, self);
     long long idx = 0;
     const proto::ProtoObject* iv = args->getAt(ctx, 0);
+    // §23.1.3.39 step 4: relativeIndex := ? ToIntegerOrInfinity(index).
+    // ToIntegerOrInfinity begins with ToNumber, which runs valueOf /
+    // [Symbol.toPrimitive] / toString.  Pre-fix arrayWith only honoured
+    // raw integer / double cells and silently defaulted to 0 on a
+    // throwing valueOf object — the test then saw the synthetic
+    // RangeError from the empty-range check instead of the user's
+    // MyError (built-ins/Array/prototype/with/index-throw-completion).
     if (iv && iv->isInteger(ctx)) idx = iv->asLong(ctx);
     else if (iv && iv->isDouble(ctx)) idx = static_cast<long long>(iv->asDouble(ctx));
+    else if (iv && iv != PROTO_NONE && iv != getUndefinedSentinel()) {
+        const proto::ProtoObject* num = jsToNumber(ctx, iv);
+        if (hasCallException()) return PROTO_NONE;
+        if (num && num->isInteger(ctx)) idx = num->asLong(ctx);
+        else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) {
+            double d = num->asDouble(ctx);
+            if (std::isnan(d)) idx = 0;
+            else if (std::isinf(d)) idx = d > 0 ? LLONG_MAX : LLONG_MIN;
+            else idx = static_cast<long long>(d);
+        }
+    }
     long long len = static_cast<long long>(arrLen(ctx, self));
     if (idx < 0) idx += len;
     if (idx < 0 || idx >= len) {
