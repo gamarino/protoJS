@@ -2157,9 +2157,15 @@ static const proto::ProtoObject* objectDefineProperties(
         }
     }
     // Per spec: throw TypeError if Properties arg is null or undefined.
+    // Pre-fix the explicit undefined value (t_undefinedSentinel) bypassed
+    // the absence check — Object.defineProperties({}, undefined) returned
+    // the receiver silently (built-ins/Object/defineProperties/
+    // 15.2.3.7-2-2).
     {
         const proto::ProtoObject* nullSentinel = getNullSentinel();
-        if (!propsObj || propsObj == PROTO_NONE || propsObj == nullSentinel) {
+        const proto::ProtoObject* undefSentinel = getUndefinedSentinel();
+        if (!propsObj || propsObj == PROTO_NONE
+            || propsObj == nullSentinel || propsObj == undefSentinel) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Cannot convert undefined or null to object"));
             return PROTO_NONE;
