@@ -1108,6 +1108,27 @@ static const proto::ProtoObject* arrayUnshift(
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
 
+    // §23.1.3.32 step 5 runs Set(O, 'length', len + argCount, Throw=true)
+    // regardless of argCount.  A frozen-length receiver therefore takes
+    // the abrupt path even on a zero-argument unshift().  Pre-fix the
+    // empty-args fast path returned the cached size and the throw never
+    // fired (built-ins/Array/prototype/unshift/set-length-zero-array-
+    // length-is-non-writable).
+    auto throwIfLengthFrozen = [&]() -> bool {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot assign to read-only property 'length'"));
+                return true;
+            }
+        }
+        return false;
+    };
+    if (throwIfLengthFrozen()) return PROTO_NONE;
+
     // Native ProtoList path: appendFirst inserts at index 0 in O(log N)
     // per element, no manual right-shift loop needed.
     if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
