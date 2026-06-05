@@ -1328,9 +1328,22 @@ static const proto::ProtoObject* arrayIncludes(
     if (args && args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
         if (fi && fi != PROTO_NONE) {
-            if (fi->isInteger(ctx)) from = fi->asLong(ctx);
-            else if (fi->isDouble(ctx) || fi->isFloat(ctx)) {
-                double d = fi->asDouble(ctx);
+            // §23.1.3.13 step 4: ToIntegerOrInfinity(fromIndex) starts
+            // with ToNumber.  Pre-fix the helper accepted only raw
+            // integer / double cells, so {valueOf(){throw}} silently
+            // defaulted to 0 and the includes loop never propagated
+            // the user's abrupt (built-ins/Array/prototype/includes/
+            // return-abrupt-tointeger-fromindex).  Route non-numeric
+            // values through jsToNumber to honour ToNumber's side
+            // effects.
+            const proto::ProtoObject* num = fi;
+            if (!fi->isInteger(ctx) && !fi->isDouble(ctx) && !fi->isFloat(ctx)) {
+                num = jsToNumber(ctx, fi);
+                if (hasCallException()) return PROTO_NONE;
+            }
+            if (num && num->isInteger(ctx)) from = num->asLong(ctx);
+            else if (num && (num->isDouble(ctx) || num->isFloat(ctx))) {
+                double d = num->asDouble(ctx);
                 // ECMA-262 ToIntegerOrInfinity for includes:
                 //   NaN -> 0
                 //   +Infinity -> return false (past end, no match)
