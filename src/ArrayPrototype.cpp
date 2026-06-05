@@ -295,11 +295,22 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
                 return static_cast<unsigned long>(0xFFFFFFFFul);
             if (trimmed == "-Infinity")
                 return 0;
+            // Strict whole-string parse: stoll accepts partial matches
+            // ("123abc" → 123) but ECMA-262 §7.1.4 ToNumber returns NaN
+            // for any trailing garbage; we must surface NaN → ToLength
+            // → 0.  Use stoll with `pos` and require the parse to
+            // consume the entire trimmed value (modulo trailing WS).
             try {
-                long long v = (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'x' || sv[1] == 'X'))
-                    ? std::stoll(sv, nullptr, 16)
-                    : std::stoll(sv);
-                return (v > 0) ? static_cast<unsigned long>(v) : 0;
+                size_t pos = 0;
+                long long v = (trimmed.size() > 2 && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'))
+                    ? std::stoll(trimmed, &pos, 16)
+                    : std::stoll(trimmed, &pos);
+                size_t lastNonWS = trimmed.find_last_not_of(" \t\n\r\v\f");
+                size_t consumedEnd = (lastNonWS == std::string::npos) ? 0 : lastNonWS + 1;
+                if (pos >= consumedEnd)
+                    return (v > 0) ? static_cast<unsigned long>(v) : 0;
+                // Trailing garbage → ToNumber = NaN → ToLength = 0.
+                return 0;
             } catch (...) {}
         }
     }

@@ -1,0 +1,27 @@
+[FAIL 1] built-ins/Array/prototype/some/resizable-buffer.js | Exception in /tmp/repro_built-ins__Array__prototype__some__resizable-buffer.js: Expected true but got false
+[FAIL 1] built-ins/Array/prototype/filter/15.4.4.20-2-10.js | Exception in /tmp/repro_built-ins__Array__prototype__filter__15.4.4.20-2-10.js: newArr.length Expected SameValue(«0», «2») to be true
+[FAIL 1] built-ins/Array/prototype/map/15.4.4.19-3-14.js | 
+[FAIL 1] built-ins/Array/prototype/some/15.4.4.17-7-b-12.js | Exception in /tmp/repro_built-ins__Array__prototype__some__15.4.4.17-7-b-12.js: Array.prototype.some.call(arr, callbackfn) !== true
+[FAIL 1] built-ins/Array/prototype/concat/S15.4.4.4_A3_T3.js | Exception in /tmp/repro_built-ins__Array__prototype__concat__S15.4.4.4_A3_T3.js: The value of a[2] is expected to be 2 Expected SameValue(«undefined», «2») to be true
+[FAIL 1] built-ins/Array/prototype/slice/create-revoked-proxy.js | Exception in /tmp/repro_built-ins__Array__prototype__slice__create-revoked-proxy.js: TypeError: is not a function
+[FAIL 1] built-ins/Array/prototype/splice/create-proto-from-ctor-realm-array.js | Exception in /tmp/repro_built-ins__Array__prototype__splice__create-proto-from-ctor-realm-array.js: TypeError: Cannot read properties of undefined (reading 'createRealm')
+[FAIL 1] built-ins/Array/prototype/reduceRight/15.4.4.22-4-9.js | Exception in /tmp/repro_built-ins__Array__prototype__reduceRight__15.4.4.22-4-9.js: accessed !== true
+[FAIL 1] built-ins/Array/prototype/indexOf/15.4.4.14-9-a-17.js | Exception in /tmp/repro_built-ins__Array__prototype__indexOf__15.4.4.14-9-a-17.js: arr.indexOf("last") Expected SameValue(«3», «-1») to be true
+[FAIL 1] built-ins/Array/proto-from-ctor-realm-two.js | Exception in /tmp/repro_built-ins__Array__proto-from-ctor-realm-two.js: TypeError: Cannot read properties of undefined (reading 'createRealm')
+[FAIL 1] built-ins/Array/prototype/sort/precise-setter-appends-elements.js | Exception in /tmp/repro_built-ins__Array__prototype__sort__precise-setter-appends-elements.js: Expected SameValue(«true», «false») to be true
+[FAIL 1] built-ins/Array/prototype/reduceRight/15.4.4.22-9-b-25.js | Exception in /tmp/repro_built-ins__Array__prototype__reduceRight__15.4.4.22-9-b-25.js: testResult !== true
+[FAIL 1] built-ins/Array/prototype/filter/15.4.4.20-9-b-14.js | Exception in /tmp/repro_built-ins__Array__prototype__filter__15.4.4.20-9-b-14.js: newArr.length Expected SameValue(«4», «3») to be true
+[FAIL 1] built-ins/Array/prototype/some/15.4.4.17-7-b-14.js | Exception in /tmp/repro_built-ins__Array__prototype__some__15.4.4.17-7-b-14.js: arr.some(callbackfn) Expected SameValue(«true», «false») to be true
+[FAIL 1] built-ins/Array/prototype/toString/call-with-boolean.js | Exception in /tmp/repro_built-ins__Array__prototype__toString__call-with-boolean.js: Array.prototype.toString.call(true) must return "[object Boolean]" Expected SameValue(«""», «"[object Boolean]"») to be true
+[FAIL 1] built-ins/Array/prototype/some/15.4.4.17-7-b-15.js | Exception in /tmp/repro_built-ins__Array__prototype__some__15.4.4.17-7-b-15.js: arr.some(callbackfn) !== true
+[FAIL 1] built-ins/Array/prototype/reduce/15.4.4.21-9-b-18.js | Exception in /tmp/repro_built-ins__Array__prototype__reduce__15.4.4.21-9-b-18.js: testResult !== true
+[FAIL 1] built-ins/Array/prototype/every/15.4.4.16-7-b-5.js | Exception in /tmp/repro_built-ins__Array__prototype__every__15.4.4.16-7-b-5.js: arr.every(callbackfn) Expected SameValue(«true», «false») to be true
+[FAIL 1] built-ins/Array/prototype/map/15.4.4.19-4-2.js | Exception in /tmp/repro_built-ins__Array__prototype__map__15.4.4.19-4-2.js: Expected a ReferenceError but got a TypeError
+[FAIL 1] built-ins/Array/prototype/indexOf/15.4.4.14-9-9.js | Exception in /tmp/repro_built-ins__Array__prototype__indexOf__15.4.4.14-9-9.js: a.indexOf(2,4294967290 ) Expected SameValue(«-1», «4294967294») to be true
+[FAIL 1] built-ins/Array/prototype/reduceRight/15.4.4.22-9-b-29.js | Exception in /tmp/repro_built-ins__Array__prototype__reduceRight__15.4.4.22-9-b-29.js: testResult !== true
+[FAIL 1] built-ins/Array/prototype/map/resizable-buffer-grow-mid-iteration.js | Exception in /tmp/repro_built-ins__Array__prototype__map__resizable-buffer-grow-mid-iteration.js: TypeError: Array.prototype.map callback is not a function
+[FAIL 1] built-ins/Array/prototype/splice/length-near-integer-limit-grow-array.js | Exception in /tmp/repro_built-ins__Array__prototype__splice__length-near-integer-limit-grow-array.js: The value of arrayLike.length is expected to be 2 ** 53 - 1 Expected SameValue(«4294967296», «9007199254740991») to be true
+[FAIL 1] built-ins/Array/prototype/map/15.4.4.19-4-9.js | Exception in /tmp/repro_built-ins__Array__prototype__map__15.4.4.19-4-9.js: accessed !== true
+[FAIL 1] built-ins/Array/prototype/indexOf/15.4.4.14-9-a-10.js | Exception in /tmp/repro_built-ins__Array__prototype__indexOf__15.4.4.14-9-a-10.js: arr.indexOf(6.99) Expected SameValue(«-1», «1») to be true
+[FAIL 1] built-ins/Array/prototype/reverse/resizable-buffer.js | Exception in /tmp/repro_built-ins__Array__prototype__reverse__resizable-buffer.js: TypeError: Array.prototype.map callback is not a function
+[FAIL 1] built-ins/Array/prototype/concat/create-species-non-extensible-spreadable.js | Exception in /tmp/repro_built-ins__Array__prototype__concat__create-species-non-extensible-spreadable.js: arr.concat([1]) throws a TypeError exception Expected a TypeError to be thrown but no exception was thrown at all
