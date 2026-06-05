@@ -827,6 +827,15 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
         const proto::ProtoObject* np = ctx->space->smallIntegerPrototype;
         np = installNonEnumerableMethod(ctx, np, "valueOf",       numberValueOf,       0);
         np = installNonEnumerableMethod(ctx, np, "toString",      numberToString,      1);
+        // §21.1.3.4: Number.prototype.toLocaleString exists as an own
+        // property on Number.prototype, distinct from Object.prototype.
+        // .toLocaleString.  No-Intl fallback semantics permitted: when
+        // Intl is unavailable behave like toString().  Pre-fix the
+        // method was absent so verifyProperty(Number.prototype,
+        // 'toLocaleString', ...) failed with 'obj should have an own
+        // property toLocaleString' (Number/prototype/toLocaleString/
+        // prop-desc).
+        np = installNonEnumerableMethod(ctx, np, "toLocaleString", numberToString,      0);
         np = installNonEnumerableMethod(ctx, np, "toFixed",       numberToFixed,       1);
         np = installNonEnumerableMethod(ctx, np, "toExponential", numberToExponential, 1);
         np = installNonEnumerableMethod(ctx, np, "toPrecision",   numberToPrecision,   1);
