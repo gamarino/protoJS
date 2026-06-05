@@ -756,6 +756,18 @@ static const proto::ProtoObject* arraySpeciesCreate(
                 "Array species is not an object"));
             return PROTO_NONE;
         }
+        // Symbol primitives are carried as objects with __is_symbol__
+        // — Type(Symbol) is the Symbol type, not Object, per §6.1.5.
+        const proto::ProtoObject* isSymKo = ctx->fromUTF8String("__is_symbol__");
+        const proto::ProtoString* isSymK = isSymKo ? isSymKo->asString(ctx) : nullptr;
+        if (isSymK && C->hasAttribute(ctx, isSymK) == PROTO_TRUE) {
+            const proto::ProtoObject* mv = C->getAttribute(ctx, isSymK, true);
+            if (mv == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Array species is not an object"));
+                return PROTO_NONE;
+            }
+        }
     }
 
     // If C is a constructor, check its @@species.
@@ -2192,7 +2204,15 @@ static const proto::ProtoObject* arrayMap(
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
     const proto::ProtoObject* thisArg = getCallbackArg(ctx, args, 1);
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.map")) return PROTO_NONE;
+    // §22.1.3.1.1 ArraySpeciesCreate raises TypeError when a custom
+    // .constructor is a non-Object primitive (null / number / string /
+    // boolean / Symbol).  Pre-fix arrayMap (and the flatMap shim built
+    // on top of it) called the helper but did not check the abrupt
+    // — the loop kept running on a PROTO_NONE result and the throw
+    // was lost (built-ins/Array/prototype/flatMap/this-value-ctor-
+    // non-object).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
+    if (hasCallException()) return PROTO_NONE;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* mapped =
