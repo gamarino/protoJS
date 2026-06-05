@@ -1676,6 +1676,33 @@ static bool isTruthy(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     return true; // objects / lists are truthy
 }
 
+// Helper: ToObject wrapping for the array iteration receiver.
+//
+// §23.1.3.* iteration methods (every/forEach/map/some/filter/find/
+// reduce/...) step 1 does `Let O be ? ToObject(this value)` and then
+// passes `O` as the callback's third argument.  When `this` is a
+// primitive string ToObject yields a String wrapper carrying
+// [[StringData]] — without this wrapping `obj instanceof String`
+// in the callback returned false (every-on-string regressions).
+//
+// We don't actually retarget the read path through the wrapper —
+// arrLen / arrGet already handle the primitive directly — we only
+// need the wrapper as the value visible to user code as the third
+// callback argument.  Number / Boolean / Symbol primitives are rare
+// receivers for Array methods so we leave them as-is; if they ever
+// surface they remain valid Array-like at length 0.
+static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE) return self;
+    if (!self->isString(ctx)) return self;
+    if (!ctx->space || !ctx->space->stringPrototype) return self;
+    const proto::ProtoObject* wrap = ctx->space->stringPrototype->newChild(ctx, true);
+    if (!wrap) return self;
+    const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+    if (pvKey) wrap = wrap->setAttribute(ctx, pvKey, self);
+    return wrap;
+}
+
 // Helper: build the three-argument list [element, index, array] for iteration callbacks.
 static const proto::ProtoList* makeIterArgs(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* elem,
@@ -1684,7 +1711,7 @@ static const proto::ProtoList* makeIterArgs(proto::ProtoContext* ctx,
     const proto::ProtoList* a = ctx->newList();
     a = a->appendLast(ctx, elem ? elem : PROTO_NONE);
     a = a->appendLast(ctx, ctx->fromInteger(idx));
-    a = a->appendLast(ctx, arr ? arr : PROTO_NONE);
+    a = a->appendLast(ctx, iterReceiver(ctx, arr));
     return a;
 }
 
