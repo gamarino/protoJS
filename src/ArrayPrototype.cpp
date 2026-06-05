@@ -1818,7 +1818,11 @@ static const proto::ProtoObject* arrayFill(
     for (long long i = start; i < end; i++)
         arrSet(ctx, self, static_cast<unsigned long>(i), value);
 
-    return self;
+    // §23.1.3.6 step 1: Let O be ? ToObject(this).  step 9 returns O.
+    // Wrap primitive receivers so Array.prototype.fill.call(true)
+    // instanceof Boolean is true (built-ins/Array/prototype/fill/
+    // call-with-boolean).
+    return iterReceiver(ctx, self);
 }
 
 static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
