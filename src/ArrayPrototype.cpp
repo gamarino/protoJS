@@ -880,6 +880,17 @@ static const proto::ProtoObject* arrayPush(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.20 step 6.b + Set(O, "length", ...): a primitive-string
+    // receiver has a non-writable "length" property on its wrapper,
+    // so the final Set raises TypeError.  Pre-fix push silently
+    // succeeded by treating the primitive as an array-like with
+    // length but no write side effect (built-ins/Array/prototype/
+    // push/throws-with-string-receiver).
+    if (self && self->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot assign to read-only property 'length' of String"));
+        return PROTO_NONE;
+    }
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
 
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
