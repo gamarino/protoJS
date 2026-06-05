@@ -903,6 +903,23 @@ static const proto::ProtoObject* arrayPush(
             "Cannot assign to read-only property 'length' of String"));
         return PROTO_NONE;
     }
+    // §23.1.3.20 step 6: Set(O, 'length', len, Throw=true) runs
+    // unconditionally — even array.push() with no items must Set
+    // length and fail when length is non-writable
+    // (built-ins/Array/prototype/push/set-length-zero-array-length-
+    // is-non-writable).
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot assign to read-only property 'length'"));
+                return PROTO_NONE;
+            }
+        }
+    }
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
 
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
