@@ -538,6 +538,77 @@ static std::string elemToString(proto::ProtoContext* ctx,
             }
         }
     }
+    // §7.1.1 OrdinaryToPrimitive(hint='string') — call user toString
+    // first; if it returns a primitive, use it.  Pre-fix elemToString
+    // skipped user toString entirely and returned the literal
+    // '[object Object]' for any non-array object, so x.join(
+    // {valueOf:()=>'+', toString:()=>'*'}) joined with '[object Object]'
+    // instead of '*' (built-ins/Array/prototype/join/S15.4.4.5_A3.1_T2).
+    {
+        const proto::ProtoString* tsKey =
+            ctx->fromUTF8String("toString") ? ctx->fromUTF8String("toString")->asString(ctx) : nullptr;
+        if (tsKey) {
+            const proto::ProtoObject* tsFn = val->getAttribute(ctx, tsKey, true);
+            if (tsFn && tsFn != PROTO_NONE) {
+                auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+                    if (!fn || fn == PROTO_NONE) return false;
+                    if (fn->isMethod(ctx)) return true;
+                    const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                    if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
+                    const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                    if (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
+                    return false;
+                };
+                if (isCallable(tsFn)) {
+                    const proto::ProtoObject* r = callJSFunction(ctx, tsFn, val, ctx->newList());
+                    if (hasCallException()) return "";
+                    if (r && r != PROTO_NONE) {
+                        if (r->isString(ctx)) {
+                            std::string s;
+                            r->asString(ctx)->toUTF8String(ctx, s);
+                            return s;
+                        }
+                        if (r->isInteger(ctx)) return std::to_string(r->asLong(ctx));
+                        if (r->isBoolean(ctx)) return (r == PROTO_TRUE) ? "true" : "false";
+                        // Non-primitive return: §7.1.1 step 5 falls
+                        // back to valueOf below.
+                    }
+                }
+                // §7.1.1 step 5 fallback: try valueOf when toString
+                // returned a non-primitive (or wasn't callable).
+                const proto::ProtoString* voK =
+                    ctx->fromUTF8String("valueOf") ? ctx->fromUTF8String("valueOf")->asString(ctx) : nullptr;
+                bool voCallableSeen = false;
+                if (voK) {
+                    const proto::ProtoObject* voFn = val->getAttribute(ctx, voK, true);
+                    if (voFn && voFn != PROTO_NONE && isCallable(voFn)) {
+                        voCallableSeen = true;
+                        const proto::ProtoObject* r = callJSFunction(ctx, voFn, val, ctx->newList());
+                        if (hasCallException()) return "";
+                        if (r && r != PROTO_NONE) {
+                            if (r->isString(ctx)) {
+                                std::string s;
+                                r->asString(ctx)->toUTF8String(ctx, s);
+                                return s;
+                            }
+                            if (r->isInteger(ctx)) return std::to_string(r->asLong(ctx));
+                            if (r->isBoolean(ctx)) return (r == PROTO_TRUE) ? "true" : "false";
+                        }
+                    }
+                }
+                // §7.1.1 step 6: both toString and valueOf returned
+                // non-primitives — abrupt TypeError.  Only raise when
+                // at least one user method was actually invoked
+                // (otherwise the next fallback '[object Object]' is
+                // the correct result for plain objects).
+                if (voCallableSeen) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot convert object to primitive value"));
+                    return "";
+                }
+            }
+        }
+    }
     return "[object Object]";
 }
 
