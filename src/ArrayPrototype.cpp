@@ -1412,7 +1412,13 @@ static const proto::ProtoObject* arrayIndexOf(
                        std::isnan(needle->asDouble(ctx));
     if (needleIsNaN) return ctx->fromInteger(-1LL);
     for (long long i = from; i < len; i++) {
-        if (strictEquals(ctx, arrGet(ctx, self, static_cast<unsigned long>(i)), needle))
+        const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<unsigned long>(i));
+        // §23.1.3.13 step 6.b Get(O, Pk) is the abrupt-completion site;
+        // a throwing accessor must terminate iteration before later
+        // indices are probed — parallel to lastIndexOf's fix in this
+        // round.
+        if (hasCallException()) return PROTO_NONE;
+        if (strictEquals(ctx, elem, needle))
             return ctx->fromInteger(i);
     }
     return ctx->fromInteger(-1LL);
