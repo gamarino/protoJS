@@ -1723,6 +1723,24 @@ const proto::ProtoObject* stringFromCharCode(
         if (a && a != PROTO_NONE) {
             if (a->isInteger(ctx)) code = a->asLong(ctx);
             else if (a->isDouble(ctx)) code = static_cast<long long>(a->asDouble(ctx));
+            else {
+                // §22.1.2.1 step 4: ToUint16(arg) runs ToNumber first.
+                // Pre-fix non-primitive arguments (Boolean / Number /
+                // String wrappers, plain objects) all collapsed to 0
+                // because the helper only recognised raw integer /
+                // double cells.  String.fromCharCode(new Boolean(true))
+                // returned U+0000 instead of U+0001 (Sputnik S9.7_A3.1_T1).
+                const proto::ProtoObject* num = jsToNumber(ctx, a);
+                if (hasCallException()) return PROTO_NONE;
+                if (num && num != PROTO_NONE) {
+                    if (num->isInteger(ctx)) code = num->asLong(ctx);
+                    else if (num->isDouble(ctx)) {
+                        double d = num->asDouble(ctx);
+                        if (std::isnan(d) || std::isinf(d)) code = 0;
+                        else code = static_cast<long long>(d);
+                    }
+                }
+            }
         }
         units.push_back(static_cast<uint16_t>(code & 0xFFFF));
     }
