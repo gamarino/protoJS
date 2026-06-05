@@ -536,8 +536,18 @@ static bool strictEquals(proto::ProtoContext* ctx,
                           const proto::ProtoObject* a,
                           const proto::ProtoObject* b) {
     if (a == b) return true;
-    bool aNone = !a || a == PROTO_NONE;
-    bool bNone = !b || b == PROTO_NONE;
+    // §6.1 collapses all undefined representations to a single value.
+    // protoJS carries two: PROTO_NONE (the canonical "absent/undefined"
+    // sentinel) and t_undefinedSentinel (the value bound to the global
+    // `undefined` identifier and returned by uninitialised slots in
+    // host helpers).  Pre-fix indexOf(undefined) returned the index of
+    // the FIRST `undefined` literal pushed by user code rather than the
+    // first sparse-or-uninitialised slot, because the two reps did not
+    // strict-equal each other (15.4.4.14-9-4, 15.4.4.14-9-a-16, the
+    // lastIndexOf parallel family, every includes-of-undefined fix).
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    bool aNone = !a || a == PROTO_NONE || a == undefSent;
+    bool bNone = !b || b == PROTO_NONE || b == undefSent;
     if (aNone && bNone) return true;
     if (aNone || bNone) return false;
     bool aInt = a->isInteger(ctx);
