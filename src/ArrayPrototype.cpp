@@ -4172,22 +4172,24 @@ static const proto::ProtoObject* arrayFrom(
     // iterator and array-like branches).  Pre-fix the path always
     // produced an Array, so `Array.from.call(Object, []).constructor`
     // was Array instead of the spec-required Object.
+    // §23.1.2.1 IsConstructor(C) probe — defer construction until we
+    // know which branch (iterator vs array-like) we're taking.  The
+    // iterator branch wants Construct(C) with NO args; the array-like
+    // branch wants Construct(C, «len»).  Pre-fix we constructed C up
+    // front with no args, so a user ctor like
+    //   function MyCollection() { this.args = arguments; }
+    // saw arguments.length == 0 from the array-like path
+    // (built-ins/Array/from/Array.from_forwards-length-for-array-likes).
     const proto::ProtoObject* result = nullptr;
+    const proto::ProtoObject* ctorFn = nullptr;
+    bool isBytecodeFn = false;
     {
-        // §23.1.2.1 IsConstructor(C) probe — accept __construct__ AND
-        // bytecode functions (user `function F(){}`); reject arrows
-        // per §10.2.2.  Pre-fix Array.from.call(F, items) with F a
-        // user function silently degraded to a plain Array, so
-        // `result instanceof F` was false (built-ins/Array/from/
-        // iter-cstm-ctor).
-        const proto::ProtoObject* ctorFn = nullptr;
         const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
         if (self && self != PROTO_NONE && self != getUndefinedSentinel() && constructKey) {
             ctorFn = self->getAttribute(ctx, constructKey, false);
             if (ctorFn && ctorFn != PROTO_NONE && !ctorFn->isMethod(ctx))
                 ctorFn = nullptr;
         }
-        bool isBytecodeFn = false;
         if ((!ctorFn || ctorFn == PROTO_NONE)
             && self && self != PROTO_NONE && self != getUndefinedSentinel()) {
             const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
@@ -4199,36 +4201,37 @@ static const proto::ProtoObject* arrayFrom(
                 }
             }
         }
-        if ((ctorFn && ctorFn != PROTO_NONE) || isBytecodeFn) {
-            // Build a fresh instance whose [[Prototype]] is C.prototype.
-            const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-            const proto::ProtoObject* cProto = protoKey
-                ? self->getAttribute(ctx, protoKey, false) : nullptr;
-            result = (cProto && cProto != PROTO_NONE)
-                ? cProto->newChild(ctx, true)
-                : ctx->newObject(true);
-            const proto::ProtoObject* alt = nullptr;
-            if (ctorFn && ctorFn != PROTO_NONE) {
-                proto::ProtoMethod fn = ctorFn->asMethod(ctx);
-                if (fn) alt = fn(ctx, result, nullptr, ctx->newList(), nullptr);
-            } else {
-                // Bytecode user function: call F(...) with `this` = result.
-                // §23.1.2.1 step 4.a / 7.a both call Construct(C) with NO
-                // arguments at this point — items are written into the
-                // receiver later, and Set('length') runs as the final step.
-                alt = callJSFunction(ctx, self, result, ctx->newList());
-            }
-            if (hasCallException()) return PROTO_NONE;
-            if (alt && alt != PROTO_NONE
-                && alt != getUndefinedSentinel() && alt != getNullSentinel()
-                && !alt->isInteger(ctx) && !alt->isDouble(ctx) && !alt->isFloat(ctx)
-                && !alt->isBoolean(ctx) && !alt->isString(ctx)
-                && alt != PROTO_TRUE && alt != PROTO_FALSE) {
-                result = alt;
-            }
-        }
     }
-    if (!result) result = createNewArray(ctx, nullptr);
+    bool hasCtor = (ctorFn && ctorFn != PROTO_NONE) || isBytecodeFn;
+    auto constructC = [&](long long lenArg, bool withLen) -> const proto::ProtoObject* {
+        const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+        const proto::ProtoObject* cProto = protoKey
+            ? self->getAttribute(ctx, protoKey, false) : nullptr;
+        const proto::ProtoObject* res = (cProto && cProto != PROTO_NONE)
+            ? cProto->newChild(ctx, true)
+            : ctx->newObject(true);
+        const proto::ProtoList* ctorArgs = ctx->newList();
+        if (withLen) ctorArgs = ctorArgs->appendLast(ctx,
+            ctx->fromInteger(lenArg));
+        const proto::ProtoObject* alt = nullptr;
+        if (ctorFn && ctorFn != PROTO_NONE) {
+            proto::ProtoMethod fn = ctorFn->asMethod(ctx);
+            if (fn) alt = fn(ctx, res, nullptr, ctorArgs, nullptr);
+        } else {
+            alt = callJSFunction(ctx, self, res, ctorArgs);
+        }
+        if (hasCallException()) return res;
+        if (alt && alt != PROTO_NONE
+            && alt != getUndefinedSentinel() && alt != getNullSentinel()
+            && !alt->isInteger(ctx) && !alt->isDouble(ctx) && !alt->isFloat(ctx)
+            && !alt->isBoolean(ctx) && !alt->isString(ctx)
+            && alt != PROTO_TRUE && alt != PROTO_FALSE) {
+            return alt;
+        }
+        return res;
+    };
+    // (result is constructed per-branch below — iterator branch with
+    // no args, array-like branch with «len».)
 
     // Optional map function (Array.from(src, mapFn[, thisArg])).
     const proto::ProtoObject* mapFn = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : nullptr;
@@ -4289,6 +4292,15 @@ static const proto::ProtoObject* arrayFrom(
             iter = src;
     }
     if (iter) {
+        // §23.1.2.1 step 4.a: if IsConstructor(C), A := Construct(C)
+        // with NO arguments at iterator-branch entry.  Items are
+        // written into A as the iterator yields.
+        if (hasCtor) {
+            result = constructC(0, /*withLen=*/false);
+            if (hasCallException()) return PROTO_NONE;
+        } else {
+            result = createNewArray(ctx, nullptr);
+        }
         {
             (void)iter; // keep block shape
             const proto::ProtoString* nextKey = JSSymbols::next(ctx);
@@ -4446,6 +4458,18 @@ static const proto::ProtoObject* arrayFrom(
             else nSigned = static_cast<long long>(d);
             if (nSigned < 0) nSigned = 0;
             unsigned long n = static_cast<unsigned long>(nSigned);
+            // §23.1.2.1 step 9: if IsConstructor(C), A := Construct(C,
+            // «len») — forward the length as the ctor argument.
+            // Pre-fix we constructed C at the top with no args, so a
+            // user ctor that captures arguments saw an empty args list
+            // (built-ins/Array/from/Array.from_forwards-length-for-
+            // array-likes).
+            if (hasCtor) {
+                result = constructC(static_cast<long long>(n), /*withLen=*/true);
+                if (hasCallException()) return PROTO_NONE;
+            } else {
+                result = createNewArray(ctx, nullptr);
+            }
             // §23.1.2.1 step 12.h: CreateDataPropertyOrThrow(A, Pk,
             // mappedValue) — define a fresh own data descriptor, NOT
             // OrdinarySet.  A ctor-installed (writable:false, ...)
@@ -4484,6 +4508,17 @@ static const proto::ProtoObject* arrayFrom(
         if (s) {
             std::string str;
             s->toUTF8String(ctx, str);
+            // Construct now (string path doesn't go through the
+            // iterator / array-like branches above).
+            if (!result) {
+                if (hasCtor) {
+                    result = constructC(static_cast<long long>(str.size()),
+                                        /*withLen=*/true);
+                    if (hasCallException()) return PROTO_NONE;
+                } else {
+                    result = createNewArray(ctx, nullptr);
+                }
+            }
             unsigned long i = 0;
             for (unsigned char c : str) {
                 char buf[2] = {static_cast<char>(c), '\0'};
@@ -4496,6 +4531,7 @@ static const proto::ProtoObject* arrayFrom(
         return result;
     }
 
+    if (!result) result = createNewArray(ctx, nullptr);
     return result;
 }
 
