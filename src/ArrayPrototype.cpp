@@ -17,6 +17,7 @@ namespace protojs {
 
 static bool arrHas(proto::ProtoContext* ctx, const proto::ProtoObject* arr, unsigned long idx);
 static bool arrHasProperty(proto::ProtoContext* ctx, const proto::ProtoObject* arr, unsigned long idx);
+static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx, const proto::ProtoObject* obj, unsigned long idx);
 
 // ---------------------------------------------------------------------------
 // Internal: compute UTF-16 code unit count from a UTF-8 std::string.
@@ -2382,13 +2383,26 @@ static const proto::ProtoObject* arrayConcat(
         return false;
     };
 
+    // §23.1.3.1 step 5.b.iii / 5.c.iii.6: CreateDataPropertyOrThrow
+    // for every appended slot.  Surface TypeError when the species-
+    // built result is non-extensible OR carries a non-configurable
+    // descriptor at the destination index (built-ins/Array/prototype/
+    // concat/target-array-non-extensible / target-array-with-non-
+    // configurable-property).
+    auto writeOrThrow = [&](const proto::ProtoObject* v) -> bool {
+        if (arrayThrowIfCreateDataPropertyFails(ctx, result, outIdx)) return true;
+        arrSet(ctx, result, outIdx++, v);
+        return hasCallException();
+    };
+
     // Spread self.
     if (isSpreadable(self)) {
         unsigned long n = arrLen(ctx, self);
-        for (unsigned long i = 0; i < n; i++)
-            arrSet(ctx, result, outIdx++, arrGet(ctx, self, i));
+        for (unsigned long i = 0; i < n; i++) {
+            if (writeOrThrow(arrGet(ctx, self, i))) return PROTO_NONE;
+        }
     } else if (self && self != PROTO_NONE) {
-        arrSet(ctx, result, outIdx++, self);
+        if (writeOrThrow(self)) return PROTO_NONE;
     }
 
     // Spread each argument.
@@ -2398,10 +2412,11 @@ static const proto::ProtoObject* arrayConcat(
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(ai));
             if (isSpreadable(item)) {
                 unsigned long n = arrLen(ctx, item);
-                for (unsigned long i = 0; i < n; i++)
-                    arrSet(ctx, result, outIdx++, arrGet(ctx, item, i));
+                for (unsigned long i = 0; i < n; i++) {
+                    if (writeOrThrow(arrGet(ctx, item, i))) return PROTO_NONE;
+                }
             } else {
-                arrSet(ctx, result, outIdx++, item);
+                if (writeOrThrow(item)) return PROTO_NONE;
             }
         }
     }
@@ -2722,6 +2737,46 @@ static const proto::ProtoObject* arrayForEach(
 }
 
 // ---------------------------------------------------------------------------
+// CreateDataPropertyOrThrow probe: returns true and signals TypeError
+// when the index write would fail per §7.3.5/§7.3.6 (target is non-
+// extensible AND the slot is new; OR the slot already has a non-
+// configurable own descriptor).  Used by every spec method that uses
+// CreateDataPropertyOrThrow on its species-created result:
+// map / filter / slice / splice / concat / flatMap / Array.from /
+// Array.of / toReversed / toSpliced / toSorted / with.
+// ---------------------------------------------------------------------------
+static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* obj,
+                                                 unsigned long idx) {
+    const proto::ProtoString* k =
+        JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    bool nonExtensible = wrapper
+        && obj->hasParent(ctx, wrapper->getNonExtensibleMarker());
+    bool hasOwnK = k && obj->hasOwnAttribute(ctx, k) == PROTO_TRUE;
+    if (nonExtensible && !hasOwnK) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot define property: object is not extensible"));
+        return true;
+    }
+    if (hasOwnK) {
+        std::string pdStr = "__pd_" + std::to_string(idx) + "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        if (pdk && obj->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx)
+                && (pdv->asLong(ctx) & 0x2) == 0) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot redefine non-configurable data property"));
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------------------
 // map(callback[, thisArg])
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* arrayMap(
@@ -2762,6 +2817,7 @@ static const proto::ProtoObject* arrayMap(
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
+        if (arrayThrowIfCreateDataPropertyFails(ctx, result, i)) return PROTO_NONE;
         result = arrSet(ctx, result, i, mapped);
     }
     return result;
@@ -2808,6 +2864,8 @@ static const proto::ProtoObject* arrayFilter(
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep)) {
             if (!elem || elem == PROTO_NONE) elem = undefSent;
+            if (arrayThrowIfCreateDataPropertyFails(ctx, result, outIdx))
+                return PROTO_NONE;
             result = arrSet(ctx, result, outIdx++, elem);
         }
     }
@@ -3553,10 +3611,22 @@ static const proto::ProtoObject* arraySplice(
         if (delCount > len - start) delCount = len - start;
     }
 
-    // Collect removed elements.
-    const proto::ProtoObject* removed = createNewArray(ctx, nullptr);
-    for (long long i = 0; i < delCount; i++)
-        removed = arrSet(ctx, removed, (unsigned long)i, arrGet(ctx, self, (unsigned long)(start + i)));
+    // §23.1.3.29 step 9: A = ? ArraySpeciesCreate(O, actualDeleteCount).
+    // The "removed" array must come from the species, not a fresh
+    // default array — a species function may install
+    // preventExtensions / non-configurable descriptors on the
+    // instance that CreateDataPropertyOrThrow must surface as
+    // TypeError (built-ins/Array/prototype/splice/target-array-
+    // non-extensible / target-array-with-non-configurable-property).
+    const proto::ProtoObject* removed =
+        arraySpeciesCreate(ctx, self, static_cast<unsigned long>(delCount));
+    if (hasCallException()) return PROTO_NONE;
+    for (long long i = 0; i < delCount; i++) {
+        if (arrayThrowIfCreateDataPropertyFails(ctx, removed, (unsigned long)i))
+            return PROTO_NONE;
+        removed = arrSet(ctx, removed, (unsigned long)i,
+                         arrGet(ctx, self, (unsigned long)(start + i)));
+    }
 
     // Collect items to insert.
     long long insertCount = n >= 2 ? n - 2 : 0;
