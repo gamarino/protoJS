@@ -1931,8 +1931,24 @@ static const proto::ProtoObject* arrayToSorted(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
+    // §23.1.3.34 toSorted explicitly uses ArrayCreate(len), NOT
+    // ArraySpeciesCreate — Symbol.species and any custom .constructor
+    // are ignored.  Pre-fix toSorted delegated to arrayCloneShallow
+    // (which DOES walk species), so a poisoned .constructor getter
+    // fired and toSorted bubbled the user's abrupt completion
+    // (built-ins/Array/prototype/toSorted/ignores-species).
+    long long len = static_cast<long long>(arrLen(ctx, self));
+    if (hasCallException()) return PROTO_NONE;
+    const proto::ProtoObject* copy = createNewArray(ctx, nullptr);
     if (!copy) return PROTO_NONE;
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    for (long long k = 0; k < len; k++) {
+        const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(k));
+        if (hasCallException()) return PROTO_NONE;
+        if (!v || v == PROTO_NONE) v = undefSent;
+        arrSet(ctx, copy, static_cast<unsigned long>(k), v);
+    }
+    arrSetLen(ctx, copy, static_cast<unsigned long>(len > 0 ? len : 0));
     return arraySort(ctx, copy, nullptr, args, nullptr);
 }
 
