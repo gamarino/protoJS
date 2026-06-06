@@ -588,8 +588,19 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 ctx->fromUTF8String("prototype") ? ctx->fromUTF8String("prototype")->asString(ctx) : nullptr;
             if (protoKey) {
                 const proto::ProtoObject* dateProto = ctx->newObject(true);
-                if (dateProto)
+                if (dateProto) {
                     dateObj = dateObj->setAttribute(ctx, protoKey, dateProto);
+                    // §21.4.3.3 / §17: Date.prototype descriptor is
+                    // {writable:false, enumerable:false, configurable:false}
+                    // → bits 0x0.  Pre-fix the slot defaulted to fully
+                    // enumerable/writable/configurable (built-ins/Date/
+                    // prototype/prop-desc).
+                    const proto::ProtoObject* pdpo =
+                        ctx->fromUTF8String("__pd_prototype__");
+                    const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+                    if (pdpk) dateObj = dateObj->setAttribute(ctx, pdpk,
+                        ctx->fromInteger(0x0LL));
+                }
             }
             const proto::ProtoString* nowKey =
                 ctx->fromUTF8String("now") ? ctx->fromUTF8String("now")->asString(ctx) : nullptr;
