@@ -2679,23 +2679,35 @@ static const proto::ProtoObject* arrayMap(
     // non-object).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
     if (hasCallException()) return PROTO_NONE;
-    // §23.1.3.18 step 6.f.iii: CreateDataPropertyOrThrow(A, k, mappedValue)
-    // — every accepted slot must become an OWN data property on the
-    // result.  Writing PROTO_NONE clears the attribute rather than
-    // creating an undefined slot, leaving newArr[k] to fall through
-    // to Array.prototype[k] inherited data.  Convert PROTO_NONE to
-    // the JS undefined sentinel so the own data property lands.
-    // Pre-fix [1,2,3].map(() => undefined) returned an array whose
-    // [k] reads bled through to Array.prototype inheritance.
+    // §23.1.3.18 step 6.f.iii: CreateDataPropertyOrThrow(A, k,
+    // mappedValue) — DEFINE-OWN-DATA, NOT OrdinarySet.  Use direct
+    // setAttribute on the index + __pd_<i>__ reset to defaults so
+    // inherited setters on the result chain (Array.prototype[k] =
+    // setter) DO NOT fire (built-ins/Array/prototype/map/15.4.4.19-
+    // 8-c-i-22, filter/15.4.4.20-9-c-i-22) and a pre-existing
+    // non-writable own descriptor is replaced wholesale (Array.from
+    // / Array.of variant of the same pattern).
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    constexpr long long kDefaultPdBits = 0x7;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* mapped =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
-        result = arrSet(ctx, result, i, mapped);
+        const proto::ProtoString* k =
+            JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        if (k) result = result->setAttribute(ctx, k, mapped);
+        std::string pdStr = "__pd_" + std::to_string(i) + "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        if (pdk) result = result->setAttribute(ctx, pdk,
+                              ctx->fromInteger(kDefaultPdBits));
     }
+    // §23.1.3.18 step 7: Set(A, 'length', len, true).  Use arrSetLen
+    // so user __set_length__ accessors observe the write.
+    arrSetLen(ctx, result, len);
+    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
@@ -2723,14 +2735,17 @@ static const proto::ProtoObject* arrayFilter(
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
     if (hasCallException()) return PROTO_NONE;
     // §23.1.3.7 step 7.c.iii.2: CreateDataPropertyOrThrow(A, toIdx,
-    // kValue) — every accepted slot must become an OWN data
-    // property on the result.  Writing PROTO_NONE clears the
-    // attribute rather than creating an undefined slot, leaving
-    // newArr[k] to fall through to Array.prototype[k] inherited
-    // data (built-ins/Array/prototype/filter/15.4.4.20-9-c-i-20:
-    // own setter-only on arr[0] + Array.prototype[0]=100 must
-    // surface undefined, not 100, in the filter result).
+    // kValue) — DEFINE-OWN-DATA, NOT OrdinarySet.  Use direct
+    // setAttribute on the index + __pd_<i>__ reset to defaults so
+    // inherited setters on the result chain (Array.prototype[k] =
+    // setter) DO NOT fire, and a pre-existing non-writable own
+    // descriptor is replaced wholesale.
+    // built-ins/Array/prototype/filter/15.4.4.20-9-c-i-20 (own
+    // setter-only on arr[0] + Array.prototype[0]=100 → undefined,
+    // not 100) and -9-c-i-22 (inherited setter must not fire on
+    // result write) both pin this.
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    constexpr long long kDefaultPdBits = 0x7;
     unsigned long outIdx = 0;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
@@ -2740,9 +2755,19 @@ static const proto::ProtoObject* arrayFilter(
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep)) {
             if (!elem || elem == PROTO_NONE) elem = undefSent;
-            result = arrSet(ctx, result, outIdx++, elem);
+            const proto::ProtoString* k =
+                JSSymbols::indexKey(ctx, static_cast<uint32_t>(outIdx));
+            if (k) result = result->setAttribute(ctx, k, elem);
+            std::string pdStr = "__pd_" + std::to_string(outIdx) + "__";
+            const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+            const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+            if (pdk) result = result->setAttribute(ctx, pdk,
+                                  ctx->fromInteger(kDefaultPdBits));
+            outIdx++;
         }
     }
+    arrSetLen(ctx, result, outIdx);
+    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
