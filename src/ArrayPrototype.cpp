@@ -584,9 +584,12 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
         ? arr->hasOwnAttribute(ctx, isArrKey) : nullptr;
     bool isRealArray = (isArrVal == PROTO_TRUE);
 
-    // §10.4.2.1 ArraySetLength step 16.a / §9.1.9 OrdinarySet: if
+    // §10.4.2.1 ArraySetLength step 16 / §9.1.9 OrdinarySet: if
     // length is non-writable (own __pd_length__ bit 0 cleared),
     // throw TypeError BEFORE mutating __elements__ or the data slot.
+    // The throw fires even when newLen equals the current length —
+    // OrdinarySetWithOwnDescriptor step 2.a returns false on any
+    // write to a non-writable data slot, regardless of value.
     // Pre-fix push / pop / shift / unshift / splice (any caller that
     // routes through arrSetLen) silently succeeded against a frozen
     // length (built-ins/Array/prototype/{push,pop,shift,unshift}/
@@ -597,14 +600,8 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
         if (pdk && arr->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
             const proto::ProtoObject* pdv = arr->getAttribute(ctx, pdk, false);
             if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
-                // length non-writable; if newLen equals current length,
-                // it's a no-op and shouldn't throw.
-                unsigned long curLen = arrLen(ctx, arr);
-                if (newLen != curLen) {
-                    signalNativeException(makeNativeError(ctx, "TypeError",
-                        "Cannot assign to read-only property 'length'"));
-                    return arr;
-                }
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot assign to read-only property 'length'"));
                 return arr;
             }
         }
@@ -1495,61 +1492,34 @@ static const proto::ProtoObject* arrayShift(
         return false;
     };
 
-    // Native ProtoList path. removeFirst is O(log N) and preserves all
-    // remaining elements without the manual shift loop.
-    if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
-        unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
-        if (size == 0) {
-            if (throwIfShiftLengthFrozen()) return PROTO_NONE;
-            return PROTO_NONE;
-        }
-        const proto::ProtoObject* first = list->getAt(ctx, 0);
-        const proto::ProtoList* shrunk = list->removeFirst(ctx);
-        if (shrunk) setArrayElements(ctx, self, shrunk);
-        return first ? first : PROTO_NONE;
-    }
-
-    // Legacy string-keyed path.
+    // §23.1.3.27 spec walk: read O[0], shift each k=1..len-1 to k-1
+    // (Get + Set), delete O[len-1], Set length.  Route through arrGet
+    // / arrSet / arrSetLen so inherited accessors fire and __pd_length__
+    // / __set_length__ are honoured.
     unsigned long len = arrLen(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
     if (len == 0) {
-        // §23.1.3.27 step 3.a runs Set(O, 'length', 0, Throw=true) even
-        // on an empty receiver.  A non-writable length descriptor on a
-        // function / frozen array-like raises TypeError there.  Pre-fix
-        // the early empty-return swallowed that Set
-        // (built-ins/Array/prototype/shift/throws-when-this-value-length-
-        // is-writable-false).
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
-        if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
-            const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
-            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
-                signalNativeException(makeNativeError(ctx, "TypeError",
-                    "Cannot assign to read-only property 'length'"));
-                return PROTO_NONE;
-            }
-        }
-        // §23.1.3.27 step 3.a: actually perform Set(O, 'length', 0).
-        // ToUint32(arrLen) clamps NaN / negative / non-integer lengths
-        // to 0 — the spec then writes the clamped value back so
-        // subsequent reads see 0 rather than the raw input.  Pre-fix
-        // the early empty return left obj.length = NaN
-        // (Sputnik S15.4.4.9_A2_T2).
-        const proto::ProtoString* lenK = JSSymbols::length(ctx);
-        if (lenK) self->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
+        arrSetLen(ctx, self, 0);
+        if (hasCallException()) return PROTO_NONE;
         return PROTO_NONE;
     }
     const proto::ProtoObject* first = arrGet(ctx, self, 0);
+    if (hasCallException()) return PROTO_NONE;
     for (unsigned long i = 1; i < len; i++) {
-        arrSet(ctx, self, i - 1, arrGet(ctx, self, i));
+        const proto::ProtoObject* v = arrGet(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
+        arrSet(ctx, self, i - 1, v);
+        if (hasCallException()) return PROTO_NONE;
     }
+    // Delete final index.  For real arrays this is implicit in
+    // arrSetLen's truncation; for array-likes the legacy length-
+    // write doesn't truncate by itself.
     const proto::ProtoString* lastKey =
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(len - 1));
     if (lastKey) self->setAttribute(ctx, lastKey, PROTO_NONE);
-    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey)
-        self->setAttribute(ctx, lenKey,
-                           ctx->fromInteger(static_cast<long long>(len - 1)));
-    return first ? first : PROTO_NONE;
+    arrSetLen(ctx, self, len - 1);
+    if (hasCallException()) return PROTO_NONE;
+    return (first && first != PROTO_NONE) ? first : getUndefinedSentinel();
 }
 
 static const proto::ProtoObject* arrayUnshift(
@@ -1583,25 +1553,19 @@ static const proto::ProtoObject* arrayUnshift(
     };
     if (throwIfLengthFrozen()) return PROTO_NONE;
 
-    // Native ProtoList path. appendFirst inserts at index 0 in O(log N)
-    // per element, no manual right-shift loop needed.
-    if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
-        unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
-        if (argc == 0) return ctx->fromInteger(static_cast<long long>(size));
-        const proto::ProtoList* newList = list;
-        // Insert args in reverse so that args[0] ends up at index 0
-        // (each appendFirst pushes the previous head right).
-        for (long long i = static_cast<long long>(argc) - 1; i >= 0; --i) {
-            const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            newList = newList->appendFirst(ctx, item ? item : PROTO_NONE);
-        }
-        setArrayElements(ctx, self, newList);
-        return ctx->fromInteger(static_cast<long long>(newList->getSize(ctx)));
-    }
-
-    // Legacy string-keyed path.
+    // §23.1.3.32 spec walk: shift each k=len-1..0 to k+argc, then
+    // write args[0..argc-1] at indices 0..argc-1, then set length.
+    // Route through arrGet / arrSet / arrSetLen so inherited
+    // accessors fire and __pd_length__ / __set_length__ are honoured.
     unsigned long len = arrLen(ctx, self);
-    if (argc == 0) return ctx->fromInteger(static_cast<long long>(len));
+    if (hasCallException()) return PROTO_NONE;
+    if (argc == 0) {
+        // Spec still runs Set(O, 'length', len, true) — surface
+        // __pd_length__ writable bit.
+        arrSetLen(ctx, self, len);
+        if (hasCallException()) return PROTO_NONE;
+        return ctx->fromInteger(static_cast<long long>(len));
+    }
     // §23.1.3.32 step 4.e.i Set(O, ToString(j), E, true) raises TypeError
     // when the target slot is a getter-only accessor (no [[Set]]).
     // Pre-fix the legacy arrSet path silently dropped the write on
@@ -1625,17 +1589,18 @@ static const proto::ProtoObject* arrayUnshift(
         }
     }
     for (long long i = static_cast<long long>(len) - 1; i >= 0; i--) {
-        arrSet(ctx, self, static_cast<unsigned long>(i) + argc,
-               arrGet(ctx, self, static_cast<unsigned long>(i)));
+        const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(i));
+        if (hasCallException()) return PROTO_NONE;
+        arrSet(ctx, self, static_cast<unsigned long>(i) + argc, v);
+        if (hasCallException()) return PROTO_NONE;
     }
     for (unsigned long i = 0; i < argc; i++) {
         arrSet(ctx, self, i, args->getAt(ctx, static_cast<int>(i)));
+        if (hasCallException()) return PROTO_NONE;
     }
     unsigned long newLen = len + argc;
-    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey)
-        self->setAttribute(ctx, lenKey,
-                           ctx->fromInteger(static_cast<long long>(newLen)));
+    arrSetLen(ctx, self, newLen);
+    if (hasCallException()) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(newLen));
 }
 
