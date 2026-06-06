@@ -3693,6 +3693,12 @@ static const proto::ProtoObject* arrayFrom(
     // was Array instead of the spec-required Object.
     const proto::ProtoObject* result = nullptr;
     {
+        // §23.1.2.1 IsConstructor(C) probe — accept __construct__ AND
+        // bytecode functions (user `function F(){}`); reject arrows
+        // per §10.2.2.  Pre-fix Array.from.call(F, items) with F a
+        // user function silently degraded to a plain Array, so
+        // `result instanceof F` was false (built-ins/Array/from/
+        // iter-cstm-ctor).
         const proto::ProtoObject* ctorFn = nullptr;
         const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
         if (self && self != PROTO_NONE && self != getUndefinedSentinel() && constructKey) {
@@ -3700,7 +3706,19 @@ static const proto::ProtoObject* arrayFrom(
             if (ctorFn && ctorFn != PROTO_NONE && !ctorFn->isMethod(ctx))
                 ctorFn = nullptr;
         }
-        if (ctorFn && ctorFn != PROTO_NONE) {
+        bool isBytecodeFn = false;
+        if ((!ctorFn || ctorFn == PROTO_NONE)
+            && self && self != PROTO_NONE && self != getUndefinedSentinel()) {
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
+                const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
+                const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
+                if (!arrowK || self->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
+                    isBytecodeFn = true;
+                }
+            }
+        }
+        if ((ctorFn && ctorFn != PROTO_NONE) || isBytecodeFn) {
             // Build a fresh instance whose [[Prototype]] is C.prototype.
             const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
             const proto::ProtoObject* cProto = protoKey
@@ -3708,13 +3726,24 @@ static const proto::ProtoObject* arrayFrom(
             result = (cProto && cProto != PROTO_NONE)
                 ? cProto->newChild(ctx, true)
                 : ctx->newObject(true);
-            proto::ProtoMethod fn = ctorFn->asMethod(ctx);
-            if (fn) {
-                const proto::ProtoObject* alt = fn(ctx, result, nullptr,
-                    ctx->newList(), nullptr);
-                if (alt && alt != PROTO_NONE && !alt->isInteger(ctx)
-                    && !alt->isDouble(ctx) && !alt->isFloat(ctx))
-                    result = alt;
+            const proto::ProtoObject* alt = nullptr;
+            if (ctorFn && ctorFn != PROTO_NONE) {
+                proto::ProtoMethod fn = ctorFn->asMethod(ctx);
+                if (fn) alt = fn(ctx, result, nullptr, ctx->newList(), nullptr);
+            } else {
+                // Bytecode user function: call F(...) with `this` = result.
+                // §23.1.2.1 step 4.a / 7.a both call Construct(C) with NO
+                // arguments at this point — items are written into the
+                // receiver later, and Set('length') runs as the final step.
+                alt = callJSFunction(ctx, self, result, ctx->newList());
+            }
+            if (hasCallException()) return PROTO_NONE;
+            if (alt && alt != PROTO_NONE
+                && alt != getUndefinedSentinel() && alt != getNullSentinel()
+                && !alt->isInteger(ctx) && !alt->isDouble(ctx) && !alt->isFloat(ctx)
+                && !alt->isBoolean(ctx) && !alt->isString(ctx)
+                && alt != PROTO_TRUE && alt != PROTO_FALSE) {
+                result = alt;
             }
         }
     }
@@ -3869,9 +3898,30 @@ static const proto::ProtoObject* arrayFrom(
             else nSigned = static_cast<long long>(d);
             if (nSigned < 0) nSigned = 0;
             unsigned long n = static_cast<unsigned long>(nSigned);
+            // §23.1.2.1 step 12.h: CreateDataPropertyOrThrow(A, Pk,
+            // mappedValue) — define a fresh own data descriptor, NOT
+            // OrdinarySet.  A ctor-installed (writable:false, ...)
+            // slot must be replaced wholesale, and an inherited
+            // setter on the chain must NOT fire.  Bypass arrSet's
+            // OrdinarySet semantics by writing the index attribute
+            // and resetting __pd_<i>__ to default flags
+            // (built-ins/Array/from/source-object-length-set-elem-
+            // prop-non-writable).
+            constexpr long long kDefaultPdBits = 0x7;
             for (unsigned long i = 0; i < n; i++) {
                 const proto::ProtoObject* v = arrGet(ctx, src, i);
-                arrSet(ctx, result, i, applyMap(v, static_cast<long long>(i)));
+                if (hasCallException()) return PROTO_NONE;
+                const proto::ProtoObject* mapped = applyMap(v, static_cast<long long>(i));
+                if (hasCallException()) return PROTO_NONE;
+                const proto::ProtoString* k =
+                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                if (k) result = result->setAttribute(ctx, k,
+                                    mapped ? mapped : PROTO_NONE);
+                std::string pdStr = "__pd_" + std::to_string(i) + "__";
+                const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdk) result = result->setAttribute(ctx, pdk,
+                                      ctx->fromInteger(kDefaultPdBits));
             }
             result = arrSetLen(ctx, result, n);
             return result;
@@ -3987,9 +4037,29 @@ static const proto::ProtoObject* arrayOf(
         result = createNewArray(ctx, nullptr);
     }
 
+    // §23.1.2.2 step 8: CreateDataPropertyOrThrow(A, k, kValue).
+    // This is DEFINE-OWN-DATA, NOT OrdinarySet — an inherited setter
+    // on the receiver's prototype chain (Array.prototype[k] = setter)
+    // MUST be ignored, and a pre-existing __pd_<idx>__ describing the
+    // slot as non-writable/non-enumerable must be reset to the
+    // default attribute flags ({writable: true, enumerable: true,
+    // configurable: true}) because CreateDataProperty installs a
+    // FRESH descriptor, not a value-only update.
+    // built-ins/Array/of/does-not-use-prototype-properties (skip
+    // inherited setter) and built-ins/Array/from/source-object-
+    // length-set-elem-prop-non-writable (reset descriptor flags
+    // when ctor-installed slot had writable:false) both pin this.
+    constexpr long long kDefaultPdBits = 0x7; // writable|configurable|enumerable
     for (unsigned long i = 0; i < argc; i++) {
-        arrSet(ctx, result, i, args->getAt(ctx, static_cast<int>(i)));
-        if (hasCallException()) return PROTO_NONE;
+        const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
+        const proto::ProtoString* k =
+            JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        if (k) result = result->setAttribute(ctx, k, v ? v : PROTO_NONE);
+        std::string pdStr = "__pd_" + std::to_string(i) + "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        if (pdk) result = result->setAttribute(ctx, pdk,
+                              ctx->fromInteger(kDefaultPdBits));
     }
     // §23.1.2.2 step 9: Set(A, 'length', len, true).  arrSetLen
     // honours user __set_length__ accessors (package-3 commit) so
