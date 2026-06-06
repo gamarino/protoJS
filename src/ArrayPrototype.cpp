@@ -928,6 +928,29 @@ static bool arrayThrowIfCallbackNotCallable(proto::ProtoContext* ctx,
         // function IS callable.
         const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
         if (bfKey && fn->hasAttribute(ctx, bfKey) == PROTO_TRUE) return false;
+        // Built-in constructors (String, Number, Boolean, Array, Error,
+        // RegExp, TypedArray, Object, ...) carry marker attributes
+        // instead of __native_fn__.  typeof returns "function" for
+        // them via the same set of probes — mirror that here so user
+        // code like `[1,2].map(String)` /  `arr.map(Number)` is not
+        // rejected as non-callable.  Harness compareArray.format uses
+        // `Array.prototype.map.call(arrayLike, String)` so every
+        // compareArray-using test depended on this.
+        const proto::ProtoString* acK = JSSymbols::arrayCtor(ctx);
+        if (acK && fn->getAttribute(ctx, acK, false) == PROTO_TRUE) return false;
+        const proto::ProtoString* ecK = JSSymbols::errorCtor(ctx);
+        if (ecK && fn->hasAttribute(ctx, ecK) == PROTO_TRUE) return false;
+        const proto::ProtoString* reK = JSSymbols::regexpCtor(ctx);
+        if (reK && fn->getAttribute(ctx, reK, false) == PROTO_TRUE) return false;
+        const proto::ProtoString* taK = JSSymbols::taCtor(ctx);
+        if (taK && fn->hasAttribute(ctx, taK) == PROTO_TRUE) return false;
+        const proto::ProtoString* scK = JSSymbols::stringCtor(ctx);
+        if (scK && fn->getAttribute(ctx, scK, false) == PROTO_TRUE) return false;
+        const proto::ProtoString* conK = JSSymbols::construct(ctx);
+        if (conK) {
+            const proto::ProtoObject* cv = fn->getAttribute(ctx, conK, false);
+            if (cv && cv != PROTO_NONE && cv->isMethod(ctx)) return false;
+        }
     }
     signalNativeException(makeNativeError(ctx, "TypeError",
         (std::string(method) + " callback is not a function").c_str()));
