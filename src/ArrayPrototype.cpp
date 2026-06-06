@@ -3925,6 +3925,26 @@ static const proto::ProtoObject* arrayFrom(
                 idx++;
                 if (idx > 100000) break; // safety
             }
+            // Iterator branch also uses CreateDataPropertyOrThrow per
+            // §23.1.2.1 step 6.h.viii — reset __pd_<i>__ to default
+            // flags so a ctor-installed (writable:false, ...) own
+            // descriptor is overwritten rather than just having its
+            // value replaced (built-ins/Array/from/iter-set-elem-
+            // prop-non-writable).
+            constexpr long long kDefaultPdBits = 0x7;
+            // Write directly to string-keyed indices and reset __pd__.
+            for (long long i = 0; i < idx; i++) {
+                const proto::ProtoObject* v = resultEls->getAt(ctx, static_cast<int>(i));
+                const proto::ProtoString* k =
+                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                if (k) result = result->setAttribute(ctx, k, v ? v : PROTO_NONE);
+                std::string pdStr = "__pd_" + std::to_string(i) + "__";
+                const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdk) result = result->setAttribute(ctx, pdk,
+                                      ctx->fromInteger(kDefaultPdBits));
+            }
+            // Also publish __elements__ for fast-path readers.
             setArrayElements(ctx, result, resultEls);
             const proto::ProtoString* lk = JSSymbols::length(ctx);
             if (lk) result = result->setAttribute(ctx, lk, ctx->fromInteger(idx));
