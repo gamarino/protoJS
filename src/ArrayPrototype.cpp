@@ -3927,29 +3927,76 @@ static const proto::ProtoObject* arrayOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    const proto::ProtoObject* result;
-    const proto::ProtoString* constructKey = ctx->fromUTF8String("__construct__")->asString(ctx);
-    const proto::ProtoObject* constructFn = (constructKey && self && self != PROTO_NONE) ? self->getAttribute(ctx, constructKey, false) : nullptr;
-    bool isCtor = constructFn && constructFn != PROTO_NONE && constructFn->isMethod(ctx);
+    // §23.1.2.2 Array.of step 4: If IsConstructor(C) is true,
+    //   let A = ? Construct(C, « len »).  Else
+    //   let A = ? ArrayCreate(len).
+    // Pre-fix isCtor only matched __construct__-style builtins;
+    // user functions (which carry __bytecode_id__) fell into the
+    // default-array branch, so Array.of.call(Coop, ...) never
+    // returned a Coop instance (built-ins/Array/of/return-a-custom-
+    // instance) and Pack's __set_length__ never fired
+    // (built-ins/Array/of/sets-length).
     unsigned long argc = args ? static_cast<unsigned long>(args->getSize(ctx)) : 0;
+    const proto::ProtoObject* result = nullptr;
 
-    if (isCtor) {
+    const proto::ProtoString* constructKey = JSSymbols::construct(ctx);
+    const proto::ProtoObject* constructFn = (constructKey && self && self != PROTO_NONE)
+        ? self->getAttribute(ctx, constructKey, false) : nullptr;
+    bool hasNativeCtor = constructFn && constructFn != PROTO_NONE && constructFn->isMethod(ctx);
+
+    bool isBytecodeFn = false;
+    if (self && self != PROTO_NONE) {
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
+            // Arrow functions are NOT constructible per §10.2.2.
+            const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
+            const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
+            if (!arrowK || self->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
+                isBytecodeFn = true;
+            }
+        }
+    }
+
+    if (hasNativeCtor || isBytecodeFn) {
         const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-        const proto::ProtoObject* proto = self->getAttribute(ctx, protoKey, true);
-        result = (proto && proto != PROTO_NONE) ? proto->newChild(ctx, true) : ctx->newObject(true);
+        const proto::ProtoObject* proto = protoKey
+            ? self->getAttribute(ctx, protoKey, true) : nullptr;
+        result = (proto && proto != PROTO_NONE)
+            ? proto->newChild(ctx, true) : ctx->newObject(true);
         const proto::ProtoList* ctorArgs = ctx->newList();
-        ctorArgs = ctorArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(argc)));
-        proto::ProtoMethod fn = constructFn->asMethod(ctx);
-        const proto::ProtoObject* res = fn(ctx, result, nullptr, ctorArgs, nullptr);
-        if (res && res != PROTO_NONE && !res->isInteger(ctx) && !res->isDouble(ctx) && !res->asString(ctx) && res != PROTO_TRUE && res != PROTO_FALSE)
+        ctorArgs = ctorArgs->appendLast(ctx,
+            ctx->fromInteger(static_cast<long long>(argc)));
+        const proto::ProtoObject* res = nullptr;
+        if (hasNativeCtor) {
+            proto::ProtoMethod fn = constructFn->asMethod(ctx);
+            res = fn(ctx, result, nullptr, ctorArgs, nullptr);
+        } else {
+            res = callJSFunction(ctx, self, result, ctorArgs);
+        }
+        if (hasCallException()) return PROTO_NONE;
+        // §10.1.13 OrdinaryCallEvaluateBody: Object result wins, else
+        // the freshly allocated receiver.
+        if (res && res != PROTO_NONE
+            && res != getUndefinedSentinel() && res != getNullSentinel()
+            && !res->isInteger(ctx) && !res->isDouble(ctx) && !res->isFloat(ctx)
+            && !res->isBoolean(ctx) && !res->isString(ctx)
+            && res != PROTO_TRUE && res != PROTO_FALSE) {
             result = res;
+        }
     } else {
         result = createNewArray(ctx, nullptr);
     }
-    
-    for (unsigned long i = 0; i < argc; i++)
+
+    for (unsigned long i = 0; i < argc; i++) {
         arrSet(ctx, result, i, args->getAt(ctx, static_cast<int>(i)));
-    result = arrSetLen(ctx, result, argc);
+        if (hasCallException()) return PROTO_NONE;
+    }
+    // §23.1.2.2 step 9: Set(A, 'length', len, true).  arrSetLen
+    // honours user __set_length__ accessors (package-3 commit) so
+    // a user-supplied length setter on the constructor-installed
+    // receiver fires correctly.
+    arrSetLen(ctx, result, argc);
+    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
