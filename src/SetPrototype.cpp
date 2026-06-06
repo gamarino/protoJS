@@ -1434,6 +1434,13 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* gksSym =
                     ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
+                // §24.2.2.2 get Set[@@species] descriptor: accessor
+                // with {enumerable:false, configurable:true} → 0x2.
+                // Pre-fix the species slot had no descriptor and
+                // defaulted to fully enumerable.
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.species__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
     }
