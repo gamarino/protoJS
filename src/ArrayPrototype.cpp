@@ -2376,13 +2376,53 @@ static const proto::ProtoObject* arrayCopyWithin(
     if (count <= 0) return O;
 
     // Read source range into a temporary buffer to handle overlaps.
+    // Track fromPresent per index so step 17.f's
+    // DeletePropertyOrThrow(O, toKey) runs for absent sources.
     std::vector<const proto::ProtoObject*> tmp;
+    std::vector<bool> fromPresent;
     tmp.reserve(static_cast<size_t>(count));
-    for (long long i = 0; i < count; i++)
-        tmp.push_back(arrGet(ctx, self, static_cast<unsigned long>(start + i)));
-    for (long long i = 0; i < count; i++)
-        arrSet(ctx, self, static_cast<unsigned long>(target + i),
-               tmp[static_cast<size_t>(i)]);
+    fromPresent.reserve(static_cast<size_t>(count));
+    for (long long i = 0; i < count; i++) {
+        bool present = arrHasProperty(ctx, self, static_cast<unsigned long>(start + i));
+        if (hasCallException()) return PROTO_NONE;
+        fromPresent.push_back(present);
+        if (present) {
+            tmp.push_back(arrGet(ctx, self, static_cast<unsigned long>(start + i)));
+            if (hasCallException()) return PROTO_NONE;
+        } else {
+            tmp.push_back(PROTO_NONE);
+        }
+    }
+    for (long long i = 0; i < count; i++) {
+        unsigned long toIdx = static_cast<unsigned long>(target + i);
+        if (fromPresent[static_cast<size_t>(i)]) {
+            arrSet(ctx, self, toIdx, tmp[static_cast<size_t>(i)]);
+            if (hasCallException()) return PROTO_NONE;
+        } else {
+            // §23.1.3.4 step 17.f: DeletePropertyOrThrow(O, toKey).
+            // A non-configurable own data slot can't be deleted —
+            // throw TypeError (built-ins/Array/prototype/copyWithin/
+            // return-abrupt-from-delete-target).
+            const proto::ProtoString* tk =
+                JSSymbols::indexKey(ctx, static_cast<uint32_t>(toIdx));
+            if (tk) {
+                // Check own configurable bit before clearing.
+                std::string pdStr = "__pd_" + std::to_string(toIdx) + "__";
+                const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdk && self->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
+                    const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
+                    if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x2) == 0) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot delete non-configurable property"));
+                        return PROTO_NONE;
+                    }
+                }
+                // Clear the own data attribute.
+                self->setAttribute(ctx, tk, PROTO_NONE);
+            }
+        }
+    }
 
     return O;
 }
