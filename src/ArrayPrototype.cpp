@@ -2603,12 +2603,22 @@ static const proto::ProtoObject* arrayMap(
     // non-object).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, len);
     if (hasCallException()) return PROTO_NONE;
+    // §23.1.3.18 step 6.f.iii: CreateDataPropertyOrThrow(A, k, mappedValue)
+    // — every accepted slot must become an OWN data property on the
+    // result.  Writing PROTO_NONE clears the attribute rather than
+    // creating an undefined slot, leaving newArr[k] to fall through
+    // to Array.prototype[k] inherited data.  Convert PROTO_NONE to
+    // the JS undefined sentinel so the own data property lands.
+    // Pre-fix [1,2,3].map(() => undefined) returned an array whose
+    // [k] reads bled through to Array.prototype inheritance.
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* mapped =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
-        result = arrSet(ctx, result, i, mapped ? mapped : PROTO_NONE);
+        if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
+        result = arrSet(ctx, result, i, mapped);
     }
     return result;
 }
@@ -2636,6 +2646,15 @@ static const proto::ProtoObject* arrayFilter(
     // round).
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, 0);
     if (hasCallException()) return PROTO_NONE;
+    // §23.1.3.7 step 7.c.iii.2: CreateDataPropertyOrThrow(A, toIdx,
+    // kValue) — every accepted slot must become an OWN data
+    // property on the result.  Writing PROTO_NONE clears the
+    // attribute rather than creating an undefined slot, leaving
+    // newArr[k] to fall through to Array.prototype[k] inherited
+    // data (built-ins/Array/prototype/filter/15.4.4.20-9-c-i-20:
+    // own setter-only on arr[0] + Array.prototype[0]=100 must
+    // surface undefined, not 100, in the filter result).
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
     unsigned long outIdx = 0;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
@@ -2643,8 +2662,10 @@ static const proto::ProtoObject* arrayFilter(
         const proto::ProtoObject* keep =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
-        if (isTruthy(ctx, keep))
+        if (isTruthy(ctx, keep)) {
+            if (!elem || elem == PROTO_NONE) elem = undefSent;
             result = arrSet(ctx, result, outIdx++, elem);
+        }
     }
     return result;
 }
