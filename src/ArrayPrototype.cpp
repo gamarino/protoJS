@@ -827,7 +827,29 @@ static const proto::ProtoObject* arraySpeciesCreate(
         return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
 
     const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
-    const proto::ProtoObject* C = originalArray->getAttribute(ctx, ctorKey, true);
+    // §22.1.3.1.1 step 4: Let C be ? Get(O, 'constructor').  Get walks
+    // accessors — if `constructor` is installed as a getter
+    // (Object.defineProperty(arr, 'constructor', {get: ...})) the
+    // getter must fire, and a throwing getter must propagate.
+    // Pre-fix the raw getAttribute returned the descriptor's empty
+    // data slot, so concat / slice / splice / filter / map / etc.
+    // silently fell back to a fresh Array instead of surfacing the
+    // user's abrupt completion (built-ins/Array/prototype/concat/
+    // create-ctor-poisoned and the family).
+    const proto::ProtoObject* C = nullptr;
+    {
+        const proto::ProtoObject* gcko = ctx->fromUTF8String("__get_constructor__");
+        const proto::ProtoString* gck = gcko ? gcko->asString(ctx) : nullptr;
+        if (gck) {
+            const proto::ProtoObject* getter = originalArray->getAttribute(ctx, gck, true);
+            if (getter && getter != PROTO_NONE) {
+                C = callJSFunction(ctx, getter, originalArray, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+        if (!C || C == PROTO_NONE)
+            C = originalArray->getAttribute(ctx, ctorKey, true);
+    }
 
     // ECMA-262 §22.1.3.1.1 ArraySpeciesCreate steps 7 / 9: when C is a
     // primitive that is neither Object nor undefined, throw TypeError.
