@@ -1698,7 +1698,21 @@ static const proto::ProtoObject* arrayLastIndexOf(
     bool needleIsNaN = needle && (needle->isDouble(ctx) || needle->isFloat(ctx)) &&
                        std::isnan(needle->asDouble(ctx));
     if (needleIsNaN) return ctx->fromInteger(-1LL);
+    // §23.1.3.18 lastIndexOf needle-specialised skip: when needle is
+    // strictly NOT undefined, holes can NEVER match (since strict
+    // equality won't equate any defined value with PROTO_NONE / the
+    // undefined sentinel).  Adding HasProperty for the undefined case
+    // is correct per spec but would regress receivers where explicit
+    // undefined args store as PROTO_NONE (e.g. `new Array(undefined)`
+    // — 15.4.4.14-9-4); gate the HasProperty walk on needle === undefined
+    // so 15.4.4.15-2-1 ({1:null, 2:undefined, length:2}.lastIndexOf
+    // (undefined) → -1) passes without breaking the undefined-element
+    // family.
+    const proto::ProtoObject* undefSent2 = getUndefinedSentinel();
+    bool needleIsUndefined = (!needle || needle == PROTO_NONE || needle == undefSent2);
     for (long long i = from; i >= 0; i--) {
+        if (needleIsUndefined &&
+            !arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<unsigned long>(i));
         // §23.1.3.18 step 7.a Get(O, Pk) is the abrupt-completion site
         // — an accessor at the current index must terminate iteration
