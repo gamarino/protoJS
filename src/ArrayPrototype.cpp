@@ -2968,6 +2968,14 @@ static const proto::ProtoObject* arrayMap(
         result = arrayCreateDataPropertyOrThrow(ctx, result, i, mapped);
         if (hasCallException()) return PROTO_NONE;
     }
+    // §23.1.3.18: A was created via ArraySpeciesCreate(O, len).  The
+    // SPEC says A.length must equal len AT RETURN — visiting holes
+    // doesn't shrink the result.  Pre-fix sparse sources like
+    // \`new Array(10).map(...)\` returned A.length == max(written) + 1
+    // (built-ins/Array/prototype/map/15.4.4.19-8-5).  Explicitly set
+    // length back to the original probe.
+    arrSetLen(ctx, result, len);
+    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
