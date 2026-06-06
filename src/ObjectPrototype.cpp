@@ -2907,47 +2907,56 @@ const proto::ProtoObject* installObjectInstanceMethods(
                 "Cannot convert undefined or null to object"));
             return PROTO_NONE;
         }
-        // Primitives: synthesise the type's natural ToString. Without
-        // this, the attribute lookup for "toString" on String/Boolean
-        // primitives can fall over (the protoCore primitives don't
-        // expose a callable toString attribute the way wrapper objects
-        // do) and we'd return TypeError mid-locale-formatting.
-        if (self->isString(ictx)) return self;  // strings stringify to themselves
-        if (self->isBoolean(ictx))
-            return ictx->fromUTF8String(self->asBoolean(ictx) ? "true" : "false");
-        if (self->isInteger(ictx)) {
-            const std::string tmp = std::to_string(self->asLong(ictx));
-            return ictx->fromUTF8String(tmp.c_str());
-        }
-        if (self->isDouble(ictx) || self->isFloat(ictx)) {
-            char buf[64];
-            double d = self->asDouble(ictx);
-            if (std::isnan(d))      return ictx->fromUTF8String("NaN");
-            if (std::isinf(d))      return ictx->fromUTF8String(d > 0 ? "Infinity" : "-Infinity");
-            if (d == 0.0)           return ictx->fromUTF8String("0");
-            if (d == std::trunc(d) && std::abs(d) < 1e21) {
-                long long iv = static_cast<long long>(d);
-                if (static_cast<double>(iv) == d)
-                    return ictx->fromUTF8String(std::to_string(iv).c_str());
-            }
-            snprintf(buf, sizeof(buf), "%.15g", d);
-            return ictx->fromUTF8String(buf);
-        }
+        // §20.1.3.5 step 2: Invoke(O, "toString").  ALWAYS dispatch
+        // through the prototype chain so a userland override on
+        // Boolean.prototype.toString / Number.prototype.toString /
+        // String.prototype.toString fires.  Pre-fix we short-circuited
+        // primitives to their natural ToString, which silently ignored
+        // overrides — built-ins/Array/prototype/toLocaleString/
+        // primitive_this_value installs Boolean.prototype.toString =
+        // function(){return typeof this;} and probes that
+        // [true,false].toLocaleString() === "boolean,boolean".
+        // Only fall back to the natural synthesis when chain lookup
+        // truly returns nothing callable (e.g. attribute deleted off
+        // the prototype mid-call).
         const proto::ProtoString* tsKey = JSSymbols::toString(ictx);
-        if (!tsKey) return objectToString(ictx, self, nullptr, nullptr, nullptr);
-        const proto::ProtoObject* tsFn = self->getAttribute(ictx, tsKey, true);
-        if (!tsFn || tsFn == PROTO_NONE)
+        const proto::ProtoObject* tsFn = tsKey
+            ? self->getAttribute(ictx, tsKey, true) : nullptr;
+        auto naturalToString = [&]() -> const proto::ProtoObject* {
+            if (self->isString(ictx)) return self;
+            if (self->isBoolean(ictx))
+                return ictx->fromUTF8String(self->asBoolean(ictx) ? "true" : "false");
+            if (self->isInteger(ictx)) {
+                const std::string tmp = std::to_string(self->asLong(ictx));
+                return ictx->fromUTF8String(tmp.c_str());
+            }
+            if (self->isDouble(ictx) || self->isFloat(ictx)) {
+                char buf[64];
+                double d = self->asDouble(ictx);
+                if (std::isnan(d))      return ictx->fromUTF8String("NaN");
+                if (std::isinf(d))      return ictx->fromUTF8String(d > 0 ? "Infinity" : "-Infinity");
+                if (d == 0.0)           return ictx->fromUTF8String("0");
+                if (d == std::trunc(d) && std::abs(d) < 1e21) {
+                    long long iv = static_cast<long long>(d);
+                    if (static_cast<double>(iv) == d)
+                        return ictx->fromUTF8String(std::to_string(iv).c_str());
+                }
+                snprintf(buf, sizeof(buf), "%.15g", d);
+                return ictx->fromUTF8String(buf);
+            }
             return objectToString(ictx, self, nullptr, nullptr, nullptr);
-        // tsFn must be callable; if not, just fall back to the [object T]
-        // format rather than throwing TypeError mid-locale formatting.
+        };
+        if (!tsFn || tsFn == PROTO_NONE) return naturalToString();
+        // tsFn must be callable; if not, fall back to the natural
+        // primitive ToString synthesis rather than throwing TypeError
+        // mid-locale formatting.
         if (!tsFn->isMethod(ictx)) {
             const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ictx);
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ictx);
             bool callable =
                 (bcKey && tsFn->hasAttribute(ictx, bcKey) == PROTO_TRUE) ||
                 (nfKey && tsFn->hasAttribute(ictx, nfKey) == PROTO_TRUE);
-            if (!callable)
-                return objectToString(ictx, self, nullptr, nullptr, nullptr);
+            if (!callable) return naturalToString();
         }
         return callJSFunction(ictx, tsFn, self, ictx->newList());
     };
