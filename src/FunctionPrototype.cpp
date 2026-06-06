@@ -31,6 +31,31 @@ static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn)
     if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
     const proto::ProtoString* cKey = JSSymbols::construct(ctx);
     if (cKey && fn->hasAttribute(ctx, cKey) == PROTO_TRUE) return true;
+    // Built-in constructors (Array, String, Number, Boolean, RegExp,
+    // Error, TypedArray, ...) carry constructor-marker attributes
+    // instead of __native_fn__ on the constructor object itself.
+    // typeof returns "function" for them via the same probes (see
+    // OP_typeof), and arrayThrowIfCallbackNotCallable already accepts
+    // them — so Function.prototype.{call, apply, bind} must too,
+    // otherwise Array.apply(this, args) / String.call(...) etc. throw
+    // \"called on non-callable\" against the spec.  Pre-fix
+    // built-ins/Array/prototype/concat/Array.prototype.concat_non-array
+    // (which uses Array.apply(this, arguments) inside a class
+    // constructor) raised this TypeError.
+    const proto::ProtoString* acK = JSSymbols::arrayCtor(ctx);
+    if (acK && fn->getAttribute(ctx, acK, false) == PROTO_TRUE) return true;
+    const proto::ProtoString* ecK = JSSymbols::errorCtor(ctx);
+    if (ecK && fn->hasAttribute(ctx, ecK) == PROTO_TRUE) return true;
+    const proto::ProtoString* reK = JSSymbols::regexpCtor(ctx);
+    if (reK && fn->getAttribute(ctx, reK, false) == PROTO_TRUE) return true;
+    const proto::ProtoString* taK = JSSymbols::taCtor(ctx);
+    if (taK && fn->hasAttribute(ctx, taK) == PROTO_TRUE) return true;
+    const proto::ProtoString* scK = JSSymbols::stringCtor(ctx);
+    if (scK && fn->getAttribute(ctx, scK, false) == PROTO_TRUE) return true;
+    // Bound functions wrap a target callable behind __bound_fn__.
+    // callJSFunction unwraps them transparently.
+    const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+    if (bfKey && fn->hasAttribute(ctx, bfKey) == PROTO_TRUE) return true;
     return false;
 }
 
