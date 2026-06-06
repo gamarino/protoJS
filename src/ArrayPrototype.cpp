@@ -1803,7 +1803,18 @@ static const proto::ProtoObject* arrayIndexOf(
     bool needleIsNaN = needle && (needle->isDouble(ctx) || needle->isFloat(ctx)) &&
                        std::isnan(needle->asDouble(ctx));
     if (needleIsNaN) return ctx->fromInteger(-1LL);
+    // §23.1.3.13 step 6: kPresent = HasProperty(O, Pk); skip when false.
+    // Pre-fix arrGet returned PROTO_NONE for absent slots which
+    // strictEquals collapsed with the JS undefined sentinel — so
+    // [0, , 2].indexOf(undefined) matched the hole at index 1 instead
+    // of skipping it (built-ins/Array/prototype/indexOf/15.4.4.14-9-b-1).
+    // Gate the HasProperty walk on needle === undefined so defined
+    // needles keep the prior fast path (chain inheritance via arrGet).
+    const proto::ProtoObject* undefSent2 = getUndefinedSentinel();
+    bool needleIsUndefined = (!needle || needle == PROTO_NONE || needle == undefSent2);
     for (long long i = from; i < len; i++) {
+        if (needleIsUndefined &&
+            !arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, static_cast<unsigned long>(i));
         // §23.1.3.13 step 6.b Get(O, Pk) is the abrupt-completion site;
         // a throwing accessor must terminate iteration before later
