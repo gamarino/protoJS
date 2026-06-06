@@ -1944,10 +1944,27 @@ static const proto::ProtoObject* arrayWith(
         return PROTO_NONE;
     }
     const proto::ProtoObject* val = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
-    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
-    if (!copy) return PROTO_NONE;
-    arrSet(ctx, copy, static_cast<unsigned long>(idx), val);
-    return copy;
+    // §23.1.3.39 step 5.b: when k === actualIndex, fromValue := value
+    // (the user-supplied replacement) — do NOT [[Get]] the source at
+    // the replaced index.  Pre-fix arrayCloneShallow read every index
+    // including idx, so a throwing accessor at idx fired and a side-
+    // effecting getter ran when the spec forbids it
+    // (built-ins/Array/prototype/with/no-get-replaced-index).
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    if (!result) return PROTO_NONE;
+    for (long long k = 0; k < len; k++) {
+        const proto::ProtoObject* fromValue;
+        if (k == idx) {
+            fromValue = val ? val : getUndefinedSentinel();
+        } else {
+            fromValue = arrGet(ctx, self, static_cast<unsigned long>(k));
+            if (hasCallException()) return PROTO_NONE;
+        }
+        arrSet(ctx, result, static_cast<unsigned long>(k),
+               fromValue ? fromValue : PROTO_NONE);
+    }
+    arrSetLen(ctx, result, static_cast<unsigned long>(len > 0 ? len : 0));
+    return result;
 }
 
 static const proto::ProtoObject* arrayConcat(
