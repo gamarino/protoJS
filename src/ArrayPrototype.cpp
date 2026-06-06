@@ -509,6 +509,19 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
             }
         }
         if (arrayTryFastSet(ctx, arr, idx, val)) {
+            // If the slot also has a string-keyed attribute (from a
+            // prior Object.defineProperty that stored the value as
+            // an attribute rather than into __elements__), update it
+            // too so Object.getOwnPropertyDescriptor reads the new
+            // value.  Pre-fix the attribute lagged __elements__ and
+            // descriptor.value drifted from the actual element value
+            // (built-ins/Array/prototype/{slice,filter,map,...}/
+            // target-array-with-non-writable-property family).
+            const proto::ProtoString* idxKey =
+                JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+            if (idxKey && arr->hasOwnAttribute(ctx, idxKey) == PROTO_TRUE) {
+                arr = arr->setAttribute(ctx, idxKey, val ? val : PROTO_NONE);
+            }
             return arr;
         }
         // Sparse-overflow (idx - size > kSparseFallbackThreshold).
