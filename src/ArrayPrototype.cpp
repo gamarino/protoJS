@@ -4249,6 +4249,43 @@ static const proto::ProtoObject* arrayOf(
         const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
         const proto::ProtoString* k =
             JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+        // §7.3.5 CreateDataProperty: if O is non-extensible AND k is
+        // not already an own property, the descriptor cannot be
+        // installed — success is false, CreateDataPropertyOrThrow
+        // raises TypeError.  Also: if k IS an own property but its
+        // descriptor is non-configurable, redefining it as a fresh
+        // data descriptor likewise fails.  Two T-cases pin this:
+        //   T1 = function(){Object.preventExtensions(this)}
+        //     → throw because non-extensible.
+        //   T2 = function(){Object.defineProperty(this,0,{configurable:false,
+        //        writable:true,enumerable:true})}
+        //     → throw because existing slot is non-configurable.
+        // built-ins/Array/of/return-abrupt-from-data-property.
+        {
+            JSContextWrapper* wrapper = JSContextWrapper::current();
+            bool nonExtensible = wrapper
+                && result->hasParent(ctx, wrapper->getNonExtensibleMarker());
+            bool hasOwnK = k && result->hasOwnAttribute(ctx, k) == PROTO_TRUE;
+            if (nonExtensible && !hasOwnK) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot define property: object is not extensible"));
+                return PROTO_NONE;
+            }
+            if (hasOwnK) {
+                std::string pdStr0 = "__pd_" + std::to_string(i) + "__";
+                const proto::ProtoObject* pdko0 = ctx->fromUTF8String(pdStr0.c_str());
+                const proto::ProtoString* pdk0 = pdko0 ? pdko0->asString(ctx) : nullptr;
+                if (pdk0 && result->hasOwnAttribute(ctx, pdk0) == PROTO_TRUE) {
+                    const proto::ProtoObject* pdv = result->getAttribute(ctx, pdk0, false);
+                    if (pdv && pdv->isInteger(ctx)
+                        && (pdv->asLong(ctx) & 0x2) == 0) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot redefine non-configurable data property"));
+                        return PROTO_NONE;
+                    }
+                }
+            }
+        }
         if (k) result = result->setAttribute(ctx, k, v ? v : PROTO_NONE);
         std::string pdStr = "__pd_" + std::to_string(i) + "__";
         const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
