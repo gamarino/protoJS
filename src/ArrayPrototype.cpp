@@ -3425,8 +3425,10 @@ static void flatInto(proto::ProtoContext* ctx,
         bool isArr = (isArrAttr == PROTO_TRUE);
         if (isArr && depth > 0)
             flatInto(ctx, elem, dest, outIdx, depth - 1);
-        else
+        else {
+            if (arrayThrowIfCreateDataPropertyFails(ctx, dest, outIdx)) return;
             dest = arrSet(ctx, dest, outIdx++, elem);
+        }
     }
 }
 
@@ -3500,6 +3502,7 @@ static const proto::ProtoObject* arrayFlat(
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     unsigned long outIdx = 0;
     flatInto(ctx, self, result, outIdx, depth);
+    if (hasCallException()) return PROTO_NONE;
     return result;
 }
 
