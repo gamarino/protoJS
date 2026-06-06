@@ -4,6 +4,129 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 9 (2026-06-06): 19 root-cause commits
+
+Ninth Array cleanup pass — 19 commits.  Scope widened from pure Array
+work to the surrounding global-object infrastructure that pkg-8 left
+exposed: @@species accessor installation across every builtin
+constructor, Object.getPrototypeOf identity for builtin .prototype
+objects, the unimplemented-ctor stub family, Function.prototype.{call,
+apply,bind} accepting builtin ctors, and the ES2024 Object.prototype.
+toLocaleString getter dispatch.
+
+Array-correctness fixes (src/ArrayPrototype.cpp):
+
+1. **map: explicit arrSetLen(result, len) at exit.**  §23.1.3.18:
+   A := ArraySpeciesCreate(O, len) — A.length must equal len at
+   return, regardless of source holes.  Pre-fix sparse sources
+   collapsed A.length to max(writtenIndex)+1.
+
+2. **slice: skip writes for source holes, advance n unconditionally.**
+   §23.1.3.28 step 13: kPresent gates CreateDataPropertyOrThrow but n
+   advances every iteration.  Pre-fix slice copied PROTO_NONE into the
+   result for holes; now arrHasProperty gates the write while outIdx
+   still advances, so the final arrSetLen(end-start) honors the spec.
+
+3. **arrayToString: synthesize [object T] when join is non-callable.**
+   §23.1.3.36 step 3: fall back to %Object.prototype.toString% when
+   IsCallable(join) is false.  Pre-fix we fell through to arrayJoin,
+   silently producing "" for {join: null}.  Now emit "[object Object]"
+   directly (with optional Symbol.toStringTag override).
+
+Object.prototype.toLocaleString (src/ObjectPrototype.cpp):
+
+4. **dispatch to overridden toString on primitives.**  §20.1.3.5 step 2:
+   Invoke(O, "toString").  Pre-fix we short-circuited primitives to
+   their natural ToString synthesis BEFORE chain lookup, silently
+   ignoring userland overrides on Boolean / Number / String.prototype.
+
+5. **prefer __get_toString__ accessor over stale data slot.**  When
+   userland installs a getter via Object.defineProperty(Boolean
+   .prototype, "toString", {get:...}), the accessor sidecar lands at
+   __get_toString__ but the data slot retains the pre-existing
+   builtin toString.  Probe the accessor FIRST and invoke the getter
+   when present.
+
+Symbol.species accessor installs (mirrors the §17 §17 ProtocolBuffer
+pattern from Set/Map across the rest of the spec'd hosts):
+
+6. **Array[@@species]** (src/ArrayPrototype.cpp): proper Function.
+   prototype-parented getter with name "get [Symbol.species]",
+   length 0, descriptor 0x2 on the getter, and {!enumerable,
+   configurable} sidecar (0x2) on the species property.
+
+7. **Set/Map[@@species] sidecar** (src/Set/MapPrototype.cpp): species
+   slot {!enumerable, configurable} = 0x2 descriptor.  Pre-fix the
+   getter was installed but the descriptor defaulted to fully
+   enumerable.
+
+8. **Promise[@@species]** (src/PromisePrototype.cpp): fresh install per
+   §27.2.4.5.  Promise lacked any species accessor entirely.
+
+9. **RegExp[@@species]** (src/RegExpPrototype.cpp): fresh install per
+   §22.2.4.2.
+
+10. **ArrayBuffer[@@species]** (src/ArrayBufferPrototype.cpp): fresh
+    install per §25.1.4.3.
+
+Global-object infrastructure (src/runtime/ProtoInterpreter.cpp):
+
+11. **Pin builtin .prototype's [[Prototype]] to the post-update
+    Object.prototype.**  ensureObjectConstructor installs the
+    .constructor backref via setAttribute → new snapshot of
+    objectPrototype, but Array.prototype / Function.prototype / etc.
+    were already parented at the OLD snapshot.  Walk every builtin
+    after global init and pin its observable __proto__ via
+    t_jsProtoMap — same path Object.setPrototypeOf already takes.
+
+12. **unimplemented-ctor stubs: name descriptor 0x2.**  §17 mandates
+    {!writable, !enumerable, configurable} on every builtin ctor's
+    "name".  Pre-fix the stub had no sidecar so verifyProperty failed
+    on Iterator / WeakRef / Date / ... .
+
+13. **unimplemented-ctor stubs: parent on Function.prototype.**  §17:
+    every builtin ctor's [[Prototype]] is %FunctionPrototype%.  Pre-
+    fix the stubs were plain newObject() so getPrototypeOf surfaced
+    Object.prototype.
+
+14. **unimplemented-ctor + isConstructible: __is_constructor__
+    marker.**  §10.3 IsConstructor.  Stubs gain the marker and
+    Reflect.construct's probe recognises it alongside the existing
+    __construct__ / __array_ctor__ / __error_ctor__ / __regexp_ctor__
+    / __ta_ctor__ / __string_ctor__ / __bytecode_id__ markers.
+
+15. **TimingAPIs Date stub: install __pd_Date__ = 0x3.**  The console
+    TimingAPIs installer puts a minimal Date stub onto the global root
+    BEFORE the unimplemented-ctor loop, so Date.<descriptor> stayed
+    fully enumerable.  Stamp the sidecar where Date is registered.
+
+16. **TimingAPIs Date stub: install __pd_prototype__ = 0x0.**  §21.4.3.3:
+    Date.prototype is {!writable, !enumerable, !configurable}.  Same
+    early-install window leak as #15.
+
+17. **TimingAPIs Date stub: install __is_constructor__ marker.**  Same
+    early-install window leak; companion to #14.
+
+Function.prototype.{call,apply,bind} (src/FunctionPrototype.cpp):
+
+18. **Accept built-in constructors as callable.**  fnIsCallable only
+    recognised isMethod / __bytecode_id__ / __native_fn__ /
+    __construct__ markers — but builtins (Array, String, Number,
+    Boolean, RegExp, Error, TypedArray, ...) carry shape-specific
+    *Ctor markers, and bound functions are wrapped behind __bound_fn__.
+    Mirror arrayThrowIfCallbackNotCallable's whitelist so
+    Array.apply(this, args) and friends dispatch correctly.
+
+ES2026 disposable-resource ctors (src/runtime/ProtoInterpreter.cpp):
+
+19. **Stub the remaining ES2026 ctors.**  SuppressedError,
+    DisposableStack, AsyncDisposableStack, AbstractModuleSource were
+    absent — test262's bare reference at the top of each proto / length
+    / name / is-a-constructor probe threw before assertions could run.
+
+Result: 373 → 337 Array fails (-36, +1.2 pp), 0 net regressions across
+the 2 516-test prev-pass baseline.
+
 ### Array cleanup package 8 (2026-06-06): 7 root-cause commits
 
 Eighth Array cleanup pass — 7 commits.  Theme: close the package-7
