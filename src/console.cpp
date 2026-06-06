@@ -691,6 +691,18 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 if (m) dateObj = dateObj->setAttribute(ctx, nfKey, m);
             }
             globalObj = globalObj->setAttribute(ctx, dateKey, dateObj);
+            // §17: globalThis.Date is {writable:true, enumerable:false,
+            // configurable:true} → bits 0x3.  ProtoInterpreter's
+            // unimplemented-ctor loop installs the same sidecar, but
+            // skips when Date already exists — and the TimingAPIs
+            // installer runs first.  Without this sidecar the slot
+            // defaults to fully enumerable, failing built-ins/Date/
+            // prop-desc.
+            const proto::ProtoObject* pdo =
+                ctx->fromUTF8String("__pd_Date__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) globalObj = globalObj->setAttribute(ctx, pdk,
+                ctx->fromInteger(0x3LL));
         }
     }
 
