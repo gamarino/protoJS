@@ -1855,9 +1855,25 @@ static const proto::ProtoObject* arrayToReversed(
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
-    if (!copy) return PROTO_NONE;
-    return arrayReverse(ctx, copy, nullptr, nullptr, nullptr);
+    // §23.1.3.36 step 5: walk k = 0..len, reading O[len-k-1] each step.
+    // The READ ORDER is len-1, len-2, ..., 0 — observable via accessor
+    // getters.  Pre-fix toReversed did arrayCloneShallow (ascending
+    // reads) then arrayReverse, so user-visible getter order was
+    // 0,1,2,...  Test built-ins/Array/prototype/toReversed/get-
+    // descending-order probes the spec-correct sequence.
+    long long len = static_cast<long long>(arrLen(ctx, self));
+    if (hasCallException()) return PROTO_NONE;
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    if (!result) return PROTO_NONE;
+    for (long long k = 0; k < len; k++) {
+        const proto::ProtoObject* v =
+            arrGet(ctx, self, static_cast<unsigned long>(len - k - 1));
+        if (hasCallException()) return PROTO_NONE;
+        arrSet(ctx, result, static_cast<unsigned long>(k),
+               v ? v : PROTO_NONE);
+    }
+    arrSetLen(ctx, result, static_cast<unsigned long>(len > 0 ? len : 0));
+    return result;
 }
 
 static const proto::ProtoObject* arrayToSorted(
