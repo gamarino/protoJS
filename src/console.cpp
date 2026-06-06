@@ -701,6 +701,13 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     ctx->fromMethod(nullptr, TimingAPIs::dateNow);
                 if (m) dateObj = dateObj->setAttribute(ctx, nfKey, m);
             }
+            // §10.3 IsConstructor: Date carries [[Construct]] per
+            // §21.4.2.  Pre-fix the early TimingAPIs Date stub had
+            // no constructor marker, so Reflect.construct (via the
+            // test262 isConstructor harness) saw it as non-
+            // constructible (built-ins/Date/is-a-constructor).
+            const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+            if (icK) dateObj = dateObj->setAttribute(ctx, icK, PROTO_TRUE);
             globalObj = globalObj->setAttribute(ctx, dateKey, dateObj);
             // §17: globalThis.Date is {writable:true, enumerable:false,
             // configurable:true} → bits 0x3.  ProtoInterpreter's
