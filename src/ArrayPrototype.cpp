@@ -1891,10 +1891,86 @@ static const proto::ProtoObject* arrayToSpliced(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    const proto::ProtoObject* copy = arrayCloneShallow(ctx, self);
-    if (!copy) return PROTO_NONE;
-    arraySplice(ctx, copy, nullptr, args, nullptr);
-    return copy;
+    // §23.1.3.37 toSpliced walks the source twice: once for the
+    // prefix [0, actualStart), once for the suffix [actualStart +
+    // actualDeleteCount, len) — the deleted window is NEVER [[Get]].
+    // Pre-fix toSpliced cloned the whole source via arrayCloneShallow
+    // (reads every index) then mutated via splice, so a throwing
+    // accessor inside the deleted window fired even though the spec
+    // skips it (built-ins/Array/prototype/toSpliced/discarded-
+    // element-not-read).
+    long long len = static_cast<long long>(arrLen(ctx, self));
+    if (hasCallException()) return PROTO_NONE;
+    long long n = args ? static_cast<long long>(args->getSize(ctx)) : 0LL;
+
+    // ToIntegerOrInfinity helper (mirrors splice/slice).
+    auto toII = [&](const proto::ProtoObject* o, long long defaultV) -> long long {
+        if (!o || o == PROTO_NONE || o == getUndefinedSentinel()) return defaultV;
+        const proto::ProtoObject* num = o;
+        if (!o->isInteger(ctx) && !o->isDouble(ctx) && !o->isFloat(ctx)) {
+            num = jsToNumber(ctx, o);
+            if (hasCallException() || !num) return defaultV;
+        }
+        if (num->isInteger(ctx)) return num->asLong(ctx);
+        if (num->isDouble(ctx) || num->isFloat(ctx)) {
+            double d = num->asDouble(ctx);
+            if (std::isnan(d)) return 0;
+            if (std::isinf(d)) return d > 0 ? len : -len - 1;
+            return static_cast<long long>(d);
+        }
+        return defaultV;
+    };
+
+    long long start = n >= 1 ? toII(args->getAt(ctx, 0), 0) : 0;
+    if (hasCallException()) return PROTO_NONE;
+    if (start < 0) { start += len; if (start < 0) start = 0; }
+    if (start > len) start = len;
+
+    long long delCount;
+    if (n == 0)      delCount = 0;
+    else if (n == 1) delCount = len - start;
+    else {
+        delCount = toII(args->getAt(ctx, 1), 0);
+        if (hasCallException()) return PROTO_NONE;
+        if (delCount < 0) delCount = 0;
+        if (delCount > len - start) delCount = len - start;
+    }
+
+    long long insertCount = n >= 2 ? n - 2 : 0;
+    long long newLen = len - delCount + insertCount;
+
+    const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    if (!result) return PROTO_NONE;
+    long long i = 0;
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    // Spec §23.1.3.37 step 13/18 uses CreateDataPropertyOrThrow for
+    // EVERY visited slot — toSpliced collapses holes into own
+    // `undefined` data properties.  Use the JS undefined sentinel
+    // instead of PROTO_NONE so the slot becomes a real own attr
+    // (built-ins/Array/prototype/toSpliced/holes-not-preserved).
+    auto write = [&](long long ti, const proto::ProtoObject* v) {
+        if (!v || v == PROTO_NONE) v = undefSent;
+        arrSet(ctx, result, static_cast<unsigned long>(ti), v);
+    };
+    // Prefix: copy O[0..start).
+    for (long long k = 0; k < start; k++, i++) {
+        const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(k));
+        if (hasCallException()) return PROTO_NONE;
+        write(i, v);
+    }
+    // Inserts: args[2..n).
+    for (long long j = 0; j < insertCount; j++, i++) {
+        write(i, args->getAt(ctx, static_cast<int>(2 + j)));
+    }
+    // Suffix: copy O[start + delCount .. len).  The deleted window is
+    // NEVER touched.
+    for (long long k = start + delCount; k < len; k++, i++) {
+        const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(k));
+        if (hasCallException()) return PROTO_NONE;
+        write(i, v);
+    }
+    arrSetLen(ctx, result, static_cast<unsigned long>(newLen > 0 ? newLen : 0));
+    return result;
 }
 
 static const proto::ProtoObject* arrayWith(
