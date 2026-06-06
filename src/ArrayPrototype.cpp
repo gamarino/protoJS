@@ -4198,7 +4198,17 @@ static const proto::ProtoObject* arrayFrom(
             // prop-non-writable).
             constexpr long long kDefaultPdBits = 0x7;
             // Write directly to string-keyed indices and reset __pd__.
+            // Probe CreateDataPropertyOrThrow's failure conditions
+            // before each write so a species ctor's
+            // preventExtensions(this) / Object.defineProperty(this,0,
+            // {configurable:false}) side effects surface as TypeError
+            // (built-ins/Array/from/iter-set-elem-prop-err and
+            // iter-set-length-err).
             for (long long i = 0; i < idx; i++) {
+                if (arrayThrowIfCreateDataPropertyFails(ctx, result,
+                        static_cast<unsigned long>(i))) {
+                    return PROTO_NONE;
+                }
                 const proto::ProtoObject* v = resultEls->getAt(ctx, static_cast<int>(i));
                 const proto::ProtoString* k =
                     JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
@@ -4260,6 +4270,8 @@ static const proto::ProtoObject* arrayFrom(
                 if (hasCallException()) return PROTO_NONE;
                 const proto::ProtoObject* mapped = applyMap(v, static_cast<long long>(i));
                 if (hasCallException()) return PROTO_NONE;
+                if (arrayThrowIfCreateDataPropertyFails(ctx, result, i))
+                    return PROTO_NONE;
                 const proto::ProtoString* k =
                     JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
                 if (k) result = result->setAttribute(ctx, k,
