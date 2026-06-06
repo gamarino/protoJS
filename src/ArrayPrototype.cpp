@@ -2825,7 +2825,11 @@ static const proto::ProtoObject* arrayForEach(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.forEach")) return PROTO_NONE;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
-        callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        // §23.1.3.15 step 6.b.iii.1: ? Get(O, Pk).  Throwing getter
+        // terminates iteration BEFORE callback runs.
+        if (hasCallException()) return PROTO_NONE;
+        callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
     }
     return PROTO_NONE;
@@ -2946,8 +2950,12 @@ static const proto::ProtoObject* arrayMap(
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        // §23.1.3.18 step 6.f.ii: ? Get(O, Pk).  Throwing getter
+        // terminates iteration BEFORE callback runs.
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* mapped =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
         result = arrayCreateDataPropertyOrThrow(ctx, result, i, mapped);
@@ -2992,6 +3000,9 @@ static const proto::ProtoObject* arrayFilter(
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        // §23.1.3.7 step 7.c.i: ? Get(O, Pk).  Throwing getter
+        // terminates iteration BEFORE callback runs.
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* keep =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
@@ -3024,6 +3035,7 @@ static const proto::ProtoObject* arrayFind(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.find")) return PROTO_NONE;
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
@@ -3051,6 +3063,7 @@ static const proto::ProtoObject* arrayFindIndex(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findIndex")) return PROTO_NONE;
     for (unsigned long i = 0; i < len; i++) {
         const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
@@ -3078,6 +3091,7 @@ static const proto::ProtoObject* arrayFindLast(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLast")) return PROTO_NONE;
     for (long long i = (long long)len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
         if (hasCallException()) return PROTO_NONE;
@@ -3105,6 +3119,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.findLastIndex")) return PROTO_NONE;
     for (long long i = (long long)len - 1; i >= 0; i--) {
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res  =
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, i, self));
         if (hasCallException()) return PROTO_NONE;
@@ -3132,8 +3147,10 @@ static const proto::ProtoObject* arraySome(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.some")) return PROTO_NONE;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, res)) return PROTO_TRUE;
     }
@@ -3159,8 +3176,10 @@ static const proto::ProtoObject* arrayEvery(
     if (arrayThrowIfCallbackNotCallable(ctx, fn, "Array.prototype.every")) return PROTO_NONE;
     for (unsigned long i = 0; i < len; i++) {
         if (!arrHasProperty(ctx, self, i)) continue;
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoObject* res =
-            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
+            callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, elem, (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (!isTruthy(ctx, res)) return PROTO_FALSE;
     }
