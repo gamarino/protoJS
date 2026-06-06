@@ -1245,21 +1245,42 @@ static const proto::ProtoObject* arrayToString(
         const proto::ProtoString* joinKey = joinObj ? joinObj->asString(ctx) : nullptr;
         if (joinKey) {
             const proto::ProtoObject* joinFn = self->getAttribute(ctx, joinKey, true);
+            bool joinIsCallable = false;
             if (joinFn && joinFn != PROTO_NONE) {
-                bool callable = joinFn->isMethod(ctx);
-                if (!callable) {
+                joinIsCallable = joinFn->isMethod(ctx);
+                if (!joinIsCallable) {
                     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-                    if (bcKey && joinFn->hasAttribute(ctx, bcKey) == PROTO_TRUE) callable = true;
+                    if (bcKey && joinFn->hasAttribute(ctx, bcKey) == PROTO_TRUE) joinIsCallable = true;
                     else {
                         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-                        if (nfKey && joinFn->hasAttribute(ctx, nfKey) == PROTO_TRUE) callable = true;
+                        if (nfKey && joinFn->hasAttribute(ctx, nfKey) == PROTO_TRUE) joinIsCallable = true;
                     }
                 }
-                if (callable) {
-                    return callJSFunction(ctx, joinFn, self,
-                        args ? args : ctx->newList());
+            }
+            if (joinIsCallable) {
+                return callJSFunction(ctx, joinFn, self,
+                    args ? args : ctx->newList());
+            }
+            // §23.1.3.36 step 3: If IsCallable(func) is false, set
+            // func to the intrinsic %Object.prototype.toString%.
+            // Pre-fix we fell through to arrayJoin on a non-callable
+            // join, which silently produced "" for non-array receivers
+            // like `{join: null}`.  Synthesize the §20.1.3.6 result
+            // here — pick up an optional Symbol.toStringTag from the
+            // receiver, otherwise emit "[object Object]" (this branch
+            // already excluded the primitive types above).
+            const proto::ProtoString* tagKey = JSSymbols::symbolToStringTag(ctx);
+            std::string tag = "Object";
+            if (tagKey) {
+                const proto::ProtoObject* tagV = self->getAttribute(ctx, tagKey, true);
+                if (tagV && tagV != PROTO_NONE && tagV->isString(ctx)) {
+                    std::string s;
+                    tagV->asString(ctx)->toUTF8String(ctx, s);
+                    if (!s.empty()) tag = s;
                 }
             }
+            std::string out = std::string("[object ") + tag + "]";
+            return ctx->fromUTF8String(out.c_str());
         }
     }
     return arrayJoin(ctx, self, pl, nullptr, kw);
