@@ -426,28 +426,30 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
         if (fastVal != PROTO_NONE) return fastVal;
     }
 
-    // Step 3: Probe inherited accessor getter BEFORE the raw data
-    // read.  When Object.defineProperty installs an accessor on the
-    // prototype chain, the data slot at the key may be populated
-    // with the JS undefined sentinel (a placeholder).  Reading the
-    // raw data first would return that placeholder and never reach
-    // the inherited getter.  Pre-fix `new Array(1).pop()` with an
-    // inherited Array.prototype[0] getter returned undefined without
-    // firing the getter (built-ins/Array/prototype/pop/set-length-
-    // array-length-is-non-writable).
+    // Step 3: OWN data slot — overrides any inherited accessor per
+    // §10.1.5 OrdinaryGet (own descriptor wins).
+    if (arr->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
+        const proto::ProtoObject* val = arr->getAttribute(ctx, key, false);
+        if (val && val != PROTO_NONE) return val;
+    }
+
+    // Step 4: Probe INHERITED accessor getter BEFORE the inherited
+    // raw data read.  When Object.defineProperty installs an accessor
+    // on the prototype chain, the data slot at the key may be a
+    // placeholder (undefined sentinel).  Reading raw data first would
+    // return that placeholder and never reach the inherited getter
+    // (built-ins/Array/prototype/pop/set-length-array-length-is-non-
+    // writable).
     if (gk) {
         const proto::ProtoObject* inheritedGetter = arr->getAttribute(ctx, gk, true);
         if (inheritedGetter && inheritedGetter != PROTO_NONE) {
             const proto::ProtoObject* result = callJSFunction(ctx, inheritedGetter, arr, ctx->newList());
             if (hasCallException()) return PROTO_NONE;
             if (result && result != PROTO_NONE) return result;
-            // Getter returned PROTO_NONE → fall through to data read
-            // (the getter might have INSTALLED data on the receiver
-            // as a side-effect, e.g. `Object.freeze(array)`).
         }
     }
 
-    // Step 4: Read data value from own or inherited chain.
+    // Step 5: inherited data slot.
     const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
     if (val && val != PROTO_NONE) return val;
 
@@ -1244,31 +1246,25 @@ static const proto::ProtoObject* arrayPush(
     const bool isRealArray = (isArrVal == PROTO_TRUE);
 
     if (isRealArray) {
-    // Native ProtoList path. build the new list in a local pointer
-        // (each appendLast is O(log N) and produces a fresh AVL node),
-        // then publish via a single setAttribute(__elements__, …).  This
-        // is the lazy-publish pattern from the microbench (~3 us/op vs
-        // ~5 us/op for per-element setAttribute on a string-keyed tree).
-        //
-        // GC critical section: each appendLast produces a fresh ProtoList
-        // root that is reachable only via the C++ local `list` until the
-        // closing setArrayElements publishes it through setAttribute.
-        // With PROTOCORE_GC_REINCLUDE_SURVIVORS=ON, every cell appears in
-        // dirtySegments after each sweep, so a concurrent mark cycle that
-        // misses the C++ local will free the half-built list under us
-        // (manifested as a getHash segfault inside the AVL rebuild from
-        // setAttribute).  CriticalSection bars STW + threshold submission
-        // for this thread, so the young chain holds the new cells until
-        // the publish lands.
-        proto::ProtoContext::CriticalSection cs(ctx);
-        const proto::ProtoList* list = getArrayElements(ctx, self);
-        if (!list) list = ctx->newList();
+        // §23.1.3.20 step 6.c: for each argument, Set(O, ToString(len),
+        // E, true).  Route through arrSet so any inherited
+        // __set_<idx>__ on the prototype chain fires
+        // (built-ins/Array/prototype/push/set-length-array-length-is-
+        // non-writable installs a setter on Array.prototype[0] inside
+        // which array.length is made non-writable; the final length
+        // write must surface TypeError).  And route the length write
+        // through arrSetLen so __pd_length__ writable bit fires.
+        unsigned long len = arrLen(ctx, self);
+        if (hasCallException()) return PROTO_NONE;
         for (unsigned long i = 0; i < argc; i++) {
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            list = list->appendLast(ctx, item ? item : PROTO_NONE);
+            arrSet(ctx, self, len + i, item ? item : PROTO_NONE);
+            if (hasCallException()) return PROTO_NONE;
         }
-        setArrayElements(ctx, self, list);
-        return ctx->fromInteger(static_cast<long long>(list->getSize(ctx)));
+        unsigned long newLen = len + argc;
+        arrSetLen(ctx, self, newLen);
+        if (hasCallException()) return PROTO_NONE;
+        return ctx->fromInteger(static_cast<long long>(newLen));
     }
 
     // Plain object used as an array-like — write string-keyed indices
@@ -1309,13 +1305,13 @@ static const proto::ProtoObject* arrayPush(
     for (unsigned long i = 0; i < argc; i++) {
         const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
         arrSet(ctx, self, len + i, item);
+        if (hasCallException()) return PROTO_NONE;
     }
     unsigned long newLen = len + argc;
-    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey) {
-        self->setAttribute(ctx, lenKey,
-            ctx->fromInteger(static_cast<long long>(newLen)));
-    }
+    // Route length write through arrSetLen so __pd_length__ writable
+    // bit + user __set_length__ accessors both surface correctly.
+    arrSetLen(ctx, self, newLen);
+    if (hasCallException()) return PROTO_NONE;
     return ctx->fromInteger(static_cast<long long>(newLen));
 }
 
