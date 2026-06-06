@@ -4,6 +4,87 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 4 (2026-06-05): 10 one-fix-per-failure commits
+
+Fourth Array cleanup pass — 10 commits, each fixing a distinct
+spec-level root cause.  All in src/ArrayPrototype.cpp.
+
+**splice (shrink path) — DeletePropertyOrThrow on vacated indices:**
+§23.1.3.29 step 21.d walks k = len-1..newLen calling
+DeletePropertyOrThrow.  Real arrays got this implicitly via
+__elements__ truncation, but array-likes left obj[newLen..len-1]
+observable as their pre-splice values.  Mirror arrayPop's clear
+pattern in the shrink branch.
+
+**push — overflow TypeError at the integer limit:** §23.1.3.20
+step 5 fires TypeError before mutation when len + argCount
+> 2^53-1.  arrLen clamps Infinity to 2^32-1 (the correct
+semantics for iteration helpers), which hid the overflow.  Read
+the raw length attribute and check for +Infinity / >2^53-1-
+argCount before falling into arrLen.  -Infinity / NaN / negatives
+still flow through ToLength → 0 unchanged.
+
+**arrayThrowIfCallbackNotCallable — built-in constructors are
+callable:** IsCallable returns true for String / Number / Boolean
+/ Array / Error / RegExp / TypedArray / Object — they all carry
+ctor-marker attributes instead of __native_fn__.  Mirror the
+typeof opcode's marker probe set.  The harness's
+compareArray.format uses \`Array.prototype.map.call(arrayLike,
+String)\` so every compareArray-using test was blocked behind
+this gap.
+
+**arrLen — stod parser for float-shaped length strings:** Package
+3's stoll-with-pos parser correctly rejected '123abc' as NaN, but
+also rejected '2.5', '2E0', '0002.00' — stoll stops at '.' / 'E'.
+Use stod for the non-hex branch so the ECMA-262 StringNumeric-
+Literal grammar is honoured; still require pos to consume the
+whole trimmed value so NaN-on-trailing-garbage is preserved.
+
+**toReversed — descending read order:** §23.1.3.36 step 5 walks
+k = 0..len reading O[len-k-1] each step.  Pre-fix arrayClone-
+Shallow + arrayReverse produced ASCENDING reads then flipped
+storage.  Walk spec loop directly.
+
+**toSpliced — skip deleted window, walk prefix + suffix:**
+§23.1.3.37 reads only [0..start) and [start+delCount..len) —
+the deleted window is never [[Get]].  Pre-fix arrayCloneShallow
++ arraySplice read the whole source so a throwing accessor
+inside the deletion fired.
+
+**with — skip [[Get]] at the replaced index:** §23.1.3.39 step
+5.b uses the user-supplied value directly when k === idx — no
+[[Get]] on O at that index.  Pre-fix arrayCloneShallow read every
+index so a throwing accessor at the replaced slot still fired.
+
+**toReversed / with / toSpliced — collapse holes into own
+undefined:** CreateDataPropertyOrThrow on every visited slot.
+Convert PROTO_NONE returns from arrGet to the JS undefined
+sentinel before arrSet so result.hasOwnProperty(k) holds for
+every k in [0, len).
+
+**pop — route last-index through arrGet for chain inheritance:**
+§23.1.3.21 step 4.c does [[Get]] which walks the prototype chain.
+A PROTO_NONE pad at the last index (from x.length=N extending
+past dense __elements__) shadowed Array.prototype[idx] inherited
+values; route through arrGet which already implements the
+accessor + chain-walk path.
+
+**lastIndexOf — needle===undefined gates HasProperty skip:**
+§23.1.3.18 step 7 says HasProperty-then-Get.  A blanket
+HasProperty walk regresses arrays where \`new Array(undefined)\`
+stores PROTO_NONE in the data slot.  Gate the HasProperty check
+on needle === undefined.
+
+**Coverage:** built-ins/Array full pattern goes from 2 516 / 3 081
+(81.7 %) post-package-3 to **2 664 / 3 081 (86.5 %)** — +4.8 pp,
++148 tests on 10 commits.  Verified via batch re-run of all 534
+prev-failing tests (386 remain) plus the 2 516 prev-passing
+tests (all still pass — 0 regressions).  Remaining 386 fails
+cluster around: Array.fromAsync (81 tests, feature not yet
+implemented), Symbol.species and Array.from Realm/Proxy interop,
+Object.prototype index inheritance, length > 2^32-1 semantics,
+and several sort/concat patterns needing deeper rework.
+
 ### Array cleanup package 3 (2026-06-05): 5 high-impact one-fix-per-failure commits
 
 Third Array cleanup pass — 5 commits, each fixing a distinct
