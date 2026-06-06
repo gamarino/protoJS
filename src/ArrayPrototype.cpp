@@ -426,18 +426,30 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
         if (fastVal != PROTO_NONE) return fastVal;
     }
 
-    // Step 3: Read data value from own or inherited chain.
-    const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
-    if (val && val != PROTO_NONE) return val;
-
-    // Step 4: Check for inherited accessor getter (no own accessor found above).
+    // Step 3: Probe inherited accessor getter BEFORE the raw data
+    // read.  When Object.defineProperty installs an accessor on the
+    // prototype chain, the data slot at the key may be populated
+    // with the JS undefined sentinel (a placeholder).  Reading the
+    // raw data first would return that placeholder and never reach
+    // the inherited getter.  Pre-fix `new Array(1).pop()` with an
+    // inherited Array.prototype[0] getter returned undefined without
+    // firing the getter (built-ins/Array/prototype/pop/set-length-
+    // array-length-is-non-writable).
     if (gk) {
         const proto::ProtoObject* inheritedGetter = arr->getAttribute(ctx, gk, true);
         if (inheritedGetter && inheritedGetter != PROTO_NONE) {
             const proto::ProtoObject* result = callJSFunction(ctx, inheritedGetter, arr, ctx->newList());
-            if (!hasCallException() && result && result != PROTO_NONE) return result;
+            if (hasCallException()) return PROTO_NONE;
+            if (result && result != PROTO_NONE) return result;
+            // Getter returned PROTO_NONE → fall through to data read
+            // (the getter might have INSTALLED data on the receiver
+            // as a side-effect, e.g. `Object.freeze(array)`).
         }
     }
+
+    // Step 4: Read data value from own or inherited chain.
+    const proto::ProtoObject* val = arr->getAttribute(ctx, key, true);
+    if (val && val != PROTO_NONE) return val;
 
     return PROTO_NONE;
 }
@@ -464,6 +476,33 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
         if (!getArrayElements(ctx, arr)) {
             const proto::ProtoList* empty = ctx->newList();
             if (empty) setArrayElements(ctx, arr, empty);
+        }
+        // §9.1.9 OrdinarySet: if no OWN descriptor exists at idx but
+        // an INHERITED [[Set]] does, invoke the setter and do NOT
+        // create an own data property.  When idx is past the dense
+        // __elements__ tail, the slot has no own descriptor — probe
+        // Array.prototype[idx] (or higher) for an inherited setter
+        // and dispatch.  Pre-fix the fast path wrote __elements__
+        // unconditionally, so `Object.defineProperty(Array.prototype,
+        // '0', {set: f}); arr.unshift(1)` never fired f.
+        const proto::ProtoList* els = getArrayElements(ctx, arr);
+        unsigned long elsSize = els
+            ? static_cast<unsigned long>(els->getSize(ctx)) : 0;
+        if (idx >= elsSize) {
+            std::string skStr = "__set_" + std::to_string(idx) + "__";
+            const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+            const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+            if (sk && arr->hasAttribute(ctx, sk) == PROTO_TRUE
+                && arr->hasOwnAttribute(ctx, sk) != PROTO_TRUE) {
+                const proto::ProtoObject* setter = arr->getAttribute(ctx, sk, true);
+                if (setter && setter != PROTO_NONE) {
+                    const proto::ProtoList* sargs = ctx->newList();
+                    sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
+                    callJSFunction(ctx, setter, arr, sargs);
+                    if (hasCallException()) return arr;
+                    return arr;
+                }
+            }
         }
         if (arrayTryFastSet(ctx, arr, idx, val)) {
             return arr;
@@ -542,6 +581,32 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     const proto::ProtoObject* isArrVal = isArrKey
         ? arr->hasOwnAttribute(ctx, isArrKey) : nullptr;
     bool isRealArray = (isArrVal == PROTO_TRUE);
+
+    // §10.4.2.1 ArraySetLength step 16.a / §9.1.9 OrdinarySet: if
+    // length is non-writable (own __pd_length__ bit 0 cleared),
+    // throw TypeError BEFORE mutating __elements__ or the data slot.
+    // Pre-fix push / pop / shift / unshift / splice (any caller that
+    // routes through arrSetLen) silently succeeded against a frozen
+    // length (built-ins/Array/prototype/{push,pop,shift,unshift}/
+    // set-length-array-length-is-non-writable).
+    {
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk && arr->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
+            const proto::ProtoObject* pdv = arr->getAttribute(ctx, pdk, false);
+            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
+                // length non-writable; if newLen equals current length,
+                // it's a no-op and shouldn't throw.
+                unsigned long curLen = arrLen(ctx, arr);
+                if (newLen != curLen) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot assign to read-only property 'length'"));
+                    return arr;
+                }
+                return arr;
+            }
+        }
+    }
 
     if (isRealArray) {
         // FAST PATH: native ProtoList storage — truncate or pad in place.
@@ -1179,7 +1244,7 @@ static const proto::ProtoObject* arrayPush(
     const bool isRealArray = (isArrVal == PROTO_TRUE);
 
     if (isRealArray) {
-        // Native ProtoList path: build the new list in a local pointer
+    // Native ProtoList path. build the new list in a local pointer
         // (each appendLast is O(log N) and produces a fresh AVL node),
         // then publish via a single setAttribute(__elements__, …).  This
         // is the lazy-publish pattern from the microbench (~3 us/op vs
@@ -1312,9 +1377,32 @@ static const proto::ProtoObject* arrayPop(
     // Native ProtoList path.
     if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
         unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
-        if (size == 0) {
+        // arr.length may be greater than __elements__.size (e.g.
+        // `new Array(1)` carries length=1 but __elements__ is empty).
+        // Use the spec'd LengthOfArrayLike — pop reads the LAST INDEX
+        // by length-1, not by __elements__.size-1
+        // (built-ins/Array/prototype/pop/set-length-array-length-is-
+        // non-writable installs a writable:false length descriptor
+        // INSIDE the Array.prototype[0] getter; the getter only fires
+        // when pop reads index 0 of a `new Array(1)` whose
+        // __elements__ size is 0).
+        unsigned long lenSpec = arrLen(ctx, self);
+        if (hasCallException()) return PROTO_NONE;
+        if (lenSpec == 0) {
             if (throwIfLengthFrozen()) return PROTO_NONE;
             return PROTO_NONE;
+        }
+        if (size == 0 && lenSpec > 0) {
+            // Sparse array with length > 0 but empty __elements__.
+            // §23.1.3.21 step 4: read O[lenSpec-1], then Set length.
+            const proto::ProtoObject* removed = arrGet(ctx, self, lenSpec - 1);
+            if (hasCallException()) return PROTO_NONE;
+            // Attempt Set(O, 'length', lenSpec-1, true) via arrSetLen
+            // — picks up the __pd_length__ writable check (which the
+            // getter above may have just cleared).
+            arrSetLen(ctx, self, lenSpec - 1);
+            if (hasCallException()) return PROTO_NONE;
+            return (removed && removed != PROTO_NONE) ? removed : getUndefinedSentinel();
         }
         // §23.1.3.21 step 4.c: Let element be ? Get(O, ToString(F(newLen))).
         // Get walks the prototype chain — a hole at the last index
@@ -1327,6 +1415,14 @@ static const proto::ProtoObject* arrayPop(
         const proto::ProtoObject* removed =
             arrGet(ctx, self, size - 1);
         if (hasCallException()) return PROTO_NONE;
+        // §23.1.3.21 step 4.f: Set(O, 'length', newLen, true).  The
+        // getter at step 4.c (arrGet above) may have made length non-
+        // writable mid-call (built-ins/Array/prototype/pop/set-length-
+        // array-length-is-non-writable installs the writable:false
+        // descriptor inside the Array.prototype[idx] getter).  Probe
+        // before mutating __elements__ so the truncation doesn't
+        // happen on the throw path.
+        if (throwIfLengthFrozen()) return PROTO_NONE;
         const proto::ProtoList* shrunk = list->removeLast(ctx);
         if (shrunk) setArrayElements(ctx, self, shrunk);
         return (removed && removed != PROTO_NONE) ? removed : getUndefinedSentinel();
@@ -1349,13 +1445,17 @@ static const proto::ProtoObject* arrayPop(
     }
     unsigned long lastIdx = len - 1;
     const proto::ProtoObject* removed = arrGet(ctx, self, lastIdx);
+    if (hasCallException()) return PROTO_NONE;
+    // §23.1.3.21 step 4.e: DeletePropertyOrThrow(O, lastIdx).
     const proto::ProtoString* idxKey =
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(lastIdx));
     if (idxKey) self->setAttribute(ctx, idxKey, PROTO_NONE);
-    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey)
-        self->setAttribute(ctx, lenKey,
-                           ctx->fromInteger(static_cast<long long>(lastIdx)));
+    // §23.1.3.21 step 4.f: Set(O, 'length', lastIdx, true).  arrSetLen
+    // honours __pd_length__ writable bit — if the user installed a
+    // non-writable length descriptor (potentially inside the arrGet
+    // above), TypeError fires.
+    arrSetLen(ctx, self, lastIdx);
+    if (hasCallException()) return PROTO_NONE;
     return removed ? removed : PROTO_NONE;
 }
 
@@ -1399,7 +1499,7 @@ static const proto::ProtoObject* arrayShift(
         return false;
     };
 
-    // Native ProtoList path: removeFirst is O(log N) and preserves all
+    // Native ProtoList path. removeFirst is O(log N) and preserves all
     // remaining elements without the manual shift loop.
     if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
         unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
@@ -1487,7 +1587,7 @@ static const proto::ProtoObject* arrayUnshift(
     };
     if (throwIfLengthFrozen()) return PROTO_NONE;
 
-    // Native ProtoList path: appendFirst inserts at index 0 in O(log N)
+    // Native ProtoList path. appendFirst inserts at index 0 in O(log N)
     // per element, no manual right-shift loop needed.
     if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
         unsigned long size = static_cast<unsigned long>(list->getSize(ctx));
