@@ -1297,8 +1297,15 @@ static const proto::ProtoObject* arrayToLocaleString(
         const proto::ProtoObject* tlsFn = tlsKey
             ? elem->getAttribute(ctx, tlsKey, true) : nullptr;
         if (tlsFn && tlsFn != PROTO_NONE) {
+            // §23.1.3.34 step 5.b.iv (ES2024): Invoke(nextElement,
+            // 'toLocaleString', « »).  ES2024 narrowed the spec — no
+            // arguments are forwarded.  Pre-fix our impl forwarded
+            // the locales / options args from arrayToLocaleString
+            // itself, so an element's toLocaleString saw extra
+            // unexpected arguments (built-ins/Array/prototype/
+            // toLocaleString/invoke-element-tolocalestring).
             const proto::ProtoObject* r = callJSFunction(ctx, tlsFn, elem,
-                args ? args : ctx->newList());
+                ctx->newList());
             if (r && r != PROTO_NONE) {
                 result += elemToString(ctx, r);
                 continue;
