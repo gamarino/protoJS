@@ -2560,6 +2560,13 @@ static const proto::ProtoObject* arrayCopyWithin(
 
     long long count = std::min(end - start, len - target);
     if (count <= 0) return O;
+    // Save the user-visible length: setArrayElements (called by
+    // arrayTryFastSet's sparse-grow path below) writes back
+    // __elements__.size to the length attribute, which can shrink a
+    // sparse array's user-visible length when copyWithin only mutates
+    // inner slots — \`[0, 1, , , 1].copyWithin(0, 1, 4).length\` must
+    // stay 5 (built-ins/Array/prototype/copyWithin/fill-holes).
+    unsigned long savedLen = static_cast<unsigned long>(len);
 
     // Read source range into a temporary buffer to handle overlaps.
     // Track fromPresent per index so step 17.f's
@@ -2604,11 +2611,31 @@ static const proto::ProtoObject* arrayCopyWithin(
                         return PROTO_NONE;
                     }
                 }
-                // Clear the own data attribute.
-                self->setAttribute(ctx, tk, PROTO_NONE);
+                // Clear the own data attribute.  For real arrays the
+                // data lives in __elements__, NOT in the string-keyed
+                // attribute — setAttribute(tk, PROTO_NONE) doesn't
+                // affect the dense storage at all, and using it
+                // (paradoxically) drops the array length.  Use
+                // arrayTryFastSet to write PROTO_NONE into __elements__
+                // so the slot becomes a hole; setAttribute remains for
+                // the array-like (non-native-storage) path.
+                const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+                bool isRealArr = isArrKey
+                    && self->getAttribute(ctx, isArrKey, true) == PROTO_TRUE
+                    && getArrayElements(ctx, self) != nullptr;
+                if (isRealArr) {
+                    arrayTryFastSet(ctx, self, toIdx, PROTO_NONE);
+                } else {
+                    self->setAttribute(ctx, tk, PROTO_NONE);
+                }
             }
         }
     }
+
+    // Restore the saved length attribute — copyWithin must NEVER shrink
+    // the array (it only mutates / deletes inner slots).
+    arrSetLen(ctx, self, savedLen);
+    if (hasCallException()) return PROTO_NONE;
 
     return O;
 }
