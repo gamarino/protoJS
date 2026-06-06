@@ -4,6 +4,74 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 8 (2026-06-06): 7 root-cause commits
+
+Eighth Array cleanup pass — 7 commits.  Theme: close the package-7
+regression cluster + harden the iteration-method abrupt-completion
+path + ES2024 ToLocaleString narrowing + ToNumber correctness on
+poisoned valueOf/toString.
+
+The fixes (all in src/ArrayPrototype.cpp unless noted):
+
+1. **arrSet syncs string-keyed attribute with __elements__.**  When
+   Object.defineProperty had stored a value at the attribute layer,
+   subsequent arrSet via arrayTryFastSet updated __elements__ but
+   left the attribute lagging — Object.getOwnPropertyDescriptor
+   read the stale attribute value.  After the fast path succeeds,
+   if the attribute exists as an own property, mirror the write
+   there too.  Closes the 12 package-7
+   target-array-with-non-writable-property regressions.
+
+2. **arraySpeciesCreate: __get_Symbol.species__ + non-ctor reject.**
+   §22.1.3.1.1 step 7 walks the @@species accessor; step 9 throws
+   TypeError when IsConstructor(C) is false.  Add both probes: the
+   accessor-getter dispatch through the __get_<Symbol.species>__
+   sidecar (handles \`Object.defineProperty(C, Symbol.species,
+   {get: f})\`) and a __native_fn__-without-ctor-marker check that
+   rejects parseInt / isNaN / eval / etc.
+
+3. **reduce / reduceRight check arrGet abrupt before callback.**
+   §23.1.3.{26,27} step 8/9.b.iii.1: Get(O, Pk) — a throwing getter
+   at index k must terminate iteration BEFORE the callback runs.
+   Pre-fix arrGet returned PROTO_NONE on abrupt and the loop
+   invoked callback with the placeholder, observing the wrong
+   side effect.
+
+4. **forEach / map / filter / some / every / find* same pattern.**
+   Split arrGet from the makeIterArgs call and bail with
+   hasCallException between them across the rest of the iteration
+   methods.
+
+5. **Array.from forwards «len» in the array-like branch + defers
+   per-branch Construct.**  §23.1.2.1 step 4.a (iterator) calls
+   Construct(C) with no args; step 9 (array-like) calls
+   Construct(C, «len»).  Pre-fix Array.from constructed C up front
+   with no args.  Detect IsConstructor early, then have each
+   branch call a shared constructC(len, withLen) helper at the
+   right moment.
+
+6. **toLocaleString invokes elem.toLocaleString with NO args.**
+   ES2024 narrowed §23.1.3.34: Invoke(nextElement, 'toLocaleString',
+   « »).  Pre-fix arrayToLocaleString forwarded the outer args
+   (locales / options) to each element.
+
+7. **ToNumber + Number ctor: throw on object with no callable
+   valueOf/toString.**  §7.1.1 OrdinaryToPrimitive step 5 throws
+   TypeError unconditionally if neither method produced a
+   primitive.  Pre-fix our jsToNumber gated the throw on a
+   'tried' flag — \`{valueOf: null, toString: null}\` and
+   Object.create(null) returned NaN where the spec demands
+   abrupt.  Also patched src/NumberPrototype.cpp's
+   numberConstruct to propagate the abrupt instead of silently
+   writing zero into [[NumberData]].
+
+**Coverage:** built-ins/Array goes from ~2 643 / 3 081 (85.8 %)
+post-package-7 to **~2 672 / 3 081 (~86.7 %)** — +29 net tests
+(161 fixed cumulative vs original 534-test baseline; 5
+regressions, all pre-existing — filter / map -8/9-c-i-22 and the
+indexOf / lastIndexOf -22 family — that need interpreter-side work
+on Object.prototype index-key inheritance).
+
 ### Array cleanup package 7 (2026-06-06): 12 root-cause commits
 
 Seventh Array cleanup pass — 12 commits.  Theme: complete the
