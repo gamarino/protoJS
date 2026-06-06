@@ -4041,6 +4041,48 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         patchNumberParseFns(pContext, pGlobalRoot);
     }
 
+    // §22.1.3 / §22.2.3.1 / §25.1.3 …: every built-in's .prototype has
+    // Object.prototype in its [[Prototype]] chain.  ensureObjectConstructor
+    // installed Object.prototype.constructor by snapshot-mutating
+    // ctx->space->objectPrototype — that produced a NEW ProtoObject
+    // identity for Object.prototype, but every built-in prototype that
+    // had already been parented (Array, Function, String, Number, ...)
+    // still pointed at the OLD pre-update snapshot.  As a result
+    // Object.getPrototypeOf(Array.prototype) !== Object.prototype even
+    // though they were observably identical (same hasOwnProperty,
+    // same toString, etc.). Pin the JS-visible parent of every known
+    // builtin prototype to the post-update Object.prototype via the
+    // t_jsProtoMap override table — that's how Object.getPrototypeOf
+    // already resolves user-applied setPrototypeOf calls.  The
+    // protoCore chain walk still finds the old snapshot's own
+    // attributes, but observably Array.prototype.__proto__ now
+    // returns the same Object.prototype that the test code sees.
+    if (pGlobalRoot && *pGlobalRoot && pContext->space && pContext->space->objectPrototype) {
+        const proto::ProtoObject* objProto = pContext->space->objectPrototype;
+        const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
+        if (protoKey) {
+            static const char* kBuiltinCtors[] = {
+                "Array", "String", "Number", "Boolean", "Function",
+                "Map", "Set", "WeakMap", "RegExp", "Date", "Error",
+                "TypeError", "RangeError", "SyntaxError", "ReferenceError",
+                "EvalError", "URIError", "Promise", "ArrayBuffer",
+                "DataView", "Symbol",
+                nullptr
+            };
+            for (int i = 0; kBuiltinCtors[i]; ++i) {
+                const proto::ProtoObject* nko = pContext->fromUTF8String(kBuiltinCtors[i]);
+                const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
+                if (!nk) continue;
+                const proto::ProtoObject* ctor = (*pGlobalRoot)->getAttribute(pContext, nk, false);
+                if (!ctor || ctor == PROTO_NONE) continue;
+                const proto::ProtoObject* ctorProto = ctor->getAttribute(pContext, protoKey, false);
+                if (!ctorProto || ctorProto == PROTO_NONE) continue;
+                if (ctorProto == objProto) continue;
+                protojs::setJSProtoOverride(ctorProto, objProto);
+            }
+        }
+    }
+
     // Mark the global root as initialised so subsequent runBytecode calls
     // skip the entire block above.
     if (pGlobalRoot && *pGlobalRoot && initFlagKey) {
