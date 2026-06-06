@@ -974,27 +974,61 @@ static const proto::ProtoObject* arraySpeciesCreate(
     if (!C || C == PROTO_NONE)
         return arrSetLen(ctx, createNewArray(ctx, nullptr), length);
 
-    // Step 8: Construct(C, [length])
+    // Step 8: Construct(C, [length]).  Accept BOTH:
+    //   - native __construct__ method (Array, Map, etc.)
+    //   - bytecode user function (function F(){})  per §10.2.2
+    //     IsConstructor (excluding arrow functions).
+    // Pre-fix only the __construct__ path was honoured, so a species
+    // function (user fn) silently fell back to a default Array — that
+    // bypassed the species ctor's side effects (preventExtensions,
+    // defineProperty(this, '0', ...)) and the CreateDataPropertyOrThrow
+    // probes in slice / concat / splice never saw a throw
+    // (built-ins/Array/prototype/slice/target-array-non-extensible,
+    // target-array-with-non-configurable-property).
     const proto::ProtoString* constructKey = ctx->fromUTF8String("__construct__")->asString(ctx);
     const proto::ProtoObject* constructFn = (constructKey && C) ? C->getAttribute(ctx, constructKey, false) : nullptr;
-    
-    if (constructFn && constructFn != PROTO_NONE && constructFn->isMethod(ctx)) {
+    bool hasNativeCtor = constructFn && constructFn != PROTO_NONE
+        && constructFn->isMethod(ctx);
+
+    bool isBytecodeFn = false;
+    if (!hasNativeCtor && C) {
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && C->hasAttribute(ctx, bcK) == PROTO_TRUE) {
+            const proto::ProtoObject* arrowKO = ctx->fromUTF8String("__is_arrow__");
+            const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
+            if (!arrowK || C->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
+                isBytecodeFn = true;
+            }
+        }
+    }
+
+    if (hasNativeCtor || isBytecodeFn) {
         // Create newObj as child of C.prototype
         const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
         const proto::ProtoObject* proto = C->getAttribute(ctx, protoKey, true);
         const proto::ProtoObject* newObj = (proto && proto != PROTO_NONE) ? proto->newChild(ctx, true) : ctx->newObject(true);
-        
+
         // Mark as array (necessary if the constructor doesn't do it)
         if (isArrayKey) newObj = newObj->setAttribute(ctx, isArrayKey, PROTO_TRUE);
 
         const proto::ProtoList* args = ctx->newList();
         args = args->appendLast(ctx, ctx->fromInteger(static_cast<long long>(length)));
-        
-        proto::ProtoMethod fn = constructFn->asMethod(ctx);
-        const proto::ProtoObject* res = fn(ctx, newObj, nullptr, args, nullptr);
-        
-        // If res is object, return it, else newObj
-        if (res && res != PROTO_NONE && !res->isInteger(ctx) && !res->isDouble(ctx) && !res->asString(ctx) && res != PROTO_TRUE && res != PROTO_FALSE)
+
+        const proto::ProtoObject* res = nullptr;
+        if (hasNativeCtor) {
+            proto::ProtoMethod fn = constructFn->asMethod(ctx);
+            res = fn(ctx, newObj, nullptr, args, nullptr);
+        } else {
+            res = callJSFunction(ctx, C, newObj, args);
+        }
+        if (hasCallException()) return PROTO_NONE;
+
+        // If res is an Object, return it, else newObj.
+        if (res && res != PROTO_NONE
+            && res != getUndefinedSentinel() && res != getNullSentinel()
+            && !res->isInteger(ctx) && !res->isDouble(ctx) && !res->isFloat(ctx)
+            && !res->isBoolean(ctx) && !res->isString(ctx)
+            && res != PROTO_TRUE && res != PROTO_FALSE)
             return res;
         return newObj;
     }
@@ -1665,11 +1699,45 @@ static const proto::ProtoObject* arraySlice(
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<unsigned long>(end - start));
     if (hasCallException()) return PROTO_NONE;
+    // §23.1.3.28 step 13.c.ii: CreateDataPropertyOrThrow(A, ToString(n),
+    // kValue).  Throws TypeError when the target is non-extensible OR
+    // already holds a non-configurable descriptor at the slot.
+    // built-ins/Array/prototype/slice/target-array-non-extensible and
+    // target-array-with-non-configurable-property pin both branches.
     long long outIdx = 0;
     for (long long i = start; i < end; i++) {
-        arrSet(ctx, result,
-               static_cast<unsigned long>(outIdx++),
-               arrGet(ctx, self, static_cast<unsigned long>(i)));
+        const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(i));
+        if (hasCallException()) return PROTO_NONE;
+        const proto::ProtoString* k =
+            JSSymbols::indexKey(ctx, static_cast<uint32_t>(outIdx));
+        {
+            JSContextWrapper* wrapper = JSContextWrapper::current();
+            bool nonExtensible = wrapper
+                && result->hasParent(ctx, wrapper->getNonExtensibleMarker());
+            bool hasOwnK = k && result->hasOwnAttribute(ctx, k) == PROTO_TRUE;
+            if (nonExtensible && !hasOwnK) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot define property: object is not extensible"));
+                return PROTO_NONE;
+            }
+            if (hasOwnK) {
+                std::string pdStr0 = "__pd_" + std::to_string(outIdx) + "__";
+                const proto::ProtoObject* pdko0 = ctx->fromUTF8String(pdStr0.c_str());
+                const proto::ProtoString* pdk0 = pdko0 ? pdko0->asString(ctx) : nullptr;
+                if (pdk0 && result->hasOwnAttribute(ctx, pdk0) == PROTO_TRUE) {
+                    const proto::ProtoObject* pdv = result->getAttribute(ctx, pdk0, false);
+                    if (pdv && pdv->isInteger(ctx)
+                        && (pdv->asLong(ctx) & 0x2) == 0) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot redefine non-configurable data property"));
+                        return PROTO_NONE;
+                    }
+                }
+            }
+        }
+        arrSet(ctx, result, static_cast<unsigned long>(outIdx), v);
+        if (hasCallException()) return PROTO_NONE;
+        outIdx++;
     }
     result = arrSetLen(ctx, result, static_cast<unsigned long>(outIdx));
     return result;
