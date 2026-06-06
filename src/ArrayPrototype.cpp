@@ -1294,10 +1294,20 @@ static const proto::ProtoObject* arrayPop(
             if (throwIfLengthFrozen()) return PROTO_NONE;
             return PROTO_NONE;
         }
-        const proto::ProtoObject* removed = list->getAt(ctx, static_cast<int>(size - 1));
+        // §23.1.3.21 step 4.c: Let element be ? Get(O, ToString(F(newLen))).
+        // Get walks the prototype chain — a hole at the last index
+        // must surface the inherited value (Array.prototype[idx] data
+        // or accessor).  Pre-fix we read list->getAt(size-1) directly
+        // and a PROTO_NONE pad (from `x.length = N` extending past
+        // the dense elements) shadowed Array.prototype[idx]
+        // (Sputnik S15.4.4.6_A4_T1: Array.prototype[1] = 1; x = [0];
+        //  x.length = 2; x.pop() should be 1, not undefined).
+        const proto::ProtoObject* removed =
+            arrGet(ctx, self, size - 1);
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoList* shrunk = list->removeLast(ctx);
         if (shrunk) setArrayElements(ctx, self, shrunk);
-        return removed ? removed : PROTO_NONE;
+        return (removed && removed != PROTO_NONE) ? removed : getUndefinedSentinel();
     }
 
     // Legacy string-keyed path (array-likes only).
