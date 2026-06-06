@@ -2920,8 +2920,29 @@ const proto::ProtoObject* installObjectInstanceMethods(
         // truly returns nothing callable (e.g. attribute deleted off
         // the prototype mid-call).
         const proto::ProtoString* tsKey = JSSymbols::toString(ictx);
-        const proto::ProtoObject* tsFn = tsKey
-            ? self->getAttribute(ictx, tsKey, true) : nullptr;
+        const proto::ProtoObject* tsFn = nullptr;
+        // Accessor descriptor: a getter for toString lives at
+        // __get_toString__ on the chain (Object.defineProperty installs
+        // accessors there).  The data slot may still carry the inherited
+        // pre-defineProperty value, so prefer the accessor when both
+        // are present.  Pre-fix Boolean.prototype.toString installed as
+        // a getter (built-ins/Array/prototype/toLocaleString/
+        // primitive_this_value_getter) fell through to the natural
+        // ToString.
+        {
+            const proto::ProtoObject* gko = ictx->fromUTF8String("__get_toString__");
+            const proto::ProtoString* gk = gko ? gko->asString(ictx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = self->getAttribute(ictx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    tsFn = callJSFunction(ictx, getter, self, ictx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
+        if (!tsFn || tsFn == PROTO_NONE) {
+            tsFn = tsKey ? self->getAttribute(ictx, tsKey, true) : nullptr;
+        }
         auto naturalToString = [&]() -> const proto::ProtoObject* {
             if (self->isString(ictx)) return self;
             if (self->isBoolean(ictx))
