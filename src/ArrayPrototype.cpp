@@ -585,7 +585,8 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     bool isRealArray = (isArrVal == PROTO_TRUE);
 
     // §10.4.2.1 ArraySetLength step 16 / §9.1.9 OrdinarySet: if
-    // length is non-writable (own __pd_length__ bit 0 cleared),
+    // length is non-writable (own __pd_length__ bit 0 cleared)
+    // AND length is a DATA descriptor (no __set_length__ accessor),
     // throw TypeError BEFORE mutating __elements__ or the data slot.
     // The throw fires even when newLen equals the current length —
     // OrdinarySetWithOwnDescriptor step 2.a returns false on any
@@ -594,15 +595,29 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     // routes through arrSetLen) silently succeeded against a frozen
     // length (built-ins/Array/prototype/{push,pop,shift,unshift}/
     // set-length-array-length-is-non-writable).
+    // The accessor-descriptor guard prevents misfiring on
+    // \`{get length(){...}, set length(v){...}}\` where the
+    // descriptor has writable=false implicitly (accessor descriptors
+    // don't carry the writable attribute, but our packed __pd__
+    // happens to leave bit 0 cleared); built-ins/Array/prototype/
+    // splice/set_length_no_args pins this contrast.
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
-        if (pdk && arr->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
-            const proto::ProtoObject* pdv = arr->getAttribute(ctx, pdk, false);
-            if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
-                signalNativeException(makeNativeError(ctx, "TypeError",
-                    "Cannot assign to read-only property 'length'"));
-                return arr;
+        const proto::ProtoObject* sko = ctx->fromUTF8String("__set_length__");
+        const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
+        bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
+        if (!hasOwnSetter && !hasOwnGetter) {
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk && arr->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
+                const proto::ProtoObject* pdv = arr->getAttribute(ctx, pdk, false);
+                if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot assign to read-only property 'length'"));
+                    return arr;
+                }
             }
         }
     }
