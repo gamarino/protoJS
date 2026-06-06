@@ -2472,15 +2472,23 @@ static const proto::ProtoObject* arrayFill(
     // \`[,,,, 0].fill(8, 1, 3).length\` must stay 5
     // (built-ins/Array/prototype/fill/fill-values-custom-start-and-end).
     unsigned long savedLen = static_cast<unsigned long>(len);
+    bool wrote = false;
 
     for (long long i = start; i < end; i++) {
         arrSet(ctx, self, static_cast<unsigned long>(i), value);
         if (hasCallException()) return PROTO_NONE;
+        wrote = true;
     }
 
-    // Restore the saved length attribute.
-    arrSetLen(ctx, self, savedLen);
-    if (hasCallException()) return PROTO_NONE;
+    // Restore the saved length attribute — but only when we actually
+    // wrote anything.  A no-op fill (start >= end) must not Set
+    // 'length' at all, so a frozen-length empty array doesn't throw
+    // (built-ins/Array/prototype/fill/return-abrupt-from-setting-
+    // property-value pins \`Object.freeze([]); [].fill(1)\`).
+    if (wrote) {
+        arrSetLen(ctx, self, savedLen);
+        if (hasCallException()) return PROTO_NONE;
+    }
 
     // §23.1.3.6 step 1: Let O be ? ToObject(this).  step 9 returns O.
     // Wrap primitive receivers so Array.prototype.fill.call(true)
