@@ -797,6 +797,12 @@ static const proto::ProtoObject* numberConstruct(
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
         const proto::ProtoObject* coerced = jsToNumber(ctx, a);
+        // §21.1.1.1 step 1: NewTarget-only fast path: if the coercion
+        // raised an abrupt completion (e.g.
+        // \`{valueOf: null, toString: null}\` after the jsToNumber
+        // ES2024 narrowing), propagate it instead of silently writing
+        // a zero into [[NumberData]].
+        if (hasCallException()) return PROTO_NONE;
         if (coerced) {
             if (coerced->isInteger(ctx)) val = static_cast<double>(coerced->asLong(ctx));
             else if (coerced->isDouble(ctx) || coerced->isFloat(ctx)) val = coerced->asDouble(ctx);

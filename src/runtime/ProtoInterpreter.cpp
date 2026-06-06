@@ -2274,12 +2274,19 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
     // when at least one method was actually called; an object with
     // neither valueOf nor toString stays NaN per the legacy
     // Object.prototype walk.
-    if (tried) {
-        signalNativeException(makeNativeError(context, "TypeError",
-            "Cannot convert object to primitive value"));
-        return PROTO_NONE;
-    }
-    return makeNaN();
+    // §7.1.1 OrdinaryToPrimitive step 5: if neither valueOf nor toString
+    // returned a primitive value, throw TypeError.  This now fires
+    // unconditionally — previously the throw was gated on "tried" to
+    // preserve a legacy Object.prototype walk, but that left
+    // \`{valueOf: null, toString: null}\` and Object.create(null) silently
+    // returning NaN where the spec demands a TypeError abrupt
+    // (built-ins/Array/prototype/concat/Array.prototype.concat_
+    // array-like-to-length-throws pins this for the array-spread
+    // length probe; same path matters for every numeric coercion of
+    // an object with both poisoned).
+    signalNativeException(makeNativeError(context, "TypeError",
+        "Cannot convert object to primitive value"));
+    return PROTO_NONE;
 }
 
 /** JS ToInt32: truncate to signed 32-bit integer. */
