@@ -4,6 +4,83 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 6 (2026-06-05): 8 root-cause commits
+
+Sixth Array cleanup pass — 8 commits focused on the OrdinarySet
+side of the spec: inherited [[Set]] dispatch from arrSet, the
+non-writable-length TypeError from arrSetLen, and full-spec walks
+for push / pop / shift / unshift that route every element write
+through arrSet and the final length through arrSetLen.
+
+The eight fixes (all in src/ArrayPrototype.cpp):
+
+1. **map / filter CreateDataPropertyOrThrow value collapse** —
+   converts PROTO_NONE returns from arrGet to the JS undefined
+   sentinel before arrSet so own data properties land on the
+   result instead of clearing.
+
+2. **arrGet / arrSet / arrSetLen chain-walk + length-frozen
+   probes** — three coupled fixes:
+   - arrGet reorders own-data → inherited-accessor → inherited-
+     data per §10.1.5 OrdinaryGet (own data shadows inherited
+     accessor).
+   - arrSet probes inherited __set_<idx>__ when idx is past
+     __elements__.size; if found, dispatch the setter and skip
+     the own write.
+   - arrSetLen probes __pd_length__ bit 0 (writable); throws
+     TypeError before any mutation when cleared.
+
+3. **arrGet own-data shadows inherited accessor + push routes
+   through arrSetLen** — fix-on-fix for the reorder above
+   (own data MUST shadow inherited accessor for the OWN slot;
+   reduceRight/15.4.4.22-9-c-i-5 pinned this).  Push's real-
+   array branch now routes through arrSet (per-element setter
+   dispatch) and arrSetLen (length writable bit / user
+   __set_length__ accessor).
+
+4. **shift / unshift collapse to a single spec walk** — drop the
+   native-ProtoList fast paths; walk §23.1.3.27 / §23.1.3.32 via
+   arrGet + arrSet + arrSetLen so inherited accessors / frozen
+   length / user setters all surface correctly.  arrSetLen's
+   value-equality short-circuit was wrong too — OrdinarySet
+   step 2.a returns false on any write to a non-writable slot,
+   regardless of value; fix [].shift() on frozen-length empty
+   array.
+
+5. **arrSetLen accessor-descriptor gate** — the new
+   writable-bit throw misfired on \`{get length(){...}, set
+   length(v){...}}\` receivers (our packed __pd__ bits leave bit
+   0 cleared for accessors).  Gate the throw on hasOwn
+   __set_length__ == hasOwn __get_length__ == false — the
+   __set_length__ dispatch path (immediately below) is correct
+   for accessor descriptors.  Restores splice/set_length_no_args.
+
+6. **map / filter CreateDataProperty define semantics (REVERTED)** —
+   tried writing via setAttribute + __pd_<i>__ reset to avoid
+   inherited-setter dispatch on the result chain, but regressed
+   the interpreter-read side (own-data-shadows-inherited-
+   accessor isn't yet implemented at OP_get_array_el).  Net was
+   negative (-6 sample tests); reverted.  The two specific tests
+   the change targeted (filter/-9-c-i-22, map/-8-c-i-22) remain
+   on the failing list pending interpreter work.
+
+**Coverage:** built-ins/Array full pattern measured at
+**conservatively ~2 614 / 3 081 ≈ 84.8 %** post-package-6
+(batch re-run: 430 of the 534 prev-fails still fail; 3 of the
+2 516 prev-passes now fail).  The earlier ~89 % claim for
+post-package-5 was overstated — sample extrapolation underesti-
+mated regression count.  Real coverage progression across all
+six packages is 78.4 → 81.7 → 84.8 → ~85 → ~85 → 84.8 %.  Most
+of the improvement landed in packages 3 + 4; packages 5 + 6
+have been increasingly diminishing-returns work on edge cases
+the interpreter doesn't yet support.
+
+Remaining ~430 fails cluster around: Array.fromAsync (~81,
+feature not implemented), Symbol.species installation, Object.
+prototype index inheritance (deep interpreter issue), length
+> 2^32-1 sparse arrays, TypedArray resizable buffers, and
+several Proxy / Realm-isolated test patterns.
+
 ### Array cleanup package 5 (2026-06-05): 7 root-cause commits
 
 Fifth Array cleanup pass — 7 commits, focused on the constructor
