@@ -3691,7 +3691,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 const proto::ProtoObject* stub = pContext->newObject(true);
-                if (nameKey2) stub = stub->setAttribute(pContext, nameKey2, pContext->fromUTF8String(ctorName));
+                if (nameKey2) {
+                    stub = stub->setAttribute(pContext, nameKey2, pContext->fromUTF8String(ctorName));
+                    // §17: built-in constructor "name" descriptor is
+                    // {writable:false, enumerable:false, configurable:true}
+                    // → bits 0x2.  Pre-fix the slot defaulted to fully
+                    // enumerable / writable, so verifyProperty(Iterator,
+                    // "name", ...) and the wider built-ins/<Ctor>/name
+                    // family failed.  Same shape as the length sidecar
+                    // already installed below.
+                    const proto::ProtoObject* pdno = pContext->fromUTF8String("__pd_name__");
+                    const proto::ProtoString* pdnk = pdno ? pdno->asString(pContext) : nullptr;
+                    if (pdnk) stub = stub->setAttribute(pContext, pdnk, pContext->fromInteger(0x2LL));
+                }
                 if (protoKey2) {
                     stub = stub->setAttribute(pContext, protoKey2, stubProto ? stubProto : PROTO_NONE);
                     // §17 / §20.4.5: every built-in constructor's
