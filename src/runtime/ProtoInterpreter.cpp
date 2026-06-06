@@ -618,6 +618,16 @@ static const proto::ProtoObject* reflectConstruct(
         }
         const proto::ProtoString* strK = JSSymbols::stringCtor(ctx);
         if (strK && t->getAttribute(ctx, strK, false) == PROTO_TRUE) return true;
+        // §10.3 OrdinaryFunctionCreate kind=normal: built-in functions
+        // tagged with __is_constructor__ have a [[Construct]] internal
+        // method.  The unimplemented-ctor stubs (Date, Iterator, WeakRef,
+        // ...) carry this marker — without recognizing it, isConstructor
+        // returns false and the test262 isConstructor.js harness's
+        // Reflect.construct(function(){}, [], stub) sees the stub as
+        // non-constructible (built-ins/WeakSet/is-a-constructor and the
+        // wider proto-from-ctor-realm family).
+        const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+        if (icK && t->getAttribute(ctx, icK, false) == PROTO_TRUE) return true;
         const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
         if (bcK && t->hasAttribute(ctx, bcK) == PROTO_TRUE) {
             // Bytecode function — constructible UNLESS it's an arrow.
@@ -3730,6 +3740,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (nfKey3) {
                     const proto::ProtoObject* rawM = pContext->fromMethod(nullptr, unimplementedCtorStub);
                     if (rawM) stub = stub->setAttribute(pContext, nfKey3, rawM);
+                }
+                // §10.3 IsConstructor: built-in constructor stubs must
+                // signal [[Construct]] via __is_constructor__ so the
+                // isConstructor harness's Reflect.construct probe
+                // recognises them.  Pre-fix the stubs only had
+                // __native_fn__, so isConstructor returned false
+                // (built-ins/<Ctor>/is-a-constructor).
+                {
+                    const proto::ProtoString* icK = JSSymbols::isConstructor(pContext);
+                    if (icK) stub = stub->setAttribute(pContext, icK, PROTO_TRUE);
                 }
                 // §17: every built-in constructor has a "length" own
                 // property with the spec-mandated arity and descriptor
