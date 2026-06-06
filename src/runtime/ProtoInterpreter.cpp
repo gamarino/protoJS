@@ -3690,7 +3690,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             pContext->fromInteger(0x2LL));
                     }
                 }
-                const proto::ProtoObject* stub = pContext->newObject(true);
+                // §17: built-in constructors have Function.prototype as
+                // their [[Prototype]].  Parent the stub on the runtime's
+                // methodPrototype (= Function.prototype) so
+                // Object.getPrototypeOf(Iterator) / .getPrototypeOf(Date)
+                // surfaces Function.prototype.  Pre-fix the stub was a
+                // plain newObject() with parent = objectPrototype.
+                const proto::ProtoObject* fp = pContext->space
+                    ? pContext->space->methodPrototype : nullptr;
+                const proto::ProtoObject* stub = (fp && fp != PROTO_NONE)
+                    ? fp->newChild(pContext, true)
+                    : pContext->newObject(true);
                 if (nameKey2) {
                     stub = stub->setAttribute(pContext, nameKey2, pContext->fromUTF8String(ctorName));
                     // §17: built-in constructor "name" descriptor is
