@@ -3291,6 +3291,13 @@ static const proto::ProtoObject* arrayReduce(
         // Skip holes — use HasProperty (includes prototype chain) per spec.
         if (!arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        // §23.1.3.26 step 8.b.iii.1: ? Get(O, Pk).  If the getter
+        // throws (built-ins/Array/prototype/reduce/15.4.4.21-9-c-i-32
+        // installs a throwing accessor on index 1), the callback at
+        // that index MUST NOT be invoked.  Pre-fix arrGet returned
+        // PROTO_NONE on abrupt; the loop then invoked callback with
+        // it, setting accessed=true and clobbering testResult.
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
@@ -3350,6 +3357,9 @@ static const proto::ProtoObject* arrayReduceRight(
         // Skip holes — use HasProperty (includes prototype chain) per spec.
         if (!arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
         const proto::ProtoObject* elem = arrGet(ctx, self, (unsigned long)i);
+        // §23.1.3.27 step 9.b.iii.1: ? Get(O, Pk).  Throwing getter
+        // must terminate iteration before callback runs.
+        if (hasCallException()) return PROTO_NONE;
         const proto::ProtoList* cbArgs = ctx->newList();
         cbArgs = cbArgs->appendLast(ctx, acc   ? acc   : PROTO_NONE);
         cbArgs = cbArgs->appendLast(ctx, elem  ? elem  : PROTO_NONE);
