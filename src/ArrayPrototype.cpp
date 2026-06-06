@@ -2489,8 +2489,22 @@ static const proto::ProtoObject* arrayFill(
     start = normalizeIdxClamp(start, len);
     end   = normalizeIdxClamp(end,   len);
 
-    for (long long i = start; i < end; i++)
+    // Save the user-visible length: arrSet via arrayTryFastSet's sparse
+    // path calls setArrayElements which syncs the length attribute to
+    // __elements__.size, which would shrink a sparse array's
+    // user-visible length even when fill only mutates inner slots.
+    // \`[,,,, 0].fill(8, 1, 3).length\` must stay 5
+    // (built-ins/Array/prototype/fill/fill-values-custom-start-and-end).
+    unsigned long savedLen = static_cast<unsigned long>(len);
+
+    for (long long i = start; i < end; i++) {
         arrSet(ctx, self, static_cast<unsigned long>(i), value);
+        if (hasCallException()) return PROTO_NONE;
+    }
+
+    // Restore the saved length attribute.
+    arrSetLen(ctx, self, savedLen);
+    if (hasCallException()) return PROTO_NONE;
 
     // §23.1.3.6 step 1: Let O be ? ToObject(this).  step 9 returns O.
     // Wrap primitive receivers so Array.prototype.fill.call(true)
