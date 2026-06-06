@@ -4,6 +4,63 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 7 (2026-06-06): 12 root-cause commits
+
+Seventh Array cleanup pass — 12 commits.  Theme: complete the
+Symbol.species + CreateDataPropertyOrThrow path that prior
+packages had only partially wired.  All in src/ArrayPrototype.cpp.
+
+The fixes:
+  1. Array.of: probe non-extensibility + non-configurability of
+     existing slots before writing items (§7.3.5 / §7.3.6).
+  2. arraySpeciesCreate accepts bytecode user functions as
+     constructors (mirror Reflect.construct's IsConstructor
+     probe); slice adds the CreateDataPropertyOrThrow checks
+     on the result writes.
+  3. Extract arrayThrowIfCreateDataPropertyFails helper; apply
+     to map / filter / splice (removed array) / concat.  +
+     splice's removed array now comes from arraySpeciesCreate.
+  4. indexOf: needle === undefined gates HasProperty skip
+     (mirror lastIndexOf's package-4 fix).
+  5. flat / flatMap: same CreateDataPropertyOrThrow probe on
+     each appended element.
+  6. Array.from: probe both branches (iterator + array-like)
+     for CreateDataPropertyOrThrow failure.
+  7. Array.from iterator branch routes the final length write
+     through arrSetLen so inherited C.prototype.length setters
+     fire.
+  8. copyWithin: preserve user-visible length across sparse
+     mutation (setArrayElements was syncing length to
+     __elements__.size and shrinking sparse arrays).
+  9. fill: same length preservation.
+ 10. Array.from iterator: IteratorClose hooks on abrupt
+     completions (mapfn throws, CreateDataProperty fails)
+     so iter.return() fires per §7.4.6.
+ 11. Extract arrayCreateDataPropertyOrThrow that combines the
+     probe with the value-write and __pd_<i>__ reset.  Apply
+     to map / filter / slice / concat / flat / splice.  Closes
+     the regression introduced when arraySpeciesCreate started
+     running user-fn species ctors — a ctor that pre-installed
+     {writable:false, enumerable:false} now gets its descriptor
+     replaced wholesale.
+ 12. fill: skip length restore on no-op (start >= end) so a
+     frozen-length empty array's a.fill(1) doesn't throw.
+
+**Coverage:** built-ins/Array goes from ~2 614 / 3 081 (84.8 %)
+post-package-6 to **~2 643 / 3 081 (~85.8 %)** — +29 net tests
+(139 fixed, 12 regressed).
+
+Known regression cluster: target-array-with-non-writable-
+property family (12 tests across slice / filter / map / flat /
+concat / splice).  Root cause: Object.getOwnPropertyDescriptor
+reads the attribute slot while arrGet reads __elements__.
+The species ctor sets the attribute via defineProperty; the
+subsequent CreateDataProperty write goes to __elements__ via
+arrayTryFastSet.  The two drift — descriptor.value still reads
+the ctor-installed value, the actual element reads correctly.
+Fixing this needs defineProperty / arrayTryFastSet sync work
+outside the scope of this Array-only package.
+
 ### Array cleanup package 6 (2026-06-05): 8 root-cause commits
 
 Sixth Array cleanup pass — 8 commits focused on the OrdinarySet
