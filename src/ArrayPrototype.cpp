@@ -4211,6 +4211,18 @@ static const proto::ProtoObject* arrayFrom(
                 if (!getter || getter == PROTO_NONE) return PROTO_NONE;
                 return callJSFunction(ctx, getter, obj, ctx->newList());
             };
+            // Forward-declare iterator-close helper used by the abrupt
+            // paths below.  §7.4.6 IteratorClose discards exceptions
+            // from return() when the outer completion is already abrupt.
+            auto closeIteratorPre = [&]() {
+                const proto::ProtoObject* returnKo = ctx->fromUTF8String("return");
+                const proto::ProtoString* returnK = returnKo ? returnKo->asString(ctx) : nullptr;
+                if (!returnK) return;
+                const proto::ProtoObject* returnFn =
+                    iter->getAttribute(ctx, returnK, true);
+                if (!returnFn || returnFn == PROTO_NONE) return;
+                callJSFunction(ctx, returnFn, iter, ctx->newList());
+            };
             while (nextFn && nextFn != PROTO_NONE) {
                 const proto::ProtoList* nArgs = ctx->newList();
                 const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
@@ -4222,11 +4234,11 @@ static const proto::ProtoObject* arrayFrom(
                     dv = res->getAttribute(ctx, doneKey, false);
                 if (dv == PROTO_TRUE) break;
                 const proto::ProtoObject* vv = invokeAccessor(res, valueKey);
-                if (hasCallException()) return PROTO_NONE;
+                if (hasCallException()) { closeIteratorPre(); return PROTO_NONE; }
                 if (!vv || vv == PROTO_NONE)
                     vv = res->getAttribute(ctx, valueKey, false);
                 const proto::ProtoObject* mapped = applyMap(vv, idx);
-                if (hasCallException()) return PROTO_NONE;
+                if (hasCallException()) { closeIteratorPre(); return PROTO_NONE; }
                 resultEls = resultEls->appendLast(ctx, mapped ? mapped : PROTO_NONE);
                 idx++;
                 if (idx > 100000) break; // safety
@@ -4245,9 +4257,30 @@ static const proto::ProtoObject* arrayFrom(
             // {configurable:false}) side effects surface as TypeError
             // (built-ins/Array/from/iter-set-elem-prop-err and
             // iter-set-length-err).
+            // §7.4.6 IteratorClose: any abrupt completion during write
+            // must invoke iter.return() before propagating.  Pre-fix
+            // built-ins/Array/from/iter-set-elem-prop-err probed
+            // closeCount==1 — the test installs a ctor that makes
+            // index 0 non-configurable, so CreateDataPropertyOrThrow
+            // throws on the first write and iter.return() must fire.
+            auto closeIterator = [&]() {
+                const proto::ProtoObject* returnKo = ctx->fromUTF8String("return");
+                const proto::ProtoString* returnK = returnKo ? returnKo->asString(ctx) : nullptr;
+                if (!returnK) return;
+                const proto::ProtoObject* returnFn =
+                    iter->getAttribute(ctx, returnK, true);
+                if (!returnFn || returnFn == PROTO_NONE) return;
+                // The return() invocation may itself throw — those
+                // abrupt completions are discarded when the outer
+                // completion is also abrupt (§7.4.6 IteratorClose step
+                // 6).  Our simpler model: best-effort call; if it
+                // raises, the original exception is still in flight.
+                callJSFunction(ctx, returnFn, iter, ctx->newList());
+            };
             for (long long i = 0; i < idx; i++) {
                 if (arrayThrowIfCreateDataPropertyFails(ctx, result,
                         static_cast<unsigned long>(i))) {
+                    closeIterator();
                     return PROTO_NONE;
                 }
                 const proto::ProtoObject* v = resultEls->getAt(ctx, static_cast<int>(i));
