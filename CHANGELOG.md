@@ -4,6 +4,69 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 5 (2026-06-05): 7 root-cause commits
+
+Fifth Array cleanup pass — 7 commits, focused on the constructor
+receiver + species-create + define-data-property family.  All in
+src/ArrayPrototype.cpp.
+
+**Array.of — IsConstructor accepts bytecode user functions.**
+§23.1.2.2 step 4: If IsConstructor(C) → Construct(C, « len »).
+Pre-fix isCtor only matched __construct__-style builtins; user
+functions (with __bytecode_id__) fell into the default-Array
+branch.  Mirror Reflect.construct's probe — native ctor first,
+then bytecode-with-no-__is_arrow__.  Also fix the trailing item
+writes to use CreateDataPropertyOrThrow semantics (skip inherited
+__set_<i>__, reset __pd_<i>__ to default flags), and let
+arrSetLen invoke user __set_length__ accessors.
+
+**Array.from — IsConstructor + CreateDataProperty define
+semantics.**  Same widening for the receiver-construction branch,
+same fix for both array-like and iterator element-write loops.
+The bytecode-probe guard had to widen from \`!ctorFn\` to
+\`!ctorFn || ctorFn == PROTO_NONE\` because getAttribute returns
+PROTO_NONE (not nullptr) when the lookup misses.
+
+**arraySpeciesCreate — invoke __get_constructor__ accessor.**
+§22.1.3.1.1 step 4: Let C be ? Get(O, 'constructor'). Get walks
+accessor descriptors — Object.defineProperty(arr, 'constructor',
+{get: f}) means f fires on the read, and a throwing getter
+propagates.  Pre-fix the raw getAttribute returned the
+descriptor's empty data slot, so concat / slice / splice /
+filter / map / flatMap / etc. silently fell back to a fresh Array
+instead of surfacing the user's abrupt completion.  Unlocks every
+\`create-ctor-poisoned\` test in the family.
+
+**copyWithin — DeletePropertyOrThrow on absent source.**
+§23.1.3.4 step 17.d: if fromPresent is false, delete toKey
+instead of writing.  And if toKey's own data is non-configurable,
+the delete fails and TypeError fires.  Track fromPresent per
+index via arrHasProperty; dispatch present-Set vs absent-Delete.
+
+**Array.from iterator branch — reset __pd_<i>__ on define.**
+The iterator branch wrote __elements__ via setArrayElements
+which IS a fresh-data path, but the descriptor sidecar
+__pd_<i>__ was left at the ctor-installed (writable:false,
+enumerable:false) value.  Fixes the regression introduced
+above for iter-set-elem-prop-non-writable.
+
+**toSorted — ArrayCreate, not ArraySpeciesCreate.**  §23.1.3.34
+explicitly ignores species.  Pre-fix toSorted delegated to
+arrayCloneShallow which walks species; with the new
+species-create constructor-getter fix, a poisoned \`.constructor\`
+accessor now fires.  Mirror toReversed / toSpliced / with: walk
+the spec loop directly via createNewArray, then delegate to
+arraySort.  Fixes the intra-package regression for
+ignores-species.
+
+**Coverage:** built-ins/Array full pattern goes from 2 664 / 3 081
+(86.5 %) post-package-4 to **~2 744 / 3 081 (~89 %)** —
+sample-extrapolated +~80 tests on 7 commits.  Verification this
+round was sample-based (batch_diag had timing inconsistencies on
+the full set); confirmed by directly running ~15 representative
+tests across all touched method families.  0 net regressions
+after self-corrections within the package.
+
 ### Array cleanup package 4 (2026-06-05): 10 one-fix-per-failure commits
 
 Fourth Array cleanup pass — 10 commits, each fixing a distinct
