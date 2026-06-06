@@ -4221,8 +4221,12 @@ static const proto::ProtoObject* arrayFrom(
             }
             // Also publish __elements__ for fast-path readers.
             setArrayElements(ctx, result, resultEls);
-            const proto::ProtoString* lk = JSSymbols::length(ctx);
-            if (lk) result = result->setAttribute(ctx, lk, ctx->fromInteger(idx));
+            // §23.1.2.1 step 6.g.iv.1: Set(A, 'length', k, true).
+            // Route through arrSetLen so an inherited __set_length__
+            // accessor on C.prototype fires (built-ins/Array/from/
+            // iter-set-length-err pins a poisoned-length setter).
+            arrSetLen(ctx, result, static_cast<unsigned long>(idx));
+            if (hasCallException()) return PROTO_NONE;
             return result;
         }
     }
