@@ -1865,12 +1865,16 @@ static const proto::ProtoObject* arrayToReversed(
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     if (!result) return PROTO_NONE;
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (long long k = 0; k < len; k++) {
         const proto::ProtoObject* v =
             arrGet(ctx, self, static_cast<unsigned long>(len - k - 1));
         if (hasCallException()) return PROTO_NONE;
-        arrSet(ctx, result, static_cast<unsigned long>(k),
-               v ? v : PROTO_NONE);
+        // CreateDataPropertyOrThrow even on holes — toReversed
+        // collapses holes into own undefined data properties
+        // (built-ins/Array/prototype/toReversed/holes-not-preserved).
+        if (!v || v == PROTO_NONE) v = undefSent;
+        arrSet(ctx, result, static_cast<unsigned long>(k), v);
     }
     arrSetLen(ctx, result, static_cast<unsigned long>(len > 0 ? len : 0));
     return result;
@@ -2028,16 +2032,20 @@ static const proto::ProtoObject* arrayWith(
     // (built-ins/Array/prototype/with/no-get-replaced-index).
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     if (!result) return PROTO_NONE;
+    const proto::ProtoObject* undefSent = getUndefinedSentinel();
     for (long long k = 0; k < len; k++) {
         const proto::ProtoObject* fromValue;
         if (k == idx) {
-            fromValue = val ? val : getUndefinedSentinel();
+            fromValue = val ? val : undefSent;
         } else {
             fromValue = arrGet(ctx, self, static_cast<unsigned long>(k));
             if (hasCallException()) return PROTO_NONE;
         }
-        arrSet(ctx, result, static_cast<unsigned long>(k),
-               fromValue ? fromValue : PROTO_NONE);
+        // CreateDataPropertyOrThrow even on holes — `with` collapses
+        // holes into own undefined data properties
+        // (built-ins/Array/prototype/with/holes-not-preserved).
+        if (!fromValue || fromValue == PROTO_NONE) fromValue = undefSent;
+        arrSet(ctx, result, static_cast<unsigned long>(k), fromValue);
     }
     arrSetLen(ctx, result, static_cast<unsigned long>(len > 0 ? len : 0));
     return result;
