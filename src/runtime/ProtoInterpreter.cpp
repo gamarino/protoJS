@@ -3661,6 +3661,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             {"GeneratorFunction", 1},
             {"AsyncFunction", 1}, {"AsyncGenerator", 0}, {"AsyncGeneratorFunction", 1},
             {"SharedArrayBuffer", 1},
+            // ES2026+ disposable resource management proposal (Stage 3-4)
+            // and the SuppressedError chain that goes with it.  Pre-fix
+            // these globals were absent, so typeof was \"undefined\" and
+            // built-ins/{SuppressedError,DisposableStack,
+            // AsyncDisposableStack,AbstractModuleSource}/proto and
+            // related length/name/is-a-constructor probes threw on the
+            // initial reference.
+            {"SuppressedError", 3}, {"DisposableStack", 0},
+            {"AsyncDisposableStack", 0}, {"AbstractModuleSource", 0},
             {nullptr, 0}
         };
         if (pGlobalRoot && *pGlobalRoot) {
