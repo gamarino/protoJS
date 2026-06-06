@@ -18,6 +18,7 @@ namespace protojs {
 static bool arrHas(proto::ProtoContext* ctx, const proto::ProtoObject* arr, unsigned long idx);
 static bool arrHasProperty(proto::ProtoContext* ctx, const proto::ProtoObject* arr, unsigned long idx);
 static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx, const proto::ProtoObject* obj, unsigned long idx);
+static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(proto::ProtoContext* ctx, const proto::ProtoObject* obj, unsigned long idx, const proto::ProtoObject* val);
 
 // ---------------------------------------------------------------------------
 // Internal: compute UTF-16 code unit count from a UTF-8 std::string.
@@ -1709,34 +1710,8 @@ static const proto::ProtoObject* arraySlice(
     for (long long i = start; i < end; i++) {
         const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(i));
         if (hasCallException()) return PROTO_NONE;
-        const proto::ProtoString* k =
-            JSSymbols::indexKey(ctx, static_cast<uint32_t>(outIdx));
-        {
-            JSContextWrapper* wrapper = JSContextWrapper::current();
-            bool nonExtensible = wrapper
-                && result->hasParent(ctx, wrapper->getNonExtensibleMarker());
-            bool hasOwnK = k && result->hasOwnAttribute(ctx, k) == PROTO_TRUE;
-            if (nonExtensible && !hasOwnK) {
-                signalNativeException(makeNativeError(ctx, "TypeError",
-                    "Cannot define property: object is not extensible"));
-                return PROTO_NONE;
-            }
-            if (hasOwnK) {
-                std::string pdStr0 = "__pd_" + std::to_string(outIdx) + "__";
-                const proto::ProtoObject* pdko0 = ctx->fromUTF8String(pdStr0.c_str());
-                const proto::ProtoString* pdk0 = pdko0 ? pdko0->asString(ctx) : nullptr;
-                if (pdk0 && result->hasOwnAttribute(ctx, pdk0) == PROTO_TRUE) {
-                    const proto::ProtoObject* pdv = result->getAttribute(ctx, pdk0, false);
-                    if (pdv && pdv->isInteger(ctx)
-                        && (pdv->asLong(ctx) & 0x2) == 0) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "Cannot redefine non-configurable data property"));
-                        return PROTO_NONE;
-                    }
-                }
-            }
-        }
-        arrSet(ctx, result, static_cast<unsigned long>(outIdx), v);
+        result = arrayCreateDataPropertyOrThrow(ctx, result,
+                    static_cast<unsigned long>(outIdx), v);
         if (hasCallException()) return PROTO_NONE;
         outIdx++;
     }
@@ -2401,9 +2376,10 @@ static const proto::ProtoObject* arrayConcat(
     // concat/target-array-non-extensible / target-array-with-non-
     // configurable-property).
     auto writeOrThrow = [&](const proto::ProtoObject* v) -> bool {
-        if (arrayThrowIfCreateDataPropertyFails(ctx, result, outIdx)) return true;
-        arrSet(ctx, result, outIdx++, v);
-        return hasCallException();
+        result = arrayCreateDataPropertyOrThrow(ctx, result, outIdx, v);
+        if (hasCallException()) return true;
+        outIdx++;
+        return false;
     };
 
     // Spread self.
@@ -2797,6 +2773,20 @@ static const proto::ProtoObject* arrayForEach(
 // map / filter / slice / splice / concat / flatMap / Array.from /
 // Array.of / toReversed / toSpliced / toSorted / with.
 // ---------------------------------------------------------------------------
+// CreateDataPropertyOrThrow define-write: handles the failure probe
+// (non-extensible + new slot, or non-configurable existing slot →
+// TypeError), then writes value + resets __pd_<idx>__ to default
+// flags so a ctor-installed (writable:false / enumerable:false) slot
+// is replaced WHOLESALE rather than just having its value updated.
+//
+// Returns the (possibly new) result object — mirrors arrSet's
+// signature so callers can chain.
+static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* obj,
+    unsigned long idx,
+    const proto::ProtoObject* val);
+
 static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* obj,
                                                  unsigned long idx) {
@@ -2826,6 +2816,30 @@ static bool arrayThrowIfCreateDataPropertyFails(proto::ProtoContext* ctx,
         }
     }
     return false;
+}
+
+static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* obj,
+    unsigned long idx,
+    const proto::ProtoObject* val) {
+    if (arrayThrowIfCreateDataPropertyFails(ctx, obj, idx)) return obj;
+    // Write the value via arrSet so __elements__ is updated for real
+    // arrays.
+    const proto::ProtoObject* updated = arrSet(ctx, obj, idx, val);
+    if (hasCallException()) return updated;
+    // Reset __pd_<idx>__ to defaults so a ctor-installed
+    // (writable:false, enumerable:false) descriptor is replaced
+    // wholesale.  CreateDataProperty installs a FRESH data
+    // descriptor; the spec wants {value, writable:true,
+    // enumerable:true, configurable:true} regardless of prior state.
+    constexpr long long kDefaultPdBits = 0x7;
+    std::string pdStr = "__pd_" + std::to_string(idx) + "__";
+    const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+    const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+    if (pdk) updated = updated->setAttribute(ctx, pdk,
+                          ctx->fromInteger(kDefaultPdBits));
+    return updated;
 }
 
 // ---------------------------------------------------------------------------
@@ -2869,8 +2883,8 @@ static const proto::ProtoObject* arrayMap(
             callJSFunction(ctx, fn, thisArg, makeIterArgs(ctx, arrGet(ctx, self, i), (long long)i, self));
         if (hasCallException()) return PROTO_NONE;
         if (!mapped || mapped == PROTO_NONE) mapped = undefSent;
-        if (arrayThrowIfCreateDataPropertyFails(ctx, result, i)) return PROTO_NONE;
-        result = arrSet(ctx, result, i, mapped);
+        result = arrayCreateDataPropertyOrThrow(ctx, result, i, mapped);
+        if (hasCallException()) return PROTO_NONE;
     }
     return result;
 }
@@ -2916,9 +2930,9 @@ static const proto::ProtoObject* arrayFilter(
         if (hasCallException()) return PROTO_NONE;
         if (isTruthy(ctx, keep)) {
             if (!elem || elem == PROTO_NONE) elem = undefSent;
-            if (arrayThrowIfCreateDataPropertyFails(ctx, result, outIdx))
-                return PROTO_NONE;
-            result = arrSet(ctx, result, outIdx++, elem);
+            result = arrayCreateDataPropertyOrThrow(ctx, result, outIdx, elem);
+            if (hasCallException()) return PROTO_NONE;
+            outIdx++;
         }
     }
     return result;
@@ -3467,8 +3481,9 @@ static void flatInto(proto::ProtoContext* ctx,
         if (isArr && depth > 0)
             flatInto(ctx, elem, dest, outIdx, depth - 1);
         else {
-            if (arrayThrowIfCreateDataPropertyFails(ctx, dest, outIdx)) return;
-            dest = arrSet(ctx, dest, outIdx++, elem);
+            dest = arrayCreateDataPropertyOrThrow(ctx, dest, outIdx, elem);
+            if (hasCallException()) return;
+            outIdx++;
         }
     }
 }
@@ -3677,10 +3692,12 @@ static const proto::ProtoObject* arraySplice(
         arraySpeciesCreate(ctx, self, static_cast<unsigned long>(delCount));
     if (hasCallException()) return PROTO_NONE;
     for (long long i = 0; i < delCount; i++) {
-        if (arrayThrowIfCreateDataPropertyFails(ctx, removed, (unsigned long)i))
-            return PROTO_NONE;
-        removed = arrSet(ctx, removed, (unsigned long)i,
-                         arrGet(ctx, self, (unsigned long)(start + i)));
+        const proto::ProtoObject* v =
+            arrGet(ctx, self, (unsigned long)(start + i));
+        if (hasCallException()) return PROTO_NONE;
+        removed = arrayCreateDataPropertyOrThrow(ctx, removed,
+                       (unsigned long)i, v);
+        if (hasCallException()) return PROTO_NONE;
     }
 
     // Collect items to insert.
