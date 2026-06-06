@@ -1772,13 +1772,24 @@ static const proto::ProtoObject* arraySlice(
     // already holds a non-configurable descriptor at the slot.
     // built-ins/Array/prototype/slice/target-array-non-extensible and
     // target-array-with-non-configurable-property pin both branches.
+    // §23.1.3.28 step 13: HasProperty(O, Pk) gates the
+    // CreateDataPropertyOrThrow, but n advances UNCONDITIONALLY.
+    // The result's final length is end-start (= n at loop exit), NOT
+    // the count of present indices.  Pre-fix we copied holes as
+    // arrGet(...) (PROTO_NONE / undefined), then set length = outIdx
+    // which only counted writes — so a sparse source still produced
+    // a packed-but-undefined-filled result.  Now mirror the spec:
+    // skip writes for holes, advance outIdx regardless, end with
+    // length = end-start.
     long long outIdx = 0;
     for (long long i = start; i < end; i++) {
-        const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(i));
-        if (hasCallException()) return PROTO_NONE;
-        result = arrayCreateDataPropertyOrThrow(ctx, result,
-                    static_cast<unsigned long>(outIdx), v);
-        if (hasCallException()) return PROTO_NONE;
+        if (arrHasProperty(ctx, self, static_cast<unsigned long>(i))) {
+            const proto::ProtoObject* v = arrGet(ctx, self, static_cast<unsigned long>(i));
+            if (hasCallException()) return PROTO_NONE;
+            result = arrayCreateDataPropertyOrThrow(ctx, result,
+                        static_cast<unsigned long>(outIdx), v);
+            if (hasCallException()) return PROTO_NONE;
+        }
         outIdx++;
     }
     result = arrSetLen(ctx, result, static_cast<unsigned long>(outIdx));
