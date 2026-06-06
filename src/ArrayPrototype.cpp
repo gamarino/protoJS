@@ -975,7 +975,26 @@ static const proto::ProtoObject* arraySpeciesCreate(
     if (C && C != PROTO_NONE) {
         const proto::ProtoString* speciesKey = JSSymbols::symbolSpecies(ctx);
         if (speciesKey) {
-            const proto::ProtoObject* species = C->getAttribute(ctx, speciesKey, true);
+            // Get(C, @@species) walks accessors — a Symbol.species
+            // installed via Object.defineProperty(C, Symbol.species,
+            // {get: f}) must fire on the read, and a throwing getter
+            // must propagate (built-ins/Array/prototype/concat/
+            // create-species-poisoned).  Probe the sidecar key first.
+            std::string keyStr;
+            speciesKey->toUTF8String(ctx, keyStr);
+            std::string gkStr = "__get_" + keyStr + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoObject* species = nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = C->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    species = callJSFunction(ctx, getter, C, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+            if (!species || species == PROTO_NONE)
+                species = C->getAttribute(ctx, speciesKey, true);
             if (species && species != PROTO_NONE) {
                 C = species;
                 // If species is null, use default Array (ES6 22.1.3.17.1 step 5.b).
@@ -1013,6 +1032,33 @@ static const proto::ProtoObject* arraySpeciesCreate(
             const proto::ProtoString* arrowK = arrowKO ? arrowKO->asString(ctx) : nullptr;
             if (!arrowK || C->getAttribute(ctx, arrowK, false) != PROTO_TRUE) {
                 isBytecodeFn = true;
+            }
+        }
+    }
+
+    // §22.1.3.1.1 step 9: If IsConstructor(C) is false, throw TypeError.
+    // A species that's callable but NOT a constructor (parseInt, isNaN,
+    // arrow functions, etc.) must be rejected.  Built-in utility
+    // functions carry __native_fn__ without any ctor marker; detect
+    // those and throw (built-ins/Array/prototype/concat/create-species-
+    // non-ctor pins this).
+    if (C && C != PROTO_NONE && !hasNativeCtor && !isBytecodeFn) {
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && C->hasAttribute(ctx, nfKey) == PROTO_TRUE) {
+            const proto::ProtoString* arrK = JSSymbols::arrayCtor(ctx);
+            const proto::ProtoString* errK = JSSymbols::errorCtor(ctx);
+            const proto::ProtoString* reK  = JSSymbols::regexpCtor(ctx);
+            const proto::ProtoString* strK = JSSymbols::stringCtor(ctx);
+            const proto::ProtoString* taK  = JSSymbols::taCtor(ctx);
+            bool isCtor = (arrK && C->getAttribute(ctx, arrK, false) == PROTO_TRUE)
+                       || (errK && C->hasAttribute(ctx, errK) == PROTO_TRUE)
+                       || (reK  && C->getAttribute(ctx, reK,  false) == PROTO_TRUE)
+                       || (strK && C->getAttribute(ctx, strK, false) == PROTO_TRUE)
+                       || (taK  && C->hasAttribute(ctx, taK)  == PROTO_TRUE);
+            if (!isCtor) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Array species is not a constructor"));
+                return PROTO_NONE;
             }
         }
     }
