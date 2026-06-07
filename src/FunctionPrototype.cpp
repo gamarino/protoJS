@@ -361,21 +361,45 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
         if (!mk) return;
 
-        // Raw method object. Wrapping with name/length would orphan the
-        // wrapper from the final Function.prototype (parents get snapshotted
-        // pre-install), so 'Function.prototype.call.bind(...)' would lose
-        // .bind. Raw method handles inherit from methodPrototype lazily —
-        // wrapping breaks that.
-        const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
-        if (!rawMethod) return;
-        fp = fp->setAttribute(ctx, mk, rawMethod);
+        // Wrap with name + length so the spec-mandated §17 descriptor
+        // shape (length = argc, name = "<method>") is visible.  fp is
+        // mutable, and methodPrototype is set to fp later in this
+        // function; the wrapper's parent slot points to whatever
+        // methodPrototype was at construction time (most likely null or
+        // an interim value), so we explicitly parent on fp itself —
+        // this is the same trick the class-side methods use to find
+        // .bind / .apply later.
+        const proto::ProtoObject* wrapper = fp->newChild(ctx, true);
+        if (!wrapper) {
+            // Fallback: install raw method without name/length.
+            const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
+            if (rawMethod) fp = fp->setAttribute(ctx, mk, rawMethod);
+            return;
+        }
+        const proto::ProtoString* nfKey2 = JSSymbols::nativeFn(ctx);
+        if (nfKey2) wrapper = wrapper->setAttribute(ctx, nfKey2,
+            ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
+        if (lenKey2) {
+            wrapper = wrapper->setAttribute(ctx, lenKey2, ctx->fromInteger(argc));
+            const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+            if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmKey2 = JSSymbols::name(ctx);
+        if (nmKey2) {
+            wrapper = wrapper->setAttribute(ctx, nmKey2, ctx->fromUTF8String(methodName));
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+            if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* hnwFp = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwFp) wrapper = wrapper->setAttribute(ctx, hnwFp, PROTO_TRUE);
+        fp = fp->setAttribute(ctx, mk, wrapper);
 
         // Method descriptor: {writable:true, enumerable:false, configurable:true} → 0x3
         std::string pdStr = std::string("__pd_") + methodName + "__";
         const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
         const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
         if (pdks) fp = fp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
-        (void)argc;
     };
 
     installFpMethod("call",     fnCall,     1);
