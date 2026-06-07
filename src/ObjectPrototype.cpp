@@ -663,30 +663,59 @@ static const proto::ProtoObject* objectCreate(
                     return PROTO_NONE;
                 }
             }
-            const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
-            if (own) {
-                const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-                while (it && it->hasNext(ctx)) {
-                    unsigned long rawKey = it->nextKey(ctx);
-                    const proto::ProtoObject* descObj = it->nextValue(ctx);
-                    it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-                    const proto::ProtoString* propKey =
-                        reinterpret_cast<const proto::ProtoString*>(rawKey);
-                    if (!propKey) continue;
-                    if (isInternalKey(ctx, propKey)) continue;
-                    if (descObj && descObj != PROTO_NONE) {
-                        std::string keyStr;
-                        propKey->toUTF8String(ctx, keyStr);
-                        if (keyStr != "length") {
-                            const proto::ProtoList* dpArgs = ctx->newList();
-                            dpArgs = dpArgs->appendLast(ctx, result);
-                            dpArgs = dpArgs->appendLast(ctx, ctx->fromUTF8String(keyStr.c_str()));
-                            dpArgs = dpArgs->appendLast(ctx, descObj);
-                            const proto::ProtoObject* nr = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
-                            if (nr && nr != PROTO_NONE) result = nr;
-                        }
+            // §19.1.2.4 ObjectDefineProperties step 2: iterate the OWN
+            // enumerable keys of Properties; for each, descObj = Get(props, key)
+            // — the spec-mandated descriptor lookup that invokes any
+            // accessor getter on Properties (test262
+            // built-ins/Object/create/15.2.3.5-4-4.js and 4-10..4-40 cover
+            // this: `Object.defineProperty(props, "prop", {get: function(){
+            // ... return {}; }, enumerable: true})` then
+            // `Object.create({}, props)` MUST invoke the getter).  Pre-fix
+            // the loop walked the raw OwnAttributes sparse-list (no getter
+            // invocation, no enumerable filter, and on accessor properties
+            // returned the unrelated `__get_<key>__` sentinel object as
+            // descObj — which ToPropertyDescriptor then rejected as
+            // "Property description must be an object").
+            std::vector<std::string> keys;
+            collectOwnKeys(ctx, propsObj, keys, nullptr, /*includeNonEnumerable=*/false);
+            for (const std::string& keyStr : keys) {
+                if (keyStr == "length") continue;
+                const proto::ProtoObject* keyObj = ctx->fromUTF8String(keyStr.c_str());
+                const proto::ProtoString* propKey = keyObj ? keyObj->asString(ctx) : nullptr;
+                if (!propKey) continue;
+                // Get(props, key) — spec requires invoking any accessor getter
+                // on Properties.  protoCore's getAttribute(callbacks=true) only
+                // fires native-callback accessors, not the JS-level
+                // __get_<key>__ sidecar that Object.defineProperty installs,
+                // so probe the sidecar explicitly and invoke via
+                // callJSFunction.  Without this, accessor-only descriptor
+                // entries returned the unrelated undefined sentinel (raw value
+                // when __pd_<key>__ marks the slot as accessor) — making the
+                // wrapping objectDefineProperty throw "Property description
+                // must be an object".
+                const proto::ProtoObject* descObj = nullptr;
+                std::string gkStr = "__get_" + keyStr + "__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                if (gk && propsObj->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
+                    const proto::ProtoObject* getter = propsObj->getAttribute(ctx, gk, false);
+                    if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
+                        const proto::ProtoList* emptyArgs = ctx->newList();
+                        descObj = callJSFunction(ctx, getter, propsObj, emptyArgs);
+                        if (hasCallException()) return PROTO_NONE;
                     }
                 }
+                if (!descObj) {
+                    descObj = propsObj->getAttribute(ctx, propKey, true);
+                }
+                if (!descObj || descObj == PROTO_NONE) continue;
+                const proto::ProtoList* dpArgs = ctx->newList();
+                dpArgs = dpArgs->appendLast(ctx, result);
+                dpArgs = dpArgs->appendLast(ctx, keyObj);
+                dpArgs = dpArgs->appendLast(ctx, descObj);
+                const proto::ProtoObject* nr = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+                if (nr && nr != PROTO_NONE) result = nr;
+                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
