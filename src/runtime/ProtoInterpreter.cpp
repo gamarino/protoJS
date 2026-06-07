@@ -4171,38 +4171,69 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         const proto::ProtoObject* objProto = pContext->space->objectPrototype;
         const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
         if (protoKey) {
-            static const char* kBuiltinCtors[] = {
-                "Array", "String", "Number", "Boolean", "Function",
-                "Map", "Set", "WeakMap", "RegExp", "Date", "Error",
-                "TypeError", "RangeError", "SyntaxError", "ReferenceError",
-                "EvalError", "URIError", "Promise", "ArrayBuffer",
-                "DataView", "Symbol",
-                nullptr
+            // §20.5.6: Error subtype prototypes inherit from Error.prototype,
+            // NOT directly from Object.prototype.  Look up Error.prototype
+            // once so each Error-subtype ctor's prototype can be bound to it.
+            const proto::ProtoObject* errCtor = nullptr;
+            const proto::ProtoObject* errProto = nullptr;
+            {
+                const proto::ProtoObject* eko = pContext->fromUTF8String("Error");
+                const proto::ProtoString* ek = eko ? eko->asString(pContext) : nullptr;
+                if (ek) errCtor = (*pGlobalRoot)->getAttribute(pContext, ek, false);
+                if (errCtor && errCtor != PROTO_NONE)
+                    errProto = errCtor->getAttribute(pContext, protoKey, false);
+            }
+
+            struct CtorSpec { const char* name; bool isErrorSubtype; };
+            static const CtorSpec kBuiltinCtors[] = {
+                {"Array",          false},
+                {"String",         false},
+                {"Number",         false},
+                {"Boolean",        false},
+                {"Function",       false},
+                {"Map",            false},
+                {"Set",            false},
+                {"WeakMap",        false},
+                {"RegExp",         false},
+                {"Date",           false},
+                {"Error",          false},  // Error.prototype.__proto__ = Object.prototype
+                {"TypeError",      true},
+                {"RangeError",     true},
+                {"SyntaxError",    true},
+                {"ReferenceError", true},
+                {"EvalError",      true},
+                {"URIError",       true},
+                {"Promise",        false},
+                {"ArrayBuffer",    false},
+                {"DataView",       false},
+                {"Symbol",         false},
+                {nullptr,          false},
             };
-            for (int i = 0; kBuiltinCtors[i]; ++i) {
-                const proto::ProtoObject* nko = pContext->fromUTF8String(kBuiltinCtors[i]);
+            for (int i = 0; kBuiltinCtors[i].name; ++i) {
+                const proto::ProtoObject* nko = pContext->fromUTF8String(kBuiltinCtors[i].name);
                 const proto::ProtoString* nk = nko ? nko->asString(pContext) : nullptr;
                 if (!nk) continue;
                 const proto::ProtoObject* ctor = (*pGlobalRoot)->getAttribute(pContext, nk, false);
                 if (!ctor || ctor == PROTO_NONE) continue;
                 const proto::ProtoObject* ctorProto = ctor->getAttribute(pContext, protoKey, false);
                 if (!ctorProto || ctorProto == PROTO_NONE) continue;
-                if (ctorProto == objProto) continue;
-                // Map-only: this builtin-ctor init loop uniformly sets
+                // §20.5.6.3 vs §19.1.3: Error subtype prototypes must
+                // inherit from Error.prototype; everything else from
+                // Object.prototype.  Pre-fix this loop uniformly bound
                 // every builtin ctor.prototype's __proto__ to
-                // Object.prototype.  That is wrong for Error subtypes
-                // (TypeError.prototype.__proto__ MUST be Error.prototype,
-                // not Object.prototype) — the bug was masked by
-                // t_jsProtoMap's read fallback firing only on chain
-                // miss, leaving the natural protoCore parent chain in
-                // place for `new TypeError() instanceof Error`.  Force-
-                // rebinding via setParents would surface that
-                // misinitialisation as a test262 regression
-                // (language/expressions/instanceof/S11.8.6_A5_T2.js).
-                // Keep the map-only behaviour here until the loop
-                // itself is rewritten to honour the proper Error
-                // subtype chain.
-                protojs::setJSProtoOverride(ctorProto, objProto);
+                // Object.prototype — the bug was masked by t_jsProtoMap's
+                // read fallback firing only on chain miss, leaving the
+                // natural protoCore parent chain in place for
+                // `new TypeError() instanceof Error` (test262
+                // language/expressions/instanceof/S11.8.6_A5_T2.js
+                // exposed this once setParents started rebinding the
+                // protoCore parent chain natively).
+                const proto::ProtoObject* target =
+                    kBuiltinCtors[i].isErrorSubtype && errProto && errProto != PROTO_NONE
+                        ? errProto
+                        : objProto;
+                if (ctorProto == target) continue;
+                protojs::setJSProtoOverride(pContext, ctorProto, target);
             }
         }
     }
