@@ -2395,7 +2395,23 @@ static const proto::ProtoObject* objectFromEntries(
     };
 
     auto processPair = [&](const proto::ProtoObject* pair) -> void {
-        if (!pair || pair == PROTO_NONE) return;
+        // §20.1.2.6 step 8.b — CreateDataPropertyOnObjectFromEntries:
+        //   1. If Type(entry) is not Object, throw a TypeError exception.
+        // Pre-fix the null / undefined / primitive cases short-circuited
+        // to a silent skip, so `Object.fromEntries([null, undefined,
+        // 'foo'])` returned {} instead of throwing per the spec.
+        // test262 built-ins/Object/fromEntries/iterator-closed-for-*
+        // assert.throws(TypeError, ...) on null / string entries.
+        bool entryIsObject = pair && pair != PROTO_NONE
+            && pair != getUndefinedSentinel() && pair != getNullSentinel()
+            && !pair->isInteger(ctx) && !pair->isDouble(ctx)
+            && !pair->isFloat(ctx) && !pair->isString(ctx)
+            && pair != PROTO_TRUE && pair != PROTO_FALSE;
+        if (!entryIsObject) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "iterator entry must be an Object"));
+            return;
+        }
         const proto::ProtoObject* keyObj = readEl(pair, 0);
         const proto::ProtoObject* valObj = readEl(pair, 1);
         if (!valObj) valObj = PROTO_NONE;
