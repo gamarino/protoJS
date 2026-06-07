@@ -159,6 +159,27 @@ static void collectOwnKeys(
     if (!own) return;
     const proto::ProtoString* lenSymbol = JSSymbols::length(ctx);
 
+    // Per-target hint flags — same idea as resolvePutFieldOOP's gate.
+    // When __has_nonwritable_props__ is absent on obj, every property
+    // has the default writable=true, enumerable=true, configurable=true
+    // → the per-key __pd_<key>__ probe (which builds a fresh
+    // ProtoString rope every iteration) is pure waste.  Same for
+    // __has_accessor_props__ gating the __get_<key>__ accessor probe.
+    bool mightHaveNonWritable = false;
+    bool mightHaveAccessors = false;
+    {
+        const proto::ProtoString* hnwKey = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwKey) {
+            mightHaveNonWritable = (obj->hasAttribute(ctx, hnwKey) == PROTO_TRUE)
+                && (obj->getAttribute(ctx, hnwKey, true) == PROTO_TRUE);
+        }
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        if (hapKey) {
+            mightHaveAccessors = (obj->hasAttribute(ctx, hapKey) == PROTO_TRUE)
+                && (obj->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+        }
+    }
+
     const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
         unsigned long rawKey = it->nextKey(ctx);
@@ -190,7 +211,9 @@ static void collectOwnKeys(
         // Respect the enumerable descriptor flag (bit 2 of __pd_<key>__).
         // A missing __pd__ key means default = enumerable (bit 2 = 1).
         // Skip non-enumerable properties unless includeNonEnumerable is set.
-        if (!includeNonEnumerable) {
+        // Skip the entire probe when the per-target flag says no
+        // non-default descriptor exists.
+        if (!includeNonEnumerable && mightHaveNonWritable) {
             std::string pdKeyStr = "__pd_" + kstr + "__";
             const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
             const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
@@ -210,11 +233,15 @@ static void collectOwnKeys(
             // slot is undefined / PROTO_NONE, so
             //   Object.values({get b(){return 'B'}}) returned [undefined]
             // (built-ins/Object/values/getter-adding-key caught this).
-            std::string gkStr = "__get_" + kstr + "__";
-            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
-            const proto::ProtoObject* getter = (gk && obj->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
-                ? obj->getAttribute(ctx, gk, false) : nullptr;
+            // Skip the probe when no accessors exist anywhere.
+            const proto::ProtoObject* getter = nullptr;
+            if (mightHaveAccessors) {
+                std::string gkStr = "__get_" + kstr + "__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                getter = (gk && obj->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
+                    ? obj->getAttribute(ctx, gk, false) : nullptr;
+            }
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
                 const proto::ProtoList* noArgs = ctx->newList();
                 const proto::ProtoObject* gres = callJSFunction(ctx, getter, obj, noArgs);
