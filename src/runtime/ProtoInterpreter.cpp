@@ -9926,9 +9926,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (captured && captured != PROTO_NONE)
                                 effectiveThis = captured;
                         }
-                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                        // Bind args BEFORE stackPop: argSlice points into
+                        // the parent's automaticLocals which pop will
+                        // zero out.  Reading argSlice directly avoids the
+                        // argc AVL walks that argsList->getAt would do.
                         for (uint32_t i = 0; i < bindCount; i++)
-                            setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
+                            setSlot(&childCtx, i, argSlice[i]);
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
                     // Active func / args for OP_special_object inside method body.
@@ -10611,9 +10615,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (captured && captured != PROTO_NONE)
                                 callThisVal = captured;
                         }
-                        for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                        // Bind args BEFORE stackPop clears the slice slots.
                         for (uint32_t i = 0; i < bindCount; i++)
-                            setSlot(&childCtx, i, argsList->getAt(pContext, static_cast<int>(i)));
+                            setSlot(&childCtx, i, argSlice[i]);
+                        for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
                     }
                     populateClosureCellsFromInstance(&childCtx, func, nf);
 
