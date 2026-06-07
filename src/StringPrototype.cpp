@@ -2085,16 +2085,34 @@ const proto::ProtoObject* stringRaw(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) < 1) return ctx->fromUTF8String("");
+    // §21.1.2.4 step 3: ToObject(template).  null / undefined throw
+    // TypeError before any property access.  Pre-fix the implementation
+    // returned the empty string silently for any falsy template, so the
+    // four template-*-throws.js fixtures all reported NO_THROW.
+    if (!ctx || !args || args->getSize(ctx) < 1) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined to object"));
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* tpl = args->getAt(ctx, 0);
-    if (!tpl || tpl == PROTO_NONE) return ctx->fromUTF8String("");
+    if (!tpl || tpl == PROTO_NONE
+        || tpl == getNullSentinel() || tpl == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
 
     // Get template.raw
     const proto::ProtoObject* rawKeyObj = ctx->fromUTF8String("raw");
     const proto::ProtoString* rawKey = rawKeyObj ? rawKeyObj->asString(ctx) : nullptr;
     const proto::ProtoObject* rawArr = rawKey
         ? tpl->getAttribute(ctx, rawKey, true) : PROTO_NONE;
-    if (!rawArr || rawArr == PROTO_NONE) return ctx->fromUTF8String("");
+    if (!rawArr || rawArr == PROTO_NONE
+        || rawArr == getNullSentinel() || rawArr == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert template.raw to object"));
+        return PROTO_NONE;
+    }
 
     // Get raw.length
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
@@ -2108,12 +2126,22 @@ const proto::ProtoObject* stringRaw(
     }
 
     // Build result: raw[0] + subs[0] + raw[1] + subs[1] + ... + raw[n-1]
+    // Array elements live in __elements__; prefer that fast path so a
+    // ProtoList-backed Array template works.  Fall back to attribute
+    // lookup for non-Array array-likes (object {raw:[...], length: N}
+    // where raw was reassigned to a string-keyed object).
     std::string result;
+    const proto::ProtoList* rawEls = protojs::getArrayElements(ctx, rawArr);
     for (long long i = 0; i < rawLen; i++) {
-        // Append raw[i]
-        const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-        if (idxKey) {
-            const proto::ProtoObject* seg = rawArr->getAttribute(ctx, idxKey, true);
+        const proto::ProtoObject* seg = nullptr;
+        if (rawEls && i < static_cast<long long>(rawEls->getSize(ctx))) {
+            seg = rawEls->getAt(ctx, static_cast<int>(i));
+        }
+        if (!seg || seg == PROTO_NONE) {
+            const proto::ProtoString* idxKey = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+            if (idxKey) seg = rawArr->getAttribute(ctx, idxKey, true);
+        }
+        if (true) {
             if (seg && seg != PROTO_NONE) {
                 // §22.1.2.4 step 12.c ToString(seg): a Symbol value
                 // raises TypeError per §7.1.17 (built-ins/String/raw/
