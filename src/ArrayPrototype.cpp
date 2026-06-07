@@ -4043,6 +4043,54 @@ static const proto::ProtoObject* arraySplice(
     const proto::ProtoObject* removed =
         arraySpeciesCreate(ctx, self, static_cast<unsigned long>(delCount));
     if (hasCallException()) return PROTO_NONE;
+
+    long long insertCount = n >= 2 ? n - 2 : 0;
+    long long newLen = len - delCount + insertCount;
+
+    // Native fast path: prefix + insertions + suffix all assembled via
+    // ProtoList::getSlice / appendLast — replaces the O(N) per-element
+    // arrGet + arrSet walk with O(log N) tree splices.  Requires:
+    //   - self is a real array with no inherited indexed setters
+    //     and no accessors anywhere reachable
+    //   - removed is a clean real array
+    //   - no holes (__elements__ size matches arrLen)
+    {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
+            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
+                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+        };
+        if (!flagSet(self, hisKey) && !flagSet(self, hapKey)
+            && !flagSet(removed, hisKey) && !flagSet(removed, hapKey)) {
+            const proto::ProtoList* srcList = nativeArrayList(ctx, self);
+            const proto::ProtoList* dstList = nativeArrayList(ctx, removed);
+            if (srcList && dstList
+                && srcList->getSize(ctx) == static_cast<int>(len)
+                && dstList->getSize(ctx) == 0) {
+                // The removed/return array — slice of [start, start+delCount).
+                if (delCount > 0) {
+                    const proto::ProtoList* removedSlice = srcList->getSlice(
+                        ctx, static_cast<int>(start), static_cast<int>(start + delCount));
+                    if (removedSlice) setArrayElements(ctx, removed, removedSlice);
+                }
+                // The new self — prefix [0, start) + inserts + suffix [start+delCount, len).
+                const proto::ProtoList* prefix = srcList->getSlice(
+                    ctx, 0, static_cast<int>(start));
+                const proto::ProtoList* suffix = srcList->getSlice(
+                    ctx, static_cast<int>(start + delCount), static_cast<int>(len));
+                const proto::ProtoList* out = prefix ? prefix : ctx->newList();
+                for (long long i = 0; i < insertCount; i++) {
+                    const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(2 + i));
+                    out = out->appendLast(ctx, item ? item : PROTO_NONE);
+                }
+                if (suffix) out = out->extend(ctx, suffix);
+                setArrayElements(ctx, self, out);
+                return removed;
+            }
+        }
+    }
+
     for (long long i = 0; i < delCount; i++) {
         const proto::ProtoObject* v =
             arrGet(ctx, self, (unsigned long)(start + i));
@@ -4051,9 +4099,6 @@ static const proto::ProtoObject* arraySplice(
                        (unsigned long)i, v);
         if (hasCallException()) return PROTO_NONE;
     }
-
-    // Collect items to insert.
-    long long insertCount = n >= 2 ? n - 2 : 0;
 
     // Collect elements after the removed section.
     std::vector<const proto::ProtoObject*> tail;
@@ -4068,9 +4113,6 @@ static const proto::ProtoObject* arraySplice(
     long long tailStart = start + insertCount;
     for (size_t i = 0; i < tail.size(); i++)
         arrSet(ctx, self, (unsigned long)(tailStart + (long long)i), tail[i]);
-
-    // Update length.
-    long long newLen = len - delCount + insertCount;
 
     // §23.1.3.29 step 21.d: when insertCount < deleteCount, delete the
     // now-vacated tail indices via DeletePropertyOrThrow(O, k).  For
