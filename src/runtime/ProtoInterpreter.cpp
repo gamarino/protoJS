@@ -9915,7 +9915,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* const* argSlice =
                             pContext->getAutomaticLocals()
                             + frameNow->stackBase + frameNow->stackTop - argc;
-                        argsList = pContext->newList(argc, argSlice);
+                        // Lazy argsList: skip the newList allocation when
+                        // the callee body never accesses `arguments`,
+                        // a rest parameter, or t_activeArgs (super(...)).
+                        // The flag is computed once at module load.
+                        argsList = nf.usesArguments
+                            ? pContext->newList(argc, argSlice)
+                            : nullptr;
                         // Determine effective this inside the CS so the
                         // arrow-this lookup cannot trigger a sweep that
                         // frees argsList.
@@ -10607,7 +10613,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* const* argSlice =
                             pContext->getAutomaticLocals()
                             + frameNow->stackBase + frameNow->stackTop - argc;
-                        argsList = pContext->newList(argc, argSlice);
+                        // Lazy argsList: see L_OP_call_method site.
+                        // Constructors that don't access `arguments`,
+                        // `...rest`, or super(...) need no argsList.
+                        argsList = nf.usesArguments
+                            ? pContext->newList(argc, argSlice)
+                            : nullptr;
                         callThisVal = PROTO_NONE;
                         if (nf.isArrow) {
                             const proto::ProtoObject* captured =

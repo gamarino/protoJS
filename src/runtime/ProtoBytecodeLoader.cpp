@@ -71,6 +71,21 @@ static void preResolveAllAtoms(JSContext* ctx, ProtoBytecodeModule* mod,
                 }
             }
         }
+        /* Detect opcodes that read the call-time `args` ProtoList or
+         * t_activeArgs.  Setting mod->usesArguments lets callers skip
+         * the newList(argc, slice) allocation entirely when the callee
+         * never touches the call-time args. */
+        if (!mod->usesArguments) {
+            if (op == OP_rest || op == OP_init_ctor) {
+                mod->usesArguments = true;
+            } else if (op == OP_special_object && pc + 1 < len) {
+                /* kinds 0 (ARGUMENTS) and 1 (MAPPED_ARGUMENTS) need args.
+                 * Other kinds (THIS_FUNC, NEW_TARGET, HOME_OBJECT, ...)
+                 * read thread-locals that don't depend on argsList. */
+                uint8_t kind = buf[pc + 1];
+                if (kind == 0 || kind == 1) mod->usesArguments = true;
+            }
+        }
         /* Advance by opcode size (includes opcode byte itself). */
         uint8_t sz = (op <= static_cast<uint8_t>(maxOp)) ? sizes[op] : 0;
         if (sz == 0) break; /* unknown opcode - stop */

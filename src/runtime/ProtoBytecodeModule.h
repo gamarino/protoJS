@@ -63,6 +63,14 @@ struct ProtoBytecodeModule {
     bool isAsync{false};
     bool isGenerator{false};
 
+    /** True iff the bytecode reads the call-time argument list — set when
+     *  the body contains OP_special_object kind=0/1 (arguments object),
+     *  OP_rest (rest parameter), or OP_init_ctor (super(...) forwarding via
+     *  t_activeArgs).  Computed once at module load.  When false, the
+     *  caller can skip building argsList entirely and pass nullptr to
+     *  runBytecode, saving one ProtoListSmallImpl allocation per call. */
+    bool usesArguments{false};
+
     /** The function's declared name. */
     std::string funcName;
 
