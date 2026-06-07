@@ -1908,12 +1908,18 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    if (!args || args->getSize(ctx) == 0)
-        return ctx->fromInteger(-1LL);
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.16 step 3: empty receiver returns -1 BEFORE ToInteger.
     if (len == 0) return ctx->fromInteger(-1LL);
-    const proto::ProtoObject* needle = args->getAt(ctx, 0);
+    // §23.1.3.16: searchElement defaults to undefined when no argument
+    // is supplied.  Pre-fix lastIndexOf returned -1 unconditionally on
+    // no-arg, so [undefined].lastIndexOf() failed to locate idx 0
+    // (built-ins/Array/prototype/lastIndexOf/15.4.4.15-8-b-ii-2) —
+    // mirrors the indexOf default just above.
+    const proto::ProtoObject* needle = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0)
+        : getUndefinedSentinel();
+    if (!args) args = ctx->newList();
     long long from = len - 1;
     if (args->getSize(ctx) > 1) {
         const proto::ProtoObject* fi = args->getAt(ctx, 1);
