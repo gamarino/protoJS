@@ -2914,6 +2914,130 @@ static const proto::ProtoObject* objectValueOf(
     return self;
 }
 
+// §B.2.2.2 Object.prototype.__defineGetter__(P, getter): install an
+// accessor descriptor with the supplied getter on `this`, leaving any
+// existing setter intact.  Equivalent to
+//   Object.defineProperty(this, P, {get: getter, enumerable: true,
+//                                   configurable: true})
+// per the spec.  Throws TypeError if getter is not callable.
+// objectDefineProperty handles the descriptor sidecar bookkeeping
+// (__pd_<key>__ + __has_accessor_props__ + the actual __get_<key>__
+// slot), so we just synthesise the descriptor object and dispatch.
+static const proto::ProtoObject* objectDefineProperty(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink* parents,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList* slots);
+// Lightweight callable probe: a value is callable iff it has any of the
+// markers protoJS uses for callables — __native_fn__ (wrapped C++ fn),
+// __bytecode_id__ (Python-side function), __bound_fn__ (bound function),
+// __is_constructor__, or the raw isMethod() type tag.  Matches the
+// dispatch test used by objectToString.
+static bool jsIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* o) {
+    if (!o || o == PROTO_NONE) return false;
+    if (o->isMethod(ctx)) return true;
+    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+    if (nfKey && o->getAttribute(ctx, nfKey, false) != PROTO_NONE) return true;
+    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+    if (bcKey && o->getAttribute(ctx, bcKey, false) != PROTO_NONE) return true;
+    const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+    if (bfKey && o->getAttribute(ctx, bfKey, false) != PROTO_NONE) return true;
+    return false;
+}
+static const proto::ProtoObject* objectDefineGetter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    if (!args || args->getSize(ctx) < 2) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "__defineGetter__ requires a property key and a getter function"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* keyArg = args->getAt(ctx, 0);
+    const proto::ProtoObject* getter = args->getAt(ctx, 1);
+    if (!jsIsCallable(ctx, getter)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "__defineGetter__: getter must be callable"));
+        return PROTO_NONE;
+    }
+    // Build descriptor object {get: getter, enumerable: true, configurable: true}.
+    const proto::ProtoObject* desc = ctx->newObject(true);
+    if (desc) {
+        auto setK = [&](const char* k, const proto::ProtoObject* v) {
+            const proto::ProtoObject* ko = ctx->fromUTF8String(k);
+            const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+            if (ks) desc = desc->setAttribute(ctx, ks, v);
+        };
+        setK("get",          getter);
+        setK("enumerable",   PROTO_TRUE);
+        setK("configurable", PROTO_TRUE);
+    }
+    const proto::ProtoList* dpArgs = ctx->newList();
+    dpArgs = dpArgs->appendLast(ctx, self);
+    dpArgs = dpArgs->appendLast(ctx, keyArg);
+    dpArgs = dpArgs->appendLast(ctx, desc);
+    (void)objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+    if (hasCallException()) return PROTO_NONE;
+    return getUndefinedSentinel();
+}
+
+// §B.2.2.3 Object.prototype.__defineSetter__: symmetric to
+// __defineGetter__.
+static const proto::ProtoObject* objectDefineSetter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    if (!args || args->getSize(ctx) < 2) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "__defineSetter__ requires a property key and a setter function"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* keyArg = args->getAt(ctx, 0);
+    const proto::ProtoObject* setter = args->getAt(ctx, 1);
+    if (!jsIsCallable(ctx, setter)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "__defineSetter__: setter must be callable"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* desc = ctx->newObject(true);
+    if (desc) {
+        auto setK = [&](const char* k, const proto::ProtoObject* v) {
+            const proto::ProtoObject* ko = ctx->fromUTF8String(k);
+            const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+            if (ks) desc = desc->setAttribute(ctx, ks, v);
+        };
+        setK("set",          setter);
+        setK("enumerable",   PROTO_TRUE);
+        setK("configurable", PROTO_TRUE);
+    }
+    const proto::ProtoList* dpArgs = ctx->newList();
+    dpArgs = dpArgs->appendLast(ctx, self);
+    dpArgs = dpArgs->appendLast(ctx, keyArg);
+    dpArgs = dpArgs->appendLast(ctx, desc);
+    (void)objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+    if (hasCallException()) return PROTO_NONE;
+    return getUndefinedSentinel();
+}
+
 // §B.2.2.4 Object.prototype.__lookupGetter__(P): walk the prototype
 // chain; for each ancestor with an own __get_<key>__ sidecar return
 // that getter.  Returns undefined when no accessor with a getter is
@@ -3095,6 +3219,8 @@ const proto::ProtoObject* installObjectInstanceMethods(
     // prototype/__lookupGetter__ / __lookupSetter__.
     base = installNonEnumerableMethod(ctx, base, "__lookupGetter__",    objectLookupGetter,         1);
     base = installNonEnumerableMethod(ctx, base, "__lookupSetter__",    objectLookupSetter,         1);
+    base = installNonEnumerableMethod(ctx, base, "__defineGetter__",    objectDefineGetter,         2);
+    base = installNonEnumerableMethod(ctx, base, "__defineSetter__",    objectDefineSetter,         2);
     (void)reg; // legacy raw-method installer kept for the special-case branches below
     // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
     // Delegate to the receiver's own toString — for a Number this gives the
