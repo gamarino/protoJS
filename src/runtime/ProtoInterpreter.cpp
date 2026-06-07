@@ -1931,13 +1931,20 @@ static inline bool debugBindEnabled() {
     return s_debugBind;
 }
 
-static inline InterpFrame* currentFrame(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline InterpFrame* currentFrame(proto::ProtoContext* ctx) {
     if (t_interpFrames.empty()) return nullptr;
     InterpFrame* f = &t_interpFrames.back();
     return (f->ctx == ctx) ? f : nullptr;
 }
 
-static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
+// Each helper kept as `[[gnu::always_inline]] inline static` so its
+// body is replicated at every call site inside runBytecode.  All
+// safety guards (NULL ctx, bounds, mt-frame mismatch) are preserved
+// — the inlining is purely about removing call/ret overhead.  The
+// 568 in-loop call sites each get an icache-resident copy; the two
+// out-of-loop sites (lines 379 / 3538) also benefit but pay nothing
+// since they were already cold.
+[[gnu::always_inline]] static inline const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int index) {
     if (!ctx) return PROTO_NONE;
     if (index >= ctx->getAutomaticLocalsCount()) return PROTO_NONE;
     const proto::ProtoObject* v = ctx->getAutomaticLocals()[index];
@@ -1947,7 +1954,7 @@ static const proto::ProtoObject* getSlot(proto::ProtoContext* ctx, unsigned int 
     return (v && v != PROTO_NONE) ? v : PROTO_NONE;
 }
 
-static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
+[[gnu::always_inline]] static inline void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::ProtoObject* value) {
     if (!ctx) return;
     if (debugSlotsEnabled()) {
         printf("[DEBUG] setSlot(%p, %u, %p)\n", ctx, index, value);
@@ -1958,12 +1965,12 @@ static void setSlot(proto::ProtoContext* ctx, unsigned int index, const proto::P
         value ? value : PROTO_NONE;
 }
 
-static void initStack(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline void initStack(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (f) f->stackTop = 0;
 }
 
-static void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
+[[gnu::always_inline]] static inline void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value) {
     if (!ctx) return;
     InterpFrame* f = currentFrame(ctx);
     if (!f) return;
@@ -1971,7 +1978,13 @@ static void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value)
     if (idx >= ctx->getAutomaticLocalsCount()) {
         // Stack overflowed the pre-reserved region; grow.  This is rare —
         // bytecode normally declares its max stack size up-front.
-        unsigned int newCap = (idx + 1) * 2;
+        // Saturating doubling: avoid (idx+1)*2 overflow on near-UINT_MAX
+        // (the cause of one of the documented system hangs from the
+        // earlier macro experiment).
+        constexpr unsigned int kMax = static_cast<unsigned int>(-1);
+        unsigned int newCap = (idx >= (kMax / 2u))
+            ? kMax
+            : ((idx + 1u) * 2u);
         ctx->resizeAutomaticLocals(newCap);
     }
     const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[idx] =
@@ -1979,7 +1992,7 @@ static void stackPush(proto::ProtoContext* ctx, const proto::ProtoObject* value)
     f->stackTop++;
 }
 
-static void stackPop(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline void stackPop(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || f->stackTop == 0) return;
     f->stackTop--;
@@ -1989,23 +2002,23 @@ static void stackPop(proto::ProtoContext* ctx) {
         const_cast<const proto::ProtoObject**>(ctx->getAutomaticLocals())[idx] = PROTO_NONE;
 }
 
-static const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline const proto::ProtoObject* stackTop(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || f->stackTop == 0) return PROTO_NONE;
     return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1];
 }
 
-static unsigned long stackSize(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline unsigned long stackSize(proto::ProtoContext* ctx) {
     InterpFrame* f = currentFrame(ctx);
     return f ? f->stackTop : 0;
 }
 
-static bool stackEmpty(proto::ProtoContext* ctx) {
+[[gnu::always_inline]] static inline bool stackEmpty(proto::ProtoContext* ctx) {
     return stackSize(ctx) == 0;
 }
 
 /** Get stack element by 0-based index from top (0 = top, 1 = next, ...). */
-static const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, unsigned long fromTop) {
+[[gnu::always_inline]] static inline const proto::ProtoObject* stackAt(proto::ProtoContext* ctx, unsigned long fromTop) {
     InterpFrame* f = currentFrame(ctx);
     if (!f || fromTop >= f->stackTop) return PROTO_NONE;
     return ctx->getAutomaticLocals()[f->stackBase + f->stackTop - 1 - fromTop];
