@@ -664,6 +664,26 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
 
     ctor = ctor->setAttribute(ctx, JSSymbols::regexpCtor(ctx), PROTO_TRUE);
     ctor = ctor->setAttribute(ctx, JSSymbols::name(ctx),       ctx->fromUTF8String("RegExp"));
+    // §17 + §22.2.3: name descriptor 0x2 (!writable, !enumerable,
+    // configurable).  Pre-fix the name slot defaulted to fully
+    // enumerable, failing the prop-desc check.
+    {
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+    }
+    // §22.2.3.1: RegExp.length === 2 with §17 descriptor 0x2.  Pre-fix
+    // the slot was absent so verifyProperty(RegExp, "length", ...)
+    // failed with "obj should have an own property length".
+    {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+        }
+    }
 
     // Set .prototype on constructor
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
