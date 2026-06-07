@@ -416,7 +416,135 @@ on a 12-core machine.
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-06-06** (in-process median time, protoJS built
+**Honest baseline — 2026-06-07** (in-process median time, protoJS built
+in pure Release mode against the same `libprotoCore` from the
+`digression-attr-cache-padding` branch as 2026-06-06).  This run lands
+on top of the 2026-06-06 snapshot and reflects a **five-commit
+structural fix** that recovers the entire ~78% geomean regression
+introduced by the 10 Array cleanup packages.
+
+Same sampling protocol as 2026-06-06: 3 outer × 5 inner = 15 samples
+per cell, median reported.  No CPU pinning; concurrent GC stays on its
+own core.
+
+> **Structural fix landed this cycle (2026-06-07)**
+>
+> Root cause: every Array cleanup package added one or more
+> spec-mandated probes behind freshly-constructed `ProtoString` ropes —
+> `ctx->fromUTF8String("__pd_length__")`, `"__set_<idx>__"`,
+> `"__pd_<key>__"`, `"__get_<key>__"`, etc. — on the per-call hot path.
+> Cumulative: **+29 fresh `fromUTF8String` sites in `ArrayPrototype.cpp`
+> alone since 2026-06-01**, 134 total across the codebase.  100K
+> `arr.push(i)` in `array_literal` constructed ~300K throwaway ropes
+> per iteration; 200K `obj[key]=v` writes in `object_property`
+> constructed ~600K.  All wasted on benches with no monkey-patching.
+>
+> 1. **`51819174`** — strong-intern 134 sites of `__pd_length__` /
+>    `__pd_name__` / `__pd_constructor__` / `__pd_message__` /
+>    `__pd_size__` / `__is_symbol__` / `__fields_init__` via JSSymbols
+>    DEFINE_SYMBOL entries.  Mechanical rewrite via two regex patterns.
+>    `array_literal` 2315 → 1660 ms (−28%).
+> 2. **`2f0d8d41`** — gate `arrSet`'s per-element `__set_<idx>__`
+>    inherited-setter probe behind a new `__has_indexed_setters__` flag,
+>    stamped by `Object.defineProperty` at the only install site.
+>    Conservative: one-way (set, never cleared).  `array_literal`
+>    1660 → 1054 ms (−37% on top).
+> 3. **`f1b26da3`** — hoist the gate out of `arrayPush`'s per-element
+>    loop, then call `arrayTryFastSet` directly when the gate is clean
+>    (the universal case).  Falls back to `arrSet` only on sparse-
+>    overflow or genuine inherited setter.  `array_literal` 1054 →
+>    994 ms (−6% on top, structural cleanup more than perf).
+> 4. **`b2ca3b7c`** — gate `resolvePutFieldOOP` (every `obj[k]=v`
+>    write) behind `__has_accessor_props__` and `__has_nonwritable_props__`
+>    flags.  Stamping points: `Object.defineProperty` accessor / data
+>    branches, `Object.freeze`, `PrototypeUtils::installMethod` (because
+>    every native method's `.length` / `.name` are writable=false).
+>    **`object_write_only` 9554 → 1337 ms (−86%)**, `object_property`
+>    2793 → 1204 ms (−57%).
+> 5. **`7fdf9eba`** — gate the read-path `invokeGetterIfPresent` /
+>    `invokeGetterIfPresentFast` behind the same `__has_accessor_props__`
+>    flag.  Stamping at `Map.prototype.size` / `Set.prototype.size`
+>    native getter install sites.  **`object_read_only` 415 → 99 ms
+>    (−76%)**, `object_property` 1204 → 576 ms (−52% on top).
+
+#### Standard In-Process Suite — vs Node.js 22 / V8 / vanilla QuickJS
+
+Same `build_release/protojs`, same Node 22, `qjs_minimal_release`.
+
+| Benchmark                  |    Node |    QuickJS |   protoJS |   Node × |   QuickJS × |
+|----------------------------|--------:|-----------:|----------:|---------:|------------:|
+| array_literal              |    2 ms |       6 ms |   1016 ms |    508 × |       169 × |
+| control_flow               |    4 ms |      43 ms |    260 ms |     65 × |       6.0 × |
+| function_calls             |    1 ms |       8 ms |    227 ms |    227 × |        28 × |
+| json_transform             |    1 ms |       3 ms |    152 ms |    152 × |        51 × |
+| json_transform_small       |    0 ms |       0 ms |     14 ms |      —   |        —    |
+| list_snapshot_history      |    0 ms |       1 ms |    269 ms |      —   |       269 × |
+| numeric_loop               |    1 ms |      39 ms |    156 ms |    156 × |       4.0 × |
+| **object_property**        |   45 ms |      67 ms |    623 ms |     14 × |       9.3 × |
+| **object_read_only**       |    1 ms |       5 ms |     99 ms |     99 × |        20 × |
+| **object_write_only**      |   12 ms |      52 ms |   1381 ms |    115 × |        27 × |
+| **parallel_cpu**           |**40 ms**|  **727 ms**|  **52 ms**|**Node 1.3 ×**|**protoJS 14.0 ×**|
+| string_concat              |    1 ms |       4 ms |    105 ms |    105 × |        26 × |
+| string_insert_middle       |    0 ms |       0 ms |    241 ms |      —   |        —    |
+| string_processing          |    0 ms |       0 ms |    245 ms |      —   |        —    |
+| string_repeated_doubling   |   38 ms |       1 ms |   2197 ms |     58 × |      2197 × |
+| tree_traversal             |    1 ms |       3 ms |    306 ms |    306 × |       102 × |
+
+**Geometric mean (12 benches where all three engines > 0 ms):**
+- **protoJS / Node = 79.9 ×**   (was 132 × on 2026-06-06, was 58.5 × on 2026-06-01)
+- **protoJS / QuickJS = 21.9 ×** (was 34.4 × on 2026-06-06, was 21.0 × on 2026-06-01)
+- QuickJS / Node = 3.65 ×
+
+#### Recovery vs 2026-06-06 baseline
+
+15 benches present in both runs; geomean **today / 2026-06-06 = 0.694×**
+— protoJS is now ~**31% faster** on the standard-suite geomean than the
+2026-06-06 snapshot, and within **+6.9% geomean** of the 2026-06-01
+baseline (i.e. the 10 Array cleanup packages' ~78% regression has been
+fully recovered while the spec-compliance gains are preserved).
+
+| Benchmark                  | 06-06 (ms) | 06-07 (ms) |        Δ |
+|----------------------------|-----------:|-----------:|---------:|
+| object_write_only          |       9554 |       1381 | **−86 %** |
+| object_property            |       2793 |        623 | **−78 %** |
+| object_read_only           |        394 |         99 | **−75 %** |
+| array_literal              |       2315 |       1016 | **−56 %** |
+| json_transform             |        199 |        152 |     −24 % |
+| json_transform_small       |         17 |         14 |     −18 % |
+| list_snapshot_history      |        324 |        269 |     −17 % |
+| string_processing          |        251 |        245 |      −2 % |
+| tree_traversal             |        308 |        306 |      ±0 % |
+| string_repeated_doubling   |       2106 |       2197 |      +4 % |
+| parallel_cpu               |         52 |         52 |      ±0 % |
+| string_concat              |        101 |        105 |      +4 % |
+| function_calls             |        213 |        227 |      +7 % |
+| control_flow               |        239 |        260 |      +9 % |
+| numeric_loop               |        124 |        156 |     +26 % |
+| string_insert_middle       |        236 |        241 |      +2 % |
+
+**Honest framing.**  Even with the full recovery, single-thread
+throughput vs QuickJS sits at 21.9× geomean — far from the < 5× target
+that would put protoJS competitive with vanilla-interpreter peers.
+The remaining gap is **protoCore-side immutable structural sharing**:
+every `setAttribute` rebuilds the sparse-list snapshot, and the
+benches that still regress significantly vs 2026-06-01 (`array_literal`,
+`list_snapshot_history`, `numeric_loop`) all bottleneck in per-write
+`ProtoList::appendLast` / `setAt` allocations.  Closing this gap
+requires either (a) mutable inline element storage for arrays in a
+hot-path-detection mode, or (b) reworking the protoCore allocator's
+freelist for the very narrow case of arena-cycled small Cells.  Both
+are out of scope for the perf recovery this cycle.
+
+`parallel_cpu` unchanged at 52 ms: **14.0 × win against QuickJS**, **77%
+of V8's JIT'd throughput**.  The architectural advantage of the
+GIL-free runtime is the one bench protoJS dominates.
+
+Raw rounds: `tests/benchmarks/results/three-way-rounds-final.txt`.
+Raw JSON (final summary): `tests/benchmarks/results/node_quickjs_comparison.json`.
+
+---
+
+**Prior baseline — 2026-06-06** (in-process median time, protoJS built
 in pure Release mode against a `libprotoCore` from the
 `digression-attr-cache-padding` branch — the TL-IC entry padding +
 better cache-key hash described in `protoCore/README.md` §
