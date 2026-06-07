@@ -1153,6 +1153,14 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
             if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
         }
     }
+    // Hot-path hint mirroring Boolean / Number / String / RegExp ctors
+    // earlier this round.  Without __has_nonwritable_props__ the
+    // writable=false bits on name + length are ignored and
+    // `Map.name = "X"` silently succeeded despite the descriptor.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // ctor.prototype = Map.prototype
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
@@ -1515,6 +1523,11 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
             const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
             if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
         }
+    }
+    // Hot-path hint mirroring the Map ctor fix in the same file.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
