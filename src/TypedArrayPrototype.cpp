@@ -1384,6 +1384,13 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
                 if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
             }
         }
+        // Hot-path hint mirroring the constructor sweep this round.
+        // Each typed-array ctor (Int8Array, Uint8Array, Float32Array, ...)
+        // gets the flag stamped so descriptor enforcement actually runs.
+        {
+            const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+            if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+        }
         // Tag integer elemType so OP_call_constructor can dispatch
         ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
             ctx->fromInteger(static_cast<long long>(cfg.elemType)));
