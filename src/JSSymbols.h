@@ -125,6 +125,20 @@ const proto::ProtoString* jsNullSentinel(proto::ProtoContext* ctx); // "__js_nul
 const proto::ProtoString* jsTdzSentinel(proto::ProtoContext* ctx);  // "__js_tdz_sentinel__"
 const proto::ProtoString* isConstructor(proto::ProtoContext* ctx);  // "__is_constructor__"
 
+// Property-descriptor writability sentinels — added 2026-06-06.
+// Each "__pd_<name>__" key holds the writable bit for the matching
+// public property.  Spec-compliance work in Array.prototype.* and
+// friends reads these on every native call, so they must be
+// strong-interned rather than rebuilt via fromUTF8String per dispatch.
+const proto::ProtoString* pdLength(proto::ProtoContext* ctx);       // "__pd_length__"
+const proto::ProtoString* pdName(proto::ProtoContext* ctx);         // "__pd_name__"
+const proto::ProtoString* pdConstructor(proto::ProtoContext* ctx);  // "__pd_constructor__"
+const proto::ProtoString* pdMessage(proto::ProtoContext* ctx);      // "__pd_message__"
+const proto::ProtoString* pdSize(proto::ProtoContext* ctx);         // "__pd_size__"
+// Other recurrent symbols from the same audit (2026-06-06):
+const proto::ProtoString* isSymbol(proto::ProtoContext* ctx);       // "__is_symbol__"
+const proto::ProtoString* fieldsInit(proto::ProtoContext* ctx);     // "__fields_init__"
+
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"
 const proto::ProtoString* abDetached(proto::ProtoContext* ctx);     // "__ab_detached__"

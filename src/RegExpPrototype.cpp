@@ -674,8 +674,7 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     // configurable).  Pre-fix the name slot defaulted to fully
     // enumerable, failing the prop-desc check.
     {
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     // §22.2.3.1: RegExp.length === 2 with §17 descriptor 0x2.  Pre-fix
@@ -685,8 +684,7 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
-            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
             if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
         }
     }
@@ -730,15 +728,13 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);
                 if (lenKey) {
                     getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
                     if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nmKey = JSSymbols::name(ctx);
                 if (nmKey) {
                     getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get [Symbol.species]"));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* gksSym =

@@ -37,8 +37,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
     // the spec-required TypeError instead of silently rendering
     // 'Symbol(<desc>)'.
     {
-        const proto::ProtoObject* isSymKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* isSymKey = isSymKo ? isSymKo->asString(ctx) : nullptr;
+        const proto::ProtoString* isSymKey = JSSymbols::isSymbol(ctx);
         if (isSymKey && obj->hasAttribute(ctx, isSymKey) == PROTO_TRUE) {
             const proto::ProtoObject* mv = obj->getAttribute(ctx, isSymKey, true);
             if (mv == PROTO_TRUE) {
@@ -479,8 +478,7 @@ static bool requireStringThis(proto::ProtoContext* ctx,
     // startsWith, endsWith, ...} routed Symbol receivers through
     // objToStr, which coerced via the Symbol's own toString and
     // produced "Symbol(<desc>)" instead of the spec-required abrupt.
-    const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-    const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
     if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Cannot convert a Symbol value to a string"));
@@ -1214,8 +1212,7 @@ static const proto::ProtoObject* stringPadCommon(
             // the Symbol's toString and produced a useless "Symbol(...)"
             // pad — built-ins/String/prototype/padStart/exception-fill-
             // string-symbol verified the throw.
-            const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-            const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
             if (symK && pa->getAttribute(ctx, symK, true) == PROTO_TRUE) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "Cannot convert a Symbol value to a string"));
@@ -1903,8 +1900,7 @@ const proto::ProtoObject* stringRaw(
                 // raises TypeError per §7.1.17 (built-ins/String/raw/
                 // nextkey-is-symbol-throws.js).
                 {
-                    const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-                    const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+                    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
                     if (symK && seg->getAttribute(ctx, symK, true) == PROTO_TRUE) {
                         signalNativeException(makeNativeError(ctx, "TypeError",
                             "Cannot convert a Symbol value to a string"));
@@ -2077,8 +2073,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             wrapper = wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(length));
-            const proto::ProtoObject* pdlko = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdlk = pdlko ? pdlko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
             if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2));
         }
 
@@ -2086,8 +2081,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         const proto::ProtoString* nmKey = JSSymbols::name(ctx);
         if (nmKey) {
             wrapper = wrapper->setAttribute(ctx, nmKey, ctx->fromUTF8String(name ? name : ""));
-            const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
         }
 
@@ -2231,8 +2225,7 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {
         sp = sp->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) sp = sp->setAttribute(ctx, pdlk, ctx->fromInteger(0x0LL));
     }
 
@@ -2298,8 +2291,7 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* ctorKey2 = JSSymbols::constructor(ctx);
         if (ctorKey2) {
             sp = sp->setAttribute(ctx, ctorKey2, ctor);
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
             if (pdk) sp = sp->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             ctx->space->stringPrototype = const_cast<proto::ProtoObject*>(sp);
         }
@@ -2311,16 +2303,14 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     // String.length === 1 per §22.1.1.
     const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
     if (lenKey2) {
         ctor = ctor->setAttribute(ctx, lenKey2, ctx->fromInteger(1LL));
-        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
 

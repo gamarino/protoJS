@@ -255,8 +255,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("ArrayBuffer"));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdName(ctx);
         if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     // §25.1.4: ArrayBuffer.length === 1, same standard descriptor 0x2.
@@ -265,8 +264,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* ctorLenKey = JSSymbols::length(ctx);
     if (ctorLenKey) {
         ctor = ctor->setAttribute(ctx, ctorLenKey, ctx->fromInteger(1LL));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
         if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
 
@@ -293,8 +291,7 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
             const proto::ProtoObject* updated =
                 proto->setAttribute(ctx, ctorWordKey, ctor);
             if (updated && updated != PROTO_NONE) {
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 s_abProto = updated;
             }
@@ -331,15 +328,13 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);
                 if (lenKey) {
                     getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
                     if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nmKey = JSSymbols::name(ctx);
                 if (nmKey) {
                     getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get [Symbol.species]"));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* gksSym =

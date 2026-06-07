@@ -120,8 +120,7 @@ static const proto::ProtoObject* fnApply(
                 "Function.prototype.apply argsArray must be an Object"));
             return PROTO_NONE;
         }
-        const proto::ProtoObject* isSymKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* isSymK = isSymKo ? isSymKo->asString(ctx) : nullptr;
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
         if (isSymK && argsArray->hasAttribute(ctx, isSymK) == PROTO_TRUE) {
             const proto::ProtoObject* mv = argsArray->getAttribute(ctx, isSymK, true);
             if (mv == PROTO_TRUE) {
@@ -234,8 +233,7 @@ static const proto::ProtoObject* fnBind(
         long long boundLen = targetLen - bcount;
         if (boundLen < 0) boundLen = 0;
         bound = bound->setAttribute(ctx, lenKey2, ctx->fromInteger(boundLen));
-        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
         if (pdls) bound = bound->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
     }
     // Set bound.name = "bound " + target.name with same §17 descriptor.
@@ -250,8 +248,7 @@ static const proto::ProtoObject* fnBind(
         std::string boundName = "bound " + targetName;
         const proto::ProtoObject* bnVal = ctx->fromUTF8String(boundName.c_str());
         if (bnVal) bound = bound->setAttribute(ctx, nameKey2, bnVal);
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) bound = bound->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     return bound;
@@ -407,15 +404,13 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             fp = fp->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
             if (pdk) fp = fp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoString* nmKey = JSSymbols::name(ctx);
         if (nmKey) {
             fp = fp->setAttribute(ctx, nmKey, ctx->fromUTF8String(""));
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) fp = fp->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
     }
@@ -459,16 +454,14 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                 // Function.name = "Function", {writable:false, enumerable:false, configurable:true} → 0x2
                 if (nameKey) {
                     fnCtor = fnCtor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Function"));
-                    const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                     if (pdnk) fnCtor = fnCtor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
                 }
 
                 // Function.length = 1, {writable:false, enumerable:false, configurable:true} → 0x2
                 if (lenKey) {
                     fnCtor = fnCtor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
-                    const proto::ProtoObject* pdlko = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdlk = pdlko ? pdlko->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                     if (pdlk) fnCtor = fnCtor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2));
                 }
 
@@ -487,8 +480,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                             fp->setAttribute(ctx, ctorWordKey, fnCtor);
                         // Non-enumerable per §20.2.4.1 (0x3 = w+c).
                         if (updatedFp && updatedFp != PROTO_NONE) {
-                            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                            const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                             if (pdk) updatedFp = updatedFp->setAttribute(ctx, pdk,
                                 ctx->fromInteger(0x3LL));
                         }
@@ -611,16 +603,14 @@ const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
     if (lenKey) {
         wrapper = wrapper->setAttribute(ctx, lenKey, ctx->fromInteger(length));
         // length: {writable: false, enumerable: false, configurable: true} → bits = 0x2
-        const proto::ProtoObject* pdlko = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdlk = pdlko ? pdlko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2));
     }
 
     if (nmKey) {
         wrapper = wrapper->setAttribute(ctx, nmKey, ctx->fromUTF8String(name ? name : ""));
         // name: {writable: false, enumerable: false, configurable: true} → bits = 0x2
-        const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
         if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
     }
 

@@ -567,8 +567,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
             if (nameKey) {
                 dateObj = dateObj->setAttribute(ctx, nameKey,
                                                 ctx->fromUTF8String("Date"));
-                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                 if (pdnk) dateObj = dateObj->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
             }
             // §21.4.2: Date.length = 7 with §17 descriptor 0x2
@@ -580,8 +579,7 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 ctx->fromUTF8String("length") ? ctx->fromUTF8String("length")->asString(ctx) : nullptr;
             if (lenKeyDate) {
                 dateObj = dateObj->setAttribute(ctx, lenKeyDate, ctx->fromInteger(7LL));
-                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                 if (pdlk) dateObj = dateObj->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
             }
             const proto::ProtoString* protoKey =
@@ -619,15 +617,13 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     const proto::ProtoString* lenk = JSSymbols::length(ctx);
                     if (lenk) {
                         nowWrapper = nowWrapper->setAttribute(ctx, lenk, ctx->fromInteger(0LL));
-                        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                         if (pdlk) nowWrapper = nowWrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
                     }
                     const proto::ProtoString* nmk = JSSymbols::name(ctx);
                     if (nmk) {
                         nowWrapper = nowWrapper->setAttribute(ctx, nmk, ctx->fromUTF8String("now"));
-                        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                         if (pdnk) nowWrapper = nowWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                     }
                     dateObj = dateObj->setAttribute(ctx, nowKey, nowWrapper);
@@ -648,15 +644,13 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 const proto::ProtoString* lenk = JSSymbols::length(ctx);
                 if (lenk) {
                     w = w->setAttribute(ctx, lenk, ctx->fromInteger(len));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                     if (pdlk) w = w->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nmk = JSSymbols::name(ctx);
                 if (nmk) {
                     w = w->setAttribute(ctx, nmk, ctx->fromUTF8String(name));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                     if (pdnk) w = w->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                 }
                 return w;

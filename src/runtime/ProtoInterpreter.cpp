@@ -715,8 +715,7 @@ static bool reflectThrowIfNotObject(proto::ProtoContext* ctx,
     // check accepted them and the operations silently no-oped
     // (built-ins/Reflect/set/target-is-symbol-throws.js).
     if (isObject) {
-        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && target->getAttribute(ctx, symK, true) == PROTO_TRUE)
             isObject = false;
     }
@@ -1219,8 +1218,7 @@ static const proto::ProtoObject* symbolFor(
     // Build a fresh symbol-like cell (perpetual: null-ctx + no parent).
     const proto::ProtoObject* sym = ctx->newObject(true);
     if (sym) {
-        const proto::ProtoObject* tagObj = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* tagKey = tagObj ? tagObj->asString(ctx) : nullptr;
+        const proto::ProtoString* tagKey = JSSymbols::isSymbol(ctx);
         if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
         const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
         const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
@@ -1249,8 +1247,7 @@ static const proto::ProtoObject* symbolConstructor(
 {
     const proto::ProtoObject* sym = ctx->newObject(true);
     if (!sym) return PROTO_NONE;
-    const proto::ProtoObject* tagObj = ctx->fromUTF8String("__is_symbol__");
-    const proto::ProtoString* tagKey = tagObj ? tagObj->asString(ctx) : nullptr;
+    const proto::ProtoString* tagKey = JSSymbols::isSymbol(ctx);
     if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* d = args->getAt(ctx, 0);
@@ -2197,8 +2194,7 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
     // as-symbol, built-ins/isNaN/toprimitive-result-is-symbol-throws,
     // built-ins/String/prototype/padStart/exception-fill-string-symbol).
     {
-        const proto::ProtoObject* symKo = context->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* symK = symKo ? symKo->asString(context) : nullptr;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(context);
         if (symK && value->getAttribute(context, symK, true) == PROTO_TRUE) {
             signalNativeException(makeNativeError(context, "TypeError",
                 "Cannot convert a Symbol value to a number"));
@@ -2756,8 +2752,7 @@ static const proto::ProtoObject* errorPrototypeToString(
             // skipped non-string message values (including Symbols), so
             // {message: Symbol()} stringified to just "Error" instead of
             // throwing.
-            const proto::ProtoObject* isSymKo = context->fromUTF8String("__is_symbol__");
-            const proto::ProtoString* isSymKey = isSymKo ? isSymKo->asString(context) : nullptr;
+            const proto::ProtoString* isSymKey = JSSymbols::isSymbol(context);
             if (isSymKey) {
                 const proto::ProtoObject* isSym = mv->getAttribute(context, isSymKey, false);
                 if (isSym == PROTO_TRUE) {
@@ -2830,8 +2825,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // sidecar was absent so for-in over an instance leaked "name"
         // (built-ins/NativeErrors/<Type>/prototype/name.js).
         {
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
             if (!proto) continue;
         }
@@ -2850,8 +2844,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
                 // descriptor is {writable:true, enumerable:false,
                 // configurable:true} (bits 0x3). Subtype prototypes
                 // inherit the same profile per §19.5.6.3.
-                const proto::ProtoObject* pdmo = ctx->fromUTF8String("__pd_message__");
-                const proto::ProtoString* pdmk = pdmo ? pdmo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdmk = JSSymbols::pdMessage(ctx);
                 if (pdmk) proto = proto->setAttribute(ctx, pdmk, ctx->fromInteger(0x3LL));
             }
         }
@@ -2902,8 +2895,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // the slot defaulted to fully writable / enumerable and built-
         // ins/NativeErrors/<Type>/name.js verifyProperty checks failed.
         {
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
         // <ErrorType>.length === 1 per §20.5.6.x.  AggregateError is
@@ -2916,8 +2908,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             const long long arity = isAggregate ? 2LL : 1LL;
             if (lenK) {
                 ctor = ctor->setAttribute(ctx, lenK, ctx->fromInteger(arity));
-                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                 if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
             }
         }
@@ -2943,8 +2934,7 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             if (ctorPropKey) {
                 proto = proto->setAttribute(ctx, ctorPropKey, ctor);
                 if (!proto) continue;
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 if (!proto) continue;
                 // Re-link ctor.prototype after proto was updated.
@@ -3041,8 +3031,7 @@ static const proto::ProtoObject* makeError(proto::ProtoContext* ctx,
     // pre-empted the prototype walk for every `e.name` read too.
     if (msgKey && err && message && *message) {
         err = err->setAttribute(ctx, msgKey, ctx->fromUTF8String(message));
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_message__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdMessage(ctx);
         if (pdk && err) err = err->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
     }
     (void)name; // name flows through the prototype chain only.
@@ -3750,8 +3739,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // "name", ...) and the wider built-ins/<Ctor>/name
                     // family failed.  Same shape as the length sidecar
                     // already installed below.
-                    const proto::ProtoObject* pdno = pContext->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdnk = pdno ? pdno->asString(pContext) : nullptr;
+                    const proto::ProtoString* pdnk = JSSymbols::pdName(pContext);
                     if (pdnk) stub = stub->setAttribute(pContext, pdnk, pContext->fromInteger(0x2LL));
                 }
                 if (protoKey2) {
@@ -3789,8 +3777,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // property length" across the unimplemented-ctor family.
                 if (lenKey3) {
                     stub = stub->setAttribute(pContext, lenKey3, pContext->fromInteger(ctorLen));
-                    const proto::ProtoObject* pdlO = pContext->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdlK = pdlO ? pdlO->asString(pContext) : nullptr;
+                    const proto::ProtoString* pdlK = JSSymbols::pdLength(pContext);
                     if (pdlK) stub = stub->setAttribute(pContext, pdlK, pContext->fromInteger(0x2LL));
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
@@ -4259,8 +4246,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         // toString fallback and silently flattening the Symbol to
         // [object Symbol] (which then coerces to NaN with no throw).
         {
-            const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
-            const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+            const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
             if (symK && obj->getAttribute(pContext, symK, true) == PROTO_TRUE)
                 return obj;
         }
@@ -5027,8 +5013,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // defaulted to fully enumerable (0x7), so Object.keys
                         // (arguments) leaked 'length' alongside the indices
                         // (built-ins/Object/keys/15.2.3.14-3-4).
-                        const proto::ProtoObject* pdlo = pContext->fromUTF8String("__pd_length__");
-                        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdlk = JSSymbols::pdLength(pContext);
                         if (pdlk) argsObj = argsObj->setAttribute(pContext, pdlk, pContext->fromInteger(0x3LL));
                     }
                     // Set Symbol.toStringTag so Object.prototype.toString.call(arguments) === "[object Arguments]"
@@ -5167,8 +5152,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* parentFI = nullptr;
                     {
                         if (fnProto && fnProto != PROTO_NONE) {
-                            const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
-                            const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                            const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
                             parentFI = fiK
                                 ? fnProto->getAttribute(pContext, fiK, false) : nullptr;
                             if (parentFI && parentFI != PROTO_NONE) {
@@ -5209,8 +5193,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoObject* afProto = protoKey
                                 ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
                             if (afProto && afProto != PROTO_NONE) {
-                                const proto::ProtoObject* fiKo2 = pContext->fromUTF8String("__fields_init__");
-                                const proto::ProtoString* fiK2 = fiKo2 ? fiKo2->asString(pContext) : nullptr;
+                                const proto::ProtoString* fiK2 = JSSymbols::fieldsInit(pContext);
                                 const proto::ProtoObject* fi2 = fiK2
                                     ? afProto->getAttribute(pContext, fiK2, false) : nullptr;
                                 if (fi2 && fi2 != PROTO_NONE && fi2 != parentFI) {
@@ -5398,8 +5381,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* parentProto = parentProtoKey
                         ? parent->getAttribute(pContext, parentProtoKey, false) : nullptr;
                     if (parentProto && parentProto != PROTO_NONE) {
-                        const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
-                        const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
                         const proto::ProtoObject* fi = fiK
                             ? parentProto->getAttribute(pContext, fiK, false) : nullptr;
                         if (fi && fi != PROTO_NONE) {
@@ -5484,8 +5466,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (msgKeyE) {
                                     newObj = newObj->setAttribute(pContext, msgKeyE,
                                                                   pContext->fromUTF8String(msg.c_str()));
-                                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_message__");
-                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* pdk = JSSymbols::pdMessage(pContext);
                                     if (pdk && newObj)
                                         newObj = newObj->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
                                 }
@@ -5507,8 +5488,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* lenKeyI = JSSymbols::length(pContext);
                             if (lenKeyI)
                                 newObj = newObj->setAttribute(pContext, lenKeyI, pContext->fromInteger(slenI));
-                            const proto::ProtoObject* pdoI = pContext->fromUTF8String("__pd_length__");
-                            const proto::ProtoString* pdkI = pdoI ? pdoI->asString(pContext) : nullptr;
+                            const proto::ProtoString* pdkI = JSSymbols::pdLength(pContext);
                             if (pdkI) newObj = newObj->setAttribute(pContext, pdkI, pContext->fromInteger(0x0LL));
                             ret = newObj;
                         } else {
@@ -5542,8 +5522,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoObject* tProto = protoKeyFI
                             ? t_activeFunc->getAttribute(pContext, protoKeyFI, false) : nullptr;
                         if (tProto && tProto != PROTO_NONE) {
-                            const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
-                            const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                            const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
                             const proto::ProtoObject* fi = fiK
                                 ? tProto->getAttribute(pContext, fiK, false) : nullptr;
                             if (fi && fi != PROTO_NONE) {
@@ -5609,8 +5588,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (pc < len) {
                                 uint8_t nextOp = buf[pc];
                                 if (nextOp != OP_define_method && nextOp != OP_define_method_computed) {
-                                    const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
-                                    const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
                                     if (fiK) {
                                         const proto::ProtoObject* newHome = home->setAttribute(pContext, fiK,
                                             newMethod ? newMethod : method);
@@ -5981,8 +5959,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (ckey) proto = proto->setAttribute(pContext, ckey, ctor);
                     // proto.constructor is {writable:true, enumerable:false, configurable:true} → 0x3.
                     {
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_constructor__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdk = JSSymbols::pdConstructor(pContext);
                         if (pdk) proto = proto->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
                     }
 
@@ -6018,8 +5995,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 ctor = ctor->setAttribute(pContext, nameKey, ns->asObject(pContext));
                         }
                         // name is {writable:false, enumerable:false, configurable:true} → 0x2.
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_name__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdk = JSSymbols::pdName(pContext);
                         if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
                     }
                     // length: spec §15.7.10 — set to declared arg count of
@@ -6039,8 +6015,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                         if (lenKey)
                             ctor = ctor->setAttribute(pContext, lenKey, pContext->fromInteger(argCnt));
-                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_length__");
-                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdk = JSSymbols::pdLength(pContext);
                         if (pdk) ctor = ctor->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
                     }
                 }
@@ -7847,8 +7822,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             const proto::ProtoObject* upd =
                                                 methodVal->setAttribute(pContext, nameKey, nv);
                                             if (upd) methodVal = upd;
-                                            const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_name__");
-                                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                            const proto::ProtoString* pdk = JSSymbols::pdName(pContext);
                                             if (pdk) {
                                                 const proto::ProtoObject* withPd =
                                                     methodVal->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
@@ -7921,8 +7895,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 if (updated) {
                                     methodVal = updated;
                                     // name is {writable:false, enumerable:false, configurable:true} → 0x2
-                                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_name__");
-                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* pdk = JSSymbols::pdName(pContext);
                                     if (pdk) {
                                         const proto::ProtoObject* withPd =
                                             methodVal->setAttribute(pContext, pdk, pContext->fromInteger(0x2LL));
@@ -9526,8 +9499,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // protoJS carries Symbols as objects with the
                         // __is_symbol__ marker.  Probe the chain (the marker
                         // is on the prototype for cached symbols).
-                        const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
-                        const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
                         return symK && v->getAttribute(pContext, symK, true) == PROTO_TRUE;
                     }()) {
                         typeStr = "symbol";
@@ -10121,9 +10093,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoObject* updated =
                                     protoForCtor->setAttribute(pContext, cKey, func);
                                 if (updated && updated != PROTO_NONE) {
-                                    const proto::ProtoObject* pdo =
-                                        pContext->fromUTF8String("__pd_constructor__");
-                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    const proto::ProtoString* pdk = JSSymbols::pdConstructor(pContext);
                                     if (pdk) updated = updated->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
                                     // Re-publish the prototype on func so subsequent
                                     // `new F()` calls see the backref-bearing snapshot.
@@ -10143,8 +10113,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // mechanism which requires closure-capture analysis that
                     // protoJS doesn't yet fully implement.
                     {
-                        const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
-                        const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
                         const proto::ProtoObject* fieldsInit = (fiK && funcProto && funcProto != PROTO_NONE)
                             ? funcProto->getAttribute(pContext, fiK, false) : nullptr;
                         if (fieldsInit && fieldsInit != PROTO_NONE) {
@@ -10362,8 +10331,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // marker BEFORE the toString coercion path.
                         if (finalArgc > 0) {
                             const proto::ProtoObject* v0 = argsList->getAt(pContext, 0);
-                            const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
-                            const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+                            const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
                             if (v0 && v0 != PROTO_NONE && symK
                                 && v0->getAttribute(pContext, symK, true) == PROTO_TRUE) {
                                 pending_exception = makeError(pContext, "TypeError",
@@ -10388,8 +10356,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* lenKey = JSSymbols::length(pContext);
                         if (lenKey)
                             newObj = newObj->setAttribute(pContext, lenKey, pContext->fromInteger(slen));
-                        const proto::ProtoObject* pdo2 = pContext->fromUTF8String("__pd_length__");
-                        const proto::ProtoString* pdk2 = pdo2 ? pdo2->asString(pContext) : nullptr;
+                        const proto::ProtoString* pdk2 = JSSymbols::pdLength(pContext);
                         if (pdk2) newObj = newObj->setAttribute(pContext, pdk2, pContext->fromInteger(0x0LL));
                         result = newObj;
                     } else {
@@ -10443,8 +10410,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoObject* afProto = protoKey
                         ? t_activeFunc->getAttribute(pContext, protoKey, false) : nullptr;
                     if (afProto && afProto != PROTO_NONE && afProto != funcProto) {
-                        const proto::ProtoObject* fiKo = pContext->fromUTF8String("__fields_init__");
-                        const proto::ProtoString* fiK = fiKo ? fiKo->asString(pContext) : nullptr;
+                        const proto::ProtoString* fiK = JSSymbols::fieldsInit(pContext);
                         const proto::ProtoObject* fi = fiK
                             ? afProto->getAttribute(pContext, fiK, false) : nullptr;
                         if (fi && fi != PROTO_NONE) {
@@ -10757,8 +10723,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // Symbol routed through toString which
                                 // returned "[object Object]". Probe
                                 // the marker first.
-                                const proto::ProtoObject* symKo = pContext->fromUTF8String("__is_symbol__");
-                                const proto::ProtoString* symK = symKo ? symKo->asString(pContext) : nullptr;
+                                const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
                                 if (arg && symK && arg->getAttribute(pContext, symK, true) == PROTO_TRUE) {
                                     const proto::ProtoObject* descKo = pContext->fromUTF8String("__symbol_desc__");
                                     const proto::ProtoString* descK = descKo ? descKo->asString(pContext) : nullptr;
@@ -10886,8 +10851,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
                         if (ctorKey) {
                             fnDefProto8 = fnDefProto8->setAttribute(pContext, ctorKey, fnInst);
-                            const proto::ProtoObject* pdco = pContext->fromUTF8String("__pd_constructor__");
-                            const proto::ProtoString* pdck = pdco ? pdco->asString(pContext) : nullptr;
+                            const proto::ProtoString* pdck = JSSymbols::pdConstructor(pContext);
                             if (pdck) fnDefProto8 = fnDefProto8->setAttribute(pContext, pdck,
                                 pContext->fromInteger(0x3LL));
                         }
@@ -11022,8 +10986,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
                         if (ctorKey) {
                             fnDefProto = fnDefProto->setAttribute(pContext, ctorKey, fnInst2);
-                            const proto::ProtoObject* pdco = pContext->fromUTF8String("__pd_constructor__");
-                            const proto::ProtoString* pdck = pdco ? pdco->asString(pContext) : nullptr;
+                            const proto::ProtoString* pdck = JSSymbols::pdConstructor(pContext);
                             if (pdck) fnDefProto = fnDefProto->setAttribute(pContext, pdck,
                                 pContext->fromInteger(0x3LL));
                         }
@@ -11286,8 +11249,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // for-in and getOwnPropertyDescriptor reported enumerable
                 // true instead of false.
                 {
-                    const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                    const proto::ProtoString* pdk = JSSymbols::pdLength(pContext);
                     if (pdk) arr = arr->setAttribute(pContext, pdk, pContext->fromInteger(0x1LL));
                 }
                 stackPush(pContext, arr ? arr : PROTO_NONE);
@@ -11518,10 +11480,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             // Symbol carrier objects look like Objects to
                             // the type checks above but are primitives
                             // per §6.1.5.
-                            const proto::ProtoObject* symKo =
-                                pContext->fromUTF8String("__is_symbol__");
-                            const proto::ProtoString* symK = symKo
-                                ? symKo->asString(pContext) : nullptr;
+                            const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
                             if (symK && resultFO->getAttribute(pContext, symK, true)
                                 == PROTO_TRUE) isPrimResult = true;
                         }
@@ -11761,10 +11720,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 || resultObjIN == PROTO_TRUE
                                 || resultObjIN == PROTO_FALSE;
                             if (!isPrimRes && resultObjIN) {
-                                const proto::ProtoObject* symKo2 =
-                                    pContext->fromUTF8String("__is_symbol__");
-                                const proto::ProtoString* symK2 = symKo2
-                                    ? symKo2->asString(pContext) : nullptr;
+                                const proto::ProtoString* symK2 = JSSymbols::isSymbol(pContext);
                                 if (symK2 && resultObjIN->getAttribute(pContext, symK2, true)
                                     == PROTO_TRUE) isPrimRes = true;
                             }

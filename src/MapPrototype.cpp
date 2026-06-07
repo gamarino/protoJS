@@ -1022,15 +1022,13 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);
                 if (lenKey) {
                     getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
                     if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nmKey = JSSymbols::name(ctx);
                 if (nmKey) {
                     getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get size"));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 mapProto = mapProto->setAttribute(ctx, gks, getter);
@@ -1038,8 +1036,7 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                 // {enumerable:false, configurable:true} → bits 0x2.
                 // Pre-fix no sidecar so Object.getOwnPropertyDescriptor
                 // reported enumerable:true on Map.prototype.size.
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_size__");
-                const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdks = JSSymbols::pdSize(ctx);
                 if (pdks) mapProto = mapProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
             }
         }
@@ -1134,8 +1131,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Map"));
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
         if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
     }
 
@@ -1146,8 +1142,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
             if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
         }
     }
@@ -1176,15 +1171,13 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* lenk = JSSymbols::length(ctx);
         if (lenk) {
             gbWrapper = gbWrapper->setAttribute(ctx, lenk, ctx->fromInteger(2LL));
-            const proto::ProtoObject* pdl = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdlk = pdl ? pdl->asString(ctx) : nullptr;
+            const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
             if (pdlk) gbWrapper = gbWrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoString* nmk = JSSymbols::name(ctx);
         if (nmk) {
             gbWrapper = gbWrapper->setAttribute(ctx, nmk, ctx->fromUTF8String("groupBy"));
-            const proto::ProtoObject* pdn = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdn ? pdn->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) gbWrapper = gbWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoObject* gbko = ctx->fromUTF8String("groupBy");
@@ -1204,8 +1197,7 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
             const proto::ProtoObject* updated =
                 s_mapPrototype->setAttribute(ctx, ctorWordKey, ctor);
             if (updated && updated != PROTO_NONE) {
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 s_mapPrototype = updated;
             }
@@ -1231,15 +1223,13 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);
                 if (lenKey) {
                     getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
                     if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nmKey = JSSymbols::name(ctx);
                 if (nmKey) {
                     getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get [Symbol.species]"));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* gksSym =
@@ -1505,8 +1495,7 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
         // (writable:false, enumerable:false, configurable:true).
         // Pre-fix the slot defaulted to fully enumerable/writable
         // (built-ins/WeakMap/name).
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     // §24.3.1: WeakMap.length === 0 with §17 descriptor 0x2.
@@ -1516,8 +1505,7 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
             if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
         }
     }

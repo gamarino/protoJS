@@ -917,16 +917,14 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
         // §17 built-in ctor name descriptor 0x2.
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     // Number.length === 1 per §21.1.1.
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {
         ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
-        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
 
@@ -970,8 +968,7 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
                 numProto->setAttribute(ctx, ctorWordKey, ctor);
             // Non-enumerable per §21.1.4.1 — bits 0x3.
             if (updatedProto && updatedProto != PROTO_NONE) {
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updatedProto = updatedProto->setAttribute(ctx, pdk,
                     ctx->fromInteger(0x3LL));
             }

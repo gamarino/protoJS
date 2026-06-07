@@ -320,15 +320,13 @@ void ensureMathObject(proto::ProtoContext* ctx,
         const proto::ProtoString* lenk = JSSymbols::length(ctx);
         if (lenk) {
             wrapper = wrapper->setAttribute(ctx, lenk, ctx->fromInteger(length));
-            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
             if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoString* nmk = JSSymbols::name(ctx);
         if (nmk) {
             wrapper = wrapper->setAttribute(ctx, nmk, ctx->fromUTF8String(name));
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
         math = math->setAttribute(ctx, key, wrapper);

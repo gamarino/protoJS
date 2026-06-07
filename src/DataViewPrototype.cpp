@@ -526,15 +526,13 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* nameKey = JSSymbols::name(ctx);
         if (nameKey) {
             ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("DataView"));
-            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-            const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+            const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
             if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
         }
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) {
             ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
-            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
             if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
         }
     }
@@ -545,8 +543,7 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* ctorWordKey = JSSymbols::constructor(ctx);
         if (ctorWordKey) {
             proto = proto->setAttribute(ctx, ctorWordKey, ctor);
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
             if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
         }
     }

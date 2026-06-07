@@ -1370,8 +1370,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
                 // → 0x2.  Pre-fix the slot defaulted to fully
                 // enumerable/writable, failing built-ins/
                 // TypedArrayConstructors/*/name.
-                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                 if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
             }
         }
@@ -1381,8 +1380,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
             const proto::ProtoString* lenKey = JSSymbols::length(ctx);
             if (lenKey) {
                 ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(3LL));
-                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
                 if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
             }
         }
@@ -1433,8 +1431,7 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
                     concreteProto->setAttribute(ctx, ctorWordKey, ctor);
                 // Non-enumerable per §22.2.5.2 — 0x3 (writable+configurable).
                 if (updated && updated != PROTO_NONE) {
-                    const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                     if (pdk) updated = updated->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
                 }
                 if (updated && updated != PROTO_NONE) {

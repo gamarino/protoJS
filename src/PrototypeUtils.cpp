@@ -35,8 +35,7 @@ const proto::ProtoObject* installNonEnumerableMethod(
     if (lenKey) {
         methodObj = methodObj->setAttribute(ctx, lenKey,
                                             ctx->fromInteger(static_cast<long long>(argc)));
-        const proto::ProtoObject* pdLenObj = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdLen = pdLenObj ? pdLenObj->asString(ctx) : nullptr;
+        const proto::ProtoString* pdLen = JSSymbols::pdLength(ctx);
         if (pdLen) methodObj = methodObj->setAttribute(ctx, pdLen, ctx->fromInteger(0x2LL));
     }
 
@@ -44,8 +43,7 @@ const proto::ProtoObject* installNonEnumerableMethod(
     const proto::ProtoString* nmKey = JSSymbols::name(ctx);
     if (nmKey) {
         methodObj = methodObj->setAttribute(ctx, nmKey, ctx->fromUTF8String(methodName));
-        const proto::ProtoObject* pdNmObj = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdNm = pdNmObj ? pdNmObj->asString(ctx) : nullptr;
+        const proto::ProtoString* pdNm = JSSymbols::pdName(ctx);
         if (pdNm) methodObj = methodObj->setAttribute(ctx, pdNm, ctx->fromInteger(0x2LL));
     }
 

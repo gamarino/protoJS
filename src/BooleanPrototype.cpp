@@ -189,8 +189,7 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Boolean"));
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     // Boolean.length === 1 per §20.3.1.1; descriptor non-writable,
@@ -198,8 +197,7 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {
         ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
-        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
 
@@ -254,8 +252,7 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
                 boolProto->setAttribute(ctx, ctorWordKey, ctor);
             // Non-enumerable per §20.3.2.1 — bits 0x3 (writable+configurable).
             if (updatedProto && updatedProto != PROTO_NONE) {
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updatedProto = updatedProto->setAttribute(ctx, pdk,
                     ctx->fromInteger(0x3LL));
             }

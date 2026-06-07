@@ -1276,8 +1276,7 @@ static const proto::ProtoObject* objectDefineProperty(
     // built-ins/Object/defineProperty/property-description-must-be-an-
     // object-not-symbol.js expects the TypeError abrupt.
     {
-        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && desc->getAttribute(ctx, symK, false) == PROTO_TRUE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Property description must be an object"));
@@ -2716,8 +2715,7 @@ static const proto::ProtoObject* objectToString(
     // marker. §20.1.3.6 dispatches them to the built-in tag "Symbol"
     // before the generic Object fallback.
     {
-        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE)
             return ctx->fromUTF8String("[object Symbol]");
     }
@@ -2832,8 +2830,7 @@ static const proto::ProtoObject* objectIsPrototypeOf(
         return PROTO_FALSE;
     // Symbol primitive is also "not an Object" here.
     {
-        const proto::ProtoObject* symKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* symK = symKo ? symKo->asString(ctx) : nullptr;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && arg->getAttribute(ctx, symK, true) == PROTO_TRUE)
             return PROTO_FALSE;
     }
@@ -3151,16 +3148,14 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
         // §17: built-in ctor name descriptor 0x2.
-        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
         if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     // Object.length === 1 per §20.1.1.
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {
         ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
-        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
 
@@ -3240,8 +3235,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
             // emits "constructor" because the default is fully
             // enumerable.
             if (updatedProto && updatedProto != PROTO_NONE) {
-                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
                 if (pdk) updatedProto = updatedProto->setAttribute(ctx, pdk,
                     ctx->fromInteger(0x3LL));
             }

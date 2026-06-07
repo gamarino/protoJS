@@ -624,8 +624,7 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
         const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
         bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
         if (!hasOwnSetter && !hasOwnGetter) {
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
             if (pdk && arr->hasOwnAttribute(ctx, pdk) == PROTO_TRUE) {
                 const proto::ProtoObject* pdv = arr->getAttribute(ctx, pdk, false);
                 if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
@@ -898,8 +897,7 @@ const proto::ProtoObject* createNewArray(proto::ProtoContext* ctx,
     // surfacing 'length' in for-in / Object.keys output and making
     // delete arr.length succeed silently. Apply the sidecar once at
     // creation so every fresh array honours the spec descriptor.
-    const proto::ProtoObject* pdLenObj = ctx->fromUTF8String("__pd_length__");
-    const proto::ProtoString* pdLen = pdLenObj ? pdLenObj->asString(ctx) : nullptr;
+    const proto::ProtoString* pdLen = JSSymbols::pdLength(ctx);
     if (pdLen) arr = arr->setAttribute(ctx, pdLen, ctx->fromInteger(0x1LL));
     return arr;
 }
@@ -959,8 +957,7 @@ static const proto::ProtoObject* arraySpeciesCreate(
         }
         // Symbol primitives are carried as objects with __is_symbol__
         // — Type(Symbol) is the Symbol type, not Object, per §6.1.5.
-        const proto::ProtoObject* isSymKo = ctx->fromUTF8String("__is_symbol__");
-        const proto::ProtoString* isSymK = isSymKo ? isSymKo->asString(ctx) : nullptr;
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
         if (isSymK && C->hasAttribute(ctx, isSymK) == PROTO_TRUE) {
             const proto::ProtoObject* mv = C->getAttribute(ctx, isSymK, true);
             if (mv == PROTO_TRUE) {
@@ -1362,8 +1359,7 @@ static const proto::ProtoObject* arrayPush(
     // (built-ins/Array/prototype/push/set-length-zero-array-length-
     // is-non-writable).
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
         if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
             const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
             if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
@@ -1489,8 +1485,7 @@ static const proto::ProtoObject* arrayPop(
     // array-is-frozen).  Pre-fix the empty-array branch returned
     // undefined without exercising the Set, so the throw never fired.
     auto throwIfLengthFrozen = [&]() -> bool {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
         if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
             const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
             if (pdv && pdv->isInteger(ctx)) {
@@ -1617,8 +1612,7 @@ static const proto::ProtoObject* arrayShift(
     // without exercising the Set (built-ins/Array/prototype/shift/
     // set-length-zero-array-is-frozen).
     auto throwIfShiftLengthFrozen = [&]() -> bool {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
         if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
             const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
             if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
@@ -1677,8 +1671,7 @@ static const proto::ProtoObject* arrayUnshift(
     // fired (built-ins/Array/prototype/unshift/set-length-zero-array-
     // length-is-non-writable).
     auto throwIfLengthFrozen = [&]() -> bool {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
         if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
             const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
             if (pdv && pdv->isInteger(ctx) && (pdv->asLong(ctx) & 0x1) == 0) {
@@ -3785,8 +3778,7 @@ static const proto::ProtoObject* arraySplice(
     // splice silently proceeded on a frozen-length array
     // (built-ins/Array/prototype/splice/S15.4.4.12_A6.1_T2).
     {
-        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
-        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        const proto::ProtoString* pdk = JSSymbols::pdLength(ctx);
         if (pdk && self->hasAttribute(ctx, pdk) == PROTO_TRUE) {
             const proto::ProtoObject* pdv = self->getAttribute(ctx, pdk, false);
             if (pdv && pdv->isInteger(ctx)) {
@@ -4100,15 +4092,13 @@ static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx)
                 const proto::ProtoString* lk = JSSymbols::length(ctx);
                 if (lk) {
                     wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(0LL));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                     if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nk = JSSymbols::name(ctx);
                 if (nk) {
                     wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String("next"));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                     if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                 }
                 proto = proto->setAttribute(ctx, nextKey, wrapper);
@@ -4852,7 +4842,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     const proto::ProtoString* lengthKey = JSSymbols::length(ctx);
     if (lengthKey) {
         proto = proto->setAttribute(ctx, lengthKey, ctx->fromInteger(0));
-        const proto::ProtoString* pdlk = ctx->fromUTF8String("__pd_length__")->asString(ctx);
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) proto = proto->setAttribute(ctx, pdlk, ctx->fromInteger(0x1)); // writable, !configurable, !enumerable
     }
 
@@ -4961,13 +4951,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Array"));
-        const proto::ProtoString* pdnk = ctx->fromUTF8String("__pd_name__")->asString(ctx);
+        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
         if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2)); // configurable, !writable, !enumerable
     }
     lengthKey = JSSymbols::length(ctx);
     if (lengthKey) {
         ctor = ctor->setAttribute(ctx, lengthKey, ctx->fromInteger(1));
-        const proto::ProtoString* pdlk = ctx->fromUTF8String("__pd_length__")->asString(ctx);
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2)); // configurable, !writable, !enumerable
     }
 
@@ -5019,15 +5009,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);
                 if (lenKey) {
                     getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
-                    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
-                    const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
                     if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* nmKey = JSSymbols::name(ctx);
                 if (nmKey) {
                     getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get [Symbol.species]"));
-                    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
-                    const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                    const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 const proto::ProtoString* gksSym =
@@ -5052,8 +5040,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
         if (ctorKey) {
             proto = proto->setAttribute(ctx, ctorKey, ctor);
-            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_constructor__");
-            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            const proto::ProtoString* pdk = JSSymbols::pdConstructor(ctx);
             if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
             s_arrayProto = proto;
         }
