@@ -416,7 +416,169 @@ on a 12-core machine.
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-06-07** (in-process median time, protoJS built
+**Honest baseline — 2026-06-07 (late, after structural cleanup)** —
+3-round median, same `libprotoCore` build from the
+`digression-attr-cache-padding` branch.  This is a continuation of
+the morning baseline below: a static analysis identified seven
+patterns where protoJS was reimplementing logic that protoCore
+already exposes, plus one interpreter-side wrapper that was paying
+function-call overhead for what should be a single memory access.
+Fifteen commits later (no protoCore changes), geomean against
+QuickJS is **17.65 ×** — below the 2026-06-01 baseline of 21.0 ×.
+
+> **Structural cleanup landed this cycle (2026-06-07 late)**
+>
+> Each commit follows one rule: *if protoCore exposes the primitive,
+> call it; if it exposes a flag, set it; if it exposes a fast path,
+> take it.*  No reimplementation of what already exists.
+>
+> 1. **`4b99011c`** — `arrayPush` calls `ProtoList::appendLast` in a
+>    tight loop with `getElements`/`setElements` hoisted out.  Per
+>    100 K-push iteration: 1 getAttribute + 100 K `appendLast` + 1
+>    setAttribute (was: 100 K × {3 attribute ops + arrSet ceremony}).
+>    **`array_literal` 2315 → 199 ms (−91 %)** — fully recovered
+>    versus the 2026-06-01 pre-regression baseline of 195 ms.
+> 2. **`9fff940c`** — `arrayShift` / `arrayUnshift` use
+>    `ProtoList::removeFirst` / `appendFirst` directly when the chain
+>    has no inherited indexed setters and no accessors.  The O(N) spec
+>    walk (Get + Set per element) collapses to one O(log N) tree
+>    operation.
+> 3. **`47e269e1`** — `arraySlice` → `ProtoList::getSlice`.  One
+>    O(log N) tree-splice instead of O(N) arrGet +
+>    arrayCreateDataPropertyOrThrow per element.
+> 4. **`bf12c184`** — `arrayConcat` plans-then-extends: build a vector
+>    of (spread?, list) pairs, then `extend` each spreadable and
+>    `appendLast` each non-spreadable.  Fallback path preserved
+>    verbatim.
+> 5. **`c73cb574`** — `arraySplice` assembles prefix + inserts + suffix
+>    via `getSlice` + `appendLast` + `extend`.  Removed array is a
+>    single `getSlice` of the deleted range.
+> 6. **`1b5a527c`** — `arrayIncludes` / `arrayIndexOf` /
+>    `arrayLastIndexOf` walk `__elements__` via `ProtoListIterator`
+>    instead of arrGet per index.  Eliminates the per-element
+>    `__get_<i>__` / `__set_<i>__` rope construction.
+> 7. **`5785108d`** — `Object.keys` / `values` / `entries` skip the
+>    per-key `__pd_<key>__` enumerable probe AND the `__get_<key>__`
+>    accessor probe when the per-target flags
+>    `__has_nonwritable_props__` / `__has_accessor_props__` are absent.
+> 8. **`b989e88a`** — `runBytecode` passes a 256-slot stack buffer to
+>    `ProtoContext` as `externalSlots`.  protoCore documents this as
+>    "zero heap cost" — every JS function call WAS doing
+>    `new const ProtoObject*[N]` + `delete[]`.
+>    `ProtoContext::ProtoContext` disappeared from the top-15 profile.
+> 9. **`6e40d219`** — bind callee args directly from the parent's
+>    stack slice, skipping `argsList->getAt(i)` per arg (the AVL walks
+>    on a tree we just built from the same slice).
+> 10. **`3ed66a04`** — `ProtoBytecodeModule::usesArguments` flag,
+>     computed once at module load by scanning for `OP_special_object`
+>     kind=0/1, `OP_rest`, `OP_init_ctor`.  When false, the per-call
+>     `pContext->newList(argc, slice)` is skipped — one fewer cell
+>     allocation per JS-to-JS call.
+> 11. **`f4438ebb`** — arithmetic Integer fallback paths delegate to
+>     `ProtoObject::add` / `subtract` / `multiply` / `modulo`.  Fixes
+>     a silent `int64` truncation bug (`9007199254740990 + 3` used to
+>     truncate; now promotes to `LargeInteger` via `TempBignum`).
+>     The SmallInt inline fast path stays — that's the hot case.
+> 12. **`e02ec70b`** — `collectOwnKeys` walks the own-attributes
+>     SparseList via `ProtoSparseList::processElements` callback.
+>     The `getIterator + advance()` loop was allocating an iterator
+>     wrapper cell per step (`implAsObject` call); the callback path
+>     walks SmallSparseList inline pairs directly and reuses the
+>     internal iterator without wrapper allocations for the AVL form.
+> 13. **`ddf7f82d`** — `stackPush` / `stackPop` / `stackTop` / `getSlot`
+>     / `setSlot` + auxiliaries marked
+>     `[[gnu::always_inline]] static inline`.  Pre-fix profile on
+>     `control_flow`: 5 helpers totalled ~15.5 % of CPU as real
+>     function calls.  Verified via `nm`: all helpers eliminated from
+>     the binary.  `control_flow` 252 → 226 ms (−10 %).
+>     Three documented hang causes from the prior macro attempt are
+>     explicitly guarded against (proper `ctx` propagation, saturating
+>     doubling on `(idx+1)*2` overflow, preserved NULL guards) — see
+>     memory `feedback_protojs_runbytecode_macros_caution.md`.
+
+#### Standard In-Process Suite — vs Node.js 22 / V8 / vanilla QuickJS
+
+3-round median.  Same `build_release/protojs`, same Node 22,
+`qjs_minimal_release` (QuickJS rebuilt with `-O3 -DNDEBUG`).
+
+| Benchmark                  |    Node |    QuickJS |   protoJS |   Node × |   QuickJS × |
+|----------------------------|--------:|-----------:|----------:|---------:|------------:|
+| array_literal              |    2 ms |       5 ms |    203 ms |    102 × |       41 ×  |
+| control_flow               |    4 ms |      43 ms |    226 ms |     57 × |       5.3 × |
+| function_calls             |    1 ms |       8 ms |    216 ms |    216 × |        27 × |
+| json_transform             |    1 ms |       3 ms |    122 ms |    122 × |        41 × |
+| json_transform_small       |    0 ms |       0 ms |     13 ms |      —   |        —    |
+| list_snapshot_history      |    0 ms |       1 ms |    269 ms |      —   |       269 × |
+| numeric_loop               |    1 ms |      32 ms |    125 ms |    125 × |       3.9 × |
+| **object_property**        |   35 ms |      64 ms |    561 ms |     16 × |       8.8 × |
+| **object_read_only**       |    1 ms |       5 ms |    103 ms |    103 × |        21 × |
+| **object_write_only**      |   12 ms |      52 ms |   1275 ms |    106 × |        25 × |
+| **parallel_cpu**           |**40 ms**|  **730 ms**|  **52 ms**|**Node 1.3 ×**|**protoJS 14.0 ×**|
+| string_concat              |    1 ms |       5 ms |     99 ms |     99 × |        20 × |
+| string_insert_middle       |    0 ms |       0 ms |    237 ms |      —   |        —    |
+| string_processing          |    0 ms |       0 ms |    231 ms |      —   |        —    |
+| string_repeated_doubling   |   36 ms |       1 ms |   2151 ms |     60 × |      2151 × |
+| tree_traversal             |    1 ms |       4 ms |    298 ms |    298 × |        75 × |
+
+**Geometric mean (12 benches where all three engines > 0 ms):**
+- **protoJS / Node = 66.6 ×**   (was 132 × on 2026-06-06 morning, was 58.5 × on 2026-06-01)
+- **protoJS / QuickJS = 17.65 ×** (was 34.4 × on 2026-06-06 morning, was 21.0 × on 2026-06-01)
+- QuickJS / Node = 3.77 ×
+
+#### Recovery vs the 2026-06-06 morning baseline
+
+Geomean today / 2026-06-06 morning = 0.50 ×  — **protoJS is ~50 %
+faster across the standard suite than the morning snapshot**, and
+**~16 % faster** than the 2026-06-01 pre-regression baseline (which
+was 21.0 × QuickJS; we are at 17.65 × now).
+
+| Benchmark                  | 06-06 (ms) | 06-07 (ms) |        Δ |
+|----------------------------|-----------:|-----------:|---------:|
+| **array_literal**          |       2315 |        203 | **−91 %** |
+| **object_write_only**      |       9554 |       1275 | **−87 %** |
+| **object_property**        |       2793 |        561 | **−80 %** |
+| **object_read_only**       |        394 |        103 | **−74 %** |
+| list_snapshot_history      |        324 |        269 |     −17 % |
+| string_processing          |        251 |        231 |      −8 % |
+| numeric_loop               |        124 |        125 |       +0 % |
+| string_concat              |        101 |         99 |      −2 % |
+| tree_traversal             |        308 |        298 |      −3 % |
+| parallel_cpu               |         52 |         52 |       ±0 % |
+| control_flow               |        239 |        226 |      −5 % |
+| function_calls             |        213 |        216 |      +1 % |
+| json_transform             |        199 |        122 |     −39 % |
+| string_repeated_doubling   |       2106 |       2151 |      +2 % |
+| string_insert_middle       |        236 |        237 |      ±0 % |
+
+**Honest framing.**  17.65 × QuickJS is *better than the 2026-06-01
+baseline*, but still ~3 × off the < 5 × goal.  The remaining gap is a
+mix of:
+
+  - Closure-cell `__cv__` writes for every let/const at module scope
+    (200 K writes per `function_calls` iteration = 200 K SmallSparseList
+    snapshots — structural to protoCore's immutable model)
+  - `string_repeated_doubling` and `string_insert_middle` bottleneck
+    in protoCore-side rope construction
+  - Doubled prototype walk (`t_jsProtoMap` parallel to protoCore parents)
+    that this cycle did NOT address
+
+`parallel_cpu` still wins **14 × against QuickJS**, **77 % of V8's
+JIT'd throughput**.  The GIL-free architectural payoff is intact.
+
+> **Cycle summary**: thirteen commits, none touching protoCore,
+> reduced the protoJS-vs-QuickJS geomean from **33.9 ×** (start of day
+> 2026-06-06) to **17.65 ×** — a 48 % improvement attributable
+> entirely to *using protoCore primitives instead of reimplementing
+> them*.  The architectural lesson is preserved in the memory
+> `feedback_protocore_cache_for_stable_mutables.md` and now also
+> `feedback_protojs_runbytecode_macros_caution.md`.
+
+Raw rounds: `tests/benchmarks/results/three-way-rounds-2026-06-07b.txt`.
+Raw JSON: `tests/benchmarks/results/node_quickjs_comparison.json`.
+
+---
+
+**Prior baseline — 2026-06-07 (early)** (in-process median time, protoJS built
 in pure Release mode against the same `libprotoCore` from the
 `digression-attr-cache-padding` branch as 2026-06-06).  This run lands
 on top of the 2026-06-06 snapshot and reflects a **five-commit
