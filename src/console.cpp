@@ -614,6 +614,20 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                         if (pdttK) dateProto = dateProto->setAttribute(ctx, pdttK,
                             ctx->fromInteger(0x2LL));
                     }
+                    // §21.4.4.1 / §17: Date.prototype.constructor === Date,
+                    // descriptor {writable:true, enumerable:false,
+                    // configurable:true} → bits 0x3.  Pre-fix the slot was
+                    // absent so Object.getOwnPropertyDescriptor(Date.prototype,
+                    // "constructor") returned undefined and the entire
+                    // built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-4-N
+                    // family checking Date.prototype.constructor failed.
+                    const proto::ProtoString* ctorK = JSSymbols::constructor(ctx);
+                    if (ctorK) {
+                        dateProto = dateProto->setAttribute(ctx, ctorK, dateObj);
+                        const proto::ProtoString* pdck = JSSymbols::pdConstructor(ctx);
+                        if (pdck) dateProto = dateProto->setAttribute(ctx, pdck,
+                            ctx->fromInteger(0x3LL));
+                    }
                     dateObj = dateObj->setAttribute(ctx, protoKey, dateProto);
                     // §21.4.3.3 / §17: Date.prototype descriptor is
                     // {writable:false, enumerable:false, configurable:false}
