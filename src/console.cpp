@@ -515,6 +515,12 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     double nan = std::numeric_limits<double>::quiet_NaN();
     int argc = args ? args->getSize(ctx) : 0;
     if (argc == 0) return ctx->fromDouble(nan);
+    // ECMA-262 §21.4.3.4: ToNumber runs on every supplied positional;
+    // if any result is NaN, the final TimeClip step collapses the
+    // composite value to NaN.  Pre-fix the coerce helper silently
+    // substituted NaN with the default, so Date.UTC(NaN) returned
+    // year=0 → 1900 timestamp instead of the spec-required NaN.
+    bool sawNaN = false;
     auto coerce = [&](int idx, long long defaultV) -> long long {
         if (idx >= argc) return defaultV;
         const proto::ProtoObject* v = args->getAt(ctx, idx);
@@ -522,7 +528,7 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
         if (v->isInteger(ctx)) return v->asLong(ctx);
         if (v->isDouble(ctx) || v->isFloat(ctx)) {
             double d = v->asDouble(ctx);
-            if (std::isnan(d)) return defaultV;
+            if (std::isnan(d)) { sawNaN = true; return defaultV; }
             return static_cast<long long>(d);
         }
         return defaultV;
@@ -538,6 +544,7 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     tmv.tm_min   = static_cast<int>(coerce(4, 0));
     tmv.tm_sec   = static_cast<int>(coerce(5, 0));
     long long ms = coerce(6, 0);
+    if (sawNaN) return ctx->fromDouble(nan);
     std::time_t t = timegm(&tmv);
     if (t == (std::time_t)-1) return ctx->fromDouble(nan);
     return ctx->fromLong(static_cast<long long>(t) * 1000 + ms);
