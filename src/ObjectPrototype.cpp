@@ -2914,6 +2914,110 @@ static const proto::ProtoObject* objectValueOf(
     return self;
 }
 
+// §B.2.2.4 Object.prototype.__lookupGetter__(P): walk the prototype
+// chain; for each ancestor with an own __get_<key>__ sidecar return
+// that getter.  Returns undefined when no accessor with a getter is
+// found.  Throws TypeError if `this` is null/undefined.  Test262 fix
+// for built-ins/Object/prototype/__lookupGetter__/{length,name,
+// lookup-not-found,key-invalid,...}.
+static const proto::ProtoObject* objectLookupGetter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    if (!args || args->getSize(ctx) < 1) return getUndefinedSentinel();
+    const proto::ProtoObject* keyArg = args->getAt(ctx, 0);
+    if (!keyArg) return getUndefinedSentinel();
+    // ToPropertyKey on the argument — primitive ToString for non-Symbol.
+    std::string keyStr;
+    if (keyArg->isString(ctx)) {
+        keyArg->asString(ctx)->toUTF8String(ctx, keyStr);
+    } else {
+        // Reuse the same coercion the protoJS coercePropNameToKey path
+        // already performs — for now ToString through asString.
+        const proto::ProtoObject* coerced = keyArg;
+        if (coerced->isInteger(ctx)) {
+            keyStr = std::to_string(coerced->asLong(ctx));
+        } else if (coerced->isDouble(ctx) || coerced->isFloat(ctx)) {
+            keyStr = std::to_string(coerced->asDouble(ctx));
+        } else if (coerced == PROTO_TRUE) {
+            keyStr = "true";
+        } else if (coerced == PROTO_FALSE) {
+            keyStr = "false";
+        } else {
+            return getUndefinedSentinel();
+        }
+    }
+    std::string gkStr = "__get_" + keyStr + "__";
+    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+    const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+    if (!gk) return getUndefinedSentinel();
+    const proto::ProtoObject* curr = self;
+    while (curr && curr != PROTO_NONE) {
+        if (curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
+            const proto::ProtoObject* getter = curr->getAttribute(ctx, gk, false);
+            if (getter && getter != PROTO_NONE) return getter;
+        }
+        curr = curr->getFirstParent(ctx);
+    }
+    return getUndefinedSentinel();
+}
+
+// §B.2.2.5 Object.prototype.__lookupSetter__(P): symmetric to
+// __lookupGetter__ but searches __set_<key>__.
+static const proto::ProtoObject* objectLookupSetter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    if (!args || args->getSize(ctx) < 1) return getUndefinedSentinel();
+    const proto::ProtoObject* keyArg = args->getAt(ctx, 0);
+    if (!keyArg) return getUndefinedSentinel();
+    std::string keyStr;
+    if (keyArg->isString(ctx)) {
+        keyArg->asString(ctx)->toUTF8String(ctx, keyStr);
+    } else if (keyArg->isInteger(ctx)) {
+        keyStr = std::to_string(keyArg->asLong(ctx));
+    } else if (keyArg->isDouble(ctx) || keyArg->isFloat(ctx)) {
+        keyStr = std::to_string(keyArg->asDouble(ctx));
+    } else if (keyArg == PROTO_TRUE) {
+        keyStr = "true";
+    } else if (keyArg == PROTO_FALSE) {
+        keyStr = "false";
+    } else {
+        return getUndefinedSentinel();
+    }
+    std::string skStr = "__set_" + keyStr + "__";
+    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+    const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+    if (!sk) return getUndefinedSentinel();
+    const proto::ProtoObject* curr = self;
+    while (curr && curr != PROTO_NONE) {
+        if (curr->hasOwnAttribute(ctx, sk) == PROTO_TRUE) {
+            const proto::ProtoObject* setter = curr->getAttribute(ctx, sk, false);
+            if (setter && setter != PROTO_NONE) return setter;
+        }
+        curr = curr->getFirstParent(ctx);
+    }
+    return getUndefinedSentinel();
+}
+
 static const proto::ProtoObject* objectIsPrototypeOf(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -2985,6 +3089,12 @@ const proto::ProtoObject* installObjectInstanceMethods(
     base = installNonEnumerableMethod(ctx, base, "hasOwnProperty",      objectHasOwnProperty,      1);
     base = installNonEnumerableMethod(ctx, base, "isPrototypeOf",        objectIsPrototypeOf,        1);
     base = installNonEnumerableMethod(ctx, base, "propertyIsEnumerable", objectPropertyIsEnumerable, 1);
+    // §B.2.2.4 / §B.2.2.5 annex B legacy accessor reflectors.  Required
+    // by the property-helper harness in any test using verifyProperty +
+    // accessor descriptors, and directly checked by built-ins/Object/
+    // prototype/__lookupGetter__ / __lookupSetter__.
+    base = installNonEnumerableMethod(ctx, base, "__lookupGetter__",    objectLookupGetter,         1);
+    base = installNonEnumerableMethod(ctx, base, "__lookupSetter__",    objectLookupSetter,         1);
     (void)reg; // legacy raw-method installer kept for the special-case branches below
     // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
     // Delegate to the receiver's own toString — for a Number this gives the
