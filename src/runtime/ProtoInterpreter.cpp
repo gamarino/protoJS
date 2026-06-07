@@ -4606,6 +4606,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_check_ctor] = &&L_OP_check_ctor;
     dispatch_table[OP_check_ctor_return] = &&L_OP_check_ctor_return;
     dispatch_table[OP_init_ctor] = &&L_OP_init_ctor;
+    dispatch_table[OP_regexp] = &&L_OP_regexp;
     dispatch_table[OP_eval] = &&L_OP_eval;
     dispatch_table[OP_check_brand] = &&L_OP_check_brand;
     dispatch_table[OP_add_brand] = &&L_OP_add_brand;
@@ -5249,6 +5250,50 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
                 stackPush(pContext, isUndef ? PROTO_TRUE : PROTO_FALSE);
+                DISPATCH();
+            }
+            L_OP_regexp: {
+                // DEF(regexp, 1, 2, 1, none) — pattern + compiled bytecode
+                // on the stack; push a RegExp object.  Pre-fix the
+                // unimplemented dispatch printed "unsupported opcode
+                // 0x34" and bailed, so any test using a regex literal
+                // (e.g. \`/./\` passed to assert.throws / find / sort)
+                // exited early before the actual assertion could run.
+                //
+                // We don't implement the regex engine here; emit a
+                // RegExp-prototype-parented stub with the source string
+                // captured from the pattern slot.  That's enough for
+                // tests that probe \`typeof /./\` or pass the literal
+                // to API checks (find / sort / IsCallable) without
+                // ever exercising .exec / .test.
+                if (stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* bytecode = stackTop(pContext);
+                stackPop(pContext);
+                if (stackEmpty(pContext)) return PROTO_NONE;
+                const proto::ProtoObject* pattern = stackTop(pContext);
+                stackPop(pContext);
+                (void)bytecode;
+                REFRESH_GLOBAL_OBJ();
+                const proto::ProtoObject* regexpCtor = nullptr;
+                {
+                    const proto::ProtoString* rk = JSSymbols::RegExp(pContext);
+                    if (rk && globalObj && globalObj != PROTO_NONE) {
+                        regexpCtor = globalObj->getAttribute(pContext, rk, false);
+                    }
+                }
+                const proto::ProtoObject* regexpProto = nullptr;
+                if (regexpCtor && regexpCtor != PROTO_NONE) {
+                    const proto::ProtoString* pk = JSSymbols::prototype(pContext);
+                    if (pk) regexpProto = regexpCtor->getAttribute(pContext, pk, false);
+                }
+                const proto::ProtoObject* rx = (regexpProto && regexpProto != PROTO_NONE)
+                    ? regexpProto->newChild(pContext, true)
+                    : pContext->newObject(true);
+                if (rx && pattern && pattern != PROTO_NONE) {
+                    const proto::ProtoString* sk = JSSymbols::source(pContext);
+                    if (sk) rx = rx->setAttribute(pContext, sk, pattern);
+                }
+                stackPush(pContext, rx ? rx : PROTO_NONE);
                 DISPATCH();
             }
             L_OP_eval: {
