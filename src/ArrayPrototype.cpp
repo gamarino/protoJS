@@ -1880,6 +1880,37 @@ static const proto::ProtoObject* arraySlice(
 
     const proto::ProtoObject* result = arraySpeciesCreate(ctx, self, static_cast<unsigned long>(end - start));
     if (hasCallException()) return PROTO_NONE;
+
+    // Native fast path: real array, no accessors / no inherited setters
+    // on EITHER source or destination, source has no holes in the
+    // [start, end) range, destination is also a real array.
+    // ProtoList::getSlice does the whole copy in one O(log N) tree-
+    // splice — no per-element arrGet + CreateDataPropertyOrThrow walk.
+    {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        auto checkFlag = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
+            return k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
+                     && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+        };
+        if (!checkFlag(self, hisKey) && !checkFlag(self, hapKey)
+            && !checkFlag(result, hisKey) && !checkFlag(result, hapKey)) {
+            const proto::ProtoList* srcList = nativeArrayList(ctx, self);
+            const proto::ProtoList* dstList = nativeArrayList(ctx, result);
+            if (srcList && dstList
+                && srcList->getSize(ctx) == static_cast<int>(len)
+                && dstList->getSize(ctx) == 0) {
+                // No holes possible — __elements__ size == arrLen.
+                const proto::ProtoList* slice = srcList->getSlice(
+                    ctx, static_cast<int>(start), static_cast<int>(end));
+                if (slice) {
+                    setArrayElements(ctx, result, slice);
+                    return result;
+                }
+            }
+        }
+    }
+
     // §23.1.3.28 step 13.c.ii: CreateDataPropertyOrThrow(A, ToString(n),
     // kValue).  Throws TypeError when the target is non-extensible OR
     // already holds a non-configurable descriptor at the slot.
