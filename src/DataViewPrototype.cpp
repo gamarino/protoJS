@@ -503,8 +503,11 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     proto = proto->setAttribute(ctx, JSSymbols::byteLength(ctx),
         ctx->fromMethod(const_cast<proto::ProtoObject*>(proto), dv_get_byteLength));
 
-    // Build constructor object.
-    const proto::ProtoObject* ctor = ctx->newObject(false);
+    // Build constructor object — mutable so JS-level \`delete\` of
+    // configurable own properties (e.g. delete DataView.name in
+    // verifyConfigurable) actually removes the slot.  Mirrors the
+    // TypedArray / Array / RegExp pattern.
+    const proto::ProtoObject* ctor = ctx->newObject(true);
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), proto);
     // Mark as DataView constructor so OP_call_constructor can dispatch.
     ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),

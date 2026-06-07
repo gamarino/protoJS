@@ -227,7 +227,10 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     // ------------------------------------------------------------------
     // Build the ArrayBuffer constructor object.
     // ------------------------------------------------------------------
-    const proto::ProtoObject* ctor = ctx->newObject(false);
+    // Mutable so JS-level \`delete\` of configurable own properties
+    // (e.g. ArrayBuffer[Symbol.species] in verifyConfigurable) actually
+    // removes the slot — mirrors the TypedArray / RegExp / Array pattern.
+    const proto::ProtoObject* ctor = ctx->newObject(true);
 
     // Set constructor.prototype.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
