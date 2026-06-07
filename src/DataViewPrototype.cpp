@@ -509,6 +509,27 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     // Mark as DataView constructor so OP_call_constructor can dispatch.
     ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
                                ctx->fromUTF8String("DataView"));
+    // §25.3.2 + §17: DataView.name === "DataView" and length === 1,
+    // both with descriptor {!writable, !enumerable, configurable} → 0x2.
+    // Pre-fix neither slot was installed (built-ins/DataView/name and
+    // built-ins/DataView/length both failed "obj should have an own
+    // property ...").
+    {
+        const proto::ProtoString* nameKey = JSSymbols::name(ctx);
+        if (nameKey) {
+            ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("DataView"));
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+            const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+        }
+    }
 
     // DataView.prototype.constructor === DataView per §25.3.4.1.
     // Non-enumerable per spec (0x3 = writable+configurable).
