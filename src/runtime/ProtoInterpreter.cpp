@@ -236,8 +236,19 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
     // a hash collision returned the stale symbol — keys ended up
     // installed under the wrong slot, manifested as obj['k17'] = 17
     // becoming obj['k_other'] = 17 in object_property-style loops.
-    // Re-introduce a cache only with a proper invalidation strategy
-    // (e.g. validate-by-content on hit).
+    //
+    // A safe re-introduction (validate every hit by cmp_to_string
+    // against the cached symbol) was measured 2026-06-07 — it sped
+    // object_read_only by ~16% but slowed json_transform by 20% and
+    // string_insert_middle by ~7%, for a net geomean regression of
+    // 9% (22.91x → 24.93x vs QuickJS).  The fundamental issue is
+    // that the validation cmp_to_string costs as much as the
+    // toUTF8String it would skip, so on every cache miss the bench
+    // pays the comparison for nothing, and many real benchmarks see
+    // mostly unique keys.  Any future re-introduction must (a) avoid
+    // the per-hit content compare (e.g. by relying on a generation
+    // token from protoCore's GC) and (b) be measured against the
+    // full bench suite, not just object benches.
     std::string utf8;
     s->toUTF8String(ctx, utf8);
     return proto::ProtoString::createSymbol(ctx, utf8.c_str());
