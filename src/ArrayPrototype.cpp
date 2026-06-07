@@ -2059,6 +2059,10 @@ static const proto::ProtoObject* arrayIncludes(
     return PROTO_FALSE;
 }
 
+// Forward decl: iterReceiver is defined later in the file.
+static const proto::ProtoObject* iterReceiver(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self);
+
 static const proto::ProtoObject* arrayReverse(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -2067,6 +2071,13 @@ static const proto::ProtoObject* arrayReverse(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.27 step 1 + step 7: Let O be ? ToObject(this value);
+    // Return O.  For a primitive receiver (boolean / number / string),
+    // ToObject wraps it and the spec returns the wrapper.  Pre-fix
+    // arrayReverse returned the raw primitive, so
+    // \`Array.prototype.reverse.call(true) instanceof Boolean\` was
+    // false (built-ins/Array/prototype/reverse/call-with-boolean).
+    const proto::ProtoObject* O = iterReceiver(ctx, self);
     unsigned long len = arrLen(ctx, self);
     for (unsigned long i = 0; i < len / 2; i++) {
         unsigned long j = len - 1 - i;
@@ -2075,7 +2086,7 @@ static const proto::ProtoObject* arrayReverse(
         arrSet(ctx, self, i, b);
         arrSet(ctx, self, j, a);
     }
-    return self;
+    return O ? O : self;
 }
 
 // Forward decls: arraySort / arraySplice are defined later.
