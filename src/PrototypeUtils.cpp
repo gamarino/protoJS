@@ -46,6 +46,14 @@ const proto::ProtoObject* installNonEnumerableMethod(
         const proto::ProtoString* pdNm = JSSymbols::pdName(ctx);
         if (pdNm) methodObj = methodObj->setAttribute(ctx, pdNm, ctx->fromInteger(0x2LL));
     }
+    // Both length and name above are writable=false.  Stamp the hot-path
+    // hint so resolvePutFieldOOP consults __pd_<key>__ when user code
+    // writes to this method object: e.g. `arr.push.length = 99` must
+    // silently fail per the spec.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) methodObj = methodObj->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // Install on proto: {writable: true, enumerable: false, configurable: true}
     // bits = 0x3 → bit0(writable)=1, bit1(configurable)=1, bit2(enumerable)=0

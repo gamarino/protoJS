@@ -94,6 +94,20 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
 static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
     if (!obj || obj == PROTO_NONE || !key) return obj;
 
+    // Per-target hint: when Object.defineProperty has stamped
+    // __has_accessor_props__ on any object reachable through the
+    // prototype chain (target itself OR an ancestor), at least one
+    // accessor descriptor exists somewhere and we must walk to find it.
+    // When the flag is absent the entire setter/getter sidecar probe
+    // can be skipped — no fromUTF8String, no chain walk, no per-call
+    // rope allocations.  protoCore's per-thread attribute cache makes
+    // this one-shot hasAttribute test effectively free after the first
+    // call on a given chain.
+    const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+    const bool maybeHasAccessor = hapKey
+        && (obj->hasAttribute(ctx, hapKey) == PROTO_TRUE)
+        && (obj->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+
     // Accessor setter support: check for __set_<key>__ / __get_<key>__
     // sidecar along the chain. Pre-fix the walk only stopped when the
     // CURRENT object had an own data attribute named <key>; getter-only
@@ -101,13 +115,17 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     // only __get_size__, never 'size', so the walk fell through and
     // the write created a shadowing data property on the instance.
     std::string keyStr;
-    key->toUTF8String(ctx, keyStr);
-    std::string skStr = "__set_" + keyStr + "__";
-    std::string gkStr = "__get_" + keyStr + "__";
-    const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
-    const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
-    const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-    const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+    const proto::ProtoString* sk = nullptr;
+    const proto::ProtoString* gk = nullptr;
+    if (maybeHasAccessor) {
+        key->toUTF8String(ctx, keyStr);
+        std::string skStr = "__set_" + keyStr + "__";
+        std::string gkStr = "__get_" + keyStr + "__";
+        const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
+        sk = sko ? sko->asString(ctx) : nullptr;
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        gk = gko ? gko->asString(ctx) : nullptr;
+    }
 
     if (sk || gk) {
         const proto::ProtoObject* curr = obj;
@@ -144,15 +162,25 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
     const protojs::JSObjectBehavior* behavior = reg.resolve(ctx, obj);
 
     // Respect writable descriptor flag (bit 0 of __pd_<key>__).
-    std::string pdKeyStr = "__pd_" + keyStr + "__";
-    const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
-    const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
-    const proto::ProtoObject* pdv = pdks ? obj->getAttribute(ctx, pdks, true) : nullptr;
-    if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
-        uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
-        if (!(bits & 0x1)) {
-            // Property is non-writable.
-            return obj;
+    // Same per-target hint as above: skip the entire __pd_<key>__ probe
+    // (which would build a fresh ProtoString rope per call) when nothing
+    // in the reachable chain has ever stamped a non-default writable bit.
+    const proto::ProtoString* hnwKey = JSSymbols::hasNonWritableProps(ctx);
+    const bool maybeHasNonWritable = hnwKey
+        && (obj->hasAttribute(ctx, hnwKey) == PROTO_TRUE)
+        && (obj->getAttribute(ctx, hnwKey, true) == PROTO_TRUE);
+    if (maybeHasNonWritable) {
+        if (keyStr.empty()) key->toUTF8String(ctx, keyStr);
+        std::string pdKeyStr = "__pd_" + keyStr + "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdKeyStr.c_str());
+        const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+        const proto::ProtoObject* pdv = pdks ? obj->getAttribute(ctx, pdks, true) : nullptr;
+        if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
+            uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
+            if (!(bits & 0x1)) {
+                // Property is non-writable.
+                return obj;
+            }
         }
     }
 

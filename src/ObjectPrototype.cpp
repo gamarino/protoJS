@@ -742,6 +742,11 @@ static const proto::ProtoObject* objectFreeze(
     // Object.getOwnPropertyDescriptor (built-ins/Object/freeze/*
     // verifyProperty fixtures).
     {
+        // Hot-path hint: freeze always clears writable on every own
+        // property, so OrdinarySet must consult __pd_<key>__ from now on
+        // for this target.  Stamp the flag once up front.
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) obj->setAttribute(ctx, hnw, PROTO_TRUE);
         const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
         if (own) {
             const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
@@ -1691,6 +1696,14 @@ static const proto::ProtoObject* objectDefineProperty(
 
     if (isAccessor) {
         target = target->setAttribute(ctx, k, getUndefinedSentinel());
+        // Hot-path hint: tag the target with __has_accessor_props__ so
+        // resolvePutFieldOOP (every obj[key]=val write) can skip the
+        // entire __set_<key>__/__get_<key>__ chain-walk probe when no
+        // accessor descriptor exists anywhere reachable from the target.
+        {
+            const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
+            if (hap) target = target->setAttribute(ctx, hap, PROTO_TRUE);
+        }
         std::string gkStr = "__get_" + kstr + "__";
         const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
         if (gk) {
@@ -1779,6 +1792,14 @@ static const proto::ProtoObject* objectDefineProperty(
 
     uint8_t bits = (writable ? 0x1 : 0) | (configurable ? 0x2 : 0) | (enumerable ? 0x4 : 0);
     if (pdk) target = target->setAttribute(ctx, pdk, ctx->fromInteger((long long)bits));
+    // Hot-path hint: if the descriptor leaves writable=false, tag the
+    // target with __has_nonwritable_props__ so resolvePutFieldOOP can
+    // skip the __pd_<key>__ probe entirely on writes when every property
+    // along the chain is writable (the universal case).
+    if (!writable) {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) target = target->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // §10.4.2.4 ArraySetLength: shrinking Array.length via
     // defineProperty truncates __elements__ and removes own

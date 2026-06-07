@@ -149,6 +149,18 @@ const proto::ProtoString* fieldsInit(proto::ProtoContext* ctx);     // "__fields
 // never do).
 const proto::ProtoString* hasIndexedSetters(proto::ProtoContext* ctx); // "__has_indexed_setters__"
 
+// Per-object hint flags for the OrdinarySet hot path (added 2026-06-07).
+// resolvePutFieldOOP runs on every `obj[key] = val` and used to
+// unconditionally construct "__set_<key>__"/"__get_<key>__"/"__pd_<key>__"
+// rope keys per write to probe the chain for accessor descriptors and
+// writable bits — even when no defineProperty ever touched the target.
+// These flags let OrdinarySet skip the entire probe block when no
+// non-default descriptor exists anywhere in the prototype chain.
+// Conservative: once set, they stay set (false positive = pay the probe;
+// false negative would miss a real accessor / writable=false).
+const proto::ProtoString* hasAccessorProps(proto::ProtoContext* ctx);   // "__has_accessor_props__"
+const proto::ProtoString* hasNonWritableProps(proto::ProtoContext* ctx); // "__has_nonwritable_props__"
+
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"
 const proto::ProtoString* abDetached(proto::ProtoContext* ctx);     // "__ab_detached__"
