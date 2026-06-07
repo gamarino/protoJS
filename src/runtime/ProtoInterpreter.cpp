@@ -2514,7 +2514,17 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                 || prim == PROTO_NONE || !prim)
                 return context->fromUTF8String("undefined");
             if (prim == t_nullSentinel) return context->fromUTF8String("null");
-            if (isStringPrim(prim)) return prim;
+            // §7.1.17 ToString: ToPrimitive returns A primitive (could be
+            // a Number / Boolean / String); ToString must then run on
+            // that primitive to yield the canonical string form.  Pre-
+            // fix isStringPrim accepted Number/Boolean and we returned
+            // them as-is — String({toString:()=>-2}) surfaced the
+            // raw -2 (typeof "number") instead of "-2" (typeof
+            // "string").  Recurse for non-string primitives so the
+            // dedicated Number / Boolean cases at the top of this
+            // helper format them correctly.
+            if (prim && prim->isString(context)) return prim;
+            if (prim) return toString(context, prim);
         }
     }
     // Fallback to valueOf, then to the canonical literal.
@@ -2530,7 +2540,8 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                 prim = callJSFunction(context, vfn, value, noArgs);
             }
             if (hasCallException()) return PROTO_NONE;
-            if (isStringPrim(prim)) return prim;
+            if (prim && prim->isString(context)) return prim;
+            if (prim && isStringPrim(prim)) return toString(context, prim);
         }
     }
     return context->fromUTF8String("[object Object]");
