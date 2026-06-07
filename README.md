@@ -387,22 +387,25 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
-**Round 12 — 2026-06-07 evening** (7 fixes, broad-scope, per-area
+**Round 12 — 2026-06-07 evening** (19 fixes, broad-scope, per-area
 pass-rate over the eight essential `built-ins` families):
 
 | Family | Passes | Total | Pass rate |
 |---|---:|---:|---:|
-| `built-ins/Number` | 320 | 338 | **94.7 %** |
+| `built-ins/Number` | 331 | 338 | **97.9 %** |
 | `built-ins/Array` | 2 676 | 3 081 | **86.9 %** |
-| `built-ins/Object` | 2 775 | 3 411 | **81.4 %** |
-| `built-ins/String` | 973 | 1 223 | **79.6 %** |
+| `built-ins/Object` | 2 777 | 3 411 | **81.4 %** |
+| `built-ins/String` | 974 | 1 223 | **79.6 %** |
+| `built-ins/JSON` | 118 | 165 | **71.5 %** |
 | `built-ins/Math` | 233 | 327 | 71.3 % |
-| `built-ins/JSON` | 110 | 165 | 66.7 % |
 | `built-ins/Function` | 193 | 509 | 37.9 % |
 | `built-ins/Date` | 52 | 594 | 8.8 % (stub) |
-| **8-family rollup** | **7 332** | **9 648** | **76.0 %** |
+| **8-family rollup** | **7 354** | **9 648** | **76.2 %** |
 
-Round 12's seven fixes target the **descriptor / accessor surface**:
+The round closed in two clear themes:
+
+**Theme 1 — annex-B accessor reflectors + Object.create getter
+plumbing** (commits `ef8aa519` … `e30454f0`):
 
 1. `2048f209` — `wrapNativeFunction` stamps `__has_nonwritable_props__`
    so every built-in static method's `name` / `length` are actually
@@ -414,8 +417,7 @@ Round 12's seven fixes target the **descriptor / accessor surface**:
    `Object.create/15.2.3.5-4-N` conformance cases.
 3. `8c86c686` — `Date.prototype[Symbol.toStringTag] = "Date"` so
    `Object.prototype.toString.call(new Date(0))` yields the spec-
-   required `"[object Date]"`.  The stub installer's guard left this
-   slot bare on the Date branch.
+   required `"[object Date]"`.
 4. `26cd900c` — `Object.prototype.{toString,toLocaleString,valueOf}`
    carry the §17 `name` / `length` descriptor shape.
 5. `a2a17e1f` — Annex-B `Object.prototype.__lookupGetter__` /
@@ -425,14 +427,43 @@ Round 12's seven fixes target the **descriptor / accessor surface**:
 7. `ea127b46` — `setNWCDescriptor` stamps
    `__has_nonwritable_props__` so user-function `name` / `length` /
    `prototype` are non-enumerable in `Object.keys(fn)`.
+8. `30e63157` — `Object.fromEntries` throws `TypeError` when an
+   iterator entry is not an Object (§20.1.2.6 step 8.b).
 
-Two recurring root causes drove most of the round: (a) descriptor
+**Theme 2 — constructor `__has_nonwritable_props__` sweep**
+(commits `bda9a4fb` … `3793185b`).  Single recurring root cause:
+every JS built-in constructor (`Boolean`, `Number`, `String`, `Map`,
+`WeakMap`, `Set`, `Promise`, `RegExp`, `ArrayBuffer`, `DataView`,
+every `TypedArray` flavor, and the JSON-style native modules) stamped
+`__pd_name__ = 0x2` and `__pd_length__ = 0x2` (writable=false per
+§17) but skipped the per-target `__has_nonwritable_props__` flag.
+Without the flag, `resolvePutFieldOOP` (ProtoInterpreter.cpp:172)
+skipped the entire `__pd_<key>__` probe and writes to
+`JSON.parse.name`, `Boolean.length`, `Float32Array.name`, etc.
+silently succeeded despite the descriptor.  One-line identical fix
+at each registration site — but each commit closes the
+`verifyProperty(<Ctor>, "name"|"length", { writable: false, ...})`
+fixture for that specific built-in family:
+
+  * `bda9a4fb` — `ProtoNativeModule::addMethod` (JSON.* and the
+    other NativeEntry-driven modules)
+  * `b17b8739` — `Boolean` constructor
+  * `e5a6d605` — `RegExp` constructor
+  * `260517c6` — `Number`, `String` constructors
+  * `28c862ab` — `Map`, `WeakMap` constructors
+  * `b25e430e` — `Set`, `Promise` constructors
+  * `2235068c` — `ArrayBuffer`, `DataView` constructors
+  * `3793185b` — every `TypedArray` constructor (one site, 11 families
+    in one stroke since they share the install loop)
+
+Two recurring root causes drove the entire round: (a) descriptor
 sidecars (`__pd_<key>__`) were being written without their gating
 hot-path flag (`__has_nonwritable_props__`), so the runtime treated
 every property as writable + enumerable regardless of what the
 descriptor claimed; (b) annex-B accessor reflectors were entirely
 missing.  Both are now systematic: every code path that stamps a
-non-writable descriptor also lights the flag.
+non-writable descriptor also lights the flag, and every annex-B
+accessor surface is wired.
 
 **Latest full-suite run — 2026-06-01** (commit `073d1414`,
 `language + built-ins` patterns, 46 963 tests):
