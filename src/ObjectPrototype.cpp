@@ -2914,6 +2914,75 @@ static const proto::ProtoObject* objectValueOf(
     return self;
 }
 
+// Forward decls — defined further below in the static-method section.
+static const proto::ProtoObject* objectGetPrototypeOf(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*);
+static const proto::ProtoObject* objectSetPrototypeOf(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*);
+
+// §B.2.2.1 Object.prototype.__proto__ accessor getter:
+//   get __proto__() { return Object.getPrototypeOf(ToObject(this)); }
+static const proto::ProtoObject* objectProtoGetter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    // For protoJS the user-facing prototype is whatever Object.getPrototypeOf
+    // returns — which honours the t_jsProtoMap override applied via
+    // setPrototypeOf — so route through that path rather than getFirstParent
+    // directly.  Build a single-element args list and dispatch.
+    const proto::ProtoList* gpoArgs = ctx->newList();
+    gpoArgs = gpoArgs->appendLast(ctx, self);
+    return objectGetPrototypeOf(ctx, nullptr, nullptr, gpoArgs, nullptr);
+}
+
+// §B.2.2.1 setter: same coercion + setPrototypeOf dispatch.  No-op on
+// non-object / null receivers; silently ignores non-object / non-null
+// values per spec.
+static const proto::ProtoObject* objectProtoSetter(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    if (!args || args->getSize(ctx) < 1) return getUndefinedSentinel();
+    const proto::ProtoObject* newProto = args->getAt(ctx, 0);
+    // §B.2.2.1.1 step 4: if Type(V) is neither Object nor Null, return
+    // undefined.
+    bool isNull = (newProto == getNullSentinel());
+    bool isObj = newProto && newProto != PROTO_NONE && !newProto->isString(ctx)
+        && !newProto->isInteger(ctx) && !newProto->isDouble(ctx)
+        && !newProto->isFloat(ctx) && newProto != PROTO_TRUE
+        && newProto != PROTO_FALSE && newProto != getUndefinedSentinel();
+    if (!isNull && !isObj) return getUndefinedSentinel();
+    // Dispatch through objectSetPrototypeOf so the t_jsProtoMap +
+    // protoCore::setParents pair stays consistent.
+    const proto::ProtoList* spoArgs = ctx->newList();
+    spoArgs = spoArgs->appendLast(ctx, self);
+    spoArgs = spoArgs->appendLast(ctx, newProto);
+    (void)objectSetPrototypeOf(ctx, nullptr, nullptr, spoArgs, nullptr);
+    return getUndefinedSentinel();
+}
+
 // §B.2.2.2 Object.prototype.__defineGetter__(P, getter): install an
 // accessor descriptor with the supplied getter on `this`, leaving any
 // existing setter intact.  Equivalent to
@@ -3221,6 +3290,52 @@ const proto::ProtoObject* installObjectInstanceMethods(
     base = installNonEnumerableMethod(ctx, base, "__lookupSetter__",    objectLookupSetter,         1);
     base = installNonEnumerableMethod(ctx, base, "__defineGetter__",    objectDefineGetter,         2);
     base = installNonEnumerableMethod(ctx, base, "__defineSetter__",    objectDefineSetter,         2);
+
+    // §B.2.2.1 Object.prototype.__proto__ accessor pair.  Pre-fix the
+    // slot was absent so Object.getOwnPropertyDescriptor(Object.prototype,
+    // "__proto__") returned undefined, breaking the entire built-ins/
+    // Object/prototype/__proto__ test family (the descriptor probe is
+    // the first thing every test does).  Install via the __get_/__set_
+    // sidecars + __has_accessor_props__ flag — exactly the shape
+    // Object.defineProperty stamps for user-installed accessors.
+    {
+        // Wrap the getter / setter with their spec-required names
+        // "get __proto__" / "set __proto__".  wrapNativeFunction sets
+        // length, name, and the §17 descriptor sidecars in one shot.
+        // globalRoot is unavailable here so the wrapper falls back to
+        // methodPrototype (Function.prototype) for parenting — same
+        // path the rest of the prototype methods use.
+        const proto::ProtoObject* getFn =
+            wrapNativeFunction(ctx, objectProtoGetter, "get __proto__", 0, nullptr);
+        const proto::ProtoObject* setFn =
+            wrapNativeFunction(ctx, objectProtoSetter, "set __proto__", 1, nullptr);
+        const proto::ProtoString* pKey = ctx->fromUTF8String("__proto__")
+            ? ctx->fromUTF8String("__proto__")->asString(ctx) : nullptr;
+        if (pKey && getFn && setFn) {
+            // Stamp the accessor sidecars directly — Object.defineProperty
+            // would do the same but for Object.prototype itself we want
+            // to avoid the cycle of defineProperty needing __proto__ to
+            // already exist for its own internal walks.
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get___proto____");
+            const proto::ProtoObject* sko = ctx->fromUTF8String("__set___proto____");
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+            if (gk) base = base->setAttribute(ctx, gk, getFn);
+            if (sk) base = base->setAttribute(ctx, sk, setFn);
+            // Descriptor sidecar __pd___proto____ = 0x2
+            // (writable:false, enumerable:false, configurable:true).
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd___proto____");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) base = base->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+            // Light the accessor + nonwritable hot-path flags so
+            // resolveFieldOOP / resolvePutFieldOOP actually consult the
+            // sidecars on every Object.prototype.__proto__ access.
+            const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+            if (hapKey) base = base->setAttribute(ctx, hapKey, PROTO_TRUE);
+            const proto::ProtoString* hnwKey = JSSymbols::hasNonWritableProps(ctx);
+            if (hnwKey) base = base->setAttribute(ctx, hnwKey, PROTO_TRUE);
+        }
+    }
     (void)reg; // legacy raw-method installer kept for the special-case branches below
     // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
     // Delegate to the receiver's own toString — for a Number this gives the
