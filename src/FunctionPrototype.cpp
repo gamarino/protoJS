@@ -436,8 +436,22 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         const proto::ProtoObject* existingFnCtor =
             (*globalRoot)->getAttribute(ctx, keyFunction, false);
         if (!existingFnCtor || existingFnCtor == PROTO_NONE) {
-            const proto::ProtoObject* fnCtor = ctx->newObject(false);
+            // Mutable so verifyConfigurable's JS-level delete can
+            // remove configurable own properties.  Mirrors the
+            // mutability fix applied to every other ctor.
+            const proto::ProtoObject* fnCtor = ctx->newObject(true);
             if (fnCtor) {
+                // §10.3 IsConstructor + typeof: stamp markers so
+                // typeof Function === "function" AND isConstructor(Function)
+                // === true.  Pre-fix the ctor had only name/length/
+                // prototype, so typeof reported "object" and the
+                // test262 isConstructor harness rejected it as
+                // "non-function value" (built-ins/Function/
+                // is-a-constructor).
+                {
+                    const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+                    if (icK) fnCtor = fnCtor->setAttribute(ctx, icK, PROTO_TRUE);
+                }
                 const proto::ProtoString* nameKey = JSSymbols::name(ctx);
                 const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
                 const proto::ProtoString* lenKey = JSSymbols::length(ctx);

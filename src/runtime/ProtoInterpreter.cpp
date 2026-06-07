@@ -9545,11 +9545,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
                                 // __construct__ is used by Object, Number, Boolean, Map, Set, Promise, etc.
                                 const proto::ProtoString* conK = JSSymbols::construct(pContext);
+                                // Also recognise the generic
+                                // __is_constructor__ marker so the
+                                // Function ctor (which has no
+                                // shape-specific marker but signals
+                                // [[Construct]] via this flag) reports
+                                // typeof "function".  Pre-fix
+                                // typeof Function returned "object",
+                                // failing the test262 isConstructor
+                                // harness's typeof guard before the
+                                // Reflect.construct probe could run.
+                                const proto::ProtoString* icK = JSSymbols::isConstructor(pContext);
                                 bool isCtor = (acK && v->getAttribute(pContext, acK, false) == PROTO_TRUE)
                                           || (ecK && v->hasAttribute(pContext, ecK) == PROTO_TRUE)
                                           || (reK && v->getAttribute(pContext, reK, false) == PROTO_TRUE)
                                           || (taK && v->hasAttribute(pContext, taK) == PROTO_TRUE)
                                           || (scK && v->getAttribute(pContext, scK, false) == PROTO_TRUE)
+                                          || (icK && v->getAttribute(pContext, icK, false) == PROTO_TRUE)
                                           || (conK && v->getAttribute(pContext, conK, false) && v->getAttribute(pContext, conK, false)->isMethod(pContext));
                                 typeStr = isCtor ? "function" : "object";
                             }
