@@ -516,11 +516,12 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     int argc = args ? args->getSize(ctx) : 0;
     if (argc == 0) return ctx->fromDouble(nan);
     // ECMA-262 §21.4.3.4: ToNumber runs on every supplied positional;
-    // if any result is NaN, the final TimeClip step collapses the
-    // composite value to NaN.  Pre-fix the coerce helper silently
-    // substituted NaN with the default, so Date.UTC(NaN) returned
-    // year=0 → 1900 timestamp instead of the spec-required NaN.
-    bool sawNaN = false;
+    // MakeDay (§21.4.1.13) and MakeTime (§21.4.1.12) return NaN if any
+    // operand is not finite, and TimeClip (§21.4.1.14) collapses the
+    // final composite to NaN when |t| > 8.64e15.  Pre-fix the coerce
+    // helper silently substituted non-finite values with the default,
+    // so Date.UTC(NaN) returned the 1900 timestamp instead of NaN.
+    bool nonFinite = false;
     auto coerce = [&](int idx, long long defaultV) -> long long {
         if (idx >= argc) return defaultV;
         const proto::ProtoObject* v = args->getAt(ctx, idx);
@@ -528,7 +529,7 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
         if (v->isInteger(ctx)) return v->asLong(ctx);
         if (v->isDouble(ctx) || v->isFloat(ctx)) {
             double d = v->asDouble(ctx);
-            if (std::isnan(d)) { sawNaN = true; return defaultV; }
+            if (std::isnan(d) || std::isinf(d)) { nonFinite = true; return defaultV; }
             return static_cast<long long>(d);
         }
         return defaultV;
@@ -544,10 +545,16 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     tmv.tm_min   = static_cast<int>(coerce(4, 0));
     tmv.tm_sec   = static_cast<int>(coerce(5, 0));
     long long ms = coerce(6, 0);
-    if (sawNaN) return ctx->fromDouble(nan);
+    if (nonFinite) return ctx->fromDouble(nan);
     std::time_t t = timegm(&tmv);
     if (t == (std::time_t)-1) return ctx->fromDouble(nan);
-    return ctx->fromLong(static_cast<long long>(t) * 1000 + ms);
+    long long total = static_cast<long long>(t) * 1000 + ms;
+    // §21.4.1.14 TimeClip: |t| > 8.64e15 → NaN.  Pre-fix Date.UTC
+    // returned exact-integer values past the spec's representable
+    // range (e.g. Date.UTC(275760, 8, 13, 0, 0, 0, 1) = 8.64e15+1).
+    constexpr long long kMaxTime = 8640000000000000LL;
+    if (total > kMaxTime || total < -kMaxTime) return ctx->fromDouble(nan);
+    return ctx->fromLong(total);
 }
 
 void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalObj) {
