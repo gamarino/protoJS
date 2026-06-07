@@ -2305,9 +2305,16 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         }
     }
 
-    // name property
+    // name property + §17 descriptor 0x2 (!writable, !enumerable,
+    // configurable).  Pre-fix the slot defaulted to fully
+    // enumerable/writable, failing built-ins/String/name.
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("String"));
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+    }
     // String.length === 1 per §22.1.1.
     const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
     if (lenKey2) {

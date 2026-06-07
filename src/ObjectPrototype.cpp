@@ -3148,7 +3148,13 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x0LL));
     }
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Object"));
+        // §17: built-in ctor name descriptor 0x2.
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+    }
     // Object.length === 1 per §20.1.1.
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {

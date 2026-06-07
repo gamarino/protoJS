@@ -184,10 +184,15 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
         : ctx->newObject(true);
     if (!ctor) return;
 
-    // ctor.name = "Boolean"
+    // ctor.name = "Boolean" with §17 descriptor 0x2 (!writable,
+    // !enumerable, configurable).
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey)
+    if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Boolean"));
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+    }
     // Boolean.length === 1 per §20.3.1.1; descriptor non-writable,
     // non-enumerable, configurable (bits 0x2).
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);

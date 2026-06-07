@@ -914,7 +914,13 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
     setConst("NaN",                std::numeric_limits<double>::quiet_NaN());
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Number"));
+        // §17 built-in ctor name descriptor 0x2.
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+    }
     // Number.length === 1 per §21.1.1.
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     if (lenKey) {
