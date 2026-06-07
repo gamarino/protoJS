@@ -2653,13 +2653,16 @@ static const proto::ProtoObject* objectHasOwnProperty(
                     if (els && idx < static_cast<long long>(els->getSize(ctx))) {
                         const proto::ProtoObject* slot = els->getAt(ctx, static_cast<int>(idx));
                         if (slot && slot != PROTO_NONE) return PROTO_TRUE;
-                        // PROTO_NONE → deleted hole; fall through.
-                    } else {
-                        // Sparse pre-allocated tail (Array(n) without
-                        // __elements__ materialised) keeps the indices
-                        // logically present.
+                        // PROTO_NONE → hole; fall through.
+                    } else if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+                        // idx in [els.size(), length) AND the index is
+                        // backed by a named attribute (sparse explicit
+                        // store like `arr[5] = undefined`): treat as own.
                         return PROTO_TRUE;
                     }
+                    // Otherwise it is a hole — `new Array(3)` slots, or
+                    // sparse pre-allocated tail without a named attribute
+                    // — return false per ECMA-262 (CreateArrayFromList).
                 }
             }
         }
