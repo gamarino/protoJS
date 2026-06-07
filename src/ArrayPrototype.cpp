@@ -1678,6 +1678,34 @@ static const proto::ProtoObject* arrayShift(
         if (hasCallException()) return PROTO_NONE;
         return PROTO_NONE;
     }
+
+    // Native fast path: when the prototype chain has no indexed setters
+    // and no accessor properties at all, the entire O(N) spec walk
+    // collapses to a single ProtoList::removeFirst.  __elements__ owns
+    // every index that matters; there is no monkey-patched setter to
+    // fire on the cascading writes and no getter to override the data
+    // slots we'd otherwise read via arrGet.
+    {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        const bool maybeHasIndexedSetters = hisKey
+            && (self->hasAttribute(ctx, hisKey) == PROTO_TRUE)
+            && (self->getAttribute(ctx, hisKey, true) == PROTO_TRUE);
+        const bool maybeHasAccessors = hapKey
+            && (self->hasAttribute(ctx, hapKey) == PROTO_TRUE)
+            && (self->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+        if (!maybeHasIndexedSetters && !maybeHasAccessors) {
+            if (const proto::ProtoList* list = nativeArrayList(ctx, self)) {
+                if (list->getSize(ctx) == static_cast<int>(len)) {
+                    const proto::ProtoObject* first = list->getAt(ctx, 0);
+                    const proto::ProtoList* shrunk = list->removeFirst(ctx);
+                    if (shrunk) setArrayElements(ctx, self, shrunk);
+                    return (first && first != PROTO_NONE) ? first : getUndefinedSentinel();
+                }
+            }
+        }
+    }
+
     const proto::ProtoObject* first = arrGet(ctx, self, 0);
     if (hasCallException()) return PROTO_NONE;
     for (unsigned long i = 1; i < len; i++) {
@@ -1740,6 +1768,34 @@ static const proto::ProtoObject* arrayUnshift(
         if (hasCallException()) return PROTO_NONE;
         return ctx->fromInteger(static_cast<long long>(len));
     }
+    // Native fast path: when no inherited indexed setter / accessor
+    // anywhere in the chain, the spec-mandated cascading writes have
+    // no observer; collapse the entire O(len + argc) walk to argc
+    // ProtoList::appendFirst calls.  Also skips the per-destination
+    // __get_<i>__/__set_<i>__ probe block — the hasAccessorProps gate
+    // already says there are no such accessors.
+    {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        const bool maybeHasIndexedSetters = hisKey
+            && (self->hasAttribute(ctx, hisKey) == PROTO_TRUE)
+            && (self->getAttribute(ctx, hisKey, true) == PROTO_TRUE);
+        const bool maybeHasAccessors = hapKey
+            && (self->hasAttribute(ctx, hapKey) == PROTO_TRUE)
+            && (self->getAttribute(ctx, hapKey, true) == PROTO_TRUE);
+        if (!maybeHasIndexedSetters && !maybeHasAccessors) {
+            const proto::ProtoList* list = nativeArrayList(ctx, self);
+            if (list && list->getSize(ctx) == static_cast<int>(len)) {
+                for (long long i = static_cast<long long>(argc) - 1; i >= 0; i--) {
+                    const proto::ProtoObject* v = args->getAt(ctx, static_cast<int>(i));
+                    list = list->appendFirst(ctx, v ? v : PROTO_NONE);
+                }
+                setArrayElements(ctx, self, list);
+                return ctx->fromInteger(static_cast<long long>(len + argc));
+            }
+        }
+    }
+
     // §23.1.3.32 step 4.e.i Set(O, ToString(j), E, true) raises TypeError
     // when the target slot is a getter-only accessor (no [[Set]]).
     // Pre-fix the legacy arrSet path silently dropped the write on
