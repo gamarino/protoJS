@@ -927,6 +927,14 @@ void ensureNumberConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
+    // Hot-path hint mirroring Boolean / RegExp ctors earlier this
+    // round.  Without __has_nonwritable_props__ the writable=false
+    // bits on name + length are ignored by resolvePutFieldOOP and
+    // `Number.name = "X"` silently succeeded despite the descriptor.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // Number.prototype — point to the number prototype already on space.
     // §21.1.2.1: the `prototype` property of the Number constructor

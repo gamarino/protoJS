@@ -2532,6 +2532,14 @@ void ensureStringConstructor(proto::ProtoContext* ctx,
         const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
+    // Hot-path hint mirroring Boolean / Number / RegExp ctors earlier
+    // this round.  Without __has_nonwritable_props__ the writable=false
+    // bits on name + length are ignored by resolvePutFieldOOP and
+    // `String.name = "X"` silently succeeded despite the descriptor.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // §22.1.2.4: String.prototype is non-writable, non-enumerable,
     // non-configurable.  Pre-fix the property was fully enumerable.
