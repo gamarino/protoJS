@@ -1031,6 +1031,12 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                     const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
+                // Hot-path hint — the size getter object itself has
+                // writable=false name + length; without
+                // __has_nonwritable_props__ the descriptor is unused
+                // (Map.prototype.size.name = "x" would silently succeed).
+                const proto::ProtoString* hnwG = JSSymbols::hasNonWritableProps(ctx);
+                if (hnwG) getter = getter->setAttribute(ctx, hnwG, PROTO_TRUE);
                 mapProto = mapProto->setAttribute(ctx, gks, getter);
                 // Read-path hint: stamp Map.prototype with
                 // __has_accessor_props__ so invokeGetterIfPresent fires
@@ -1195,6 +1201,8 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
             const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) gbWrapper = gbWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
+        const proto::ProtoString* hnwGb = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwGb) gbWrapper = gbWrapper->setAttribute(ctx, hnwGb, PROTO_TRUE);
         const proto::ProtoObject* gbko = ctx->fromUTF8String("groupBy");
         const proto::ProtoString* gbks = gbko ? gbko->asString(ctx) : nullptr;
         if (gbks) {
@@ -1247,6 +1255,8 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
                     const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
+                const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
+                if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
                     ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
