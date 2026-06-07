@@ -17,7 +17,13 @@ const QUICKJS_SRC = path.join(__dirname, '../../deps/quickjs');
 const BENCH_RESULT_PREFIX = '__BENCH_RESULT__';
 
 function findProtojs() {
+    if (process.env.PROTOJS_PATH && fs.existsSync(process.env.PROTOJS_PATH)) {
+        return process.env.PROTOJS_PATH;
+    }
     const candidates = [
+        // Prefer release build so benchmarks don't accidentally use a debug binary.
+        path.join(__dirname, '../../build_release/protojs'),
+        path.resolve(__dirname, '../../build_release/protojs'),
         path.join(__dirname, '../../build/protojs'),
         path.join(__dirname, '../build/protojs'),
         path.resolve(__dirname, '../../build/protojs'),
@@ -30,10 +36,16 @@ function findProtojs() {
 }
 
 function findQjs() {
+    if (process.env.QJS_PATH && fs.existsSync(process.env.QJS_PATH)) {
+        return process.env.QJS_PATH;
+    }
     const candidates = [
         path.join(QUICKJS_SRC, 'qjs'),
         path.join(QUICKJS_SRC, 'qjs.exe'),
         path.resolve(QUICKJS_SRC, 'qjs'),
+        // Self-built minimal QuickJS CLI bundled with this repo.
+        path.join(__dirname, 'qjs_minimal_release'),
+        path.join(__dirname, 'qjs_minimal'),
     ];
     for (const p of candidates) {
         if (fs.existsSync(p)) return p;
@@ -177,19 +189,31 @@ function generateReport(results) {
         console.log('-'.repeat(72));
         console.log(`Wins: Node.js ${nodeWins}, QuickJS ${quickjsWins}${allThree.length > 0 ? ', protoJS ' + protojsWins : ''}`);
 
+        // Geometric mean: ignore benchmarks where either side reports
+        // 0 ms — they're too short to compare meaningfully and would
+        // collapse the product to zero.  We sum logs to dodge overflow
+        // on long runs.
+        const geo = (arr) => {
+            if (arr.length === 0) return NaN;
+            const logSum = arr.reduce((a, b) => a + Math.log(b), 0);
+            return Math.exp(logSum / arr.length);
+        };
         if (nodeAndQuickjs.length > 1) {
-            const geo = (arr) => {
-                const prod = arr.reduce((a, b) => a * b, 1);
-                return Math.pow(prod, 1 / arr.length);
-            };
-            const ratio = nodeAndQuickjs.map(r => r.quickjs_time_ms / Math.max(r.node_time_ms, 0.001));
-            console.log(`Geometric mean QuickJS/Node: ${geo(ratio).toFixed(2)}x (QuickJS is ${geo(ratio).toFixed(2)}x slower than Node on this suite)`);
+            const ratios = nodeAndQuickjs
+                .filter(r => r.node_time_ms > 0 && r.quickjs_time_ms > 0)
+                .map(r => r.quickjs_time_ms / r.node_time_ms);
+            if (ratios.length > 0) {
+                console.log(`Geometric mean QuickJS/Node: ${geo(ratios).toFixed(2)}x (n=${ratios.length} comparable benchmarks)`);
+            }
         }
         if (allThree.length > 0) {
-            const geo = (arr) => Math.pow(arr.reduce((a, b) => a * b, 1), 1 / arr.length);
-            const nodeOverProto = allThree.map(r => r.node_time_ms / Math.max(r.protojs_time_ms, 0.001));
-            const quickjsOverProto = allThree.map(r => r.quickjs_time_ms / Math.max(r.protojs_time_ms, 0.001));
-            console.log(`Geometric mean ratio (runtime/protoJS): Node ${geo(nodeOverProto).toFixed(2)}x, QuickJS ${geo(quickjsOverProto).toFixed(2)}x`);
+            const proto3 = allThree.filter(r =>
+                r.node_time_ms > 0 && r.quickjs_time_ms > 0 && r.protojs_time_ms > 0);
+            if (proto3.length > 0) {
+                const protoOverNode    = proto3.map(r => r.protojs_time_ms / r.node_time_ms);
+                const protoOverQuickjs = proto3.map(r => r.protojs_time_ms / r.quickjs_time_ms);
+                console.log(`Geometric mean protoJS slowdown: vs Node ${geo(protoOverNode).toFixed(1)}x, vs QuickJS ${geo(protoOverQuickjs).toFixed(1)}x (n=${proto3.length})`);
+            }
         }
     }
 

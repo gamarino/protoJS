@@ -416,7 +416,140 @@ on a 12-core machine.
 
 ### Performance Benchmarks
 
-**Honest baseline — 2026-06-01** (in-process median time, protoJS built
+**Honest baseline — 2026-06-06** (in-process median time, protoJS built
+in pure Release mode against a `libprotoCore` from the
+`digression-attr-cache-padding` branch — the TL-IC entry padding +
+better cache-key hash described in `protoCore/README.md` §
+"TL-IC entry padding").  This run lands on top of the 2026-06-01
+snapshot and reflects **ten Array cleanup packages** (~200 one-fix-per-
+failure commits sharpening `Array.prototype.*` spec compliance) plus
+the protoCore digression.
+
+Sampling: **4 outer × 5 inner = 20 timing samples per cell**, median
+reported.  `PROTOCORE_GC_CONTEXT_THRESHOLD=10_000_000` (10 M cells per
+context) keeps the GC out of the foreground path so the numbers reflect
+interpreter throughput, not collector noise.  No CPU pinning — the
+concurrent GC thread needs its own core.
+
+> **Landed this cycle (2026-06-02 → 2026-06-06)**
+>
+> 1. **Ten Array cleanup packages** (`0881acc5` and prior).  ~200 commits,
+>    one-fix-per-failure, lifting `built-ins/Array.prototype.*` test262
+>    pass rate to **~88.2%** while keeping the broader suite stable.
+>    Each fix tightens one spec corner: Array.prototype.push must run
+>    the `__pd_length__` writability probe even with no args; arrSet
+>    must dispatch inherited `__set_<idx>__` setters; `unshift` must
+>    fire setters on prototype slots; constructor backrefs on
+>    Boolean/Number/Object/Promise/Map/Set must be mutable for
+>    `delete` to succeed; etc.  The cumulative correctness gain is
+>    real and visible in the test262 numbers — but the runtime cost is
+>    also real and visible below (see "Regression vs 2026-06-01").
+> 2. **protoCore digression** (`fe173e48` and prior on
+>    `digression-attr-cache-padding`).  Two protoCore changes verified
+>    on `object_access_benchmark`:
+>    * `AttributeCacheEntry` 24 B → 32 B with `aligned_alloc(64,…)`:
+>      addressing collapses to one shift, no split-line loads.
+>      Measured: **−9.6 % wall, −3.6 % cycles, −27 % L1d misses**.
+>    * Cache-key hash shifts `currentValue >> 6` first (cells are
+>      64-byte aligned, so the low 6 bits were always zero).
+>      Slot occupancy 64 → 256 unique slots out of 1024 on the
+>      workload probe.  Measured on `object_access_benchmark`:
+>      25.75 B → **24.05 B cycles** (−7 %), IPC 2.31 → 2.47.
+>    Both kept (cache hash) or rejected (mutable-value padding —
+>    documented negative result).  Did **not** visibly move the
+>    benchmark numbers below — the bottleneck has shifted from
+>    attribute-cache pressure to per-call `ProtoString` construction
+>    inside the tightened Array methods.
+
+#### Standard In-Process Suite — vs Node.js 22 / V8 / vanilla QuickJS
+
+Three-way comparison; same `build_release/protojs`, same Node 22,
+`qjs_minimal_release` (QuickJS rebuilt with `-O3 -DNDEBUG`).
+
+| Benchmark                  |    Node |    QuickJS |   protoJS |   Node × |   QuickJS × |
+|----------------------------|--------:|-----------:|----------:|---------:|------------:|
+| array_literal              |    3 ms |       6 ms |   2315 ms |    772 × |       386 × |
+| control_flow               |    4 ms |      43 ms |    239 ms |     60 × |       5.6 × |
+| function_calls             |    1 ms |       9 ms |    212 ms |    212 × |        24 × |
+| json_transform             |    1 ms |       3 ms |    199 ms |    199 × |        66 × |
+| json_transform_small       |    0 ms |       0 ms |     17 ms |      —   |        —    |
+| list_snapshot_history      |    0 ms |       1 ms |    324 ms |      —   |       324 × |
+| numeric_loop               |    1 ms |      32 ms |    124 ms |    124 × |       3.9 × |
+| object_property            |   34 ms |      66 ms |   2793 ms |     82 × |        42 × |
+| object_read_only           |    1 ms |       6 ms |    394 ms |    394 × |        66 × |
+| object_write_only          |   10 ms |      51 ms |   9554 ms |    955 × |       187 × |
+| **parallel_cpu**           |**40 ms**|  **695 ms**|  **52 ms**|**Node 1.3 ×**|**protoJS 13.4 ×**|
+| string_concat              |    1 ms |       4 ms |    101 ms |    101 × |        25 × |
+| string_insert_middle       |    0 ms |       0 ms |    235 ms |      —   |        —    |
+| string_processing          |    0 ms |       0 ms |    251 ms |      —   |        —    |
+| string_repeated_doubling   |   37 ms |       1 ms |   2106 ms |     57 × |      2106 × |
+| tree_traversal             |    0 ms |       3 ms |    308 ms |      —   |       103 × |
+
+**Geometric mean (12 benches where all three engines > 0 ms):**
+- **protoJS / Node = 132.2 ×**  (was 58.5× on 2026-06-01)
+- **protoJS / QuickJS = 34.4 ×**  (was 21.0× on 2026-06-01)
+- QuickJS / Node = 3.85 ×
+
+#### Regression vs 2026-06-01 baseline
+
+15 benches present in both runs; geomean **today / 2026-06-01 = 1.78 ×**
+— protoJS got ~**78 % slower** on the geomean of the standard suite.
+
+| Benchmark                  | 06-01 (ms) | 06-06 (ms) |        Δ |
+|----------------------------|-----------:|-----------:|---------:|
+| array_literal              |        195 |       2315 | **+1087 %** |
+| list_snapshot_history      |         29 |        324 | **+1017 %** |
+| object_read_only           |         55 |        394 |  **+616 %** |
+| json_transform             |        103 |        199 |   **+93 %** |
+| object_property            |       1562 |       2793 |   **+79 %** |
+| json_transform_small       |         11 |         17 |       +50 % |
+| object_write_only          |       6676 |       9554 |       +43 % |
+| numeric_loop               |         93 |        124 |       +33 % |
+| control_flow               |        192 |        239 |       +24 % |
+| string_processing          |        243 |        251 |        +3 % |
+| parallel_cpu               |         52 |         52 |       ±0 %  |
+| tree_traversal             |        307 |        308 |       ±0 %  |
+| string_concat              |        104 |        101 |        −3 % |
+| function_calls             |        220 |        212 |        −4 % |
+| string_repeated_doubling   |       2187 |       2106 |        −4 % |
+| string_insert_middle       |        259 |        235 |        −9 % |
+
+**Diagnosis.**  Spot-check of `Array.prototype.push` (the dominant
+operation in `array_literal`'s 100 K-push loop):
+
+```cpp
+// arrayPush hot path — runs PER CALL:
+const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_length__");
+// → builds a fresh ProtoString rope every push, even though
+//   pd_length is a stable runtime symbol.
+//   Same pattern for "__set_<idx>__" inside arrSet, etc.
+```
+
+Each tightened Array method added one or more spec-mandated probes
+behind a freshly-constructed `ProtoString`.  On `array_literal` that's
+~300 K extra rope allocations per outer iteration — far more cost than
+the protoCore cache improvements can pay back through better hit
+rates.
+
+**This is the explicit "purity > performance" tax** the project is
+willing to pay until users justify otherwise.  The fix is **not** to
+unwind the correctness work — it's to (a) strong-intern these dispatch
+symbols via `JSSymbols::__pd_length__()` / `__set_<idx>__()` rather
+than reconstructing them per call, and (b) batch the `arrSet` setter-
+probe loop to amortise the per-index symbol construction over the
+whole push.  Both are queued for the next perf cycle.
+
+**`parallel_cpu` is unchanged** at 52 ms — **13.4 × win against
+QuickJS** and **77 % of V8's JIT'd throughput** on a 4-task ×
+5-round CPU-bound workload.  The GIL-free architectural payoff
+survives every Array cleanup package.
+
+Raw rounds: `tests/benchmarks/results/three-way-rounds.txt`.
+Raw JSON (final summary round): `tests/benchmarks/results/node_quickjs_comparison.json`.
+
+---
+
+**Prior baseline — 2026-06-01** (in-process median time, protoJS built
 in pure Release mode against `libprotoCore.so.1.2.0` — same protoCore
 binary as 2026-05-31, no protoCore changes this cycle).  This run lands
 on top of the 2026-05-31 snapshot and reflects five protoJS-only commits
