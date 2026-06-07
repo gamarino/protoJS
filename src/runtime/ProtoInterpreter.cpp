@@ -9888,7 +9888,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // (and takes its own CS where it needs them) since
                     // by that point childCtx.automaticLocals owns the
                     // values.
-                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
+                    const size_t totalSlotsM =
+                        nf.argCount() + nf.varCount() +
+                        (nf.closureSymbols ? nf.closureSymbols->getSize(pContext) : 0) +
+                        nf.stackSize() + 16;
+                    constexpr size_t kStackSlotsCapM = 256;
+                    const proto::ProtoObject* slotsBufM[kStackSlotsCapM];
+                    const proto::ProtoObject** externalSlotsM = nullptr;
+                    if (totalSlotsM <= kStackSlotsCapM) {
+                        std::fill_n(slotsBufM, totalSlotsM, PROTO_NONE);
+                        externalSlotsM = slotsBufM;
+                    }
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, totalSlotsM, externalSlotsM);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     const proto::ProtoList* argsList;
@@ -10200,7 +10211,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     } _afRestore{prevActive, prevNewTgt2, prevArgs};
 
                     const auto& nf = *resolved;
-                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, 0, nullptr);
+                    const size_t totalSlotsC =
+                        nf.argCount() + nf.varCount() +
+                        (nf.closureSymbols ? nf.closureSymbols->getSize(pContext) : 0) +
+                        nf.stackSize() + 16;
+                    constexpr size_t kStackSlotsCapC = 256;
+                    const proto::ProtoObject* slotsBufC[kStackSlotsCapC];
+                    const proto::ProtoObject** externalSlotsC = nullptr;
+                    if (totalSlotsC <= kStackSlotsCapC) {
+                        std::fill_n(slotsBufC, totalSlotsC, PROTO_NONE);
+                        externalSlotsC = slotsBufC;
+                    }
+                    proto::ProtoContext childCtx(pContext->space, pContext, nullptr, nullptr, nullptr, nullptr, totalSlotsC, externalSlotsC);
                     childCtx.currentFileName = pContext->currentFileName;
                     childCtx.currentLineNumber = pContext->currentLineNumber;
                     uint32_t bindCount = (finalArgc < nf.argCount()) ? finalArgc : nf.argCount();
@@ -12771,7 +12793,21 @@ const proto::ProtoObject* callJSFunction(
             nf.argCount() + nf.varCount() +
             (nf.closureSymbols ? nf.closureSymbols->getSize(ctx) : 0) +
             nf.stackSize() + 16;
-        proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, totalSlots, nullptr);
+        // Use a stack buffer for the automatic locals when totalSlots
+        // fits.  protoCore's ProtoContext ctor exposes externalSlots
+        // explicitly as a "zero heap cost" fast path; passing nullptr
+        // here would force a fresh `new const ProtoObject*[N]` plus
+        // `delete[]` in the dtor on every JS function call.  function_
+        // calls bench shows ProtoContext::ProtoContext and addCell2Context
+        // as ~5% combined per-call cost.
+        constexpr size_t kStackSlotsCap = 256;
+        const proto::ProtoObject* slotsBuf[kStackSlotsCap];
+        const proto::ProtoObject** externalSlots = nullptr;
+        if (totalSlots <= kStackSlotsCap) {
+            std::fill_n(slotsBuf, totalSlots, PROTO_NONE);
+            externalSlots = slotsBuf;
+        }
+        proto::ProtoContext childCtx(ctx->space, ctx, nullptr, nullptr, nullptr, nullptr, totalSlots, externalSlots);
         uint32_t bCount = 0;
         if (args) {
             unsigned int asize = static_cast<unsigned int>(args->getSize(ctx));
