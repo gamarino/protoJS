@@ -1288,6 +1288,9 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                     const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
+                // Hot-path hint mirroring the Round 12/13 sweep.
+                const proto::ProtoString* hnwG = JSSymbols::hasNonWritableProps(ctx);
+                if (hnwG) getter = getter->setAttribute(ctx, hnwG, PROTO_TRUE);
                 setProto = setProto->setAttribute(ctx, gks, getter);
                 // Read-path hint: stamp Set.prototype with
                 // __has_accessor_props__ so mySet.size invokes the
