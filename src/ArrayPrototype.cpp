@@ -2620,6 +2620,76 @@ static const proto::ProtoObject* arrayConcat(
         return false;
     };
 
+    // Native fast path: every spreadable is a real array with no holes
+    // and no accessors anywhere in the chain; result is also a clean
+    // real array.  Replace the O(N) per-item arrGet + writeOrThrow walk
+    // with a single ProtoList::extend per spreadable (O(log N) total
+    // tree merge), or appendLast for non-spreadable items.
+    {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
+            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
+                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+        };
+        auto cleanArray = [&](const proto::ProtoObject* obj, const proto::ProtoList** out) -> bool {
+            if (!obj || obj == PROTO_NONE) { *out = nullptr; return false; }
+            if (flagSet(obj, hisKey) || flagSet(obj, hapKey)) return false;
+            const proto::ProtoList* els = nativeArrayList(ctx, obj);
+            if (!els) return false;
+            // No holes possible — __elements__ size == arrLen.
+            if (els->getSize(ctx) != static_cast<int>(arrLen(ctx, obj))) return false;
+            *out = els;
+            return true;
+        };
+        if (!flagSet(result, hisKey) && !flagSet(result, hapKey)) {
+            const proto::ProtoList* dstList = nativeArrayList(ctx, result);
+            if (dstList && dstList->getSize(ctx) == 0) {
+                bool ok = true;
+                // Self side
+                const proto::ProtoList* selfEls = nullptr;
+                bool selfSpread = isSpreadable(self);
+                if (selfSpread) {
+                    if (!cleanArray(self, &selfEls)) ok = false;
+                }
+                // Args side — quick pass that records (spread?, els) per arg.
+                std::vector<std::pair<bool, const proto::ProtoList*>> argPlan;
+                std::vector<const proto::ProtoObject*> argItem;
+                if (ok && args) {
+                    unsigned long argc = static_cast<unsigned long>(args->getSize(ctx));
+                    argPlan.reserve(argc); argItem.reserve(argc);
+                    for (unsigned long ai = 0; ok && ai < argc; ai++) {
+                        const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(ai));
+                        argItem.push_back(item);
+                        bool spread = isSpreadable(item);
+                        const proto::ProtoList* els = nullptr;
+                        if (spread) {
+                            if (!cleanArray(item, &els)) { ok = false; break; }
+                        }
+                        argPlan.emplace_back(spread, els);
+                    }
+                }
+                if (ok) {
+                    const proto::ProtoList* out = dstList;
+                    if (selfSpread) {
+                        if (selfEls) out = out->extend(ctx, selfEls);
+                    } else if (self && self != PROTO_NONE) {
+                        out = out->appendLast(ctx, self);
+                    }
+                    for (size_t i = 0; i < argPlan.size(); i++) {
+                        if (argPlan[i].first) {
+                            if (argPlan[i].second) out = out->extend(ctx, argPlan[i].second);
+                        } else {
+                            out = out->appendLast(ctx, argItem[i] ? argItem[i] : PROTO_NONE);
+                        }
+                    }
+                    setArrayElements(ctx, result, out);
+                    return result;
+                }
+            }
+        }
+    }
+
     // Spread self.
     if (isSpreadable(self)) {
         unsigned long n = arrLen(ctx, self);
