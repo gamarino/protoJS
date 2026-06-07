@@ -5179,6 +5179,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // (built-ins/Object/keys/15.2.3.14-3-4).
                         const proto::ProtoString* pdlk = JSSymbols::pdLength(pContext);
                         if (pdlk) argsObj = argsObj->setAttribute(pContext, pdlk, pContext->fromInteger(0x3LL));
+                        // Stamp the per-target gating flag so collectOwnKeys
+                        // (Object.keys / values / entries) actually consults
+                        // __pd_length__'s enumerable bit instead of treating
+                        // every own property as fully enumerable.  Same
+                        // gating pattern as the constructor sweep in
+                        // Rounds 12/13.
+                        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(pContext);
+                        if (hnw) argsObj = argsObj->setAttribute(pContext, hnw, PROTO_TRUE);
                     }
                     // Set Symbol.toStringTag so Object.prototype.toString.call(arguments) === "[object Arguments]"
                     {
