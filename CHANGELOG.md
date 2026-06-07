@@ -4,6 +4,96 @@ All notable changes to protoJS are documented in this file.
 
 ## [Unreleased]
 
+### Array cleanup package 10 (2026-06-06): 19 root-cause commits
+
+Tenth Array cleanup pass — 19 commits.  Scope continued to spill into
+the global-object infrastructure (constructor §17 descriptors, the
+ES2026 disposable-resource family, the test262 isConstructor harness),
+with a few targeted Array fixes mixed in.
+
+Array correctness (src/ArrayPrototype.cpp):
+
+1. **reverse: return ToObject(this) per §23.1.3.27 step 7.**  For a
+   primitive receiver, the spec demands the boxed wrapper as the
+   result — pre-fix `Array.prototype.reverse.call(true) instanceof
+   Boolean` was false.  Route through iterReceiver.
+
+2. **lastIndexOf: default searchElement to undefined per spec.**
+   Pre-fix arrayLastIndexOf short-circuited to -1 when no arg —
+   asymmetric to indexOf.  Now `[undefined].lastIndexOf()` returns 0.
+
+Runtime / interpreter (src/runtime/ProtoInterpreter.cpp):
+
+3. **ToString: recurse on non-string primitives.**  §7.1.17 routes
+   via ToPrimitive(hint="string"), then ToString on the returned
+   primitive.  Pre-fix `String({toString:()=>-2})` surfaced -2
+   (typeof "number") instead of "-2" (typeof "string").
+
+4. **OP_regexp: minimal stub.**  Pre-fix regex literals crashed
+   dispatch at "unsupported opcode 0x34".  Now produces a RegExp
+   .prototype-parented object with .source captured from the
+   pattern; tests probing IsCallable on /./ pass.
+
+5. **OP_fclosure / OP_fclosure8: install fn.prototype.constructor
+   backref.**  §10.2.5: every user function's .prototype carries
+   constructor === fn with 0x3 descriptor.  Pre-fix `new f()
+   .constructor` walked up to Object.
+
+6. **OP_push_this strict: normalize PROTO_NONE → undefined sentinel.**
+   `[this]` with undefined thisArg in strict mode used to land
+   PROTO_NONE in __elements__ (= hole).  Now produces a 1-length
+   array with the slot as own property.
+
+7. **OP_typeof / OP_typeof_is_function: recognise __is_constructor__.**
+   Required for `typeof Function === "function"` and downstream
+   isConstructor probes on the generic marker.
+
+Constructor §17 descriptor cleanup:
+
+8. **Function.prototype.bind: §17 descriptors on bound.name/length**
+   (src/FunctionPrototype.cpp).  0x2 sidecar on each.
+
+9. **WeakMap: length=0 + name with 0x2 descriptors.**
+
+10. **RegExp: length=2 + name with 0x2 descriptors.**
+
+11. **Object / String / Number / Boolean: name 0x2.**  Their name
+    slot defaulted to fully enumerable/writable, failing built-ins/
+    {Object,Number,Boolean,String}/name.
+
+12. **DataView: length=1 + name 0x2 + __is_constructor__** (src/
+    DataViewPrototype.cpp).
+
+13. **TypedArrayConstructors: length=3 + name 0x2 + mutable ctor +
+    __is_constructor__** (src/TypedArrayPrototype.cpp).  Mutability
+    so verifyConfigurable's JS-level `delete` removes the slot.
+
+14. **ArrayBuffer + DataView: mutable ctor**.  Same delete-actually-
+    works fix as #13.
+
+isConstructor marker family (Reflect.construct harness):
+
+15. **Symbol** (src/runtime/ProtoInterpreter.cpp): stamp
+    __is_constructor__.  built-ins/Symbol/is-constructor.
+
+16. **RegExp / ArrayBuffer / DataView / every TypedArray** ctor:
+    stamp __is_constructor__.  built-ins/{RegExp, ArrayBuffer,
+    DataView, TypedArrayConstructors/<Ctor>}/is-a-constructor.
+
+17. **Error + every native error subtype**: stamp __is_constructor__
+    on Error / TypeError / RangeError / SyntaxError / ReferenceError /
+    EvalError / URIError.
+
+18. **Function (the global ctor)**: stamp __is_constructor__ +
+    make the wrapper mutable so `delete Function.name` works.
+
+19. **OP_typeof / OP_typeof_is_function: recognise the marker** (see
+    #7 — companion to the Function ctor fix so `typeof Function ===
+    "function"`).
+
+Result: 337 → 326 Array fails (-11, +0.3 pp), 0 net regressions across
+the 2 516-test prev-pass baseline.
+
 ### Array cleanup package 9 (2026-06-06): 19 root-cause commits
 
 Ninth Array cleanup pass — 19 commits.  Scope widened from pure Array
