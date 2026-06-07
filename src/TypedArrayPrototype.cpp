@@ -1343,8 +1343,16 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         // Register TypedArray OOP behavior for this concrete prototype!
         protojs::BehaviorRegistry::instance().registerTypedArrayBehavior(concreteProto, cfg.elemType);
 
-        // Constructor object (immutable — holds metadata only)
-        const proto::ProtoObject* ctor = ctx->newObject(false);
+        // Constructor object — mutable so JS-level deletion of
+        // configurable own properties (e.g. delete Int8Array.name in
+        // verifyConfigurable) actually removes the slot.  Pre-fix the
+        // ctor was newObject(false) (immutable), so each setAttribute
+        // forked a snapshot and `delete` could not mutate the final
+        // identity — built-ins/TypedArrayConstructors/*/{name,length}
+        // verifyConfigurable failed even though the descriptor said
+        // configurable:true.  Other constructors (Array, RegExp, Set,
+        // Map, ...) already use newObject(true) for this exact reason.
+        const proto::ProtoObject* ctor = ctx->newObject(true);
         ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), concreteProto);
         {
             const proto::ProtoString* bpeKey = JSSymbols::BYTES_PER_ELEMENT(ctx);
