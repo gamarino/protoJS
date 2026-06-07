@@ -329,6 +329,12 @@ void ensureMathObject(proto::ProtoContext* ctx,
             const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
+        // Hot-path hint mirroring the Round 12 sweep — every Math method
+        // wrapper's name + length are writable=false per §17, but the
+        // enforcement only runs when __has_nonwritable_props__ is set on
+        // the wrapper itself.
+        const proto::ProtoString* hnwM = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwM) wrapper = wrapper->setAttribute(ctx, hnwM, PROTO_TRUE);
         math = math->setAttribute(ctx, key, wrapper);
         // Math methods themselves carry the standard built-in descriptor
         // {writable:true, enumerable:false, configurable:true} → 0x3.
