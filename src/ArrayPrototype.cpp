@@ -2008,6 +2008,35 @@ static const proto::ProtoObject* arrayIndexOf(
     // needles keep the prior fast path (chain inheritance via arrGet).
     const proto::ProtoObject* undefSent2 = getUndefinedSentinel();
     bool needleIsUndefined = (!needle || needle == PROTO_NONE || needle == undefSent2);
+
+    // Native fast path: clean real array, iterate __elements__ via
+    // ProtoListIterator — avoids per-element __get_<i>__/__set_<i>__
+    // probe inside arrGet.  For an indexOf with undefined needle and
+    // potential holes, the slow path's HasProperty walk is preserved.
+    if (!needleIsUndefined) {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
+            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
+                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+        };
+        if (!flagSet(self, hisKey) && !flagSet(self, hapKey)) {
+            const proto::ProtoList* list = nativeArrayList(ctx, self);
+            if (list && list->getSize(ctx) == static_cast<int>(len)) {
+                long long idx = 0;
+                const proto::ProtoListIterator* it = list->getIterator(ctx);
+                while (it && it->hasNext(ctx)) {
+                    const proto::ProtoObject* el = it->next(ctx);
+                    if (idx >= from && strictEquals(ctx, el, needle))
+                        return ctx->fromInteger(idx);
+                    it = it->advance(ctx);
+                    idx++;
+                }
+                return ctx->fromInteger(-1LL);
+            }
+        }
+    }
+
     for (long long i = from; i < len; i++) {
         if (needleIsUndefined &&
             !arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
@@ -2090,6 +2119,35 @@ static const proto::ProtoObject* arrayLastIndexOf(
     // family.
     const proto::ProtoObject* undefSent2 = getUndefinedSentinel();
     bool needleIsUndefined = (!needle || needle == PROTO_NONE || needle == undefSent2);
+
+    // Native fast path: clean real array, forward-iterate via
+    // ProtoListIterator and remember the LAST matching index.  Avoids
+    // the per-element __get_<i>__/__set_<i>__ probe in arrGet.
+    if (!needleIsUndefined) {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
+            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
+                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+        };
+        if (!flagSet(self, hisKey) && !flagSet(self, hapKey)) {
+            const proto::ProtoList* list = nativeArrayList(ctx, self);
+            if (list && list->getSize(ctx) == static_cast<int>(len)) {
+                long long idx = 0;
+                long long lastMatch = -1;
+                const proto::ProtoListIterator* it = list->getIterator(ctx);
+                while (it && it->hasNext(ctx)) {
+                    if (idx > from) break;
+                    const proto::ProtoObject* el = it->next(ctx);
+                    if (strictEquals(ctx, el, needle)) lastMatch = idx;
+                    it = it->advance(ctx);
+                    idx++;
+                }
+                return ctx->fromInteger(lastMatch);
+            }
+        }
+    }
+
     for (long long i = from; i >= 0; i--) {
         if (needleIsUndefined &&
             !arrHasProperty(ctx, self, static_cast<unsigned long>(i))) continue;
@@ -2165,6 +2223,38 @@ static const proto::ProtoObject* arrayIncludes(
         }
     }
     from = normalizeIdx(from, len);
+
+    // Native fast path: clean real array, iterate __elements__ directly
+    // via ProtoListIterator.  Avoids the per-element __get_<i>__/
+    // __set_<i>__ rope construction inside arrGet.
+    {
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(ctx);
+        auto flagSet = [&](const proto::ProtoObject* obj, const proto::ProtoString* k) {
+            return obj && k && (obj->hasAttribute(ctx, k) == PROTO_TRUE)
+                            && (obj->getAttribute(ctx, k, true) == PROTO_TRUE);
+        };
+        if (!flagSet(self, hisKey) && !flagSet(self, hapKey)) {
+            const proto::ProtoList* list = nativeArrayList(ctx, self);
+            if (list && list->getSize(ctx) == static_cast<int>(len)) {
+                long long idx = 0;
+                const proto::ProtoListIterator* it = list->getIterator(ctx);
+                while (it && it->hasNext(ctx)) {
+                    if (idx >= from) {
+                        const proto::ProtoObject* el = it->next(ctx);
+                        if (!el || el == PROTO_NONE) el = getUndefinedSentinel();
+                        if (sameValueZero(ctx, el, needle)) return PROTO_TRUE;
+                    } else {
+                        (void)it->next(ctx);
+                    }
+                    it = it->advance(ctx);
+                    idx++;
+                }
+                return PROTO_FALSE;
+            }
+        }
+    }
+
     for (long long i = from; i < len; i++) {
         // §22.1.3.11 step 7.a Get(O, ! ToString(k)) is the abrupt-
         // completion site: when an own accessor throws, includes must
