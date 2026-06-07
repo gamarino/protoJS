@@ -2217,20 +2217,23 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             if (end == p || *end != '\0') return makeNaN();
             return context->fromInteger(static_cast<long long>(uval));
         }
-        // Try parsing as number; any parse error → NaN.
+        // Try parsing as number; invalid format → NaN, overflow → ±Infinity.
+        // ECMA-262 §7.1.4.1.1 StrDecimalLiteral that "rounds to +∞" must
+        // return +Infinity (e.g. `Number("10e10000")`).  std::stod throws
+        // std::out_of_range for that — distinguish it from invalid_argument.
         try {
             size_t pos = 0;
             double d = std::stod(trimmed, &pos);
             if (pos != trimmed.size()) return makeNaN();
-            // Preserve -0: collapsing through fromInteger would drop the
-            // sign (long long has no -0), so Number('-0') would return
-            // +0 — 1/Number('-0') would give +Infinity instead of
-            // -Infinity. Keep the IEEE-754 double form in that case.
             if (d == 0.0 && std::signbit(d)) return context->fromDouble(-0.0);
-            // If integral and in range, use integer representation.
             if (d == std::trunc(d) && std::abs(d) < 9.007199254740992e15)
                 return context->fromInteger(static_cast<long long>(d));
             return context->fromDouble(d);
+        } catch (const std::out_of_range&) {
+            // Numeric literal whose value rounds beyond the double range.
+            // Preserve the leading sign — `"-10e10000"` is -Infinity.
+            const double inf = std::numeric_limits<double>::infinity();
+            return context->fromDouble(trimmed[0] == '-' ? -inf : inf);
         } catch (...) {
             return makeNaN();
         }
