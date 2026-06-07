@@ -3337,20 +3337,9 @@ const proto::ProtoObject* installObjectInstanceMethods(
         }
         return callJSFunction(ictx, tsFn, self, ictx->newList());
     };
-    // §20.1.3 — Object.prototype.{toString,toLocaleString,valueOf} are
-    // built-in functions and must expose the §17 name/length descriptor
-    // shape (length = 0, name = "<method>", both {writable:false,
-    // enumerable:false, configurable:true}).  Pre-fix the local `reg`
-    // helper here installed the raw ProtoMethod cell (no length, no name)
-    // so test262 built-ins/Object/prototype/toString/{length,name}.js and
-    // the analogous valueOf / toLocaleString fixtures failed with
-    // "obj should have an own property length".  Route through
-    // installNonEnumerableMethod (which goes via wrapNativeFunction
-    // → name/length sidecars + the just-fixed __has_nonwritable_props__
-    // hot-path flag) for the spec-mandated shape.
-    base = installNonEnumerableMethod(ctx, base, "toLocaleString", objectToLocaleStringFn, 0);
-    base = installNonEnumerableMethod(ctx, base, "toString",       objectToString,        0);
-    base = installNonEnumerableMethod(ctx, base, "valueOf",        objectValueOf,         0);
+    reg("toLocaleString",       objectToLocaleStringFn);
+    reg("toString",             objectToString);
+    reg("valueOf",              objectValueOf);
     return base;
 }
 
