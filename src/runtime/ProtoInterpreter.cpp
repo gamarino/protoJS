@@ -3852,6 +3852,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* pdlK = JSSymbols::pdLength(pContext);
                     if (pdlK) stub = stub->setAttribute(pContext, pdlK, pContext->fromInteger(0x2LL));
                 }
+                // Hot-path hint — Round 12/13 sweep.  Name, length, and
+                // prototype descriptors above all set writable=false; the
+                // per-target __has_nonwritable_props__ flag activates the
+                // enforcement.  Without it, BigInt.name = "X" /
+                // Proxy.length = 99 / WeakRef.prototype = {} silently
+                // succeeded.
+                {
+                    const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(pContext);
+                    if (hnw) stub = stub->setAttribute(pContext, hnw, PROTO_TRUE);
+                }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
                 // §17 globalThis.<Ctor> descriptor 0x3.
                 std::string pdStr = std::string("__pd_") + ctorName + "__";
