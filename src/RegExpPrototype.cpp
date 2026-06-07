@@ -688,6 +688,15 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
             if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
         }
     }
+    // Hot-path hint: name + length descriptors above both encode
+    // writable=false.  Mirror the wrapNativeFunction / addMethod /
+    // Boolean-ctor pattern from the same round so resolvePutFieldOOP
+    // actually consults the __pd_<key>__ sidecars on writes.  Without
+    // the flag, `RegExp.name = "X"` silently succeeded.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // Set .prototype on constructor
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
