@@ -2303,6 +2303,12 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
             const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
         }
+        // Hot-path hint — Round 12/13 sweep.  Every String.prototype
+        // method wrapper carries writable=false name + length per §17;
+        // resolvePutFieldOOP only enforces them when the per-target
+        // __has_nonwritable_props__ flag is set.
+        const proto::ProtoString* hnwSr = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwSr) wrapper = wrapper->setAttribute(ctx, hnwSr, PROTO_TRUE);
 
         sp = sp->setAttribute(ctx, key, wrapper);
     };
