@@ -582,6 +582,16 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                 const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                 if (pdlk) dateObj = dateObj->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
             }
+            // Hot-path hint — Round 12/13 constructor sweep.  Date is
+            // installed in console.cpp BEFORE the unimplemented stub
+            // loop and shares the same per-target __has_nonwritable_props__
+            // requirement.  Without the flag, `Date.name = "X"` /
+            // `Date.length = 99` silently succeeded despite the
+            // sidecar descriptors.
+            {
+                const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+                if (hnw) dateObj = dateObj->setAttribute(ctx, hnw, PROTO_TRUE);
+            }
             const proto::ProtoString* protoKey =
                 ctx->fromUTF8String("prototype") ? ctx->fromUTF8String("prototype")->asString(ctx) : nullptr;
             if (protoKey) {
