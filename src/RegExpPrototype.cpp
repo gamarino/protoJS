@@ -705,6 +705,12 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     regexpProto = regexpProto->setAttribute(ctx, JSSymbols::constructor(ctx), ctor);
     // Re-set .prototype on constructor because regexpProto was updated!
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
+    // §22.2.2.1 / §17: RegExp.prototype descriptor bits 0x0.
+    {
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     // §22.2.4.2 get RegExp[@@species]: a getter returning `this`,
     // with descriptor {enumerable:false, configurable:true} → 0x2.

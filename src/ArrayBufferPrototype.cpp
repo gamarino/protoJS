@@ -234,7 +234,13 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
 
     // Set constructor.prototype.
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
+    if (protoKey) {
+        ctor = ctor->setAttribute(ctx, protoKey, proto);
+        // §25.1.4 / §17: ArrayBuffer.prototype descriptor bits 0x0.
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     // Mark with __typed_array_ctor__ = "ArrayBuffer" for interpreter dispatch.
     const proto::ProtoString* taCtorKey = JSSymbols::taCtor(ctx);

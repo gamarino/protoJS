@@ -509,6 +509,12 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     // TypedArray / Array / RegExp pattern.
     const proto::ProtoObject* ctor = ctx->newObject(true);
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), proto);
+    // §25.3.2.1 / §17: DataView.prototype descriptor bits 0x0.
+    {
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
     // Mark as DataView constructor so OP_call_constructor can dispatch.
     ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
                                ctx->fromUTF8String("DataView"));

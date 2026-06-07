@@ -1388,8 +1388,13 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey && s_setPrototype)
+    if (protoKey && s_setPrototype) {
         ctor = ctor->setAttribute(ctx, protoKey, s_setPrototype);
+        // §24.2.2.1 / §17: Set.prototype descriptor bits 0x0.
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     const proto::ProtoObject* constructKey = ctx->fromUTF8String("__construct__");
     const proto::ProtoString* constructKs  = constructKey ? constructKey->asString(ctx) : nullptr;

@@ -945,7 +945,13 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
+    if (protoKey) {
+        ctor = ctor->setAttribute(ctx, protoKey, proto);
+        // §27.2.3.1 / §17: Promise.prototype descriptor bits 0x0.
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
     if (nameKey) {
         ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("Promise"));
