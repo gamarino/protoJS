@@ -587,6 +587,33 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
             if (protoKey) {
                 const proto::ProtoObject* dateProto = ctx->newObject(true);
                 if (dateProto) {
+                    // §21.4.4.45 / §22.1.3.7 step 18.b: Date.prototype must
+                    // expose Symbol.toStringTag = "Date" so
+                    // Object.prototype.toString.call(new Date()) returns
+                    // "[object Date]".  Pre-fix the prototype was bare and
+                    // we returned "[object Object]".  Set BOTH the internal
+                    // __toStringTag__ sidecar (Object.prototype.toString in
+                    // ObjectPrototype.cpp:2873 reads it first) and the
+                    // user-visible WKS string key Symbol.toStringTag with
+                    // its §22.* {writable:false, enumerable:false,
+                    // configurable:true} descriptor (bits 0x2).
+                    //
+                    // The same wiring lives in ProtoInterpreter's stub
+                    // installer but that loop short-circuits Date because
+                    // console.cpp installs it FIRST — making this the right
+                    // (and only reachable) place to stamp the tag.
+                    const proto::ProtoString* tstK = JSSymbols::toStringTag(ctx);
+                    if (tstK) dateProto = dateProto->setAttribute(ctx, tstK,
+                        ctx->fromUTF8String("Date"));
+                    const proto::ProtoString* userK = JSSymbols::symbolToStringTag(ctx);
+                    if (userK) {
+                        dateProto = dateProto->setAttribute(ctx, userK,
+                            ctx->fromUTF8String("Date"));
+                        const proto::ProtoObject* pdttO = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+                        const proto::ProtoString* pdttK = pdttO ? pdttO->asString(ctx) : nullptr;
+                        if (pdttK) dateProto = dateProto->setAttribute(ctx, pdttK,
+                            ctx->fromInteger(0x2LL));
+                    }
                     dateObj = dateObj->setAttribute(ctx, protoKey, dateProto);
                     // §21.4.3.3 / §17: Date.prototype descriptor is
                     // {writable:false, enumerable:false, configurable:false}
