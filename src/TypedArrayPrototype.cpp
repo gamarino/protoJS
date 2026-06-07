@@ -1355,8 +1355,28 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         {
             const proto::ProtoObject* nameStrObj = ctx->fromUTF8String("name");
             const proto::ProtoString* nameKey = nameStrObj ? nameStrObj->asString(ctx) : nullptr;
-            if (nameKey)
+            if (nameKey) {
                 ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String(cfg.name));
+                // §17 + §23.2.5: TypedArray.name descriptor is
+                // {writable:false, enumerable:false, configurable:true}
+                // → 0x2.  Pre-fix the slot defaulted to fully
+                // enumerable/writable, failing built-ins/
+                // TypedArrayConstructors/*/name.
+                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+                const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+                if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+            }
+        }
+        // §23.2.4: TypedArray.length === 3 with §17 descriptor 0x2.
+        // Pre-fix the slot was absent.
+        {
+            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+            if (lenKey) {
+                ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(3LL));
+                const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+                const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+                if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+            }
         }
         // Tag integer elemType so OP_call_constructor can dispatch
         ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
