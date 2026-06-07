@@ -10835,6 +10835,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* pdks = JSSymbols::pdPrototype(pContext);
                         if (pdks) fnInst = fnInst->setAttribute(pContext, pdks, pContext->fromInteger(0x1LL));
                     }
+                    // §10.2.5: fn.prototype.constructor === fn with
+                    // descriptor 0x3.  Mirrors the L_OP_fclosure path.
+                    {
+                        const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
+                        if (ctorKey) {
+                            fnDefProto8 = fnDefProto8->setAttribute(pContext, ctorKey, fnInst);
+                            const proto::ProtoObject* pdco = pContext->fromUTF8String("__pd_constructor__");
+                            const proto::ProtoString* pdck = pdco ? pdco->asString(pContext) : nullptr;
+                            if (pdck) fnDefProto8 = fnDefProto8->setAttribute(pContext, pdck,
+                                pContext->fromInteger(0x3LL));
+                        }
+                    }
                     // Resolve function metadata from the root module's flat nestedFunctions
                     // list where all functions reside with globally unique IDs.
                     const ProtoBytecodeModule* nm8Ptr = nullptr;
@@ -10951,6 +10963,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     {
                         const proto::ProtoString* pdks2 = JSSymbols::pdPrototype(pContext);
                         if (pdks2) fnInst2 = fnInst2->setAttribute(pContext, pdks2, pContext->fromInteger(0x1LL));
+                    }
+                    // §10.2.5: fn.prototype.constructor === fn, with
+                    // descriptor {writable:true, enumerable:false,
+                    // configurable:true} → 0x3.  Pre-fix user functions
+                    // had no constructor backref so
+                    // \`(new f()).constructor\` walked through Object
+                    // .prototype.constructor and returned Object.
+                    // fnDefProto is mutable (newChild true), so setAttribute
+                    // mutates in place; fnInst2's own identity is
+                    // unaffected.
+                    {
+                        const proto::ProtoString* ctorKey = JSSymbols::constructor(pContext);
+                        if (ctorKey) {
+                            fnDefProto = fnDefProto->setAttribute(pContext, ctorKey, fnInst2);
+                            const proto::ProtoObject* pdco = pContext->fromUTF8String("__pd_constructor__");
+                            const proto::ProtoString* pdck = pdco ? pdco->asString(pContext) : nullptr;
+                            if (pdck) fnDefProto = fnDefProto->setAttribute(pContext, pdck,
+                                pContext->fromInteger(0x3LL));
+                        }
                     }
                     // Resolve function metadata from the root module's flat nestedFunctions list.
                     const ProtoBytecodeModule* nm2Ptr = nullptr;
