@@ -128,6 +128,26 @@ static const proto::ProtoObject* mathFround(
     return ctx->fromDouble(static_cast<double>(static_cast<float>(x)));
 }
 
+// ECMA-262 §21.3.2.20a Math.f16round(x): round x to IEEE 754 binary16
+// (half-precision) and return the result as a Number.  Uses the
+// compiler-provided _Float16 type where available; on platforms
+// without it, falls back to binary32 rounding (Math.fround behaviour).
+static const proto::ProtoObject* mathF16round(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    double x = argToDouble(ctx, args, 0);
+    if (std::isnan(x))
+        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+#if defined(__FLT16_MAX__)
+    _Float16 h = static_cast<_Float16>(static_cast<float>(x));
+    return ctx->fromDouble(static_cast<double>(static_cast<float>(h)));
+#else
+    return ctx->fromDouble(static_cast<double>(static_cast<float>(x)));
+#endif
+}
+
 // ECMA-262 §7.1.6 ToUint32: NaN, ±0, ±Infinity all become +0;
 // otherwise truncate toward zero and apply modulo 2^32.
 static uint32_t toUint32(double x) {
@@ -395,6 +415,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     reg("expm1",  mathExpm1,  1);
     reg("floor",  mathFloor,  1);
     reg("fround", mathFround, 1);
+    reg("f16round", mathF16round, 1);
     reg("hypot",  mathHypot,  2);
     reg("imul",   mathImul,   2);
     reg("log",    mathLog,    1);
