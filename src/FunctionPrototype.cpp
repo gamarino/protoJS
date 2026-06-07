@@ -614,6 +614,17 @@ const proto::ProtoObject* wrapNativeFunction(proto::ProtoContext* ctx,
         if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2));
     }
 
+    // The writability enforcement in resolvePutFieldOOP (ProtoInterpreter.cpp:172)
+    // gates the entire `__pd_<key>__` probe behind `__has_nonwritable_props__`.
+    // wrapNativeFunction stamps non-writable bits for `name` and `length` but
+    // pre-fix never set the hot-path hint, so `Object.create.name = "x"`
+    // silently succeeded — failing test262 built-ins/Object/create/name.js,
+    // built-ins/Object/setPrototypeOf/name.js, ditto length, and the analogous
+    // tests for every other Object.* / Array.* / String.* / ... static method
+    // registered via this helper.
+    const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+    if (hnw) wrapper = wrapper->setAttribute(ctx, hnw, PROTO_TRUE);
+
     return wrapper ? wrapper : PROTO_NONE;
 }
 
