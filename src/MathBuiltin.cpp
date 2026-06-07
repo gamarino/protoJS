@@ -1,5 +1,6 @@
 #include "MathBuiltin.h"
 #include "JSSymbols.h"
+#include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 #include <cmath>
@@ -126,6 +127,117 @@ static const proto::ProtoObject* mathFround(
 {
     double x = argToDouble(ctx, args, 0);
     return ctx->fromDouble(static_cast<double>(static_cast<float>(x)));
+}
+
+// ECMA-262 §21.3.2.20b Math.sumPrecise(items): returns the exact
+// IEEE 754 round-to-nearest sum of the elements of items.  Spec
+// uses Shewchuk's distillation algorithm to maintain a list of
+// non-overlapping partial sums; the final sum is then accumulated
+// from those partials.
+//
+// This implementation iterates only Array-shaped inputs.  Generator
+// and custom-Symbol.iterator support is not yet wired (would
+// require an iterator-protocol shim from C++ to JS); call
+// throws-on-non-number and takes-iterable cover that gap.
+static const proto::ProtoObject* mathSumPrecise(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    // Step 1: require one argument; otherwise TypeError.
+    if (!args || args->getSize(ctx) < 1) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Math.sumPrecise requires an iterable argument"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* iter = args->getAt(ctx, 0);
+    if (!iter || iter == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Math.sumPrecise requires an iterable, got null/undefined"));
+        return PROTO_NONE;
+    }
+
+    const proto::ProtoList* els = getArrayElements(ctx, iter);
+    if (!els) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Math.sumPrecise: argument is not iterable"));
+        return PROTO_NONE;
+    }
+
+    // State machine per spec step 6.
+    enum class State { MinusZero, Finite, MinusInf, PlusInf, NaN_ };
+    State state = State::MinusZero;
+    std::vector<double> partials;
+    partials.reserve(8);
+
+    const unsigned long n = static_cast<unsigned long>(els->getSize(ctx));
+    for (unsigned long i = 0; i < n && state != State::NaN_; ++i) {
+        const proto::ProtoObject* v = els->getAt(ctx, i);
+        // Spec step 6.b: each value MUST be a Number; non-Number → TypeError.
+        if (!v || v == PROTO_NONE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Math.sumPrecise: element is not a Number"));
+            return PROTO_NONE;
+        }
+        double x;
+        if (proto::isSmallInt(v)) x = static_cast<double>(v->asLong(ctx));
+        else if (v->isInteger(ctx)) x = static_cast<double>(v->asLong(ctx));
+        else if (v->isDouble(ctx) || v->isFloat(ctx)) x = v->asDouble(ctx);
+        else {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Math.sumPrecise: element is not a Number"));
+            return PROTO_NONE;
+        }
+
+        if (std::isnan(x)) { state = State::NaN_; break; }
+        if (std::isinf(x)) {
+            if (x > 0) {
+                if (state == State::MinusInf) state = State::NaN_;
+                else state = State::PlusInf;
+            } else {
+                if (state == State::PlusInf) state = State::NaN_;
+                else state = State::MinusInf;
+            }
+            continue;
+        }
+        if (state == State::PlusInf || state == State::MinusInf) continue;
+        // Track -0 vs 0 contribution; +0 promotes minus-zero to finite.
+        if (x == 0.0) {
+            if (!std::signbit(x) && state == State::MinusZero)
+                state = State::Finite;
+            continue;
+        }
+        if (state == State::MinusZero) state = State::Finite;
+
+        // Shewchuk merge: keep partials non-overlapping.
+        size_t out = 0;
+        for (size_t j = 0; j < partials.size(); ++j) {
+            double y = partials[j];
+            double hi, lo;
+            if (std::fabs(x) < std::fabs(y)) { std::swap(x, y); }
+            hi = x + y;
+            lo = y - (hi - x);
+            if (lo != 0.0) partials[out++] = lo;
+            x = hi;
+        }
+        partials.resize(out);
+        partials.push_back(x);
+    }
+
+    if (state == State::NaN_)
+        return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+    if (state == State::PlusInf)
+        return ctx->fromDouble(std::numeric_limits<double>::infinity());
+    if (state == State::MinusInf)
+        return ctx->fromDouble(-std::numeric_limits<double>::infinity());
+    if (state == State::MinusZero)
+        return ctx->fromDouble(-0.0);
+
+    // Final accumulation: sum partials from largest (last) to smallest.
+    double total = 0.0;
+    for (auto it = partials.rbegin(); it != partials.rend(); ++it)
+        total += *it;
+    return ctx->fromDouble(total);
 }
 
 // ECMA-262 §21.3.2.20a Math.f16round(x): round x to IEEE 754 binary16
@@ -416,6 +528,7 @@ void ensureMathObject(proto::ProtoContext* ctx,
     reg("floor",  mathFloor,  1);
     reg("fround", mathFround, 1);
     reg("f16round", mathF16round, 1);
+    reg("sumPrecise", mathSumPrecise, 1);
     reg("hypot",  mathHypot,  2);
     reg("imul",   mathImul,   2);
     reg("log",    mathLog,    1);
