@@ -71,6 +71,8 @@ DEFINE_SYMBOL(values,           "values")
 DEFINE_SYMBOL(groups,           "groups")
 DEFINE_SYMBOL(hasIndices,       "hasIndices")
 DEFINE_SYMBOL(indices,          "indices")
+DEFINE_SYMBOL(isConcatSpreadable,    "Symbol.isConcatSpreadable")
+DEFINE_SYMBOL(getIsConcatSpreadable, "__get_Symbol.isConcatSpreadable__")
 
 // ---- Internal implementation keys ---------------------------------------
 DEFINE_SYMBOL(arrayCtor,        "__array_ctor__")

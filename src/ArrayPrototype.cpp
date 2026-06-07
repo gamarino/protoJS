@@ -2642,10 +2642,10 @@ static const proto::ProtoObject* arrayConcat(
         if (obj->isInteger(ctx) || obj->isDouble(ctx) || obj->isFloat(ctx) ||
             obj->isString(ctx) || obj->isBoolean(ctx)) return false;
         // Step 2: probe @@isConcatSpreadable via the WKS string key.
-        const proto::ProtoObject* spreadObj =
-            ctx->fromUTF8String("Symbol.isConcatSpreadable");
-        const proto::ProtoString* spreadKey =
-            spreadObj ? spreadObj->asString(ctx) : nullptr;
+        // Cached via JSSymbols to avoid a per-call createSymbol + asString
+        // pair (~1us each) that showed up on list_snapshot_history's
+        // 200x concat hot loop.
+        const proto::ProtoString* spreadKey = JSSymbols::isConcatSpreadable(ctx);
         if (spreadKey) {
             const proto::ProtoObject* sv = obj->getAttribute(ctx, spreadKey, true);
             // Object.defineProperty(o, Symbol.isConcatSpreadable, {get:...})
@@ -2655,9 +2655,7 @@ static const proto::ProtoObject* arrayConcat(
             // never fired and ToBoolean defaulted to false. Invoke the
             // getter when the placeholder fires (or when no data is found).
             if (!sv || sv == PROTO_NONE || sv == getUndefinedSentinel()) {
-                const proto::ProtoObject* gko =
-                    ctx->fromUTF8String("__get_Symbol.isConcatSpreadable__");
-                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                const proto::ProtoString* gks = JSSymbols::getIsConcatSpreadable(ctx);
                 if (gks) {
                     const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
                     if (getter && getter != PROTO_NONE) {

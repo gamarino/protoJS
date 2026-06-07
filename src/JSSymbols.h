@@ -71,6 +71,8 @@ const proto::ProtoString* values(proto::ProtoContext* ctx);         // "values"
 const proto::ProtoString* groups(proto::ProtoContext* ctx);         // "groups"
 const proto::ProtoString* hasIndices(proto::ProtoContext* ctx);     // "hasIndices"
 const proto::ProtoString* indices(proto::ProtoContext* ctx);        // "indices"
+const proto::ProtoString* isConcatSpreadable(proto::ProtoContext* ctx); // "Symbol.isConcatSpreadable"
+const proto::ProtoString* getIsConcatSpreadable(proto::ProtoContext* ctx); // "__get_Symbol.isConcatSpreadable__"
 
 // ---- Internal implementation keys (__ prefix stripped) ------------------
 const proto::ProtoString* arrayCtor(proto::ProtoContext* ctx);      // "__array_ctor__"
