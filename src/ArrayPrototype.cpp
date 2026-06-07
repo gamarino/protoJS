@@ -1402,9 +1402,30 @@ static const proto::ProtoObject* arrayPush(
         // through arrSetLen so __pd_length__ writable bit fires.
         unsigned long len = arrLen(ctx, self);
         if (hasCallException()) return PROTO_NONE;
+
+        // Hoist the per-element gates out of the loop.  When the array's
+        // prototype chain holds no indexed setter (the universal case
+        // for unmonkey-patched code), the entire arrSet machinery —
+        // isArray probe, elements probe, sparse fallback, post-fast-set
+        // hasOwnAttribute sync — degenerates to a single arrayTryFastSet
+        // call per element.  This is what V8 does with its "elements
+        // kind" transitions; here it's a single flag check.
+        const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+        const bool maybeHasIndexedSetters = hisKey
+            && (self->hasAttribute(ctx, hisKey) == PROTO_TRUE)
+            && (self->getAttribute(ctx, hisKey, true) == PROTO_TRUE);
+
         for (unsigned long i = 0; i < argc; i++) {
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            arrSet(ctx, self, len + i, item ? item : PROTO_NONE);
+            const proto::ProtoObject* val  = item ? item : PROTO_NONE;
+            const unsigned long idx = len + i;
+            // Fast path: no inherited indexed setter possible, write
+            // straight into __elements__.  Falls back to arrSet on
+            // sparse-overflow (arrayTryFastSet returns false).
+            if (!maybeHasIndexedSetters && arrayTryFastSet(ctx, self, idx, val)) {
+                continue;
+            }
+            arrSet(ctx, self, idx, val);
             if (hasCallException()) return PROTO_NONE;
         }
         unsigned long newLen = len + argc;
