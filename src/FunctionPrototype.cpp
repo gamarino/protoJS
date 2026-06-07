@@ -258,6 +258,82 @@ static const proto::ProtoObject* fnBind(
 // Function.prototype.toString() — returns generic function source string
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Function.prototype[@@hasInstance](V) — ECMA-262 §20.2.3.6 OrdinaryHasInstance
+// Default `obj instanceof Constructor` semantics.  Walks V's prototype chain
+// and reports whether Constructor.prototype is encountered.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* fnHasInstance(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    // Spec step 1: if IsCallable(this) is false, return false.
+    if (!fnIsCallable(ctx, self)) return PROTO_FALSE;
+    const proto::ProtoObject* V = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    // Spec step 3: if Type(V) is not Object, return false.
+    if (!V || V == PROTO_NONE
+        || V == getUndefinedSentinel() || V == getNullSentinel())
+        return PROTO_FALSE;
+    if (V->isInteger(ctx) || V->isDouble(ctx) || V->isFloat(ctx)
+        || V == PROTO_TRUE || V == PROTO_FALSE)
+        return PROTO_FALSE;
+    if (V->isString(ctx)) {
+        // primitive string — distinguish from a String wrapper
+        const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+        if (!pvK || V->getAttribute(ctx, pvK, false) == PROTO_NONE)
+            return PROTO_FALSE;
+    }
+
+    // Spec step 2: if this has [[BoundTargetFunction]], delegate to it.
+    const proto::ProtoString* boundKey = JSSymbols::boundFn(ctx);
+    const proto::ProtoObject* boundTarget = (boundKey)
+        ? self->getAttribute(ctx, boundKey, false) : nullptr;
+    if (boundTarget && boundTarget != PROTO_NONE) self = boundTarget;
+
+    // Spec step 4: P = Get(this, "prototype").
+    const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+    if (!protoKey) return PROTO_FALSE;
+    const proto::ProtoObject* P = self->getAttribute(ctx, protoKey, false);
+    if (!P || P == PROTO_NONE
+        || P == getUndefinedSentinel() || P == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Function has non-object prototype in instanceof check"));
+        return PROTO_NONE;
+    }
+    if (P->isInteger(ctx) || P->isDouble(ctx) || P->isFloat(ctx)
+        || P == PROTO_TRUE || P == PROTO_FALSE || P->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Function has non-object prototype in instanceof check"));
+        return PROTO_NONE;
+    }
+
+    // Spec step 6: walk V's prototype chain looking for P.
+    const proto::ProtoObject* cur = V;
+    for (int hops = 0; hops < 1024; ++hops) {
+        // Follow JS-level [[Prototype]] via the override map first, then
+        // the protoCore parent chain.
+        const proto::ProtoObject* next = nullptr;
+        // Re-use objectGetPrototypeOf semantics inline.
+        {
+            const proto::ProtoList* singleArg = ctx->newList();
+            singleArg = singleArg->appendLast(ctx, cur);
+            // Direct call: we know objectGetPrototypeOf is defined nearby,
+            // but it has internal linkage.  Use getJSProtoOverride directly.
+            next = protojs::getJSProtoOverride(cur);
+            if (!next) next = cur->getPrototype(ctx);
+        }
+        if (!next || next == PROTO_NONE || next == getNullSentinel())
+            return PROTO_FALSE;
+        if (next == P) return PROTO_TRUE;
+        cur = next;
+    }
+    return PROTO_FALSE;
+}
+
 static const proto::ProtoObject* fnToString(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -406,6 +482,42 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
     installFpMethod("apply",    fnApply,    2);
     installFpMethod("bind",     fnBind,     1);
     installFpMethod("toString", fnToString, 0);
+
+    // Function.prototype[@@hasInstance] — ECMA-262 §20.2.3.6.  Unlike the
+    // other Function.prototype methods this slot is non-writable,
+    // non-enumerable AND non-configurable (descriptor 0x0).  Install
+    // separately so it carries the right descriptor sidecar.
+    {
+        const proto::ProtoString* hiK = JSSymbols::symbolHasInstance(ctx);
+        if (hiK) {
+            const proto::ProtoObject* hiWrapper = fp->newChild(ctx, true);
+            if (hiWrapper) {
+                const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+                if (nfk) hiWrapper = hiWrapper->setAttribute(ctx, nfk,
+                    ctx->fromMethod(nullptr, fnHasInstance));
+                const proto::ProtoString* lenK = JSSymbols::length(ctx);
+                if (lenK) {
+                    hiWrapper = hiWrapper->setAttribute(ctx, lenK, ctx->fromInteger(1LL));
+                    const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+                    if (pdlk) hiWrapper = hiWrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* nmK = JSSymbols::name(ctx);
+                if (nmK) {
+                    hiWrapper = hiWrapper->setAttribute(ctx, nmK,
+                        ctx->fromUTF8String("[Symbol.hasInstance]"));
+                    const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+                    if (pdnk) hiWrapper = hiWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+                if (hnwK) hiWrapper = hiWrapper->setAttribute(ctx, hnwK, PROTO_TRUE);
+                fp = fp->setAttribute(ctx, hiK, hiWrapper);
+                // Slot descriptor 0x0 = writable:false, enumerable:false, configurable:false
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.hasInstance__");
+                const proto::ProtoString* pdks = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdks) fp = fp->setAttribute(ctx, pdks, ctx->fromInteger(0x0LL));
+            }
+        }
+    }
 
     // §20.2.3: Function.prototype itself is a function (calling it
     // returns undefined). Object.prototype.toString.call(Function
