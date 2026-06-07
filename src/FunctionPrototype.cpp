@@ -494,7 +494,19 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     if (hnw) fnCtor = fnCtor->setAttribute(ctx, hnw, PROTO_TRUE);
                 }
 
-                if (protoKey) fnCtor = fnCtor->setAttribute(ctx, protoKey, fp);
+                if (protoKey) {
+                    fnCtor = fnCtor->setAttribute(ctx, protoKey, fp);
+                    // §20.2.3.1 / §17: Function.prototype is
+                    // {writable:false, enumerable:false, configurable:
+                    // false} → bits 0x0.  Pre-fix the slot defaulted to
+                    // fully enumerable/writable/configurable.  test262
+                    // built-ins/Object/getOwnPropertyDescriptor/15.2.3.3-
+                    // 4-185 verifies the spec-mandated descriptor.
+                    const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+                    const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+                    if (pdpk) fnCtor = fnCtor->setAttribute(ctx, pdpk,
+                        ctx->fromInteger(0x0LL));
+                }
 
                 // Function.prototype.constructor === Function per
                 // §20.2.4.1. Use the canonical interned constructor
