@@ -2734,6 +2734,18 @@ static void setNWCDescriptor(proto::ProtoContext* ctx,
     const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
     const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
     if (pdk) obj = obj->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    // Hot-path hint: every NWC descriptor leaves writable=false AND
+    // enumerable=false.  Without __has_nonwritable_props__ set on the
+    // target, both collectOwnKeys' enumerable-skip path (ObjectPrototype
+    // .cpp:224) and resolvePutFieldOOP's writable-skip path
+    // (ProtoInterpreter.cpp:172) ignore the just-stamped descriptor —
+    // so Object.keys(function foo(){}) included "name" / "length" /
+    // "prototype" (test262 built-ins/Object/keys/15.2.3.14-3-2.js)
+    // and `foo.name = "x"` succeeded silently.  Mirror the flag-stamp
+    // already done by wrapNativeFunction (for built-in static methods)
+    // and Object.defineProperty (for user-installed descriptors).
+    const proto::ProtoString* hnw = protojs::JSSymbols::hasNonWritableProps(ctx);
+    if (hnw) obj = obj->setAttribute(ctx, hnw, PROTO_TRUE);
 }
 
 /** Native ProtoMethod for Error.isError(value) — stage-4 proposal,
