@@ -1499,7 +1499,28 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
 
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
-    if (nameKey) ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("WeakMap"));
+    if (nameKey) {
+        ctor = ctor->setAttribute(ctx, nameKey, ctx->fromUTF8String("WeakMap"));
+        // §17: built-in ctor name descriptor 0x2
+        // (writable:false, enumerable:false, configurable:true).
+        // Pre-fix the slot defaulted to fully enumerable/writable
+        // (built-ins/WeakMap/name).
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) ctor = ctor->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+    }
+    // §24.3.1: WeakMap.length === 0 with §17 descriptor 0x2.
+    // Pre-fix the slot was absent so verifyProperty(WeakMap, "length",
+    // ...) failed with "obj should have an own property length".
+    {
+        const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+        if (lenKey) {
+            ctor = ctor->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+            const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+            const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+            if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+        }
+    }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
