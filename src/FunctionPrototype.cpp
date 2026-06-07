@@ -591,7 +591,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
             const proto::ProtoObject* jsonNs =
                 (*globalRoot)->getAttribute(ctx, jsonKey, false);
             if (jsonNs && jsonNs != PROTO_NONE) {
-                static const char* kJsonNames[] = { "stringify", "parse", nullptr };
+                static const char* kJsonNames[] = { "stringify", "parse", "rawJSON", "isRawJSON", nullptr };
                 for (int i = 0; kJsonNames[i]; ++i) {
                     const proto::ProtoObject* mko = ctx->fromUTF8String(kJsonNames[i]);
                     const proto::ProtoString* mk = mko ? mko->asString(ctx) : nullptr;
