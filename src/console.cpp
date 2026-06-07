@@ -677,6 +677,9 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                         const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                         if (pdnk) nowWrapper = nowWrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                     }
+                    // Hot-path hint mirroring the Round 12/13 sweep.
+                    const proto::ProtoString* hnwNow = JSSymbols::hasNonWritableProps(ctx);
+                    if (hnwNow) nowWrapper = nowWrapper->setAttribute(ctx, hnwNow, PROTO_TRUE);
                     dateObj = dateObj->setAttribute(ctx, nowKey, nowWrapper);
                     const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_now__");
                     const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
@@ -704,6 +707,9 @@ void TimingAPIs::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globa
                     const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
                     if (pdnk) w = w->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
                 }
+                // Hot-path hint mirroring the Round 12/13 sweep.
+                const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+                if (hnw) w = w->setAttribute(ctx, hnw, PROTO_TRUE);
                 return w;
             };
             const proto::ProtoString* parseKey =
