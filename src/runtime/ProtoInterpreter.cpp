@@ -6149,7 +6149,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // surfaces the dynamic-prototype subtlety as a
                         // test262 regression — language/statements/class/
                         // subclass/superclass-bound-function.js).
-                        protojs::setJSProtoOverride(ctor, parentClass);
+                        protojs::setJSProtoOverride(pContext, ctor, parentClass);
                     } else {
                         REFRESH_GLOBAL_OBJ();
                         if (globalObj && globalObj != PROTO_NONE) {
@@ -10153,11 +10153,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoList* argsList = pContext->newList(argc, argSliceC);
 
                 // ES spec: Unwrapping bound functions for construct calls.
+                // Use OWN-ONLY attribute lookup (getOwnAttributeDirect): only
+                // an actually-bound function has __bound_fn__ as an own
+                // attribute.  A class that EXTENDS a bound function inherits
+                // the bound function via the protoCore parent chain (now that
+                // setJSProtoOverride wires that chain), and a chain-walking
+                // getAttribute would treat the class itself as a bound
+                // function and unwrap to the target.  test262
+                // language/statements/class/subclass/superclass-bound-function.js
+                // pins that case: `class C extends bound; new C().__proto__`
+                // must === C.prototype, not bound's target prototype.
                 const proto::ProtoString* bfK = JSSymbols::boundFn(pContext);
                 while (func && func != PROTO_NONE && bfK) {
-                    const proto::ProtoObject* target = func->getAttribute(pContext, bfK, false);
+                    const proto::ProtoObject* target = func->getOwnAttributeDirect(pContext, bfK);
                     if (!target || target == PROTO_NONE) break;
-                    const proto::ProtoObject* bArgs = func->getAttribute(pContext, JSSymbols::boundArgs(pContext), false);
+                    const proto::ProtoObject* bArgs = func->getOwnAttributeDirect(pContext, JSSymbols::boundArgs(pContext));
                     
                     const proto::ProtoList* merged = pContext->newList();
                     if (bArgs && bArgs != PROTO_NONE) {
