@@ -2955,6 +2955,16 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // Mark as a built-in error constructor so OP_call can invoke it.
         const proto::ProtoString* errCtorKey = JSSymbols::errorCtor(ctx);
         if (errCtorKey) ctor = ctor->setAttribute(ctx, errCtorKey, ctx->fromUTF8String(kNames[i]));
+        // §20.5.6 + §10.3 IsConstructor: Error and every native subtype
+        // ctor has a [[Construct]] internal method.  Pre-fix only the
+        // shape-specific __error_ctor__ marker was set, so the generic
+        // isConstructor probe (Reflect.construct via test262's
+        // isConstructor harness) returned false (built-ins/Error/
+        // is-a-constructor + same for every subtype).
+        {
+            const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+            if (icK) ctor = ctor->setAttribute(ctx, icK, PROTO_TRUE);
+        }
         if (!ctor) continue;
         // §20.5.2.1 Error.isError(value) — Stage 4 proposal. Static
         // method on the base Error constructor only; subtype
