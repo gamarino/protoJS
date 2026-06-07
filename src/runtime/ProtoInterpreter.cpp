@@ -4469,6 +4469,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* obj,
             const std::string& keyStr) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel) return PROTO_NONE;
+        // Per-prototype hint: if no accessor descriptor exists anywhere
+        // reachable from obj, skip the __get_<key>__ probe entirely.
+        // The flag is stamped by Object.defineProperty (accessor branch)
+        // and by every native getter install site on built-in prototypes
+        // (Map.prototype.size, Set.prototype.size, etc.).  When the flag
+        // is absent or PROTO_FALSE the slow rope-construction is pure
+        // overhead — plain {} obj[k] reads see this on every access.
+        {
+            const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
+            if (hapKey) {
+                const proto::ProtoObject* hv = obj->hasAttribute(pContext, hapKey);
+                if (hv != PROTO_TRUE) return PROTO_NONE;
+                if (obj->getAttribute(pContext, hapKey, true) != PROTO_TRUE) return PROTO_NONE;
+            }
+        }
         std::string gkStr = "__get_" + keyStr + "__";
         const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
         const proto::ProtoString* gk  = gko ? gko->asString(pContext) : nullptr;
@@ -4496,7 +4511,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             const proto::ProtoObject* obj,
             const proto::ProtoString* key) -> const proto::ProtoObject* {
         if (!obj || obj == PROTO_NONE || obj == t_nullSentinel || !key) return PROTO_NONE;
-        
+        // Same hint-flag gate as the slow path — see invokeGetterIfPresent.
+        {
+            const proto::ProtoString* hapKey = JSSymbols::hasAccessorProps(pContext);
+            if (hapKey) {
+                const proto::ProtoObject* hv = obj->hasAttribute(pContext, hapKey);
+                if (hv != PROTO_TRUE) return PROTO_NONE;
+                if (obj->getAttribute(pContext, hapKey, true) != PROTO_TRUE) return PROTO_NONE;
+            }
+        }
+
         const proto::ProtoObject* curr = obj;
         const proto::ProtoObject* objProto = pContext->space ? pContext->space->objectPrototype : nullptr;
         int depth = 0;

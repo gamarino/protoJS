@@ -1032,6 +1032,13 @@ void BuildMapPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 mapProto = mapProto->setAttribute(ctx, gks, getter);
+                // Read-path hint: stamp Map.prototype with
+                // __has_accessor_props__ so invokeGetterIfPresent fires
+                // on `myMap.size` reads (chain-inherited).
+                {
+                    const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
+                    if (hap) mapProto = mapProto->setAttribute(ctx, hap, PROTO_TRUE);
+                }
                 // §24.1.3.10 .size accessor descriptor:
                 // {enumerable:false, configurable:true} → bits 0x2.
                 // Pre-fix no sidecar so Object.getOwnPropertyDescriptor

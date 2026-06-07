@@ -1289,6 +1289,13 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
                 setProto = setProto->setAttribute(ctx, gks, getter);
+                // Read-path hint: stamp Set.prototype with
+                // __has_accessor_props__ so mySet.size invokes the
+                // getter (chain-inherited from Set.prototype).
+                {
+                    const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
+                    if (hap) setProto = setProto->setAttribute(ctx, hap, PROTO_TRUE);
+                }
                 // §24.2.3.10 accessor descriptor 0x2 (non-enumerable,
                 // configurable) on the size slot itself.
                 const proto::ProtoString* pdks = JSSymbols::pdSize(ctx);
