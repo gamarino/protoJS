@@ -35,6 +35,15 @@ const proto::ProtoObject* ProtoNativeModule::addMethod(
         const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
         if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
     }
+    // Hot-path hint mirroring the wrapNativeFunction / setNWCDescriptor
+    // fix earlier this round: __pd_length__ / __pd_name__ both encode
+    // writable=false, but resolvePutFieldOOP only consults the sidecars
+    // when __has_nonwritable_props__ is set on the target — without it,
+    // JSON.parse.length = 99 silently succeeded even though the
+    // descriptor said writable:false.  Same root cause that affected
+    // built-in static methods like Object.create.
+    const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+    if (hnw) wrapper = wrapper->setAttribute(ctx, hnw, PROTO_TRUE);
     const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
     if (!key) return obj;
     obj = obj->setAttribute(ctx, key, wrapper);
