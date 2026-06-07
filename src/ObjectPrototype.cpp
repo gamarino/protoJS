@@ -480,19 +480,29 @@ static const proto::ProtoObject* objectAssign(
             continue;
         }
         // If src is an array, copy __elements__ first so that
-        // numeric-index iteration sees the data.
+        // numeric-index iteration sees the data.  Skip holes — §20.1.2.1
+        // step 4.c.ii only copies own enumerable properties, and array
+        // holes are not own properties (`i in src` is false).
         const proto::ProtoList* srcEls = getArrayElements(ctx, src);
         if (srcEls) {
             const proto::ProtoList* tgtEls = getArrayElements(ctx, target);
             if (!tgtEls) tgtEls = ctx->newList();
             size_t srcSz = srcEls->getSize(ctx);
             size_t tgtSz = tgtEls->getSize(ctx);
+            bool anyWritten = false;
             for (size_t i = 0; i < srcSz; ++i) {
                 const proto::ProtoObject* v = srcEls->getAt(ctx, static_cast<int>(i));
+                if (!v || v == PROTO_NONE) continue;  // hole
                 if (i < tgtSz) tgtEls = tgtEls->setAt(ctx, static_cast<int>(i), v);
-                else           tgtEls = tgtEls->appendLast(ctx, v);
+                else {
+                    // grow with hole-fillers up to i, then append v.
+                    while (tgtEls->getSize(ctx) < i)
+                        tgtEls = tgtEls->appendLast(ctx, PROTO_NONE);
+                    tgtEls = tgtEls->appendLast(ctx, v);
+                }
+                anyWritten = true;
             }
-            protojs::setArrayElements(ctx, target, tgtEls);
+            if (anyWritten) protojs::setArrayElements(ctx, target, tgtEls);
             // length: target.length = max(target.length, srcSz)
             const proto::ProtoString* lk = JSSymbols::length(ctx);
             if (lk) {
