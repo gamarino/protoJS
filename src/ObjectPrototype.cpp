@@ -1702,6 +1702,25 @@ static const proto::ProtoObject* objectDefineProperty(
         if (sk) {
             const proto::ProtoObject* sVal = (setter && setter != getUndefinedSentinel()) ? setter : nullptr;
             target = target->setAttribute(ctx, sk, sVal);
+            // Hot-path hint: when the setter is installed at a numeric
+            // array-index key, tag the target with __has_indexed_setters__
+            // so arrSet (per-element loop in arrayPush etc.) can skip the
+            // expensive __set_<idx>__ probe on every element when no
+            // accessor descriptor is present on the prototype chain.
+            // Validate via round-trip: only counts as an "indexed" key if
+            // ToUint32(kstr) == kstr exactly (canonical integer string).
+            if (sVal && !kstr.empty()) {
+                const char* c = kstr.c_str();
+                bool allDigits = true;
+                for (size_t i = 0; i < kstr.size(); ++i) {
+                    if (c[i] < '0' || c[i] > '9') { allDigits = false; break; }
+                }
+                // Reject leading zero except for the bare "0".
+                if (allDigits && (kstr.size() == 1 || c[0] != '0')) {
+                    const proto::ProtoString* his = JSSymbols::hasIndexedSetters(ctx);
+                    if (his) target = target->setAttribute(ctx, his, PROTO_TRUE);
+                }
+            }
         }
     } else {
         // §10.1.6.3 step 4: a redefine that touches NEITHER value /

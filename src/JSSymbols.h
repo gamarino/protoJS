@@ -139,6 +139,16 @@ const proto::ProtoString* pdSize(proto::ProtoContext* ctx);         // "__pd_siz
 const proto::ProtoString* isSymbol(proto::ProtoContext* ctx);       // "__is_symbol__"
 const proto::ProtoString* fieldsInit(proto::ProtoContext* ctx);     // "__fields_init__"
 
+// Per-object hint flag (added 2026-06-06).  Set to PROTO_TRUE the first
+// time Object.defineProperty installs an accessor descriptor (`__set_<i>__`)
+// at a numeric-index key on the target.  When absent or PROTO_FALSE,
+// arrSet may skip the per-element "__set_<idx>__" inherited-setter probe.
+// Conservative: once set, it stays set — a later delete or descriptor
+// rewrite does not clear it (false positive = pay the probe; false
+// negative would break Array.prototype setter dispatch, which we must
+// never do).
+const proto::ProtoString* hasIndexedSetters(proto::ProtoContext* ctx); // "__has_indexed_setters__"
+
 // ---- TypedArray / ArrayBuffer / DataView internal keys ------------------
 const proto::ProtoString* abData(proto::ProtoContext* ctx);         // "__ab_data__"
 const proto::ProtoString* abDetached(proto::ProtoContext* ctx);     // "__ab_detached__"

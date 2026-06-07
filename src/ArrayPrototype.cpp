@@ -492,7 +492,22 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
         const proto::ProtoList* els = getArrayElements(ctx, arr);
         unsigned long elsSize = els
             ? static_cast<unsigned long>(els->getSize(ctx)) : 0;
+        // Per-prototype hint: the __set_<idx>__ probe walks the
+        // prototype chain constructing a fresh ProtoString rope per
+        // call.  Object.defineProperty tags any target getting an
+        // indexed-key accessor with __has_indexed_setters__ = PROTO_TRUE;
+        // arrays inherit the flag from Array.prototype through the
+        // chain via hasAttribute(...,true).  When the flag is absent or
+        // PROTO_FALSE, no indexed setter exists anywhere reachable and
+        // the per-element probe is skippable.
+        bool maybeHasIndexedSetters = false;
         if (idx >= elsSize) {
+            const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
+            maybeHasIndexedSetters = hisKey
+                && (arr->hasAttribute(ctx, hisKey) == PROTO_TRUE)
+                && (arr->getAttribute(ctx, hisKey, true) == PROTO_TRUE);
+        }
+        if (idx >= elsSize && maybeHasIndexedSetters) {
             std::string skStr = "__set_" + std::to_string(idx) + "__";
             const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
             const proto::ProtoString* sk  = sko ? sko->asString(ctx) : nullptr;
