@@ -180,81 +180,88 @@ static void collectOwnKeys(
         }
     }
 
-    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        unsigned long rawKey = it->nextKey(ctx);
-        const proto::ProtoObject* val = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+    // processElements walks the SparseList via a C-callback — no
+    // per-step iterator object allocations.  For SmallSparseList the
+    // inline pairs are visited directly without ANY iterator chain;
+    // for AVL form, the internal iterator is reused inside a CS but
+    // the advance() public API's per-step implAsObject wrapper
+    // allocation is gone.
+    struct CollectState {
+        proto::ProtoContext* ctx;
+        const proto::ProtoObject* obj;
+        std::vector<std::string>* keys;
+        std::vector<const proto::ProtoObject*>* vals;
+        const proto::ProtoString* lenSymbol;
+        bool isArr;
+        bool includeNonEnumerable;
+        bool mightHaveNonWritable;
+        bool mightHaveAccessors;
+        bool aborted;
+    } state{ctx, obj, &keys, vals, lenSymbol, isArr,
+            includeNonEnumerable, mightHaveNonWritable,
+            mightHaveAccessors, false};
+    auto cb = [](proto::ProtoContext* cbCtx, void* selfV,
+                 unsigned long rawKey, const proto::ProtoObject* val) {
+        CollectState* s = static_cast<CollectState*>(selfV);
+        if (s->aborted) return;
         const proto::ProtoString* propKey =
             reinterpret_cast<const proto::ProtoString*>(rawKey);
-        if (!propKey) continue;
-        if (isInternalKey(ctx, propKey)) continue;
+        if (!propKey) return;
+        if (isInternalKey(cbCtx, propKey)) return;
         // ECMA-262 §7.3.23 EnumerableOwnProperties step 4.a — at each
         // step re-check that [[GetOwnProperty]] still returns a
-        // descriptor for this key on `obj`. The iterator returned by
-        // getOwnAttributes is a snapshot of the moment of capture; if
-        // a getter invoked during the loop deletes a later key, our
-        // snapshot still surfaces it (`Object.entries({a, get b(){
-        // delete this.c}, c}).length` must be 2, not 3 — built-ins/
-        // Object/{entries,values}/getter-removing-future-key.js).
-        if (obj->hasOwnAttribute(ctx, propKey) != PROTO_TRUE) continue;
+        // descriptor for this key on `obj`. The snapshot the iterator
+        // captures could mention a key that a previously-invoked
+        // getter deleted; re-check on the live object before emitting.
+        if (s->obj->hasOwnAttribute(cbCtx, propKey) != PROTO_TRUE) return;
         // Array's "length" is non-enumerable but IS an own property.
-        // Object.keys / values / entries (includeNonEnumerable=false)
-        // must skip it; Object.getOwnPropertyNames
-        // (includeNonEnumerable=true) per §23.1.3 must include it.
-        // Pre-fix the suppression fired unconditionally so the
-        // getOwnPropertyNames path lost the slot.
-        if (isArr && lenSymbol && propKey == lenSymbol && !includeNonEnumerable)
-            continue;
+        if (s->isArr && s->lenSymbol && propKey == s->lenSymbol
+            && !s->includeNonEnumerable) return;
         std::string kstr;
-        propKey->toUTF8String(ctx, kstr);
-        // Respect the enumerable descriptor flag (bit 2 of __pd_<key>__).
-        // A missing __pd__ key means default = enumerable (bit 2 = 1).
-        // Skip non-enumerable properties unless includeNonEnumerable is set.
-        // Skip the entire probe when the per-target flag says no
-        // non-default descriptor exists.
-        if (!includeNonEnumerable && mightHaveNonWritable) {
+        propKey->toUTF8String(cbCtx, kstr);
+        // Skip the __pd_<key>__ enumerable probe when no non-default
+        // writable bit has ever been stamped on this target.
+        if (!s->includeNonEnumerable && s->mightHaveNonWritable) {
             std::string pdKeyStr = "__pd_" + kstr + "__";
-            const proto::ProtoObject* pko = ctx->fromUTF8String(pdKeyStr.c_str());
-            const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
+            const proto::ProtoObject* pko = cbCtx->fromUTF8String(pdKeyStr.c_str());
+            const proto::ProtoString* pdk = pko ? pko->asString(cbCtx) : nullptr;
             if (pdk) {
-                const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
-                if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
-                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
-                    if (!(bits & 0x4)) continue; // not enumerable — skip
+                const proto::ProtoObject* pdv = s->obj->getAttribute(cbCtx, pdk, false);
+                if (pdv && pdv != PROTO_NONE && pdv->isInteger(cbCtx)) {
+                    uint8_t bits = static_cast<uint8_t>(pdv->asLong(cbCtx));
+                    if (!(bits & 0x4)) return; // not enumerable — skip
                 }
             }
         }
-        keys.push_back(kstr);
-        if (vals) {
-            // §7.3.1 Get(O, P): if the slot is an accessor, invoke the
-            // getter to produce the value. Pre-fix vals always pushed
-            // the iterator's raw data slot — for accessor entries that
-            // slot is undefined / PROTO_NONE, so
-            //   Object.values({get b(){return 'B'}}) returned [undefined]
-            // (built-ins/Object/values/getter-adding-key caught this).
-            // Skip the probe when no accessors exist anywhere.
+        s->keys->push_back(kstr);
+        if (s->vals) {
+            // §7.3.1 Get(O, P): accessor descriptor takes precedence
+            // over the data slot. Skip the probe when no accessors
+            // exist anywhere reachable.
             const proto::ProtoObject* getter = nullptr;
-            if (mightHaveAccessors) {
+            if (s->mightHaveAccessors) {
                 std::string gkStr = "__get_" + kstr + "__";
-                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
-                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
-                getter = (gk && obj->hasOwnAttribute(ctx, gk) == PROTO_TRUE)
-                    ? obj->getAttribute(ctx, gk, false) : nullptr;
+                const proto::ProtoObject* gko = cbCtx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(cbCtx) : nullptr;
+                getter = (gk && s->obj->hasOwnAttribute(cbCtx, gk) == PROTO_TRUE)
+                    ? s->obj->getAttribute(cbCtx, gk, false) : nullptr;
             }
             if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
-                const proto::ProtoList* noArgs = ctx->newList();
-                const proto::ProtoObject* gres = callJSFunction(ctx, getter, obj, noArgs);
+                const proto::ProtoList* noArgs = cbCtx->newList();
+                const proto::ProtoObject* gres = callJSFunction(cbCtx, getter, s->obj, noArgs);
                 if (hasCallException()) {
-                    vals->push_back(PROTO_NONE);
+                    s->vals->push_back(PROTO_NONE);
+                    s->aborted = true;
                     return;
                 }
-                vals->push_back(gres ? gres : PROTO_NONE);
+                s->vals->push_back(gres ? gres : PROTO_NONE);
             } else {
-                vals->push_back(val ? val : PROTO_NONE);
+                s->vals->push_back(val ? val : PROTO_NONE);
             }
         }
-    }
+    };
+    own->processElements(ctx, &state,
+        static_cast<void(*)(proto::ProtoContext*, void*, unsigned long, const proto::ProtoObject*)>(cb));
 }
 
 // ---------------------------------------------------------------------------
