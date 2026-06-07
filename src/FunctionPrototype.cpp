@@ -549,6 +549,13 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
             const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
             if (pdnk) fp = fp->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
         }
+        // Stamp the per-target gating flag so resolvePutFieldOOP enforces
+        // the writable=false bits on Function.prototype.length / name.
+        // Round 12/13 swept this across every other built-in but missed
+        // Function.prototype itself — `Function.prototype.length = 99`
+        // silently succeeded pre-fix.
+        const proto::ProtoString* hnwFp = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwFp) fp = fp->setAttribute(ctx, hnwFp, PROTO_TRUE);
     }
 
     // Register fp as the ProtoSpace method prototype so that ALL native ProtoMethod
