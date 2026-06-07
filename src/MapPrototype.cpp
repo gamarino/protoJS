@@ -1170,8 +1170,17 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
 
     // ctor.prototype = Map.prototype
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey && s_mapPrototype)
+    if (protoKey && s_mapPrototype) {
         ctor = ctor->setAttribute(ctx, protoKey, s_mapPrototype);
+        // §24.1.2.1 / §17: Map.prototype is {writable:false,
+        // enumerable:false, configurable:false} → bits 0x0.  Pre-fix
+        // the slot defaulted to fully writable / configurable; same
+        // pattern as the Function.prototype / Symbol.prototype fixes
+        // earlier in this round (def48d31 + d97d7635).
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     // __construct__ — MUST use ctx->fromMethod (NOT wrapNativeFunction).
     // OP_call_constructor checks isMethod() on the __construct__ value.
@@ -1541,7 +1550,13 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
-    if (protoKey) ctor = ctor->setAttribute(ctx, protoKey, proto);
+    if (protoKey) {
+        ctor = ctor->setAttribute(ctx, protoKey, proto);
+        // §24.3.2.1 / §17: WeakMap.prototype descriptor bits 0x0.
+        const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+        const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
 
     // __construct__ native handler (called by OP_call_constructor generic fallback).
     const proto::ProtoObject* constructKeyObj = ctx->fromUTF8String("__construct__");
