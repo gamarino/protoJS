@@ -3956,6 +3956,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* symbolCtor =
                     wrapNativeFunction(pContext, symbolConstructor, "Symbol", 0, pGlobalRoot);
                 if (symbolCtor && symbolCtor != PROTO_NONE) {
+                    // §20.4.1 Symbol HAS a [[Construct]] internal method
+                    // (test262 isConstructor harness's
+                    // Reflect.construct(function(){}, [], Symbol)
+                    // must succeed even though a direct \`new Symbol()\`
+                    // throws by spec).  Pre-fix the wrapper carried
+                    // __native_fn__ but no constructor marker, so
+                    // isConstructor returned false (built-ins/Symbol/
+                    // is-constructor).
+                    const proto::ProtoString* icK = JSSymbols::isConstructor(pContext);
+                    if (icK) symbolCtor = symbolCtor->setAttribute(pContext, icK, PROTO_TRUE);
                     const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                     if (protoKey) {
                         const proto::ProtoObject* symProto = pContext->newObject(true);
