@@ -218,6 +218,11 @@ static const proto::ProtoObject* fnBind(
     if (baKey) bound = bound->setAttribute(ctx, baKey, boundArgsArr);
 
     // Set bound.length = max(0, target.length - pre_bound_arg_count).
+    // §19.2.3.2 step 8 SetFunctionLength: descriptor is
+    // {writable:false, enumerable:false, configurable:true} → 0x2.
+    // Pre-fix the sidecar was absent so the slot defaulted to
+    // fully enumerable / writable (built-ins/Function/prototype/bind/
+    // instance-length and instance-name).
     const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
     if (lenKey2) {
         long long targetLen = 0;
@@ -229,8 +234,11 @@ static const proto::ProtoObject* fnBind(
         long long boundLen = targetLen - bcount;
         if (boundLen < 0) boundLen = 0;
         bound = bound->setAttribute(ctx, lenKey2, ctx->fromInteger(boundLen));
+        const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+        const proto::ProtoString* pdls = pdlo ? pdlo->asString(ctx) : nullptr;
+        if (pdls) bound = bound->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
     }
-    // Set bound.name = "bound " + target.name.
+    // Set bound.name = "bound " + target.name with same §17 descriptor.
     const proto::ProtoString* nameKey2 = JSSymbols::name(ctx);
     if (nameKey2) {
         std::string targetName;
@@ -242,6 +250,9 @@ static const proto::ProtoObject* fnBind(
         std::string boundName = "bound " + targetName;
         const proto::ProtoObject* bnVal = ctx->fromUTF8String(boundName.c_str());
         if (bnVal) bound = bound->setAttribute(ctx, nameKey2, bnVal);
+        const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+        const proto::ProtoString* pdns = pdno ? pdno->asString(ctx) : nullptr;
+        if (pdns) bound = bound->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
     }
     return bound;
 }
