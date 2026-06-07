@@ -11203,11 +11203,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* taK = JSSymbols::taCtor(pContext);
                             const proto::ProtoString* scK = JSSymbols::stringCtor(pContext);
                             const proto::ProtoString* conK = JSSymbols::construct(pContext);
+                            // Also recognise __is_constructor__ for the
+                            // Function ctor + disposable-resource stubs
+                            // which carry only the generic marker.
+                            const proto::ProtoString* icK = JSSymbols::isConstructor(pContext);
                             isFunc = (acK && val->getAttribute(pContext, acK, false) == PROTO_TRUE)
                                   || (ecK && val->hasAttribute(pContext, ecK) == PROTO_TRUE)
                                   || (reK && val->getAttribute(pContext, reK, false) == PROTO_TRUE)
                                   || (taK && val->hasAttribute(pContext, taK) == PROTO_TRUE)
                                   || (scK && val->getAttribute(pContext, scK, false) == PROTO_TRUE)
+                                  || (icK && val->getAttribute(pContext, icK, false) == PROTO_TRUE)
                                   || (conK && val->getAttribute(pContext, conK, false) && val->getAttribute(pContext, conK, false)->isMethod(pContext));
                         }
                     }
