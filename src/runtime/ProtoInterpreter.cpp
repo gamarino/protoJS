@@ -8655,7 +8655,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) + b->asLong(pContext));
+                    // Delegate to protoCore: handles SmallInt-out-of-range
+                    // promotion to LargeInteger via TempBignum, which the
+                    // manual `asLong + asLong` path silently truncated.
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->add(pContext, b);
                     DISPATCH();
                 }
 
@@ -8709,7 +8712,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) * b->asLong(pContext));
+                    // protoCore Integer::multiply handles bignum overflow.
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->multiply(pContext, b);
                     DISPATCH();
                 }
 
@@ -8766,7 +8770,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
-                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) - b->asLong(pContext));
+                    // protoCore Integer::subtract handles bignum overflow.
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->subtract(pContext, b);
                     DISPATCH();
                 }
 
@@ -8794,9 +8799,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (a && b && a->isInteger(pContext) && b->isInteger(pContext)) {
+                    // protoCore Integer::modulo handles bignum overflow.
+                    // The vb==0 check still gates: division by zero falls
+                    // through to the spec ToNumber NaN path below.
                     long long vb = b->asLong(pContext);
                     if (vb != 0) {
-                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(a->asLong(pContext) % vb);
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = a->modulo(pContext, b);
                         DISPATCH();
                     }
                 }
