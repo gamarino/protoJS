@@ -488,6 +488,11 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                     const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
                     if (pdlk) fnCtor = fnCtor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2));
                 }
+                // Hot-path hint — Round 12/13 constructor sweep.
+                {
+                    const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+                    if (hnw) fnCtor = fnCtor->setAttribute(ctx, hnw, PROTO_TRUE);
+                }
 
                 if (protoKey) fnCtor = fnCtor->setAttribute(ctx, protoKey, fp);
 
