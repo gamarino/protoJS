@@ -1354,6 +1354,12 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         // Map, ...) already use newObject(true) for this exact reason.
         const proto::ProtoObject* ctor = ctx->newObject(true);
         ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), concreteProto);
+        // §23.2.5.1 / §17: TypedArray ctors' prototype descriptor 0x0.
+        {
+            const proto::ProtoObject* pdpo = ctx->fromUTF8String("__pd_prototype__");
+            const proto::ProtoString* pdpk = pdpo ? pdpo->asString(ctx) : nullptr;
+            if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+        }
         {
             const proto::ProtoString* bpeKey = JSSymbols::BYTES_PER_ELEMENT(ctx);
             if (bpeKey)
