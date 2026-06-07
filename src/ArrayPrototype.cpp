@@ -5290,6 +5290,13 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
         const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2)); // configurable, !writable, !enumerable
     }
+    // Hot-path hint — Round 12/13 sweep.  Without
+    // __has_nonwritable_props__ on the Array ctor, writes to
+    // Array.name / Array.length silently succeeded.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     // Add static methods: isArray, from, of.
     struct { const char* name; proto::ProtoMethod fn; long long length; } statics[] = {
