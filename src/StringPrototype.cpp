@@ -550,9 +550,49 @@ const proto::ProtoObject* stringCharCodeAt(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    long long idx = getIntArg(ctx, args, 0, 0);
+
+    // Rope-aware O(log N) fast path for idx == 0.  The unconditional
+    // objToStr + utf8ToUTF16 below materialises the full rope into a
+    // contiguous buffer just to read one code unit — under the
+    // `s = s + s` doubling benchmark (262K-char ropes) profile showed
+    // ~60% of cycles in toUTF8String + RopeCharacterIterator::next +
+    // memmove driven by this single line.  ProtoString::getAt walks
+    // the AVL tree to the requested codepoint in O(log N).  Limiting
+    // the fast path to idx == 0 keeps semantics trivially correct:
+    // UTF-16 code unit 0 always matches codepoint 0, regardless of
+    // whether later codepoints are supplementary (which would shift
+    // the UTF-16 index away from the codepoint index for idx > 0).
+    // Fast path only fires when self is a true primitive ProtoString;
+    // for Number/String/Boolean wrappers asString returns null and we
+    // fall through to the slow path that runs ToString via objToStr
+    // (S15.5.4.5_A1_T1/T2/T6: `new Object(42).charCodeAt(false) === 52`
+    // and friends require that coercion).
+    if (idx == 0) {
+        const proto::ProtoString* str = self->asString(ctx);
+        if (str) {
+            unsigned long size = str->getSize(ctx);
+            if (size == 0) {
+                return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
+            }
+            // getAt returns a ProtoObject tagged as EMBEDDED_UNICODE_CHAR
+            // whose value bits encode the codepoint directly; asLong
+            // reads those bits without allocation or flattening
+            // (Integer.cpp:150 — UNICODE_CHAR → unicodeValue).
+            const proto::ProtoObject* charObj = str->getAt(ctx, 0);
+            if (charObj) {
+                uint32_t cp = static_cast<uint32_t>(charObj->asLong(ctx));
+                long long codeUnit = (cp < 0x10000u)
+                    ? static_cast<long long>(cp)
+                    : static_cast<long long>(0xD800u + ((cp - 0x10000u) >> 10));
+                return ctx->fromInteger(codeUnit);
+            }
+        }
+        // else fall through to slow path for ToString-coerced wrappers
+    }
+
     std::string s = objToStr(ctx, self);
     auto u16 = utf8ToUTF16(s);
-    long long idx = getIntArg(ctx, args, 0, 0);
     if (idx < 0 || static_cast<size_t>(idx) >= u16.size())
         return ctx->fromDouble(std::numeric_limits<double>::quiet_NaN());
     return ctx->fromInteger(static_cast<long long>(u16[static_cast<size_t>(idx)]));
