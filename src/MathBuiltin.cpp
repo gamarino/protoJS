@@ -351,6 +351,12 @@ void ensureMathObject(proto::ProtoContext* ctx,
         const proto::ProtoObject* pko = ctx->fromUTF8String(pd.c_str());
         const proto::ProtoString* pdk = pko ? pko->asString(ctx) : nullptr;
         if (pdk) math = math->setAttribute(ctx, pdk, ctx->fromInteger(0LL));
+        // Hot-path hint mirroring the constructor sweep in Round 12 —
+        // resolvePutFieldOOP only consults __pd_<key>__ when the per-
+        // target __has_nonwritable_props__ flag is set on Math.  Without
+        // it `Math.PI = 99` silently succeeded despite bits 0x0.
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) math = math->setAttribute(ctx, hnw, PROTO_TRUE);
     };
 
     // Constants
