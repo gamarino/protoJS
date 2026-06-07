@@ -5355,6 +5355,12 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
                     const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
+                // Stamp the gating flag so resolvePutFieldOOP enforces the
+                // writable=false sidecars on getter.name / getter.length.
+                // Mirrors the Round 12/13 sweep on built-in static-method
+                // wrappers (Math, Boolean, Number, ...).
+                const proto::ProtoString* hnwG = JSSymbols::hasNonWritableProps(ctx);
+                if (hnwG) getter = getter->setAttribute(ctx, hnwG, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
                     ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
