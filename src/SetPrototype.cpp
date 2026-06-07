@@ -1446,6 +1446,10 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
                     const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
                     if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
                 }
+                // Stamp the gating flag so the getter wrapper's name +
+                // length are actually read-only (Round 12/13 sweep).
+                const proto::ProtoString* hnwSp = JSSymbols::hasNonWritableProps(ctx);
+                if (hnwSp) getter = getter->setAttribute(ctx, hnwSp, PROTO_TRUE);
                 const proto::ProtoString* gksSym =
                     ctx->fromUTF8String("__get_Symbol.species__")->asString(ctx);
                 if (gksSym) ctor = ctor->setAttribute(ctx, gksSym, getter);
