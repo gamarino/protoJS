@@ -535,6 +535,9 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
             const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
             if (pdls) ctor = ctor->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
         }
+        // Hot-path hint mirroring the constructor sweep this round.
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
     }
 
     // DataView.prototype.constructor === DataView per §25.3.4.1.
