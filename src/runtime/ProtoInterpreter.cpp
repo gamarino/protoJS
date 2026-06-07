@@ -4188,7 +4188,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* ctorProto = ctor->getAttribute(pContext, protoKey, false);
                 if (!ctorProto || ctorProto == PROTO_NONE) continue;
                 if (ctorProto == objProto) continue;
-                protojs::setJSProtoOverride(pContext, ctorProto, objProto);
+                // Map-only: this builtin-ctor init loop uniformly sets
+                // every builtin ctor.prototype's __proto__ to
+                // Object.prototype.  That is wrong for Error subtypes
+                // (TypeError.prototype.__proto__ MUST be Error.prototype,
+                // not Object.prototype) — the bug was masked by
+                // t_jsProtoMap's read fallback firing only on chain
+                // miss, leaving the natural protoCore parent chain in
+                // place for `new TypeError() instanceof Error`.  Force-
+                // rebinding via setParents would surface that
+                // misinitialisation as a test262 regression
+                // (language/expressions/instanceof/S11.8.6_A5_T2.js).
+                // Keep the map-only behaviour here until the loop
+                // itself is rewritten to honour the proper Error
+                // subtype chain.
+                protojs::setJSProtoOverride(ctorProto, objProto);
             }
         }
     }
@@ -6097,7 +6111,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // returned Object.prototype rather than Function.prototype.
                 if (ctor && ctor != PROTO_NONE) {
                     if (hasHeritage && !nullHeritage && parentClass && parentClass != PROTO_NONE) {
-                        protojs::setJSProtoOverride(pContext, ctor, parentClass);
+                        // Map-only: class extends with a bound function
+                        // superclass (built-in bind binds prototype via
+                        // its own dynamic getter; rebinding the protoCore
+                        // parent of the class ctor to the bound directly
+                        // surfaces the dynamic-prototype subtlety as a
+                        // test262 regression — language/statements/class/
+                        // subclass/superclass-bound-function.js).
+                        protojs::setJSProtoOverride(ctor, parentClass);
                     } else {
                         REFRESH_GLOBAL_OBJ();
                         if (globalObj && globalObj != PROTO_NONE) {
@@ -6112,7 +6133,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 (funcCtor && funcCtor != PROTO_NONE && protoKey2)
                                     ? funcCtor->getAttribute(pContext, protoKey2, false) : nullptr;
                             if (fProto && fProto != PROTO_NONE)
-                                protojs::setJSProtoOverride(pContext, ctor, fProto);
+                                protojs::setJSProtoOverride(ctor, fProto);
                         }
                     }
                 }
