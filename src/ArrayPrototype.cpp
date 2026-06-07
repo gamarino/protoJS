@@ -1393,39 +1393,46 @@ static const proto::ProtoObject* arrayPush(
 
     if (isRealArray) {
         // §23.1.3.20 step 6.c: for each argument, Set(O, ToString(len),
-        // E, true).  Route through arrSet so any inherited
-        // __set_<idx>__ on the prototype chain fires
-        // (built-ins/Array/prototype/push/set-length-array-length-is-
-        // non-writable installs a setter on Array.prototype[0] inside
-        // which array.length is made non-writable; the final length
-        // write must surface TypeError).  And route the length write
-        // through arrSetLen so __pd_length__ writable bit fires.
+        // E, true).  In the common case (no inherited indexed setter
+        // anywhere in the chain) this is structurally identical to a
+        // batch of ProtoList::appendLast calls: read __elements__ once
+        // up front, fold all arguments through ProtoList directly, write
+        // back once.  The arrSet path that we previously called per
+        // element re-read __elements__ AND wrote it back on every
+        // iteration — 100K pushes paid for ~400K redundant attribute
+        // ops.  This native-op path collapses to 1 getAttribute +
+        // argc * appendLast + 1 setAttribute.
         unsigned long len = arrLen(ctx, self);
         if (hasCallException()) return PROTO_NONE;
 
-        // Hoist the per-element gates out of the loop.  When the array's
-        // prototype chain holds no indexed setter (the universal case
-        // for unmonkey-patched code), the entire arrSet machinery —
-        // isArray probe, elements probe, sparse fallback, post-fast-set
-        // hasOwnAttribute sync — degenerates to a single arrayTryFastSet
-        // call per element.  This is what V8 does with its "elements
-        // kind" transitions; here it's a single flag check.
         const proto::ProtoString* hisKey = JSSymbols::hasIndexedSetters(ctx);
         const bool maybeHasIndexedSetters = hisKey
             && (self->hasAttribute(ctx, hisKey) == PROTO_TRUE)
             && (self->getAttribute(ctx, hisKey, true) == PROTO_TRUE);
 
+        if (!maybeHasIndexedSetters && argc > 0) {
+            // NATIVE FAST PATH — direct ProtoList::appendLast calls.
+            // No per-element getAttribute/setAttribute, no arrSet
+            // ceremony, no indexKey probe.
+            const proto::ProtoList* list = getArrayElements(ctx, self);
+            if (!list) list = ctx->newList();
+            for (unsigned long i = 0; i < argc; i++) {
+                const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
+                list = list->appendLast(ctx, item ? item : PROTO_NONE);
+            }
+            // setArrayElements writes __elements__ AND length in one
+            // helper call.  The __pd_length__ writability probe ran at
+            // the top of arrayPush already, so the spec-mandated
+            // TypeError fires before we get here.
+            setArrayElements(ctx, self, list);
+            return ctx->fromInteger(static_cast<long long>(len + argc));
+        }
+
+        // Slow path: inherited indexed setter exists, OR argc == 0
+        // (still needs arrSetLen for the non-writable-length probe).
         for (unsigned long i = 0; i < argc; i++) {
             const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(i));
-            const proto::ProtoObject* val  = item ? item : PROTO_NONE;
-            const unsigned long idx = len + i;
-            // Fast path: no inherited indexed setter possible, write
-            // straight into __elements__.  Falls back to arrSet on
-            // sparse-overflow (arrayTryFastSet returns false).
-            if (!maybeHasIndexedSetters && arrayTryFastSet(ctx, self, idx, val)) {
-                continue;
-            }
-            arrSet(ctx, self, idx, val);
+            arrSet(ctx, self, len + i, item ? item : PROTO_NONE);
             if (hasCallException()) return PROTO_NONE;
         }
         unsigned long newLen = len + argc;
