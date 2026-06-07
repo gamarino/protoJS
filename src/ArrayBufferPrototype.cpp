@@ -241,6 +241,11 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
     if (taCtorKey)
         ctor = ctor->setAttribute(ctx, taCtorKey,
                                   ctx->fromUTF8String("ArrayBuffer"));
+    // §25.1.4 [[Construct]] — stamp the generic isConstructor marker.
+    {
+        const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+        if (icK) ctor = ctor->setAttribute(ctx, icK, PROTO_TRUE);
+    }
 
     // Set constructor name with the §17 standard descriptor
     // {writable:false, enumerable:false, configurable:true} → 0x2.

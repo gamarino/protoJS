@@ -1389,6 +1389,13 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
         // Tag integer elemType so OP_call_constructor can dispatch
         ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
             ctx->fromInteger(static_cast<long long>(cfg.elemType)));
+        // §23.2.5 [[Construct]] — stamp the generic isConstructor
+        // marker so test262's isConstructor harness (which uses
+        // Reflect.construct) recognises every TypedArray ctor.
+        {
+            const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+            if (icK) ctor = ctor->setAttribute(ctx, icK, PROTO_TRUE);
+        }
 
         // Register Task 6 static methods: TypedArray.of() and TypedArray.from()
         ctor = ctor->setAttribute(ctx, JSSymbols::of(ctx),

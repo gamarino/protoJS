@@ -663,6 +663,12 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
     if (!ctor) return;
 
     ctor = ctor->setAttribute(ctx, JSSymbols::regexpCtor(ctx), PROTO_TRUE);
+    // §22.2.3.1: RegExp has [[Construct]] — stamp the generic marker so
+    // Reflect.construct / test262's isConstructor harness recognise it.
+    {
+        const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+        if (icK) ctor = ctor->setAttribute(ctx, icK, PROTO_TRUE);
+    }
     ctor = ctor->setAttribute(ctx, JSSymbols::name(ctx),       ctx->fromUTF8String("RegExp"));
     // §17 + §22.2.3: name descriptor 0x2 (!writable, !enumerable,
     // configurable).  Pre-fix the name slot defaulted to fully

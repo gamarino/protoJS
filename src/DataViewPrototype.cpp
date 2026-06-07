@@ -512,6 +512,11 @@ void ensureDataViewConstructor(proto::ProtoContext* ctx,
     // Mark as DataView constructor so OP_call_constructor can dispatch.
     ctor = ctor->setAttribute(ctx, JSSymbols::taCtor(ctx),
                                ctx->fromUTF8String("DataView"));
+    // §25.3.4 [[Construct]] — stamp the generic isConstructor marker.
+    {
+        const proto::ProtoString* icK = JSSymbols::isConstructor(ctx);
+        if (icK) ctor = ctor->setAttribute(ctx, icK, PROTO_TRUE);
+    }
     // §25.3.2 + §17: DataView.name === "DataView" and length === 1,
     // both with descriptor {!writable, !enumerable, configurable} → 0x2.
     // Pre-fix neither slot was installed (built-ins/DataView/name and
