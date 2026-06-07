@@ -4981,7 +4981,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Strict mode: pass thisObj as-is (undefined stays undefined).
                 // Non-strict mode: coerce null/undefined to the global object per spec.
                 if (module->isStrict) {
-                    stackPush(pContext, thisObj ? thisObj : PROTO_NONE);
+                    // Normalize PROTO_NONE → undefined sentinel so that
+                    // \`[this]\` in strict mode with undefined thisArg
+                    // produces an array with index 0 as own property
+                    // (hasOwn '0' === true).  Pre-fix push_this pushed
+                    // raw PROTO_NONE, which OP_array_from stored as
+                    // __elements__[i] = PROTO_NONE = hole — making
+                    // flatMap(fn, undefined) on \`return [this]\` produce
+                    // an empty result instead of [undefined] (built-ins/
+                    // Array/prototype/flatMap/thisArg-argument).
+                    const proto::ProtoObject* tv = thisObj;
+                    if (!tv || tv == PROTO_NONE) {
+                        tv = t_undefinedSentinel ? t_undefinedSentinel : PROTO_NONE;
+                    }
+                    stackPush(pContext, tv);
                 } else {
                     REFRESH_GLOBAL_OBJ();
                     const proto::ProtoObject* finalThis = thisObj;
