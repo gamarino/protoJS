@@ -11029,6 +11029,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     : pContext->newObject(true);
                                 const proto::ProtoObject* constructed = conMethod->asMethod(pContext)(
                                     pContext, wrapper, nullptr, argsList, nullptr);
+                                // ECMA-262 §7.3.13 Call propagates abrupt
+                                // completions.  Number(Symbol()) / Boolean()
+                                // with a throwing valueOf must surface the
+                                // TypeError from the __construct__ method,
+                                // not silently fall back to the wrapper.
+                                if (t_hasCallException) {
+                                    pending_exception  = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException = false;
+                                    t_callException    = nullptr;
+                                    DISPATCH();
+                                }
                                 const proto::ProtoObject* result = constructed ? constructed : wrapper;
                                 // Unwrap to primitive: Number()/Boolean()/String()
                                 // return the primitive itself, not the wrapper.
