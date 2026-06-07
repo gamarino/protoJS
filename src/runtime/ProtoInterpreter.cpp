@@ -4067,6 +4067,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     pContext->fromInteger(0x2LL));
                             }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
+                            // §20.4.2.7 / §17: Symbol.prototype descriptor
+                            // is {writable:false, enumerable:false,
+                            // configurable:false} → bits 0x0.  Pre-fix the
+                            // slot defaulted to fully writable / configurable
+                            // (built-ins/Symbol/prototype-attribute).
+                            const proto::ProtoObject* pdpo =
+                                pContext->fromUTF8String("__pd_prototype__");
+                            const proto::ProtoString* pdpk = pdpo ? pdpo->asString(pContext) : nullptr;
+                            if (pdpk) symbolCtor = symbolCtor->setAttribute(pContext, pdpk,
+                                pContext->fromInteger(0x0LL));
                         }
                     }
                     // Static methods: Symbol.for, Symbol.keyFor.  §17 marks
