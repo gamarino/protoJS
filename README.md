@@ -387,6 +387,53 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 12 — 2026-06-07 evening** (7 fixes, broad-scope, per-area
+pass-rate over the eight essential `built-ins` families):
+
+| Family | Passes | Total | Pass rate |
+|---|---:|---:|---:|
+| `built-ins/Number` | 320 | 338 | **94.7 %** |
+| `built-ins/Array` | 2 676 | 3 081 | **86.9 %** |
+| `built-ins/Object` | 2 775 | 3 411 | **81.4 %** |
+| `built-ins/String` | 973 | 1 223 | **79.6 %** |
+| `built-ins/Math` | 233 | 327 | 71.3 % |
+| `built-ins/JSON` | 110 | 165 | 66.7 % |
+| `built-ins/Function` | 193 | 509 | 37.9 % |
+| `built-ins/Date` | 52 | 594 | 8.8 % (stub) |
+| **8-family rollup** | **7 332** | **9 648** | **76.0 %** |
+
+Round 12's seven fixes target the **descriptor / accessor surface**:
+
+1. `2048f209` — `wrapNativeFunction` stamps `__has_nonwritable_props__`
+   so every built-in static method's `name` / `length` are actually
+   read-only (the descriptor said so; the write path was silently
+   ignoring the bit).  Spec §17 baseline.
+2. `ef8aa519` — `Object.create(O, Properties)` invokes accessor
+   getters on `Properties` via the `__get_<key>__` sidecar, matching
+   §19.1.2.4 step 2's `Get(props, key)` requirement.  Closes the 22
+   `Object.create/15.2.3.5-4-N` conformance cases.
+3. `8c86c686` — `Date.prototype[Symbol.toStringTag] = "Date"` so
+   `Object.prototype.toString.call(new Date(0))` yields the spec-
+   required `"[object Date]"`.  The stub installer's guard left this
+   slot bare on the Date branch.
+4. `26cd900c` — `Object.prototype.{toString,toLocaleString,valueOf}`
+   carry the §17 `name` / `length` descriptor shape.
+5. `a2a17e1f` — Annex-B `Object.prototype.__lookupGetter__` /
+   `__lookupSetter__` implemented (32 conformance cases).
+6. `e30454f0` — Annex-B `Object.prototype.__defineGetter__` /
+   `__defineSetter__` implemented (22 conformance cases).
+7. `ea127b46` — `setNWCDescriptor` stamps
+   `__has_nonwritable_props__` so user-function `name` / `length` /
+   `prototype` are non-enumerable in `Object.keys(fn)`.
+
+Two recurring root causes drove most of the round: (a) descriptor
+sidecars (`__pd_<key>__`) were being written without their gating
+hot-path flag (`__has_nonwritable_props__`), so the runtime treated
+every property as writable + enumerable regardless of what the
+descriptor claimed; (b) annex-B accessor reflectors were entirely
+missing.  Both are now systematic: every code path that stamps a
+non-writable descriptor also lights the flag.
+
 **Latest full-suite run — 2026-06-01** (commit `073d1414`,
 `language + built-ins` patterns, 46 963 tests):
 
