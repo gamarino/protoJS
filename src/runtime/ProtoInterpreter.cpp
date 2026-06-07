@@ -6131,6 +6131,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             : nullptr;
                     if (isCtorKey) ctor = ctor->setAttribute(pContext, isCtorKey, PROTO_TRUE);
 
+                    // ECMA-262 §10.2.1 [[Call]] step 2 marker: every class
+                    // constructor's [[FunctionKind]] is "classConstructor",
+                    // and invoking it without `new` must throw TypeError.
+                    // OP_call reads this flag to enforce the spec — function
+                    // declarations stay callable as before.
+                    const proto::ProtoString* isClassKey =
+                        pContext->fromUTF8String("__is_class_ctor__")
+                            ? pContext->fromUTF8String("__is_class_ctor__")->asString(pContext)
+                            : nullptr;
+                    if (isClassKey) ctor = ctor->setAttribute(pContext, isClassKey, PROTO_TRUE);
+
                     // For derived classes, store the parent class on the ctor
                     // under __class_parent__.  OP_get_super reads this when
                     // the receiver is a class constructor — needed for
@@ -10693,6 +10704,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 //    method with no __bytecode_id__, so this returns -1
                 //    and we fall through to the native-method branch).
                 if (bcId < 0) bcId = getBytecodeId(pContext, func);
+
+                // ECMA-262 §10.2.1 [[Call]] step 2: if F's [[FunctionKind]]
+                // is "classConstructor", throw a TypeError.  Class ctors
+                // are marked with __is_class_ctor__ by OP_define_class.
+                // Invoking them without `new` (i.e., via OP_call rather
+                // than OP_call_constructor) is an error.
+                if (func && func != PROTO_NONE) {
+                    const proto::ProtoObject* iccko =
+                        pContext->fromUTF8String("__is_class_ctor__");
+                    const proto::ProtoString* icck =
+                        iccko ? iccko->asString(pContext) : nullptr;
+                    if (icck && func->getAttribute(pContext, icck, false) == PROTO_TRUE) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Class constructor cannot be invoked without 'new'",
+                            pGlobalRoot);
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+
                 const ProtoBytecodeModule* resolvedModule = nullptr;
                 if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
                     resolvedModule = &module->nestedFunctions[bcId];
