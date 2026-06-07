@@ -2976,6 +2976,14 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
                 if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
             }
         }
+        // Hot-path hint — Round 12 / Round 13 constructor sweep.
+        // Without __has_nonwritable_props__ on the ctor itself,
+        // resolvePutFieldOOP ignores the writable=false bits and
+        // `TypeError.name = "X"` silently succeeded.
+        {
+            const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+            if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+        }
         ctor = ctor->setAttribute(ctx, protoKey, proto);
         if (!ctor) continue;
         // §19.5.6.x: <ErrorType>.prototype is { writable:false,
