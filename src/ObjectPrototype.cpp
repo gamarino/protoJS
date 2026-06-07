@@ -2558,6 +2558,91 @@ static const proto::ProtoObject* objectHasOwn(
 }
 
 // ---------------------------------------------------------------------------
+// Object.groupBy(items, callbackfn) — ECMAScript 2024 §20.1.2.13a
+// Group items of an iterable by the property-key returned by callbackfn.
+// Returns a null-prototype object whose own properties are arrays of grouped
+// items.  This implementation iterates array-shaped inputs; generic iterators
+// would need a full GetIterator/IteratorStep shim.
+// ---------------------------------------------------------------------------
+
+static const proto::ProtoObject* objectGroupBy(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* items = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* cb = (args && args->getSize(ctx) > 1)
+        ? args->getAt(ctx, 1) : PROTO_NONE;
+    if (throwIfNullOrUndefined(ctx, items, "Object.groupBy")) return PROTO_NONE;
+    // Spec: callbackfn must be callable.  Reject explicit non-callable
+    // values (null, undefined, primitives, objects without a callable
+    // shape) up-front so the abrupt completion is observable to the
+    // caller — callJSFunction's no-op fallback would silently return
+    // undefined for non-callable receivers.
+    auto isCb = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE
+            || fn == getUndefinedSentinel() || fn == getNullSentinel())
+            return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+        return false;
+    };
+    if (!isCb(cb)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Object.groupBy: callback is not callable"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoList* els = protojs::getArrayElements(ctx, items);
+    if (!els) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Object.groupBy: items is not iterable"));
+        return PROTO_NONE;
+    }
+
+    const proto::ProtoObject* result = ctx->newObject(true);
+    if (!result) return PROTO_NONE;
+    // Spec: result has null prototype.
+    protojs::setJSProtoOverride(ctx, result, getNullSentinel());
+
+    unsigned long n = els->getSize(ctx);
+    for (unsigned long i = 0; i < n; ++i) {
+        const proto::ProtoObject* v = els->getAt(ctx, static_cast<int>(i));
+        if (!v || v == PROTO_NONE) continue;  // skip holes
+        const proto::ProtoList* cbArgs = ctx->newList();
+        cbArgs = cbArgs->appendLast(ctx, v);
+        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(static_cast<long long>(i)));
+        const proto::ProtoObject* keyVal = callJSFunction(ctx, cb,
+            getUndefinedSentinel(), cbArgs);
+        if (hasCallException()) return PROTO_NONE;
+        const proto::ProtoString* keyStr = coercePropNameToKey(ctx, keyVal);
+        if (!keyStr) continue;
+        // Append v to result[key]'s element list; create a new array if absent.
+        const proto::ProtoObject* bucket = result->getAttribute(ctx, keyStr, false);
+        const proto::ProtoList* bucketEls = nullptr;
+        if (bucket && bucket != PROTO_NONE) {
+            bucketEls = protojs::getArrayElements(ctx, bucket);
+        }
+        if (!bucket || bucket == PROTO_NONE) {
+            bucket = createNewArray(ctx, nullptr);
+            bucketEls = ctx->newList();
+        }
+        bucketEls = bucketEls->appendLast(ctx, v);
+        protojs::setArrayElements(ctx, bucket, bucketEls);
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        if (lenK) bucket = bucket->setAttribute(ctx, lenK,
+            ctx->fromInteger(static_cast<long long>(bucketEls->getSize(ctx))));
+        result = result->setAttribute(ctx, keyStr, bucket);
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Instance method: hasOwnProperty(key)
 // ---------------------------------------------------------------------------
 
@@ -3429,6 +3514,7 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
     reg("setPrototypeOf",        objectSetPrototypeOf,        2);
     reg("fromEntries",           objectFromEntries,           1);
     reg("hasOwn",                objectHasOwn,                2);
+    reg("groupBy",               objectGroupBy,               2);
     reg("defineProperty",           objectDefineProperty,        3);
     reg("defineProperties",         objectDefineProperties,      2);
     reg("getOwnPropertyDescriptor", objectGetOwnPropertyDescriptor, 2);
