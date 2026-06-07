@@ -200,6 +200,14 @@ void ensureBooleanConstructor(proto::ProtoContext* ctx, const proto::ProtoObject
         const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
         if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
     }
+    // Hot-path hint mirroring wrapNativeFunction / setNWCDescriptor /
+    // ProtoNativeModule::addMethod earlier this round: __pd_name__ and
+    // __pd_length__ both stamp writable=false, but the writability
+    // enforcement in resolvePutFieldOOP only runs when
+    // __has_nonwritable_props__ is set on the target.  Without it
+    // `Boolean.name = "X"` succeeded silently despite the descriptor.
+    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+    if (hnwK) ctor = ctor->setAttribute(ctx, hnwK, PROTO_TRUE);
 
     // ctor.prototype = Boolean.prototype
     // Per ECMA-262 §20.3.2.1 the `prototype` property of a built-in
