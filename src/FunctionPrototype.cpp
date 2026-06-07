@@ -645,6 +645,17 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                         }
                     }
                 }
+                // ECMA-262 §17 / §20.2.1: every built-in constructor's
+                // [[Prototype]] is Function.prototype.  Pre-fix Function
+                // itself inherited the bare Object.prototype because
+                // ctx->newObject(true) wires no JS prototype override.
+                // Other constructors set this via the unimplemented stub
+                // installer; Function is installed inline before that
+                // loop runs, so wire the override explicitly.  Without
+                // it, Object.getPrototypeOf(Function) !== Function.prototype
+                // (built-ins/Object/getPrototypeOf/15.2.3.2-2-4).
+                protojs::setJSProtoOverride(ctx, fnCtor, fp);
+
                 *globalRoot = (*globalRoot)->setAttribute(ctx, keyFunction, fnCtor);
                 // §17 globalThis.Function descriptor 0x3.
                 const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Function__");
