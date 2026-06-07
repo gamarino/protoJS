@@ -1242,6 +1242,32 @@ const proto::ProtoObject* stringStartsWith(
             "First argument to String.prototype.startsWith must not be a regular expression"));
         return PROTO_NONE;
     }
+
+    // Rope-aware O(log N + M) fast path — skips the O(N) toUTF8String
+    // of the receiver when both self and searchString are primitive
+    // ProtoStrings.  protoCore's getSlice walks the AVL spine in
+    // O(log N) and cmp_to_string then character-walks the M-char
+    // window in place, avoiding the full receiver-rope flatten that
+    // the slow path pays even when M << N.  Same BMP-only caveat as
+    // stringCharAt.
+    if (self && args && args->getSize(ctx) > 0) {
+        const proto::ProtoString* str = self->asString(ctx);
+        const proto::ProtoObject* searchArg = args->getAt(ctx, 0);
+        const proto::ProtoString* srch = searchArg ? searchArg->asString(ctx) : nullptr;
+        if (str && srch) {
+            long long sLen = static_cast<long long>(str->getSize(ctx));
+            long long mLen = static_cast<long long>(srch->getSize(ctx));
+            long long pos = getIntArg(ctx, args, 1, 0);
+            if (pos < 0) pos = 0;
+            if (pos + mLen > sLen) return PROTO_FALSE;
+            if (mLen == 0) return PROTO_TRUE;
+            const proto::ProtoString* slice = str->getSlice(
+                ctx, static_cast<int>(pos), static_cast<int>(pos + mLen));
+            return (slice && slice->cmp_to_string(ctx, srch) == 0)
+                ? PROTO_TRUE : PROTO_FALSE;
+        }
+    }
+
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
@@ -1265,6 +1291,33 @@ const proto::ProtoObject* stringEndsWith(
             "First argument to String.prototype.endsWith must not be a regular expression"));
         return PROTO_NONE;
     }
+
+    // Rope-aware O(log N + M) fast path; see stringStartsWith.
+    if (self && args && args->getSize(ctx) > 0) {
+        const proto::ProtoString* str = self->asString(ctx);
+        const proto::ProtoObject* searchArg = args->getAt(ctx, 0);
+        const proto::ProtoString* srch = searchArg ? searchArg->asString(ctx) : nullptr;
+        if (str && srch) {
+            long long sLen = static_cast<long long>(str->getSize(ctx));
+            long long mLen = static_cast<long long>(srch->getSize(ctx));
+            long long endPos = sLen;
+            if (args->getSize(ctx) > 1) {
+                const proto::ProtoObject* ep = args->getAt(ctx, 1);
+                if (ep && ep != PROTO_NONE) {
+                    endPos = getIntArg(ctx, args, 1, endPos);
+                    endPos = std::max(0LL, std::min(endPos, sLen));
+                }
+            }
+            if (mLen > endPos) return PROTO_FALSE;
+            if (mLen == 0) return PROTO_TRUE;
+            long long start = endPos - mLen;
+            const proto::ProtoString* slice = str->getSlice(
+                ctx, static_cast<int>(start), static_cast<int>(endPos));
+            return (slice && slice->cmp_to_string(ctx, srch) == 0)
+                ? PROTO_TRUE : PROTO_FALSE;
+        }
+    }
+
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArgWithUndef(ctx, args, 0);
     auto su16 = utf8ToUTF16(s);
