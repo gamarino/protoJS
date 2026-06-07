@@ -1375,6 +1375,14 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
             if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
         }
     }
+    // Hot-path hint mirroring Boolean / Number / String / Map / RegExp
+    // ctors earlier this round.  Without __has_nonwritable_props__ the
+    // writable=false bits are ignored — `Set.name = "X"` silently
+    // succeeded.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
     if (protoKey && s_setPrototype)

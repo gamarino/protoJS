@@ -966,6 +966,11 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
             if (pdk) ctor = ctor->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
         }
     }
+    // Hot-path hint mirroring the constructor sweep this round.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
 
     const proto::ProtoObject* promiseKeyObj = ctx->fromUTF8String("Promise");
     const proto::ProtoString* pk = promiseKeyObj ? promiseKeyObj->asString(ctx) : nullptr;
