@@ -1438,7 +1438,7 @@ static const proto::ProtoObject* jsonRawJSON(proto::ProtoContext* ctx,
     // instead of null (built-ins/JSON/rawJSON/returns-expected-object.js).
     // Publish through the shared override consulted by
     // Object.getPrototypeOf.
-    setJSProtoOverride(wrap, getNullSentinel());
+    setJSProtoOverride(ctx, wrap, getNullSentinel());
     return wrap;
 }
 

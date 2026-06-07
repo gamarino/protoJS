@@ -39,6 +39,26 @@ const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj);
 void setJSProtoOverride(const proto::ProtoObject* obj,
                         const proto::ProtoObject* proto);
 
+/**
+ * Same as setJSProtoOverride above, but ALSO rebinds the protoCore parent
+ * chain via ProtoObject::setParents when obj is mutable.  Result: the
+ * native protoCore walk that backs every getAttribute already sees the
+ * new prototype — `resolveFieldOOP`'s extension fallback via
+ * `t_jsProtoMap` only ever fires for the immutable edge case.
+ *
+ * For null sentinel (`Object.setPrototypeOf(o, null)`), only the map is
+ * updated — emptying the parent list would expose protoCore's internal
+ * default parent and is harder to reverse.  Same for clearing
+ * (proto==nullptr).
+ *
+ * Migration strategy (deferred to a series of one-site-per-commit
+ * patches): each call site of the 2-arg form is migrated to this 3-arg
+ * form, verified against test262 focal areas, and committed independently.
+ */
+void setJSProtoOverride(proto::ProtoContext* ctx,
+                        const proto::ProtoObject* obj,
+                        const proto::ProtoObject* proto);
+
 } // namespace protojs
 
 #endif // PROTOJS_OBJECTPROTOTYPE_H

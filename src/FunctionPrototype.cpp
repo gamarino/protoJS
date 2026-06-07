@@ -559,7 +559,7 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                         jsonNs->getAttribute(ctx, mk, false);
                     if (w && w != PROTO_NONE) {
                         w->addParent(ctx, fp);
-                        protojs::setJSProtoOverride(w, fp);
+                        protojs::setJSProtoOverride(ctx, w, fp);
                     }
                 }
             }

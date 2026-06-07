@@ -1219,7 +1219,7 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
                 ++depth;
             }
         }
-        protojs::setJSProtoOverride(target, proto);
+        protojs::setJSProtoOverride(ctx, target, proto);
         return PROTO_TRUE;
     }
     return PROTO_FALSE;
@@ -4188,7 +4188,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* ctorProto = ctor->getAttribute(pContext, protoKey, false);
                 if (!ctorProto || ctorProto == PROTO_NONE) continue;
                 if (ctorProto == objProto) continue;
-                protojs::setJSProtoOverride(ctorProto, objProto);
+                protojs::setJSProtoOverride(pContext, ctorProto, objProto);
             }
         }
     }
@@ -5875,7 +5875,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // number, boolean, undefined) is silently
                         // ignored.
                         if (proto == getNullSentinel()) {
-                            protojs::setJSProtoOverride(obj, getNullSentinel());
+                            protojs::setJSProtoOverride(pContext, obj, getNullSentinel());
                         } else if (proto && proto != PROTO_NONE
                                    && proto != getUndefinedSentinel()
                                    && !proto->isString(pContext)
@@ -5883,7 +5883,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                    && !proto->isDouble(pContext)
                                    && !proto->isFloat(pContext)
                                    && !proto->isBoolean(pContext)) {
-                            protojs::setJSProtoOverride(obj, proto);
+                            protojs::setJSProtoOverride(pContext, obj, proto);
                         }
                     }
                 }
@@ -5998,7 +5998,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* proto;
                 if (nullHeritage) {
                     proto = pContext->newObject(true);
-                    if (proto) protojs::setJSProtoOverride(proto, getNullSentinel());
+                    if (proto) protojs::setJSProtoOverride(pContext, proto, getNullSentinel());
                 } else if (parentProto && parentProto != PROTO_NONE) {
                     proto = parentProto->newChild(pContext, true);
                 } else {
@@ -6097,7 +6097,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // returned Object.prototype rather than Function.prototype.
                 if (ctor && ctor != PROTO_NONE) {
                     if (hasHeritage && !nullHeritage && parentClass && parentClass != PROTO_NONE) {
-                        protojs::setJSProtoOverride(ctor, parentClass);
+                        protojs::setJSProtoOverride(pContext, ctor, parentClass);
                     } else {
                         REFRESH_GLOBAL_OBJ();
                         if (globalObj && globalObj != PROTO_NONE) {
@@ -6112,7 +6112,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 (funcCtor && funcCtor != PROTO_NONE && protoKey2)
                                     ? funcCtor->getAttribute(pContext, protoKey2, false) : nullptr;
                             if (fProto && fProto != PROTO_NONE)
-                                protojs::setJSProtoOverride(ctor, fProto);
+                                protojs::setJSProtoOverride(pContext, ctor, fProto);
                         }
                     }
                 }

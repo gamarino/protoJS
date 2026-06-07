@@ -1144,9 +1144,13 @@ static const proto::ProtoObject* objectSetPrototypeOf(
         // returns null instead of falling back to the natural parent.
         // Pre-fix this branch erased the override, so
         // Object.setPrototypeOf(o, null) had no observable effect.
-        setJSProtoOverride(obj, getNullSentinel());
+        setJSProtoOverride(ctx, obj, getNullSentinel());
     } else if (proto && proto != PROTO_NONE) {
-        setJSProtoOverride(obj, proto);
+        // 3-arg form: in addition to writing the map, rebinds the
+        // protoCore parent chain via ProtoObject::setParents.  Read
+        // paths through resolveFieldOOP see the new prototype natively
+        // and no longer fall through to the t_jsProtoMap extension.
+        setJSProtoOverride(ctx, obj, proto);
     }
     // Spec: returns the modified object.
     return obj;
@@ -3378,6 +3382,39 @@ void setJSProtoOverride(const proto::ProtoObject* obj,
         return;
     }
     t_jsProtoMap[obj] = proto;
+}
+
+void setJSProtoOverride(proto::ProtoContext* ctx,
+                        const proto::ProtoObject* obj,
+                        const proto::ProtoObject* proto)
+{
+    if (!obj) return;
+    // The legacy map is still updated as a safety net for any read
+    // path that has not yet been migrated.  When all sites are
+    // converted, the map writes here can be removed and the map type
+    // itself retired.
+    if (proto == nullptr) {
+        t_jsProtoMap.erase(obj);
+        return;
+    }
+    t_jsProtoMap[obj] = proto;
+
+    // Skip the protoCore rebind for the null-sentinel case: setParents
+    // with an empty parent list would expose the protoCore default
+    // parent (typically the Object cell prototype), which is the
+    // opposite of what `Object.setPrototypeOf(o, null)` requests.  The
+    // map override above is sufficient for that case.
+    if (!ctx || proto == getNullSentinel()) return;
+
+    // For mutable obj, setParents CAS-rebinds the parent chain in
+    // place and returns the same handle.  For immutable obj, it would
+    // return a different handle — we deliberately discard that case
+    // and lean on the map fallback so the identity of obj is preserved.
+    const proto::ProtoList* parents = ctx->newList();
+    if (!parents) return;
+    parents = parents->appendLast(ctx, proto);
+    if (!parents) return;
+    (void)obj->setParents(ctx, parents);
 }
 
 } // namespace protojs

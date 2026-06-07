@@ -5200,7 +5200,7 @@ void ensureArrayPrototype(proto::ProtoContext* ctx,
             // Object.getPrototypeOf(unscopables) returned the object
             // prototype instead of null (built-ins/Array/prototype/
             // Symbol.unscopables/array-find-from-last and friends).
-            setJSProtoOverride(unsObj, getNullSentinel());
+            setJSProtoOverride(ctx, unsObj, getNullSentinel());
             static const char* kUnscopables[] = {
                 "at", "copyWithin", "entries", "fill", "find",
                 "findIndex", "findLast", "findLastIndex", "flat",
