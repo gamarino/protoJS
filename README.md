@@ -387,6 +387,73 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 13 — 2026-06-07 late evening** (19 fixes, per-area pass-rate
+over the eight essential `built-ins` families):
+
+| Family | Passes | Total | Pass rate | Δ vs R12 |
+|---|---:|---:|---:|---:|
+| `built-ins/Number` | 332 | 338 | **98.2 %** | +0.3 pp |
+| `built-ins/Math` | 312 | 327 | **95.4 %** | **+24.1 pp** |
+| `built-ins/Array` | 2 704 | 3 081 | **87.8 %** | +0.9 pp |
+| `built-ins/Object` | 2 791 | 3 411 | **81.8 %** | +0.4 pp |
+| `built-ins/String` | 974 | 1 223 | **79.6 %** | – |
+| `built-ins/JSON` | 120 | 165 | **72.7 %** | +1.2 pp |
+| `built-ins/Function` | 215 | 509 | **42.2 %** | +4.3 pp |
+| `built-ins/Date` | 70 | 594 | 11.8 % (stub) | +3.0 pp |
+| **8-family rollup** | **7 518** | **9 648** | **77.9 %** | **+1.7 pp** |
+
+Round 13 split into three themes (one bug-fix revert + two systematic
+sweeps):
+
+**Theme 0 — revert Round 12 commit #4** (`42201672`).  Reverting
+`26cd900c` (which wrapped `Object.prototype.toString/toLocaleString/
+valueOf` via `installNonEnumerableMethod` to expose `length`/`name`)
+recovered 44 tests net.  Wrapping broke `.call`/`.apply` chain access
+in specific sequences — `JSON.parse.call({})` and `assert.sameValue(
+Object.prototype.toString.call(parse), '[object Function]')` started
+failing.  Root cause is in `installNonEnumerableMethod`'s parent
+chain; reinstating the raw method form trades the descriptor-shape
+fixtures (a handful of tests) for the chain-access integrity (~40+
+tests across the suite).  Will revisit when the chain bug is fixed.
+
+**Theme 1 — own-attribute closure** (commits `04e2f28b` …):
+`Date.prototype.constructor === Date` as an OWN property (was
+inherited Object.prototype.constructor === Object); plus Math's
+constant + method descriptor hot-path flags (`499f10fd`, `c2217cac`).
+The Math methods sweep alone took the family from 71.3 % to 95.4 %.
+
+**Theme 2 — constructor `__has_nonwritable_props__` sweep, continued
++ `prototype` descriptor sweep**:
+
+  * `94b24c18` — all 8 `Error` / `TypeError` / `RangeError` / ...
+    constructors
+  * `6efb42db` — all 17 stub constructors (BigInt, Proxy, WeakRef, ...)
+  * `0f8e0c99` — `Date` (installed in `console.cpp`, pre-stub-installer)
+  * `f1dba57f` — `Date.{now,parse,UTC}` wrappers
+  * `63879f54` — `Map.prototype.size` getter, `Map.groupBy`, `Map@@species`
+  * `d667cb71` — `Set.prototype.size` getter, `RegExp@@species`
+  * `069cf026` — every `String.prototype` method wrapper
+  * `f12c7f51` — `Array` constructor
+  * `22c88420` — `Function` constructor
+  * `bce46e1d` — `Function.prototype.{call,apply,bind,toString}`
+    wrapped with §17 shape via `fp` self-parenting (chain still
+    resolves `.bind`/`.apply` on the wrappers)
+  * `def48d31` — `Function.prototype` descriptor `0x0` on the ctor
+  * `d97d7635` — `Symbol.prototype` descriptor `0x0`
+  * `79de58c3` — `Map.prototype` / `WeakMap.prototype` descriptor `0x0`
+  * `7306e062` — `Set` / `Promise` / `RegExp` / `ArrayBuffer` /
+    `DataView` `.prototype` descriptor `0x0`
+  * `9f56f2fb` — every `TypedArray` ctor's `.prototype` descriptor `0x0`
+
+Same architectural finding as Round 12: every site that stamps a
+non-writable descriptor sidecar must also light the
+`__has_nonwritable_props__` flag for `resolvePutFieldOOP` to enforce
+it.  Round 13 closes ~25 more registration sites and adds the dual
+sweep: where Round 12 fixed `name`/`length` descriptors, Round 13
+fixes the analogous `prototype` slot which §17 spec'es as
+`{writable:false, enumerable:false, configurable:false}` (bits 0x0)
+for every built-in constructor.
+
 **Round 12 — 2026-06-07 evening** (19 fixes, broad-scope, per-area
 pass-rate over the eight essential `built-ins` families):
 
