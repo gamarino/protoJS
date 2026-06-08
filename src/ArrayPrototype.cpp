@@ -2409,6 +2409,8 @@ static const proto::ProtoObject* arrayToReversed(
     // reads) then arrayReverse, so user-visible getter order was
     // 0,1,2,...  Test built-ins/Array/prototype/toReversed/get-
     // descending-order probes the spec-correct sequence.
+    // §22.1.3.36 step 3 (ArrayCreate) rejects len > 2^32-1.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.toReversed")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
@@ -2439,6 +2441,7 @@ static const proto::ProtoObject* arrayToSorted(
     // (which DOES walk species), so a poisoned .constructor getter
     // fired and toSorted bubbled the user's abrupt completion
     // (built-ins/Array/prototype/toSorted/ignores-species).
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.toSorted")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* copy = createNewArray(ctx, nullptr);
@@ -2467,6 +2470,7 @@ static const proto::ProtoObject* arrayToSpliced(
     // accessor inside the deleted window fired even though the spec
     // skips it (built-ins/Array/prototype/toSpliced/discarded-
     // element-not-read).
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.toSpliced")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     if (hasCallException()) return PROTO_NONE;
     long long n = args ? static_cast<long long>(args->getSize(ctx)) : 0LL;
@@ -2546,6 +2550,7 @@ static const proto::ProtoObject* arrayWith(
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.with")) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 1) return arrayCloneShallow(ctx, self);
     long long idx = 0;
     const proto::ProtoObject* iv = args->getAt(ctx, 0);
