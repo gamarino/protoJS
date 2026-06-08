@@ -387,6 +387,101 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 15 — 2026-06-07 late night** (17 fixes; sweep round that
+revealed and closed the runaway-allocation bug that had been
+disguised as kernel hangs):
+
+| Family | Passes | Total | Pass rate | Δ vs R14 |
+|---|---:|---:|---:|---:|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Array` | 2 707 | 3 081 | **87.9 %** | +0.1 pp |
+| `built-ins/Object` | 2 833 | 3 411 | **83.1 %** | +0.4 pp |
+| `built-ins/String` | 984 | 1 223 | **80.5 %** | +0.4 pp |
+| `built-ins/JSON` | 122 | 165 | **73.9 %** | – |
+| `built-ins/Function` | 240 | 509 | **47.2 %** | +1.0 pp |
+| `built-ins/Date` | 76 | 594 | 12.8 % (stub) | +0.3 pp |
+| **8-family rollup** | **7 620** | **9 648** | **79.0 %** | **+0.3 pp** |
+
+The headline change for this round is **not** in the pass-rate
+table — it is the diagnosis and elimination of a runaway-allocation
+bug in the Array iterator family that had been disguised as a series
+of full-system hangs across the previous rounds:
+
+  ```
+  Array.prototype.map.call({0: 9, length: "Infinity"}, cb)
+  ```
+
+  `arrLen` clamped `length: Infinity` to 2^32-1 (≈ 4 billion) instead
+  of routing it through ArrayCreate's RangeError gate, so the
+  iteration loop spun 4 billion times, each step allocating
+  `makeIterArgs` / `arrayCreateDataPropertyOrThrow` cells.  Within
+  ~120 seconds protojs's RSS crossed 12 GB; at ~85 % PSI on the
+  user cgroup `systemd-oomd` killed gnome-shell + dbus + pipewire
+  + everything else, dropping the user back to the GDM login screen.
+  Four consecutive sessions were lost on June 7 alone before the
+  cause was isolated; on the fifth it was traced inside protojs.
+
+The fix is `arrayThrowIfLenOverflow`: probe the raw `length`
+attribute, ToLength-coerce it via `jsToNumber`, and signal
+`RangeError("Invalid array length")` when the result is non-finite
+or exceeds 2^32 - 1.  Applied across thirteen Array methods:
+  * **map**, **filter**, **forEach**, **find**, **findIndex**,
+    **findLast**, **findLastIndex**, **some**, **every**, **reduce**,
+    **reduceRight** (the §22.1.3.X iteration family)
+  * **toReversed**, **toSorted**, **toSpliced**, **with** (ES2023
+    change-array-by-copy family — these explicitly use `ArrayCreate(len)`)
+
+After the sweep, the previously-hanging fixtures terminate in
+<1 ms with the spec-mandated abrupt completion.  No oomd-driven
+session kills since.
+
+The rest of the round is the routine spec-cleanup pattern:
+
+**Theme A — abrupt-completion propagation through native built-ins**:
+  * `2a23019b` — `Object.fromEntries` closes the iterator (calls
+    `iter.return()`) on a non-Object entry
+  * `8b8de3a7` — `Date.UTC` routes its coerce helper through
+    `jsToNumber` so a throwing `toString` on a positional propagates
+  * `1008c984` — `String.raw` probes `__get_raw__` / `__get_length__`
+    sidecars and propagates accessor-getter abrupts
+  * `7ec90fcb` — `String.raw` caps substitutions at `raw.length - 1`
+    so a trailing arg with a throwing `toString` is never consulted
+  * `fa6a98bc` — `Function.prototype.bind` propagates throws from
+    the target's `name` accessor
+
+**Theme B — descriptor and integrity-level correctness**:
+  * `095ee180` — `Object.assign` rejects new prop creation on a
+    non-extensible target (§10.1.6.3 ValidateAndApply step 2.a)
+  * `25f40344` — `Object.setPrototypeOf` validates target +
+    proto type up-front (`null`/`undefined` target → TypeError;
+    non-Object non-Null proto → TypeError)
+  * `bbba3806` — `Object.setPrototypeOf` rejects assignments that
+    would create a prototype-chain cycle
+  * `05af6812` — `Object.isFrozen` honours the empty-receiver case
+    (non-extensible + no own props → frozen, no marker required)
+  * `8e64654b` — RegExp `fromJS` marshalls source/flags as
+    non-enumerable instead of leaking them through `Object.keys`
+
+**Theme C — Symbol / Number / ES2023 surface**:
+  * `0f368587` — `JSON.stringify` omits Symbol values (§25.5.2.2
+    step 4); top-level returns undefined, arrays emit "null",
+    object keys are dropped
+  * `b92abc20` — `Object.is(0, NaN)` returns false (was true; the
+    Integer/Double cross-type branch was missing)
+  * `719ecf8f` — `Object.groupBy` iterates strings as codepoint
+    sequences
+  * `c2d959cf` — `callJSFunction` routes Number / Boolean / String
+    conversion constructors through their `__construct__` /
+    `__string_ctor__` markers, so `Number.bind(null)(42)` returns
+    42 instead of undefined
+
+The slowest gain (Number / Math / JSON flat) reflects that the
+remaining residue in those families is in `Array.fromAsync`,
+ResizableArrayBuffer fixtures, BigInt, or order-of-insertion-key
+shapes that need either iterator-protocol / typed-array async or
+deeper protoCore work to land.
+
 **Round 14 — 2026-06-07 night** (20 fixes, per-area pass-rate over
 the eight essential `built-ins` families):
 
