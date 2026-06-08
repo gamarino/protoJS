@@ -3959,8 +3959,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         if (rfKey) {
             const proto::ProtoObject* existing =
                 (*pGlobalRoot)->getAttribute(pContext, rfKey, false);
+            // §28.1 "The Reflect object [...] has a [[Prototype]]
+            // internal slot whose value is %Object.prototype%."
+            // Without the parent link, Reflect.hasOwnProperty /
+            // toString / isPrototypeOf are missing and
+            // Object.getPrototypeOf(Reflect) !== Object.prototype.
+            const proto::ProtoObject* objectProto = pContext->space
+                ? pContext->space->objectPrototype : nullptr;
             const proto::ProtoObject* reflectStub = (existing && existing != PROTO_NONE)
-                ? existing : pContext->newObject(true);
+                ? existing
+                : (objectProto ? objectProto->newChild(pContext, true)
+                               : pContext->newObject(true));
+            if (reflectStub && objectProto && (!existing || existing == PROTO_NONE)) {
+                protojs::setJSProtoOverride(pContext, reflectStub, objectProto);
+            }
             if (reflectStub) {
                 struct { const char* name; proto::ProtoMethod fn; long long length; } rfMeth[] = {
                     {"apply",             reflectApply,             3},
