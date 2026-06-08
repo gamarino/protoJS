@@ -387,6 +387,110 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 14 — 2026-06-07 night** (20 fixes, per-area pass-rate over
+the eight essential `built-ins` families):
+
+| Family | Passes | Total | Pass rate | Δ vs R13 |
+|---|---:|---:|---:|---:|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | +0.9 pp |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | +3.4 pp |
+| `built-ins/Array` | 2 706 | 3 081 | **87.8 %** | – |
+| `built-ins/Object` | 2 821 | 3 411 | **82.7 %** | +0.9 pp |
+| `built-ins/String` | 980 | 1 223 | **80.1 %** | +0.5 pp |
+| `built-ins/JSON` | 122 | 165 | **73.9 %** | +1.2 pp |
+| `built-ins/Function` | 235 | 509 | **46.2 %** | +4.0 pp |
+| `built-ins/Date` | 74 | 594 | 12.5 % (stub) | +0.7 pp |
+| **8-family rollup** | **7 596** | **9 648** | **78.7 %** | **+0.8 pp** |
+
+Three themes ran through the round:
+
+**Theme 1 — own-data shadows inherited accessor**
+(commit `8065b92c`).  The dynamic-key get path (OP_get_array_el)
+probed `invokeGetterIfPresent` first, which walks the prototype
+chain — so an accessor installed on a prototype masked an own
+data property on the receiver:
+
+  ```js
+  var p = Object.defineProperty({}, 'foo', { get(){ return 0; }});
+  var c = Object.create(p);
+  Object.defineProperty(c, 'foo', { value: 10 });
+  c.foo         // 10 (OP_get_field — static key, was correct)
+  c['foo']      // pre-fix: 0   post-fix: 10
+  ```
+
+Restructure the dispatch in three ordered branches: (1) own
+accessor → invoke own getter; (2) own data → return own;
+(3) walk parent for inherited accessor.  Closes the freeze/seal
+fixtures with the same "data overrides inherited accessor"
+pattern.
+
+**Theme 2 — ECMAScript 2024 / 2025 surface area**:
+
+  * `f6a79881` — `Math.f16round` (uses compiler `_Float16` when
+    `__FLT16_MAX__` is defined; binary32 fallback otherwise)
+  * `7f2f48da` — `Math.sumPrecise` (Shewchuk distillation on
+    Array-shaped inputs; generic iterator support still pending)
+  * `4ff3be22` — `JSON.rawJSON` / `JSON.isRawJSON` inherit
+    `Function.prototype` (their wrappers were never listed in the
+    post-bootstrap re-parenting array)
+  * `de70dfd9` — `Function.prototype[@@hasInstance]` per
+    §20.2.3.6 OrdinaryHasInstance, with descriptor 0x0 (W:F E:F
+    C:F per §17, unlike call/apply/bind which are writable)
+  * `089ec599` — `Object.groupBy` (Array iteration; iterator
+    protocol pending — Map.groupBy was already present)
+
+**Theme 3 — abrupt-completion propagation + descriptor cleanup**:
+
+  * `a50fc5a3` — class constructor invoked without `new` throws
+    TypeError per §10.2.1 step 2 (`__is_class_ctor__` flag stamped
+    in OP_define_class)
+  * `b62c0fef` — `Number('10e10000')` (and parseFloat) returns
+    `+Infinity` instead of NaN — `std::stod`'s `out_of_range`
+    catch separated from the invalid-argument catch
+  * `4039b380` — OP_call propagates `__construct__` abrupt
+    completions (`Number(Symbol())` throws instead of returning
+    undefined silently)
+  * `f191b7f7` / `f7c56d09` — `Date.UTC` with `NaN` / `Infinity` /
+    overflow past 8.64e15 returns NaN (TimeClip)
+  * `ef935697` — `Object.assign` skips array holes in sparse
+    sources (was overwriting target with PROTO_NONE)
+  * `b495e84d` — `arguments` object stamps
+    `__has_nonwritable_props__` so `Object.keys(arguments)` skips
+    `length` (the `__pd_length__` sidecar was there but ungated)
+  * `f8e03d24` — `hasOwnProperty` on array indices past
+    `__elements__` reports false for `new Array(N)` slots and true
+    only when an explicit attribute backs the index
+  * `c4aec3be` — `Array[@@species]` getter wrapper stamps the
+    gating flag (Round-12/13 sweep completion)
+  * `d5eb9eb2` — `Promise[@@species]` / `Set[@@species]` getter
+    wrappers stamp the gating flag (sweep continuation)
+  * `3f926d5c` — `Object.getPrototypeOf(Function) ===
+    Function.prototype` — Function ctor wired its
+    setJSProtoOverride explicitly (the unimplemented-stub installer
+    ran later and missed Function)
+  * `fcff5ad0` — `Function.prototype` itself stamps the gating
+    flag so `length` and `name` actually enforce writable:false
+  * `5446b3e4` — `String.raw` throws TypeError for null/undefined
+    template, and walks `__elements__` for Array templates
+    (segments were being read via `getAttribute(indexKey)` which
+    misses array storage)
+  * `3b24f61d` — `Object.values` / `Object.entries` propagate
+    abrupt completions from getters
+
+Math: 95.4% → **98.8%** (the f16round + sumPrecise additions plus
+incidental closures lift the family near saturation; only 4 fails
+left, all in sumPrecise hard-overflow paths or specialised Math
+APIs without C++ kernel support).  Number: 98.2% → **99.1%**
+(StrDecimalLiteral overflow + the OP_call __construct__ abrupt
+completion close most of the residue).  Function: 42.2% → **46.2%**
+(hasInstance + class-ctor-throws + FP gating).  Object: 81.8% →
+**82.7%** (groupBy + sparse assign + hasOwn + gOPO).
+
+The slowest gain (Array 0.0 pp) reflects that the remaining Array
+fails are almost entirely in `Array/fromAsync` (90 tests) and
+`Array/prototype/sort/comparefn-resizable-buffer` clusters that
+require iterator-protocol / typed-array async infrastructure.
+
 **Round 13 — 2026-06-07 late evening** (19 fixes, per-area pass-rate
 over the eight essential `built-ins` families):
 
