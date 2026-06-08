@@ -4,6 +4,7 @@
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
+#include "RegExpPrototype.h"
 #include "TypeBridge.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
@@ -1871,8 +1872,75 @@ const proto::ProtoObject* stringMatchAll(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
+    // ECMA-262 §22.1.3.13 String.prototype.matchAll(regexp).
+    // Pre-fix this was a stub returning PROTO_NONE (→ undefined),
+    // which forced consumers like `Array.from(s.matchAll(/x/g))` to
+    // throw "Cannot convert undefined or null to object" instead of
+    // walking the iterator.
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    return PROTO_NONE;
+
+    const proto::ProtoObject* regexp =
+        (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* undefSentinel = getUndefinedSentinel();
+    const proto::ProtoObject* nullSentinel  = getNullSentinel();
+    const bool regexpIsNullish =
+        !regexp || regexp == PROTO_NONE
+        || regexp == undefSentinel || regexp == nullSentinel;
+
+    // Step 2: if regexp is neither undefined nor null, take the
+    // explicit-RegExp branch; otherwise fall through to the
+    // implicit-RegExpCreate branch with the bare receiver.
+    if (!regexpIsNullish) {
+        if (isRegExp(ctx, regexp)) {
+            // Step 2.b.iii: ToString(flags) must contain 'g'.
+            const proto::ProtoString* flagsKey = JSSymbols::flags(ctx);
+            const proto::ProtoObject* flagsVal = flagsKey
+                ? regexp->getAttribute(ctx, flagsKey, true) : PROTO_NONE;
+            if (!flagsVal || flagsVal == PROTO_NONE
+                || flagsVal == undefSentinel || flagsVal == nullSentinel) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "String.prototype.matchAll requires a regexp with a flags property"));
+                return PROTO_NONE;
+            }
+            std::string flagsStr = objToStr(ctx, flagsVal);
+            if (hasCallException()) return PROTO_NONE;
+            if (flagsStr.find('g') == std::string::npos) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "String.prototype.matchAll called with a non-global RegExp"));
+                return PROTO_NONE;
+            }
+        }
+        // Step 2.c-d: delegate to regexp[@@matchAll](this).
+        const proto::ProtoString* matchAllKey = JSSymbols::symbolMatchAll(ctx);
+        const proto::ProtoObject* matcher = matchAllKey
+            ? regexp->getAttribute(ctx, matchAllKey, true) : PROTO_NONE;
+        if (matcher && matcher != PROTO_NONE && matcher != undefSentinel) {
+            const proto::ProtoList* callArgs = ctx->newList();
+            callArgs = callArgs->appendLast(ctx, self);
+            return callJSFunction(ctx, matcher, regexp, callArgs);
+        }
+    }
+
+    // Step 4: RegExpCreate(regexp, "g") — fall-through path covers
+    // both `s.matchAll()` (regexp is undefined → empty pattern) and
+    // `s.matchAll("foo")` (string pattern).
+    const proto::ProtoList* ctorArgs = ctx->newList();
+    ctorArgs = ctorArgs->appendLast(ctx,
+        regexpIsNullish ? ctx->fromUTF8String("") : regexp);
+    ctorArgs = ctorArgs->appendLast(ctx, ctx->fromUTF8String("g"));
+    const proto::ProtoObject* rx = regexpConstructor(ctx, PROTO_NONE, nullptr, ctorArgs, nullptr);
+    if (!rx || rx == PROTO_NONE) return PROTO_NONE;
+
+    // Step 5: rx[@@matchAll](self).
+    const proto::ProtoString* matchAllKey = JSSymbols::symbolMatchAll(ctx);
+    const proto::ProtoObject* matcher = matchAllKey
+        ? rx->getAttribute(ctx, matchAllKey, true) : PROTO_NONE;
+    if (!matcher || matcher == PROTO_NONE || matcher == undefSentinel) {
+        return PROTO_NONE;
+    }
+    const proto::ProtoList* callArgs = ctx->newList();
+    callArgs = callArgs->appendLast(ctx, self);
+    return callJSFunction(ctx, matcher, rx, callArgs);
 }
 
 /** split(separator, limit) — string separator only; regex falls through to PROTO_NONE */
