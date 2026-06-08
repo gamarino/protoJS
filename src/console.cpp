@@ -522,13 +522,29 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     // helper silently substituted non-finite values with the default,
     // so Date.UTC(NaN) returned the 1900 timestamp instead of NaN.
     bool nonFinite = false;
+    bool aborted = false;
     auto coerce = [&](int idx, long long defaultV) -> long long {
-        if (idx >= argc) return defaultV;
+        if (idx >= argc || aborted) return defaultV;
         const proto::ProtoObject* v = args->getAt(ctx, idx);
         if (!v || v == PROTO_NONE) return defaultV;
         if (v->isInteger(ctx)) return v->asLong(ctx);
         if (v->isDouble(ctx) || v->isFloat(ctx)) {
             double d = v->asDouble(ctx);
+            if (std::isnan(d) || std::isinf(d)) { nonFinite = true; return defaultV; }
+            return static_cast<long long>(d);
+        }
+        // Spec §21.4.3.4 step 1: y = ToNumber(year).  For objects /
+        // strings, ToNumber invokes ToPrimitive(valueOf/toString) — a
+        // throwing toString must propagate, NOT be substituted with
+        // defaultV.  Pre-fix the helper returned defaultV silently,
+        // so Date.UTC(throwingObj) succeeded and the test262
+        // coercion-errors fixtures all failed.
+        const proto::ProtoObject* n = jsToNumber(ctx, v);
+        if (hasCallException()) { aborted = true; return defaultV; }
+        if (!n || n == PROTO_NONE) { nonFinite = true; return defaultV; }
+        if (n->isInteger(ctx)) return n->asLong(ctx);
+        if (n->isDouble(ctx) || n->isFloat(ctx)) {
+            double d = n->asDouble(ctx);
             if (std::isnan(d) || std::isinf(d)) { nonFinite = true; return defaultV; }
             return static_cast<long long>(d);
         }
@@ -545,6 +561,7 @@ const proto::ProtoObject* TimingAPIs::dateUTC(proto::ProtoContext* ctx,
     tmv.tm_min   = static_cast<int>(coerce(4, 0));
     tmv.tm_sec   = static_cast<int>(coerce(5, 0));
     long long ms = coerce(6, 0);
+    if (aborted) return PROTO_NONE;
     if (nonFinite) return ctx->fromDouble(nan);
     std::time_t t = timegm(&tmv);
     if (t == (std::time_t)-1) return ctx->fromDouble(nan);
