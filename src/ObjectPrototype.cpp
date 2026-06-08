@@ -1710,6 +1710,16 @@ static const proto::ProtoObject* objectDefineProperty(
                 const proto::ProtoObject* descSet = normaliseAccessorFn(fetchDesc("set"));
                 if (!sameValue(descSet, existingSet)) ok = false;
             }
+            // §10.1.6.3 step 4.h: the descriptor-bit fields are subject
+            // to the same SameValue check as the accessor functions on
+            // a non-configurable slot. Pre-fix the accessor branch only
+            // compared get / set, so
+            //   { get, enumerable:false, configurable:false }
+            //   → { get, enumerable:true }   // flip is permitted
+            // silently succeeded; the spec demands a TypeError because
+            // enumerable changed without configurable allowing it.
+            if (ok && hasEnum && descBoolField("enumerable", false) != curEnumerable) ok = false;
+            if (ok && hasConf && descBoolField("configurable", false) != curConfigurable) ok = false;
             if (!ok) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "Cannot redefine non-configurable property"));
