@@ -28,6 +28,24 @@ static std::string objToStrLocal(proto::ProtoContext* ctx, const proto::ProtoObj
 }
 
 /**
+ * %IteratorPrototype%[@@iterator] — returns this.  ECMA-262 §27.1.2.1.
+ * Required so that `Array.from(it)` and `for (const x of it)` can pass
+ * an iterator instance to GetIterator without throwing.  Pre-fix the
+ * iterator stored ITSELF (a non-callable object) as the value of
+ * Symbol.iterator, so Array.from's `Call(iterFn, src)` returned
+ * undefined and the array came out empty.
+ */
+static const proto::ProtoObject* iteratorReturnSelf(
+    proto::ProtoContext* /*ctx*/,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    return self;
+}
+
+/**
  * RegExpStringIterator.prototype.next() — advances the iterator one step.
  * Returns { value: matchArray | undefined, done: bool }.
  */
@@ -117,10 +135,16 @@ const proto::ProtoObject* makeRegExpStringIterator(
     const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, regexpStringIteratorNext);
     iter = iter->setAttribute(ctx, JSSymbols::next(ctx), nextFn);
 
-    // Make the iterator itself iterable (Symbol.iterator returns this).
-    const proto::ProtoString* symIterKey = ctx->fromUTF8String("Symbol.iterator")->asString(ctx);
+    // Make the iterator itself iterable.  Use the canonical
+    // JSSymbols::symbolIterator key (Array.from / for-of look up via this
+    // exact interned ProtoString*; storing under a fromUTF8String key
+    // would silently miss).  Symbol.iterator MUST be a function returning
+    // this — storing the iter object itself made Array.from's
+    // Call(iterFn, src) fail and produce an empty result.
+    const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
     if (symIterKey) {
-        iter = iter->setAttribute(ctx, symIterKey, iter);
+        const proto::ProtoObject* iterFn = ctx->fromMethod(nullptr, iteratorReturnSelf);
+        iter = iter->setAttribute(ctx, symIterKey, iterFn);
     }
 
     return iter;
