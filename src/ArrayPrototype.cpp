@@ -1999,6 +1999,7 @@ static const proto::ProtoObject* arrayIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.indexOf")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     // ECMA-262 §23.1.3.13 step 3: if len is 0, return -1 BEFORE
     // ToIntegerOrInfinity runs on fromIndex.  Pre-fix the fromIndex
@@ -2111,6 +2112,7 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.lastIndexOf")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.16 step 3: empty receiver returns -1 BEFORE ToInteger.
     if (len == 0) return ctx->fromInteger(-1LL);
@@ -2224,6 +2226,7 @@ static const proto::ProtoObject* arrayIncludes(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.includes")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.13 step 3: if len is 0, return false BEFORE the
     // fromIndex coercion runs.  Pre-fix arrayIncludes flowed into the
