@@ -162,7 +162,24 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
         const proto::ProtoString* tpKey = tpKo ? tpKo->asString(ctx) : nullptr;
         if (tpKey) {
+            // §7.1.1 ToPrimitive step 2.c: GetMethod walks Get
+            // (P), which invokes the accessor getter for P when one is
+            // installed on the chain. Pre-fix only the data slot was
+            // read, so a `get [Symbol.toPrimitive](){throw ...}` accessor
+            // never fired (built-ins/String/prototype/trimEnd/
+            // this-value-object-toprimitive-call-err and the parallel
+            // trim / trimStart / replace tests caught this).
             const proto::ProtoObject* tpFn = obj->getAttribute(ctx, tpKey, true);
+            std::string gkStr = "__get_Symbol.toPrimitive__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    tpFn = callJSFunction(ctx, getter, obj, ctx->newList());
+                    if (hasCallException()) return "";
+                }
+            }
             auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
                 if (!fn || fn == PROTO_NONE) return false;
                 if (fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
