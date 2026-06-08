@@ -7386,10 +7386,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                             curEls->getAt(pContext, static_cast<int>(i)));
                                     protojs::setArrayElements(pContext, newObj, trimmed);
                                 } else if (static_cast<long long>(curSz) < newLen) {
-                                    const proto::ProtoList* grown = curEls;
-                                    for (long long i = curSz; i < newLen; ++i)
-                                        grown = grown->appendLast(pContext, PROTO_NONE);
-                                    protojs::setArrayElements(pContext, newObj, grown);
+                                    // ECMA-262 §10.4.2.4 (ArraySetLength)
+                                    // does not require materializing the
+                                    // new holes — read of an absent index
+                                    // already yields undefined.  Cap the
+                                    // grow so `a.length = 2**32-1` cannot
+                                    // materialize ~4 billion PROTO_NONE
+                                    // slots and OOM the process.  Common
+                                    // small grows still get filled.
+                                    constexpr long long kGrowMaterializeCap = 65536LL;
+                                    if (newLen - static_cast<long long>(curSz) <= kGrowMaterializeCap) {
+                                        const proto::ProtoList* grown = curEls;
+                                        for (long long i = curSz; i < newLen; ++i)
+                                            grown = grown->appendLast(pContext, PROTO_NONE);
+                                        protojs::setArrayElements(pContext, newObj, grown);
+                                    }
+                                    // else: stored length is authoritative;
+                                    // leave __elements__ unchanged.
                                 }
                             }
                             // ECMA-262 §10.4.2.1 ArraySetLength step 16
