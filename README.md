@@ -387,6 +387,99 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 16 — 2026-06-08** (13 fixes; surfaced a long-standing
+architectural mismatch in the namespace built-ins' prototype
+chain):
+
+| Family | Passes | Total | Pass rate | Δ vs R15 |
+|---|---:|---:|---:|---:|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Array` | 2 707 | 3 081 | **87.9 %** | – |
+| `built-ins/Object` | 2 852 | 3 411 | **83.6 %** | +0.5 pp |
+| `built-ins/String` | 997 | 1 223 | **81.5 %** | +1.0 pp |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | –0.6 pp |
+| `built-ins/Function` | 240 | 509 | **47.2 %** | – |
+| `built-ins/Date` | 76 | 594 | 12.8 % (stub) | – |
+| **8-family rollup** | **7 651** | **9 648** | **79.3 %** | **+0.3 pp** |
+
+The architectural finding of the round was that the three namespace
+objects — `Math`, `JSON`, and `Reflect` — were each constructed with
+`ctx->newObject(true)`, leaving them with no [[Prototype]] link.
+This breaks the spec contract from §21.3 / §25.5 / §28.1 ("[the
+namespace] has a [[Prototype]] internal slot whose value is
+%Object.prototype%") and silently disables every Object.prototype
+method on the receiver:
+
+  ```
+  typeof Math.hasOwnProperty            // pre-fix: 'undefined'
+  Object.getPrototypeOf(JSON)           // pre-fix: not Object.prototype
+  Object.defineProperty(o, 'p', Math);  // pre-fix: o.p === undefined
+                                        // (ToPropertyDescriptor walked the
+                                        //  missing chain for `value`,
+                                        //  `writable`, …)
+  ```
+
+The fix runs `space->objectPrototype->newChild(ctx, true)` for the
+namespace cell and registers the override in `t_jsProtoMap`.
+Reordering the bootstrap so `ensureObjectConstructor` runs before
+`ensureMathObject` was required, because the constructor populates
+the user-visible Object.prototype (and re-binds `space->objectPrototype`)
+— installing Math first would have captured the pre-population
+snapshot.
+
+The remainder of the round closes a family of long-tail spec
+gaps:
+
+**Theme A — accessor / descriptor handling**:
+  * `9dc0fc3c` — Object.defineProperty preserves the omitted
+    accessor field (get xor set) when redefining an existing
+    accessor descriptor (§10.1.6.3 step 4)
+  * `84ce246f` — Object.defineProperty rejects
+    enumerable/configurable changes on a non-configurable
+    accessor (the data-side already gated this; the accessor
+    branch did not)
+  * `8f82d0a0` — Object.defineProperties throws TypeError on
+    `undefined` target (RequireObjectCoercible)
+  * `c798066d` — Object.assign invokes the target's accessor
+    setter (and propagates its abrupt) instead of erroring
+    with the writable-bit gate (§19.1.2.1 step 4.c.ii.3)
+  * `1c1af771` — Object.fromEntries throws TypeError when
+    `iterator.next` is non-callable, and does NOT close()
+    the iterator in that case (§7.4.6)
+
+**Theme B — ToPrimitive / ToPropertyKey accessor probes**:
+  * `c0b166ab` — `objToStr` (the String.prototype.* coercion
+    entry) probes the `__get_Symbol.toPrimitive__` accessor
+    sidecar so a throwing exotic-primitive method propagates
+  * `57057131` — `objToStr` probes `__get_toString__` /
+    `__get_valueOf__` sidecars symmetrically (§7.1.1
+    OrdinaryToPrimitive)
+  * `0faa7993` — `coercePropNameToKey` (the ToPropertyKey
+    implementation) probes `Symbol.toPrimitive` before
+    falling through to toString / valueOf; also handles
+    Symbol-tagged primitive returns
+  * `fa4274f8` — Object.hasOwn routes its key argument
+    through `coercePropNameToKey` instead of the raw
+    String / Integer-only check
+
+**Theme C — enumeration semantics**:
+  * `b152ca3c` — Object.{keys, values, entries} skip Symbol
+    keys per §7.3.21 EnumerableOwnProperties (filter by
+    `propKey->isSymbol()` at the iteration callback)
+
+The Number / Math / Array / Function / Date families are flat:
+their residue is structural — BigInt, Proxy, ResizableArrayBuffer,
+or the dynamic Function constructor (which parses arbitrary source).
+JSON regressed 1 test as collateral of the Symbol-key skip — the
+specific case relied on the prior leak of a Symbol key being
+silently dropped at JSON.stringify.
+
+The architectural backlog uncovered by R16 — making
+`%Object.prototype%` mutable so user-level `Object.prototype.x = v`
+propagates in-place to every descendant rather than splitting the
+cell — is the next target (R17).
+
 **Round 15 — 2026-06-07 late night** (17 fixes; sweep round that
 revealed and closed the runaway-allocation bug that had been
 disguised as kernel hangs):
