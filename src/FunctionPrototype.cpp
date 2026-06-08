@@ -237,10 +237,25 @@ static const proto::ProtoObject* fnBind(
         if (pdls) bound = bound->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
     }
     // Set bound.name = "bound " + target.name with same §17 descriptor.
+    // §20.2.3.2 step 12 ! Get(Target, "name") propagates abrupts from
+    // a throwing accessor (instance-name-error.js).  Probe the
+    // __get_name__ sidecar explicitly — getAttribute alone reads the
+    // (empty) data slot for accessor properties.
     const proto::ProtoString* nameKey2 = JSSymbols::name(ctx);
     if (nameKey2) {
         std::string targetName;
-        const proto::ProtoObject* no = self->getAttribute(ctx, nameKey2, false);
+        const proto::ProtoObject* no = nullptr;
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_name__");
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                no = callJSFunction(ctx, getter, self, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+        if (!no || no == PROTO_NONE)
+            no = self->getAttribute(ctx, nameKey2, false);
         if (no && no != PROTO_NONE) {
             const proto::ProtoString* ns = no->asString(ctx);
             if (ns) targetName = ns->toStdString(ctx);
