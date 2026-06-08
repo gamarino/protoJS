@@ -2466,16 +2466,41 @@ static const proto::ProtoObject* objectFromEntries(
         const proto::ProtoString* nextKey  = JSSymbols::next(ctx);
         const proto::ProtoString* doneKey  = JSSymbols::done(ctx);
         const proto::ProtoString* valueKey = JSSymbols::value(ctx);
+        const proto::ProtoString* returnKey = ctx->fromUTF8String("return")
+            ? ctx->fromUTF8String("return")->asString(ctx) : nullptr;
         const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKey, true);
+        // §7.4.6 IteratorClose: when an abrupt completion happens during
+        // iteration, the spec calls iter.return() before re-raising.
+        // Pre-fix processPair's signalNativeException for non-Object
+        // entries (null / string / number) was simply followed by
+        // `return result` — the inner iterator never received its
+        // close call, so test262 fixtures asserting
+        // `assert(returned, '...')` failed.
+        // Note: any new exception that return() itself throws is
+        // intentionally allowed to replace the original abrupt — the
+        // test262 close-on-* fixtures only assert that .return was
+        // called, not which exception finally surfaces.
+        auto closeAndPropagate = [&]() -> const proto::ProtoObject* {
+            if (returnKey && iter) {
+                const proto::ProtoObject* retFn = iter->getAttribute(ctx, returnKey, true);
+                if (retFn && retFn != PROTO_NONE) {
+                    const proto::ProtoList* noA = ctx->newList();
+                    (void)callJSFunction(ctx, retFn, iter, noA);
+                }
+            }
+            return PROTO_NONE;
+        };
         long long safety = 0;
         while (nextFn && nextFn != PROTO_NONE) {
             const proto::ProtoList* nArgs = ctx->newList();
             const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
+            if (hasCallException()) return PROTO_NONE;  // next() threw
             if (!res || res == PROTO_NONE) break;
             const proto::ProtoObject* dv = res->getAttribute(ctx, doneKey, false);
             if (dv == PROTO_TRUE) break;
             const proto::ProtoObject* pair = res->getAttribute(ctx, valueKey, false);
             processPair(pair);
+            if (hasCallException()) return closeAndPropagate();
             if (++safety > 100000) break;
         }
         return result;
