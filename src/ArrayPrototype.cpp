@@ -1133,6 +1133,49 @@ static bool arrayThrowIfNullUndefined(proto::ProtoContext* ctx,
 // Spec helper: callbackfn must be callable. ECMA-262 §22.1.3.18 (map),
 // §22.1.3.7 (filter), §22.1.3.10 (forEach), §22.1.3.8 (find) etc. all
 // step "If IsCallable(callbackfn) is false, throw a TypeError".
+// ECMA-262 §22.1.3.X functions that materialise a new Array via
+// ArraySpeciesCreate(O, len) must throw RangeError when len exceeds
+// 2^32-1, because the inner ArrayCreate step rejects lengths past the
+// array-index envelope.  Pre-fix arrLen clamps `length: Infinity` to
+// 0xFFFFFFFFul (2^32-1) and the iteration loop spins through 4
+// billion indices, consuming GB of memory before earlyoom / oomd
+// kicks in.  Centralise the check so map / filter / slice / etc.
+// surface the spec abrupt instead of hanging.
+//
+// Threshold: > 2^32-1 (matching ArrayCreate); arrLen already caps at
+// 0xFFFFFFFFul, so the trigger is `len == 0xFFFFFFFFul && raw length
+// was Infinity / 2^53 / similar`.  Check the raw length attribute
+// directly — if it ToLength's to > 2^32-1 OR is non-finite, abort.
+static bool arrayThrowIfLenOverflow(proto::ProtoContext* ctx,
+                                     const proto::ProtoObject* self,
+                                     const char* method) {
+    if (!self || self == PROTO_NONE) return false;
+    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+    if (!lenKey) return false;
+    const proto::ProtoObject* lenObj = self->getAttribute(ctx, lenKey, true);
+    if (!lenObj || lenObj == PROTO_NONE) return false;
+    double dlen = -1;
+    if (lenObj->isInteger(ctx)) dlen = static_cast<double>(lenObj->asLong(ctx));
+    else if (lenObj->isDouble(ctx) || lenObj->isFloat(ctx)) dlen = lenObj->asDouble(ctx);
+    else if (lenObj->isString(ctx)) {
+        // Coerce via jsToNumber so "Infinity" / "10e10000" become the
+        // correct double value.
+        const proto::ProtoObject* n = jsToNumber(ctx, lenObj);
+        if (hasCallException()) return true;
+        if (n && (n->isInteger(ctx) || n->isDouble(ctx) || n->isFloat(ctx))) {
+            dlen = n->isInteger(ctx) ? static_cast<double>(n->asLong(ctx))
+                                     : n->asDouble(ctx);
+        }
+    }
+    if (dlen < 0 || std::isnan(dlen)) return false;  // treated as 0 by ToLength
+    if (std::isinf(dlen) || dlen > static_cast<double>(0xFFFFFFFFul)) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid array length"));
+        return true;
+    }
+    return false;
+}
+
 static bool arrayThrowIfCallbackNotCallable(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* fn,
                                              const char* method) {
@@ -3261,7 +3304,13 @@ static const proto::ProtoObject* arrayMap(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    // §23.1.3.18: LengthOfArrayLike precedes IsCallable.
+    // §23.1.3.18: LengthOfArrayLike precedes IsCallable.  Also detect
+    // a length that ToLengths to a value past the array-index envelope
+    // (Infinity, large doubles) BEFORE the iteration starts; spec
+    // routes those through ArrayCreate which raises RangeError.
+    // Without this check protojs's arrLen clamps to 2^32-1 and the
+    // for-loop spins through 4 billion indices.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.map")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3321,6 +3370,7 @@ static const proto::ProtoObject* arrayFilter(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.7: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.filter")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
