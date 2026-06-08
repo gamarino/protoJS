@@ -3678,11 +3678,18 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         bool bZ = isNumericZero(b, bNeg);
         if (aZ && bZ) return (aNeg == bNeg) ? PROTO_TRUE : PROTO_FALSE;
         if (a == b) return PROTO_TRUE;
-        // NaN === NaN check
-        if (a && b && (a->isDouble(ictx) || a->isFloat(ictx)) &&
-            (b->isDouble(ictx) || b->isFloat(ictx))) {
-            double da = a->asDouble(ictx);
-            double db = b->asDouble(ictx);
+        // SameValue numeric path: both Number (Integer or Double).  NaN
+        // == NaN per spec, +0 vs -0 handled above.  Pre-fix only the
+        // both-Double branch ran, so Object.is(0, NaN) fell through to
+        // a generic compare() that bucketed them equal.
+        auto isNumber = [&](const proto::ProtoObject* v) {
+            return v && (v->isInteger(ictx) || v->isDouble(ictx) || v->isFloat(ictx));
+        };
+        if (a && b && isNumber(a) && isNumber(b)) {
+            double da = a->isInteger(ictx) ? static_cast<double>(a->asLong(ictx))
+                                           : a->asDouble(ictx);
+            double db = b->isInteger(ictx) ? static_cast<double>(b->asLong(ictx))
+                                           : b->asDouble(ictx);
             if (std::isnan(da) && std::isnan(db)) return PROTO_TRUE;
             return (da == db) ? PROTO_TRUE : PROTO_FALSE;
         }
@@ -3698,6 +3705,30 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
                    || (x && x->isNone(ictx));
         };
         if (isUndef(a) && isUndef(b)) return PROTO_TRUE;
+        // §7.2.10 SameValue step 1: if Type(x) ≠ Type(y), return false.
+        // protoCore's ProtoObject::compare returns 0 for cross-type pairs
+        // that happen to share an internal ordering (e.g. integer 0 and
+        // double NaN both surface as the same compare bucket) — pre-fix
+        // the final branch trusted that == and reported true.
+        auto sameJsType = [&](const proto::ProtoObject* x, const proto::ProtoObject* y) -> bool {
+            if (!x || !y) return false;
+            // Number type covers Integer / Double / Float.
+            bool xNum = x->isInteger(ictx) || x->isDouble(ictx) || x->isFloat(ictx);
+            bool yNum = y->isInteger(ictx) || y->isDouble(ictx) || y->isFloat(ictx);
+            if (xNum != yNum) return false;
+            // Boolean
+            bool xBool = (x == PROTO_TRUE || x == PROTO_FALSE || x->isBoolean(ictx));
+            bool yBool = (y == PROTO_TRUE || y == PROTO_FALSE || y->isBoolean(ictx));
+            if (xBool != yBool) return false;
+            // String
+            if (x->isString(ictx) != y->isString(ictx)) return false;
+            // Null / Object distinction
+            bool xNull = (x == getNullSentinel());
+            bool yNull = (y == getNullSentinel());
+            if (xNull != yNull) return false;
+            return true;
+        };
+        if (a && b && !sameJsType(a, b)) return PROTO_FALSE;
         if (a && b) {
             int cmp = a->compare(ictx, b);
             return (cmp == 0) ? PROTO_TRUE : PROTO_FALSE;
