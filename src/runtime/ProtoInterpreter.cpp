@@ -7627,11 +7627,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, pContext->fromInteger(apIdx));
                     DISPATCH();
                 }
-                if (!apIterable || apIterable == PROTO_NONE || apIterable == t_nullSentinel
+                if (!apIterable || apIterable == PROTO_NONE
+                    || apIterable == t_nullSentinel
+                    || apIterable == getUndefinedSentinel()
                     || apIterable->isBoolean(pContext)
                     || apIterable->isInteger(pContext)
                     || apIterable->isDouble(pContext)) {
-                    // null/undefined/primitives are silently skipped in spread context
+                    // ECMA-262 §13.2.4.1 ArrayLiteral evaluation passes
+                    // each spread argument through GetIterator, which
+                    // throws TypeError on null / undefined / non-object
+                    // primitives.  Pre-fix the spread silently skipped
+                    // them, so `[...null]` / `[...undefined]` / `[...1]`
+                    // produced an empty contribution instead of the
+                    // spec-required throw.
+                    pending_exception = makeError(pContext, "TypeError",
+                        (apIterable == t_nullSentinel) ? "null is not iterable"
+                        : (!apIterable || apIterable == PROTO_NONE
+                           || apIterable == getUndefinedSentinel())
+                            ? "undefined is not iterable"
+                            : "value is not iterable",
+                        pGlobalRoot);
+                    has_pending_exception = true;
+                    // Push dummies so the stack stays balanced.
                     stackPush(pContext, apArray);
                     stackPush(pContext, pContext->fromInteger(apIdx));
                     DISPATCH();
@@ -11692,10 +11709,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                // Vacuous pass if not iterable.
-                stackPush(pContext, PROTO_NONE);
-                stackPush(pContext, PROTO_NONE);
-                stackPush(pContext, pContext->fromInteger(0LL));
+                // ECMA-262 §7.4.1 GetIterator: if the iterable has neither
+                // @@iterator nor a length-based fallback, throw TypeError.
+                // Pre-fix this was a vacuous pass that silently turned
+                // `[...{}]`, `var [a] = {}`, and `for (const x of {})`
+                // into zero-iteration no-ops instead of the spec-required
+                // throw.  Affects spread / destructure / for-of over any
+                // plain object that does not present Symbol.iterator.
+                pending_exception = makeError(pContext, "TypeError",
+                    "object is not iterable (cannot read property Symbol.iterator)",
+                    pGlobalRoot);
+                has_pending_exception = true;
                 DISPATCH();
             }
 
