@@ -1400,10 +1400,44 @@ static const proto::ProtoString* coercePropNameToKey(
         };
 
         const proto::ProtoObject* prim = nullptr;
+
+        // 0. Try Symbol.toPrimitive(hint="string") first per §7.1.1 step
+        // 2.c — exoticToPrim, when present, takes precedence over
+        // toString / valueOf.  Pre-fix coercePropNameToKey skipped the
+        // exotic primitive method, so a key with `[Symbol.toPrimitive]`
+        // routed through toString = "[object Object]" instead of the
+        // user-supplied primitive (built-ins/Object/fromEntries/
+        // to-property-key and the wider {defineProperty/computed-key}
+        // family).
+        {
+            const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+            const proto::ProtoString* tpKey = tpKo ? tpKo->asString(ctx) : nullptr;
+            if (tpKey) {
+                const proto::ProtoObject* tpFn = current->getAttribute(ctx, tpKey, true);
+                if (isCallable(tpFn)) {
+                    const proto::ProtoList* hintArgs = ctx->newList();
+                    hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
+                    const proto::ProtoObject* res = callJSFunction(ctx, tpFn, current, hintArgs);
+                    if (hasCallException()) return nullptr;
+                    bool isPrim = res
+                        && (res->isString(ctx) || res->isInteger(ctx)
+                            || res->isDouble(ctx) || res->isFloat(ctx)
+                            || res->isBoolean(ctx)
+                            || res == getNullSentinel() || res == getUndefinedSentinel());
+                    if (res && !isPrim) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Symbol.toPrimitive returned a non-primitive"));
+                        return nullptr;
+                    }
+                    if (isPrim) prim = res;
+                }
+            }
+        }
+
         // 1. Try toString()
         const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
-        const proto::ProtoObject* tsFn = tsKey ? current->getAttribute(ctx, tsKey, true) : nullptr;
-        if (isCallable(tsFn)) {
+        const proto::ProtoObject* tsFn = (!prim && tsKey) ? current->getAttribute(ctx, tsKey, true) : nullptr;
+        if (!prim && isCallable(tsFn)) {
             const proto::ProtoObject* res = callJSFunction(ctx, tsFn, current, ctx->newList());
             if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
                 prim = res;
@@ -2627,17 +2661,16 @@ static const proto::ProtoObject* objectFromEntries(
         const proto::ProtoObject* valObj = readEl(pair, 1);
         if (!valObj) valObj = PROTO_NONE;
         if (!keyObj || keyObj == PROTO_NONE) return;
-        std::string keyStr;
-        if (keyObj->isString(ctx)) {
-            const proto::ProtoString* ps = keyObj->asString(ctx);
-            if (ps) ps->toUTF8String(ctx, keyStr);
-        } else if (keyObj->isInteger(ctx)) {
-            keyStr = std::to_string(keyObj->asLong(ctx));
-        }
-        if (keyStr.empty()) return;
-        const proto::ProtoString* entryKey =
-            ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
-        if (entryKey) result = result->setAttribute(ctx, entryKey, valObj);
+        // §20.1.2.6 step 8.b.iv invokes ToPropertyKey on the key, which
+        // routes through ToPrimitive (hint=string) — Symbol.toPrimitive,
+        // toString, valueOf in spec order — before stringifying.  Pre-fix
+        // only String / Integer keys were honoured and any object key
+        // fell through the `keyStr.empty()` short-circuit, silently
+        // dropping the entry (built-ins/Object/fromEntries/to-property-key).
+        const proto::ProtoString* entryKey = coercePropNameToKey(ctx, keyObj);
+        if (hasCallException()) return;
+        if (!entryKey) return;
+        result = result->setAttribute(ctx, entryKey, valObj);
     };
 
     // Iterator-first path: try Symbol.iterator, or treat iterable as
