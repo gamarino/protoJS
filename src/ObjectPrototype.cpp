@@ -571,9 +571,33 @@ static const proto::ProtoObject* objectAssign(
             // raises TypeError. Probe the target's __pd_<key>__ sidecar
             // (default 0x7 = writable+configurable+enumerable when
             // absent); refuse the write when bit 0 (writable) is clear.
+            //
+            // ValidateAndApplyPropertyDescriptor step 2.a (§10.1.6.3):
+            // when `current` is undefined (key does not exist on target)
+            // and `extensible` is false, return false → Set(..., true)
+            // raises TypeError.  Pre-fix Object.assign onto a
+            // preventExtensions'd target silently added the property.
             {
                 std::string tk;
                 propKey->toUTF8String(ctx, tk);
+                bool targetHasOwn = target->hasOwnAttribute(ctx, propKey) == PROTO_TRUE;
+                if (!targetHasOwn) {
+                    // Probe accessor sidecars too — accessor-only slots
+                    // are own properties even without a data key.
+                    std::string gkStr = std::string("__get_") + tk + "__";
+                    const proto::ProtoObject* gko2 = ctx->fromUTF8String(gkStr.c_str());
+                    const proto::ProtoString* gk2 = gko2 ? gko2->asString(ctx) : nullptr;
+                    if (gk2 && target->hasOwnAttribute(ctx, gk2) == PROTO_TRUE)
+                        targetHasOwn = true;
+                }
+                if (!targetHasOwn) {
+                    JSContextWrapper* w2 = JSContextWrapper::current();
+                    if (w2 && target->hasParent(ctx, w2->getNonExtensibleMarker())) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot add property to non-extensible object"));
+                        return PROTO_NONE;
+                    }
+                }
                 std::string pdStr = std::string("__pd_") + tk + "__";
                 const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
