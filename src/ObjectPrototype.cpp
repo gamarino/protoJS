@@ -1182,10 +1182,39 @@ static const proto::ProtoObject* objectSetPrototypeOf(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!args || args->getSize(ctx) < 2) return PROTO_NONE;
-    const proto::ProtoObject* obj   = args->getAt(ctx, 0);
+    // §20.1.2.21 step 1 RequireObjectCoercible(O) + step 2 type check
+    // on the proto argument.  Pre-fix the impl silently no-op'd for
+    // null / undefined target and for invalid proto values, instead of
+    // throwing TypeError.
+    if (!args || args->getSize(ctx) == 0) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Object.setPrototypeOf requires the first argument"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* obj = args->getAt(ctx, 0);
+    if (!obj || obj == PROTO_NONE
+        || obj == getNullSentinel() || obj == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Object.setPrototypeOf called on null or undefined"));
+        return PROTO_NONE;
+    }
+    if (args->getSize(ctx) < 2) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Object.setPrototypeOf requires a prototype argument"));
+        return PROTO_NONE;
+    }
     const proto::ProtoObject* proto = args->getAt(ctx, 1);
-    if (!obj || obj == PROTO_NONE) return PROTO_NONE;
+    // §20.1.2.21 step 2: proto must be Object or Null.
+    if (proto != getNullSentinel()) {
+        if (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
+            || proto->isInteger(ctx) || proto->isDouble(ctx)
+            || proto->isFloat(ctx) || proto == PROTO_TRUE || proto == PROTO_FALSE
+            || proto->isString(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object.setPrototypeOf: prototype must be an Object or null"));
+            return PROTO_NONE;
+        }
+    }
     // §10.1.2.1 SetImmutablePrototype-style check: non-extensible
     // objects can only accept a SetPrototypeOf when proto matches the
     // current prototype (no-op). Anything else throws TypeError.
