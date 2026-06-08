@@ -2696,6 +2696,30 @@ static const proto::ProtoObject* objectFromEntries(
         const proto::ProtoString* returnKey = ctx->fromUTF8String("return")
             ? ctx->fromUTF8String("return")->asString(ctx) : nullptr;
         const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKey, true);
+        // §7.4.2 GetIteratorFromMethod step 7 / §7.4.6 IteratorStep:
+        // when the iterator's `next` slot is not callable, abrupt-
+        // complete with TypeError BEFORE the loop body runs, AND DO NOT
+        // close the iterator (return() should not fire — the spec only
+        // closes after IteratorStep succeeded).  Pre-fix the loop body
+        // checked `nextFn && nextFn != PROTO_NONE` and silently exited,
+        // returning {} instead of TypeError (built-ins/Object/fromEntries/
+        // iterator-not-closed-for-uncallable-next).
+        auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+            if (!fn || fn == PROTO_NONE
+                || fn == getUndefinedSentinel() || fn == getNullSentinel())
+                return false;
+            if (fn->isMethod(ctx)) return true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
+            return false;
+        };
+        if (!isCallable(nextFn)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "iterator.next is not callable"));
+            return PROTO_NONE;
+        }
         // §7.4.6 IteratorClose: when an abrupt completion happens during
         // iteration, the spec calls iter.return() before re-raising.
         // Pre-fix processPair's signalNativeException for non-Object
