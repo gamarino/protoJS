@@ -3922,8 +3922,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureMapConstructor(pContext, pGlobalRoot);
     ensureSetConstructor(pContext, pGlobalRoot);
     ensureWeakMapConstructor(pContext, pGlobalRoot);
-    ensureMathObject(pContext, pGlobalRoot);
+    // Object MUST be registered before Math: ensureObjectConstructor
+    // re-binds space->objectPrototype to the populated user-visible
+    // %Object.prototype% (with `.constructor` back-ref). If Math is
+    // installed first it captures the pre-population snapshot, and
+    // Object.getPrototypeOf(Math) !== Object.prototype as a result.
     ensureObjectConstructor(pContext, pGlobalRoot);
+    ensureMathObject(pContext, pGlobalRoot);
     // Per ECMA-262 §19.3, the global object is reachable as globalThis.
     // Install it as a self-reference; the descriptor for globalThis is
     // { writable:true, enumerable:false, configurable:true } (descriptor

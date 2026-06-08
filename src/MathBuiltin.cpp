@@ -1,6 +1,7 @@
 #include "MathBuiltin.h"
 #include "JSSymbols.h"
 #include "ArrayElementsStorage.h"
+#include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 #include <cmath>
@@ -433,8 +434,25 @@ void ensureMathObject(proto::ProtoContext* ctx,
     // would split on every setAttribute, leaving globalRoot.Math
     // pointing at the original — `delete Math.sqrt` returns true but
     // Math.sqrt would still be reachable through the old snapshot.
-    const proto::ProtoObject* math = ctx->newObject(true);
+    //
+    // Parent the Math namespace on Object.prototype per §21.3 ("The
+    // Math object [...] has a [[Prototype]] internal slot whose value
+    // is %Object.prototype%."). Without this Math has no prototype
+    // chain to Object, so the spec-required inheritance of every
+    // Object.prototype method (hasOwnProperty / toString / isPrototypeOf
+    // / propertyIsEnumerable / valueOf / __defineGetter__ / …) is
+    // missing — and ToPropertyDescriptor(Math) in Object.defineProperty
+    // never sees the prototype-chain `value` / `writable` / etc. slots
+    // that the spec walks via [[Get]] (8.10.5).
+    const proto::ProtoObject* objectProto = ctx->space
+        ? ctx->space->objectPrototype : nullptr;
+    const proto::ProtoObject* math = objectProto
+        ? objectProto->newChild(ctx, true) : ctx->newObject(true);
     if (!math) return;
+    // Register the override so Object.getPrototypeOf(Math) and the
+    // attribute walk paths that consult t_jsProtoMap see %Object.prototype%
+    // as the [[Prototype]] (newChild only updates protoCore parents).
+    if (objectProto) setJSProtoOverride(ctx, math, objectProto);
 
     // Each Math method is exposed through a function-object wrapper so
     // it carries the spec-mandated `name` and `length` properties (with
