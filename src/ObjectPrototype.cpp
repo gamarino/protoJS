@@ -1901,15 +1901,23 @@ static const proto::ProtoObject* objectDefineProperty(
             const proto::ProtoString* hap = JSSymbols::hasAccessorProps(ctx);
             if (hap) target = target->setAttribute(ctx, hap, PROTO_TRUE);
         }
+        // §10.1.6.3 ValidateAndApplyPropertyDescriptor step 4: when
+        // redefining an accessor over an existing accessor, any field
+        // NOT present in the new descriptor must be left untouched.
+        // Pre-fix this branch always wrote both __get_<key>__ and
+        // __set_<key>__ from the descriptor, even when the field was
+        // absent — converting `{get, set}` into `{get, set: undefined}`
+        // on a getter-only re-define. Built-ins/Object/defineProperty/
+        // 15.2.3.6-4-{107,109,112} caught this.
         std::string gkStr = "__get_" + kstr + "__";
         const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
-        if (gk) {
+        if (gk && hasGet) {
             const proto::ProtoObject* gVal = (getter && getter != getUndefinedSentinel()) ? getter : nullptr;
             target = target->setAttribute(ctx, gk, gVal);
         }
         std::string skStr = "__set_" + kstr + "__";
         const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
-        if (sk) {
+        if (sk && hasSet) {
             const proto::ProtoObject* sVal = (setter && setter != getUndefinedSentinel()) ? setter : nullptr;
             target = target->setAttribute(ctx, sk, sVal);
             // Hot-path hint: when the setter is installed at a numeric
