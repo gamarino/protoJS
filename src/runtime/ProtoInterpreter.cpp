@@ -13103,6 +13103,83 @@ const proto::ProtoObject* callJSFunction(
         }
     }
 
+    // String constructor: takes a different route from Number/Boolean
+    // — there is no __construct__ method; the OP_call inline path
+    // detects __string_ctor__ and runs ToString directly.  Mirror that
+    // here so `String.bind(null)(99)` returns the string primitive.
+    {
+        const proto::ProtoString* strCtorK = JSSymbols::stringCtor(ctx);
+        if (strCtorK && fn->getAttribute(ctx, strCtorK, false) == PROTO_TRUE) {
+            int callArgc = args ? args->getSize(ctx) : 0;
+            if (callArgc == 0) return ctx->fromUTF8String("");
+            const proto::ProtoObject* arg = args->getAt(ctx, 0);
+            // §22.1.1.1 step 2.a: Symbol → "Symbol(<desc>)".
+            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+            if (arg && symK && arg->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+                const proto::ProtoObject* descKo = ctx->fromUTF8String("__symbol_desc__");
+                const proto::ProtoString* descK = descKo ? descKo->asString(ctx) : nullptr;
+                std::string desc;
+                if (descK) {
+                    const proto::ProtoObject* descVal = arg->getAttribute(ctx, descK, true);
+                    if (descVal && descVal != PROTO_NONE && descVal->isString(ctx)) {
+                        descVal->asString(ctx)->toUTF8String(ctx, desc);
+                    }
+                }
+                std::string out = "Symbol(" + desc + ")";
+                return ctx->fromUTF8String(out.c_str());
+            }
+            return toString(ctx, arg);
+        }
+    }
+
+    // Built-in conversion constructor path: Number / Boolean expose
+    // their conversion logic via the __construct__ native.
+    // callJSFunction's prior fall-through returned PROTO_NONE silently,
+    // breaking `Number.bind(null)(42)` (commit OP_call has the same
+    // shape inline; mirror it here so bound conversion ctors work).
+    {
+        const proto::ProtoString* conKey = JSSymbols::construct(ctx);
+        const proto::ProtoObject* conMethod = (conKey)
+            ? fn->getAttribute(ctx, conKey, false) : nullptr;
+        if (conMethod && conMethod != PROTO_NONE && conMethod->isMethod(ctx)) {
+            const proto::ProtoString* protoKey = JSSymbols::prototype(ctx);
+            const proto::ProtoObject* protoForCtor = protoKey
+                ? fn->getAttribute(ctx, protoKey, false) : nullptr;
+            const proto::ProtoObject* wrapper = (protoForCtor && protoForCtor != PROTO_NONE)
+                ? protoForCtor->newChild(ctx, true)
+                : ctx->newObject(true);
+            const proto::ProtoObject* constructed = conMethod->asMethod(ctx)(
+                ctx, wrapper, nullptr, args, nullptr);
+            if (t_hasCallException) return PROTO_NONE;
+            const proto::ProtoObject* result = constructed ? constructed : wrapper;
+            // Unwrap to primitive for Number / Boolean / String — the
+            // conversion-function form returns the primitive value, not
+            // the wrapper.  Object(x) keeps the wrapper (detected via
+            // .name === "Object").
+            bool isObjectCtor = false;
+            const proto::ProtoString* nameKey = JSSymbols::name(ctx);
+            if (nameKey) {
+                const proto::ProtoObject* fnName = fn->getAttribute(ctx, nameKey, false);
+                if (fnName && fnName != PROTO_NONE) {
+                    const proto::ProtoString* fns = fnName->asString(ctx);
+                    if (fns) {
+                        std::string n;
+                        fns->toUTF8String(ctx, n);
+                        if (n == "Object") isObjectCtor = true;
+                    }
+                }
+            }
+            if (!isObjectCtor) {
+                const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+                if (pvKey && result && result != PROTO_NONE) {
+                    const proto::ProtoObject* pv = result->getAttribute(ctx, pvKey, false);
+                    if (pv && pv != PROTO_NONE) result = pv;
+                }
+            }
+            return result ? result : PROTO_NONE;
+        }
+    }
+
     return PROTO_NONE;
 }
 
