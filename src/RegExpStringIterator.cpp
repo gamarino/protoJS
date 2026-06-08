@@ -7,6 +7,7 @@
 extern "C" {
 #include "libregexp.h"
 }
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -155,14 +156,20 @@ const proto::ProtoObject* regexpSymbolMatchAll(
     if (!bc) return PROTO_NONE;
 
     // Build a fresh clone of the regexp with the guaranteed-global flags.
+    // lre_compile returns a malloc-allocated buffer; ProtoByteBuffer's
+    // finalize uses delete[].  Copy into a new[]-allocated buffer so the
+    // Cell can free it cleanly; see the analogous fix in
+    // RegExpPrototype.cpp::regexpConstructor.
+    char* bcCopy = new char[bc_len];
+    std::memcpy(bcCopy, bc, static_cast<size_t>(bc_len));
+    free(bc);
     const proto::ProtoObject* clone = ctx->newObject(true);
     clone = clone->setAttribute(ctx, JSSymbols::reBytecode(ctx),
-        ctx->fromBuffer(static_cast<unsigned long>(bc_len), reinterpret_cast<char*>(bc), true));
+        ctx->fromBuffer(static_cast<unsigned long>(bc_len), bcCopy, true));
     clone = clone->setAttribute(ctx, JSSymbols::source(ctx),    ctx->fromUTF8String(patternStr.c_str()));
     clone = clone->setAttribute(ctx, JSSymbols::flags(ctx),     ctx->fromUTF8String(flagsStr.c_str()));
     clone = clone->setAttribute(ctx, JSSymbols::lastIndex(ctx), ctx->fromInteger(0));
     clone = clone->setAttribute(ctx, JSSymbols::global(ctx),    PROTO_TRUE);
-    free(bc);
 
     const proto::ProtoObject* strProtoObj = ctx->fromUTF8String(str.c_str());
     return makeRegExpStringIterator(ctx, clone, strProtoObj);

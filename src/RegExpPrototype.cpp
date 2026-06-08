@@ -298,7 +298,17 @@ const proto::ProtoObject* regexpConstructor(
     const proto::ProtoString* flgKey = JSSymbols::flags(ctx);
     const proto::ProtoString* liKey = JSSymbols::lastIndex(ctx);
 
-    obj = obj->setAttribute(ctx, bcKey, ctx->fromBuffer(static_cast<unsigned long>(bc_len), reinterpret_cast<char*>(bc), true));
+    // lre_compile returns a malloc-allocated buffer, but ProtoByteBuffer's
+    // finalize uses delete[]; passing the malloc'd pointer directly with
+    // freeOnExit=true mismatched the allocator AND the immediate free(bc)
+    // below left the Cell pointing at freed memory.  Result: regexpExec
+    // read garbage and returned false for every match.
+    // Copy into a new[]-allocated buffer so the Cell's delete[] is sound,
+    // then free the original malloc'd block.
+    char* bcCopy = new char[bc_len];
+    std::memcpy(bcCopy, bc, static_cast<size_t>(bc_len));
+    free(bc);
+    obj = obj->setAttribute(ctx, bcKey, ctx->fromBuffer(static_cast<unsigned long>(bc_len), bcCopy, true));
     obj = obj->setAttribute(ctx, srcKey, ctx->fromUTF8String(pattern.c_str()));
     obj = obj->setAttribute(ctx, flgKey, ctx->fromUTF8String(flags_str.c_str()));
     obj = obj->setAttribute(ctx, liKey, ctx->fromInteger(0));
@@ -311,7 +321,6 @@ const proto::ProtoObject* regexpConstructor(
     obj = obj->setAttribute(ctx, JSSymbols::sticky(ctx),     (re_flags & LRE_FLAG_STICKY)      ? PROTO_TRUE : PROTO_FALSE);
     obj = obj->setAttribute(ctx, JSSymbols::hasIndices(ctx), (re_flags & LRE_FLAG_INDICES)     ? PROTO_TRUE : PROTO_FALSE);
 
-    free(bc);
     return obj;
 }
 
