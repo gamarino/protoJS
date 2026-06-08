@@ -926,6 +926,46 @@ static const proto::ProtoObject* objectIsFrozen(
     if (wrapper && obj->hasParent(ctx, wrapper->getFrozenMarker())) {
         return PROTO_TRUE;
     }
+    // §10.1.6.4 TestIntegrityLevel: a non-extensible object whose own
+    // properties are all non-configurable (and, for "frozen", non-
+    // writable data props) is frozen.  Inherited descriptors do NOT
+    // count.  A non-extensible object with NO own properties is
+    // trivially frozen — pre-fix isFrozen only honoured the explicit
+    // FrozenMarker parent, missing the case where Object.preventExtensions
+    // had been called on an empty receiver:
+    //
+    //   var c = new Con();              // empty own props, inherits from proto
+    //   Object.preventExtensions(c);
+    //   Object.isFrozen(c)              // pre-fix: false  post-fix: true
+    if (wrapper && obj->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
+        const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
+        bool anyOwn = false;
+        bool allFrozen = true;
+        if (own) {
+            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+            while (it && it->hasNext(ctx)) {
+                unsigned long raw = it->nextKey(ctx);
+                const proto::ProtoString* k =
+                    reinterpret_cast<const proto::ProtoString*>(raw);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                if (!k || isInternalKey(ctx, k)) continue;
+                anyOwn = true;
+                std::string ks;
+                k->toUTF8String(ctx, ks);
+                std::string pdStr = std::string("__pd_") + ks + "__";
+                const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (!pdk) { allFrozen = false; break; }
+                const proto::ProtoObject* pdv = obj->getAttribute(ctx, pdk, false);
+                long long bits = (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx))
+                    ? pdv->asLong(ctx) : 0x7LL;  // default fully open
+                // bit0 writable, bit1 configurable
+                if (bits & 0x1) { allFrozen = false; break; }
+                if (bits & 0x2) { allFrozen = false; break; }
+            }
+        }
+        if (!anyOwn || allFrozen) return PROTO_TRUE;
+    }
     return PROTO_FALSE;
 }
 
