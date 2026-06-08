@@ -1245,6 +1245,26 @@ static const proto::ProtoObject* objectSetPrototypeOf(
         // Object.setPrototypeOf(o, null) had no observable effect.
         setJSProtoOverride(ctx, obj, getNullSentinel());
     } else if (proto && proto != PROTO_NONE) {
+        // §10.1.2.1 OrdinarySetPrototypeOf step 7: walk proto's chain;
+        // if `obj` appears in it, the assignment would create a cycle
+        // → throw TypeError per step 8.  Pre-fix the impl silently
+        // accepted any prototype, so Object.setPrototypeOf(
+        // Object.prototype, Array.prototype) — which cycles because
+        // Array.prototype's [[Prototype]] is Object.prototype —
+        // silently succeeded.
+        for (const proto::ProtoObject* p = proto, *hop = nullptr;
+             p && p != PROTO_NONE && p != getNullSentinel(); ) {
+            if (p == obj) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Object.setPrototypeOf: cyclic prototype chain"));
+                return PROTO_NONE;
+            }
+            // Walk: jsProtoMap override first, then protoCore parent.
+            auto it = t_jsProtoMap.find(p);
+            hop = (it != t_jsProtoMap.end()) ? it->second : p->getPrototype(ctx);
+            if (!hop || hop == p) break;  // stop at fixed point
+            p = hop;
+        }
         // 3-arg form: in addition to writing the map, rebinds the
         // protoCore parent chain via ProtoObject::setParents.  Read
         // paths through resolveFieldOOP see the new prototype natively
