@@ -332,6 +332,12 @@ static const proto::ProtoObject* objectValues(
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
     collectOwnKeys(ctx, obj, keys, &vals);
+    // §7.3.23 EnumerableOwnProperties calls Get(O, P) per key; a
+    // throwing accessor must abort the whole call.  collectOwnKeys
+    // sets s->aborted on hasCallException, but its caller did not
+    // propagate — so a getter-throw fell through and Object.values
+    // happily returned the partial result instead of re-raising.
+    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
@@ -363,6 +369,7 @@ static const proto::ProtoObject* objectEntries(
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
     collectOwnKeys(ctx, obj, keys, &vals);
+    if (hasCallException()) return PROTO_NONE;
 
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
