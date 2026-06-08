@@ -1885,6 +1885,14 @@ static const proto::ProtoObject* arraySlice(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // §23.1.3.28 step 4 invokes ArraySpeciesCreate(O, count), which
+    // routes through ArrayCreate(length).  ArrayCreate throws RangeError
+    // when length > 2^32-1.  Pre-fix arrLen clamped to 2^32-1 and the
+    // O(N) copy loop ran 4 billion+ times, burning CPU and RAM until
+    // earlyoom killed the session — the same hazard pattern that R15
+    // closed for the map / filter / forEach family.  Block at the
+    // entry point.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.slice")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     long long start = 0, end = len;
 
