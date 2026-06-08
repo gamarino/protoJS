@@ -3198,6 +3198,7 @@ static const proto::ProtoObject* arrayForEach(
     // §23.1.3.15 step ordering: LengthOfArrayLike precedes IsCallable
     // so a throwing `length` accessor surfaces its own exception
     // instead of a synthetic TypeError.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.forEach")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3423,6 +3424,7 @@ static const proto::ProtoObject* arrayFind(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.8: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.find")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3451,6 +3453,7 @@ static const proto::ProtoObject* arrayFindIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.9: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.findIndex")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3479,6 +3482,7 @@ static const proto::ProtoObject* arrayFindLast(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.findLast")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3507,6 +3511,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.11: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.findLastIndex")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3535,6 +3540,7 @@ static const proto::ProtoObject* arraySome(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.28: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.some")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3564,6 +3570,7 @@ static const proto::ProtoObject* arrayEvery(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.6: LengthOfArrayLike precedes IsCallable.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.every")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3668,6 +3675,7 @@ static const proto::ProtoObject* arrayReduce(
     // surfaced a synthetic TypeError "not callable" whenever the
     // length getter threw, instead of letting the user's exception
     // propagate.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.reduce")) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
@@ -3735,6 +3743,7 @@ static const proto::ProtoObject* arrayReduceRight(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27: LengthOfArrayLike precedes IsCallable; see arrayReduce.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.reduceRight")) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
