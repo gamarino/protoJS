@@ -598,6 +598,55 @@ static const proto::ProtoObject* objectAssign(
                         return PROTO_NONE;
                     }
                 }
+                // §10.1.9.3 OrdinarySetWithOwnDescriptor: when the
+                // own descriptor is an accessor, the spec dispatches
+                // to the setter — IsDataDescriptor is false here, so
+                // the writable check below is the wrong gate.  Probe
+                // for the accessor sidecars first; if the target has
+                // a __set_<key>__ slot, invoke the setter directly
+                // and skip the data-slot write.  Pre-fix
+                //   Object.defineProperty(t,'a',{set(v){throw X}});
+                //   Object.assign(t,{a:1});
+                // raised "Cannot assign to read only property" instead
+                // of propagating the user-supplied exception
+                // (built-ins/Object/assign/target-set-user-error and
+                // target-is-{frozen,sealed,non-extensible}-existing-
+                // accessor-property).
+                std::string setSkStr = std::string("__set_") + tk + "__";
+                const proto::ProtoObject* setSko = ctx->fromUTF8String(setSkStr.c_str());
+                const proto::ProtoString* setSk = setSko ? setSko->asString(ctx) : nullptr;
+                bool targetIsAccessor = false;
+                if (setSk && target->hasAttribute(ctx, setSk) == PROTO_TRUE) {
+                    const proto::ProtoObject* setter = target->getAttribute(ctx, setSk, true);
+                    if (setter && setter != PROTO_NONE
+                        && setter != getUndefinedSentinel()) {
+                        targetIsAccessor = true;
+                        const proto::ProtoList* setArgs = ctx->newList();
+                        setArgs = setArgs->appendLast(ctx, effective ? effective : PROTO_NONE);
+                        (void)callJSFunction(ctx, setter, target, setArgs);
+                        if (hasCallException()) return PROTO_NONE;
+                        continue; // setter handled the write; do not fall to setAttribute
+                    } else {
+                        // accessor with undefined setter — write into a
+                        // non-writable slot per §10.1.9.3 step 3.b.
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot assign to accessor property without a setter"));
+                        return PROTO_NONE;
+                    }
+                }
+                std::string getSkStr = std::string("__get_") + tk + "__";
+                const proto::ProtoObject* getSko = ctx->fromUTF8String(getSkStr.c_str());
+                const proto::ProtoString* getSk = getSko ? getSko->asString(ctx) : nullptr;
+                if (!targetIsAccessor && getSk && target->hasAttribute(ctx, getSk) == PROTO_TRUE) {
+                    const proto::ProtoObject* getter = target->getAttribute(ctx, getSk, true);
+                    if (getter && getter != PROTO_NONE
+                        && getter != getUndefinedSentinel()) {
+                        // Getter-only accessor: no setter installed → write fails.
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot assign to accessor property without a setter"));
+                        return PROTO_NONE;
+                    }
+                }
                 std::string pdStr = std::string("__pd_") + tk + "__";
                 const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
                 const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
