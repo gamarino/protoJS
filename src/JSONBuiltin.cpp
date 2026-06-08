@@ -1502,6 +1502,23 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
         NATIVE_MODULE_END
     };
     const proto::ProtoObject* jsonObj = ProtoNativeModule::buildModule(ctx, entries, 4);
+    // §25.5 "The JSON object [...] has a [[Prototype]] internal slot
+    // whose value is %Object.prototype%."  ProtoNativeModule::buildModule
+    // creates the cell with no parent, so Object.prototype methods
+    // (hasOwnProperty, toString, isPrototypeOf, …) are missing on JSON,
+    // and `Object.getPrototypeOf(JSON) === Object.prototype` returns false.
+    if (jsonObj) {
+        const proto::ProtoObject* objectProto = ctx->space
+            ? ctx->space->objectPrototype : nullptr;
+        if (objectProto) {
+            const proto::ProtoList* parents = ctx->newList();
+            if (parents) {
+                parents = parents->appendLast(ctx, objectProto);
+                if (parents) (void)jsonObj->setParents(ctx, parents);
+            }
+            setJSProtoOverride(ctx, jsonObj, objectProto);
+        }
+    }
     // Per §25.5.2 / §25.5.1: stringify.length === 3, parse.length === 2.
     // The generic ProtoNativeModule wrapper defaults to 0; patch each
     // method's length on the wrapper object.
