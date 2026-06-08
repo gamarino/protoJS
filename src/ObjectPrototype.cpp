@@ -2397,10 +2397,17 @@ static const proto::ProtoObject* objectDefineProperties(
     const proto::ProtoObject* propsObj = args->getAt(ctx, 1);
 
     // Per spec: throw TypeError if first arg (O) is null/undefined or a primitive.
+    // §20.1.2.5 step 1 invokes RequireObjectCoercible on O which rejects
+    // both null and undefined.  Pre-fix the explicit `undefined` token
+    // (t_undefinedSentinel) bypassed the absence check and reached the
+    // own-attribute walk on a non-object, so Object.defineProperties(
+    // undefined, {}) silently returned undefined instead of raising
+    // TypeError (built-ins/Object/defineProperties/15.2.3.7-1-1).
     {
         const proto::ProtoObject* nullSentinel = getNullSentinel();
+        const proto::ProtoObject* undefSentinel = getUndefinedSentinel();
         bool isNull = (target == nullSentinel);
-        bool isUndefined = (!target || target == PROTO_NONE);
+        bool isUndefined = (!target || target == PROTO_NONE || target == undefSentinel);
         if (isNull || isUndefined ||
             target->isBoolean(ctx) || target->isInteger(ctx) ||
             target->isDouble(ctx)  || target->isFloat(ctx)   ||
