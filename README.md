@@ -387,6 +387,81 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 18 — 2026-06-08** (4 fixes; RegExp constructor, the
+String→RegExp iterator bridge, and the GetIterator path used by
+spread / for-of / destructure).  Continues in the same
+host-safe-mode as R17: single-test verification, no parallel
+builds, no harness sweep.
+
+Two of the four commits unblock a family of regex tests that
+had been failing across every previous round:
+
+  * `63033aeb` — RegExp bytecode lifetime.  `regexpConstructor`
+    was attaching the malloc-allocated output of `lre_compile`
+    to a `ProtoByteBuffer` cell with `freeOnExit=true` and then
+    immediately calling `free(bc)`.  Two real bugs in one
+    line: the cell's finalizer uses `delete[]` (allocator
+    mismatch with `malloc`), and the immediate `free` left the
+    cell pointing at freed memory.  Result: `regexpExec` read
+    garbage and silently returned no-match for every regex
+    constructed via `new RegExp(...)`.  Fix copies the bytecode
+    into a `new[]`-allocated buffer, frees the original
+    immediately, and attaches the copy.  Applied at both sites
+    (`RegExpPrototype::regexpConstructor` and
+    `RegExpStringIterator::regExpStringIterator`).
+  * `390736e6` — Symbol.iterator on the RegExp-string
+    iterator.  The iterator stored ITSELF (a non-callable
+    object) as the value of `Symbol.iterator`, and the key it
+    used was the non-canonical
+    `fromUTF8String("Symbol.iterator")` instead of the
+    interned `JSSymbols::symbolIterator`.  Two failures
+    stacked: identity-mismatch made the slot invisible to
+    `Array.from` / `for-of` (which look up via the canonical
+    key), and even if found, the slot must contain a function
+    returning `this` per §27.1.2.1 — calling the iterator
+    object itself returned `undefined`.  Fix installs a
+    `fromMethod` wrapper returning self, under the canonical
+    key.  `Array.from(s.matchAll(...))` now drains correctly.
+  * `02ebad9d` — `String.prototype.matchAll` was a stub
+    returning `PROTO_NONE`.  Implemented per §22.1.3.13: route
+    through `regexp[Symbol.matchAll](this)` for regex
+    arguments (with the `g`-flag check), construct an implicit
+    global `RegExp` for string or nullish arguments.
+    Consumers that wrote
+    `Array.from(s.matchAll(/foo/g))` had been getting
+    `Cannot convert undefined or null to object` from the
+    downstream `ToObject` step.
+  * `3c83f80c` — `GetIterator` throws `TypeError` on
+    non-iterables.  Per §7.4.1 a value that has neither
+    `@@iterator` nor a length-based fallback must throw, and
+    null / undefined must throw at the `ToObject` step.
+    protoJS handled this with vacuous passes at two
+    interpreter sites: `L_OP_for_of_start` (`for (const x of
+    {})`, `var [a] = {}`) and `L_OP_append` (`[...null]`,
+    `[...undefined]`, `[...1]`).  Both now signal the
+    spec-required `TypeError`; legitimate iterables
+    (Array, String, Map, Set, custom @@iterator,
+    array-likes with `.length`) are unaffected.
+
+No pass-rate table this round — running the test262 harness
+would still require the broad sweep the host can't sustain.
+Each commit was verified with a single targeted `protojs -e`
+invocation covering both the failing path and the
+well-behaved baseline, plus a build that does not regress
+the previously-fixed tests.
+
+Deferred to a later dedicated round:
+  * R19 (already filed): the **regex literal** path
+    (`/a+/.test("aaaa")`).  Two stacked deep issues —
+    `L_OP_regexp` discards the compiled bytecode entirely,
+    and even when it doesn't, the bridging from QuickJS's
+    `JS_NewString` for raw regex bytecode through
+    `TypeBridge::fromJS` → `JS_ToCString` → `fromUTF8String`
+    re-encodes any byte ≥ 0x80 as UTF-8, corrupting the
+    binary.  Fix needs either source preservation across the
+    QuickJS frontend or a raw-bytes side channel — multi-file
+    work.
+
 **Round 17 — 2026-06-08** (3 fixes; runaway-allocation
 hardening on Array index / length code paths, scaled back from
 the planned larger sweep after a host-side memory-pressure
