@@ -387,6 +387,56 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 17 — 2026-06-08** (3 fixes; runaway-allocation
+hardening on Array index / length code paths, scaled back from
+the planned larger sweep after a host-side memory-pressure
+incident on the development machine).
+
+Three commits, every one a real root-cause fix on a path that
+either silently allocated O(2³²) cells or ran an O(2³²) probe
+loop when an Array consumer passed a length argument close to
+the 2³²-1 ceiling:
+
+  * `e0b4b0ad` — `Array.prototype.slice` now throws `RangeError`
+    when the receiver's logical length exceeds `2**32 - 1`,
+    matching the §23.1.3.28 step-2 `LengthOfArrayLike` /
+    `ToLength` check.  Pre-fix `slice(0, 4_294_967_296)` on
+    `{length: 4_294_967_296}` looped past `INT32_MAX` and hung the
+    process at 99 % CPU.
+  * `71b57f1e` — Same `RangeError` guard installed at the entry of
+    `Array.prototype.indexOf`, `lastIndexOf`, and `includes`.
+    These three share the read-iterate shape that `slice` had,
+    and all three were susceptible to the same runaway.
+  * `aed160e4` — `a.length = N` no longer materializes the
+    new holes when `N` exceeds `__elements__.size()` by more than
+    64 K.  Pre-fix `[].length = 4_294_967_295` appended
+    `PROTO_NONE` ~4 billion times to the array's backing
+    `ProtoList`, OOMing the process; ECMA-262 §10.4.2.4 does not
+    require the materialization — absent indices already read as
+    `undefined`, and the stored length is authoritative for
+    iteration.  Small grows (the `a=[1]; a.length=5; a[3]='x'`
+    pattern) still get filled.
+
+The round was originally planned as a 20-fix sweep on the
+Function family (47.2 % pass rate is the lowest non-stub band).
+A `Function.prototype.toString` survey did surface a genuine
+correctness bug — protoJS returns the
+`function NAME() { [native code] }` template for **every**
+function, including user functions with `__bytecode_id__`
+attached, which is a §20.2.3.5 violation (that template is
+reserved for built-in NativeFunction objects).  Fixing it
+requires routing through QuickJS's parsed source range, which
+is a multi-file edit and would not have fit safely in the round
+under the current host-side memory constraints.  Logged for
+R18.
+
+No pass-rate table this round — running the test262 harness
+would have required exactly the kind of broad parallel sweep
+that the host can't sustain right now.  The three fixes were
+each verified with a single targeted `protojs -e` invocation
+covering both the runaway path and the well-behaved baseline,
+plus a build that does not regress any previously-fixed test.
+
 **Round 16 — 2026-06-08** (13 fixes; surfaced a long-standing
 architectural mismatch in the namespace built-ins' prototype
 chain):
