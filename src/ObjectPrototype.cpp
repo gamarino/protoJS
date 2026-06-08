@@ -208,6 +208,13 @@ static void collectOwnKeys(
             reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!propKey) return;
         if (isInternalKey(cbCtx, propKey)) return;
+        // §7.3.21 EnumerableOwnProperties always filters by Type(key)=String;
+        // Object.{keys,values,entries,assign} only iterate string keys per
+        // §19.1.2.16 / §19.1.2.21 / §19.1.2.5 step 4.c.ii.  Symbol keys
+        // are reachable via Object.getOwnPropertySymbols and Reflect.ownKeys.
+        // Pre-fix collectOwnKeys leaked Symbol keys into entries() / keys() /
+        // values() — built-ins/Object/entries/symbols-omitted.js caught it.
+        if (propKey->isSymbol()) return;
         // ECMA-262 §7.3.23 EnumerableOwnProperties step 4.a — at each
         // step re-check that [[GetOwnProperty]] still returns a
         // descriptor for this key on `obj`. The snapshot the iterator
