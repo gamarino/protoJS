@@ -246,10 +246,24 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
             JSValue sourceVal = JS_GetPropertyStr(ctx, val, "source");
             JSValue flagsVal = JS_GetPropertyStr(ctx, val, "flags");
             
+            // ECMA-262 §22.2.6.x: source / flags are accessor properties
+            // on RegExp.prototype, not own data on the instance.  Until
+            // the accessor wiring is in place, store them on the
+            // instance as own data but with descriptor 0x3 (writable=true,
+            // enumerable=FALSE, configurable=true).  Without
+            // __pd_<key>__ they default to fully enumerable, leaking
+            // through Object.keys / JSON.stringify / for-in.
+            auto stampNonEnum = [&](const proto::ProtoString* key, const char* pdName) {
+                const proto::ProtoObject* pdo = pContext->fromUTF8String(pdName);
+                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                if (pdk) pObj = pObj->setAttribute(pContext, pdk, pContext->fromInteger(0x3LL));
+            };
+
             if (JS_IsString(sourceVal)) {
                 const char* source = JS_ToCString(ctx, sourceVal);
                 const proto::ProtoString* pSource = proto::ProtoString::createSymbol(pContext, source);
                 pObj = pObj->setAttribute(pContext, JSSymbols::source(pContext), pSource->asObject(pContext));
+                stampNonEnum(JSSymbols::source(pContext), "__pd_source__");
                 JS_FreeCString(ctx, source);
             }
 
@@ -257,7 +271,14 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
                 const char* flags = JS_ToCString(ctx, flagsVal);
                 const proto::ProtoString* pFlags = proto::ProtoString::createSymbol(pContext, flags);
                 pObj = pObj->setAttribute(pContext, JSSymbols::flags(pContext), pFlags->asObject(pContext));
+                stampNonEnum(JSSymbols::flags(pContext), "__pd_flags__");
                 JS_FreeCString(ctx, flags);
+            }
+            // Light the per-target gating flag so collectOwnKeys actually
+            // reads the __pd_<key>__ sidecars.
+            {
+                const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(pContext);
+                if (hnw) pObj = pObj->setAttribute(pContext, hnw, PROTO_TRUE);
             }
             
             JS_FreeValue(ctx, sourceVal);
