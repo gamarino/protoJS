@@ -2102,11 +2102,29 @@ const proto::ProtoObject* stringRaw(
         return PROTO_NONE;
     }
 
-    // Get template.raw
+    // Get template.raw — step 5 ToObject(? Get(cooked, "raw")).
+    // A throwing accessor (Object.defineProperty(cooked,'raw',{get:throwing}))
+    // must propagate.  Probe the __get_raw__ sidecar explicitly so
+    // accessor getters fire — getAttribute alone returns the (empty)
+    // data slot.
     const proto::ProtoObject* rawKeyObj = ctx->fromUTF8String("raw");
     const proto::ProtoString* rawKey = rawKeyObj ? rawKeyObj->asString(ctx) : nullptr;
-    const proto::ProtoObject* rawArr = rawKey
-        ? tpl->getAttribute(ctx, rawKey, true) : PROTO_NONE;
+    const proto::ProtoObject* rawArr = nullptr;
+    {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_raw__");
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = tpl->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                rawArr = callJSFunction(ctx, getter, tpl, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+        if (!rawArr || rawArr == PROTO_NONE) {
+            rawArr = rawKey ? tpl->getAttribute(ctx, rawKey, true) : PROTO_NONE;
+        }
+    }
+    if (hasCallException()) return PROTO_NONE;
     if (!rawArr || rawArr == PROTO_NONE
         || rawArr == getNullSentinel() || rawArr == getUndefinedSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
@@ -2114,15 +2132,44 @@ const proto::ProtoObject* stringRaw(
         return PROTO_NONE;
     }
 
-    // Get raw.length
+    // Get raw.length — step 7 ToLength(? Get(raw, "length")).  Same
+    // propagation rule for a throwing length accessor.  protojs stores
+    // accessor getters under a __get_<key>__ sidecar; getAttribute
+    // alone reads the (typically empty) data slot, so probe the
+    // sidecar explicitly and invoke when present.
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
     long long rawLen = 0;
     if (lenKey) {
-        const proto::ProtoObject* lv = rawArr->getAttribute(ctx, lenKey, true);
+        const proto::ProtoObject* lv = nullptr;
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+        const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = rawArr->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                lv = callJSFunction(ctx, getter, rawArr, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+        if (!lv || lv == PROTO_NONE)
+            lv = rawArr->getAttribute(ctx, lenKey, true);
+        if (hasCallException()) return PROTO_NONE;
         if (lv && lv != PROTO_NONE && lv->isInteger(ctx))
             rawLen = lv->asLong(ctx);
         else if (lv && lv != PROTO_NONE && lv->isDouble(ctx))
             rawLen = static_cast<long long>(lv->asDouble(ctx));
+        else if (lv && lv != PROTO_NONE) {
+            // §21.1.2.4 step 7: ToLength(value) → ToIntegerOrInfinity → ToNumber.
+            // Symbol value throws TypeError (template-length-is-symbol-throws.js).
+            const proto::ProtoObject* n = jsToNumber(ctx, lv);
+            if (hasCallException()) return PROTO_NONE;
+            if (n) {
+                if (n->isInteger(ctx)) rawLen = n->asLong(ctx);
+                else if (n->isDouble(ctx) || n->isFloat(ctx)) {
+                    double d = n->asDouble(ctx);
+                    if (!std::isnan(d) && d > 0) rawLen = static_cast<long long>(d);
+                }
+            }
+        }
     }
 
     // Build result: raw[0] + subs[0] + raw[1] + subs[1] + ... + raw[n-1]
