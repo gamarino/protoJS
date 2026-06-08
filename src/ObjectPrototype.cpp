@@ -2654,12 +2654,34 @@ static const proto::ProtoObject* objectGroupBy(
             "Object.groupBy: callback is not callable"));
         return PROTO_NONE;
     }
+    // Build a temporary ProtoList of values to iterate.  For Array
+    // sources we reuse the __elements__ list; for strings we materialise
+    // a list of single-codepoint string cells (per §22.1.4 each
+    // codepoint is the iterated value).  Generic iterators are still
+    // pending — see R14 commit 089ec599.
     const proto::ProtoList* els = protojs::getArrayElements(ctx, items);
+    bool ownedEls = false;
+    if (!els && items->isString(ctx)) {
+        std::string s;
+        items->asString(ctx)->toUTF8String(ctx, s);
+        const proto::ProtoList* built = ctx->newList();
+        for (size_t i = 0; i < s.size(); ) {
+            unsigned char c = static_cast<unsigned char>(s[i]);
+            size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+            if (i + cl > s.size()) break;
+            std::string ch = s.substr(i, cl);
+            built = built->appendLast(ctx, ctx->fromUTF8String(ch.c_str()));
+            i += cl;
+        }
+        els = built;
+        ownedEls = true;
+    }
     if (!els) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Object.groupBy: items is not iterable"));
         return PROTO_NONE;
     }
+    (void)ownedEls;
 
     const proto::ProtoObject* result = ctx->newObject(true);
     if (!result) return PROTO_NONE;
