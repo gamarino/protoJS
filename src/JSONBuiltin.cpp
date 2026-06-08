@@ -184,6 +184,20 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             return;
         }
     }
+    // §25.5.2.2 SerializeJSONProperty step 4: if Type(value) is
+    // Symbol, return undefined.  Inside an array that surfaces as
+    // "null" (caller turns undefined → "null" for array positions);
+    // inside an object the key is dropped (handled at the per-key
+    // emission site in the object branch).  Pre-fix Symbol wrappers
+    // fell through to the generic-object branch and serialised as
+    // their internal `{__symbol_desc__, ...}` shape.
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && obj->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+            out += "null";
+            return;
+        }
+    }
     if (obj->isBoolean(ctx)) {
         out += obj->asBoolean(ctx) ? "true" : "false";
         return;
@@ -611,6 +625,16 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     || val == getUndefinedSentinel() || isCallable) {
                     continue;
                 }
+                // Symbol values per §25.5.2.2 step 4 — the property is
+                // dropped from object output (would have been "null"
+                // inside an array).  Pre-fix the loop only filtered
+                // PROTO_NONE / undefined / callables, so Symbol values
+                // landed in the generic-object branch and emitted
+                // their internal shape.
+                const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+                if (symK && val->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+                    continue;
+                }
             }
             {
                 if (first) emitOpenLine(); else emitSep();
@@ -974,6 +998,12 @@ const proto::ProtoObject* JSONBuiltin::stringify(proto::ProtoContext* ctx,
         }
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
         if (nfKey && val->hasAttribute(ctx, nfKey) == PROTO_TRUE) {
+            return getUndefinedSentinel();
+        }
+        // Top-level Symbol value per §25.5.2.2 step 4 → undefined.
+        // (Inside arrays it surfaces as "null" via stringifyRecursive.)
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && val->getAttribute(ctx, symK, true) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
     }
