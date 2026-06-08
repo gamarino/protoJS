@@ -2210,10 +2210,16 @@ const proto::ProtoObject* stringRaw(
                 result += sv;
             }
         }
-        // Append substitution args[i+1] if it exists
-        if (i + 1 < (long long)args->getSize(ctx)) {
+        // §21.1.2.4 step 12.e: the loop terminates after raw[rawLen-1];
+        // substitutions only fire BETWEEN segments, so no substitution
+        // attaches after the final raw segment.  Pre-fix the loop kept
+        // appending args[i+1] up to args.size() — a trailing
+        // substitution with a throwing toString surfaced an exception
+        // even though spec says it must NEVER be consulted.
+        if (i + 1 < rawLen && i + 1 < (long long)args->getSize(ctx)) {
             const proto::ProtoObject* sub = args->getAt(ctx, static_cast<int>(i + 1));
             result += objToStr(ctx, sub);
+            if (hasCallException()) return PROTO_NONE;
         }
     }
     return ctx->fromUTF8String(result.c_str());
