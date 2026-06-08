@@ -1419,17 +1419,36 @@ static const proto::ProtoString* coercePropNameToKey(
                     hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
                     const proto::ProtoObject* res = callJSFunction(ctx, tpFn, current, hintArgs);
                     if (hasCallException()) return nullptr;
+                    bool isSym = false;
+                    if (res && res != PROTO_NONE) {
+                        const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
+                        if (isSK && res->hasAttribute(ctx, isSK) == PROTO_TRUE
+                            && res->getAttribute(ctx, isSK, false) == PROTO_TRUE) {
+                            isSym = true;
+                        }
+                    }
                     bool isPrim = res
                         && (res->isString(ctx) || res->isInteger(ctx)
                             || res->isDouble(ctx) || res->isFloat(ctx)
                             || res->isBoolean(ctx)
-                            || res == getNullSentinel() || res == getUndefinedSentinel());
+                            || res == getNullSentinel() || res == getUndefinedSentinel()
+                            || isSym);
                     if (res && !isPrim) {
                         signalNativeException(makeNativeError(ctx, "TypeError",
                             "Symbol.toPrimitive returned a non-primitive"));
                         return nullptr;
                     }
-                    if (isPrim) prim = res;
+                    if (isPrim) {
+                        // For Symbol primitives, return the symbol-tagged
+                        // object as the key directly — its identity IS
+                        // the property key.  Bypass the toString /
+                        // valueOf / number stringification fallthrough.
+                        if (isSym) {
+                            const proto::ProtoString* symKey = res->asString(ctx);
+                            return symKey;
+                        }
+                        prim = res;
+                    }
                 }
             }
         }
@@ -2816,16 +2835,16 @@ static const proto::ProtoObject* objectHasOwn(
         ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
 
-    std::string keyStr;
-    if (key->isString(ctx)) {
-        const proto::ProtoString* ps = key->asString(ctx);
-        if (ps) ps->toUTF8String(ctx, keyStr);
-    } else if (key->isInteger(ctx)) {
-        keyStr = std::to_string(key->asLong(ctx));
-    }
-    if (keyStr.empty()) return PROTO_FALSE;
-    const proto::ProtoString* strKey = ctx->fromUTF8String(keyStr.c_str())->asString(ctx);
+    // §20.1.2.13 step 2 invokes ToPropertyKey(P), which routes through
+    // ToPrimitive (Symbol.toPrimitive → toString → valueOf).  Pre-fix
+    // hasOwn only honoured raw String / Integer keys — an object key
+    // whose @@toPrimitive coerced to a Symbol fell to the empty-key
+    // short-circuit (built-ins/Object/hasOwn/symbol_property_*).
+    const proto::ProtoString* strKey = coercePropNameToKey(ctx, key);
+    if (hasCallException()) return PROTO_NONE;
     if (!strKey) return PROTO_FALSE;
+    std::string keyStr;
+    strKey->toUTF8String(ctx, keyStr);
     // hasOwnAttribute returns PROTO_TRUE if own, PROTO_FALSE if inherited, nullptr if absent
     const proto::ProtoObject* own = obj->hasOwnAttribute(ctx, strKey);
     if (own == PROTO_TRUE) return PROTO_TRUE;
