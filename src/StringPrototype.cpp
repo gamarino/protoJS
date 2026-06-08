@@ -232,6 +232,24 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const proto::ProtoString* tsKey = tsKey_o ? tsKey_o->asString(ctx) : nullptr;
         if (tsKey) {
             const proto::ProtoObject* tsFn = obj->getAttribute(ctx, tsKey, true);
+            // §7.1.1 OrdinaryToPrimitive step 5.a uses Get(O, "toString"),
+            // which fires the accessor getter if one is installed. The
+            // pre-fix data-slot-only probe missed accessor throws and
+            // accessor-returned methods (built-ins/String/prototype/
+            // trimEnd/this-value-object-tostring-{call,meth-priority}-
+            // err and the parallel valueof- variants).
+            {
+                std::string gkStr = "__get_toString__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                if (gk) {
+                    const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+                    if (getter && getter != PROTO_NONE) {
+                        tsFn = callJSFunction(ctx, getter, obj, ctx->newList());
+                        if (hasCallException()) return "";
+                    }
+                }
+            }
             if (tsFn && tsFn != PROTO_NONE) {
                 const proto::ProtoObject* result = nullptr;
                 if (tsFn->isMethod(ctx)) {
@@ -275,6 +293,20 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         const proto::ProtoString* voKey = voKey_o ? voKey_o->asString(ctx) : nullptr;
         if (voKey) {
             const proto::ProtoObject* voFn = obj->getAttribute(ctx, voKey, true);
+            // Mirror the toString accessor probe — §7.1.1 OrdinaryToPrimitive
+            // step 5.a applies to "valueOf" as well.
+            {
+                std::string gkStr = "__get_valueOf__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                if (gk) {
+                    const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+                    if (getter && getter != PROTO_NONE) {
+                        voFn = callJSFunction(ctx, getter, obj, ctx->newList());
+                        if (hasCallException()) return "";
+                    }
+                }
+            }
             if (voFn && voFn != PROTO_NONE) {
                 const proto::ProtoObject* result = nullptr;
                 if (voFn->isMethod(ctx)) {
