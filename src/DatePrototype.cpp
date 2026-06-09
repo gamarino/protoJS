@@ -281,6 +281,16 @@ static const proto::ProtoObject* dateGetMonth(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_mon; });
 }
 
+// §21.4.4.2 getDate — local day-of-month.
+static const proto::ProtoObject* dateGetDate(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* self,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList*,
+                                             const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, false,
+        [](const std::tm& tm, int) { return tm.tm_mday; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -424,6 +434,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getUTCMilliseconds", dateGetUTCMilliseconds, 0);
         registerProtoMethod(ctx, proto, "getFullYear",        dateGetFullYear, 0);
         registerProtoMethod(ctx, proto, "getMonth",           dateGetMonth, 0);
+        registerProtoMethod(ctx, proto, "getDate",            dateGetDate, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
