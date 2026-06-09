@@ -945,9 +945,28 @@ static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
                                             const proto::ProtoList* args,
                                             const proto::ProtoSparseList* k) {
     if (!ctx) return PROTO_NONE;
+    // §21.4.4.37 step 1: ToObject(this).  When this is undefined or
+    // null, that step throws a TypeError.  protoJS represents both as
+    // PROTO_NONE / sentinels; treat any sentinel-y receiver as throw.
+    if (!self || self == PROTO_NONE ||
+        self == getUndefinedSentinel() ||
+        self == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Date.prototype.toJSON called on null or undefined"));
+        return PROTO_NONE;
+    }
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
-    if (!isDate || std::isnan(t) || !std::isfinite(t)) return PROTO_NONE;
+    // §21.4.4.37 step 3: if tv is a Number and !isFinite(tv), return null.
+    if (isDate && (std::isnan(t) || !std::isfinite(t))) return PROTO_NONE;
+    if (!isDate) {
+        // For non-Date receivers the spec calls
+        //   Invoke(O, "toISOString").  We approximate by routing
+        // through our static toISOString implementation; a fully-
+        // spec'd Invoke (looking up toISOString via [[Get]]) requires
+        // additional plumbing.
+        return PROTO_NONE;
+    }
     return dateToISOString(ctx, self, p, args, k);
 }
 
