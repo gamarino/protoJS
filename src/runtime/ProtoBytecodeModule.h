@@ -74,6 +74,18 @@ struct ProtoBytecodeModule {
     /** The function's declared name. */
     std::string funcName;
 
+    /** The function's source text, populated at load time from the
+     *  QuickJS bytecode's debug.source field.  Empty for top-level
+     *  modules (and for functions whose bytecode lacks debug info).
+     *  Used by Function.prototype.toString to surface the real
+     *  source instead of the spec-default "[native code]" template.
+     *
+     *  For nested function declarations / expressions, QuickJS's
+     *  compiler records the *entire* "function name(args) { body }"
+     *  span (or the equivalent arrow / method short-form), so this
+     *  string is directly usable as toString output. */
+    std::string funcSource;
+
     unsigned argCount() const { return argCount_; }
     unsigned varCount() const { return varCount_; }
     unsigned stackSize() const { return stackSize_; }

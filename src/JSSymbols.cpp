@@ -114,6 +114,7 @@ DEFINE_SYMBOL(closureSymbols,   "__closure_symbols__")
 DEFINE_SYMBOL(parameterNames,   "__parameter_names__")
 DEFINE_SYMBOL(bytecode,         "__bytecode__")
 DEFINE_SYMBOL(metadata,         "__metadata__")
+DEFINE_SYMBOL(sourceText,       "__source_text__")
 
 // Recurrent interpreter sentinels (added 2026-05-31).
 DEFINE_SYMBOL(construct,        "__construct__")
@@ -351,6 +352,7 @@ std::string getNameFromHash(proto::ProtoContext* ctx, unsigned long hash) {
         REGISTER(parameterNames,"__parameter_names__")
         REGISTER(bytecode,      "__bytecode__")
         REGISTER(metadata,      "__metadata__")
+        REGISTER(sourceText,    "__source_text__")
         REGISTER(construct,     "__construct__")
         REGISTER(genSent,       "__gen_sent__")
         REGISTER(genThrowVal,   "__gen_throw_val__")

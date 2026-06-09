@@ -59652,3 +59652,23 @@ int protojs_bytecode_func_kind(void *bytecode) {
     JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
     return (int)b->func_kind;
 }
+
+/* Function source range (debug info).  Returns the pointer to
+ * b->debug.source if has_debug is set and the source was preserved
+ * (compile path keeps it; serialised + deserialised bytecodes
+ * preserve it through their dbuf), NULL otherwise.  The pointer is
+ * owned by the bytecode (do NOT free).  Used by protoJS to make
+ * Function.prototype.toString return the real source instead of
+ * the spec-default native template (ECMA-262 §20.2.3.5).
+ */
+const char* protojs_bytecode_source(void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (!b->has_debug) return NULL;
+    return b->debug.source;
+}
+
+int protojs_bytecode_source_len(void *bytecode) {
+    JSFunctionBytecode *b = (JSFunctionBytecode *)bytecode;
+    if (!b->has_debug) return 0;
+    return b->debug.source_len;
+}

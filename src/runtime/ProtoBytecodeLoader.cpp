@@ -161,6 +161,20 @@ static bool loadBytecodeRecursive(JSContext* ctx,
     out->funcName = funcNameCstr ? funcNameCstr : "";
     if (funcNameCstr) JS_FreeCString(ctx, funcNameCstr);
 
+    // Capture the function's source text from the QuickJS bytecode's
+    // debug info (b->debug.source).  Empty when the bytecode was
+    // built without debug info, which is the case for top-level
+    // module / script frames.  Function.prototype.toString reads
+    // this back via the __source_text__ attribute stamped by
+    // OP_fclosure.
+    const char* srcPtr = protojs_bytecode_source(quickjsBytecode);
+    const int srcLen = protojs_bytecode_source_len(quickjsBytecode);
+    if (srcPtr && srcLen > 0) {
+        out->funcSource.assign(srcPtr, static_cast<size_t>(srcLen));
+    } else {
+        out->funcSource.clear();
+    }
+
     const int closureVarCount = protojs_bytecode_closure_var_count(quickjsBytecode);
     out->closureVarNames.clear();
     out->closureVarNames.reserve(static_cast<size_t>(closureVarCount));

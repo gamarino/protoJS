@@ -112,6 +112,7 @@ const proto::ProtoString* closureSymbols(proto::ProtoContext* ctx); // "__closur
 const proto::ProtoString* parameterNames(proto::ProtoContext* ctx); // "__parameter_names__"
 const proto::ProtoString* bytecode(proto::ProtoContext* ctx);       // "__bytecode__"
 const proto::ProtoString* metadata(proto::ProtoContext* ctx);       // "__metadata__"
+const proto::ProtoString* sourceText(proto::ProtoContext* ctx);     // "__source_text__" — original source for Function.prototype.toString
 const proto::ProtoString* nativeFn(proto::ProtoContext* ctx);       // "__native_fn__"
 const proto::ProtoString* arrayElements(proto::ProtoContext* ctx);  // "__elements__" — ProtoList storage for dense arrays
 // Recurrent interpreter sentinels — added 2026-05-31 to eliminate

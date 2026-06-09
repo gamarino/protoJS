@@ -71,6 +71,17 @@ int protojs_bytecode_is_arrow(void* bytecode);
 /** Return the function kind: 0=normal, 1=generator, 2=async, 3=async-generator. */
 int protojs_bytecode_func_kind(void* bytecode);
 
+/** Return the source text preserved in the bytecode's debug info, or
+ *  NULL if has_debug is unset or the source was stripped. The buffer
+ *  is NOT null-terminated; use protojs_bytecode_source_len. Pointer
+ *  is owned by the bytecode — do NOT free.
+ *  Used to implement Function.prototype.toString. */
+const char* protojs_bytecode_source(void* bytecode);
+
+/** Length in bytes of the source text returned by protojs_bytecode_source.
+ *  Zero when source is unavailable. */
+int protojs_bytecode_source_len(void* bytecode);
+
 #ifdef __cplusplus
 }
 #endif

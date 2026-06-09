@@ -11236,6 +11236,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* iasK = JSSymbols::isAsync(pContext);
                             if (iasK) fnInst = fnInst->setAttribute(pContext, iasK, PROTO_TRUE);
                         }
+                        // Stamp source text for Function.prototype.toString.
+                        // See L_OP_fclosure for the rationale; the 8-bit
+                        // immediate variant gets the same treatment so a
+                        // function declared with the short cpool index also
+                        // surfaces real source.
+                        if (!nm8.funcSource.empty()) {
+                            const proto::ProtoString* stK = JSSymbols::sourceText(pContext);
+                            if (stK) {
+                                const proto::ProtoObject* srcVal =
+                                    pContext->fromUTF8String(nm8.funcSource.c_str());
+                                if (srcVal)
+                                    fnInst = fnInst->setAttribute(pContext, stK, srcVal);
+                            }
+                        }
                         // Closure var capture: store cells (or raw values
                         // for global captures) on the function instance via
                         // `__captured_cells__`.  See OP_fclosure for the
@@ -11373,6 +11387,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (nm2.isAsync) {
                             const proto::ProtoString* iasK2 = JSSymbols::isAsync(pContext);
                             if (iasK2) fnInst2 = fnInst2->setAttribute(pContext, iasK2, PROTO_TRUE);
+                        }
+                        // ECMA-262 §20.2.3.5: Function.prototype.toString must
+                        // return the source text of the function for user-
+                        // defined functions.  Stamp the bytecode's captured
+                        // source so toString can surface it instead of the
+                        // spec-default "function name() { [native code] }"
+                        // template.  Empty when the bytecode lacks debug
+                        // info (top-level frames, builtins).
+                        if (!nm2.funcSource.empty()) {
+                            const proto::ProtoString* stK = JSSymbols::sourceText(pContext);
+                            if (stK) {
+                                const proto::ProtoObject* srcVal =
+                                    pContext->fromUTF8String(nm2.funcSource.c_str());
+                                if (srcVal)
+                                    fnInst2 = fnInst2->setAttribute(pContext, stK, srcVal);
+                            }
                         }
                         // Closure var capture: store cells (or raw values for
                         // global captures) on the function instance via the

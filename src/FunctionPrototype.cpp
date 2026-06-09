@@ -399,6 +399,25 @@ static const proto::ProtoObject* fnToString(
         return PROTO_NONE;
     }
 
+    // ECMA-262 §20.2.3.5: for user-defined functions, return the
+    // original source text.  protoJS captures the QuickJS bytecode's
+    // debug.source field at compile time and stamps it onto each
+    // closure as __source_text__ in OP_fclosure.  When the attribute
+    // is present, return it verbatim — that's the spec-required
+    // FunctionDeclaration / FunctionExpression / ArrowFunction /
+    // MethodDefinition syntax.  Without it (host-supplied built-ins,
+    // arrow methods built directly from C++, Bound functions),
+    // fall back to the native template below.
+    {
+        const proto::ProtoString* stK = JSSymbols::sourceText(ctx);
+        if (stK) {
+            const proto::ProtoObject* stVal = self->getAttribute(ctx, stK, false);
+            if (stVal && stVal != PROTO_NONE && stVal->isString(ctx)) {
+                return stVal;
+            }
+        }
+    }
+
     // Extract the function's name attribute.
     std::string fnName;
     const proto::ProtoString* nameKey = JSSymbols::name(ctx);
