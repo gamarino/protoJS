@@ -728,6 +728,20 @@ static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
+// §21.4.4.37 toJSON — calls toISOString unless the receiver's primitive
+// value is non-finite (then returns null per spec).
+static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* self,
+                                            const proto::ParentLink* p,
+                                            const proto::ProtoList* args,
+                                            const proto::ProtoSparseList* k) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t) || !std::isfinite(t)) return PROTO_NONE;
+    return dateToISOString(ctx, self, p, args, k);
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -877,6 +891,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setUTCMonth",        dateSetUTCMonth, 2);
         registerProtoMethod(ctx, proto, "setUTCFullYear",     dateSetUTCFullYear, 3);
         registerProtoMethod(ctx, proto, "toISOString",        dateToISOString, 0);
+        registerProtoMethod(ctx, proto, "toJSON",             dateToJSON, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
