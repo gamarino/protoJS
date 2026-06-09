@@ -1,5 +1,9 @@
 #include "DatePrototype.h"
 #include "JSContext.h"
+// Notes on the choice of timezone primitives:
+//   - gmtime_r / timegm: stateless UTC ↔ broken-down time
+//   - localtime_r / mktime: TZ-aware; uses host's $TZ at call time
+// Both pairs are POSIX, available on every supported protoJS host.
 #include "JSSymbols.h"
 #include "ObjectPrototype.h"
 #include "PrototypeUtils.h"
