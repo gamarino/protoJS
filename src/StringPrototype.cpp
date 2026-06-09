@@ -938,7 +938,11 @@ const proto::ProtoObject* stringSubstring(
             }
             if (args && args->getSize(ctx) >= 2) {
                 const proto::ProtoObject* ea = args->getAt(ctx, 1);
-                if (ea && ea != PROTO_NONE) {
+                // §22.1.3.20 substring: when `end` is undefined, default
+                // to length.  Pre-fix the undefined sentinel went through
+                // getIntArg, which coerced to NaN→0 and produced an
+                // empty substring (S15.5.4.15_A1_T7 et al).
+                if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
                     end = getIntArg(ctx, args, 1, len);
                     end = std::max(0LL, std::min(end, len));
                 }
