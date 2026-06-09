@@ -1288,6 +1288,11 @@ static const proto::ProtoObject* dateToTemporalInstant(proto::ProtoContext* ctx,
     return dateGetTime(ctx, self, p, a, k);
 }
 
+// ----------------------------------------------------------------
+// §21.4.4.45 Date.prototype [@@toPrimitive] — drives ToPrimitive
+// for Date receivers.  Hint "string"/"default" → toString; hint
+// "number" → valueOf; anything else throws TypeError per step 5.
+// ----------------------------------------------------------------
 // §21.4.4.45 Date.prototype [@@toPrimitive] — drives ToPrimitive for
 // Date receivers.  Per spec: hint "string" or "default" → toString;
 // hint "number" → valueOf.  Any other hint → TypeError (surfaced as
