@@ -811,6 +811,28 @@ static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
+// §21.4.4.34 toDateString — "Day Mon DD YYYY" (local).
+static const proto::ProtoObject* dateToDateString(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* self,
+                                                  const proto::ParentLink*,
+                                                  const proto::ProtoList*,
+                                                  const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) return ctx->fromUTF8String("Invalid Date");
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, false, &tmv, &msrem))
+        return ctx->fromUTF8String("Invalid Date");
+    char buf[48];
+    std::snprintf(buf, sizeof(buf),
+        "%s %s %02d %04d",
+        kWeekdayShort[tmv.tm_wday], kMonthShort[tmv.tm_mon],
+        tmv.tm_mday, tmv.tm_year + 1900);
+    return ctx->fromUTF8String(buf);
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -964,6 +986,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toUTCString",        dateToUTCString, 0);
         registerProtoMethod(ctx, proto, "toGMTString",        dateToUTCString, 0);
         registerProtoMethod(ctx, proto, "toString",           dateToString, 0);
+        registerProtoMethod(ctx, proto, "toDateString",       dateToDateString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
