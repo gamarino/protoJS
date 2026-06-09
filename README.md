@@ -387,6 +387,100 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 23 — 2026-06-09** (29 commits, unattended; Date refinement
+toward spec-completeness — coerce-before-NaN setters, real
+`OrdinaryToPrimitive` / `Invoke`, RFC date parsing, negative-year
+stringifiers).
+
+| Family | Passes | Total | Pass rate | Δ vs R22 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Date` | **565** | 594 | **95.1 %** | **+16.0 pp** (+95) |
+| `built-ins/Array` | 2 706 | 3 081 | **87.8 %** | – |
+| `built-ins/Object` | 2 903 | 3 411 | **85.1 %** | – |
+| `built-ins/String` | 1 007 | 1 223 | **82.3 %** | – |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | – |
+| `built-ins/Function` | 307 | 509 | **60.3 %** | – |
+| **8-family rollup** | **8 267** | **9 648** | **85.7 %** | **+1.0 pp** (+95) |
+
+Sprint structure:
+
+  * **A — `setComponent2` (commits 1–8)** — All 14 component setters
+    (local + UTC families) refactored to follow §21.4.4 step order
+    exactly: `thisTimeValue` first (TypeError on non-Date), then
+    `ToNumber` on EVERY positional arg (firing accessor/valueOf
+    side effects per `arg-coercion-order.js` fixtures), then the
+    `t-is-NaN` short-circuit.  Pre-R23 the NaN-check ran first and
+    silently skipped argument coercion.  `principalCount` parameter
+    distinguishes "always ToNumber even if missing" (the leading
+    required arg → NaN if absent) from "if-present" optional args.
+    Setters jumped from 0/52 (no test passed in the family) to
+    **52/52**.
+  * **B — Constructor `ToPrimitive` (commits 9–13)** — `new Date(obj)`
+    now follows §21.4.2.2 step b: `ToPrimitive(value)` with hint
+    `"default"`, then String → `parseDateString` else `ToNumber`.
+    `jsToPrimitive` helper that fires `@@toPrimitive` (and propagates
+    accessor getter throws) and falls back to `OrdinaryToPrimitive`.
+    `value-symbol-to-prim*` and `value-to-primitive*` fixtures
+    (10 tests) pass.
+  * **C — `@@toPrimitive` on prototype (commits 14–18)** — Spec §21.4.4.45
+    routes through `OrdinaryToPrimitive(O, tryFirst)` — the RECEIVER's
+    own `toString`/`valueOf`, NOT `Date.prototype.toString`.
+    Renamed the method to `"[Symbol.toPrimitive]"` (with brackets,
+    per `Symbol.prototype.toString` formatting), descriptor changed
+    to `{writable:false, enumerable:false, configurable:true}` per
+    spec Note 1.  Receiver type-check now rejects ALL non-Object
+    `this` values (including numeric primitives).  Symbol.toPrimitive
+    fixtures: 5/18 → 17/18.
+  * **D — `toJSON` via `Invoke` (commits 19–21)** — `Date.prototype.toJSON`
+    now follows §21.4.4.37 exactly: `ToPrimitive(O, NUMBER)` →
+    non-finite check → `Invoke(O, "toISOString")` on the RECEIVER's
+    own `toISOString` (with accessor getter probing).  Fixtures
+    `invoke-arguments` + `invoke-abrupt` + `to-primitive-abrupt`
+    pass.  toJSON 5/13 → 12/13.
+  * **E — `toISOString` non-Date split (commit 22)** — `RequireInternalSlot`
+    failure now surfaces as TypeError (step 1), with RangeError
+    reserved for the NaN case (step 3).  Pre-fix conflated both.
+    toISOString 13/17 → 16/17.
+  * **F — Negative-year stringifiers (commit 23)** — `toString`,
+    `toDateString`, and `toUTCString` now print negative years with
+    sign + ≥4 magnitude digits (`%05d` instead of `%04d` so the
+    sign character doesn't eat one column of magnitude).  All three
+    `negative-year.js` fixtures pass.
+  * **G — `toTemporalInstant` validation (commit 24)** — Receiver
+    type-check (TypeError on non-Date) and NaN-check (RangeError on
+    invalid Date) before delegating to `dateGetTime`.
+  * **H — Constructor / parse refinements (commits 25–32)** — split
+    `Date()` (plain call returns current-time string) from
+    `new Date(...)` (constructor writes `[[DateValue]]`),
+    `Date.UTC` truncates year before the 0-99 +=1900 check,
+    `parseDateString` interprets date-only as UTC vs date-time as
+    local (per §21.4.1.15), `parseRFCDateString` fallback for
+    `Date.parse(date.toUTCString())` and `Date.parse(date.toString())`
+    round-trips, `Date.parse` applies `TimeClip` so values outside
+    ±8.64e15 ms surface as NaN.
+  * **I — Polish (commits 33+)** — section banners + rationale
+    for the abstract-operation helpers and the setter scaffold.
+
+`built-ins/Date` jumped from 470 / 594 (79.1 %) at the end of R22 to
+**565 / 594 (95.1 %)** — within 29 tests of full conformance.  The
+remaining tests cluster in five categories that need infrastructure
+outside the Date implementation: real Symbol primitives (5 tests),
+`Reflect.construct` cross-realm semantics (3 tests + subclassing),
+historical TZ-data shift for pre-1900 dates (11 tests), the global
+`Object.prototype` identity issue (5 tests — `Date.hasOwnProperty`
+walks a different `Object.prototype` than the global one), and
+`BigInt` literal parser (1 test).  These move to the R-future
+backlog.
+
+Carry-overs unchanged from R20 / R21:
+  * R19-#263: regex literal bridging.
+  * R20-#269: cross-realm Function invocations + Function ctor
+    output through `toString`.
+
+---
+
 **Round 22 — 2026-06-09** (100 commits, unattended; Date built-in
 re-implemented from a 12.8 % stub to a fully spec-driven §21.4
 prototype).
