@@ -124,6 +124,25 @@ static bool isRejectedNegativeZeroYear(const std::string& s) {
     return s.rfind("-000000", 0) == 0;
 }
 
+// Check for the expanded year format prefix ±YYYYYY.  Returns the
+// signed year value via `out` and the offset past the prefix via
+// `consumed`.  When the prefix is absent, returns false and the
+// regular 4-digit path runs.
+static bool tryExpandedYear(const std::string& s, int* out, int* consumed) {
+    if (s.size() < 7) return false;
+    if (s[0] != '+' && s[0] != '-') return false;
+    int sign = (s[0] == '-') ? -1 : 1;
+    int y = 0;
+    for (int i = 1; i <= 6; ++i) {
+        if (s[i] < '0' || s[i] > '9') return false;
+        y = y * 10 + (s[i] - '0');
+    }
+    if (sign == -1 && y == 0) return false;  // -000000 rejected
+    *out = sign * y;
+    *consumed = 7;
+    return true;
+}
+
 static double parseDateString(const std::string& s) {
     if (s.empty()) return std::nan("");
     if (isRejectedNegativeZeroYear(s)) return std::nan("");
