@@ -271,6 +271,16 @@ static const proto::ProtoObject* dateGetFullYear(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_year + 1900; });
 }
 
+// §21.4.4.5 Date.prototype.getMonth — local, 0-indexed.
+static const proto::ProtoObject* dateGetMonth(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList*,
+                                              const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, false,
+        [](const std::tm& tm, int) { return tm.tm_mon; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -413,6 +423,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getUTCSeconds",      dateGetUTCSeconds, 0);
         registerProtoMethod(ctx, proto, "getUTCMilliseconds", dateGetUTCMilliseconds, 0);
         registerProtoMethod(ctx, proto, "getFullYear",        dateGetFullYear, 0);
+        registerProtoMethod(ctx, proto, "getMonth",           dateGetMonth, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
