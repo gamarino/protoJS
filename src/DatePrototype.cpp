@@ -844,6 +844,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setUTCHours",        dateSetUTCHours, 4);
         registerProtoMethod(ctx, proto, "setUTCDate",         dateSetUTCDate, 1);
         registerProtoMethod(ctx, proto, "setUTCMonth",        dateSetUTCMonth, 2);
+        registerProtoMethod(ctx, proto, "setUTCFullYear",     dateSetUTCFullYear, 3);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
