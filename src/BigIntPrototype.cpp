@@ -103,10 +103,15 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
                 const proto::ProtoObject* r = callJSFunction(ctx, voFn, v, ctx->newList());
                 if (hasCallException()) return PROTO_NONE;
-                if (r && r != PROTO_NONE
-                    && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                // §6.1.6.1 Type(r) check.  undefined and null are
+                // primitives per spec and MUST recurse so the
+                // coerceToInteger branch raises TypeError instead of
+                // dropping to the next OrdinaryToPrimitive step.
+                if (!r || r == PROTO_NONE || r == getUndefinedSentinel()
+                    || r == getNullSentinel()
+                    || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
                         || r->isBoolean(ctx) || r->isString(ctx)
-                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE))) {
+                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)))) {
                     return coerceToInteger(ctx, r);
                 }
             }
@@ -117,10 +122,15 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
                 const proto::ProtoObject* r = callJSFunction(ctx, tsFn, v, ctx->newList());
                 if (hasCallException()) return PROTO_NONE;
-                if (r && r != PROTO_NONE
-                    && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                // §6.1.6.1 Type(r) check.  undefined and null are
+                // primitives per spec and MUST recurse so the
+                // coerceToInteger branch raises TypeError instead of
+                // dropping to the next OrdinaryToPrimitive step.
+                if (!r || r == PROTO_NONE || r == getUndefinedSentinel()
+                    || r == getNullSentinel()
+                    || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
                         || r->isBoolean(ctx) || r->isString(ctx)
-                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE))) {
+                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)))) {
                     return coerceToInteger(ctx, r);
                 }
             }
@@ -311,30 +321,133 @@ static const proto::ProtoObject* bigIntValueOf(proto::ProtoContext* ctx,
 
 // §7.1.22 ToIndex(value): coerce to a non-negative integer in
 // [0, 2^53-1].  Used by BigInt.asIntN / asUintN's bits parameter.
-// undefined → 0; otherwise ToIntegerOrInfinity; then range-check.
+// undefined → 0; otherwise ToIntegerOrInfinity; THEN range-check
+// (negative / Infinity / past-2^53-1 → RangeError, NOT clamped).
 static long long toIndexLL(proto::ProtoContext* ctx,
                            const proto::ProtoObject* v) {
     if (!v || v == PROTO_NONE || v == getUndefinedSentinel())
         return 0;
+    // §7.1.4 ToNumber: if v is an object, ToPrimitive(v, "number") first.
+    // If the resulting primitive is a BigInt, throw TypeError per spec
+    // (bits-toindex-errors tests {valueOf: () => 1n}).  Bare BigInt
+    // operand also throws.
+    auto isBigIntOf = [&](const proto::ProtoObject* x) -> bool {
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+        return bigK && x && x->getAttribute(ctx, bigK, true) == PROTO_TRUE;
+    };
+    if (isBigIntOf(v)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert a BigInt to a Number"));
+        return -1;
+    }
     const proto::ProtoObject* n = jsToNumber(ctx, v);
     if (hasCallException()) return -1;
     if (!n || n == PROTO_NONE) return 0;
+    // Post-coercion BigInt check: ToPrimitive(obj) inside jsToNumber
+    // may have returned a BigInt; that should re-throw TypeError per
+    // §7.1.4 (Number side has no representation for BigInt).
+    {
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+        if (bigK && n->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert a BigInt to a Number"));
+            return -1;
+        }
+    }
     double d = 0.0;
     if (n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
     else if (n->isDouble(ctx) || n->isFloat(ctx)) d = n->asDouble(ctx);
-    if (std::isnan(d) || d <= 0.0) return 0;
-    if (std::isinf(d)) {
-        signalNativeException(makeNativeError(ctx, "RangeError",
-            "Index out of range"));
-        return -1;
-    }
-    d = std::trunc(d);
-    if (d > 9007199254740991.0) {
+    // ToIntegerOrInfinity: NaN → 0; otherwise truncate toward 0.
+    if (std::isnan(d)) d = 0.0;
+    if (!std::isinf(d)) d = std::trunc(d);
+    // §7.1.22 step 3: range check on the truncated integer.
+    if (std::isinf(d) || d < 0.0 || d > 9007199254740991.0) {
         signalNativeException(makeNativeError(ctx, "RangeError",
             "Index out of range"));
         return -1;
     }
     return static_cast<long long>(d);
+}
+
+// §7.1.13 ToBigInt (the abstract operation called by asIntN / asUintN
+// directly).  Spec table 12: Number → TypeError unconditionally.
+// (BigInt() constructor uses NumberToBigInt instead, which is
+// RangeError on non-safe-integer — that's the coerceToInteger path.)
+static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* v) {
+    if (!ctx) return PROTO_NONE;
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert undefined to a BigInt"));
+        return PROTO_NONE;
+    }
+    if (v == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert null to a BigInt"));
+        return PROTO_NONE;
+    }
+    if (v->isBoolean(ctx)) return ctx->fromInteger(v->asBoolean(ctx) ? 1LL : 0LL);
+    // BigInt wrapper → unwrap.
+    {
+        const proto::ProtoString* mk = JSSymbols::isBigInt(ctx);
+        if (mk && v->getAttribute(ctx, mk, true) == PROTO_TRUE) {
+            return unwrapBigInt(ctx, v);
+        }
+    }
+    // Spec table 12: Number → TypeError directly.
+    if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert a Number to a BigInt"));
+        return PROTO_NONE;
+    }
+    // String: delegate to coerceToInteger's string parser (same §7.1.14).
+    if (v->isString(ctx)) {
+        return coerceToInteger(ctx, v);
+    }
+    // Object: ToPrimitive(hint=number) then recurse via toBigInt so the
+    // Number → TypeError branch fires for non-integer valueOf returns.
+    const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+    const proto::ProtoString* tpK = tpKo ? tpKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* tpFn = tpK ? v->getAttribute(ctx, tpK, true) : nullptr;
+    if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
+        && tpFn != getNullSentinel()) {
+        const proto::ProtoList* hintArgs = ctx->newList();
+        hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("number"));
+        const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, v, hintArgs);
+        if (hasCallException()) return PROTO_NONE;
+        return toBigInt(ctx, prim);
+    }
+    const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
+    if (voK) {
+        const proto::ProtoObject* voFn = v->getAttribute(ctx, voK, true);
+        if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
+            const proto::ProtoObject* r = callJSFunction(ctx, voFn, v, ctx->newList());
+            if (hasCallException()) return PROTO_NONE;
+            bool isPrim = !r || r == PROTO_NONE || r == getUndefinedSentinel()
+                || r == getNullSentinel()
+                || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                    || r->isBoolean(ctx) || r->isString(ctx)
+                    || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)));
+            if (isPrim) return toBigInt(ctx, r);
+        }
+    }
+    const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+    if (tsK) {
+        const proto::ProtoObject* tsFn = v->getAttribute(ctx, tsK, true);
+        if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
+            const proto::ProtoObject* r = callJSFunction(ctx, tsFn, v, ctx->newList());
+            if (hasCallException()) return PROTO_NONE;
+            bool isPrim = !r || r == PROTO_NONE || r == getUndefinedSentinel()
+                || r == getNullSentinel()
+                || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                    || r->isBoolean(ctx) || r->isString(ctx)
+                    || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)));
+            if (isPrim) return toBigInt(ctx, r);
+        }
+    }
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "Cannot convert object to a primitive BigInt"));
+    return PROTO_NONE;
 }
 
 // §21.2.2.1 BigInt.asIntN( bits, bigint ).  Truncates to a signed
@@ -354,7 +467,7 @@ static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
     if (hasCallException() || bits < 0) return PROTO_NONE;
     const proto::ProtoObject* vArg = argc > 1 ? args->getAt(ctx, 1)
                                               : getUndefinedSentinel();
-    const proto::ProtoObject* inner = coerceToInteger(ctx, vArg);
+    const proto::ProtoObject* inner = toBigInt(ctx, vArg);
     if (hasCallException() || !inner || inner == PROTO_NONE) return PROTO_NONE;
     if (bits == 0) return wrapBigInt(ctx, ctx->fromInteger(0LL));
     const proto::ProtoObject* one = ctx->fromInteger(1LL);
@@ -383,7 +496,7 @@ static const proto::ProtoObject* bigIntAsUintN(proto::ProtoContext* ctx,
     if (hasCallException() || bits < 0) return PROTO_NONE;
     const proto::ProtoObject* vArg = argc > 1 ? args->getAt(ctx, 1)
                                               : getUndefinedSentinel();
-    const proto::ProtoObject* inner = coerceToInteger(ctx, vArg);
+    const proto::ProtoObject* inner = toBigInt(ctx, vArg);
     if (hasCallException() || !inner || inner == PROTO_NONE) return PROTO_NONE;
     if (bits == 0) return wrapBigInt(ctx, ctx->fromInteger(0LL));
     const proto::ProtoObject* one = ctx->fromInteger(1LL);
