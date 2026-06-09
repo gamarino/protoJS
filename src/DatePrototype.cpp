@@ -1425,6 +1425,9 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
 
 } // anonymous namespace
 
+// ----------------------------------------------------------------
+// Date constructor statics — Date.now / Date.parse / Date.UTC
+// ----------------------------------------------------------------
 // §21.4.3.4 Date.UTC(year, mo, [date, hr, mi, sec, ms]) — improved
 // version that routes coercion through jsToNumber so the
 // coercion-errors test262 fixtures pass.  The TimingAPIs stub
