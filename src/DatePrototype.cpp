@@ -2055,6 +2055,14 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
             ? ctx->space->methodPrototype->newChild(ctx, true)
             : ctx->newObject(true);
         if (!dateObj) return;
+    } else if (ctx->space && ctx->space->methodPrototype) {
+        // Pre-existing Date stub (installed by TimingAPIs::init before
+        // ensureFunctionPrototype) is rooted at objectPrototype — its
+        // chain misses Function.prototype.call / apply / bind / etc.
+        // Wire methodPrototype into the chain so `Object.getPrototypeOf
+        // (Date) === Function.prototype` holds and the Sputnik
+        // S15.9.4 hasOwnProperty fixtures pass.
+        dateObj->addParent(ctx, ctx->space->methodPrototype);
     }
 
     // Replace Date.parse with the improved parser that handles
