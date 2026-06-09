@@ -1182,15 +1182,11 @@ static const proto::ProtoObject* dateToTimeString(proto::ProtoContext* ctx,
     std::tm utcTm;
     gmtime_r(&tt, &utcTm);
     long offsetSec = static_cast<long>(timegm(&tmv) - timegm(&utcTm));
-    char sign = offsetSec >= 0 ? '+' : '-';
-    long offsetAbs = std::labs(offsetSec);
-    int hh = static_cast<int>(offsetAbs / 3600);
-    int mm = static_cast<int>((offsetAbs % 3600) / 60);
+    std::string tz = formatTZOffset(offsetSec);
     char buf[64];
     std::snprintf(buf, sizeof(buf),
-        "%02d:%02d:%02d GMT%c%02d%02d",
-        tmv.tm_hour, tmv.tm_min, tmv.tm_sec,
-        sign, hh, mm);
+        "%02d:%02d:%02d GMT%s",
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec, tz.c_str());
     return ctx->fromUTF8String(buf);
 }
 
