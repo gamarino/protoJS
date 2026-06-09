@@ -671,45 +671,6 @@ static double composeTime(const std::tm& tmIn, int ms, bool utc) {
     return static_cast<double>(epoch) * 1000.0 + static_cast<double>(ms);
 }
 
-// Common setter scaffold.  Pulls current [[DateValue]], decomposes,
-// hands the broken-down tm + ms to `mutate` (which may pull positional
-// arguments from `args`), recomposes, TimeClips, writes back, and
-// returns the new time value.  Receivers without [[DateValue]] return
-// NaN without mutating; NaN times are handled per spec
-// (setMilliseconds(2)(NaN-date) returns NaN).
-template <typename Mutator>
-static const proto::ProtoObject* setComponent(proto::ProtoContext* ctx,
-                                              const proto::ProtoObject* self,
-                                              const proto::ProtoList* args,
-                                              bool utc, Mutator mutate) {
-    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
-    bool isDate = false;
-    double t = readDateValue(ctx, self, &isDate);
-    if (!isDate) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "this is not a Date object"));
-        return PROTO_NONE;
-    }
-    if (std::isnan(t)) {
-        // setTime override would have caught this; for component setters,
-        // NaN input produces NaN output.
-        writeDateValue(ctx, self, std::nan(""));
-        return ctx->fromDouble(std::nan(""));
-    }
-    std::tm tmv;
-    int msrem = 0;
-    if (!decomposeTime(t, utc, &tmv, &msrem)) {
-        writeDateValue(ctx, self, std::nan(""));
-        return ctx->fromDouble(std::nan(""));
-    }
-    mutate(tmv, msrem, args);
-    double composed = composeTime(tmv, msrem, utc);
-    composed = timeClip(composed);
-    writeDateValue(ctx, self, composed);
-    if (std::isnan(composed)) return ctx->fromDouble(std::nan(""));
-    return ctx->fromInteger(static_cast<long long>(composed));
-}
-
 // Forward declaration so the template body can resolve at definition time.
 static double pullArgAsDouble(proto::ProtoContext* ctx,
                               const proto::ProtoList* args,
@@ -799,39 +760,6 @@ static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
     writeDateValue(ctx, self, composed);
     if (std::isnan(composed)) return ctx->fromDouble(std::nan(""));
     return ctx->fromInteger(static_cast<long long>(composed));
-}
-
-// Pull a positional argument as an integer (best-effort).  Used by
-// every component setter to read ms/sec/min/hour/date/month/year args.
-// The `sawNaN` out-pointer flags inputs that ToNumber-coerce to
-// NaN/Infinity — the spec's MakeTime / MakeDay short-circuit those
-// to NaN, so the surrounding setter must clamp.
-static long long pullArgAsInt(proto::ProtoContext* ctx,
-                              const proto::ProtoList* args,
-                              int idx, long long fallback,
-                              bool* sawNaN) {
-    if (!args || idx >= args->getSize(ctx)) return fallback;
-    const proto::ProtoObject* v = args->getAt(ctx, idx);
-    if (!v || v == PROTO_NONE) return fallback;
-    if (v->isInteger(ctx)) return v->asLong(ctx);
-    if (v->isDouble(ctx) || v->isFloat(ctx)) {
-        double d = v->asDouble(ctx);
-        if (std::isnan(d) || std::isinf(d)) { if (sawNaN) *sawNaN = true; return fallback; }
-        return static_cast<long long>(d);
-    }
-    // Spec §21.4.4.x step "Let X be ? ToNumber(arg)": objects and
-    // strings reach this branch.  ToNumber invokes ToPrimitive
-    // (valueOf, toString); a throwing inner method must propagate.
-    const proto::ProtoObject* n = jsToNumber(ctx, v);
-    if (hasCallException()) return fallback;
-    if (!n || n == PROTO_NONE) { if (sawNaN) *sawNaN = true; return fallback; }
-    if (n->isInteger(ctx)) return n->asLong(ctx);
-    if (n->isDouble(ctx) || n->isFloat(ctx)) {
-        double d = n->asDouble(ctx);
-        if (std::isnan(d) || std::isinf(d)) { if (sawNaN) *sawNaN = true; return fallback; }
-        return static_cast<long long>(d);
-    }
-    return fallback;
 }
 
 // Pull a positional argument as a double, with strict spec semantics:
@@ -1462,10 +1390,13 @@ static const proto::ProtoObject* dateSetYear(proto::ProtoContext* ctx,
                                              const proto::ParentLink*,
                                              const proto::ProtoList* args,
                                              const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, false,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            long long v = pullArgAsInt(ctx, a, 0, tm.tm_year + 1900, &nan);
+    return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/1,
+        /*fyMode=*/true, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (!p[0]) return;
+            long long v = static_cast<long long>(c[0]);
+            // §B.2.4.2 step 5: when 0 ≤ y ≤ 99 (after ToNumber +
+            // ToIntegerOrInfinity), add 1900.
             if (v >= 0 && v <= 99) v += 1900;
             tm.tm_year = static_cast<int>(v) - 1900;
         });
