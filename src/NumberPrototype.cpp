@@ -426,6 +426,25 @@ const proto::ProtoObject* numberToExponential(
         }
     } else {
         snprintf(buf, sizeof(buf), "%.*e", fractionDigits, value);
+        // §13.3.1.5: when two candidate digit strings are exactly
+        // equidistant from x, pick the one with the larger absolute
+        // value. glibc %e uses round-half-to-even, which selects the
+        // smaller-magnitude tie (25 -> "2e+1" instead of "3e+1").
+        double rounded;
+        if (std::sscanf(buf, "%lf", &rounded) == 1 && rounded != value
+            && !std::isnan(value) && !std::isinf(value)) {
+            char* eptr = std::strchr(buf, 'e');
+            int exp = eptr ? std::atoi(eptr + 1) : 0;
+            double step = std::pow(10.0, exp - fractionDigits);
+            double alt = (rounded < value) ? rounded + step : rounded - step;
+            double dRounded = std::fabs(rounded - value);
+            double dAlt = std::fabs(alt - value);
+            double tol = dRounded * 1e-9;
+            if (std::fabs(dRounded - dAlt) <= tol
+                && std::fabs(alt) > std::fabs(rounded)) {
+                snprintf(buf, sizeof(buf), "%.*e", fractionDigits, alt);
+            }
+        }
     }
     // ECMA-262 emits "1e+0", "3.14e+0", "1e-7": single-digit exponent,
     // no leading zero. glibc's %e emits "1e+00" / "1e-07"; strip a
