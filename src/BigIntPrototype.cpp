@@ -360,9 +360,17 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
     const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
     if (nfk) w = w->setAttribute(ctx, nfk, ctx->fromMethod(nullptr, fn));
     const proto::ProtoString* lk = JSSymbols::length(ctx);
-    if (lk) w = w->setAttribute(ctx, lk, ctx->fromInteger(length));
+    if (lk) {
+        w = w->setAttribute(ctx, lk, ctx->fromInteger(length));
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+        if (pdlk) w = w->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    }
     const proto::ProtoString* nk = JSSymbols::name(ctx);
-    if (nk) w = w->setAttribute(ctx, nk, ctx->fromUTF8String(name));
+    if (nk) {
+        w = w->setAttribute(ctx, nk, ctx->fromUTF8String(name));
+        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+        if (pdnk) w = w->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    }
     const proto::ProtoString* methodKey =
         ctx->fromUTF8String(name)
             ? ctx->fromUTF8String(name)->asString(ctx)
@@ -370,6 +378,15 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
     if (methodKey) {
         const_cast<proto::ProtoObject*&>(proto) =
             const_cast<proto::ProtoObject*>(proto->setAttribute(ctx, methodKey, w));
+        // §17: own methods on builtin prototype default to
+        // {writable:true, enumerable:false, configurable:true} = 0x3.
+        std::string pdStr = std::string("__pd_") + name + "__";
+        const proto::ProtoObject* pdko = ctx->fromUTF8String(pdStr.c_str());
+        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        if (pdk) {
+            const_cast<proto::ProtoObject*&>(proto) =
+                const_cast<proto::ProtoObject*>(proto->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL)));
+        }
     }
     return proto;
 }
@@ -391,12 +408,18 @@ void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
     // String(BigInt) and `${BigInt}` template coercion both fire it.
     proto = installMethod(ctx, proto, "toString", bigIntToString, 0);
     proto = installMethod(ctx, proto, "valueOf",  bigIntValueOf,  0);
-    // §21.2.3.5 Symbol.toStringTag = "BigInt".
+    // §21.2.3.5 Symbol.toStringTag = "BigInt" with descriptor
+    // {W:false, E:false, C:true} = 0x2.
     {
         const proto::ProtoObject* tsk = ctx->fromUTF8String("Symbol.toStringTag");
         if (tsk) {
             const proto::ProtoString* ts = tsk->asString(ctx);
-            if (ts) proto = proto->setAttribute(ctx, ts, ctx->fromUTF8String("BigInt"));
+            if (ts) {
+                proto = proto->setAttribute(ctx, ts, ctx->fromUTF8String("BigInt"));
+                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+                const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+            }
         }
     }
     t_bigIntPrototype = proto;
@@ -446,25 +469,50 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
     const proto::ProtoString* cok = JSSymbols::construct(ctx);
     if (cok) ctor = ctor->setAttribute(ctx, cok,
         ctx->fromMethod(nullptr, bigIntConstruct));
+    // §17: builtin function objects have length / name with descriptor
+    // {writable:false, enumerable:false, configurable:true} (0x2);
+    // prototype is non-writable / non-enumerable / non-configurable (0x0).
     const proto::ProtoString* lk = JSSymbols::length(ctx);
-    if (lk) ctor = ctor->setAttribute(ctx, lk, ctx->fromInteger(1LL));
+    if (lk) {
+        ctor = ctor->setAttribute(ctx, lk, ctx->fromInteger(1LL));
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+        if (pdlk) ctor = ctor->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    }
     const proto::ProtoString* nk = JSSymbols::name(ctx);
-    if (nk) ctor = ctor->setAttribute(ctx, nk, ctx->fromUTF8String("BigInt"));
+    if (nk) {
+        ctor = ctor->setAttribute(ctx, nk, ctx->fromUTF8String("BigInt"));
+        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+        if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    }
     const proto::ProtoString* pk = JSSymbols::prototype(ctx);
     if (pk) ctor = ctor->setAttribute(ctx, pk, t_bigIntPrototype);
-    // Back-ref on the prototype.
+    // Back-ref on the prototype, with the spec-mandated descriptor
+    // {W:true, E:false, C:true} = 0x3 (per
+    // built-ins/BigInt/prototype/constructor.js).
     {
         const proto::ProtoString* ck = JSSymbols::constructor(ctx);
         if (ck && t_bigIntPrototype) {
             const_cast<proto::ProtoObject*&>(t_bigIntPrototype) =
                 const_cast<proto::ProtoObject*>(
                     t_bigIntPrototype->setAttribute(ctx, ck, ctor));
+            const proto::ProtoString* pdck = JSSymbols::pdConstructor(ctx);
+            if (pdck) {
+                const_cast<proto::ProtoObject*&>(t_bigIntPrototype) =
+                    const_cast<proto::ProtoObject*>(
+                        t_bigIntPrototype->setAttribute(ctx, pdck, ctx->fromInteger(0x3LL)));
+            }
         }
     }
     // BigInt.asIntN / asUintN statics.
     ctor = installMethod(ctx, ctor, "asIntN",  bigIntAsIntN,  2);
     ctor = installMethod(ctx, ctor, "asUintN", bigIntAsUintN, 2);
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyBigInt, ctor);
+    // §17: global builtin constructors are {W:true, E:false, C:true} = 0x3.
+    {
+        const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_BigInt__");
+        const proto::ProtoString* pdk = pdko ? pdko->asString(ctx) : nullptr;
+        if (pdk) *globalRoot = (*globalRoot)->setAttribute(ctx, pdk, ctx->fromInteger(0x3LL));
+    }
 }
 
 } // namespace protojs
