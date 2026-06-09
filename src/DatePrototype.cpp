@@ -631,6 +631,10 @@ static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
     return ctx->fromInteger(-static_cast<long long>(diffSec / 60));
 }
 
+// §21.4.4.10 Date.prototype.getTime
+// §21.4.4.8  Date.prototype.valueOf (alias — same operation)
+// Returns the receiver's [[DateValue]] as a Number.  Throws
+// TypeError if `this` lacks the internal slot per §21.4.4.1.
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
