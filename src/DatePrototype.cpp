@@ -710,6 +710,97 @@ static const proto::ProtoObject* setComponent(proto::ProtoContext* ctx,
     return ctx->fromInteger(static_cast<long long>(composed));
 }
 
+// Forward declaration so the template body can resolve at definition time.
+static double pullArgAsDouble(proto::ProtoContext* ctx,
+                              const proto::ProtoList* args,
+                              int idx, bool* present);
+
+// Spec-strict setter scaffold.  Coerces every positional argument to
+// Number FIRST (firing ToPrimitive/valueOf/toString side effects per
+// §21.4.4.x), and only then probes the receiver's [[DateValue]] for
+// NaN.  When `fyMode` is true (setFullYear / setUTCFullYear), a NaN
+// receiver clock anchors t=+0 instead of short-circuiting to NaN;
+// every other setter returns NaN when t is NaN, but only AFTER all
+// argument side effects have fired.
+// `principalCount` is the number of leading args that are NEVER "if
+// present"-gated by the spec — i.e. the spec text says "Let X be ?
+// ToNumber(arg)" with no conditional, so a missing call-site argument
+// yields ToNumber(undefined)=NaN.  Subsequent positional args are gated
+// by "If X is present" and are ignored when missing.  setMilliseconds
+// has principalCount=1; setHours has principalCount=1 (hour) and 3
+// optional trailing args; setFullYear has principalCount=1 (year) and
+// 2 optional trailing args.
+template <typename Mutator>
+static const proto::ProtoObject* setComponent2(proto::ProtoContext* ctx,
+                                               const proto::ProtoObject* self,
+                                               const proto::ProtoList* args,
+                                               bool utc, int nArgs, bool fyMode,
+                                               int principalCount,
+                                               Mutator mutate) {
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    // Step 1 of every setter spec: thisTimeValue throws TypeError if
+    // this is not a Date instance — this MUST precede any ToNumber on
+    // the arguments (this-value-non-date.js's "validation precedes
+    // input coercion" assertion).
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
+    }
+    constexpr int MAX_SETTER_ARGS = 7;
+    double coerced[MAX_SETTER_ARGS] = {0};
+    bool present[MAX_SETTER_ARGS] = {false};
+    int probe = nArgs < MAX_SETTER_ARGS ? nArgs : MAX_SETTER_ARGS;
+    // Step 2..k: ToNumber every present arg, side effects included.
+    // This MUST run even when t is NaN (arg-coercion-order.js).
+    // For principal (non-"if present") args, a missing call-site
+    // argument coerces ToNumber(undefined) = NaN per spec.
+    for (int i = 0; i < probe; ++i) {
+        coerced[i] = pullArgAsDouble(ctx, args, i, &present[i]);
+        if (hasCallException()) return PROTO_NONE;
+        if (!present[i] && i < principalCount) {
+            present[i] = true;
+            coerced[i] = std::nan("");
+        }
+    }
+    bool anyNan = false;
+    for (int i = 0; i < probe; ++i)
+        if (present[i] && (std::isnan(coerced[i]) || std::isinf(coerced[i])))
+            { anyNan = true; break; }
+    if (std::isnan(t) && !fyMode) {
+        // Spec step "If t is NaN, return NaN" — do NOT overwrite the
+        // receiver, because a side-effect inside ToNumber (Phase 1)
+        // may have called setTime() on the receiver mid-coercion
+        // (date-value-read-before-tonumber-when-date-is-invalid.js).
+        // The saved t reflects the pre-coercion value; what's stored
+        // in [[DateValue]] now is whatever setTime stamped.
+        return ctx->fromDouble(std::nan(""));
+    }
+    std::tm tmv = {};
+    int msrem = 0;
+    if (std::isnan(t)) {
+        // setFullYear NaN-anchor: t=+0, decomposed as UTC epoch.
+        decomposeTime(0.0, /*utc=*/true, &tmv, &msrem);
+    } else if (!decomposeTime(t, utc, &tmv, &msrem)) {
+        writeDateValue(ctx, self, std::nan(""));
+        return ctx->fromDouble(std::nan(""));
+    }
+    if (anyNan) {
+        // Spec: any NaN-coerced present arg taints the result, but
+        // ToNumber side effects already fired (Phase 1).
+        writeDateValue(ctx, self, std::nan(""));
+        return ctx->fromDouble(std::nan(""));
+    }
+    mutate(tmv, msrem, coerced, present, probe);
+    double composed = composeTime(tmv, msrem, utc);
+    composed = timeClip(composed);
+    writeDateValue(ctx, self, composed);
+    if (std::isnan(composed)) return ctx->fromDouble(std::nan(""));
+    return ctx->fromInteger(static_cast<long long>(composed));
+}
+
 // Pull a positional argument as an integer (best-effort).  Used by
 // every component setter to read ms/sec/min/hour/date/month/year args.
 // The `sawNaN` out-pointer flags inputs that ToNumber-coerce to
@@ -784,12 +875,10 @@ static const proto::ProtoObject* dateSetMilliseconds(proto::ProtoContext* ctx,
                                                      const proto::ParentLink*,
                                                      const proto::ProtoList* args,
                                                      const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, false,
-        [&](std::tm&, int& ms, const proto::ProtoList* a) {
-            bool nan = false;
-            long long v = pullArgAsInt(ctx, a, 0, ms, &nan);
-            if (nan) { ms = 0; }
-            else ms = static_cast<int>(v);
+    return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/1,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm&, int& ms, const double* c, const bool* p, int) {
+            if (p[0]) ms = static_cast<int>(c[0]);
         });
 }
 
