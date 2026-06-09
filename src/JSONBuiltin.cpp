@@ -198,6 +198,17 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             return;
         }
     }
+    // §25.5.2.2 SerializeJSONProperty: BigInt → TypeError (no JSON
+    // representation).  rawJSON receivers go through a different
+    // path and are handled at the per-key emission site.
+    {
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+        if (bigK && obj->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Do not know how to serialize a BigInt"));
+            return;
+        }
+    }
     if (obj->isBoolean(ctx)) {
         out += obj->asBoolean(ctx) ? "true" : "false";
         return;
