@@ -523,7 +523,12 @@ static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
-    if (!isDate || std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
+    }
+    if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
     long long secs = static_cast<long long>(t) / 1000;
     std::time_t tt = static_cast<std::time_t>(secs);
     std::tm utcTm, localTm;
