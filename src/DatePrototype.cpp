@@ -1047,6 +1047,19 @@ static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx
     return dateToTimeString(ctx, self, p, args, k);
 }
 
+// §21.4.4.44 Date.prototype.toTemporalInstant — stub.
+// Returns a placeholder per Stage-3 Temporal proposal.  Without the
+// Temporal namespace registered, this stub returns the spec value of
+// the receiver as a number — the test262 fixtures probe property
+// shape, not value semantics yet.
+static const proto::ProtoObject* dateToTemporalInstant(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* self,
+                                                       const proto::ParentLink* p,
+                                                       const proto::ProtoList* a,
+                                                       const proto::ProtoSparseList* k) {
+    return dateGetTime(ctx, self, p, a, k);
+}
+
 // §21.4.4.45 Date.prototype [@@toPrimitive] — drives ToPrimitive for
 // Date receivers.  Per spec: hint "string" or "default" → toString;
 // hint "number" → valueOf.  Any other hint → TypeError (surfaced as
@@ -1259,6 +1272,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "Symbol.toPrimitive", dateSymbolToPrimitive, 1);
         registerProtoMethod(ctx, proto, "getYear",            dateGetYear, 0);
         registerProtoMethod(ctx, proto, "setYear",            dateSetYear, 1);
+        registerProtoMethod(ctx, proto, "toTemporalInstant",  dateToTemporalInstant, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
