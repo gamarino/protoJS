@@ -883,7 +883,8 @@ const proto::ProtoObject* stringSlice(
             }
             if (args && args->getSize(ctx) >= 2) {
                 const proto::ProtoObject* ea = args->getAt(ctx, 1);
-                if (ea && ea != PROTO_NONE) {
+                // §22.1.3.18 slice: when end is undefined, default to len.
+                if (ea && ea != PROTO_NONE && ea != getUndefinedSentinel()) {
                     end = getIntArg(ctx, args, 1, len);
                     if (end < 0) end = std::max(len + end, 0LL);
                     else         end = std::min(end, len);
