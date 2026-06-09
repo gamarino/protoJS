@@ -930,11 +930,22 @@ static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
             "Invalid time value"));
         return PROTO_NONE;
     }
-    char buf[40];
-    std::snprintf(buf, sizeof(buf),
-        "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
-        tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday,
-        tmv.tm_hour, tmv.tm_min, tmv.tm_sec, msrem);
+    // §21.4.1.15.1 expanded year form: years < 0 or > 9999 use the
+    // ±YYYYYY prefix (6 digits, signed).  Standard 4-digit format
+    // covers the more common 0001-9999 range.
+    char buf[48];
+    int year = tmv.tm_year + 1900;
+    if (year < 0 || year > 9999) {
+        std::snprintf(buf, sizeof(buf),
+            "%+07d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+            year, tmv.tm_mon + 1, tmv.tm_mday,
+            tmv.tm_hour, tmv.tm_min, tmv.tm_sec, msrem);
+    } else {
+        std::snprintf(buf, sizeof(buf),
+            "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+            year, tmv.tm_mon + 1, tmv.tm_mday,
+            tmv.tm_hour, tmv.tm_min, tmv.tm_sec, msrem);
+    }
     return ctx->fromUTF8String(buf);
 }
 
