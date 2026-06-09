@@ -1666,4 +1666,6 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyDate, dateObj);
 }
 
+// End of file.  See ECMA-262 §21.4 for the spec text covered above.
+
 } // namespace protojs
