@@ -4,6 +4,7 @@
 #include "ObjectPrototype.h"
 #include "PrototypeUtils.h"
 #include "FunctionPrototype.h"
+#include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 
 #include <chrono>
@@ -1070,17 +1071,30 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
                                                        const proto::ProtoList* args,
                                                        const proto::ProtoSparseList* k) {
     if (!ctx) return PROTO_NONE;
-    std::string hint = "default";
-    if (args && args->getSize(ctx) > 0) {
-        const proto::ProtoObject* h = args->getAt(ctx, 0);
-        if (h && h->isString(ctx)) {
-            h->asString(ctx)->toUTF8String(ctx, hint);
-        }
+    // §21.4.4.45 step 3-5: the hint must be exactly the String value
+    // "default", "string", or "number".  Missing argument, undefined,
+    // null, the empty string, and any other value all fall through to
+    // step 5's throw.  Pre-fix we silently defaulted to "default",
+    // making 17 test262 cases fail (hint-invalid + variants).
+    if (!args || args->getSize(ctx) == 0) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Symbol.toPrimitive called on Date requires a hint argument"));
+        return PROTO_NONE;
     }
+    const proto::ProtoObject* h = args->getAt(ctx, 0);
+    if (!h || !h->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Symbol.toPrimitive hint must be the string 'default', 'string', or 'number'"));
+        return PROTO_NONE;
+    }
+    std::string hint;
+    h->asString(ctx)->toUTF8String(ctx, hint);
     if (hint == "string" || hint == "default")
         return dateToString(ctx, self, p, args, k);
     if (hint == "number")
         return dateGetTime(ctx, self, p, args, k);
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "Symbol.toPrimitive hint must be 'default', 'string', or 'number'"));
     return PROTO_NONE;
 }
 
