@@ -341,6 +341,31 @@ static const proto::ProtoObject* dateGetMilliseconds(proto::ProtoContext* ctx,
         [](const std::tm&, int ms) { return ms; });
 }
 
+// §21.4.4.11 getTimezoneOffset — minutes east-of-UTC negated.
+// JS spec: offset = (UTC - local) in minutes, so for UTC+5 returns -300.
+static const proto::ProtoObject* dateGetTimezoneOffset(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* self,
+                                                       const proto::ParentLink*,
+                                                       const proto::ProtoList*,
+                                                       const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    long long secs = static_cast<long long>(t) / 1000;
+    std::time_t tt = static_cast<std::time_t>(secs);
+    std::tm utcTm, localTm;
+    if (!gmtime_r(&tt, &utcTm) || !localtime_r(&tt, &localTm))
+        return ctx->fromDouble(std::nan(""));
+    // Compute the difference in minutes: localTime - utcTime then negate.
+    // Use timegm on both — local tm carries tm_isdst that we keep, gmtime
+    // pretends the broken-down time is UTC.
+    std::time_t utcEpoch = timegm(&utcTm);
+    std::time_t localEpoch = timegm(&localTm);
+    long diffSec = static_cast<long>(localEpoch - utcEpoch);
+    return ctx->fromInteger(-static_cast<long long>(diffSec / 60));
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -490,6 +515,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getMinutes",         dateGetMinutes, 0);
         registerProtoMethod(ctx, proto, "getSeconds",         dateGetSeconds, 0);
         registerProtoMethod(ctx, proto, "getMilliseconds",    dateGetMilliseconds, 0);
+        registerProtoMethod(ctx, proto, "getTimezoneOffset",  dateGetTimezoneOffset, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
