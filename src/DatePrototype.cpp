@@ -80,6 +80,16 @@ static const proto::ProtoObject* writeDateValue(proto::ProtoContext* ctx,
 // §21.4.1.14 TimeClip — collapse |t| > 8.64e15 to NaN; round to integer.
 // ---------------------------------------------------------------------------
 
+// §21.4.1.1 named time constants used throughout the file.  The
+// spec's MakeTime / MakeDay arithmetic relies on these.
+namespace TimeConstants {
+    static constexpr double msPerSecond = 1000.0;
+    static constexpr double msPerMinute = 60.0 * msPerSecond;
+    static constexpr double msPerHour   = 60.0 * msPerMinute;
+    static constexpr double msPerDay    = 24.0 * msPerHour;
+    static constexpr double maxTime     = 8.64e15;
+}
+
 static double timeClip(double t) {
     if (!std::isfinite(t)) return std::nan("");
     if (std::abs(t) > 8.64e15) return std::nan("");
