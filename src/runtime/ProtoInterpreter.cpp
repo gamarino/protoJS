@@ -15,6 +15,7 @@
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
 #include "../FunctionPrototype.h"
+#include "../DatePrototype.h"
 #include "../PromisePrototype.h"
 #include "../ArrayBufferPrototype.h"
 #include "../TypedArrayPrototype.h"
@@ -3702,6 +3703,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     ensureStringConstructor(pContext, pGlobalRoot);
     // Register RegExp constructor and its prototype.
     ensureRegExpConstructor(pContext, pGlobalRoot);
+    // Register Date constructor and Date.prototype methods (upgrades the
+    // minimal TimingAPIs stub installed before eval).
+    protojs::ensureDateConstructor(pContext, pGlobalRoot);
 
     // Register well-known global numeric constants (Infinity, NaN, undefined).
     // These are standard globals that must be visible as top-level variable lookups.
