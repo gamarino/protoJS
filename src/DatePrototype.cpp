@@ -1973,6 +1973,10 @@ static const proto::ProtoObject* dateParseNew(proto::ProtoContext* ctx,
         return ctx->fromDouble(nan);
     }
     double t = parseDateString(s);
+    // §21.4.3.2 step 4: TimeClip the parse result.  A value past
+    // ±8.64e15 ms must surface as NaN even when the parser can
+    // represent it (parse/time-value-maximum-range.js).
+    t = timeClip(t);
     if (std::isnan(t)) return ctx->fromDouble(nan);
     return ctx->fromInteger(static_cast<long long>(t));
 }
