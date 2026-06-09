@@ -2059,9 +2059,12 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         // Pre-existing Date stub (installed by TimingAPIs::init before
         // ensureFunctionPrototype) is rooted at objectPrototype — its
         // chain misses Function.prototype.call / apply / bind / etc.
-        // Wire methodPrototype into the chain so `Object.getPrototypeOf
-        // (Date) === Function.prototype` holds and the Sputnik
-        // S15.9.4 hasOwnProperty fixtures pass.
+        // Wire methodPrototype into the chain so call/apply/bind/
+        // hasOwnProperty all resolve.  addParent leaves the original
+        // objectPrototype as the first slot so getPrototypeOf still
+        // returns objectPrototype (not Function.prototype as the spec
+        // requires) — a separate setParents experiment broke
+        // hasOwnProperty resolution.
         dateObj->addParent(ctx, ctx->space->methodPrototype);
     }
 
