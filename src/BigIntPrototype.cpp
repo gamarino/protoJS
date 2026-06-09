@@ -49,6 +49,15 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             "Cannot convert null to a BigInt"));
         return PROTO_NONE;
     }
+    // §7.1.13 step 2.d: Symbol → TypeError.
+    {
+        const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+        if (symMk && v->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert a Symbol value to a BigInt"));
+            return PROTO_NONE;
+        }
+    }
     if (v->isBoolean(ctx)) {
         return ctx->fromInteger(v->asBoolean(ctx) ? 1LL : 0LL);
     }
@@ -111,7 +120,8 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
                     || r == getNullSentinel()
                     || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
                         || r->isBoolean(ctx) || r->isString(ctx)
-                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)))) {
+                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)
+                        || (JSSymbols::isSymbol(ctx) && r->getAttribute(ctx, JSSymbols::isSymbol(ctx), true) == PROTO_TRUE)))) {
                     return coerceToInteger(ctx, r);
                 }
             }
@@ -130,7 +140,8 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
                     || r == getNullSentinel()
                     || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
                         || r->isBoolean(ctx) || r->isString(ctx)
-                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)))) {
+                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)
+                        || (JSSymbols::isSymbol(ctx) && r->getAttribute(ctx, JSSymbols::isSymbol(ctx), true) == PROTO_TRUE)))) {
                     return coerceToInteger(ctx, r);
                 }
             }
@@ -391,6 +402,15 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
             "Cannot convert null to a BigInt"));
         return PROTO_NONE;
     }
+    // §7.1.13 step 2.d: Symbol → TypeError.
+    {
+        const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+        if (symMk && v->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert a Symbol value to a BigInt"));
+            return PROTO_NONE;
+        }
+    }
     if (v->isBoolean(ctx)) return ctx->fromInteger(v->asBoolean(ctx) ? 1LL : 0LL);
     // BigInt wrapper → unwrap.
     {
@@ -409,44 +429,83 @@ static const proto::ProtoObject* toBigInt(proto::ProtoContext* ctx,
     if (v->isString(ctx)) {
         return coerceToInteger(ctx, v);
     }
-    // Object: ToPrimitive(hint=number) then recurse via toBigInt so the
-    // Number → TypeError branch fires for non-integer valueOf returns.
-    const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
-    const proto::ProtoString* tpK = tpKo ? tpKo->asString(ctx) : nullptr;
-    const proto::ProtoObject* tpFn = tpK ? v->getAttribute(ctx, tpK, true) : nullptr;
-    if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
-        && tpFn != getNullSentinel()) {
-        const proto::ProtoList* hintArgs = ctx->newList();
-        hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("number"));
-        const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, v, hintArgs);
-        if (hasCallException()) return PROTO_NONE;
-        return toBigInt(ctx, prim);
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE) return false;
+        if (fn == getNullSentinel() || fn == getUndefinedSentinel()) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+        return false;
+    };
+    auto isPrimitiveResult = [&](const proto::ProtoObject* r) -> bool {
+        if (!r || r == PROTO_NONE || r == getUndefinedSentinel()
+            || r == getNullSentinel()) return true;
+        if (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+            || r->isBoolean(ctx) || r->isString(ctx)) return true;
+        const proto::ProtoString* bigMk = JSSymbols::isBigInt(ctx);
+        if (bigMk && r->getAttribute(ctx, bigMk, true) == PROTO_TRUE) return true;
+        const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+        if (symMk && r->getAttribute(ctx, symMk, true) == PROTO_TRUE) return true;
+        return false;
+    };
+    // §7.1.1 ToPrimitive: try @@toPrimitive(hint=number) first.
+    // GetMethod (§7.3.10): a non-undefined / non-null but non-callable
+    // method is a TypeError, not a silent skip.
+    {
+        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+        const proto::ProtoString* tpK = tpKo ? tpKo->asString(ctx) : nullptr;
+        const proto::ProtoObject* tpFn = tpK ? v->getAttribute(ctx, tpK, true) : nullptr;
+        if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
+            && tpFn != getNullSentinel() && !isCallable(tpFn)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Symbol.toPrimitive is not a function"));
+            return PROTO_NONE;
+        }
+        if (isCallable(tpFn)) {
+            const proto::ProtoList* hintArgs = ctx->newList();
+            hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("number"));
+            const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, v, hintArgs);
+            if (hasCallException()) return PROTO_NONE;
+            // §7.1.1 step 5.b: non-primitive return → TypeError.
+            if (!isPrimitiveResult(prim)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Symbol.toPrimitive returned a non-primitive"));
+                return PROTO_NONE;
+            }
+            return toBigInt(ctx, prim);
+        }
     }
+    // §7.1.1.1 OrdinaryToPrimitive: a present-but-not-callable method is
+    // silently skipped (the spec only invokes it when IsCallable).
     const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
     if (voK) {
         const proto::ProtoObject* voFn = v->getAttribute(ctx, voK, true);
-        if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
+        if (isCallable(voFn)) {
             const proto::ProtoObject* r = callJSFunction(ctx, voFn, v, ctx->newList());
             if (hasCallException()) return PROTO_NONE;
             bool isPrim = !r || r == PROTO_NONE || r == getUndefinedSentinel()
                 || r == getNullSentinel()
                 || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
                     || r->isBoolean(ctx) || r->isString(ctx)
-                    || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)));
+                    || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)
+                    || (JSSymbols::isSymbol(ctx) && r->getAttribute(ctx, JSSymbols::isSymbol(ctx), true) == PROTO_TRUE)));
             if (isPrim) return toBigInt(ctx, r);
         }
     }
     const proto::ProtoString* tsK = JSSymbols::toString(ctx);
     if (tsK) {
         const proto::ProtoObject* tsFn = v->getAttribute(ctx, tsK, true);
-        if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
+        if (isCallable(tsFn)) {
             const proto::ProtoObject* r = callJSFunction(ctx, tsFn, v, ctx->newList());
             if (hasCallException()) return PROTO_NONE;
             bool isPrim = !r || r == PROTO_NONE || r == getUndefinedSentinel()
                 || r == getNullSentinel()
                 || (r && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
                     || r->isBoolean(ctx) || r->isString(ctx)
-                    || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)));
+                    || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)
+                    || (JSSymbols::isSymbol(ctx) && r->getAttribute(ctx, JSSymbols::isSymbol(ctx), true) == PROTO_TRUE)));
             if (isPrim) return toBigInt(ctx, r);
         }
     }
