@@ -387,6 +387,75 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 24 — 2026-06-09** (9 commits, BigInt skeleton on protoCore's
+arbitrary-precision integers).
+
+Introduces a real `BigInt` primitive type backed by protoCore's
+`SmallInteger` + `LargeInteger` machinery — no separate bignum
+library, no bit-fiddling on opaque blobs.  A BigInt JS value is a
+wrapper object whose `BigInt.prototype` carries `__is_bigint__` (the
+`typeof` marker) and whose own attribute `__bigint_value__` holds the
+protoCore `Integer` (which already implements add / subtract /
+multiply / divide / modulo / bitwise / shifts at arbitrary precision).
+
+| Family | Passes | Total | Pass rate | Δ vs R23 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/BigInt` | **24** | 77 | **31.2 %** | **+24 from 0** |
+| `built-ins/Date` | 565 | 594 | 95.1 % | – |
+
+Commits:
+
+  * **1 — skeleton** — `BigIntPrototype.{h,cpp}`, `BigInt()` ctor
+    (Number→RangeError on non-integer, String → §7.1.14 with `0x` /
+    `0o` / `0b` radix prefixes, Symbol/null/undef → TypeError,
+    `new BigInt(.)` → TypeError), `toString(radix)`, `valueOf`,
+    `BigInt.asIntN` / `asUintN` — all routing through protoCore's
+    bignum operators.  `typeof` recognises the marker and returns
+    `"bigint"`.
+  * **2 — literals + bridge** — `OP_push_bigint_i32` handler so
+    `0n` / `5n` / `-987n` flow through the protoCore interpreter;
+    `TypeBridge::fromJS` uses `JS_ToString` → `protoCore::fromString`
+    (rather than `JS_ToBigInt64`, which silently returns the low 64
+    bits on overflow), so huge literals like
+    `99999999999999999999999999999999n` round-trip with full
+    precision; `TypeBridge::toJS` recognises the wrapper BEFORE the
+    raw-integer branch and round-trips through `JS_NewBigInt64` or
+    `JS_Eval` with the literal `<digits>n` form for past-int64
+    values.  Also fixes a pre-existing bug where regular Number
+    primitives with `|val| > INT32_MAX` were marshalled as BigInts.
+  * **3 — arithmetic** — `BIGINT_BIN_DISPATCH` macro inserted at the
+    top of `L_OP_add` / `sub` / `mul` / `mod` / `div`.  Mixed BigInt
+    + Number throws `TypeError`; pure BigInt arithmetic routes through
+    `protoCore::add` / `subtract` / `multiply` / `modulo` / `divide`.
+    `L_OP_div` has a custom path because BigInt division must integer-
+    truncate (no Infinity, no NaN) and `BigInt(5) / BigInt(0)` throws
+    `RangeError`.  Verified: `999999999n * 999999999n === 999999998000000001n`.
+  * **4 — bitwise + shifts + unary + pow** — `L_OP_and` / `or` / `xor`
+    / `not` / `shl` / `sar` / `neg` / `pow` gain BigInt-aware
+    dispatch.  Critical ordering: the marker check runs BEFORE
+    `toPrimIfObject` (which would route the wrapper through
+    `BigInt.prototype.toString` → string, erasing the type).  `>>>`
+    throws `TypeError` per §6.1.6.2.9 (BigInt has no unsigned right
+    shift).  `**` uses repeated multiplication; negative exponent
+    throws `RangeError`.  Verified:
+    `2n ** 64n === 18446744073709551616n`,
+    `10n ** 30n === 1000000000000000000000000000000n`.
+  * **5 — comparison** — `BIGINT_REL_DISPATCH` macro for `<` / `<=`
+    / `>` / `>=`; inline dispatch in `L_OP_strict_eq` / `strict_neq`
+    so `5n === 5` is `false` (different types) but `5n === 5n` is
+    `true` (compares inner Integers, infinite precision).
+
+Coverage gaps tracked for R-futuro:
+
+  * Mixed-type relational (`5n < 10`) needs §7.2.13 numericCompare
+    with asymmetric `asDouble` on the Number side.
+  * Full `==` semantics for BigInt vs Number (`5n == 5` should be
+    `true`).
+  * `BigInt.prototype.toLocaleString` (depends on Intl).
+  * `BigInt64Array` / `BigUint64Array` (TypedArray ↔ BigInt bridge).
+
+---
+
 **Round 23 — 2026-06-09** (29 commits, unattended; Date refinement
 toward spec-completeness — coerce-before-NaN setters, real
 `OrdinaryToPrimitive` / `Invoke`, RFC date parsing, negative-year
