@@ -26,12 +26,19 @@ namespace {
 static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn) {
     if (!fn || fn == PROTO_NONE) return false;
     if (fn->isMethod(ctx)) return true;
+    // §7.2.3 IsCallable: the [[Call]] internal slot is intrinsic to
+    // the function object itself; it is NOT inherited through the
+    // prototype chain.  hasAttribute defaults to a chain walk, which
+    // makes any object whose [[Prototype]] is a function answer
+    // "callable" — pre-fix `var o = new FACTORY; FACTORY.prototype =
+    // Function(); o.apply()` silently invoked the inherited function
+    // instead of throwing the spec-mandated TypeError.
     const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
-    if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+    if (bcKey && fn->hasOwnAttribute(ctx, bcKey) == PROTO_TRUE) return true;
     const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-    if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+    if (nfKey && fn->hasOwnAttribute(ctx, nfKey) == PROTO_TRUE) return true;
     const proto::ProtoString* cKey = JSSymbols::construct(ctx);
-    if (cKey && fn->hasAttribute(ctx, cKey) == PROTO_TRUE) return true;
+    if (cKey && fn->hasOwnAttribute(ctx, cKey) == PROTO_TRUE) return true;
     // Built-in constructors (Array, String, Number, Boolean, RegExp,
     // Error, TypedArray, ...) carry constructor-marker attributes
     // instead of __native_fn__ on the constructor object itself.
