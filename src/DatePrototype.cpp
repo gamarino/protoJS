@@ -31,6 +31,84 @@ namespace protojs {
 
 namespace {
 
+static bool isPrimValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!v || v == PROTO_NONE) return true;
+    if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
+    if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)) return true;
+    if (v->isBoolean(ctx) || v->isString(ctx)) return true;
+    return false;
+}
+
+static bool isCallableValue(proto::ProtoContext* ctx, const proto::ProtoObject* fn) {
+    if (!fn || fn == PROTO_NONE) return false;
+    if (fn->isMethod(ctx)) return true;
+    const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+    if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+    if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+    return false;
+}
+
+// §7.1.1 ToPrimitive(value, hint).  Calls the receiver's
+// @@toPrimitive method if present (hint is forwarded as the sole arg),
+// otherwise falls back to OrdinaryToPrimitive (valueOf-then-toString
+// for hint "number"/"default", toString-then-valueOf for hint "string").
+// Returns the primitive result, or PROTO_NONE on exception.  Used by
+// the Date constructor for `new Date(obj)` and by Date.prototype's
+// @@toPrimitive override when the receiver isn't a Date (the
+// OrdinaryToPrimitive call site invoked by §21.4.4.45 step 6).
+static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
+                                               const proto::ProtoObject* v,
+                                               const char* hint) {
+    if (!ctx) return PROTO_NONE;
+    if (isPrimValue(ctx, v)) return v;
+    // Step 2: GetMethod(v, @@toPrimitive).
+    const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+    const proto::ProtoString* tpKs = tpKo ? tpKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* tpFn = tpKs
+        ? v->getAttribute(ctx, tpKs, true) : nullptr;
+    if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
+        && tpFn != getNullSentinel()) {
+        if (!isCallableValue(ctx, tpFn)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Symbol.toPrimitive is not callable"));
+            return PROTO_NONE;
+        }
+        const proto::ProtoList* hintArgs = ctx->newList();
+        hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String(hint));
+        const proto::ProtoObject* r = callJSFunction(ctx, tpFn, v, hintArgs);
+        if (hasCallException()) return PROTO_NONE;
+        if (isPrimValue(ctx, r)) return r;
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Symbol.toPrimitive returned a non-primitive"));
+        return PROTO_NONE;
+    }
+    // OrdinaryToPrimitive: order depends on hint.
+    bool stringFirst = (std::string(hint) == "string");
+    const proto::ProtoString* k1o = stringFirst
+        ? ctx->fromUTF8String("toString")->asString(ctx)
+        : ctx->fromUTF8String("valueOf")->asString(ctx);
+    const proto::ProtoString* k2o = stringFirst
+        ? ctx->fromUTF8String("valueOf")->asString(ctx)
+        : ctx->fromUTF8String("toString")->asString(ctx);
+    const proto::ProtoString* keys[2] = { k1o, k2o };
+    bool anyCalled = false;
+    for (int i = 0; i < 2; ++i) {
+        if (!keys[i]) continue;
+        const proto::ProtoObject* fn = v->getAttribute(ctx, keys[i], true);
+        if (!isCallableValue(ctx, fn)) continue;
+        anyCalled = true;
+        const proto::ProtoObject* r = callJSFunction(ctx, fn, v, ctx->newList());
+        if (hasCallException()) return PROTO_NONE;
+        if (isPrimValue(ctx, r)) return r;
+    }
+    if (anyCalled) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "OrdinaryToPrimitive returned no primitive"));
+    }
+    return PROTO_NONE;
+}
+
 // ---------------------------------------------------------------------------
 // Internal slot read/write
 //
