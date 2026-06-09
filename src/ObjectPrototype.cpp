@@ -3773,9 +3773,17 @@ const proto::ProtoObject* installObjectInstanceMethods(
         }
         return callJSFunction(ictx, tsFn, self, ictx->newList());
     };
-    reg("toLocaleString",       objectToLocaleStringFn);
-    reg("toString",             objectToString);
-    reg("valueOf",              objectValueOf);
+    // §20.1.3.{6,7,8}: toLocaleString / toString / valueOf are
+    // installed via installNonEnumerableMethod so the wrapping method
+    // object carries spec-correct length / name + their non-writable
+    // descriptors. Pre-fix the raw `reg` lambda left the method
+    // object with default 0 length, empty name and writable
+    // descriptors, so propertyHelper checks via
+    // built-ins/Object/prototype/toString/length / name / prop-desc
+    // failed.
+    base = installNonEnumerableMethod(ctx, base, "toLocaleString", objectToLocaleStringFn, 0);
+    base = installNonEnumerableMethod(ctx, base, "toString",       objectToString,         0);
+    base = installNonEnumerableMethod(ctx, base, "valueOf",        objectValueOf,          0);
     return base;
 }
 
