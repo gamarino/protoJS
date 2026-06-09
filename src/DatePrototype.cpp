@@ -645,6 +645,10 @@ static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
 
 // Compose a tm + ms remainder back into a [[DateValue]] (ms since epoch).
 // utc=true → timegm; utc=false → mktime (uses host timezone).
+// Inverse of decomposeTime.  utc=true uses timegm (purely UTC
+// arithmetic); utc=false uses mktime which honours the host's
+// timezone and DST rules — tmIn.tm_isdst is overwritten with -1 so
+// mktime infers the DST flag.
 static double composeTime(const std::tm& tmIn, int ms, bool utc) {
     std::tm tm = tmIn;
     std::time_t epoch;
