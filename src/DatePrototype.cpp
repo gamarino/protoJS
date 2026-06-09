@@ -703,6 +703,9 @@ static const proto::ProtoObject* setComponent(proto::ProtoContext* ctx,
 
 // Pull a positional argument as an integer (best-effort).  Used by
 // every component setter to read ms/sec/min/hour/date/month/year args.
+// The `sawNaN` out-pointer flags inputs that ToNumber-coerce to
+// NaN/Infinity — the spec's MakeTime / MakeDay short-circuit those
+// to NaN, so the surrounding setter must clamp.
 static long long pullArgAsInt(proto::ProtoContext* ctx,
                               const proto::ProtoList* args,
                               int idx, long long fallback,
