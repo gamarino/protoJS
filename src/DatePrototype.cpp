@@ -96,15 +96,38 @@ static double timeClip(double t) {
 static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
-                                              const proto::ProtoList* /*args*/,
+                                              const proto::ProtoList* args,
                                               const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    auto now = std::chrono::system_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()).count();
+    const int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    double t;
+    if (argc == 0) {
+        // §21.4.2.1 no args: t = current time in ms.
+        auto now = std::chrono::system_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()).count();
+        t = static_cast<double>(ms);
+    } else if (argc == 1) {
+        // §21.4.2.2 single arg: ToPrimitive then ToNumber if numeric.
+        const proto::ProtoObject* v = args->getAt(ctx, 0);
+        if (v && (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx))) {
+            t = v->isInteger(ctx)
+                ? static_cast<double>(v->asLong(ctx))
+                : v->asDouble(ctx);
+        } else {
+            // Non-numeric single arg falls through to NaN for now;
+            // Date(string) parsing lands in a follow-up commit.
+            t = std::nan("");
+        }
+        t = timeClip(t);
+    } else {
+        // Multi-arg form (year, month, [date, hour, min, sec, ms])
+        // lands in a follow-up commit.  For now: NaN.
+        t = std::nan("");
+    }
 
     if (self && self != PROTO_NONE) {
-        return writeDateValue(ctx, self, static_cast<double>(ms));
+        return writeDateValue(ctx, self, t);
     }
     return PROTO_NONE;
 }
