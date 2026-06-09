@@ -1339,6 +1339,12 @@ static const proto::ProtoObject* symbolFor(
         const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
         const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
         if (descKey) sym = sym->setAttribute(ctx, descKey, ctx->fromUTF8String(keyStr.c_str()));
+        // Mark as a globally-registered symbol so Symbol.keyFor round-trips
+        // (§20.4.2.5 returns undefined for bare Symbol() — only Symbol.for
+        // results carry this marker).
+        const proto::ProtoObject* regObj = ctx->fromUTF8String("__symbol_registered__");
+        const proto::ProtoString* regK = regObj ? regObj->asString(ctx) : nullptr;
+        if (regK) sym = sym->setAttribute(ctx, regK, PROTO_TRUE);
     }
     reg[keyStr] = sym;
     return sym ? sym : PROTO_NONE;
@@ -1348,13 +1354,31 @@ static const proto::ProtoObject* symbolKeyFor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
-    const proto::ProtoObject* sym = args->getAt(ctx, 0);
-    if (!sym || sym == PROTO_NONE) return PROTO_NONE;
+    if (!ctx) return PROTO_NONE;
+    const proto::ProtoObject* sym = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : getUndefinedSentinel();
+    // §20.4.2.5 step 1: if Type(sym) is not Symbol, throw TypeError.
+    const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+    if (!sym || sym == PROTO_NONE || sym == getUndefinedSentinel()
+        || sym == getNullSentinel()
+        || !symMk
+        || sym->getAttribute(ctx, symMk, true) != PROTO_TRUE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Symbol.keyFor requires that 'sym' be a Symbol"));
+        return PROTO_NONE;
+    }
+    // §20.4.2.5 step 2-3: only registered symbols (those created by
+    // Symbol.for and tracked in the GlobalSymbolRegistry) round-trip
+    // through keyFor; bare Symbol() returns undefined.
+    const proto::ProtoObject* regObj = ctx->fromUTF8String("__symbol_registered__");
+    const proto::ProtoString* regK = regObj ? regObj->asString(ctx) : nullptr;
+    if (!regK || sym->getAttribute(ctx, regK, false) != PROTO_TRUE) {
+        return getUndefinedSentinel();
+    }
     const proto::ProtoObject* descObj = ctx->fromUTF8String("__symbol_desc__");
     const proto::ProtoString* descKey = descObj ? descObj->asString(ctx) : nullptr;
     const proto::ProtoObject* d = descKey ? sym->getAttribute(ctx, descKey, false) : nullptr;
-    return d ? d : PROTO_NONE;
+    return (d && d != PROTO_NONE) ? d : getUndefinedSentinel();
 }
 
 static const proto::ProtoObject* symbolConstructor(
@@ -4304,7 +4328,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                      const proto::ParentLink*,
                                                      const proto::ProtoList*,
                                                      const proto::ProtoSparseList*) -> const proto::ProtoObject* {
-                                    if (!gctx || !gself) return PROTO_NONE;
+                                    if (!gctx) return PROTO_NONE;
+                                    // §20.4.3.2: this MUST be a Symbol.  Pre-fix
+                                    // the getter returned undefined for any non-
+                                    // Symbol receiver (incl. null / number) so
+                                    // Object.getOwnPropertyDescriptor(Symbol.
+                                    // prototype, 'description').get.call(null)
+                                    // succeeded silently.
+                                    const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
+                                    if (!gself || gself == PROTO_NONE
+                                        || gself == getUndefinedSentinel()
+                                        || gself == getNullSentinel()
+                                        || !symMk
+                                        || gself->getAttribute(gctx, symMk, true) != PROTO_TRUE) {
+                                        signalNativeException(makeNativeError(gctx, "TypeError",
+                                            "Symbol.prototype.description requires that 'this' be a Symbol"));
+                                        return PROTO_NONE;
+                                    }
                                     const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
                                     const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
                                     if (!dk) return PROTO_NONE;
@@ -4382,6 +4422,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     pContext->fromMethod(nullptr, symToString));
                                 const proto::ProtoString* voK = JSSymbols::valueOf(pContext);
                                 if (voK) symProto = symProto->setAttribute(pContext, voK,
+                                    pContext->fromMethod(nullptr, symValueOf));
+                                // §20.4.3.5 Symbol.prototype[@@toPrimitive]
+                                // returns thisSymbolValue(this). Bound to
+                                // the well-known "Symbol.toPrimitive" key.
+                                const proto::ProtoObject* tpKo = pContext->fromUTF8String("Symbol.toPrimitive");
+                                const proto::ProtoString* tpK = tpKo ? tpKo->asString(pContext) : nullptr;
+                                if (tpK) symProto = symProto->setAttribute(pContext, tpK,
                                     pContext->fromMethod(nullptr, symValueOf));
                             }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
