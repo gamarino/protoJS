@@ -387,6 +387,44 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 29 — 2026-06-09** (+23 tests) — propagated the R28 mutability
+pattern to the remaining user-visible prototypes, and fixed the
+arguments-object prototype chain:
+
+  * `RegExp.prototype` and `%TypedArray%.prototype` were both created
+    via `newChild(ctx, false)` — identical shape to the R28 bug.
+    Switched to `newChild(ctx, true)` so user writes to
+    `RegExp.prototype.foo` mutate in place. Unblocks the
+    Object.defineProperty 8.10.5 step 5.a tests that exercise the
+    descriptor-via-prototype-chain pattern with a freshly-augmented
+    RegExp.prototype.
+  * The arguments exotic object was built via
+    `pContext->newObject(true)` — a parentless cell.
+    `Object.getPrototypeOf(arguments)` returned `%Object.prototype%`
+    via protoCore's fallback in `getPrototype`, but the attribute
+    walk used the real (null) parent link, so
+    `Object.prototype.value = "X"; (function(){return arguments;})()
+    .value` was `undefined`. Re-parent via
+    `objectPrototype->newChild(ctx, true)` so the chain walk works
+    too.
+
+10-family roll-up: 8451 → **8474 / 9823** (86.3 %). Object 2933 →
+2954 (+21), Array 2733 → 2734, String 1008 → 1009, Function 308 →
+309.
+
+A separate latent inconsistency was observed (kept for the next
+round): `Object.getOwnPropertyNames(Object.prototype)` still returns
+`[]` even though `hasOwnProperty('toString')` is `true` and
+`getOwnPropertyDescriptor(Object.prototype, 'toString')` returns the
+data descriptor. User-added properties DO show up in the names list,
+so the inconsistency is specific to init-time setAttribute on the
+mutable cell. Same shape on `Number.prototype.toFixed`. Likely a
+protoCore `getOwnAttributes` vs `hasOwnAttribute` snapshot
+disagreement; needs a targeted probe in protoCore's mutable
+sparse-list path.
+
+---
+
 **Round 28 — 2026-06-09** (protoCore fix, +54 tests) — chased the
 Object.prototype write-suppression bug flagged in R27.5: `space->
 objectPrototype` was created via `newObject(false)` (immutable), so
