@@ -42,6 +42,9 @@ namespace {
 // ---------------------------------------------------------------------------
 
 static const proto::ProtoString* dateValueKey(proto::ProtoContext* ctx) {
+    // Interned once per thread.  createSymbol returns a perpetual
+    // (NULL-context) allocation so the cached pointer is safe to keep
+    // across GC cycles.
     static thread_local const proto::ProtoString* k = nullptr;
     if (!k) k = proto::ProtoString::createSymbol(ctx, "__date_value__");
     return k;
