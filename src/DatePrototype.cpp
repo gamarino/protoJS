@@ -450,6 +450,51 @@ static double parseDateString(const std::string& s) {
 //   0   → current time
 //   1   → numeric → time value; string → parsed; other → NaN
 //   ≥ 2 → multi-component form with local-TZ interpretation
+// Forward declarations consumed by the plain-call path below.
+static std::string formatTZOffset(long offsetSec);
+
+// §21.4.2.1 Date() — when called as a plain function (no `new`), the
+// spec REQUIRES the return value to be `(new Date()).toString()` —
+// i.e. the current time as a string — REGARDLESS of how many arguments
+// are passed.  Pre-R23 the single dateCtorCall handled both call paths
+// and on a plain call still attempted to write [[DateValue]] on whichever
+// `this` was bound (typically the global), which silently mutated the
+// global.  Splitting the two paths fixes S15.9.2.1_A1 / A2 (typeof
+// Date() === 'string').
+static const proto::ProtoObject* dateCtorPlainCall(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject*,
+                                                   const proto::ParentLink*,
+                                                   const proto::ProtoList*,
+                                                   const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()).count();
+    double t = static_cast<double>(ms);
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, /*utc=*/false, &tmv, &msrem))
+        return ctx->fromUTF8String("Invalid Date");
+    long long secs = static_cast<long long>(t) / 1000;
+    std::time_t tt = static_cast<std::time_t>(secs);
+    std::tm utcTm;
+    gmtime_r(&tt, &utcTm);
+    std::time_t localEpoch = timegm(&tmv);
+    std::time_t utcEpoch = timegm(&utcTm);
+    long offsetSec = static_cast<long>(localEpoch - utcEpoch);
+    std::string tz = formatTZOffset(offsetSec);
+    static const char* wd[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+    static const char* mo[] = {"Jan","Feb","Mar","Apr","May","Jun",
+                               "Jul","Aug","Sep","Oct","Nov","Dec"};
+    char buf[96];
+    std::snprintf(buf, sizeof(buf),
+        "%s %s %02d %04d %02d:%02d:%02d GMT%s",
+        wd[tmv.tm_wday], mo[tmv.tm_mon],
+        tmv.tm_mday, tmv.tm_year + 1900,
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec, tz.c_str());
+    return ctx->fromUTF8String(buf);
+}
+
 static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
@@ -1868,21 +1913,26 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         }
     }
 
-    // Wire BOTH call paths to dateCtorCall:
-    //   - L_OP_call dispatch (plain Date(...)) looks up __native_fn__
-    //   - L_OP_call_constructor (new Date(...)) looks up __construct__
-    // The TimingAPIs::init stub left __native_fn__ pointing at dateNow
-    // (so typeof Date === "function" was preserved); replace it so the
-    // bare-call form also gets dateCtorCall, and stamp __construct__ so
-    // the new form actually runs the handler instead of returning the
-    // pristine newObj per the dispatch's "isCtor == PROTO_TRUE" fallback.
+    // Wire the two call paths to their respective implementations:
+    //   - L_OP_call (plain Date(...))           → __native_fn__ →
+    //     dateCtorPlainCall, which returns ToString(now) regardless of
+    //     arguments (§21.4.2.1 "called as function" — fixes
+    //     S15.9.2.1_A1/A2).
+    //   - L_OP_call_constructor (new Date(...)) → __construct__ →
+    //     dateCtorCall, which writes [[DateValue]] on the new instance.
+    //
+    // Pre-R23 both paths routed to dateCtorCall, and plain `Date(x)`
+    // silently mutated whichever object was bound to `this` (usually
+    // the global) with a [[DateValue]] slot.
     {
-        const proto::ProtoObject* m =
+        const proto::ProtoObject* plainFn =
+            ctx->fromMethod(nullptr, dateCtorPlainCall);
+        const proto::ProtoObject* ctorFn =
             ctx->fromMethod(nullptr, dateCtorCall);
         const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey && m) dateObj = dateObj->setAttribute(ctx, nfKey, m);
+        if (nfKey && plainFn) dateObj = dateObj->setAttribute(ctx, nfKey, plainFn);
         const proto::ProtoString* coK = JSSymbols::construct(ctx);
-        if (coK && m) dateObj = dateObj->setAttribute(ctx, coK, m);
+        if (coK && ctorFn) dateObj = dateObj->setAttribute(ctx, coK, ctorFn);
     }
 
     // Recover the prototype installed by the stub, or build a fresh one.
