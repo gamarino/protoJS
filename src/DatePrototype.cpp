@@ -999,7 +999,12 @@ static const proto::ProtoObject* dateToDateString(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
-    if (!isDate || std::isnan(t)) return ctx->fromUTF8String("Invalid Date");
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
+    }
+    if (std::isnan(t)) return ctx->fromUTF8String("Invalid Date");
     std::tm tmv;
     int msrem = 0;
     if (!decomposeTime(t, false, &tmv, &msrem))
