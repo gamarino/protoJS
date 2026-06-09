@@ -387,6 +387,27 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 27.5 — 2026-06-09** (2 commits, hnw + prop-desc tail) —
+stamped `__has_non_writable_props__` on JSON so verifyProperty on the
+`Symbol.toStringTag` slot stops succeeding silently (restores
+built-ins/JSON/Symbol.toStringTag.js); plus `__pd_<key>__` on
+Symbol.prototype.toString / valueOf / @@toPrimitive with the
+§17-correct bits.
+
+10-family roll-up: 8394 → **8397 / 9823** (Symbol 39 → 41, JSON 121 →
+122).
+
+A deeper Object.prototype write-suppression bug was found while
+chasing the remaining prop-desc gaps: writes to `Object.prototype.foo`
+and `Number.prototype.toFixed` are visible (because protoCore objects
+ARE mutable), but `Object.getOwnPropertyNames(Object.prototype)`
+returns `[]` and `Object.defineProperty(Object.prototype, …)` is a
+no-op. That blocks ~7 Object/prototype prop-desc tests but is out of
+scope for an hnw stamp; deferred to a future round that revisits the
+collectOwnKeys vs. internal-objectPrototype shadow.
+
+---
+
 **Round 27 — 2026-06-09** (13 commits, structural blockers —
 strict-mode writability TypeError, ToNumber/ToPrimitive recognise
 BigInt and Symbol as primitives so the spec-mandated TypeError fires,
