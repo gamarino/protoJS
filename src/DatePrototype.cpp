@@ -520,6 +520,51 @@ static const proto::ProtoObject* dateSetHours(proto::ProtoContext* ctx,
         });
 }
 
+// §21.4.4.20 setDate(date) — local day-of-month.
+static const proto::ProtoObject* dateSetDate(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* self,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList* args,
+                                             const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, false,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mday, &nan));
+        });
+}
+
+// §21.4.4.21 setMonth(mo[, date]) — local 0-indexed month.
+static const proto::ProtoObject* dateSetMonth(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList* args,
+                                              const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, false,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mon, &nan));
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mday, &nan));
+        });
+}
+
+// §21.4.4.18 setFullYear(year[, mo[, date]]) — local.
+static const proto::ProtoObject* dateSetFullYear(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self,
+                                                 const proto::ParentLink*,
+                                                 const proto::ProtoList* args,
+                                                 const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, false,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_year = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_year + 1900, &nan)) - 1900;
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mon, &nan));
+            if (a && a->getSize(ctx) >= 3)
+                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_mday, &nan));
+        });
+}
+
 // §21.4.4.27 Date.prototype.setTime — direct assign TimeClip(ToNumber(arg)).
 static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
@@ -677,6 +722,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setSeconds",         dateSetSeconds, 2);
         registerProtoMethod(ctx, proto, "setMinutes",         dateSetMinutes, 3);
         registerProtoMethod(ctx, proto, "setHours",           dateSetHours, 4);
+        registerProtoMethod(ctx, proto, "setDate",            dateSetDate, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
