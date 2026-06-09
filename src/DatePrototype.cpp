@@ -537,9 +537,9 @@ static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
     if (!isDate) {
-        // §21.4.4.1 — throw TypeError.  For now we surface the spec
-        // value NaN; the throwing path is a follow-up commit.
-        return ctx->fromDouble(std::nan(""));
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
     }
     if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
     return ctx->fromInteger(static_cast<long long>(t));
