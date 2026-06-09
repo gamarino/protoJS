@@ -387,6 +387,35 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 29.5 — 2026-06-09** (+9 tests, latent-bug closure) — resolved
+the `Object.getOwnPropertyNames(Object.prototype) === []` mystery
+documented as a follow-up in R29:
+
+  * `collectOwnKeys`'s per-key callback dropped any key whose
+    `ProtoString::isSymbol()` returned true.
+  * That predicate checks `POINTER_TAG_SYMBOL` — the protoCore
+    pointer tag set on EVERY interned attribute name (setAttribute
+    auto-interns strongly). Init-time installs (long-lived
+    heap-string keys → interned → tagged SYMBOL) were dropped from
+    enumeration; user writes (short keys stored as inline strings,
+    different tag, not auto-interned) survived. That's why
+    `p.foo = 1` showed up but `toString` didn't.
+  * Replace the tag check with a textual prefix check
+    (`Symbol.` / `Symbol(`) — protoJS encodes JS Symbol-keyed
+    properties as plain strings under those forms, and they ARE
+    the JS-visible Symbols the test262 `symbols-omitted.js` test
+    wants skipped.
+
+Cascades through every `collectOwnKeys` consumer: `Object.keys`,
+`Object.values`, `Object.entries`, `Object.getOwnPropertyNames`,
+`Object.getOwnPropertyDescriptors`, `Object.assign` source
+enumeration, JSON stringification of own-prop snapshots, spread.
+
+10-family rollup: 8474 → **8483 / 9823** (86.4 %). Object 2954 →
+2962 (+8), JSON 123 → 124 (+1). No regressions.
+
+---
+
 **Round 29 — 2026-06-09** (+23 tests) — propagated the R28 mutability
 pattern to the remaining user-visible prototypes, and fixed the
 arguments-object prototype chain:
