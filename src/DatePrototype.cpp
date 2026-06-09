@@ -864,6 +864,35 @@ static const proto::ProtoObject* dateToTimeString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
+// §21.4.4.38 toLocaleString — fallback to toString since protoJS does
+// not (yet) implement the §402 Intl extensions.  Matches V8's behaviour
+// when the host runs without ICU support.
+static const proto::ProtoObject* dateToLocaleString(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject* self,
+                                                    const proto::ParentLink* p,
+                                                    const proto::ProtoList* args,
+                                                    const proto::ProtoSparseList* k) {
+    return dateToString(ctx, self, p, args, k);
+}
+
+// §21.4.4.39 toLocaleDateString — fallback to toDateString.
+static const proto::ProtoObject* dateToLocaleDateString(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* self,
+                                                        const proto::ParentLink* p,
+                                                        const proto::ProtoList* args,
+                                                        const proto::ProtoSparseList* k) {
+    return dateToDateString(ctx, self, p, args, k);
+}
+
+// §21.4.4.40 toLocaleTimeString — fallback to toTimeString.
+static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* self,
+                                                        const proto::ParentLink* p,
+                                                        const proto::ProtoList* args,
+                                                        const proto::ProtoSparseList* k) {
+    return dateToTimeString(ctx, self, p, args, k);
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -1019,6 +1048,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toString",           dateToString, 0);
         registerProtoMethod(ctx, proto, "toDateString",       dateToDateString, 0);
         registerProtoMethod(ctx, proto, "toTimeString",       dateToTimeString, 0);
+        registerProtoMethod(ctx, proto, "toLocaleString",     dateToLocaleString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
