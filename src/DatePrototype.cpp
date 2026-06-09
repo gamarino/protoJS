@@ -155,10 +155,41 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// Component extractor — common to every getter.  Pulls [[DateValue]],
+// returns NaN on any failure, otherwise decomposes and runs the
+// caller-supplied selector to extract one int component.
+// ---------------------------------------------------------------------------
+
+template <typename Selector>
+static const proto::ProtoObject* getComponent(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              bool utc, Selector pick) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, utc, &tmv, &msrem))
+        return ctx->fromDouble(std::nan(""));
+    return ctx->fromInteger(static_cast<long long>(pick(tmv, msrem)));
+}
+
+// ---------------------------------------------------------------------------
 // §21.4.4.10 Date.prototype.getTime
 // §21.4.4.8  Date.prototype.valueOf
 // (same operation: return thisTimeValue)
 // ---------------------------------------------------------------------------
+
+// §21.4.4.13 Date.prototype.getUTCFullYear
+static const proto::ProtoObject* dateGetUTCFullYear(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject* self,
+                                                    const proto::ParentLink*,
+                                                    const proto::ProtoList*,
+                                                    const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm& tm, int) { return tm.tm_year + 1900; });
+}
 
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
@@ -291,8 +322,9 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
     if (proto && proto != PROTO_NONE) {
         // Bootstrap methods that don't depend on any helpers yet:
         // getTime / valueOf both surface [[DateValue]] directly.
-        registerProtoMethod(ctx, proto, "getTime",  dateGetTime, 0);
-        registerProtoMethod(ctx, proto, "valueOf",  dateGetTime, 0);
+        registerProtoMethod(ctx, proto, "getTime",        dateGetTime, 0);
+        registerProtoMethod(ctx, proto, "valueOf",        dateGetTime, 0);
+        registerProtoMethod(ctx, proto, "getUTCFullYear", dateGetUTCFullYear, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
