@@ -743,6 +743,41 @@ static long long pullArgAsInt(proto::ProtoContext* ctx,
     return fallback;
 }
 
+// Pull a positional argument as a double, with strict spec semantics:
+// every "present" position (argc > idx) fires ToNumber unconditionally,
+// even if the value is the undefined sentinel.  ToNumber(undefined) =
+// NaN, and the spec for every Date set* method requires every present
+// argument to be coerced BEFORE the receiver's [[DateValue]] NaN test
+// (see §21.4.4.x step ordering and arg-coercion-order.js fixtures).
+// The `present` out-flag distinguishes "argument not supplied" (no
+// coercion fired) from "argument supplied" (coercion fired, possibly
+// producing NaN).  The latter must still update the corresponding
+// component slot per §21.4.4 step ordering.
+static double pullArgAsDouble(proto::ProtoContext* ctx,
+                              const proto::ProtoList* args,
+                              int idx, bool* present) {
+    if (!args || idx >= args->getSize(ctx)) {
+        if (present) *present = false;
+        return 0.0;
+    }
+    if (present) *present = true;
+    const proto::ProtoObject* v = args->getAt(ctx, idx);
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel())
+        return std::nan("");
+    if (v == getNullSentinel()) return 0.0;
+    if (v->isInteger(ctx)) return static_cast<double>(v->asLong(ctx));
+    if (v->isDouble(ctx) || v->isFloat(ctx)) return v->asDouble(ctx);
+    if (v->isBoolean(ctx)) return v->asBoolean(ctx) ? 1.0 : 0.0;
+    // §7.1.4 ToNumber for objects + strings.  ToPrimitive fires here.
+    const proto::ProtoObject* n = jsToNumber(ctx, v);
+    if (hasCallException()) return std::nan("");
+    if (!n || n == PROTO_NONE) return std::nan("");
+    if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
+    if (n->isDouble(ctx) || n->isFloat(ctx)) return n->asDouble(ctx);
+    if (n->isBoolean(ctx)) return n->asBoolean(ctx) ? 1.0 : 0.0;
+    return std::nan("");
+}
+
 // §21.4.4.23 setMilliseconds(ms) — local.
 static const proto::ProtoObject* dateSetMilliseconds(proto::ProtoContext* ctx,
                                                      const proto::ProtoObject* self,
