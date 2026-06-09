@@ -387,6 +387,86 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 21 — 2026-06-09** (1 commit; carry-over R18-#261 closed —
+`Function.prototype.toString` now returns the original source for
+user-defined functions).
+
+| Family | Passes | Total | Pass rate | Δ vs R20 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Array` | 2 706 | 3 081 | **87.8 %** | – |
+| `built-ins/Object` | 2 857 | 3 411 | **83.8 %** | – |
+| `built-ins/String` | 1 007 | 1 223 | **82.3 %** | – |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | – |
+| `built-ins/Function` | 307 | 509 | **60.3 %** | **+8.0 pp** (+41) |
+| `built-ins/Date` | 76 | 594 | 12.8 % (stub) | – |
+| **8-family rollup** | **7 732** | **9 648** | **80.1 %** | **+0.4 pp** (+41) |
+
+The +41 on built-ins/Function lands almost entirely on the
+S15.3.5_A2_T*, S15.3.5.2_A1_T*, S15.3_A2_T*, and prototype/toString/
+groups — all the Sputnik tests that verify
+`Function.prototype.toString` returns syntactically-valid source
+that, when re-evaluated, produces an equivalent function.
+
+This was the R18 carry-over (#261).  Five coordinated pieces thread
+the source text from compile through closure creation to
+`toString`:
+
+  * Two new C accessors in `deps/quickjs/quickjs.c`
+    (`protojs_bytecode_source` / `protojs_bytecode_source_len`)
+    expose QuickJS's existing `b->debug.source` field.  The
+    parser was already capturing the
+    `FunctionDeclaration` / `FunctionExpression` /
+    `ArrowFunction` / `MethodDefinition` span and serialising it
+    through the bytecode dbuf — only the read API was missing.
+  * `ProtoBytecodeModule` gains a `funcSource` field, populated
+    at load by `ProtoBytecodeLoader.cpp`.
+  * A new interned symbol `__source_text__`
+    (`JSSymbols::sourceText`) is stamped onto every closure
+    created by `L_OP_fclosure` AND `L_OP_fclosure8` — both
+    opcodes were patched; the 8-bit-immediate variant is the
+    one most top-level `function foo() {}` declarations hit, so
+    a fix on only `L_OP_fclosure` would have missed everything
+    except function expressions.
+  * `functionPrototypeToString` probes `__source_text__` first
+    and returns it verbatim when present.  When the attribute is
+    absent (true host built-in, Bound function, C++-only
+    `ProtoMethod`), it falls through to the existing
+    `"function name() { [native code] }"` template — so
+    `Math.max.toString()` still produces the spec-default
+    native form.
+
+End-state examples:
+
+```
+> function foo(a, b) { return a + b; }
+> foo.toString()
+"function foo(a, b) { return a + b; }"
+
+> ((x) => x * 2).toString()
+"(x) => x * 2"
+
+> ({hello(n) { return "Hi " + n }}.hello.toString())
+'hello(n) { return "Hi " + n }'
+
+> Math.max.toString()
+"function max() { [native code] }"
+```
+
+Carry-overs unchanged from R19 / R20:
+  * R19-#263: regex literal `/a+/.test(...)` bridging.
+  * R20-#269: cross-realm Function invocations
+    (`this-not-callable-realm.js`, ~5 tests in the Function
+    family).
+  * R20 follow-up: `new Function(body)` still surfaces the
+    native template instead of `"function anonymous() { ... }"`
+    — the synthetic module from `evalIsolatedToProto` carries
+    its outer source, not the inner closure's slice.  Small
+    follow-up; defer to a future round.
+
+---
+
 **Round 20 — 2026-06-09** (2 commits; structural fix unblocking the
 Function constructor invocation path, plus the supporting infrastructure
 for nested compile+run without disturbing the caller's bytecode module).
