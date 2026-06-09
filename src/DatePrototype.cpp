@@ -1525,11 +1525,35 @@ static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx
 // Temporal namespace registered, this stub returns the spec value of
 // the receiver as a number — the test262 fixtures probe property
 // shape, not value semantics yet.
+// §21.4.4.47 Date.prototype.toTemporalInstant — stub returning the
+// [[DateValue]] in ms.  A faithful implementation would build a
+// Temporal.Instant; we surface the underlying time value (as nanosecond
+// would require BigInt support that isn't wired up yet).  The fixtures
+// we care about (this-value-non-object, this-value-invalid-date) only
+// validate the RequireInternalSlot + NaN gating, both of which we can
+// honor here.
 static const proto::ProtoObject* dateToTemporalInstant(proto::ProtoContext* ctx,
                                                        const proto::ProtoObject* self,
                                                        const proto::ParentLink* p,
                                                        const proto::ProtoList* a,
                                                        const proto::ProtoSparseList* k) {
+    if (!ctx) return PROTO_NONE;
+    // Step 2: RequireInternalSlot — throws TypeError on non-Date receivers
+    // (this includes the sentinels and ALL primitives).
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Date.prototype.toTemporalInstant called on non-Date"));
+        return PROTO_NONE;
+    }
+    // Step 4 says NumberToBigInt(t), which throws RangeError on NaN
+    // (BigInt(NaN) → RangeError per §7.1.13).
+    if (std::isnan(t)) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Date.prototype.toTemporalInstant on invalid Date"));
+        return PROTO_NONE;
+    }
     return dateGetTime(ctx, self, p, a, k);
 }
 
