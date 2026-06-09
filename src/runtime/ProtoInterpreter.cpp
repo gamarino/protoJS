@@ -1268,6 +1268,17 @@ static const proto::ProtoObject* symbolFor(
 {
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* keyObj = args->getAt(ctx, 0);
+    // §20.4.2.2 step 1 (ToString on Symbol throws TypeError).  Detect
+    // the Symbol marker directly so the toString path doesn't silently
+    // convert.
+    {
+        const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+        if (symMk && keyObj && keyObj->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert a Symbol to a string"));
+            return PROTO_NONE;
+        }
+    }
     std::string keyStr;
     // §20.4.2.2 Symbol.for step 1: stringKey = ? ToString(key).  Pre-fix
     // we only handled raw strings; objects (which test262 exercises via
