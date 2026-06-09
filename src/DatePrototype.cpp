@@ -1095,6 +1095,11 @@ static const char* kMonthShort[] = {
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
+// ----------------------------------------------------------------
+// §21.4.4.41 Date.prototype.toUTCString — HTTP-Date / IMF-fixdate
+// form per RFC 7231 §7.1.1.1.  The legacy §B.2.4.3 alias
+// toGMTString points at the same implementation.
+// ----------------------------------------------------------------
 // §21.4.4.41 toUTCString — "Day, DD Mon YYYY HH:MM:SS GMT"
 static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
