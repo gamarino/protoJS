@@ -387,6 +387,87 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 25 — 2026-06-09** (9 commits, BigInt push to high coverage —
+property descriptors, ToBigInt / ToIndex spec sequencing, tight string
+parser, inc/dec, constructor-stub overwrite, ToPrimitive-on-objects).
+
+| Family | Passes | Total | Pass rate | Δ vs R24 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/BigInt` | **64** | 77 | **83.1 %** | **+40 from R24's 24** |
+| `built-ins/Date` | 565 | 594 | 95.1 % | – |
+
+R25 commits land in order:
+
+  1. **Property descriptors** — `__pd_length__` / `__pd_name__` /
+     `__pd_<methodName>__` / `__pd_Symbol.toStringTag__` /
+     `__pd_BigInt__` / `__pd_constructor__` stamped on the
+     constructor, prototype, and every wrapper method.  Mostly
+     matches the §17 conventions: builtin function objects have
+     `length` / `name` non-writable / non-enumerable / configurable
+     (0x2); the global BigInt and the prototype's own data
+     properties are writable / non-enumerable / configurable (0x3).
+  2. **§7.1.13 ToBigInt on objects** — constructor recurses through
+     ToPrimitive(hint=number) instead of short-circuiting to
+     TypeError, so `BigInt({valueOf: () => Infinity})` now throws
+     RangeError (was TypeError), `BigInt({valueOf: () => 42})`
+     returns 42n.
+  3. **asIntN / asUintN ToIndex sequencing** — `bits` is ToIndex'd
+     FIRST, then `bigint` is ToBigInt'd, per §21.2.2.{1,2}
+     (verified by order-of-steps.js).  toIndex handles undefined →
+     0, NaN → 0, boolean / string / array.toString routes through
+     jsToNumber.
+  4. **Tight string parser** — pre-validate every char against the
+     radix's digit set BEFORE protoCore::fromString (which throws
+     std::invalid_argument on malformed input — pre-fix `BigInt("10.5")`
+     crashed).  Now `BigInt('10n')`, `BigInt('10x')`, `BigInt('10.5')`
+     all surface the spec-mandated SyntaxError.  `toString(radix)`
+     coerces radix through `jsToNumber` so null / boolean / NaN-string
+     all land in [0, 36] range-check.
+  5. **Inc/dec on BigInt** — `++` / `--` / `i++` / `i--` route
+     through inner-Integer `.add(1)` / `.subtract(1)`, unblocking
+     BigInt for-loops (e.g. `i = 10n; while (i < 20n) i++`).
+  6. **Constructor-stub overwrite** — the pre-existing
+     unimplemented-ctors stub installed BigInt on the global root
+     BEFORE ensureBigIntConstructor ran; the old early-return short
+     -circuited adoption of the stub's empty prototype, so
+     `BigInt.prototype.toString.call(...)` was undefined.  Now
+     ensureBigIntConstructor unconditionally overwrites the stub.
+  7. **(re)install methods against the fully-populated
+     Function.prototype** — JSContextWrapper init runs
+     buildBigIntPrototype before ensureFunctionPrototype publishes
+     `.call` / `.apply` / `.bind`; ensureBigIntConstructor now retries
+     the installation so the toString / valueOf wrapper chain reaches
+     the real Function.prototype.
+  8. **toBigInt (§7.1.13) split from NumberToBigInt** — asIntN /
+     asUintN use ToBigInt which is TypeError-on-Number per table 12;
+     the BigInt constructor stays on NumberToBigInt which is
+     RangeError-on-non-safe-integer.
+  9. **ToIndex strict range check** — negative / Infinity /
+     past-2^53-1 all RangeError instead of silent clamp; bare BigInt
+     `bits` arg throws TypeError directly (no Number representation
+     for BigInt per §7.1.4).
+
+Coverage gaps tracked for R-futuro (each blocked by infrastructure
+outside the BigInt implementation):
+
+  * Real Symbol primitive type (5 tests) — protoJS encodes Symbol
+    as String; tests probing `Symbol.toPrimitive` / Symbol-returning
+    valueOf can't dispatch through ToBigInt's TypeError branch.
+  * `Object(0n)` boxing (1 test, wrapper-object-ordinary-toprimitive)
+    — needs a BigInt wrapper-object type distinct from the primitive,
+    matching the Object() ctor's Number / String boxing pattern.
+  * `__pd_*__` writability enforcement at the runtime layer (3 tests)
+    — descriptors are stored, but `f.length = 99` doesn't observe
+    them; this is a runtime-wide gap (Number / Date have the same
+    issue).  Fixing requires plumbing setAttribute through the pd
+    table.
+  * Global `Object.prototype` identity (1 test) — Object.getPrototypeOf
+    (BigInt.prototype) returns a DIFFERENT object than the global
+    Object.prototype; same protoJS-wide bug Date hit.
+  * Cross-realm BigInt (1 test) — needs full realm support.
+
+---
+
 **Round 24 — 2026-06-09** (9 commits, BigInt skeleton on protoCore's
 arbitrary-precision integers).
 
