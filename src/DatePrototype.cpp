@@ -1334,11 +1334,21 @@ static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
     int msrem = 0;
     if (!decomposeTime(t, true, &tmv, &msrem))
         return ctx->fromUTF8String("Invalid Date");
+    // Negative-year handling: sign + ≥4 magnitude digits, per
+    // toUTCString/negative-year.js.
+    int year = tmv.tm_year + 1900;
+    const char* yfmt = (year < 0) ? "%05d" : "%04d";
     char buf[64];
     std::snprintf(buf, sizeof(buf),
-        "%s, %02d %s %04d %02d:%02d:%02d GMT",
-        kWeekdayShort[tmv.tm_wday], tmv.tm_mday, kMonthShort[tmv.tm_mon],
-        tmv.tm_year + 1900, tmv.tm_hour, tmv.tm_min, tmv.tm_sec);
+        "%s, %02d %s ",
+        kWeekdayShort[tmv.tm_wday], tmv.tm_mday, kMonthShort[tmv.tm_mon]);
+    char yearbuf[16];
+    std::snprintf(yearbuf, sizeof(yearbuf), yfmt, year);
+    std::strncat(buf, yearbuf, sizeof(buf) - std::strlen(buf) - 1);
+    char rest[40];
+    std::snprintf(rest, sizeof(rest), " %02d:%02d:%02d GMT",
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec);
+    std::strncat(buf, rest, sizeof(buf) - std::strlen(buf) - 1);
     return ctx->fromUTF8String(buf);
 }
 
@@ -1388,13 +1398,25 @@ static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
     std::time_t utcEpoch = timegm(&utcTm);
     long offsetSec = static_cast<long>(localEpoch - utcEpoch);
     std::string tz = formatTZOffset(offsetSec);
+    // §21.4.4.41.3 ToDateString — negative years serialize with a leading
+    // "-" plus at least four magnitude digits (per the prototype/toString
+    // /negative-year.js fixture).  "%04d" prints -1 as "-001" (only three
+    // magnitude digits because the sign counts toward the width), so use
+    // "%05d" — width 5 includes the sign and pads the magnitude to four.
+    int year = tmv.tm_year + 1900;
+    const char* yfmt = (year < 0) ? "%05d" : "%04d";
     char buf[96];
     std::snprintf(buf, sizeof(buf),
-        "%s %s %02d %04d %02d:%02d:%02d GMT%s",
+        "%s %s %02d ",
         kWeekdayShort[tmv.tm_wday], kMonthShort[tmv.tm_mon],
-        tmv.tm_mday, tmv.tm_year + 1900,
-        tmv.tm_hour, tmv.tm_min, tmv.tm_sec,
-        tz.c_str());
+        tmv.tm_mday);
+    char yearbuf[16];
+    std::snprintf(yearbuf, sizeof(yearbuf), yfmt, year);
+    std::strncat(buf, yearbuf, sizeof(buf) - std::strlen(buf) - 1);
+    char rest[64];
+    std::snprintf(rest, sizeof(rest), " %02d:%02d:%02d GMT%s",
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec, tz.c_str());
+    std::strncat(buf, rest, sizeof(buf) - std::strlen(buf) - 1);
     return ctx->fromUTF8String(buf);
 }
 
@@ -1417,11 +1439,16 @@ static const proto::ProtoObject* dateToDateString(proto::ProtoContext* ctx,
     int msrem = 0;
     if (!decomposeTime(t, false, &tmv, &msrem))
         return ctx->fromUTF8String("Invalid Date");
+    // Same negative-year handling as toString (§21.4.4.41.3).
+    int year = tmv.tm_year + 1900;
+    const char* yfmt = (year < 0) ? "%05d" : "%04d";
     char buf[48];
-    std::snprintf(buf, sizeof(buf),
-        "%s %s %02d %04d",
+    std::snprintf(buf, sizeof(buf), "%s %s %02d ",
         kWeekdayShort[tmv.tm_wday], kMonthShort[tmv.tm_mon],
-        tmv.tm_mday, tmv.tm_year + 1900);
+        tmv.tm_mday);
+    char yearbuf[16];
+    std::snprintf(yearbuf, sizeof(yearbuf), yfmt, year);
+    std::strncat(buf, yearbuf, sizeof(buf) - std::strlen(buf) - 1);
     return ctx->fromUTF8String(buf);
 }
 
