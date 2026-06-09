@@ -177,7 +177,13 @@ static double parseDateString(const std::string& s) {
         }
     }
     // Optional time component, separated by 'T' or space.
-    if (skipChar('T') || skipChar(' ')) {
+    // §21.4.1.15 step 8: time component is optional but when present
+    // must follow the spec-mandated separator (T or, more loosely, a
+    // space).  Some sources omit the separator entirely and append
+    // a comma + time; we accept ", " too for compatibility with the
+    // RFC 2822 / Date(Date(0).toUTCString()) round trip.
+    if (skipChar('T') || skipChar(' ') ||
+        (p[0] == ',' && p[1] == ' ' && (p += 2))) {
         if (std::sscanf(p, "%2d%n", &hr, &n) != 1 || n != 2) return std::nan("");
         p += n;
         if (skipChar(':')) {
