@@ -834,7 +834,10 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         if (objProto && objProto != PROTO_NONE) {
             static const char* kReparentNames[] = {
                 "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable",
-                "toLocaleString", nullptr
+                "toLocaleString", "toString", "valueOf",
+                "__lookupGetter__", "__lookupSetter__",
+                "__defineGetter__", "__defineSetter__",
+                nullptr
             };
             for (int i = 0; kReparentNames[i]; ++i) {
                 const proto::ProtoObject* nko = ctx->fromUTF8String(kReparentNames[i]);
