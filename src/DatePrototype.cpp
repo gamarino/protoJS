@@ -1271,6 +1271,10 @@ static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx
     return dateToTimeString(ctx, self, p, args, k);
 }
 
+// ----------------------------------------------------------------
+// §21.4.4.44 Date.prototype.toTemporalInstant — Stage-3 Temporal
+// proposal hook.  Stub until the Temporal namespace is wired.
+// ----------------------------------------------------------------
 // §21.4.4.44 Date.prototype.toTemporalInstant — stub.
 // Returns a placeholder per Stage-3 Temporal proposal.  Without the
 // Temporal namespace registered, this stub returns the spec value of
