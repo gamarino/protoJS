@@ -978,11 +978,10 @@ static const proto::ProtoObject* dateSetUTCMilliseconds(proto::ProtoContext* ctx
                                                         const proto::ParentLink*,
                                                         const proto::ProtoList* args,
                                                         const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm&, int& ms, const proto::ProtoList* a) {
-            bool nan = false;
-            long long v = pullArgAsInt(ctx, a, 0, ms, &nan);
-            if (nan) ms = 0; else ms = static_cast<int>(v);
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/1,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm&, int& ms, const double* c, const bool* p, int) {
+            if (p[0]) ms = static_cast<int>(c[0]);
         });
 }
 
@@ -992,13 +991,11 @@ static const proto::ProtoObject* dateSetUTCSeconds(proto::ProtoContext* ctx,
                                                    const proto::ParentLink*,
                                                    const proto::ProtoList* args,
                                                    const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_sec, &nan));
-            if (a && a->getSize(ctx) >= 2)
-                ms = static_cast<int>(pullArgAsInt(ctx, a, 1, ms, &nan));
-            if (nan) ms = 0;
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/2,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_sec = static_cast<int>(c[0]);
+            if (p[1]) ms        = static_cast<int>(c[1]);
         });
 }
 
@@ -1008,15 +1005,12 @@ static const proto::ProtoObject* dateSetUTCMinutes(proto::ProtoContext* ctx,
                                                    const proto::ParentLink*,
                                                    const proto::ProtoList* args,
                                                    const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_min = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_min, &nan));
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_sec, &nan));
-            if (a && a->getSize(ctx) >= 3)
-                ms = static_cast<int>(pullArgAsInt(ctx, a, 2, ms, &nan));
-            if (nan) ms = 0;
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/3,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_min = static_cast<int>(c[0]);
+            if (p[1]) tm.tm_sec = static_cast<int>(c[1]);
+            if (p[2]) ms        = static_cast<int>(c[2]);
         });
 }
 
@@ -1026,17 +1020,13 @@ static const proto::ProtoObject* dateSetUTCHours(proto::ProtoContext* ctx,
                                                  const proto::ParentLink*,
                                                  const proto::ProtoList* args,
                                                  const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_hour = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_hour, &nan));
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_min = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_min, &nan));
-            if (a && a->getSize(ctx) >= 3)
-                tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_sec, &nan));
-            if (a && a->getSize(ctx) >= 4)
-                ms = static_cast<int>(pullArgAsInt(ctx, a, 3, ms, &nan));
-            if (nan) ms = 0;
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/4,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_hour = static_cast<int>(c[0]);
+            if (p[1]) tm.tm_min  = static_cast<int>(c[1]);
+            if (p[2]) tm.tm_sec  = static_cast<int>(c[2]);
+            if (p[3]) ms         = static_cast<int>(c[3]);
         });
 }
 
@@ -1046,10 +1036,10 @@ static const proto::ProtoObject* dateSetUTCDate(proto::ProtoContext* ctx,
                                                 const proto::ParentLink*,
                                                 const proto::ProtoList* args,
                                                 const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mday, &nan));
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/1,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_mday = static_cast<int>(c[0]);
         });
 }
 
@@ -1059,12 +1049,11 @@ static const proto::ProtoObject* dateSetUTCMonth(proto::ProtoContext* ctx,
                                                  const proto::ParentLink*,
                                                  const proto::ProtoList* args,
                                                  const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mon, &nan));
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mday, &nan));
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/2,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_mon  = static_cast<int>(c[0]);
+            if (p[1]) tm.tm_mday = static_cast<int>(c[1]);
         });
 }
 
@@ -1074,14 +1063,12 @@ static const proto::ProtoObject* dateSetUTCFullYear(proto::ProtoContext* ctx,
                                                     const proto::ParentLink*,
                                                     const proto::ProtoList* args,
                                                     const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, true,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_year = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_year + 1900, &nan)) - 1900;
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mon, &nan));
-            if (a && a->getSize(ctx) >= 3)
-                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_mday, &nan));
+    return setComponent2(ctx, self, args, /*utc=*/true, /*nArgs=*/3,
+        /*fyMode=*/true, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_year = static_cast<int>(c[0]) - 1900;
+            if (p[1]) tm.tm_mon  = static_cast<int>(c[1]);
+            if (p[2]) tm.tm_mday = static_cast<int>(c[2]);
         });
 }
 
