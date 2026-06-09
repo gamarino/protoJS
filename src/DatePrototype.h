@@ -27,6 +27,12 @@ namespace protojs {
 void ensureDateConstructor(proto::ProtoContext* ctx,
                            const proto::ProtoObject** globalRoot);
 
+// Note: TimingAPIs::init in console.cpp installs the minimal stub
+// (name, length, prototype, Symbol.toStringTag, Date.now, Date.parse,
+// Date.UTC).  ensureDateConstructor extends that with the full
+// prototype method set and overrides parse/UTC with stricter
+// versions.
+
 } // namespace protojs
 
 #endif // PROTOJS_DATEPROTOTYPE_H
