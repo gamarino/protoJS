@@ -76,6 +76,10 @@ static const proto::ProtoObject* writeDateValue(proto::ProtoContext* ctx,
     const proto::ProtoString* k = dateValueKey(ctx);
     if (!k) return self;
     if (std::isnan(value)) {
+        // Spec: NaN as [[DateValue]] indicates an invalid Date.  Store
+        // the canonical double NaN; readDateValue surfaces it back to
+        // callers via std::isnan() which all getters / stringifiers
+        // already branch on.
         return self->setAttribute(ctx, k, ctx->fromDouble(std::nan("")));
     }
     // Whole-millisecond values fit Integer; non-integral Date values
