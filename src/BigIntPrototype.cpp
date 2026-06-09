@@ -168,7 +168,35 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
             return PROTO_NONE;
         }
         std::string body = s.substr(lo, hi - lo);
-        const proto::ProtoObject* parsed = ctx->fromString(body.c_str(), base);
+        // §7.1.14 StringToBigInt: the trimmed body must contain ONLY
+        // digits valid for the radix.  protoCore's fromString throws
+        // std::invalid_argument on malformed input rather than returning
+        // nullptr, so pre-validate to avoid the crash and surface the
+        // spec-mandated SyntaxError instead.
+        auto isValidDigit = [&](char c) -> bool {
+            if (base == 16)  return (c >= '0' && c <= '9')
+                                 || (c >= 'a' && c <= 'f')
+                                 || (c >= 'A' && c <= 'F');
+            if (base == 10)  return c >= '0' && c <= '9';
+            if (base == 8)   return c >= '0' && c <= '7';
+            if (base == 2)   return c == '0' || c == '1';
+            return false;
+        };
+        for (char c : body) {
+            if (!isValidDigit(c)) {
+                signalNativeException(makeNativeError(ctx, "SyntaxError",
+                    "Cannot convert string to a BigInt"));
+                return PROTO_NONE;
+            }
+        }
+        const proto::ProtoObject* parsed = nullptr;
+        try {
+            parsed = ctx->fromString(body.c_str(), base);
+        } catch (...) {
+            signalNativeException(makeNativeError(ctx, "SyntaxError",
+                "Cannot convert string to a BigInt"));
+            return PROTO_NONE;
+        }
         if (!parsed) {
             signalNativeException(makeNativeError(ctx, "SyntaxError",
                 "Cannot convert string to a BigInt"));
@@ -230,13 +258,25 @@ static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
             "BigInt.prototype.toString requires that 'this' be a BigInt"));
         return PROTO_NONE;
     }
+    // §21.2.3.3 BigInt.prototype.toString step 2..5:
+    //   if radix is undefined, radixNumber = 10;
+    //   else radixNumber = ToIntegerOrInfinity(radix);
+    //   if radixNumber < 2 or > 36 → RangeError.
+    // ToIntegerOrInfinity routes through ToNumber, so null → 0,
+    // boolean → 0/1, string → parse Number, etc. — all of which
+    // produce out-of-range radixes that must throw.
     int base = 10;
     if (args && args->getSize(ctx) >= 1) {
         const proto::ProtoObject* r = args->getAt(ctx, 0);
         if (r && r != getUndefinedSentinel()) {
-            if (r->isInteger(ctx)) base = static_cast<int>(r->asLong(ctx));
-            else if (r->isDouble(ctx) || r->isFloat(ctx))
-                base = static_cast<int>(r->asDouble(ctx));
+            const proto::ProtoObject* n = jsToNumber(ctx, r);
+            if (hasCallException()) return PROTO_NONE;
+            double d = 0.0;
+            if (n && n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
+            else if (n && (n->isDouble(ctx) || n->isFloat(ctx))) d = n->asDouble(ctx);
+            if (std::isnan(d)) d = 0.0;
+            d = std::trunc(d);
+            base = static_cast<int>(d);
             if (base < 2 || base > 36) {
                 signalNativeException(makeNativeError(ctx, "RangeError",
                     "toString radix must be between 2 and 36"));
