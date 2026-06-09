@@ -262,7 +262,7 @@ static double parseDateString(const std::string& s) {
     if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
     double t = static_cast<double>(epoch) * 1000.0 + ms;
     // Apply parsed TZ offset (subtract because tzMin holds "minutes east of UTC negated").
-    t += static_cast<double>(tzMin) * 60.0 * 1000.0;
+    t += static_cast<double>(tzMin) * TimeConstants::msPerMinute;
     return t;
 }
 
