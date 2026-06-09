@@ -1080,6 +1080,18 @@ static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
+// Format the TZ offset (in seconds) as "±HHMM".  Shared by
+// toString and toTimeString.
+static std::string formatTZOffset(long offsetSec) {
+    char sign = offsetSec >= 0 ? '+' : '-';
+    long offsetAbs = std::labs(offsetSec);
+    int hh = static_cast<int>(offsetAbs / 3600);
+    int mm = static_cast<int>((offsetAbs % 3600) / 60);
+    char buf[8];
+    std::snprintf(buf, sizeof(buf), "%c%02d%02d", sign, hh, mm);
+    return std::string(buf);
+}
+
 // §21.4.4.42 toString — "Day Mon DD YYYY HH:MM:SS GMT±HHMM (TZ)"
 // Local timezone form per V8/SpiderMonkey/JSC convention.
 static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
