@@ -31,6 +31,27 @@ namespace protojs {
 
 namespace {
 
+// ===========================================================================
+// §7 Abstract Operations — local re-implementations
+//
+// Several Date methods need to invoke ToPrimitive / OrdinaryToPrimitive /
+// Invoke on arbitrary receivers (not just Date instances).  The runtime's
+// own toNumber routes through @@toPrimitive with hint "number" only, so
+// the Date constructor (hint "default") and Date.prototype.toJSON's
+// receiver path can't rely on it directly.  We carry a small focused
+// rewrite of the three abstract operations the spec uses for these:
+//
+//   isPrimValue          §6.1 (Type test for "primitive")
+//   isCallableValue      §7.2.3 IsCallable
+//   ordinaryToPrimitive  §7.1.1.1
+//   jsToPrimitive        §7.1.1
+//   invokeByName         §7.3.18
+//
+// All five honour spec-mandated abrupt completions (TypeError on a
+// non-callable @@toPrimitive, propagation of accessor-getter throws,
+// "no primitive returned" TypeError, etc.).
+// ===========================================================================
+
 static bool isPrimValue(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     if (!v || v == PROTO_NONE) return true;
     if (v == getUndefinedSentinel() || v == getNullSentinel()) return true;
