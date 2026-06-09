@@ -2190,6 +2190,16 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         || value == getUndefinedSentinel()) {
         return makeNaN();
     }
+    // §7.1.4 step 2: BigInt → TypeError (no Number representation).
+    {
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(context);
+        if (bigK && !proto::isSmallInt(value)
+            && value->getAttribute(context, bigK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(context, "TypeError",
+                "Cannot convert a BigInt to a Number"));
+            return PROTO_NONE;
+        }
+    }
     if (value == getNullSentinel()) {
         return context->fromInteger(0LL);
     }
