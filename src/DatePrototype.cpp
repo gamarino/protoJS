@@ -451,6 +451,21 @@ static long long pullArgAsInt(proto::ProtoContext* ctx,
     return fallback;
 }
 
+// §21.4.4.23 setMilliseconds(ms) — local.
+static const proto::ProtoObject* dateSetMilliseconds(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* self,
+                                                     const proto::ParentLink*,
+                                                     const proto::ProtoList* args,
+                                                     const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, false,
+        [&](std::tm&, int& ms, const proto::ProtoList* a) {
+            bool nan = false;
+            long long v = pullArgAsInt(ctx, a, 0, ms, &nan);
+            if (nan) { ms = 0; }
+            else ms = static_cast<int>(v);
+        });
+}
+
 // §21.4.4.27 Date.prototype.setTime — direct assign TimeClip(ToNumber(arg)).
 static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
@@ -604,6 +619,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getMilliseconds",    dateGetMilliseconds, 0);
         registerProtoMethod(ctx, proto, "getTimezoneOffset",  dateGetTimezoneOffset, 0);
         registerProtoMethod(ctx, proto, "setTime",            dateSetTime, 1);
+        registerProtoMethod(ctx, proto, "setMilliseconds",    dateSetMilliseconds, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
