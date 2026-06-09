@@ -917,17 +917,13 @@ static const proto::ProtoObject* dateSetHours(proto::ProtoContext* ctx,
                                               const proto::ParentLink*,
                                               const proto::ProtoList* args,
                                               const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, false,
-        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_hour = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_hour, &nan));
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_min = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_min, &nan));
-            if (a && a->getSize(ctx) >= 3)
-                tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_sec, &nan));
-            if (a && a->getSize(ctx) >= 4)
-                ms = static_cast<int>(pullArgAsInt(ctx, a, 3, ms, &nan));
-            if (nan) ms = 0;
+    return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/4,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int& ms, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_hour = static_cast<int>(c[0]);
+            if (p[1]) tm.tm_min  = static_cast<int>(c[1]);
+            if (p[2]) tm.tm_sec  = static_cast<int>(c[2]);
+            if (p[3]) ms         = static_cast<int>(c[3]);
         });
 }
 
