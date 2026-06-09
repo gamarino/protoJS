@@ -394,19 +394,39 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
             now.time_since_epoch()).count();
         t = static_cast<double>(ms);
     } else if (argc == 1) {
-        // §21.4.2.2 single arg: numeric → time value; string → parse;
-        // Date receiver → copy [[DateValue]].
+        // §21.4.2.2 single-arg form:
+        //   a. If Type(value) is Object and value has a [[DateValue]]
+        //      internal slot, let tv = value.[[DateValue]].
+        //   b. Else, let v = ? ToPrimitive(value); if Type(v) is String,
+        //      tv = Date.parse(v); else tv = ? ToNumber(v).
+        //   c. tv = TimeClip(tv).
         const proto::ProtoObject* v = args->getAt(ctx, 0);
-        if (v && v->isString(ctx)) {
-            std::string s;
-            v->asString(ctx)->toUTF8String(ctx, s);
-            t = parseDateString(s);
-        } else if (v && (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx))) {
-            t = v->isInteger(ctx)
-                ? static_cast<double>(v->asLong(ctx))
-                : v->asDouble(ctx);
+        // Step a: Date receiver short-circuit on [[DateValue]] presence.
+        bool isDateArg = false;
+        double dv = readDateValue(ctx, v, &isDateArg);
+        if (isDateArg) {
+            t = dv;
         } else {
-            t = std::nan("");
+            // Step b: ToPrimitive(value) — invokes @@toPrimitive("default")
+            // for objects, otherwise OrdinaryToPrimitive (valueOf-first
+            // since hint defaults to "number" for non-Date receivers).
+            const proto::ProtoObject* prim = jsToPrimitive(ctx, v, "default");
+            if (hasCallException()) return PROTO_NONE;
+            if (prim && prim->isString(ctx)) {
+                std::string s;
+                prim->asString(ctx)->toUTF8String(ctx, s);
+                t = parseDateString(s);
+            } else if (prim && (prim->isInteger(ctx) || prim->isDouble(ctx) || prim->isFloat(ctx))) {
+                t = prim->isInteger(ctx)
+                    ? static_cast<double>(prim->asLong(ctx))
+                    : prim->asDouble(ctx);
+            } else if (prim && prim->isBoolean(ctx)) {
+                t = prim->asBoolean(ctx) ? 1.0 : 0.0;
+            } else if (prim == getNullSentinel()) {
+                t = 0.0;
+            } else {
+                t = std::nan("");
+            }
         }
         t = timeClip(t);
     } else {
