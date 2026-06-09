@@ -1235,6 +1235,68 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
 
 } // anonymous namespace
 
+// §21.4.3.4 Date.UTC(year, mo, [date, hr, mi, sec, ms]) — improved
+// version that routes coercion through jsToNumber so the
+// coercion-errors test262 fixtures pass.  The TimingAPIs stub
+// already handled most paths; this version uses the same
+// composeTime path as the rest of the file for consistency.
+static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject*,
+                                            const proto::ParentLink*,
+                                            const proto::ProtoList* args,
+                                            const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    double nan = std::nan("");
+    int argc = args ? args->getSize(ctx) : 0;
+    if (argc == 0) return ctx->fromDouble(nan);
+    bool sawNaN = false;
+    auto pull = [&](int idx, double dflt) -> double {
+        if (idx >= argc) return dflt;
+        const proto::ProtoObject* v = args->getAt(ctx, idx);
+        if (!v || v == PROTO_NONE) return dflt;
+        if (v->isInteger(ctx)) return static_cast<double>(v->asLong(ctx));
+        if (v->isDouble(ctx) || v->isFloat(ctx)) {
+            double d = v->asDouble(ctx);
+            if (std::isnan(d) || std::isinf(d)) { sawNaN = true; return dflt; }
+            return d;
+        }
+        const proto::ProtoObject* n = jsToNumber(ctx, v);
+        if (hasCallException()) { sawNaN = true; return dflt; }
+        if (!n || n == PROTO_NONE) { sawNaN = true; return dflt; }
+        if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
+        if (n->isDouble(ctx) || n->isFloat(ctx)) {
+            double d = n->asDouble(ctx);
+            if (std::isnan(d) || std::isinf(d)) { sawNaN = true; return dflt; }
+            return d;
+        }
+        sawNaN = true;
+        return dflt;
+    };
+    double year = pull(0, 0);
+    if (sawNaN) return ctx->fromDouble(nan);
+    if (year >= 0 && year <= 99) year += 1900;
+    double month = pull(1, 0);
+    double date  = pull(2, 1);
+    double hour  = pull(3, 0);
+    double mi    = pull(4, 0);
+    double sec   = pull(5, 0);
+    double ms    = pull(6, 0);
+    if (sawNaN) return ctx->fromDouble(nan);
+    std::tm tmv = {};
+    tmv.tm_year = static_cast<int>(year) - 1900;
+    tmv.tm_mon  = static_cast<int>(month);
+    tmv.tm_mday = static_cast<int>(date);
+    tmv.tm_hour = static_cast<int>(hour);
+    tmv.tm_min  = static_cast<int>(mi);
+    tmv.tm_sec  = static_cast<int>(sec);
+    std::time_t epoch = timegm(&tmv);
+    if (epoch == static_cast<std::time_t>(-1)) return ctx->fromDouble(nan);
+    double total = static_cast<double>(epoch) * 1000.0 + ms;
+    total = timeClip(total);
+    if (std::isnan(total)) return ctx->fromDouble(nan);
+    return ctx->fromInteger(static_cast<long long>(total));
+}
+
 // §21.4.3.2 Date.parse — replaces the TimingAPIs stub with the
 // hand-rolled parseDateString.  Single-string arg → time value;
 // anything else → NaN.
@@ -1299,6 +1361,20 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
                 makeMethodWrapper(ctx, "parse", dateParseNew, 1);
             if (parseFn) {
                 dateObj = dateObj->setAttribute(ctx, parseKey, parseFn);
+            }
+        }
+    }
+    // Replace Date.UTC with the version that goes through jsToNumber
+    // for proper ToPrimitive coercion (same rationale as the constructor).
+    {
+        const proto::ProtoString* utcKey =
+            ctx->fromUTF8String("UTC")
+                ? ctx->fromUTF8String("UTC")->asString(ctx) : nullptr;
+        if (utcKey) {
+            const proto::ProtoObject* utcFn =
+                makeMethodWrapper(ctx, "UTC", dateUTCNew, 7);
+            if (utcFn) {
+                dateObj = dateObj->setAttribute(ctx, utcKey, utcFn);
             }
         }
     }
