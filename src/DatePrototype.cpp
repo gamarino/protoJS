@@ -1134,6 +1134,11 @@ static std::string formatTZOffset(long offsetSec) {
     return std::string(buf);
 }
 
+// ----------------------------------------------------------------
+// §21.4.4.42 Date.prototype.toString — host-defined.  Convention
+// (V8 / JSC / SpiderMonkey): the local-timezone form with day-of-
+// week + month-name + 4-digit year + 24-hour time + GMT±HHMM.
+// ----------------------------------------------------------------
 // §21.4.4.42 toString — "Day Mon DD YYYY HH:MM:SS GMT±HHMM (TZ)"
 // Local timezone form per V8/SpiderMonkey/JSC convention.
 static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
