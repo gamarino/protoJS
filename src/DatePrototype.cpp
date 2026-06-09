@@ -1444,9 +1444,17 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
                                                        const proto::ProtoSparseList* k) {
     if (!ctx) return PROTO_NONE;
     // §21.4.4.45 step 2: if Type(this) is not Object, throw TypeError.
+    // "not Object" includes the sentinels, ALL numeric primitives,
+    // strings, booleans, and BigInts.  The pre-fix check only rejected
+    // the two sentinels, so .call(86, 'string') silently passed.
     if (!self || self == PROTO_NONE ||
         self == getUndefinedSentinel() ||
-        self == getNullSentinel()) {
+        self == getNullSentinel() ||
+        self->isInteger(ctx) ||
+        self->isDouble(ctx) ||
+        self->isFloat(ctx) ||
+        self->isString(ctx) ||
+        self->isBoolean(ctx)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Date.prototype[@@toPrimitive] called on non-object"));
         return PROTO_NONE;
