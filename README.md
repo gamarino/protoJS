@@ -387,6 +387,37 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 28 — 2026-06-09** (protoCore fix, +54 tests) — chased the
+Object.prototype write-suppression bug flagged in R27.5: `space->
+objectPrototype` was created via `newObject(false)` (immutable), so
+the first `setAttribute(toString, ...)` during init forked the
+identity and downstream `ctor.prototype` slots ended up pointing at
+stale snapshots. User code that wrote to `Object.prototype.foo` saw
+its assignment silently dropped, and
+`Object.getOwnPropertyNames(Object.prototype)` returned `[]` because
+the JS-visible identity had almost nothing on it.
+
+Three patches landed in protoCore:
+
+  1. `ProtoSpace::objectPrototype` is now built with `newObject(true)`
+     — mutable. setAttribute now mutates in place across embedders;
+     no more stale snapshots.
+  2. `ProtoObject::getPrototype` for an object cell with no parent
+     used to return `space->objectPrototype` unconditionally. For the
+     objectPrototype itself that produced a circular `__proto__`
+     link. Add a `this == ctx->space->objectPrototype` guard that
+     returns `nullptr` so `Object.getPrototypeOf(Object.prototype) ===
+     null` per §20.1.3.1.
+  3. `ProtoObject::clone(ctx, true)` silently ignored the `isMutable`
+     flag and always returned an immutable copy. Honour it.
+
+10-family roll-up: 8397 → **8451 / 9823** (+54 tests, 86.0 %).
+Array 2705 → 2733 (+28), Object 2909 → 2933 (+24), Function 308 →
+309, JSON 122 → 123. Zero regressions per family. No protoCore tests
+broken (proto_tests still passing).
+
+---
+
 **Round 27.5 — 2026-06-09** (2 commits, hnw + prop-desc tail) —
 stamped `__has_non_writable_props__` on JSON so verifyProperty on the
 `Symbol.toStringTag` slot stops succeeding silently (restores
