@@ -565,6 +565,119 @@ static const proto::ProtoObject* dateSetFullYear(proto::ProtoContext* ctx,
         });
 }
 
+// §21.4.4.30 setUTCMilliseconds(ms).
+static const proto::ProtoObject* dateSetUTCMilliseconds(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* self,
+                                                        const proto::ParentLink*,
+                                                        const proto::ProtoList* args,
+                                                        const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm&, int& ms, const proto::ProtoList* a) {
+            bool nan = false;
+            long long v = pullArgAsInt(ctx, a, 0, ms, &nan);
+            if (nan) ms = 0; else ms = static_cast<int>(v);
+        });
+}
+
+// §21.4.4.32 setUTCSeconds(sec[, ms]).
+static const proto::ProtoObject* dateSetUTCSeconds(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* self,
+                                                   const proto::ParentLink*,
+                                                   const proto::ProtoList* args,
+                                                   const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_sec, &nan));
+            if (a && a->getSize(ctx) >= 2)
+                ms = static_cast<int>(pullArgAsInt(ctx, a, 1, ms, &nan));
+            if (nan) ms = 0;
+        });
+}
+
+// §21.4.4.31 setUTCMinutes(min[, sec[, ms]]).
+static const proto::ProtoObject* dateSetUTCMinutes(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* self,
+                                                   const proto::ParentLink*,
+                                                   const proto::ProtoList* args,
+                                                   const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_min = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_min, &nan));
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_sec, &nan));
+            if (a && a->getSize(ctx) >= 3)
+                ms = static_cast<int>(pullArgAsInt(ctx, a, 2, ms, &nan));
+            if (nan) ms = 0;
+        });
+}
+
+// §21.4.4.29 setUTCHours(hr[, min[, sec[, ms]]]).
+static const proto::ProtoObject* dateSetUTCHours(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self,
+                                                 const proto::ParentLink*,
+                                                 const proto::ProtoList* args,
+                                                 const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_hour = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_hour, &nan));
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_min = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_min, &nan));
+            if (a && a->getSize(ctx) >= 3)
+                tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_sec, &nan));
+            if (a && a->getSize(ctx) >= 4)
+                ms = static_cast<int>(pullArgAsInt(ctx, a, 3, ms, &nan));
+            if (nan) ms = 0;
+        });
+}
+
+// §21.4.4.28 setUTCDate(date).
+static const proto::ProtoObject* dateSetUTCDate(proto::ProtoContext* ctx,
+                                                const proto::ProtoObject* self,
+                                                const proto::ParentLink*,
+                                                const proto::ProtoList* args,
+                                                const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mday, &nan));
+        });
+}
+
+// §21.4.4.30b setUTCMonth(mo[, date]).
+static const proto::ProtoObject* dateSetUTCMonth(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self,
+                                                 const proto::ParentLink*,
+                                                 const proto::ProtoList* args,
+                                                 const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mon, &nan));
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mday, &nan));
+        });
+}
+
+// §21.4.4.26 setUTCFullYear(year[, mo[, date]]).
+static const proto::ProtoObject* dateSetUTCFullYear(proto::ProtoContext* ctx,
+                                                    const proto::ProtoObject* self,
+                                                    const proto::ParentLink*,
+                                                    const proto::ProtoList* args,
+                                                    const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, true,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_year = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_year + 1900, &nan)) - 1900;
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mon, &nan));
+            if (a && a->getSize(ctx) >= 3)
+                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_mday, &nan));
+        });
+}
+
 // §21.4.4.27 Date.prototype.setTime — direct assign TimeClip(ToNumber(arg)).
 static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
@@ -725,6 +838,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setDate",            dateSetDate, 1);
         registerProtoMethod(ctx, proto, "setMonth",           dateSetMonth, 2);
         registerProtoMethod(ctx, proto, "setFullYear",        dateSetFullYear, 3);
+        registerProtoMethod(ctx, proto, "setUTCMilliseconds", dateSetUTCMilliseconds, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
