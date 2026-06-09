@@ -201,6 +201,16 @@ static const proto::ProtoObject* dateGetUTCMonth(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_mon; });
 }
 
+// §21.4.4.15 Date.prototype.getUTCDate — day-of-month, 1-31.
+static const proto::ProtoObject* dateGetUTCDate(proto::ProtoContext* ctx,
+                                                const proto::ProtoObject* self,
+                                                const proto::ParentLink*,
+                                                const proto::ProtoList*,
+                                                const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm& tm, int) { return tm.tm_mday; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -336,6 +346,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "valueOf",        dateGetTime, 0);
         registerProtoMethod(ctx, proto, "getUTCFullYear", dateGetUTCFullYear, 0);
         registerProtoMethod(ctx, proto, "getUTCMonth",    dateGetUTCMonth, 0);
+        registerProtoMethod(ctx, proto, "getUTCDate",     dateGetUTCDate, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
