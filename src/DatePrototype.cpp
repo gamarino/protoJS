@@ -7,6 +7,12 @@
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 
+// Date prototype implementation per ECMA-262 §21.4.  Internal slot
+// [[DateValue]] is stored as the own attribute __date_value__ on every
+// Date instance.  All getters / setters / stringifiers route through
+// the shared decomposeTime / composeTime / timeClip primitives so the
+// spec abstract operations (MakeDay, MakeTime, MakeDate, TimeClip) are
+// applied uniformly.
 #include <chrono>
 #include <cmath>
 #include <cstdio>
