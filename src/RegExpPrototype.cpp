@@ -662,9 +662,13 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
 
     // Use objectPrototype as parent for the new RegExp.prototype
     const proto::ProtoObject* objectProto = ctx->space->objectPrototype;
+    // Mutable so RegExp.prototype.x = y mutates in place; the
+    // pre-fix newChild(ctx, false) forked the identity on every
+    // builtin-install setAttribute and silently swallowed user
+    // writes (same shape as the R28 Object.prototype bug).
     const proto::ProtoObject* regexpProto = objectProto
-        ? objectProto->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? objectProto->newChild(ctx, true)
+        : ctx->newObject(true);
 
     regexpProto = BuildRegExpPrototype(ctx->space, ctx, regexpProto);
 

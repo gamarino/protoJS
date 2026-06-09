@@ -1262,9 +1262,12 @@ void ensureTypedArrayConstructors(proto::ProtoContext* ctx,
     // Build empty base prototype inheriting from objectPrototype
     const proto::ProtoObject* objProto =
         (ctx->space) ? ctx->space->objectPrototype : nullptr;
+    // Mutable so %TypedArray%.prototype.x = y is in-place; pre-fix
+    // newChild(ctx, false) forked the identity each setAttribute
+    // (same shape as R28's Object.prototype bug).
     const proto::ProtoObject* baseProto = (objProto && objProto != PROTO_NONE)
-        ? objProto->newChild(ctx, false)
-        : ctx->newObject(false);
+        ? objProto->newChild(ctx, true)
+        : ctx->newObject(true);
     // Register %TypedArray%.prototype methods (batch 1)
     baseProto = baseProto->setAttribute(ctx, JSSymbols::fill(ctx),
         ctx->fromMethod(const_cast<proto::ProtoObject*>(baseProto), ta_fill));

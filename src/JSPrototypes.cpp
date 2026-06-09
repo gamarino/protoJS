@@ -27,7 +27,12 @@ void BootstrapJSPrototypes(proto::ProtoSpace* space, proto::ProtoContext* ctx, J
     // Mutable so JS-level mutations (Array.prototype.x = y, etc.) are in-place.
     out->array = objectProto->newChild(ctx, true);
     out->arguments = objectProto->newChild(ctx, true);
-    out->regexp = objectProto->newChild(ctx, false); // built by BuildRegExpPrototype below
+    // Mutable so RegExp.prototype.x = y mutates in place (the
+    // alternative is the same write-suppression bug R28 fixed on
+    // Object.prototype: the first setAttribute forks the identity
+    // and the user-visible RegExp.prototype slot ends up pointing
+    // at the pre-init snapshot).
+    out->regexp = objectProto->newChild(ctx, true);
 
     BuildNumberPrototype(space, ctx, objectProto);
     BuildStringPrototype(space, ctx, objectProto);
