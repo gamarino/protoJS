@@ -387,6 +387,79 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 22 — 2026-06-09** (100 commits, unattended; Date built-in
+re-implemented from a 12.8 % stub to a fully spec-driven §21.4
+prototype).
+
+| Family | Passes | Total | Pass rate | Δ vs R21 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Array` | 2 706 | 3 081 | **87.8 %** | – |
+| `built-ins/Object` | 2 903 | 3 411 | **85.1 %** | **+1.3 pp** (+46) |
+| `built-ins/String` | 1 007 | 1 223 | **82.3 %** | – |
+| `built-ins/Date` | 470 | 594 | **79.1 %** | **+66.3 pp** (+394) |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | – |
+| `built-ins/Function` | 307 | 509 | **60.3 %** | – |
+| **8-family rollup** | **8 172** | **9 648** | **84.7 %** | **+4.6 pp** (+440) |
+
+`built-ins/Date` graduated from "minimal stub" (12.8 % was the
+12 / 594 fixtures that survived the bare-namespace install of
+Date.now / Date.parse / Date.UTC) to a full §21.4 prototype.
+100 commits, one method or refinement per commit, structured as:
+
+  * **Skeleton (commits 1–3)** — DatePrototype.{h,cpp} with the
+    internal `[[DateValue]]` slot stored as `__date_value__`,
+    the spec's §21.4.1.14 `TimeClip`, and the bare-call /
+    `new`-call dispatch (via `__native_fn__` + `__construct__`).
+  * **Getters (4–17)** — `getTime`, `valueOf`, the UTC family
+    (FullYear, Month, Date, Day, Hours, Minutes, Seconds,
+    Milliseconds), the local-timezone family (FullYear, Month,
+    Date, Day, Hours, Minutes, Seconds, Milliseconds), and
+    `getTimezoneOffset` (computed as `timegm(local) − timegm(UTC)`
+    in minutes, negated).
+  * **Setters (18–33)** — `setTime`, the local and UTC component
+    setters (Milliseconds / Seconds / Minutes / Hours / Date /
+    Month / FullYear with the spec's optional-trailing-args
+    cascade), routed through the shared `setComponent<Mutator>`
+    scaffold so `TimeClip` and the throw-on-NaN guards are
+    consistent across the family.
+  * **Stringifiers (34–43)** — `toISOString` (expanded-year form
+    for years outside 0001–9999), `toJSON` (delegates with
+    `null` for non-finite), `toUTCString` + `toGMTString` alias,
+    `toString`, `toDateString`, `toTimeString`, plus the three
+    `toLocale*` fallbacks (no Intl yet).
+  * **Misc + edge cases (44–67)** — `@@toPrimitive` with proper
+    TypeError on missing / invalid hint, `toTemporalInstant` stub,
+    legacy `getYear` / `setYear`, multi-arg `Date(y, mo, d, h, mi,
+    s, ms)` constructor, full ISO 8601 parser (`±YYYYYY` extended
+    years, fractional seconds, Z / ±HH:MM offset), `Date(string)`
+    constructor, improved `Date.parse` and `Date.UTC`,
+    `signalNativeException` plumbing so receivers without
+    `[[DateValue]]` throw the spec-mandated TypeError instead of
+    silently returning NaN.
+  * **Coercion refinements (60–67)** — every setter and the
+    constructor now route through `jsToNumber` so object
+    arguments invoke `valueOf` / `toString` per `ToPrimitive`
+    semantics; pre-fix non-numeric inputs hit the fallback NaN.
+  * **Refactors + docs (68–100)** — extracted `formatTZOffset`,
+    `composeTime`, `decomposeTime`, `pullArgAsInt`, `parseDateString`
+    helpers; named TimeConstants (msPerSecond, msPerMinute,
+    msPerHour, msPerDay, maxTime); section banners and inline
+    rationale for every component group.
+
+The +46 on `built-ins/Object` is collateral pickup: the
+`Object.prototype.toString` test262 fixtures that probe
+`Object.prototype.toString.call(new Date())` previously hit the
+naked stub and now traverse a real Date.
+
+Carry-overs unchanged from R20 / R21:
+  * R19-#263: regex literal bridging.
+  * R20-#269: cross-realm Function invocations + Function ctor
+    output through `toString`.
+
+---
+
 **Round 21 — 2026-06-09** (1 commit; carry-over R18-#261 closed —
 `Function.prototype.toString` now returns the original source for
 user-defined functions).
