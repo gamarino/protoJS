@@ -79,6 +79,57 @@ static const proto::ProtoObject* coerceToInteger(proto::ProtoContext* ctx,
         }
         return ctx->fromInteger(static_cast<long long>(d));
     }
+    // Object (non-BigInt-wrapper) → call ToPrimitive(value, hint=number)
+    // and recurse.  §7.1.13 step 1 / §7.1.1 ToPrimitive.  We probe
+    // @@toPrimitive first (with hint "number"), then OrdinaryToPrimitive
+    // (valueOf, toString).
+    if (!v->isString(ctx)) {
+        // Try @@toPrimitive("number").
+        const proto::ProtoObject* tpKo = ctx->fromUTF8String("Symbol.toPrimitive");
+        const proto::ProtoString* tpK = tpKo ? tpKo->asString(ctx) : nullptr;
+        const proto::ProtoObject* tpFn = tpK ? v->getAttribute(ctx, tpK, true) : nullptr;
+        if (tpFn && tpFn != PROTO_NONE && tpFn != getUndefinedSentinel()
+            && tpFn != getNullSentinel()) {
+            const proto::ProtoList* hintArgs = ctx->newList();
+            hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("number"));
+            const proto::ProtoObject* prim = callJSFunction(ctx, tpFn, v, hintArgs);
+            if (hasCallException()) return PROTO_NONE;
+            return coerceToInteger(ctx, prim);
+        }
+        // OrdinaryToPrimitive("number"): valueOf then toString.
+        const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
+        if (voK) {
+            const proto::ProtoObject* voFn = v->getAttribute(ctx, voK, true);
+            if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
+                const proto::ProtoObject* r = callJSFunction(ctx, voFn, v, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+                if (r && r != PROTO_NONE
+                    && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                        || r->isBoolean(ctx) || r->isString(ctx)
+                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE))) {
+                    return coerceToInteger(ctx, r);
+                }
+            }
+        }
+        const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+        if (tsK) {
+            const proto::ProtoObject* tsFn = v->getAttribute(ctx, tsK, true);
+            if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
+                const proto::ProtoObject* r = callJSFunction(ctx, tsFn, v, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+                if (r && r != PROTO_NONE
+                    && (r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                        || r->isBoolean(ctx) || r->isString(ctx)
+                        || (JSSymbols::isBigInt(ctx) && r->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE))) {
+                    return coerceToInteger(ctx, r);
+                }
+            }
+        }
+        // Both methods absent / returned non-primitive → spec §7.1.1.1 step 6.
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot convert object to a primitive BigInt"));
+        return PROTO_NONE;
+    }
     if (v->isString(ctx)) {
         std::string s;
         v->asString(ctx)->toUTF8String(ctx, s);
