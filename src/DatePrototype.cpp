@@ -1013,6 +1013,25 @@ static double pullArgAsDouble(proto::ProtoContext* ctx,
                               const proto::ProtoList* args,
                               int idx, bool* present);
 
+// ----------------------------------------------------------------
+// §21.4.4 component setters — shared scaffold
+// ----------------------------------------------------------------
+// Every set* method (setMilliseconds … setUTCFullYear, plus the
+// legacy setYear) follows the same spec sequence:
+//
+//   1. thisTimeValue(this)   — TypeError on non-Date
+//   2. ToNumber on each arg  — fires accessor/valueOf side effects
+//   3. NaN-t short-circuit   — return NaN (fyMode anchors t=+0 instead)
+//   4. decompose / mutate / compose / TimeClip / write
+//
+// setComponent2 owns steps 1, 2, 3, the decompose/compose round-trip,
+// and the write of the new [[DateValue]].  Per-setter lambdas only
+// touch step "mutate" — they read pre-coerced doubles out of `c` and
+// write the relevant tm / ms slots.  This factoring matches the
+// uniformity of the spec text and means each method is one short
+// lambda rather than a 30-line repeat of the same scaffold.
+// ----------------------------------------------------------------
+//
 // Spec-strict setter scaffold.  Coerces every positional argument to
 // Number FIRST (firing ToPrimitive/valueOf/toString side effects per
 // §21.4.4.x), and only then probes the receiver's [[DateValue]] for
