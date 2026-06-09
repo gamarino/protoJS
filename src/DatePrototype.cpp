@@ -893,6 +893,30 @@ static const proto::ProtoObject* dateToLocaleTimeString(proto::ProtoContext* ctx
     return dateToTimeString(ctx, self, p, args, k);
 }
 
+// §21.4.4.45 Date.prototype [@@toPrimitive] — drives ToPrimitive for
+// Date receivers.  Per spec: hint "string" or "default" → toString;
+// hint "number" → valueOf.  Any other hint → TypeError (surfaced as
+// PROTO_NONE for now; throw plumbing is follow-up).
+static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
+                                                       const proto::ProtoObject* self,
+                                                       const proto::ParentLink* p,
+                                                       const proto::ProtoList* args,
+                                                       const proto::ProtoSparseList* k) {
+    if (!ctx) return PROTO_NONE;
+    std::string hint = "default";
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* h = args->getAt(ctx, 0);
+        if (h && h->isString(ctx)) {
+            h->asString(ctx)->toUTF8String(ctx, hint);
+        }
+    }
+    if (hint == "string" || hint == "default")
+        return dateToString(ctx, self, p, args, k);
+    if (hint == "number")
+        return dateGetTime(ctx, self, p, args, k);
+    return PROTO_NONE;
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -1051,6 +1075,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toLocaleString",     dateToLocaleString, 0);
         registerProtoMethod(ctx, proto, "toLocaleDateString", dateToLocaleDateString, 0);
         registerProtoMethod(ctx, proto, "toLocaleTimeString", dateToLocaleTimeString, 0);
+        registerProtoMethod(ctx, proto, "Symbol.toPrimitive", dateSymbolToPrimitive, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
