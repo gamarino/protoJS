@@ -1006,6 +1006,11 @@ static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
 // Stringifiers — §21.4.4.{31-43}
 // ---------------------------------------------------------------------------
 
+// ----------------------------------------------------------------
+// §21.4.4.36 Date.prototype.toISOString.  Throws RangeError when
+// [[DateValue]] is NaN per spec step 2; otherwise emits the
+// expanded ISO 8601 form with mandatory Z designator.
+// ----------------------------------------------------------------
 // §21.4.4.36 toISOString — "YYYY-MM-DDTHH:mm:ss.sssZ"
 static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
