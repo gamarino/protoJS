@@ -211,6 +211,56 @@ static const proto::ProtoObject* dateGetUTCDate(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_mday; });
 }
 
+// §21.4.4.16 Date.prototype.getUTCDay — day-of-week, 0=Sun..6=Sat.
+static const proto::ProtoObject* dateGetUTCDay(proto::ProtoContext* ctx,
+                                               const proto::ProtoObject* self,
+                                               const proto::ParentLink*,
+                                               const proto::ProtoList*,
+                                               const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm& tm, int) { return tm.tm_wday; });
+}
+
+// §21.4.4.17 Date.prototype.getUTCHours — 0..23.
+static const proto::ProtoObject* dateGetUTCHours(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self,
+                                                 const proto::ParentLink*,
+                                                 const proto::ProtoList*,
+                                                 const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm& tm, int) { return tm.tm_hour; });
+}
+
+// §21.4.4.18 Date.prototype.getUTCMinutes — 0..59.
+static const proto::ProtoObject* dateGetUTCMinutes(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* self,
+                                                   const proto::ParentLink*,
+                                                   const proto::ProtoList*,
+                                                   const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm& tm, int) { return tm.tm_min; });
+}
+
+// §21.4.4.19 Date.prototype.getUTCSeconds — 0..59.
+static const proto::ProtoObject* dateGetUTCSeconds(proto::ProtoContext* ctx,
+                                                   const proto::ProtoObject* self,
+                                                   const proto::ParentLink*,
+                                                   const proto::ProtoList*,
+                                                   const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm& tm, int) { return tm.tm_sec; });
+}
+
+// §21.4.4.20 Date.prototype.getUTCMilliseconds — 0..999.
+static const proto::ProtoObject* dateGetUTCMilliseconds(proto::ProtoContext* ctx,
+                                                        const proto::ProtoObject* self,
+                                                        const proto::ParentLink*,
+                                                        const proto::ProtoList*,
+                                                        const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, true,
+        [](const std::tm&, int ms) { return ms; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -346,7 +396,12 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "valueOf",        dateGetTime, 0);
         registerProtoMethod(ctx, proto, "getUTCFullYear", dateGetUTCFullYear, 0);
         registerProtoMethod(ctx, proto, "getUTCMonth",    dateGetUTCMonth, 0);
-        registerProtoMethod(ctx, proto, "getUTCDate",     dateGetUTCDate, 0);
+        registerProtoMethod(ctx, proto, "getUTCDate",         dateGetUTCDate, 0);
+        registerProtoMethod(ctx, proto, "getUTCDay",          dateGetUTCDay, 0);
+        registerProtoMethod(ctx, proto, "getUTCHours",        dateGetUTCHours, 0);
+        registerProtoMethod(ctx, proto, "getUTCMinutes",      dateGetUTCMinutes, 0);
+        registerProtoMethod(ctx, proto, "getUTCSeconds",      dateGetUTCSeconds, 0);
+        registerProtoMethod(ctx, proto, "getUTCMilliseconds", dateGetUTCMilliseconds, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
