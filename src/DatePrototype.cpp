@@ -70,6 +70,23 @@ static const proto::ProtoObject* ordinaryToPrimitive(proto::ProtoContext* ctx,
     for (int i = 0; i < 2; ++i) {
         if (!keys[i]) continue;
         const proto::ProtoObject* fn = v->getAttribute(ctx, keys[i], true);
+        // §7.1.1.1 step 5.a: Get(O, name) — fire accessor getters so
+        // their abrupt completion propagates (toJSON/to-primitive-abrupt.js
+        // exercises `get valueOf() { throw }` and expects the throw to
+        // reach the caller, not be silently swallowed).
+        {
+            const char* methodName = (stringFirst == (i == 0)) ? "toString" : "valueOf";
+            std::string gkStr = std::string("__get_") + methodName + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = v->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    fn = callJSFunction(ctx, getter, v, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
         if (!isCallableValue(ctx, fn)) continue;
         const proto::ProtoObject* r = callJSFunction(ctx, fn, v, ctx->newList());
         if (hasCallException()) return PROTO_NONE;
