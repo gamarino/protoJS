@@ -269,35 +269,54 @@ static const proto::ProtoObject* bigIntValueOf(proto::ProtoContext* ctx,
     return self;
 }
 
+// §7.1.22 ToIndex(value): coerce to a non-negative integer in
+// [0, 2^53-1].  Used by BigInt.asIntN / asUintN's bits parameter.
+// undefined → 0; otherwise ToIntegerOrInfinity; then range-check.
+static long long toIndexLL(proto::ProtoContext* ctx,
+                           const proto::ProtoObject* v) {
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel())
+        return 0;
+    const proto::ProtoObject* n = jsToNumber(ctx, v);
+    if (hasCallException()) return -1;
+    if (!n || n == PROTO_NONE) return 0;
+    double d = 0.0;
+    if (n->isInteger(ctx)) d = static_cast<double>(n->asLong(ctx));
+    else if (n->isDouble(ctx) || n->isFloat(ctx)) d = n->asDouble(ctx);
+    if (std::isnan(d) || d <= 0.0) return 0;
+    if (std::isinf(d)) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Index out of range"));
+        return -1;
+    }
+    d = std::trunc(d);
+    if (d > 9007199254740991.0) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Index out of range"));
+        return -1;
+    }
+    return static_cast<long long>(d);
+}
+
 // §21.2.2.1 BigInt.asIntN( bits, bigint ).  Truncates to a signed
 // `bits`-wide two's-complement representation and returns the BigInt.
-// bits is ToIndex'd (non-negative integer); 0 → always 0n.
+// Spec order: ToIndex(bits) FIRST, ToBigInt(bigint) SECOND
+// (asIntN/order-of-steps.js verifies the valueOf call order).
 static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
                                               const proto::ProtoObject*,
                                               const proto::ParentLink*,
                                               const proto::ProtoList* args,
                                               const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    if (!args || args->getSize(ctx) < 2) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "BigInt.asIntN requires bits and bigint"));
-        return PROTO_NONE;
-    }
-    const proto::ProtoObject* bArg = args->getAt(ctx, 0);
-    long long bits = 0;
-    if (bArg && bArg->isInteger(ctx)) bits = bArg->asLong(ctx);
-    else if (bArg && (bArg->isDouble(ctx) || bArg->isFloat(ctx)))
-        bits = static_cast<long long>(bArg->asDouble(ctx));
-    if (bits < 0) {
-        signalNativeException(makeNativeError(ctx, "RangeError",
-            "BigInt.asIntN: bits must be non-negative"));
-        return PROTO_NONE;
-    }
-    const proto::ProtoObject* inner = coerceToInteger(ctx, args->getAt(ctx, 1));
+    int argc = args ? args->getSize(ctx) : 0;
+    const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
+                                              : getUndefinedSentinel();
+    long long bits = toIndexLL(ctx, bArg);
+    if (hasCallException() || bits < 0) return PROTO_NONE;
+    const proto::ProtoObject* vArg = argc > 1 ? args->getAt(ctx, 1)
+                                              : getUndefinedSentinel();
+    const proto::ProtoObject* inner = coerceToInteger(ctx, vArg);
     if (hasCallException() || !inner || inner == PROTO_NONE) return PROTO_NONE;
     if (bits == 0) return wrapBigInt(ctx, ctx->fromInteger(0LL));
-    // Compute v mod 2^bits, then if result >= 2^(bits-1) subtract 2^bits.
-    // Implemented via protoCore: mask = (1 << bits) - 1; half = 1 << (bits-1).
     const proto::ProtoObject* one = ctx->fromInteger(1LL);
     const proto::ProtoObject* mask = one->shiftLeft(ctx, static_cast<int>(bits))
                                        ->subtract(ctx, one);
@@ -310,30 +329,21 @@ static const proto::ProtoObject* bigIntAsIntN(proto::ProtoContext* ctx,
     return wrapBigInt(ctx, low);
 }
 
-// §21.2.2.2 BigInt.asUintN( bits, bigint ).  Truncates to an unsigned
-// `bits`-wide representation.
+// §21.2.2.2 BigInt.asUintN( bits, bigint ).  Same spec ordering as asIntN.
 static const proto::ProtoObject* bigIntAsUintN(proto::ProtoContext* ctx,
                                                const proto::ProtoObject*,
                                                const proto::ParentLink*,
                                                const proto::ProtoList* args,
                                                const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    if (!args || args->getSize(ctx) < 2) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "BigInt.asUintN requires bits and bigint"));
-        return PROTO_NONE;
-    }
-    const proto::ProtoObject* bArg = args->getAt(ctx, 0);
-    long long bits = 0;
-    if (bArg && bArg->isInteger(ctx)) bits = bArg->asLong(ctx);
-    else if (bArg && (bArg->isDouble(ctx) || bArg->isFloat(ctx)))
-        bits = static_cast<long long>(bArg->asDouble(ctx));
-    if (bits < 0) {
-        signalNativeException(makeNativeError(ctx, "RangeError",
-            "BigInt.asUintN: bits must be non-negative"));
-        return PROTO_NONE;
-    }
-    const proto::ProtoObject* inner = coerceToInteger(ctx, args->getAt(ctx, 1));
+    int argc = args ? args->getSize(ctx) : 0;
+    const proto::ProtoObject* bArg = argc > 0 ? args->getAt(ctx, 0)
+                                              : getUndefinedSentinel();
+    long long bits = toIndexLL(ctx, bArg);
+    if (hasCallException() || bits < 0) return PROTO_NONE;
+    const proto::ProtoObject* vArg = argc > 1 ? args->getAt(ctx, 1)
+                                              : getUndefinedSentinel();
+    const proto::ProtoObject* inner = coerceToInteger(ctx, vArg);
     if (hasCallException() || !inner || inner == PROTO_NONE) return PROTO_NONE;
     if (bits == 0) return wrapBigInt(ctx, ctx->fromInteger(0LL));
     const proto::ProtoObject* one = ctx->fromInteger(1LL);
