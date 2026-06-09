@@ -933,10 +933,10 @@ static const proto::ProtoObject* dateSetDate(proto::ProtoContext* ctx,
                                              const proto::ParentLink*,
                                              const proto::ProtoList* args,
                                              const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, false,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mday, &nan));
+    return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/1,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_mday = static_cast<int>(c[0]);
         });
 }
 
@@ -946,12 +946,11 @@ static const proto::ProtoObject* dateSetMonth(proto::ProtoContext* ctx,
                                               const proto::ParentLink*,
                                               const proto::ProtoList* args,
                                               const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, false,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_mon, &nan));
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mday, &nan));
+    return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/2,
+        /*fyMode=*/false, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_mon  = static_cast<int>(c[0]);
+            if (p[1]) tm.tm_mday = static_cast<int>(c[1]);
         });
 }
 
