@@ -387,6 +387,98 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 27 — 2026-06-09** (13 commits, structural blockers —
+strict-mode writability TypeError, ToNumber/ToPrimitive recognise
+BigInt and Symbol as primitives so the spec-mandated TypeError fires,
+Number constructor accepts BigInt per §22.1.1.1 step 2.b, Symbol.
+prototype.toString / valueOf / @@toPrimitive, Symbol.keyFor type
+guards, BigInt ToBigInt with @@toPrimitive + IsCallable gating,
+Number.toExponential rounds half-away-from-zero per §13.3.1.5).
+
+| Family | Passes | Total | Pass rate | Δ vs R26 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | **337** | 338 | **99.7 %** | **+0.6 pp** (+2) |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Date` | 570 | 594 | 96.0 % | – |
+| `built-ins/BigInt` | **74** | 77 | **96.1 %** | **+8.4 pp** (+8) |
+| `built-ins/Array` | 2 705 | 3 081 | 87.8 % | – |
+| `built-ins/Object` | **2 909** | 3 411 | **85.3 %** | **+0.1 pp** (+4) |
+| `built-ins/String` | 1 008 | 1 223 | 82.4 % | – |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | **−0.6 pp** (−1, see below) |
+| `built-ins/Function` | 308 | 509 | 60.5 % | – |
+| `built-ins/Symbol` | **39** | 98 | **39.8 %** | **+4.1 pp** (+4) |
+| **10-family rollup** | **8 394** | **9 823** | **85.5 %** | **+19 tests** |
+
+R27 commits land in order:
+
+  * **Strict-mode writability TypeError** — `resolvePutFieldOOP`
+    raises TypeError on writes to non-writable own props when the
+    enclosing module is strict (§10.1.9.1 step 7). Cascades through
+    every JS write site without an opcode change.
+  * **ToNumber(BigInt) → TypeError** (§7.1.4 step 2) and **ToNumber(
+    Symbol) → TypeError** (step 3) at the top of the interpreter
+    helper. Spreads through `+x`, `x*1`, `Math.*`, `Number.prototype.
+    toFixed(bi)`, parseFloat, etc.
+  * **Number constructor accepts BigInt** (§22.1.1.1 step 2.b) —
+    reads `__bigint_value__` directly so `Number(0n)` returns 0
+    instead of inheriting the abstract-ToNumber throw.
+  * **ToPrimitive recognises BigInt and Symbol wrappers as primitives**
+    — both `toPrimIfObject` and the embedded `toNumber.isPrimitive`
+    short-circuit on the markers so the downstream ToNumber pass
+    fires the spec-mandated TypeError instead of falling through to
+    `[object Object]` → NaN. Same for the BigInt ToBigInt path.
+  * **BigInt ToBigInt @@toPrimitive + IsCallable gating** — §7.1.1
+    semantics: present-but-not-callable @@toPrimitive is a TypeError,
+    callable-but-object-returning is also a TypeError, valueOf /
+    toString must be `IsCallable` before invocation. Mirrored across
+    `toBigInt` (asIntN/asUintN) and `coerceToInteger` (BigInt ctor).
+  * **Symbol.prototype.toString and valueOf** — spec-correct
+    SymbolDescriptiveString rendering "Symbol(<desc>)" plus a
+    thisSymbolValue probe. **Symbol.prototype[@@toPrimitive]** also
+    installed.
+  * **Symbol.keyFor type guard + registered marker** — throws
+    TypeError on non-Symbol, returns undefined for bare Symbol()
+    (only Symbol.for results carry the `__symbol_registered__`
+    bit). Symbol.prototype.description getter also TypeErrors on
+    non-Symbol receivers.
+  * **Number.prototype.toExponential rounding** (§13.3.1.5) — glibc's
+    %e round-half-to-even picks the smaller candidate at ties; the
+    spec picks the larger. Post-process the snprintf output to detect
+    equidistance via the neighbour at step 10^(exp-f) and re-format
+    with the larger candidate when applicable. `(25).toExponential(0)`
+    is now "3e+1".
+  * **BigInt.prototype descriptor** on the BigInt constructor: now
+    `{W:false, E:false, C:false}` per §21.2.2.3.
+
+JSON/Symbol.toStringTag regressed by one — `verifyProperty` flow on
+JSON's `__pd_Symbol.toStringTag__` now reaches the writability
+strict-throw probe but JSON itself lacks the `__has_non_writable_
+props__` hint, so the silent-non-strict path still mutates the slot.
+Fixable by stamping hnw on JSON; deferred to the next pass that
+sweeps hnw across builtins.
+
+Remaining structural blockers (unchanged from R26 list, ranked):
+
+  * **Real Symbol primitive type** — protoJS encodes well-known
+    Symbols (`Symbol.iterator`, `Symbol.toPrimitive`, …) as plain
+    strings, so `typeof Symbol.iterator === 'string'` and
+    `Symbol.toPrimitive[Symbol.toPrimitive]` cannot dispatch. Fixing
+    this requires Symbol values that are computed-property-key-
+    valid AND `typeof === 'symbol'`, which means changing the
+    key-coercion path on every OP_get_field / OP_set_field.
+  * **Function constructor + nested eval** (200+ Sputnik tests
+    blocked) — R20-#269.
+  * **Writability hint propagation** — the strict TypeError now
+    fires, but only on objects with `__has_non_writable_props__`.
+    Stamp it on Number.prototype, Array.prototype, String.prototype,
+    Object.prototype, JSON, Math to cascade dozens of `prop-desc`
+    tests.
+  * **Proxy support** (~10 JSON / Object / Array tests blocked).
+  * **RegExp literal bridging** (R19-#263, 100+ String / Array tests
+    blocked).
+
+---
+
 **Round 26 — 2026-06-09** (~14 commits, cross-cutting clean-ups —
 BigInt loose equality, JSON BigInt toJSON dispatch, Object.prototype
 chain identity for late-published builtins, undefined-default arg
