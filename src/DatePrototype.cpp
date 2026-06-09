@@ -1816,7 +1816,34 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toLocaleString",     dateToLocaleString, 0);
         registerProtoMethod(ctx, proto, "toLocaleDateString", dateToLocaleDateString, 0);
         registerProtoMethod(ctx, proto, "toLocaleTimeString", dateToLocaleTimeString, 0);
-        registerProtoMethod(ctx, proto, "Symbol.toPrimitive", dateSymbolToPrimitive, 1);
+        // §21.4.4.45: Date.prototype[@@toPrimitive] has:
+        //   - name "[Symbol.toPrimitive]" (with brackets — Symbol.prototype.toString
+        //     formatting per §19.4.3.2)
+        //   - property descriptor {writable: false, enumerable: false,
+        //     configurable: true} (spec §21.4.4 Note 1).
+        // registerProtoMethod's default name+descriptor are wrong on both
+        // counts (name = "Symbol.toPrimitive", pd = 0x3 ⇒ writable: true).
+        // Build the wrapper inline with the right shape.
+        {
+            const proto::ProtoString* keyTP =
+                ctx->fromUTF8String("Symbol.toPrimitive")
+                    ? ctx->fromUTF8String("Symbol.toPrimitive")->asString(ctx)
+                    : nullptr;
+            if (keyTP) {
+                const proto::ProtoObject* wrap =
+                    makeMethodWrapper(ctx, "[Symbol.toPrimitive]",
+                                      dateSymbolToPrimitive, 1);
+                if (wrap) {
+                    proto = proto->setAttribute(ctx, keyTP, wrap);
+                    const proto::ProtoString* pdk =
+                        ctx->fromUTF8String("__pd_Symbol.toPrimitive__")
+                            ? ctx->fromUTF8String("__pd_Symbol.toPrimitive__")->asString(ctx)
+                            : nullptr;
+                    // 0x2 = {writable:false, enumerable:false, configurable:true}.
+                    if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+                }
+            }
+        }
         registerProtoMethod(ctx, proto, "getYear",            dateGetYear, 0);
         registerProtoMethod(ctx, proto, "setYear",            dateSetYear, 1);
         registerProtoMethod(ctx, proto, "toTemporalInstant",  dateToTemporalInstant, 0);
