@@ -1376,7 +1376,9 @@ static const proto::ProtoObject* makeMethodWrapper(proto::ProtoContext* ctx,
 }
 
 // Stamp method `name` on `proto` with §17 descriptor 0x3
-// {writable:true, enumerable:false, configurable:true}.
+// {writable:true, enumerable:false, configurable:true}.  Mirrors the
+// pattern used by ObjectPrototype / FunctionPrototype to keep
+// test262 prop-desc fixtures happy.
 static void registerProtoMethod(proto::ProtoContext* ctx,
                                 const proto::ProtoObject*& proto,
                                 const char* name,
