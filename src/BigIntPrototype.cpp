@@ -597,6 +597,12 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
         const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
         if (pdnk) w = w->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
     }
+    // Hint flag so the runtime's writability enforcement path actually
+    // probes __pd_length__ / __pd_name__ (pre-fix the hot put_field
+    // handler skipped the descriptor probe when this flag was absent
+    // because most user objects don't have non-writable properties).
+    const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+    if (hnw) w = w->setAttribute(ctx, hnw, PROTO_TRUE);
     const proto::ProtoString* methodKey =
         ctx->fromUTF8String(name)
             ? ctx->fromUTF8String(name)->asString(ctx)
@@ -658,6 +664,13 @@ void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
                 if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
             }
         }
+    }
+    // Hint flag so the runtime's writability check probes __pd_<key>__
+    // when writing through the prototype chain (Symbol.toStringTag is
+    // non-writable per §21.2.3.5).
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) proto = proto->setAttribute(ctx, hnw, PROTO_TRUE);
     }
     t_bigIntPrototype = proto;
 }
@@ -754,6 +767,13 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
     // BigInt.asIntN / asUintN statics.
     ctor = installMethod(ctx, ctor, "asIntN",  bigIntAsIntN,  2);
     ctor = installMethod(ctx, ctor, "asUintN", bigIntAsUintN, 2);
+    // Hint flag on the BigInt constructor object so writes to
+    // BigInt.length / BigInt.name (both non-writable per §17) hit the
+    // descriptor enforcement path.
+    {
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) ctor = ctor->setAttribute(ctx, hnw, PROTO_TRUE);
+    }
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyBigInt, ctor);
     // §17: global builtin constructors are {W:true, E:false, C:true} = 0x3.
     {

@@ -93,7 +93,7 @@ static const proto::ProtoObject* resolveFieldOOP(proto::ProtoContext* ctx, const
     return res;
 }
 
-static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val) {
+static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, const proto::ProtoString* key, const proto::ProtoObject* val, bool isStrict = false) {
     if (!obj || obj == PROTO_NONE || !key) return obj;
 
     // Per-target hint: when Object.defineProperty has stamped
@@ -180,7 +180,18 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
         if (pdv && pdv != PROTO_NONE && pdv->isInteger(ctx)) {
             uint8_t bits = static_cast<uint8_t>(pdv->asLong(ctx));
             if (!(bits & 0x1)) {
-                // Property is non-writable.
+                // §10.1.9.1 [[Set]] step 7: non-writable property.
+                // Strict mode → TypeError (so propertyHelper's writability
+                // probe distinguishes between "got 0x2 and writes silently
+                // succeeded" vs the spec-required throw).  Sloppy mode →
+                // silent failure preserves the existing pre-R26 behavior.
+                if (isStrict) {
+                    std::string msg = "Cannot assign to read only property '";
+                    msg += keyStr;
+                    msg += "'";
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        msg.c_str()));
+                }
                 return obj;
             }
         }
@@ -7491,7 +7502,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
-                const proto::ProtoObject* newObj = resolvePutFieldOOP(pContext, obj, key, val);
+                const proto::ProtoObject* newObj = resolvePutFieldOOP(pContext, obj, key, val,
+                    module && module->isStrict);
                 REFRESH_INTERP_STATE();
 
                 if (hasCallException()) {
@@ -8846,7 +8858,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                     }
                     if (key) {
-                        newObj = resolvePutFieldOOP(pContext, obj, key, value);
+                        newObj = resolvePutFieldOOP(pContext, obj, key, value,
+                            module && module->isStrict);
                         if (hasCallException()) {
                             pending_exception = t_callException;
                             has_pending_exception = true;
