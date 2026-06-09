@@ -614,6 +614,18 @@ static long long pullArgAsInt(proto::ProtoContext* ctx,
         if (std::isnan(d) || std::isinf(d)) { if (sawNaN) *sawNaN = true; return fallback; }
         return static_cast<long long>(d);
     }
+    // Spec §21.4.4.x step "Let X be ? ToNumber(arg)": objects and
+    // strings reach this branch.  ToNumber invokes ToPrimitive
+    // (valueOf, toString); a throwing inner method must propagate.
+    const proto::ProtoObject* n = jsToNumber(ctx, v);
+    if (hasCallException()) return fallback;
+    if (!n || n == PROTO_NONE) { if (sawNaN) *sawNaN = true; return fallback; }
+    if (n->isInteger(ctx)) return n->asLong(ctx);
+    if (n->isDouble(ctx) || n->isFloat(ctx)) {
+        double d = n->asDouble(ctx);
+        if (std::isnan(d) || std::isinf(d)) { if (sawNaN) *sawNaN = true; return fallback; }
+        return static_cast<long long>(d);
+    }
     return fallback;
 }
 
