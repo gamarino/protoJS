@@ -867,14 +867,17 @@ static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
     double t = readDateValue(ctx, self, &isDate);
     if (!isDate || std::isnan(t)) {
         // §21.4.4.36 step 2: throw RangeError when [[DateValue]] is NaN.
-        // Surface a RangeError via signalNativeException-style path is
-        // a follow-up; for now return empty string to avoid crashes.
-        return ctx->fromUTF8String("");
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid time value"));
+        return PROTO_NONE;
     }
     std::tm tmv;
     int msrem = 0;
-    if (!decomposeTime(t, true, &tmv, &msrem))
-        return ctx->fromUTF8String("");
+    if (!decomposeTime(t, true, &tmv, &msrem)) {
+        signalNativeException(makeNativeError(ctx, "RangeError",
+            "Invalid time value"));
+        return PROTO_NONE;
+    }
     char buf[40];
     std::snprintf(buf, sizeof(buf),
         "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
