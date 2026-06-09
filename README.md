@@ -387,6 +387,71 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 26 — 2026-06-09** (~14 commits, cross-cutting clean-ups —
+BigInt loose equality, JSON BigInt toJSON dispatch, Object.prototype
+chain identity for late-published builtins, undefined-default arg
+handling in String split helpers).
+
+| Family | Passes | Total | Pass rate | Δ vs R25 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Date` | **570** | 594 | **96.0 %** | **+0.9 pp** (+5) |
+| `built-ins/Array` | 2 704 | 3 081 | 87.8 % | – |
+| `built-ins/BigInt` | **66** | 77 | **85.7 %** | **+2.6 pp** (+2) |
+| `built-ins/Object` | 2 904 | 3 411 | 85.1 % | – |
+| `built-ins/String` | **1 005** | 1 223 | **82.2 %** | **+0.2 pp** (+2) |
+| `built-ins/JSON` | **122** | 165 | **73.9 %** | **+1.2 pp** (+2) |
+| `built-ins/Function` | 308 | 509 | 60.5 % | – |
+| **9-family rollup** | **8 337** | **9 725** | **85.7 %** | **+11 tests** |
+
+R26 commits:
+
+  * **BigInt loose equality (`==`) with Number / String** —
+    §7.2.13 step 6-8 dispatch via stringified inner Integer for past-
+    int64 precision.  `5n == 5`, `5n == '5'`, `5n == 5.5` all behave
+    spec-correctly.
+  * **JSON BigInt path** — stringify throws TypeError on BigInt
+    (§25.5.2.2); toJSON dispatch runs FIRST per §25.5.2.2 step 2.b,
+    so `BigInt.prototype.toJSON = ()=>String(this)` enables BigInt
+    serialisation.  toJSON accessor getters (`{get toJSON(){...}}`)
+    fire properly.
+  * **Object.prototype chain identity** — BigInt installer moved
+    after ensureObjectConstructor so BigInt.prototype's parent is
+    the user-visible Object.prototype (fixes proto.js).
+  * **Date stub re-parenting** — ensureDateConstructor wires
+    methodPrototype as an extra parent on the early TimingAPIs stub,
+    so Date.hasOwnProperty / .call / .apply work and Sputnik
+    S15.9.4_A1-A5 + S15.9.2.1_A1-A2 pass.
+  * **isBigInt own-slot check** — receiver test uses
+    hasOwnAttribute(__bigint_value__) rather than chain __is_bigint__,
+    so `BigInt.prototype.toString.call(BigInt.prototype)` throws the
+    spec-mandated TypeError instead of a RangeError.
+  * **String slice / substring / substr undefined sentinel** —
+    optional `end` / `length` arg of undefined now defaults to source
+    length per §22.1.3.{17,20} / §B.2.3.1 (Sputnik T7/T11/T12).
+  * **Object.defineProperty descriptor chain lookup** — §6.2.5.5
+    ToPropertyDescriptor uses `[[GetV]]` (chain walk), so descriptor
+    keys defined on Object.prototype are picked up.
+
+The 100-commit target was scaled back to the substantive fixes
+within reach.  Remaining gaps cluster in five blockers that each
+need broader infrastructure work:
+
+  * **Function constructor + nested eval** (200+ Sputnik tests
+    blocked) — R20-#269.
+  * **Real Symbol primitive type** (protoJS encodes Symbol as
+    String; many Symbol-receiver test262 cases can't dispatch
+    correctly).
+  * **Writability enforcement** at the property-write layer
+    (descriptor bits stored but not respected — `f.length = 99`
+    succeeds when `__pd_length__ = 0x2`).
+  * **Proxy support** (~10 JSON / Object / Array tests blocked).
+  * **RegExp literal bridging** (R19-#263, 100+ String/Array
+    method tests blocked).
+
+---
+
 **Round 25 — 2026-06-09** (9 commits, BigInt push to high coverage —
 property descriptors, ToBigInt / ToIndex spec sequencing, tight string
 parser, inc/dec, constructor-stub overwrite, ToPrimitive-on-objects).
