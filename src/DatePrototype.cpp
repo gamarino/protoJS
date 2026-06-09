@@ -49,6 +49,41 @@ static bool isCallableValue(proto::ProtoContext* ctx, const proto::ProtoObject* 
     return false;
 }
 
+// §7.1.1.1 OrdinaryToPrimitive(O, hint).  Walks valueOf / toString in
+// the order dictated by `hint` ("string" → toString, valueOf; anything
+// else → valueOf, toString); returns the first primitive result.
+// Throws TypeError when both methods were called yet neither returned
+// a primitive.  Used directly by Date.prototype[@@toPrimitive] (§21.4.4.45
+// step 6) and indirectly by jsToPrimitive (the @@toPrimitive fallback).
+static const proto::ProtoObject* ordinaryToPrimitive(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* v,
+                                                     const char* hint) {
+    if (!ctx) return PROTO_NONE;
+    if (isPrimValue(ctx, v)) return v;
+    bool stringFirst = (std::string(hint) == "string");
+    const proto::ProtoObject* k1o = ctx->fromUTF8String(stringFirst ? "toString" : "valueOf");
+    const proto::ProtoObject* k2o = ctx->fromUTF8String(stringFirst ? "valueOf" : "toString");
+    const proto::ProtoString* keys[2] = {
+        k1o ? k1o->asString(ctx) : nullptr,
+        k2o ? k2o->asString(ctx) : nullptr
+    };
+    for (int i = 0; i < 2; ++i) {
+        if (!keys[i]) continue;
+        const proto::ProtoObject* fn = v->getAttribute(ctx, keys[i], true);
+        if (!isCallableValue(ctx, fn)) continue;
+        const proto::ProtoObject* r = callJSFunction(ctx, fn, v, ctx->newList());
+        if (hasCallException()) return PROTO_NONE;
+        if (isPrimValue(ctx, r)) return r;
+    }
+    // §7.1.1.1 step 3 (and equivalent for hint "string"): if neither
+    // candidate method returned a primitive, throw TypeError.  This
+    // includes the case where both methods are present-but-null (the
+    // hint-*-no-callables.js fixtures expect TypeError there).
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "OrdinaryToPrimitive returned no primitive"));
+    return PROTO_NONE;
+}
+
 // §7.1.1 ToPrimitive(value, hint).  Calls the receiver's
 // @@toPrimitive method if present (hint is forwarded as the sole arg),
 // otherwise falls back to OrdinaryToPrimitive (valueOf-then-toString
@@ -83,30 +118,7 @@ static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
             "Symbol.toPrimitive returned a non-primitive"));
         return PROTO_NONE;
     }
-    // OrdinaryToPrimitive: order depends on hint.
-    bool stringFirst = (std::string(hint) == "string");
-    const proto::ProtoString* k1o = stringFirst
-        ? ctx->fromUTF8String("toString")->asString(ctx)
-        : ctx->fromUTF8String("valueOf")->asString(ctx);
-    const proto::ProtoString* k2o = stringFirst
-        ? ctx->fromUTF8String("valueOf")->asString(ctx)
-        : ctx->fromUTF8String("toString")->asString(ctx);
-    const proto::ProtoString* keys[2] = { k1o, k2o };
-    bool anyCalled = false;
-    for (int i = 0; i < 2; ++i) {
-        if (!keys[i]) continue;
-        const proto::ProtoObject* fn = v->getAttribute(ctx, keys[i], true);
-        if (!isCallableValue(ctx, fn)) continue;
-        anyCalled = true;
-        const proto::ProtoObject* r = callJSFunction(ctx, fn, v, ctx->newList());
-        if (hasCallException()) return PROTO_NONE;
-        if (isPrimValue(ctx, r)) return r;
-    }
-    if (anyCalled) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "OrdinaryToPrimitive returned no primitive"));
-    }
-    return PROTO_NONE;
+    return ordinaryToPrimitive(ctx, v, hint);
 }
 
 // ---------------------------------------------------------------------------
@@ -1457,13 +1469,23 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
     }
     std::string hint;
     h->asString(ctx)->toUTF8String(ctx, hint);
-    if (hint == "string" || hint == "default")
-        return dateToString(ctx, self, p, args, k);
-    if (hint == "number")
-        return dateGetTime(ctx, self, p, args, k);
-    signalNativeException(makeNativeError(ctx, "TypeError",
-        "Symbol.toPrimitive hint must be 'default', 'string', or 'number'"));
-    return PROTO_NONE;
+    // §21.4.4.45 steps 3-6: hint "string"/"default" → tryFirst = "string";
+    // hint "number" → tryFirst = "number"; otherwise TypeError.  Then
+    // step 6 returns OrdinaryToPrimitive(O, tryFirst).  Crucially, the
+    // OrdinaryToPrimitive walks the RECEIVER's own toString / valueOf
+    // (via prototype chain), not Date.prototype's — fixtures like
+    // Date.prototype[Symbol.toPrimitive].call(obj, 'default') expect
+    // obj.toString() to fire, not Date.prototype.toString.
+    const char* tryFirst = nullptr;
+    if (hint == "string" || hint == "default") tryFirst = "string";
+    else if (hint == "number") tryFirst = "number";
+    else {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Symbol.toPrimitive hint must be 'default', 'string', or 'number'"));
+        return PROTO_NONE;
+    }
+    (void)p; (void)k;
+    return ordinaryToPrimitive(ctx, self, tryFirst);
 }
 
 // ----------------------------------------------------------------
