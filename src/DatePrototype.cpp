@@ -742,6 +742,38 @@ static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
     return dateToISOString(ctx, self, p, args, k);
 }
 
+// Day-of-week and month names per the spec's HTTP-Date format
+// (§21.4.4.41 toUTCString).  Reused by toString / toDateString.
+static const char* kWeekdayShort[] = {
+    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
+};
+static const char* kMonthShort[] = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+};
+
+// §21.4.4.41 toUTCString — "Day, DD Mon YYYY HH:MM:SS GMT"
+static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self,
+                                                 const proto::ParentLink*,
+                                                 const proto::ProtoList*,
+                                                 const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) return ctx->fromUTF8String("Invalid Date");
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, true, &tmv, &msrem))
+        return ctx->fromUTF8String("Invalid Date");
+    char buf[64];
+    std::snprintf(buf, sizeof(buf),
+        "%s, %02d %s %04d %02d:%02d:%02d GMT",
+        kWeekdayShort[tmv.tm_wday], tmv.tm_mday, kMonthShort[tmv.tm_mon],
+        tmv.tm_year + 1900, tmv.tm_hour, tmv.tm_min, tmv.tm_sec);
+    return ctx->fromUTF8String(buf);
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -892,6 +924,8 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setUTCFullYear",     dateSetUTCFullYear, 3);
         registerProtoMethod(ctx, proto, "toISOString",        dateToISOString, 0);
         registerProtoMethod(ctx, proto, "toJSON",             dateToJSON, 1);
+        registerProtoMethod(ctx, proto, "toUTCString",        dateToUTCString, 0);
+        registerProtoMethod(ctx, proto, "toGMTString",        dateToUTCString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
