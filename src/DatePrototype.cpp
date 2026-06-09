@@ -143,9 +143,52 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
         }
         t = timeClip(t);
     } else {
-        // Multi-arg form (year, month, [date, hour, min, sec, ms])
-        // lands in a follow-up commit.  For now: NaN.
-        t = std::nan("");
+        // §21.4.2.1 step 6: multi-arg form
+        //   Date(year, month [, date [, hr [, min [, sec [, ms]]]]])
+        // ToNumber each, MakeDay + MakeTime + MakeDate, then LocalTime
+        // (per spec, the multi-arg form interprets components in local TZ).
+        bool nan = false;
+        auto pullDouble = [&](int idx, double dflt) -> double {
+            if (idx >= argc) return dflt;
+            const proto::ProtoObject* v = args->getAt(ctx, idx);
+            if (!v || v == PROTO_NONE) return dflt;
+            if (v->isInteger(ctx)) return static_cast<double>(v->asLong(ctx));
+            if (v->isDouble(ctx) || v->isFloat(ctx)) {
+                double d = v->asDouble(ctx);
+                if (std::isnan(d) || std::isinf(d)) { nan = true; return dflt; }
+                return d;
+            }
+            nan = true;
+            return dflt;
+        };
+        double year = pullDouble(0, 0);
+        // §21.4.2.1 step 9: if 0 ≤ year ≤ 99, year += 1900.
+        if (!nan && year >= 0 && year <= 99) year += 1900;
+        double month = pullDouble(1, 0);
+        double date  = pullDouble(2, 1);
+        double hour  = pullDouble(3, 0);
+        double min   = pullDouble(4, 0);
+        double sec   = pullDouble(5, 0);
+        double ms    = pullDouble(6, 0);
+        if (nan) {
+            t = std::nan("");
+        } else {
+            std::tm tmv = {};
+            tmv.tm_year = static_cast<int>(year) - 1900;
+            tmv.tm_mon  = static_cast<int>(month);
+            tmv.tm_mday = static_cast<int>(date);
+            tmv.tm_hour = static_cast<int>(hour);
+            tmv.tm_min  = static_cast<int>(min);
+            tmv.tm_sec  = static_cast<int>(sec);
+            tmv.tm_isdst = -1;
+            std::time_t epoch = mktime(&tmv);
+            if (epoch == static_cast<std::time_t>(-1)) {
+                t = std::nan("");
+            } else {
+                t = static_cast<double>(epoch) * 1000.0 + ms;
+                t = timeClip(t);
+            }
+        }
     }
 
     if (self && self != PROTO_NONE) {
