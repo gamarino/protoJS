@@ -487,16 +487,19 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
                 std::string s;
                 prim->asString(ctx)->toUTF8String(ctx, s);
                 t = parseDateString(s);
-            } else if (prim && (prim->isInteger(ctx) || prim->isDouble(ctx) || prim->isFloat(ctx))) {
-                t = prim->isInteger(ctx)
-                    ? static_cast<double>(prim->asLong(ctx))
-                    : prim->asDouble(ctx);
-            } else if (prim && prim->isBoolean(ctx)) {
-                t = prim->asBoolean(ctx) ? 1.0 : 0.0;
-            } else if (prim == getNullSentinel()) {
-                t = 0.0;
             } else {
-                t = std::nan("");
+                // Spec step b.iii: tv = ? ToNumber(v).  jsToNumber
+                // (→ runtime toNumber) propagates the TypeError that
+                // ToNumber(Symbol)/ToNumber(BigInt) raise; bool→0/1,
+                // null→0, undefined→NaN are handled there too.
+                const proto::ProtoObject* n = jsToNumber(ctx, prim);
+                if (hasCallException()) return PROTO_NONE;
+                if (n && n->isInteger(ctx))
+                    t = static_cast<double>(n->asLong(ctx));
+                else if (n && (n->isDouble(ctx) || n->isFloat(ctx)))
+                    t = n->asDouble(ctx);
+                else
+                    t = std::nan("");
             }
         }
         t = timeClip(t);
