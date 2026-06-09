@@ -954,20 +954,21 @@ static const proto::ProtoObject* dateSetMonth(proto::ProtoContext* ctx,
         });
 }
 
-// §21.4.4.18 setFullYear(year[, mo[, date]]) — local.
+// §21.4.4.18 setFullYear(year[, mo[, date]]) — local.  Unique among
+// setters in that a NaN receiver doesn't short-circuit to NaN; instead
+// t is anchored to +0 (decomposed as 1970-01-01 UTC) and the year is
+// rebuilt from scratch (§21.4.4.21 step 5: "If t is NaN, set t to +0").
 static const proto::ProtoObject* dateSetFullYear(proto::ProtoContext* ctx,
                                                  const proto::ProtoObject* self,
                                                  const proto::ParentLink*,
                                                  const proto::ProtoList* args,
                                                  const proto::ProtoSparseList*) {
-    return setComponent(ctx, self, args, false,
-        [&](std::tm& tm, int&, const proto::ProtoList* a) {
-            bool nan = false;
-            tm.tm_year = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_year + 1900, &nan)) - 1900;
-            if (a && a->getSize(ctx) >= 2)
-                tm.tm_mon = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_mon, &nan));
-            if (a && a->getSize(ctx) >= 3)
-                tm.tm_mday = static_cast<int>(pullArgAsInt(ctx, a, 2, tm.tm_mday, &nan));
+    return setComponent2(ctx, self, args, /*utc=*/false, /*nArgs=*/3,
+        /*fyMode=*/true, /*principalCount=*/1,
+        [&](std::tm& tm, int&, const double* c, const bool* p, int) {
+            if (p[0]) tm.tm_year = static_cast<int>(c[0]) - 1900;
+            if (p[1]) tm.tm_mon  = static_cast<int>(c[1]);
+            if (p[2]) tm.tm_mday = static_cast<int>(c[2]);
         });
 }
 
