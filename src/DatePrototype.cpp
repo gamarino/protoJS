@@ -127,6 +127,10 @@ static double timeClip(double t) {
 
 static bool decomposeTime(double t, bool utc, std::tm* out, int* msOut) {
     if (!std::isfinite(t)) return false;
+    // Normalize the millisecond remainder to the [0, 999] range for
+    // negative time values.  Without the < 0 adjustment, t = -500
+    // would yield secs = 0 and rem = -500 instead of secs = -1 and
+    // rem = 500, breaking getMilliseconds for pre-epoch dates.
     long long ms = static_cast<long long>(t);
     long long secs = ms / 1000;
     int rem = static_cast<int>(ms % 1000);
