@@ -4280,6 +4280,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
                                 if (hapK) symProto = symProto->setAttribute(pContext, hapK, PROTO_TRUE);
                             }
+                            // §20.4.3.1 Symbol.prototype.constructor === Symbol.
+                            // Need a back-ref so the constructor probe in
+                            // tests like Symbol/constructor.js works.
+                            {
+                                const proto::ProtoString* cK = JSSymbols::constructor(pContext);
+                                if (cK) symProto = symProto->setAttribute(pContext, cK, symbolCtor);
+                            }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
                             // §20.4.2.7 / §17: Symbol.prototype descriptor
                             // is {writable:false, enumerable:false,
