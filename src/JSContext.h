@@ -8,6 +8,7 @@
 #include <string>
 #include <map>
 #include <mutex>
+#include <vector>
 
 namespace protojs {
 
@@ -39,6 +40,30 @@ public:
      * on failure (and prints the error to stderr).
      */
     JSValue evalPreload(const std::string& code, const std::string& filename);
+
+    /**
+     * Compile + load + run `code` as a script-mode expression, returning
+     * the resulting ProtoObject directly without converting to JSValue.
+     *
+     * Used by the Function constructor (Function(...) / new Function(...))
+     * to materialise a new closure from a source-text body without
+     * disturbing the caller's rootModule_/rootModuleStorage_. The
+     * resulting bytecode module is appended to subEvalModules_ and lives
+     * for the lifetime of the wrapper, so any closures the eval produces
+     * remain invokable after the call returns.
+     *
+     * Differs from eval() in two ways:
+     *   - rootModule_ / rootModuleStorage_ / rootModuleHandle_ are NOT
+     *     overwritten; the parent script's metadata survives.
+     *   - The return value is the protoCore object the interpreter
+     *     produced, with no toJS/fromJS roundtrip — preserves
+     *     __bytecode_id__ and any other identity-bearing markers.
+     *
+     * Returns PROTO_NONE on any error (with the QuickJS-side exception
+     * already printed to stderr).
+     */
+    const proto::ProtoObject* evalIsolatedToProto(const std::string& code,
+                                                  const std::string& filename);
 
     /**
      * @brief Use protoCore interpreter path for eval (compile -> load -> run).
@@ -197,6 +222,13 @@ private:
     std::unique_ptr<protojs::ProtoBytecodeModule> rootModuleStorage_;
     /** Handle for pinning the root module's metadata in rootSet_. */
     proto::ProtoRootSet::Handle rootModuleHandle_{0};
+    /** Owning storage for bytecode modules produced by evalIsolatedToProto
+     *  (Function constructor, future direct-eval). Each entry survives
+     *  for the wrapper lifetime so closures it produced stay invokable. */
+    std::vector<std::unique_ptr<protojs::ProtoBytecodeModule>> subEvalModules_;
+    /** Pinning handles for the sub-eval modules' metadata, parallel to
+     *  subEvalModules_. Released alongside the modules in ~JSContextWrapper. */
+    std::vector<proto::ProtoRootSet::Handle> subEvalHandles_;
     /** ProtoCore-side root set for pinning async-callback receivers
      *  across event-loop hops; lazy-init, destroyed on wrapper destruction. */
     proto::ProtoRootSet* rootSet_{nullptr};

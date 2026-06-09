@@ -459,6 +459,115 @@ JSValue JSContextWrapper::eval(const std::string& code, const std::string& filen
     return val;
 }
 
+const proto::ProtoObject* JSContextWrapper::evalIsolatedToProto(
+    const std::string& code, const std::string& filename) {
+    // Mirror of the script-mode path in eval() with two adjustments:
+    //   (1) the new bytecode module is appended to subEvalModules_ instead
+    //       of replacing rootModule_/rootModuleStorage_, so the caller's
+    //       active script keeps its atom cache and nested-function table;
+    //   (2) the interpreter's raw ProtoObject result is returned directly
+    //       — no TypeBridge::toJS roundtrip — so callable closures keep
+    //       their __bytecode_id__ identity.
+    //
+    // Used by the Function constructor; in the future, direct eval() will
+    // route through here as well.
+
+    // Publish this wrapper as the current one for the duration of the
+    // compile + run; lambdas that depend on JSContextWrapper::current()
+    // (notably TypeBridge plumbing and EventLoop callbacks) need it.
+    struct WrapperScope {
+        JSContextWrapper* prev;
+        WrapperScope(JSContextWrapper* w) : prev(t_currentWrapper) { t_currentWrapper = w; }
+        ~WrapperScope() { t_currentWrapper = prev; }
+    } _wscope(this);
+
+    proto::ProtoContext frameCtx(&pSpace, pContext, nullptr, nullptr, nullptr, nullptr);
+    frameCtx.currentFileName = pContext->currentFileName;
+    frameCtx.currentLineNumber = pContext->currentLineNumber;
+
+    // Clear any stale pending exception so compile sees a clean slate.
+    if (JS_HasException(ctx)) {
+        JSValue stale = JS_GetException(ctx);
+        JS_FreeValue(ctx, stale);
+    }
+
+    const int compileFlags = JS_EVAL_TYPE_GLOBAL;
+    void* bytecode = protojs::compileToBytecodeWithFlags(
+        ctx, code.c_str(), code.size(), filename.c_str(), compileFlags, nullptr);
+    if (!bytecode) {
+        // Compile failed; drain the exception so it doesn't bleed into
+        // the caller's runtime state. The caller (Function ctor handler)
+        // surfaces this as a generic failure path.
+        JSValue exc = JS_GetException(ctx);
+        JS_FreeValue(ctx, exc);
+        return PROTO_NONE;
+    }
+
+    auto modulePtr = std::make_unique<protojs::ProtoBytecodeModule>();
+    protojs::ProtoBytecodeModule* modPtr = modulePtr.get();
+    if (!protojs::loadBytecode(ctx, bytecode, &frameCtx, modPtr)) {
+        return PROTO_NONE;
+    }
+
+    const proto::ProtoObject* globalObj = getNativeGlobal();
+    if (!globalObj) return PROTO_NONE;
+
+    // Pin metadata in the root set so its constant pool / nested funcs
+    // stay alive after this call. A separate handle (not rootModuleHandle_)
+    // tracks the pin so the parent's pin remains valid.
+    proto::ProtoRootSet* rs = getRootSet();
+    proto::ProtoRootSet::Handle pinHandle = 0;
+    if (rs) {
+        pinHandle = rs->add(modPtr->metadata);
+    }
+    const proto::ProtoObject* exception = PROTO_NONE;
+    const proto::ProtoObject* result =
+        protojs::runBytecode(&frameCtx, modPtr,
+                             globalObj, nullptr,
+                             &nativeGlobalRoot_, &exception);
+
+    // Keep the module alive for the wrapper's lifetime so any closure
+    // the eval produced (e.g. a Function-ctor result) can resolve its
+    // bcId at call time. The vector grows monotonically; expected
+    // entries per session are modest (Function ctor calls are rare).
+    subEvalModules_.push_back(std::move(modulePtr));
+    if (pinHandle) subEvalHandles_.push_back(pinHandle);
+
+    if (exception && exception != PROTO_NONE) {
+        // Exception during run: don't propagate further here; the
+        // caller can fall back to PROTO_NONE the way the legacy path
+        // did. A richer propagation (signalling a protoJS-side throw)
+        // is a follow-up.
+        return PROTO_NONE;
+    }
+
+    // If the result is a callable closure created in this sub-module,
+    // stamp __closure_module__ so the dispatch path (L_OP_call) can
+    // resolve its __bytecode_id__ against the right nestedFunctions[]
+    // array. Without this, the calling script's current/root module
+    // would be consulted instead and the bcId would either miss or
+    // (worse) collide with an unrelated nested function.
+    if (result && result != PROTO_NONE) {
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(&frameCtx);
+        if (bcKey) {
+            const proto::ProtoObject* bcVal =
+                result->getAttribute(&frameCtx, bcKey, false);
+            if (bcVal && bcVal != PROTO_NONE && bcVal->isInteger(&frameCtx)) {
+                const proto::ProtoString* cmKey =
+                    JSSymbols::closureModule(&frameCtx);
+                if (cmKey) {
+                    const long long modAsLong =
+                        static_cast<long long>(reinterpret_cast<uintptr_t>(modPtr));
+                    result = result->setAttribute(&frameCtx, cmKey,
+                        frameCtx.fromInteger(modAsLong));
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 JSValue JSContextWrapper::evalPreload(const std::string& code, const std::string& filename) {
     // Evaluate as script (not module) so top-level declarations become globals.
     JSValue result = JS_Eval(ctx, code.c_str(), code.size(), filename.c_str(),
