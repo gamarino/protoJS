@@ -482,6 +482,24 @@ static const proto::ProtoObject* dateSetSeconds(proto::ProtoContext* ctx,
         });
 }
 
+// §21.4.4.24 setMinutes(min[, sec[, ms]]) — local.
+static const proto::ProtoObject* dateSetMinutes(proto::ProtoContext* ctx,
+                                                const proto::ProtoObject* self,
+                                                const proto::ParentLink*,
+                                                const proto::ProtoList* args,
+                                                const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, false,
+        [&](std::tm& tm, int& ms, const proto::ProtoList* a) {
+            bool nan = false;
+            tm.tm_min = static_cast<int>(pullArgAsInt(ctx, a, 0, tm.tm_min, &nan));
+            if (a && a->getSize(ctx) >= 2)
+                tm.tm_sec = static_cast<int>(pullArgAsInt(ctx, a, 1, tm.tm_sec, &nan));
+            if (a && a->getSize(ctx) >= 3)
+                ms = static_cast<int>(pullArgAsInt(ctx, a, 2, ms, &nan));
+            if (nan) ms = 0;
+        });
+}
+
 // §21.4.4.27 Date.prototype.setTime — direct assign TimeClip(ToNumber(arg)).
 static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
@@ -637,6 +655,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setTime",            dateSetTime, 1);
         registerProtoMethod(ctx, proto, "setMilliseconds",    dateSetMilliseconds, 1);
         registerProtoMethod(ctx, proto, "setSeconds",         dateSetSeconds, 2);
+        registerProtoMethod(ctx, proto, "setMinutes",         dateSetMinutes, 3);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
