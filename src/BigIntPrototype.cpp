@@ -805,7 +805,12 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
         if (pdnk) ctor = ctor->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
     }
     const proto::ProtoString* pk = JSSymbols::prototype(ctx);
-    if (pk) ctor = ctor->setAttribute(ctx, pk, t_bigIntPrototype);
+    if (pk) {
+        ctor = ctor->setAttribute(ctx, pk, t_bigIntPrototype);
+        // §21.2.2.3: BigInt.prototype is {W:false, E:false, C:false} = 0x0.
+        const proto::ProtoString* pdpk = JSSymbols::pdPrototype(ctx);
+        if (pdpk) ctor = ctor->setAttribute(ctx, pdpk, ctx->fromInteger(0x0LL));
+    }
     // Back-ref on the prototype, with the spec-mandated descriptor
     // {W:true, E:false, C:true} = 0x3 (per
     // built-ins/BigInt/prototype/constructor.js).

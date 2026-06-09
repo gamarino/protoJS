@@ -2200,6 +2200,16 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
             return PROTO_NONE;
         }
     }
+    // §7.1.4 step 3: Symbol → TypeError.
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(context);
+        if (symK && !proto::isSmallInt(value)
+            && value->getAttribute(context, symK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(context, "TypeError",
+                "Cannot convert a Symbol value to a number"));
+            return PROTO_NONE;
+        }
+    }
     if (value == getNullSentinel()) {
         return context->fromInteger(0LL);
     }
@@ -2382,6 +2392,15 @@ static const proto::ProtoObject* toNumber(proto::ProtoContext* context,
         if (v->isInteger(context) || v->isDouble(context) || v->isFloat(context)) return true;
         if (v->isBoolean(context) || v->isString(context)) return true;
         if (v == t_nullSentinel || v == t_undefinedSentinel) return true;
+        // BigInt and Symbol wrappers are spec-primitives and MUST recurse
+        // so toNumber's top-of-function BigInt→TypeError and Symbol→
+        // TypeError checks fire (§7.1.4 step 2 & 3). Pre-fix toNumber
+        // dropped them through to toString and produced NaN instead of
+        // the spec-mandated TypeError.
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(context);
+        if (bigK && v->getAttribute(context, bigK, true) == PROTO_TRUE) return true;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(context);
+        if (symK && v->getAttribute(context, symK, true) == PROTO_TRUE) return true;
         return false;
     };
     {
@@ -4630,11 +4649,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             if (symK && obj->getAttribute(pContext, symK, true) == PROTO_TRUE)
                 return obj;
         }
+        // Same applies to BigInt wrappers — they are primitives in the spec.
+        // Pre-fix the OrdinaryToPrimitive valueOf/toString dance ran
+        // and flattened them to "[object Object]" / NaN instead of
+        // letting the downstream toNumber throw the §7.1.4 TypeError.
+        {
+            const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+            if (bigK && obj->getAttribute(pContext, bigK, true) == PROTO_TRUE)
+                return obj;
+        }
         auto isPrimitive = [&](const proto::ProtoObject* v) -> bool {
-            return v && v != PROTO_NONE &&
-                   (v->isBoolean(pContext) || v->isInteger(pContext) ||
-                    v->isDouble(pContext) || v->isFloat(pContext) ||
-                    v->asString(pContext));
+            if (!v || v == PROTO_NONE) return false;
+            if (v->isBoolean(pContext) || v->isInteger(pContext) ||
+                v->isDouble(pContext) || v->isFloat(pContext) ||
+                v->asString(pContext)) return true;
+            // BigInt and Symbol wrappers are primitives for ToPrimitive
+            // recognition; returning them lets the caller's ToNumber/
+            // ToString fire the spec-mandated TypeError.
+            const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+            if (bigK && v->getAttribute(pContext, bigK, true) == PROTO_TRUE) return true;
+            const proto::ProtoString* symK = JSSymbols::isSymbol(pContext);
+            if (symK && v->getAttribute(pContext, symK, true) == PROTO_TRUE) return true;
+            return false;
         };
         // Fast path: wrapper objects created by new String() / new Number() store their
         // primitive value under __primitive_value__ to avoid the valueOf/toString dance.
