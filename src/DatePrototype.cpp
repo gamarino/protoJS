@@ -1518,6 +1518,12 @@ static const proto::ProtoObject* dateParseNew(proto::ProtoContext* ctx,
 
 // ---------------------------------------------------------------------------
 // Public installer
+//
+// Idempotent: builds on top of TimingAPIs::init's pre-existing Date
+// stub (which carries name / length / prototype / Symbol.toStringTag).
+// We replace __native_fn__ + add __construct__ for the constructor
+// path, stamp every prototype method, and override the parse/UTC
+// statics with the protoCore-side rewrites.
 // ---------------------------------------------------------------------------
 
 void ensureDateConstructor(proto::ProtoContext* ctx,
