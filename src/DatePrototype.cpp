@@ -109,6 +109,112 @@ static bool decomposeTime(double t, bool utc, std::tm* out, int* msOut) {
 }
 
 // ---------------------------------------------------------------------------
+// §21.4.1.15 Date Time String Format — parse the spec-mandated form
+//     YYYY-MM-DDTHH:mm:ss.sss[Z|±HH:MM]
+// plus a handful of common fragments (date-only, date+space+time,
+// slash-separated date).  Returns NaN on any failure.
+// ---------------------------------------------------------------------------
+
+static double parseDateString(const std::string& s) {
+    if (s.empty()) return std::nan("");
+    // Try the ISO 8601 extended form with optional fractional seconds
+    // and timezone designator.  Hand-rolled to avoid std::get_time's
+    // strict "all-or-nothing" parse — the spec permits truncating any
+    // component from the right.
+    int year = 0, mon = 1, day = 1, hr = 0, mi = 0, sec = 0, ms = 0;
+    int tzMin = 0;  // offset to subtract; 0 = UTC, negative = east of UTC
+    bool hasTZ = false;
+    const char* p = s.c_str();
+    // YYYY
+    int n = 0;
+    if (std::sscanf(p, "%4d%n", &year, &n) != 1 || n != 4) {
+        return std::nan("");
+    }
+    p += n;
+    auto skipChar = [&](char c) -> bool { if (*p == c) { ++p; return true; } return false; };
+    if (skipChar('-')) {
+        if (std::sscanf(p, "%2d%n", &mon, &n) != 1 || n != 2) return std::nan("");
+        p += n;
+        if (skipChar('-')) {
+            if (std::sscanf(p, "%2d%n", &day, &n) != 1 || n != 2) return std::nan("");
+            p += n;
+        }
+    }
+    // Optional time component, separated by 'T' or space.
+    if (skipChar('T') || skipChar(' ')) {
+        if (std::sscanf(p, "%2d%n", &hr, &n) != 1 || n != 2) return std::nan("");
+        p += n;
+        if (skipChar(':')) {
+            if (std::sscanf(p, "%2d%n", &mi, &n) != 1 || n != 2) return std::nan("");
+            p += n;
+            if (skipChar(':')) {
+                if (std::sscanf(p, "%2d%n", &sec, &n) != 1 || n != 2) return std::nan("");
+                p += n;
+                // Fractional seconds .sss (up to 3 digits used).
+                if (skipChar('.')) {
+                    int digits[3] = {0,0,0};
+                    int got = 0;
+                    while (*p >= '0' && *p <= '9' && got < 9) {
+                        if (got < 3) digits[got] = *p - '0';
+                        ++p; ++got;
+                    }
+                    ms = digits[0]*100 + digits[1]*10 + digits[2];
+                }
+            }
+        }
+        // Timezone designator: Z or ±HH:MM
+        if (skipChar('Z')) {
+            hasTZ = true;
+        } else if (*p == '+' || *p == '-') {
+            char sign = *p++;
+            int hh, mm = 0;
+            if (std::sscanf(p, "%2d%n", &hh, &n) != 1 || n != 2) return std::nan("");
+            p += n;
+            if (skipChar(':')) {
+                if (std::sscanf(p, "%2d%n", &mm, &n) != 1 || n != 2) return std::nan("");
+                p += n;
+            }
+            tzMin = (sign == '-' ? 1 : -1) * (hh * 60 + mm);
+            hasTZ = true;
+        }
+    }
+    // Skip trailing whitespace.
+    while (*p == ' ' || *p == '\t') ++p;
+    if (*p != '\0') {
+        // Some inputs end with " GMT" / " UTC" — accept and treat as UTC.
+        std::string tail(p);
+        if (tail == "Z" || tail == "GMT" || tail == "UTC" ||
+            tail == " GMT" || tail == " UTC") {
+            hasTZ = true;
+        } else {
+            return std::nan("");
+        }
+    }
+
+    std::tm tmv = {};
+    tmv.tm_year = year - 1900;
+    tmv.tm_mon  = mon - 1;
+    tmv.tm_mday = day;
+    tmv.tm_hour = hr;
+    tmv.tm_min  = mi;
+    tmv.tm_sec  = sec;
+    std::time_t epoch;
+    if (hasTZ) {
+        epoch = timegm(&tmv);
+    } else {
+        // §21.4.1.15 step 5: bare date (no Z, no offset) interpreted
+        // as local time.  Use mktime.
+        tmv.tm_isdst = -1;
+        epoch = mktime(&tmv);
+    }
+    if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
+    double t = static_cast<double>(epoch) * 1000.0 + ms;
+    // Apply parsed TZ offset (subtract because tzMin holds "minutes east of UTC negated").
+    t += static_cast<double>(tzMin) * 60.0 * 1000.0;
+    return t;
+}
+
+// ---------------------------------------------------------------------------
 // Constructor — §21.4.2 / §21.4.3
 //
 // Minimal viable: ignore arguments for now; the freshly-built instance
