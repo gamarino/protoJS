@@ -2631,6 +2631,71 @@ static bool jsAbstractEquals(proto::ProtoContext* ctx,
     bool yNum  = y->isInteger(ctx) || y->isDouble(ctx) || y->isFloat(ctx);
     bool xStr  = !xBool && !xNum && x->asString(ctx) != nullptr;
     bool yStr  = !yBool && !yNum && y->asString(ctx) != nullptr;
+    // BigInt detection.  protoJS BigInt is a wrapper object carrying
+    // __is_bigint__ via the prototype chain plus __bigint_value__ as
+    // an own attribute.  Any of the typeof checks above (Bool/Num/Str)
+    // already excluded the wrapper, so probing for the marker is safe.
+    const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+    bool xBig = bigK && x && !proto::isSmallInt(x) && !xNum && !xBool && !xStr
+        && x->getAttribute(ctx, bigK, true) == PROTO_TRUE;
+    bool yBig = bigK && y && !proto::isSmallInt(y) && !yNum && !yBool && !yStr
+        && y->getAttribute(ctx, bigK, true) == PROTO_TRUE;
+    const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
+    if (xBig && yBig) {
+        const proto::ProtoObject* xi = x->getAttribute(ctx, vk, false);
+        const proto::ProtoObject* yi = y->getAttribute(ctx, vk, false);
+        return xi && yi && xi->compare(ctx, yi) == 0;
+    }
+    // §7.2.13 step 6 BigInt vs Number / Number vs BigInt: compare
+    // numeric values directly.  NaN never equates; infinite Number
+    // never equates to a finite BigInt.  For finite Number that's an
+    // integer, compare with the BigInt's stored Integer; otherwise
+    // false.
+    auto bigEqualsNumber = [&](const proto::ProtoObject* big,
+                               const proto::ProtoObject* num) -> bool {
+        if (!big || !num) return false;
+        if (num->isDouble(ctx) || num->isFloat(ctx)) {
+            double d = num->asDouble(ctx);
+            if (std::isnan(d) || std::isinf(d)) return false;
+            if (d != std::trunc(d)) return false;
+            // Compare via string: BigInt asIntegerString vs the
+            // truncated Number formatted as a string.  Handles values
+            // outside int64 range safely.
+            const proto::ProtoObject* bi = big->getAttribute(ctx, vk, false);
+            if (!bi) return false;
+            const proto::ProtoString* bs = bi->asIntegerString(ctx, 10);
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(d));
+            std::string s;
+            if (bs) bs->toUTF8String(ctx, s);
+            return s == buf;
+        }
+        // Integer Number primitive.
+        long long nv = num->asLong(ctx);
+        const proto::ProtoObject* bi = big->getAttribute(ctx, vk, false);
+        if (!bi) return false;
+        const proto::ProtoObject* numAsInt = ctx->fromInteger(nv);
+        return bi->compare(ctx, numAsInt) == 0;
+    };
+    if (xBig && yNum) return bigEqualsNumber(x, y);
+    if (xNum && yBig) return bigEqualsNumber(y, x);
+    // BigInt vs String: ToBigInt the string and retry.
+    if (xBig && yStr) {
+        // §7.2.13 step 7 / 8: parse the string as a BigInt; if NaN, false.
+        std::string s;
+        y->asString(ctx)->toUTF8String(ctx, s);
+        if (s.empty()) {
+            const proto::ProtoObject* bi = x->getAttribute(ctx, vk, false);
+            const proto::ProtoObject* zero = ctx->fromInteger(0LL);
+            return bi && bi->compare(ctx, zero) == 0;
+        }
+        try {
+            const proto::ProtoObject* parsed = ctx->fromString(s.c_str(), 10);
+            const proto::ProtoObject* bi = x->getAttribute(ctx, vk, false);
+            return parsed && bi && bi->compare(ctx, parsed) == 0;
+        } catch (...) { return false; }
+    }
+    if (xStr && yBig) return jsAbstractEquals(ctx, y, x, depth + 1);
 
     // Same type: use strict compare.
     if (xBool && yBool) return x->compare(ctx, y) == 0;
