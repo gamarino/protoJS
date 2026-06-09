@@ -383,6 +383,17 @@ static const proto::ProtoObject* getComponent(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// Convenience wrapper around getComponent that throws TypeError
+// on non-Date receivers and returns NaN on invalid time.  The
+// extra-clarity name documents intent; existing call sites still
+// route through getComponent directly.
+template <typename Selector>
+static const proto::ProtoObject* readDateComponentOrThrow(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    bool utc, Selector pick) {
+    return getComponent(ctx, self, utc, pick);
+}
+
 // §21.4.4.10 Date.prototype.getTime
 // §21.4.4.8  Date.prototype.valueOf
 // (same operation: return thisTimeValue)
