@@ -1284,6 +1284,7 @@ static const proto::ProtoObject* symbolFor(
             const proto::ProtoObject* tsFn = keyObj->getAttribute(ctx, tsK, true);
             if (tsFn && tsFn != PROTO_NONE) {
                 const proto::ProtoObject* r = callJSFunction(ctx, tsFn, keyObj, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
                 if (r && r != PROTO_NONE) {
                     if (r->isString(ctx)) {
                         if (const proto::ProtoString* ps = r->asString(ctx))
