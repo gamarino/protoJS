@@ -5635,7 +5635,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (soKind == 0 || soKind == 1) {
                     // ARGUMENTS / MAPPED_ARGUMENTS: build array-like object from args.
                     // QuickJS only emits this in functions with has_arguments_binding, never in arrow fns.
-                    const proto::ProtoObject* argsObj = pContext->newObject(true);
+                    // §10.4.4 Arguments Exotic Object: [[Prototype]] is
+                    // %Object.prototype% so chain walks pick up
+                    // hasOwnProperty / toString / user-installed
+                    // Object.prototype.foo. Pre-fix newObject(true)
+                    // left the parent null, so even though
+                    // Object.getPrototypeOf(arguments) returned
+                    // Object.prototype via getPrototype's fallback,
+                    // attribute lookups on arguments did NOT walk to
+                    // Object.prototype.
+                    const proto::ProtoObject* opForArgs =
+                        (pContext->space && pContext->space->objectPrototype)
+                            ? pContext->space->objectPrototype : nullptr;
+                    const proto::ProtoObject* argsObj = opForArgs
+                        ? opForArgs->newChild(pContext, true)
+                        : pContext->newObject(true);
                     int argc2 = args ? static_cast<int>(args->getSize(pContext)) : 0;
                     for (int ai = 0; ai < argc2; ai++) {
                         const proto::ProtoString* idxKey = JSSymbols::indexKey(pContext, static_cast<uint32_t>(ai));
