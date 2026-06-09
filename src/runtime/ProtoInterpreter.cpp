@@ -5084,6 +5084,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE; \
     } while(0)
 
+    /* BigInt binary-operator dispatch.  Inserted at the top of every
+     * binary arithmetic / bitwise / shift handler — checks whether
+     * either operand carries the __is_bigint__ marker (via the chain),
+     * raises TypeError on mixed-type combinations, otherwise unwraps
+     * and routes through protoCore's bignum operator method.  A
+     * successful dispatch DISPATCH()es with the result already on the
+     * stack so the existing Number arithmetic below stays unchanged.
+     * `op_method` is a member name (add / subtract / multiply / ...);
+     * cheap rejection: SmallInt-tagged operands can't be BigInt
+     * wrappers. */
+    #define BIGINT_BIN_DISPATCH(op_method) do { \
+        const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
+        bool _aBig = _bigK && a && !proto::isSmallInt(a) \
+            && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
+        bool _bBig = _bigK && b && !proto::isSmallInt(b) \
+            && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
+        if (_aBig || _bBig) { \
+            if (_aBig != _bBig) { \
+                pending_exception = makeNativeError(pContext, "TypeError", \
+                    "Cannot mix BigInt and other types, use explicit conversions"); \
+                has_pending_exception = true; \
+                DISPATCH(); \
+            } \
+            const proto::ProtoString* _vk = JSSymbols::bigIntValue(pContext); \
+            const proto::ProtoObject* _ai = a->getAttribute(pContext, _vk, false); \
+            const proto::ProtoObject* _bi = b->getAttribute(pContext, _vk, false); \
+            const proto::ProtoObject* _r = (_ai && _bi) ? _ai->op_method(pContext, _bi) : nullptr; \
+            pAutomaticLocals[currentStackBase + _PF().stackTop++] = \
+                _r ? wrapBigInt(pContext, _r) : PROTO_NONE; \
+            DISPATCH(); \
+        } \
+    } while(0)
+
     DISPATCH();
     {
             // --- Constant and immediate pushes ---
@@ -8852,6 +8885,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
+                // §13.15.3 + on BigInt — see BIGINT_BIN_DISPATCH macro.
+                BIGINT_BIN_DISPATCH(add);
+
                 // Numerify booleans and null ONLY when neither operand is a
                 // string — otherwise `'x' + null` would coerce null to 0
                 // before the concat path saw it, producing 'x0' instead
@@ -8918,6 +8954,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
 
+                BIGINT_BIN_DISPATCH(multiply);
+
                 if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
                 else if (a == PROTO_FALSE || a == t_nullSentinel) a = proto::makeSmallInt(0);
                 if (b == PROTO_TRUE)  b = proto::makeSmallInt(1);
@@ -8949,6 +8987,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (_PF().stackTop < 2) return PROTO_NONE;
                 const proto::ProtoObject* b_raw = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                // BigInt division: integer divide (no Infinity / NaN —
+                // BigInt(5)/BigInt(0) throws RangeError per spec) so we
+                // must dispatch BEFORE the toNumber→double conversion.
+                {
+                    const proto::ProtoObject* a_peek = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                    const proto::ProtoObject* b_peek = b_raw;
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a_peek && !proto::isSmallInt(a_peek)
+                        && a_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b_peek && !proto::isSmallInt(b_peek)
+                        && b_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        --_PF().stackTop;  // pop the a slot we peeked
+                        if (aBig != bBig) {
+                            pending_exception = makeNativeError(pContext, "TypeError",
+                                "Cannot mix BigInt and other types, use explicit conversions");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a_peek->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* bi = b_peek->getAttribute(pContext, vk, false);
+                        if (!bi || bi->integerSign(pContext) == 0) {
+                            pending_exception = makeNativeError(pContext, "RangeError",
+                                "Division by zero");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        const proto::ProtoObject* q = ai->divide(pContext, bi);
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            q ? wrapBigInt(pContext, q) : PROTO_NONE;
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(b_raw));
                 REFRESH_INTERP_STATE();
                 if (has_pending_exception) DISPATCH();
@@ -8974,6 +9046,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+
+                BIGINT_BIN_DISPATCH(subtract);
 
                 // see L_OP_add for null / boolean numerify rationale.
                 if (a == PROTO_TRUE)  a = proto::makeSmallInt(1);
@@ -9008,7 +9082,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
-                
+
+                BIGINT_BIN_DISPATCH(modulo);
+
                 // Integer fast-path
                 if (proto::isSmallInt(a) && proto::isSmallInt(b)) {
                     long long va = proto::asSmallInt(a);
