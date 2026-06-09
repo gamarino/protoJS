@@ -383,6 +383,74 @@ static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
     return ctx->fromInteger(static_cast<long long>(t));
 }
 
+// Compose a tm + ms remainder back into a [[DateValue]] (ms since epoch).
+// utc=true → timegm; utc=false → mktime (uses host timezone).
+static double composeTime(const std::tm& tmIn, int ms, bool utc) {
+    std::tm tm = tmIn;
+    std::time_t epoch;
+    if (utc) {
+        epoch = timegm(&tm);
+    } else {
+        tm.tm_isdst = -1;  // let mktime infer DST
+        epoch = mktime(&tm);
+    }
+    if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
+    return static_cast<double>(epoch) * 1000.0 + static_cast<double>(ms);
+}
+
+// Common setter scaffold.  Pulls current [[DateValue]], decomposes,
+// hands the broken-down tm + ms to `mutate` (which may pull positional
+// arguments from `args`), recomposes, TimeClips, writes back, and
+// returns the new time value.  Receivers without [[DateValue]] return
+// NaN without mutating; NaN times are handled per spec
+// (setMilliseconds(2)(NaN-date) returns NaN).
+template <typename Mutator>
+static const proto::ProtoObject* setComponent(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              const proto::ProtoList* args,
+                                              bool utc, Mutator mutate) {
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate) return ctx->fromDouble(std::nan(""));
+    if (std::isnan(t)) {
+        // setTime override would have caught this; for component setters,
+        // NaN input produces NaN output.
+        writeDateValue(ctx, self, std::nan(""));
+        return ctx->fromDouble(std::nan(""));
+    }
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, utc, &tmv, &msrem)) {
+        writeDateValue(ctx, self, std::nan(""));
+        return ctx->fromDouble(std::nan(""));
+    }
+    mutate(tmv, msrem, args);
+    double composed = composeTime(tmv, msrem, utc);
+    composed = timeClip(composed);
+    writeDateValue(ctx, self, composed);
+    if (std::isnan(composed)) return ctx->fromDouble(std::nan(""));
+    return ctx->fromInteger(static_cast<long long>(composed));
+}
+
+// Pull a positional argument as an integer (best-effort).  Used by
+// every component setter to read ms/sec/min/hour/date/month/year args.
+static long long pullArgAsInt(proto::ProtoContext* ctx,
+                              const proto::ProtoList* args,
+                              int idx, long long fallback,
+                              bool* sawNaN) {
+    if (!args || idx >= args->getSize(ctx)) return fallback;
+    const proto::ProtoObject* v = args->getAt(ctx, idx);
+    if (!v || v == PROTO_NONE) return fallback;
+    if (v->isInteger(ctx)) return v->asLong(ctx);
+    if (v->isDouble(ctx) || v->isFloat(ctx)) {
+        double d = v->asDouble(ctx);
+        if (std::isnan(d) || std::isinf(d)) { if (sawNaN) *sawNaN = true; return fallback; }
+        return static_cast<long long>(d);
+    }
+    return fallback;
+}
+
 // §21.4.4.27 Date.prototype.setTime — direct assign TimeClip(ToNumber(arg)).
 static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
