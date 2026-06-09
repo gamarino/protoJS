@@ -198,17 +198,11 @@ void stringifyRecursive(proto::ProtoContext* ctx,
             return;
         }
     }
-    // §25.5.2.2 SerializeJSONProperty: BigInt → TypeError (no JSON
-    // representation).  rawJSON receivers go through a different
-    // path and are handled at the per-key emission site.
-    {
-        const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
-        if (bigK && obj->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
-            signalNativeException(makeNativeError(ctx, "TypeError",
-                "Do not know how to serialize a BigInt"));
-            return;
-        }
-    }
+    // §25.5.2.2 step 2: when Type(O) is BigInt, the toJSON-dispatch
+    // path (step 2.b) runs FIRST.  Only after the toJSON / replacer
+    // chain has run and the value is STILL a BigInt is the TypeError
+    // raised (step 10).  Defer the throw — see the matching check
+    // after the toJSON helper below.
     if (obj->isBoolean(ctx)) {
         out += obj->asBoolean(ctx) ? "true" : "false";
         return;
@@ -324,6 +318,18 @@ void stringifyRecursive(proto::ProtoContext* ctx,
                     }
                 }
             }
+        }
+    }
+    // §25.5.2.2 step 10: if Type(value) is still BigInt after the
+    // toJSON / replacer chain, throw TypeError.  JSON has no syntax
+    // for BigInt; if the user wants to serialize they must implement
+    // BigInt.prototype.toJSON (typically returning a string).
+    {
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+        if (bigK && obj->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Do not know how to serialize a BigInt"));
+            return;
         }
     }
     // Spec §25.5.2.2 SerializeJSONProperty step 4: unbox Number /
