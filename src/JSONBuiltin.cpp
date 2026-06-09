@@ -293,6 +293,24 @@ void stringifyRecursive(proto::ProtoContext* ctx,
         const proto::ProtoString* tjsKey = tjsObj ? tjsObj->asString(ctx) : nullptr;
         if (tjsKey) {
             const proto::ProtoObject* tjsFn = obj->getAttribute(ctx, tjsKey, true);
+            // §6.2.5 Get(O, 'toJSON'): if 'toJSON' is an accessor
+            // (defined via Object.defineProperty(...,{get(){...}})),
+            // fire the getter to materialise the actual function.
+            // Pre-fix the JSON serializer only inspected the data
+            // slot, so receivers defining toJSON via a getter never
+            // had it invoked (value-bigint-tojson-receiver.js does
+            // this on BigInt.prototype).
+            {
+                std::string gkStr = "__get_toJSON__";
+                const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+                const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+                if (gk) {
+                    const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+                    if (getter && getter != PROTO_NONE) {
+                        tjsFn = callJSFunction(ctx, getter, obj, ctx->newList());
+                    }
+                }
+            }
             if (tjsFn && tjsFn != PROTO_NONE) {
                 bool callable = tjsFn->isMethod(ctx);
                 if (!callable) {
