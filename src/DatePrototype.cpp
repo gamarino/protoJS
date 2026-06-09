@@ -296,6 +296,11 @@ static double parseDateString(const std::string& s) {
 // follow-up commits.
 // ---------------------------------------------------------------------------
 
+// §21.4.2.1 Date(...) — installed as __native_fn__ (bare call) and
+// __construct__ (via `new`) on the Date global.  Branches on argc:
+//   0   → current time
+//   1   → numeric → time value; string → parsed; other → NaN
+//   ≥ 2 → multi-component form with local-TZ interpretation
 static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* self,
                                               const proto::ParentLink*,
