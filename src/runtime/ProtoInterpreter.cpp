@@ -3707,11 +3707,9 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Register Date constructor and Date.prototype methods (upgrades the
     // minimal TimingAPIs stub installed before eval).
     protojs::ensureDateConstructor(pContext, pGlobalRoot);
-    // Register BigInt constructor + BigInt.prototype.  Routes
-    // arbitrary-precision arithmetic through protoCore's existing
-    // SmallInt/LargeInteger machinery via a wrapper carrying the
-    // __is_bigint__ typeof marker (see BigIntPrototype.cpp).
-    protojs::ensureBigIntConstructor(pContext, pGlobalRoot);
+    // BigInt constructor moved to AFTER ensureObjectConstructor (see
+    // below) so BigInt.prototype can be parented at the user-visible
+    // Object.prototype identity rather than the pre-population snapshot.
 
     // Register well-known global numeric constants (Infinity, NaN, undefined).
     // These are standard globals that must be visible as top-level variable lookups.
@@ -3938,6 +3936,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // installed first it captures the pre-population snapshot, and
     // Object.getPrototypeOf(Math) !== Object.prototype as a result.
     ensureObjectConstructor(pContext, pGlobalRoot);
+    // BigInt installed AFTER ensureObjectConstructor so BigInt.prototype
+    // parents at the user-visible Object.prototype (matches Array /
+    // Date / String / Boolean / Map / Set, all of which were built
+    // during BootstrapJSPrototypes and pick up the same identity).
+    protojs::ensureBigIntConstructor(pContext, pGlobalRoot);
     ensureMathObject(pContext, pGlobalRoot);
     // Per ECMA-262 §19.3, the global object is reachable as globalThis.
     // Install it as a self-reference; the descriptor for globalThis is

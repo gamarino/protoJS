@@ -663,11 +663,18 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
     // always overwrite — never adopt the stub's prototype, because that
     // prototype lacks our toString / valueOf / __is_bigint__ marker.
     (void)(*globalRoot)->getAttribute(ctx, keyBigInt, false);  // unused
-    // Build the prototype if buildBigIntPrototype hasn't run yet.
-    if (!t_bigIntPrototype) {
-        const proto::ProtoObject* objProto =
-            ctx->space ? ctx->space->objectPrototype : nullptr;
-        if (objProto) buildBigIntPrototype(ctx->space, ctx, objProto);
+    // (Re)build the prototype against the now-finalised space->objectPrototype.
+    // Wrapper init builds it eagerly against the early objectPrototype,
+    // but ObjectPrototype::install later REPLACES space->objectPrototype
+    // (so children of the old pointer no longer share identity with the
+    // JS-level Object.prototype the global ctor exposes).  Rebuild here
+    // to anchor BigInt.prototype on the canonical Object.prototype that
+    // every other built-in chain reaches.
+    if (ctx->space && ctx->space->objectPrototype) {
+        // Re-parent: drop the cached prototype and rebuild.
+        t_bigIntPrototype = nullptr;
+        t_bigIntMethodsInstalled = false;
+        buildBigIntPrototype(ctx->space, ctx, ctx->space->objectPrototype);
     }
     if (!t_bigIntPrototype) return;
     // (Re)install toString / valueOf against the now-fully-populated
