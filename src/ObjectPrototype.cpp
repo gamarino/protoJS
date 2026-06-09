@@ -1897,7 +1897,14 @@ static const proto::ProtoObject* objectDefineProperty(
         const proto::ProtoObject* ko2 = ctx->fromUTF8String(name);
         const proto::ProtoString* k2  = ko2 ? ko2->asString(ctx) : nullptr;
         if (!k2) return false;
-        if (desc->getAttribute(ctx, k2, false) != PROTO_NONE) return true;
+        // §6.2.5.5 ToPropertyDescriptor uses HasProperty / Get with
+        // chain lookup (spec step 3.a probes Desc.[[GetOwnProperty]]
+        // but the surrounding caller uses [[GetV]] which walks the
+        // prototype chain — fixtures like 15.2.3.6-3-144-1 verify
+        // that Math doesn't have own 'value' yet Object.defineProperty
+        // (obj, 'p', Math) still picks up the inherited Object.prototype
+        // .value).  Pre-fix `getAttribute(..., false)` was own-only.
+        if (desc->getAttribute(ctx, k2, true) != PROTO_NONE) return true;
         
         std::string nstr = name;
         std::string gkStr = "__get_" + nstr + "__";
