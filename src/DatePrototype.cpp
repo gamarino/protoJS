@@ -723,6 +723,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setMinutes",         dateSetMinutes, 3);
         registerProtoMethod(ctx, proto, "setHours",           dateSetHours, 4);
         registerProtoMethod(ctx, proto, "setDate",            dateSetDate, 1);
+        registerProtoMethod(ctx, proto, "setMonth",           dateSetMonth, 2);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
