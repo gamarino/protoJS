@@ -323,9 +323,121 @@ static bool tryExpandedYear(const std::string& s, int* out, int* consumed) {
     return true;
 }
 
+// Fallback parser for the RFC 7231 IMF-fixdate and V8/SpiderMonkey/JSC
+// toString formats — needed by parse/zero.js's round-trips:
+//   "Thu, 01 Jan 1970 00:00:00 GMT"               (toUTCString)
+//   "Wed Dec 31 1969 21:00:00 GMT-0300"           (toString, local)
+// Returns NaN when the input doesn't match either of those shapes.
+static double parseRFCDateString(const std::string& s) {
+    if (s.size() < 20) return std::nan("");
+    // Three-letter month / weekday tables.
+    auto monthIdx = [](const char* p) -> int {
+        static const char* m[] = {"Jan","Feb","Mar","Apr","May","Jun",
+                                  "Jul","Aug","Sep","Oct","Nov","Dec"};
+        for (int i = 0; i < 12; ++i)
+            if (std::strncmp(p, m[i], 3) == 0) return i;
+        return -1;
+    };
+    int day = 0, monthNum = -1, year = 0, hh = 0, mm = 0, ss = 0;
+    int n = 0;
+    const char* p = s.c_str();
+    bool utcForm = false;
+    if (p[3] == ',' && p[4] == ' ') {
+        // "Day, DD Mon YYYY HH:MM:SS GMT"
+        p += 5;
+        if (std::sscanf(p, "%2d %3c %4d %2d:%2d:%2d%n",
+                        &day, (char*)p+3 /* unused */, &year, &hh, &mm, &ss, &n) < 6
+            && std::sscanf(p, "%d %n", &day, &n) != 1) return std::nan("");
+        // re-parse with explicit field-by-field to avoid sscanf's %3c gotcha.
+        n = 0;
+        if (std::sscanf(p, "%2d %n", &day, &n) != 1 || n == 0) return std::nan("");
+        p += n;
+        monthNum = monthIdx(p);
+        if (monthNum < 0) return std::nan("");
+        p += 3;
+        if (*p != ' ') return std::nan("");
+        ++p;
+        if (std::sscanf(p, "%4d %2d:%2d:%2d%n",
+                        &year, &hh, &mm, &ss, &n) != 4) return std::nan("");
+        p += n;
+        // Optional " GMT" / " UTC" suffix.
+        if (std::strncmp(p, " GMT", 4) == 0 || std::strncmp(p, " UTC", 4) == 0) {
+            p += 4;
+            utcForm = true;
+        }
+    } else if (p[3] == ' ') {
+        // "Day Mon DD YYYY HH:MM:SS GMT±HHMM"
+        p += 4;
+        monthNum = monthIdx(p);
+        if (monthNum < 0) return std::nan("");
+        p += 3;
+        if (*p != ' ') return std::nan("");
+        ++p;
+        if (std::sscanf(p, "%2d %4d %2d:%2d:%2d%n",
+                        &day, &year, &hh, &mm, &ss, &n) != 5)
+            return std::nan("");
+        p += n;
+        // Local-time form: parse GMT±HHMM offset if present.
+        int tzMin = 0;
+        if (std::strncmp(p, " GMT", 4) == 0) {
+            p += 4;
+            if (*p == '+' || *p == '-') {
+                char sign = *p++;
+                int hO = 0, mO = 0;
+                if (std::sscanf(p, "%2d%2d", &hO, &mO) == 2) {
+                    tzMin = (sign == '-' ? 1 : -1) * (hO * 60 + mO);
+                    p += 4;
+                }
+            }
+        }
+        std::tm tmv = {};
+        tmv.tm_year = year - 1900;
+        tmv.tm_mon  = monthNum;
+        tmv.tm_mday = day;
+        tmv.tm_hour = hh;
+        tmv.tm_min  = mm;
+        tmv.tm_sec  = ss;
+        std::time_t epoch = timegm(&tmv);
+        if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
+        double t = static_cast<double>(epoch) * 1000.0
+                 + static_cast<double>(tzMin) * 60000.0;
+        return t;
+    } else {
+        return std::nan("");
+    }
+    if (!utcForm) return std::nan("");
+    std::tm tmv = {};
+    tmv.tm_year = year - 1900;
+    tmv.tm_mon  = monthNum;
+    tmv.tm_mday = day;
+    tmv.tm_hour = hh;
+    tmv.tm_min  = mm;
+    tmv.tm_sec  = ss;
+    std::time_t epoch = timegm(&tmv);
+    if (epoch == static_cast<std::time_t>(-1)) return std::nan("");
+    return static_cast<double>(epoch) * 1000.0;
+}
+
 static double parseDateString(const std::string& s) {
     if (s.empty()) return std::nan("");
     if (isRejectedNegativeZeroYear(s)) return std::nan("");
+    // If the input starts with a 3-letter weekday name (RFC-style) it's
+    // not ISO 8601 — go straight to the RFC parser.  Conveniently both
+    // toUTCString ("Thu, ...") and toString ("Wed Dec 31 ...") begin
+    // with the weekday.
+    if (s.size() >= 3) {
+        char c0 = s[0], c1 = s[1], c2 = s[2];
+        bool weekdayLead =
+            (c0 == 'S' && (c1 == 'u' || c1 == 'a')) ||   // Sun/Sat
+            (c0 == 'M' && c1 == 'o') ||                   // Mon
+            (c0 == 'T' && (c1 == 'u' || c1 == 'h')) ||   // Tue/Thu
+            (c0 == 'W' && c1 == 'e') ||                   // Wed
+            (c0 == 'F' && c1 == 'r');                     // Fri
+        if (weekdayLead && (c2 == 'n' || c2 == 't' || c2 == 'e'
+                            || c2 == 'd' || c2 == 'u' || c2 == 'i' || c2 == 'r')) {
+            return parseRFCDateString(s);
+        }
+    }
     // Try the ISO 8601 extended form with optional fractional seconds
     // and timezone designator.  Hand-rolled to avoid std::get_time's
     // strict "all-or-nothing" parse — the spec permits truncating any
@@ -411,6 +523,11 @@ static double parseDateString(const std::string& s) {
             tail == " GMT" || tail == " UTC") {
             hasTZ = true;
         } else {
+            // Fall through to the RFC parser for forms like
+            // "Thu, 01 Jan 1970 00:00:00 GMT" (toUTCString output)
+            // and "Wed Dec 31 1969 21:00:00 GMT-0300" (toString output).
+            double rfc = parseRFCDateString(s);
+            if (!std::isnan(rfc)) return rfc;
             return std::nan("");
         }
     }
