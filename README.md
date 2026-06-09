@@ -387,6 +387,78 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 19 — 2026-06-08** (no new fixes; instead, a measured
+re-baseline of the eight `built-ins/*` families using a
+cgroup-isolated test harness that protects the host from the
+swap-thrashing failure mode that blocked rounds 17 and 18 from
+producing a pass-rate table).
+
+| Family | Passes | Total | Pass rate | Δ vs R16 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Array` | 2 706 | 3 081 | **87.8 %** | –0.0 pp* |
+| `built-ins/Object` | 2 852 | 3 411 | **83.6 %** | – |
+| `built-ins/String` | 1 005 | 1 223 | **82.2 %** | **+0.7 pp** |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | – |
+| `built-ins/Function` | 240 | 509 | **47.2 %** | – |
+| `built-ins/Date` | 76 | 594 | 12.8 % (stub) | – |
+| **8-family rollup** | **7 658** | **9 648** | **79.4 %** | **+0.1 pp** |
+
+\* Array: −1 test in absolute terms, attributable to a stricter
+3-second per-test timeout (vs R16's 5-second default) catching
+13 cases that previously squeezed in. No interpreter regression.
+
+The +0.7 pp on `built-ins/String` is the visible payoff of the
+four R18 RegExp fixes: `String.prototype.matchAll` now produces
+a draining iterator instead of `undefined`, and the regex bridge
+no longer silently fails on every `new RegExp(...)`.  Eight
+String tests that had been failing across R15 / R16 / R17 now
+pass.
+
+**The host-safe sweep procedure** documented during R19 (kept
+for future rounds — the system constraints did not change):
+
+  * Each family runs inside a transient `systemd-run --user
+    --scope` unit with `MemoryMax`, `MemorySwapMax=0`, and
+    `CPUQuota=400%`.  `MemorySwapMax=0` is load-bearing — the
+    failure mode observed in R17/R18 was swap thrashing
+    starving the display manager of IO before earlyoom could
+    react, not RAM exhaustion as such.  Disallowing swap turns
+    the failure into a local OOM-kill inside the cgroup,
+    leaving the host responsive.
+  * `MemoryMax` calibrated per family: 4 GiB suffices for
+    families below 1 000 tests; the node-side runner's
+    accumulated state (per-test result records + transient
+    `execFile` buffers) crosses 4 GiB around the 600th test of
+    a single family, so 8 GiB is the safe minimum for the
+    1k–2k range, and 12 GiB for 3k+.  During R19's String run
+    the 4 GiB scope was OOM-killed at test 529; re-running
+    under 8 GiB completed the full 1 223-test family in 35 s
+    with 0 swap usage.
+  * `TEST262_CONCURRENCY=1`, `TEST262_TIMEOUT_MS=3000` — single
+    in-flight `protojs` child, aggressive per-test timeout
+    catches the runaway-allocation class of bugs (the R17
+    issue) before they balloon.
+  * One family per `systemd-run` invocation; each writes its
+    own snapshot under `tests/test262/reports/` and the
+    cgroup is torn down before the next family starts.
+
+End-to-end wall time for all 8 families: ~5 minutes.  Swap
+usage during the sweep: **0 MB**.  Host-visible UI events: 0.
+
+Carry-overs to a future round (no change since R18):
+  * R18-#261: `Function.prototype.toString` returns a native
+    template for user functions — multi-file change touching
+    the QuickJS bytecode-to-source range; out of scope here.
+  * R19-#263 (still pending): the regex **literal** path
+    (`/a+/.test(...)`) — `L_OP_regexp` discards the compiled
+    bytecode, and `TypeBridge::fromJS` re-encodes raw
+    bytecode bytes through UTF-8.  Two stacked deep bugs;
+    needs its own dedicated round.
+
+---
+
 **Round 18 — 2026-06-08** (4 fixes; RegExp constructor, the
 String→RegExp iterator bridge, and the GetIterator path used by
 spread / for-of / destructure).  Continues in the same
