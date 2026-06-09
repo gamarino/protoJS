@@ -5,6 +5,9 @@
 
 namespace protojs {
 
+// All Date methods route through the [[DateValue]] internal slot
+// stored as the own attribute __date_value__ on each Date instance.
+
 /**
  * Install the Date constructor and Date.prototype with all spec methods
  * onto the global root.  Idempotent — checks for an existing "Date" entry
