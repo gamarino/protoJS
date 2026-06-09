@@ -242,31 +242,9 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
         // Date receiver → copy [[DateValue]].
         const proto::ProtoObject* v = args->getAt(ctx, 0);
         if (v && v->isString(ctx)) {
-            // Parse string via the ISO-8601 fragment parser.  For now
-            // we inline the same minimal logic as TimingAPIs::dateParse;
-            // a full §21.4.1.15 Date Time String Format parser is a
-            // follow-up.
             std::string s;
             v->asString(ctx)->toUTF8String(ctx, s);
-            std::tm tmv = {};
-            bool ok = false;
-            const char* fmts[] = {
-                "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%d", "%Y/%m/%d", nullptr
-            };
-            for (int i = 0; fmts[i]; ++i) {
-                std::tm tt = {};
-                std::istringstream in(s);
-                in >> std::get_time(&tt, fmts[i]);
-                if (!in.fail()) { tmv = tt; ok = true; break; }
-            }
-            if (!ok) {
-                t = std::nan("");
-            } else {
-                std::time_t epoch = timegm(&tmv);
-                if (epoch == static_cast<std::time_t>(-1)) t = std::nan("");
-                else t = static_cast<double>(epoch) * 1000.0;
-            }
+            t = parseDateString(s);
         } else if (v && (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx))) {
             t = v->isInteger(ctx)
                 ? static_cast<double>(v->asLong(ctx))
