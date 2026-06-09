@@ -815,6 +815,24 @@ static const proto::ProtoObject* numberConstruct(
     double val = 0.0;
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* a = args->getAt(ctx, 0);
+        // §22.1.1.1 step 2.b: a BigInt argument is converted to the
+        // mathematical value 𝔽(ℝ(prim)). Distinct from abstract
+        // ToNumber (§7.1.4), which throws TypeError for BigInt — the
+        // explicit Number(...) constructor does NOT throw.
+        const proto::ProtoString* bigMk = JSSymbols::isBigInt(ctx);
+        if (bigMk && a && !proto::isSmallInt(a)
+            && a->getAttribute(ctx, bigMk, true) == PROTO_TRUE) {
+            const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
+            const proto::ProtoObject* inner = vk ? a->getAttribute(ctx, vk, false) : nullptr;
+            if (inner && inner != PROTO_NONE) {
+                if (inner->isInteger(ctx)) val = static_cast<double>(inner->asLong(ctx));
+                else if (inner->isDouble(ctx) || inner->isFloat(ctx)) val = inner->asDouble(ctx);
+            }
+            const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+            if (pvKey)
+                self = self->setAttribute(ctx, pvKey, ctx->fromDouble(val));
+            return self;
+        }
         const proto::ProtoObject* coerced = jsToNumber(ctx, a);
         // §21.1.1.1 step 1: NewTarget-only fast path: if the coercion
         // raised an abrupt completion (e.g.
