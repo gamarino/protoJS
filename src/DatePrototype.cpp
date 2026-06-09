@@ -574,7 +574,11 @@ static const proto::ProtoObject* setComponent(proto::ProtoContext* ctx,
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
-    if (!isDate) return ctx->fromDouble(std::nan(""));
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
+    }
     if (std::isnan(t)) {
         // setTime override would have caught this; for component setters,
         // NaN input produces NaN output.
