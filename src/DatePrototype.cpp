@@ -154,12 +154,19 @@ static double parseDateString(const std::string& s) {
     int tzMin = 0;  // offset to subtract; 0 = UTC, negative = east of UTC
     bool hasTZ = false;
     const char* p = s.c_str();
-    // YYYY
-    int n = 0;
-    if (std::sscanf(p, "%4d%n", &year, &n) != 1 || n != 4) {
-        return std::nan("");
+    // YYYY (4 digits) or ±YYYYYY (7-character extended form).
+    int consumed = 0;
+    if (tryExpandedYear(s, &year, &consumed)) {
+        p += consumed;
+    } else {
+        int n = 0;
+        if (std::sscanf(p, "%4d%n", &year, &n) != 1 || n != 4) {
+            return std::nan("");
+        }
+        p += n;
     }
-    p += n;
+    int n = 0;
+    (void)n;  // n still needed for the remaining sscanf calls below
     auto skipChar = [&](char c) -> bool { if (*p == c) { ++p; return true; } return false; };
     if (skipChar('-')) {
         if (std::sscanf(p, "%2d%n", &mon, &n) != 1 || n != 2) return std::nan("");
