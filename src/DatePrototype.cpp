@@ -301,6 +301,16 @@ static const proto::ProtoObject* dateGetDay(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_wday; });
 }
 
+// §21.4.4.6 getHours — local hours 0..23.
+static const proto::ProtoObject* dateGetHours(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList*,
+                                              const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, false,
+        [](const std::tm& tm, int) { return tm.tm_hour; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -446,6 +456,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getMonth",           dateGetMonth, 0);
         registerProtoMethod(ctx, proto, "getDate",            dateGetDate, 0);
         registerProtoMethod(ctx, proto, "getDay",             dateGetDay, 0);
+        registerProtoMethod(ctx, proto, "getHours",           dateGetHours, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
