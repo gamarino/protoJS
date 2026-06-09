@@ -331,6 +331,16 @@ static const proto::ProtoObject* dateGetSeconds(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_sec; });
 }
 
+// §21.4.4.0 getMilliseconds (sub-second component).
+static const proto::ProtoObject* dateGetMilliseconds(proto::ProtoContext* ctx,
+                                                     const proto::ProtoObject* self,
+                                                     const proto::ParentLink*,
+                                                     const proto::ProtoList*,
+                                                     const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, false,
+        [](const std::tm&, int ms) { return ms; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -479,6 +489,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getHours",           dateGetHours, 0);
         registerProtoMethod(ctx, proto, "getMinutes",         dateGetMinutes, 0);
         registerProtoMethod(ctx, proto, "getSeconds",         dateGetSeconds, 0);
+        registerProtoMethod(ctx, proto, "getMilliseconds",    dateGetMilliseconds, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
