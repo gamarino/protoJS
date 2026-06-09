@@ -333,6 +333,7 @@ static double parseDateString(const std::string& s) {
     int year = 0, mon = 1, day = 1, hr = 0, mi = 0, sec = 0, ms = 0;
     int tzMin = 0;  // offset to subtract; 0 = UTC, negative = east of UTC
     bool hasTZ = false;
+    bool hasTime = false;
     const char* p = s.c_str();
     // YYYY (4 digits) or ±YYYYYY (7-character extended form).
     int consumed = 0;
@@ -364,6 +365,7 @@ static double parseDateString(const std::string& s) {
     // RFC 2822 / Date(Date(0).toUTCString()) round trip.
     if (skipChar('T') || skipChar(' ') ||
         (p[0] == ',' && p[1] == ' ' && (p += 2))) {
+        hasTime = true;
         if (std::sscanf(p, "%2d%n", &hr, &n) != 1 || n != 2) return std::nan("");
         p += n;
         if (skipChar(':')) {
@@ -421,11 +423,12 @@ static double parseDateString(const std::string& s) {
     tmv.tm_min  = mi;
     tmv.tm_sec  = sec;
     std::time_t epoch;
-    if (hasTZ) {
+    // §21.4.1.15: when the UTC offset is absent, date-ONLY forms are
+    // interpreted as UTC; date-time forms are interpreted as local time.
+    // (parse/without-utc-offset.js exercises both branches.)
+    if (hasTZ || !hasTime) {
         epoch = timegm(&tmv);
     } else {
-        // §21.4.1.15 step 5: bare date (no Z, no offset) interpreted
-        // as local time.  Use mktime.
         tmv.tm_isdst = -1;
         epoch = mktime(&tmv);
     }
