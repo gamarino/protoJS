@@ -1174,6 +1174,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toLocaleTimeString", dateToLocaleTimeString, 0);
         registerProtoMethod(ctx, proto, "Symbol.toPrimitive", dateSymbolToPrimitive, 1);
         registerProtoMethod(ctx, proto, "getYear",            dateGetYear, 0);
+        registerProtoMethod(ctx, proto, "setYear",            dateSetYear, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
