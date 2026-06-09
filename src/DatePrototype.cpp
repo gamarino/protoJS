@@ -84,6 +84,48 @@ static const proto::ProtoObject* ordinaryToPrimitive(proto::ProtoContext* ctx,
     return PROTO_NONE;
 }
 
+// §7.3.18 Invoke(V, P [, argumentsList]).  Get the named callable from
+// the receiver and call it with the receiver as `this` and the supplied
+// arguments.  If the resolved value isn't callable, throw TypeError.
+// Used by Date.prototype.toJSON's spec step 4 ("Invoke(O, "toISOString")")
+// so the actually-called toISOString is the receiver's own (potentially
+// overridden) one rather than Date.prototype.toISOString.
+static const proto::ProtoObject* invokeByName(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* obj,
+                                              const char* name,
+                                              const proto::ProtoList* args) {
+    if (!ctx || !obj || obj == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    if (!ks) return PROTO_NONE;
+    const proto::ProtoObject* fn = obj->getAttribute(ctx, ks, true);
+    // §7.3.18 step 3: GetV(V, P).  When P is an accessor (defined via
+    // `get name() {...}`), [[Get]] must fire the getter.  protoJS's
+    // accessors are stored as a side companion key __get_<name>__ at
+    // the same prototype slot; invoke the getter to materialise fn.
+    // toJSON/invoke-arguments.js exercises this code path: receiver
+    // defines `get toISOString` whose getter returns the real function
+    // to invoke.
+    {
+        std::string gkStr = std::string("__get_") + name + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                fn = callJSFunction(ctx, getter, obj, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+    }
+    if (!isCallableValue(ctx, fn)) {
+        std::string msg = std::string(name) + " is not a function";
+        signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+        return PROTO_NONE;
+    }
+    return callJSFunction(ctx, fn, obj, args ? args : ctx->newList());
+}
+
 // §7.1.1 ToPrimitive(value, hint).  Calls the receiver's
 // @@toPrimitive method if present (hint is forwarded as the sole arg),
 // otherwise falls back to OrdinaryToPrimitive (valueOf-then-toString
@@ -1192,17 +1234,22 @@ static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
-// §21.4.4.37 toJSON — calls toISOString unless the receiver's primitive
-// value is non-finite (then returns null per spec).
+// §21.4.4.37 Date.prototype.toJSON.  Spec body:
+//   1. Let O be ? ToObject(this).
+//   2. Let tv be ? ToPrimitive(O, NUMBER).
+//   3. If tv is a Number and !isFinite(tv), return null.
+//   4. Return ? Invoke(O, "toISOString").
+// Step 2 fires @@toPrimitive ("number" hint) on the receiver and
+// step 4 calls the receiver's own toISOString (possibly overridden) —
+// neither shortcuts through Date.prototype's machinery, so a non-Date
+// receiver with a custom @@toPrimitive / toISOString round-trips properly.
 static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
                                             const proto::ProtoObject* self,
-                                            const proto::ParentLink* p,
-                                            const proto::ProtoList* args,
-                                            const proto::ProtoSparseList* k) {
+                                            const proto::ParentLink*,
+                                            const proto::ProtoList*,
+                                            const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
-    // §21.4.4.37 step 1: ToObject(this).  When this is undefined or
-    // null, that step throws a TypeError.  protoJS represents both as
-    // PROTO_NONE / sentinels; treat any sentinel-y receiver as throw.
+    // Step 1: ToObject — throws TypeError on null/undefined.
     if (!self || self == PROTO_NONE ||
         self == getUndefinedSentinel() ||
         self == getNullSentinel()) {
@@ -1210,19 +1257,21 @@ static const proto::ProtoObject* dateToJSON(proto::ProtoContext* ctx,
             "Date.prototype.toJSON called on null or undefined"));
         return PROTO_NONE;
     }
-    bool isDate = false;
-    double t = readDateValue(ctx, self, &isDate);
-    // §21.4.4.37 step 3: if tv is a Number and !isFinite(tv), return null.
-    if (isDate && (std::isnan(t) || !std::isfinite(t))) return PROTO_NONE;
-    if (!isDate) {
-        // For non-Date receivers the spec calls
-        //   Invoke(O, "toISOString").  We approximate by routing
-        // through our static toISOString implementation; a fully-
-        // spec'd Invoke (looking up toISOString via [[Get]]) requires
-        // additional plumbing.
-        return PROTO_NONE;
+    // Primitives (number/string/boolean) ToObject-box silently; for the
+    // toJSON path that distinction doesn't matter because step 2 calls
+    // ToPrimitive again, which is a no-op on primitives.
+    // Step 2: ToPrimitive(O, NUMBER).
+    const proto::ProtoObject* tv = jsToPrimitive(ctx, self, "number");
+    if (hasCallException()) return PROTO_NONE;
+    // Step 3: non-finite Number → null.
+    if (tv && (tv->isInteger(ctx) || tv->isDouble(ctx) || tv->isFloat(ctx))) {
+        double dv = tv->isInteger(ctx)
+            ? static_cast<double>(tv->asLong(ctx))
+            : tv->asDouble(ctx);
+        if (std::isnan(dv) || std::isinf(dv)) return getNullSentinel();
     }
-    return dateToISOString(ctx, self, p, args, k);
+    // Step 4: Invoke(O, "toISOString").
+    return invokeByName(ctx, self, "toISOString", nullptr);
 }
 
 // Day-of-week and month names per the spec's HTTP-Date format
