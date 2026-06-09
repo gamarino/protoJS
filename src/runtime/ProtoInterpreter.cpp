@@ -10791,9 +10791,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
 
                 const ProtoBytecodeModule* resolvedModule = nullptr;
-                if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
+                // Closures created inside a foreign module (e.g. the
+                // Function constructor's evalIsolatedToProto path) carry
+                // an explicit __closure_module__ pointer to the module
+                // that owns their nestedFunctions[bcId] entry. Without
+                // this, the bcId would be resolved against the caller's
+                // current/root module — and either miss outright or
+                // (worse) collide with an unrelated nested function at
+                // the same index.
+                if (bcId >= 0) {
+                    const ProtoBytecodeModule* ownerMod =
+                        getClosureModule(pContext, func);
+                    if (ownerMod &&
+                        static_cast<size_t>(bcId) < ownerMod->nestedFunctions.size())
+                        resolvedModule = &ownerMod->nestedFunctions[bcId];
+                }
+                if (!resolvedModule && bcId >= 0 &&
+                    static_cast<size_t>(bcId) < module->nestedFunctions.size())
                     resolvedModule = &module->nestedFunctions[bcId];
-                else if (bcId >= 0 && t_rootModule &&
+                else if (!resolvedModule && bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
                     resolvedModule = &t_rootModule->nestedFunctions[bcId];
 

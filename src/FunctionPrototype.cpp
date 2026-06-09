@@ -6,6 +6,7 @@
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
+#include <cstdio>
 #include <string>
 
 namespace protojs {
@@ -412,6 +413,90 @@ static const proto::ProtoObject* fnToString(
     return ctx->fromUTF8String(result.c_str());
 }
 
+// Native [[Call]] / [[Construct]] for the Function constructor.
+// ECMA-262 §20.2.1: Function(p1, p2, ..., pn, body) returns a new
+// function whose formal parameter list is the comma-joined list of
+// ToString-coerced p1..pn and whose body is the ToString-coerced body
+// argument.
+//
+// Implementation: assemble "(function anonymous(<params>\n) {\n<body>\n})"
+// and route through JSContextWrapper::evalIsolatedToProto, which
+// compiles via QuickJS, runs the resulting bytecode on the protoCore
+// interpreter using a *separate* bytecode module (does not disturb the
+// caller's rootModule_), and returns the protoCore object directly —
+// so the resulting closure keeps its __bytecode_id__ identity and is
+// natively invokable.
+//
+// Pre-fix the Function constructor object carried only the
+// __is_constructor__ marker (for the IsConstructor probe) and none of
+// the call-dispatch markers (__native_fn__, __bytecode_id__,
+// __construct__, __<name>_ctor__). The L_OP_call dispatch fell through
+// to the "not callable" TypeError branch. As a result Function(),
+// new Function(body), and new Function("a,b", "return a+b") all threw
+// "TypeError: is not a function". Around 50-80 test262 cases under
+// built-ins/Function/prototype/{apply,call,bind,...} that wrap a
+// Function(body) input were blocked by this single missing handler.
+static const proto::ProtoObject* functionConstructorCall(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx) return PROTO_NONE;
+    JSContextWrapper* wrapper = JSContextWrapper::current();
+    if (!wrapper) return PROTO_NONE;
+
+    // Coerce a ProtoObject to a UTF-8 std::string. Strings pass through
+    // verbatim; numerics and booleans surface their canonical literal
+    // form; everything else (undefined / null / arbitrary object)
+    // surfaces an empty string, which produces a syntax-free no-op
+    // segment the way the spec's ToString steps eventually do.
+    auto toStr = [&](const proto::ProtoObject* o) -> std::string {
+        std::string r;
+        if (!o || o == PROTO_NONE) return r;
+        if (o->isString(ctx)) { o->asString(ctx)->toUTF8String(ctx, r); return r; }
+        if (o->isInteger(ctx)) return std::to_string(o->asLong(ctx));
+        if (o->isDouble(ctx) || o->isFloat(ctx)) {
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%.15g", o->asDouble(ctx));
+            return std::string(buf);
+        }
+        if (o == PROTO_TRUE) return "true";
+        if (o == PROTO_FALSE) return "false";
+        return r;
+    };
+
+    const size_t argCount = args ? args->getSize(ctx) : 0;
+    std::string params;
+    std::string body;
+
+    if (argCount == 0) {
+        // Function() — no params, no body.
+    } else if (argCount == 1) {
+        // Function(body)
+        body = toStr(args->getAt(ctx, 0));
+    } else {
+        // Function(p1, p2, ..., pn, body)
+        for (size_t i = 0; i < argCount - 1; i++) {
+            if (i > 0) params += ",";
+            params += toStr(args->getAt(ctx, static_cast<int>(i)));
+        }
+        body = toStr(args->getAt(ctx, static_cast<int>(argCount - 1)));
+    }
+
+    // §20.2.1.1.1 CreateDynamicFunction step 30 (function kind):
+    // wrap as a parenthesised function expression so the script-mode
+    // evaluator produces the function value as its result. Use
+    // "anonymous" as the inferred name per the spec's
+    // CreateDynamicFunction synthesis.
+    std::string source = "(function anonymous(" + params + "\n) {\n" + body + "\n})";
+
+    const proto::ProtoObject* result =
+        wrapper->evalIsolatedToProto(source, "<Function>");
+    return (result && result != PROTO_NONE) ? result : PROTO_NONE;
+}
+
 } // anonymous namespace
 
 void ensureFunctionPrototype(proto::ProtoContext* ctx,
@@ -677,6 +762,24 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                 // it, Object.getPrototypeOf(Function) !== Function.prototype
                 // (built-ins/Object/getPrototypeOf/15.2.3.2-2-4).
                 protojs::setJSProtoOverride(ctx, fnCtor, fp);
+
+                // Stamp the [[Call]] / [[Construct]] entrypoint so
+                // L_OP_call's __native_fn__ unwrap finds something
+                // invokable. Without this, Function() / new Function(
+                // body) fell through to the dispatch's terminal
+                // "TypeError: is not a function" branch. See the
+                // header comment on functionConstructorCall for the
+                // full rationale.
+                {
+                    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                    if (nfKey) {
+                        const proto::ProtoObject* rawMethod =
+                            ctx->fromMethod(nullptr, functionConstructorCall);
+                        if (rawMethod) {
+                            fnCtor = fnCtor->setAttribute(ctx, nfKey, rawMethod);
+                        }
+                    }
+                }
 
                 *globalRoot = (*globalRoot)->setAttribute(ctx, keyFunction, fnCtor);
                 // §17 globalThis.Function descriptor 0x3.
