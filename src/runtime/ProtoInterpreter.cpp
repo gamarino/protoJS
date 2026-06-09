@@ -4328,6 +4328,62 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* cK = JSSymbols::constructor(pContext);
                                 if (cK) symProto = symProto->setAttribute(pContext, cK, symbolCtor);
                             }
+                            // §20.4.3.3 Symbol.prototype.toString and
+                            // §20.4.3.4 Symbol.prototype.valueOf:  both
+                            // require a thisSymbolValue probe and surface
+                            // SymbolDescriptiveString = "Symbol(<desc>)".
+                            // Pre-fix Symbol.prototype inherited Object's
+                            // versions so s.toString() yielded
+                            // "[object Symbol]" and s.valueOf() threw.
+                            {
+                                auto symToString = [](proto::ProtoContext* gctx,
+                                                     const proto::ProtoObject* gself,
+                                                     const proto::ParentLink*,
+                                                     const proto::ProtoList*,
+                                                     const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                                    if (!gctx || !gself) return PROTO_NONE;
+                                    const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
+                                    if (!symMk || gself->getAttribute(gctx, symMk, true) != PROTO_TRUE) {
+                                        signalNativeException(makeNativeError(gctx, "TypeError",
+                                            "Symbol.prototype.toString requires that 'this' be a Symbol"));
+                                        return PROTO_NONE;
+                                    }
+                                    const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
+                                    const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
+                                    const proto::ProtoObject* d = dk ? gself->getAttribute(gctx, dk, false) : nullptr;
+                                    std::string out = "Symbol(";
+                                    if (d && d != PROTO_NONE && d != getUndefinedSentinel()) {
+                                        const proto::ProtoString* ds = d->asString(gctx);
+                                        if (ds) {
+                                            std::string desc;
+                                            ds->toUTF8String(gctx, desc);
+                                            out += desc;
+                                        }
+                                    }
+                                    out += ")";
+                                    return gctx->fromUTF8String(out.c_str());
+                                };
+                                auto symValueOf = [](proto::ProtoContext* gctx,
+                                                    const proto::ProtoObject* gself,
+                                                    const proto::ParentLink*,
+                                                    const proto::ProtoList*,
+                                                    const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                                    if (!gctx || !gself) return PROTO_NONE;
+                                    const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
+                                    if (!symMk || gself->getAttribute(gctx, symMk, true) != PROTO_TRUE) {
+                                        signalNativeException(makeNativeError(gctx, "TypeError",
+                                            "Symbol.prototype.valueOf requires that 'this' be a Symbol"));
+                                        return PROTO_NONE;
+                                    }
+                                    return gself;
+                                };
+                                const proto::ProtoString* tsK = JSSymbols::toString(pContext);
+                                if (tsK) symProto = symProto->setAttribute(pContext, tsK,
+                                    pContext->fromMethod(nullptr, symToString));
+                                const proto::ProtoString* voK = JSSymbols::valueOf(pContext);
+                                if (voK) symProto = symProto->setAttribute(pContext, voK,
+                                    pContext->fromMethod(nullptr, symValueOf));
+                            }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
                             // §20.4.2.7 / §17: Symbol.prototype descriptor
                             // is {writable:false, enumerable:false,
