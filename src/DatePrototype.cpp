@@ -698,6 +698,37 @@ static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
 }
 
 // ---------------------------------------------------------------------------
+// Stringifiers — §21.4.4.{31-43}
+// ---------------------------------------------------------------------------
+
+// §21.4.4.36 toISOString — "YYYY-MM-DDTHH:mm:ss.sssZ"
+static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
+                                                 const proto::ProtoObject* self,
+                                                 const proto::ParentLink*,
+                                                 const proto::ProtoList*,
+                                                 const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) {
+        // §21.4.4.36 step 2: throw RangeError when [[DateValue]] is NaN.
+        // Surface a RangeError via signalNativeException-style path is
+        // a follow-up; for now return empty string to avoid crashes.
+        return ctx->fromUTF8String("");
+    }
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, true, &tmv, &msrem))
+        return ctx->fromUTF8String("");
+    char buf[40];
+    std::snprintf(buf, sizeof(buf),
+        "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+        tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday,
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec, msrem);
+    return ctx->fromUTF8String(buf);
+}
+
+// ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
 // + name + length descriptors so test262 prop-desc fixtures pass.
@@ -845,6 +876,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "setUTCDate",         dateSetUTCDate, 1);
         registerProtoMethod(ctx, proto, "setUTCMonth",        dateSetUTCMonth, 2);
         registerProtoMethod(ctx, proto, "setUTCFullYear",     dateSetUTCFullYear, 3);
+        registerProtoMethod(ctx, proto, "toISOString",        dateToISOString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
