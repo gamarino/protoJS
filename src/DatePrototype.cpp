@@ -987,6 +987,33 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
     return PROTO_NONE;
 }
 
+// §B.2.4.1 Date.prototype.getYear — legacy, returns local year minus 1900.
+static const proto::ProtoObject* dateGetYear(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* self,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList*,
+                                             const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, false,
+        [](const std::tm& tm, int) { return tm.tm_year; });
+}
+
+// §B.2.4.2 Date.prototype.setYear(year) — legacy.  Two-digit years
+// (0..99) are mapped to 1900..1999; everything else is interpreted as
+// the literal year value.  Returns the new [[DateValue]].
+static const proto::ProtoObject* dateSetYear(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* self,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList* args,
+                                             const proto::ProtoSparseList*) {
+    return setComponent(ctx, self, args, false,
+        [&](std::tm& tm, int&, const proto::ProtoList* a) {
+            bool nan = false;
+            long long v = pullArgAsInt(ctx, a, 0, tm.tm_year + 1900, &nan);
+            if (v >= 0 && v <= 99) v += 1900;
+            tm.tm_year = static_cast<int>(v) - 1900;
+        });
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -1146,6 +1173,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toLocaleDateString", dateToLocaleDateString, 0);
         registerProtoMethod(ctx, proto, "toLocaleTimeString", dateToLocaleTimeString, 0);
         registerProtoMethod(ctx, proto, "Symbol.toPrimitive", dateSymbolToPrimitive, 1);
+        registerProtoMethod(ctx, proto, "getYear",            dateGetYear, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
