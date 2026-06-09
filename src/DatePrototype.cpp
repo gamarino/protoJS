@@ -1120,17 +1120,14 @@ static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
     std::time_t localEpoch = timegm(&tmv);
     std::time_t utcEpoch = timegm(&utcTm);
     long offsetSec = static_cast<long>(localEpoch - utcEpoch);
-    char sign = offsetSec >= 0 ? '+' : '-';
-    long offsetAbs = std::labs(offsetSec);
-    int hh = static_cast<int>(offsetAbs / 3600);
-    int mm = static_cast<int>((offsetAbs % 3600) / 60);
+    std::string tz = formatTZOffset(offsetSec);
     char buf[96];
     std::snprintf(buf, sizeof(buf),
-        "%s %s %02d %04d %02d:%02d:%02d GMT%c%02d%02d",
+        "%s %s %02d %04d %02d:%02d:%02d GMT%s",
         kWeekdayShort[tmv.tm_wday], kMonthShort[tmv.tm_mon],
         tmv.tm_mday, tmv.tm_year + 1900,
         tmv.tm_hour, tmv.tm_min, tmv.tm_sec,
-        sign, hh, mm);
+        tz.c_str());
     return ctx->fromUTF8String(buf);
 }
 
