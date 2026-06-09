@@ -257,8 +257,9 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
     } else {
         // §21.4.2.1 step 6: multi-arg form
         //   Date(year, month [, date [, hr [, min [, sec [, ms]]]]])
-        // ToNumber each, MakeDay + MakeTime + MakeDate, then LocalTime
-        // (per spec, the multi-arg form interprets components in local TZ).
+        // ToNumber each (invoking ToPrimitive for objects), MakeDay +
+        // MakeTime + MakeDate, then LocalTime (per spec, the multi-arg
+        // form interprets components in local TZ).
         bool nan = false;
         auto pullDouble = [&](int idx, double dflt) -> double {
             if (idx >= argc) return dflt;
@@ -267,6 +268,15 @@ static const proto::ProtoObject* dateCtorCall(proto::ProtoContext* ctx,
             if (v->isInteger(ctx)) return static_cast<double>(v->asLong(ctx));
             if (v->isDouble(ctx) || v->isFloat(ctx)) {
                 double d = v->asDouble(ctx);
+                if (std::isnan(d) || std::isinf(d)) { nan = true; return dflt; }
+                return d;
+            }
+            // Spec §21.4.2.1: ToNumber for objects + strings.
+            const proto::ProtoObject* n = jsToNumber(ctx, v);
+            if (hasCallException() || !n || n == PROTO_NONE) { nan = true; return dflt; }
+            if (n->isInteger(ctx)) return static_cast<double>(n->asLong(ctx));
+            if (n->isDouble(ctx) || n->isFloat(ctx)) {
+                double d = n->asDouble(ctx);
                 if (std::isnan(d) || std::isinf(d)) { nan = true; return dflt; }
                 return d;
             }
