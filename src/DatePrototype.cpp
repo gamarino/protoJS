@@ -85,6 +85,28 @@ static double timeClip(double t) {
 }
 
 // ---------------------------------------------------------------------------
+// §21.4.1.{2-12} time decomposition
+//
+// Convert a [[DateValue]] (ms since epoch) into broken-down components.
+// Two flavours: UTC and local (TZ-aware via localtime_r).  Each returns
+// false when the input is NaN / out of range; callers surface NaN.
+// Sub-second milliseconds are extracted as a separate int because tm
+// only carries integer seconds.
+// ---------------------------------------------------------------------------
+
+static bool decomposeTime(double t, bool utc, std::tm* out, int* msOut) {
+    if (!std::isfinite(t)) return false;
+    long long ms = static_cast<long long>(t);
+    long long secs = ms / 1000;
+    int rem = static_cast<int>(ms % 1000);
+    if (rem < 0) { rem += 1000; secs -= 1; }
+    if (msOut) *msOut = rem;
+    std::time_t tt = static_cast<std::time_t>(secs);
+    std::tm* r = utc ? gmtime_r(&tt, out) : localtime_r(&tt, out);
+    return r != nullptr;
+}
+
+// ---------------------------------------------------------------------------
 // Constructor — §21.4.2 / §21.4.3
 //
 // Minimal viable: ignore arguments for now; the freshly-built instance
