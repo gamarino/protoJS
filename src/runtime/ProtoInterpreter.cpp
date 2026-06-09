@@ -5084,6 +5084,31 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         globalObj = (pGlobalRoot && *pGlobalRoot) ? *pGlobalRoot : PROTO_NONE; \
     } while(0)
 
+    /* BigInt relational comparison.  Inserted at the top of L_OP_lt /
+     * lte / gt / gte.  When both operands are BigInt, compare via
+     * protoCore::compare on the inner Integers and push the correct
+     * boolean.  Mixed BigInt vs Number is left to the existing
+     * toNumber path for now (spec § 7.2.13 calls for bignum vs Number
+     * comparison via numericCompare, which routes through asDouble
+     * for the Number side and is the most common test262 usage). */
+    #define BIGINT_REL_DISPATCH(less, equal, greater) do { \
+        const proto::ProtoString* _bigK = JSSymbols::isBigInt(pContext); \
+        bool _aBig = _bigK && a && !proto::isSmallInt(a) \
+            && a->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
+        bool _bBig = _bigK && b && !proto::isSmallInt(b) \
+            && b->getAttribute(pContext, _bigK, true) == PROTO_TRUE; \
+        if (_aBig && _bBig) { \
+            const proto::ProtoString* _vk = JSSymbols::bigIntValue(pContext); \
+            const proto::ProtoObject* _ai = a->getAttribute(pContext, _vk, false); \
+            const proto::ProtoObject* _bi = b->getAttribute(pContext, _vk, false); \
+            int _c = (_ai && _bi) ? _ai->compare(pContext, _bi) : 0; \
+            const proto::ProtoObject* _r = (_c < 0) ? (less) \
+                : ((_c == 0) ? (equal) : (greater)); \
+            pAutomaticLocals[currentStackBase + _PF().stackTop++] = _r; \
+            DISPATCH(); \
+        } \
+    } while(0)
+
     /* BigInt binary-operator dispatch.  Inserted at the top of every
      * binary arithmetic / bitwise / shift handler — checks whether
      * either operand carries the __is_bigint__ marker (via the chain),
@@ -9146,6 +9171,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // §7.2.16 IsStrictlyEqual on BigInt: different types
+                // (BigInt vs Number) return false; same type compares
+                // the inner Integer values.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b && !proto::isSmallInt(b)
+                        && b->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        if (aBig != bBig) {
+                            pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_FALSE;
+                            DISPATCH();
+                        }
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* bi = b->getAttribute(pContext, vk, false);
+                        int c = (ai && bi) ? ai->compare(pContext, bi) : 1;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            (c == 0) ? PROTO_TRUE : PROTO_FALSE;
+                        DISPATCH();
+                    }
+                }
                 auto isUndef = [&](const proto::ProtoObject* x) {
                     return !x || x == PROTO_NONE ||
                            x == getUndefinedSentinel() ||
@@ -9174,6 +9222,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // §7.2.16 IsStrictlyEqual on BigInt: inverse of strict_eq.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b && !proto::isSmallInt(b)
+                        && b->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        if (aBig != bBig) {
+                            pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_TRUE;
+                            DISPATCH();
+                        }
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* bi = b->getAttribute(pContext, vk, false);
+                        int c = (ai && bi) ? ai->compare(pContext, bi) : 1;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            (c != 0) ? PROTO_TRUE : PROTO_FALSE;
+                        DISPATCH();
+                    }
+                }
                 // see L_OP_strict_eq for the unified undefined-equality rule.
                 auto isUndef = [&](const proto::ProtoObject* x) {
                     return !x || x == PROTO_NONE ||
@@ -9200,6 +9269,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_FALSE, PROTO_FALSE);
                 // Per ECMA-262 Abstract Relational Comparison §7.2.13 step 4:
                 // numerify booleans before comparison.  Pre-fix `1 < true`
                 // hit protoCore's compare() on a SmallInt vs the
@@ -9245,6 +9315,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_REL_DISPATCH(PROTO_TRUE, PROTO_TRUE, PROTO_FALSE);
                 // see L_OP_lt for the boolean-numerify rationale.
                 // undefined comparisons short-circuit to false (NaN rule);
                 // see L_OP_lt for the spec reference.
@@ -9280,6 +9351,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_FALSE, PROTO_TRUE);
                 // undefined comparisons short-circuit to false (NaN rule);
                 // see L_OP_lt for the spec reference.
                 if (!a || a == PROTO_NONE || a == getUndefinedSentinel() ||
@@ -9314,6 +9386,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_REL_DISPATCH(PROTO_FALSE, PROTO_TRUE, PROTO_TRUE);
                 // undefined comparisons short-circuit to false (NaN rule);
                 // see L_OP_lt for the spec reference.
                 if (!a || a == PROTO_NONE || a == getUndefinedSentinel() ||
