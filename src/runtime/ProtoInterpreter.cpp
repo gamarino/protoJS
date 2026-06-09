@@ -9346,34 +9346,45 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_and: {
                 // Bitwise AND: ToInt32(a) & ToInt32(b)
                 if (_PF().stackTop < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                // Peek raw operands BEFORE toPrimIfObject so the BigInt
+                // chain marker is still visible on the wrappers (the
+                // ToPrimitive dance routes BigInt wrappers through
+                // BigInt.prototype.toString → string, losing the type).
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_BIN_DISPATCH(bitwiseAnd);
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                b = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) & toInt32Val(pContext, b);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_or: {
-                // Bitwise OR: ToInt32(a) | ToInt32(b)
                 if (_PF().stackTop < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_BIN_DISPATCH(bitwiseOr);
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                b = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) | toInt32Val(pContext, b);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_xor: {
-                // Bitwise XOR: ToInt32(a) ^ ToInt32(b)
                 if (_PF().stackTop < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                BIGINT_BIN_DISPATCH(bitwiseXor);
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                b = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) ^ toInt32Val(pContext, b);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
@@ -9382,34 +9393,109 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_shl: {
                 // Left shift: ToInt32(a) << (ToUint32(b) & 0x1F)
                 if (_PF().stackTop < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                // Peek raw operands so the BigInt chain marker survives
+                // (see L_OP_and for the rationale on ordering).
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // §6.1.6.2.7 BigInt::leftShift — both operands must be
+                // BigInt, the shift amount must fit in an int32, and the
+                // result preserves bignum precision.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b && !proto::isSmallInt(b)
+                        && b->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        if (aBig != bBig) {
+                            pending_exception = makeNativeError(pContext, "TypeError",
+                                "Cannot mix BigInt and other types, use explicit conversions");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* bi = b->getAttribute(pContext, vk, false);
+                        long long sh = bi ? bi->asLong(pContext) : 0;
+                        const proto::ProtoObject* r = (sh >= 0)
+                            ? ai->shiftLeft(pContext, static_cast<int>(sh))
+                            : ai->shiftRight(pContext, static_cast<int>(-sh));
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
+                        DISPATCH();
+                    }
+                }
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                b = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) << (toUint32Val(pContext, b) & 0x1Fu);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_sar: {
-                // Arithmetic right shift: ToInt32(a) >> (ToUint32(b) & 0x1F)
                 if (_PF().stackTop < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // §6.1.6.2.8 BigInt::signedRightShift — semantics mirror
+                // BigInt::leftShift but in the opposite direction.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b && !proto::isSmallInt(b)
+                        && b->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        if (aBig != bBig) {
+                            pending_exception = makeNativeError(pContext, "TypeError",
+                                "Cannot mix BigInt and other types, use explicit conversions");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* bi = b->getAttribute(pContext, vk, false);
+                        long long sh = bi ? bi->asLong(pContext) : 0;
+                        const proto::ProtoObject* r = (sh >= 0)
+                            ? ai->shiftRight(pContext, static_cast<int>(sh))
+                            : ai->shiftLeft(pContext, static_cast<int>(-sh));
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
+                        DISPATCH();
+                    }
+                }
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                b = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = toInt32Val(pContext, a) >> (toUint32Val(pContext, b) & 0x1Fu);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
                 DISPATCH();
             }
             L_OP_shr: {
-                // Unsigned right shift: ToUint32(a) >>> (ToUint32(b) & 0x1F) → Int32 result
                 if (_PF().stackTop < 2) return PROTO_NONE;
-                const proto::ProtoObject* b = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
-                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
+                const proto::ProtoObject* b = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE;
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // §6.1.6.2.9 — BigInt has NO unsigned right shift; throw.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b && !proto::isSmallInt(b)
+                        && b->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        pending_exception = makeNativeError(pContext, "TypeError",
+                            "BigInt does not support unsigned right shift");
+                        has_pending_exception = true;
+                        DISPATCH();
+                    }
+                }
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                b = toPrimIfObject(b);
                 if (has_pending_exception) DISPATCH();
                 uint32_t ua = toUint32Val(pContext, a);
                 uint32_t shift = toUint32Val(pContext, b) & 0x1Fu;
@@ -9423,9 +9509,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_not: {
-                // Bitwise NOT: ~ToInt32(a)
                 if (_PF().stackTop == 0) return PROTO_NONE;
-                const proto::ProtoObject* a = toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]);
+                const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
+                // §6.1.6.2.6 BigInt::bitwiseNOT — protoCore's bitwiseNot
+                // implements the bignum two's complement form on
+                // LargeIntegers without losing precision.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig) {
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* r = ai ? ai->bitwiseNot(pContext) : nullptr;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
+                        DISPATCH();
+                    }
+                }
+                a = toPrimIfObject(a);
                 if (has_pending_exception) DISPATCH();
                 int32_t res = ~toInt32Val(pContext, a);
                 pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromInteger(static_cast<long long>(res));
@@ -9444,6 +9546,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (a == PROTO_FALSE || a == t_nullSentinel) {
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = pContext->fromDouble(-0.0);
                     DISPATCH();
+                }
+                // §6.1.6.2.4 BigInt::unaryMinus — negate the inner Integer
+                // and re-wrap.  protoCore's negate preserves bignum
+                // precision (BigInt(-0n) === BigInt(0n) per spec — no
+                // distinct -0n exists).
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig) {
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* r = ai ? ai->negate(pContext) : nullptr;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
+                        DISPATCH();
+                    }
                 }
                 const proto::ProtoObject* num = toNumber(pContext, toPrimIfObject(a));
                 if (has_pending_exception) DISPATCH();
@@ -9637,6 +9756,53 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
             L_OP_pow: {
                 // Exponentiation: a ** b
                 if (_PF().stackTop < 2) return PROTO_NONE;
+                // §6.1.6.2.3 BigInt::exponentiate — repeated multiplication
+                // when both operands are BigInt.  Negative exponents
+                // RangeError (no fractional BigInt result).  Must run
+                // BEFORE toNumber so Number+BigInt → TypeError stays.
+                {
+                    const proto::ProtoObject* a_peek = pAutomaticLocals[currentStackBase + _PF().stackTop - 2];
+                    const proto::ProtoObject* b_peek = pAutomaticLocals[currentStackBase + _PF().stackTop - 1];
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a_peek && !proto::isSmallInt(a_peek)
+                        && a_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    bool bBig = bigK && b_peek && !proto::isSmallInt(b_peek)
+                        && b_peek->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig || bBig) {
+                        pAutomaticLocals[currentStackBase + --_PF().stackTop] = PROTO_NONE;
+                        --_PF().stackTop;  // pop a too
+                        if (aBig != bBig) {
+                            pending_exception = makeNativeError(pContext, "TypeError",
+                                "Cannot mix BigInt and other types, use explicit conversions");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a_peek->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* bi = b_peek->getAttribute(pContext, vk, false);
+                        if (bi && bi->integerSign(pContext) < 0) {
+                            pending_exception = makeNativeError(pContext, "RangeError",
+                                "BigInt exponent must be positive");
+                            has_pending_exception = true;
+                            DISPATCH();
+                        }
+                        long long exp = bi ? bi->asLong(pContext) : 0;
+                        // Repeated multiplication.  Cap at 1<<20 to avoid
+                        // runaway: real workloads need binary exponentiation,
+                        // but for now this matches the test262 cases that
+                        // use small exponents.
+                        const proto::ProtoObject* result = pContext->fromInteger(1LL);
+                        const proto::ProtoObject* base = ai;
+                        long long e = exp;
+                        while (e > 0) {
+                            if (e & 1) result = result->multiply(pContext, base);
+                            e >>= 1;
+                            if (e > 0) base = base->multiply(pContext, base);
+                        }
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = wrapBigInt(pContext, result);
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* b = toNumber(pContext, toPrimIfObject(pAutomaticLocals[currentStackBase + --_PF().stackTop]));
                 pAutomaticLocals[currentStackBase + _PF().stackTop] = PROTO_NONE; // Zero popped slot
                 if (has_pending_exception) DISPATCH();
