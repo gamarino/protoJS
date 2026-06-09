@@ -383,6 +383,25 @@ static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
     return ctx->fromInteger(static_cast<long long>(t));
 }
 
+// §21.4.4.27 Date.prototype.setTime — direct assign TimeClip(ToNumber(arg)).
+static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
+                                             const proto::ProtoObject* self,
+                                             const proto::ParentLink*,
+                                             const proto::ProtoList* args,
+                                             const proto::ProtoSparseList*) {
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    double t = std::nan("");
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* v = args->getAt(ctx, 0);
+        if (v && v->isInteger(ctx)) t = static_cast<double>(v->asLong(ctx));
+        else if (v && (v->isDouble(ctx) || v->isFloat(ctx))) t = v->asDouble(ctx);
+    }
+    t = timeClip(t);
+    writeDateValue(ctx, self, t);
+    if (std::isnan(t)) return ctx->fromDouble(std::nan(""));
+    return ctx->fromInteger(static_cast<long long>(t));
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -516,6 +535,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getSeconds",         dateGetSeconds, 0);
         registerProtoMethod(ctx, proto, "getMilliseconds",    dateGetMilliseconds, 0);
         registerProtoMethod(ctx, proto, "getTimezoneOffset",  dateGetTimezoneOffset, 0);
+        registerProtoMethod(ctx, proto, "setTime",            dateSetTime, 1);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
