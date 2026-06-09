@@ -998,7 +998,9 @@ const proto::ProtoObject* stringSubstr(
             long long length = len - start;
             if (args && args->getSize(ctx) >= 2) {
                 const proto::ProtoObject* la = args->getAt(ctx, 1);
-                if (la && la != PROTO_NONE) {
+                // §B.2.3.1 substr: undefined length means "to end of
+                // string" (default).
+                if (la && la != PROTO_NONE && la != getUndefinedSentinel()) {
                     length = getIntArg(ctx, args, 1, length);
                     if (length < 0) length = 0;
                 }
