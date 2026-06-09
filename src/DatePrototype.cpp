@@ -201,15 +201,18 @@ static const proto::ProtoObject* jsToPrimitive(proto::ProtoContext* ctx,
     return ordinaryToPrimitive(ctx, v, hint);
 }
 
-// ---------------------------------------------------------------------------
-// Internal slot read/write
+// ===========================================================================
+// [[DateValue]] internal slot — read/write helpers
 //
 // Each Date instance stores its [[DateValue]] internal slot as the own
 // attribute "__date_value__", a JavaScript number (Integer or Double).
 // NaN means the Date is invalid (per §21.4.1.14 TimeClip).  Absence of
 // the attribute is taken as "not a Date receiver" — the prototype's
 // methods throw TypeError in that case per §21.4.4.1 thisTimeValue.
-// ---------------------------------------------------------------------------
+//
+// The key is interned once per thread as a perpetual symbol (NULL-context
+// allocation) so the cached pointer survives every GC cycle.
+// ===========================================================================
 
 static const proto::ProtoString* dateValueKey(proto::ProtoContext* ctx) {
     // Interned once per thread.  createSymbol returns a perpetual
