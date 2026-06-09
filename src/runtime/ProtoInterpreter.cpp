@@ -9656,13 +9656,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_inc: {
-                // Prefix increment: ToNumber(a) + 1
+                // Prefix increment: ToNumber(a) + 1; BigInt → x + 1n.
                 if (_PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (proto::isSmallInt(a)) {
                     long long val = proto::asSmallInt(a) + 1;
                     if (proto::smallIntInRange(val)) {
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val);
+                        DISPATCH();
+                    }
+                }
+                // §13.4.{4,5} BigInt::increment.
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig) {
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* r = ai
+                            ? ai->add(pContext, pContext->fromInteger(1LL))
+                            : nullptr;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
                         DISPATCH();
                     }
                 }
@@ -9673,13 +9689,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_dec: {
-                // Prefix decrement: ToNumber(a) - 1
+                // Prefix decrement: ToNumber(a) - 1; BigInt → x - 1n.
                 if (_PF().stackTop == 0) return PROTO_NONE;
                 const proto::ProtoObject* a = pAutomaticLocals[currentStackBase + --_PF().stackTop];
                 if (proto::isSmallInt(a)) {
                     long long val = proto::asSmallInt(a) - 1;
                     if (proto::smallIntInRange(val)) {
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val);
+                        DISPATCH();
+                    }
+                }
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig) {
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* r = ai
+                            ? ai->subtract(pContext, pContext->fromInteger(1LL))
+                            : nullptr;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
                         DISPATCH();
                     }
                 }
@@ -9701,6 +9732,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         DISPATCH();
                     }
                 }
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig) {
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* r = ai
+                            ? ai->add(pContext, pContext->fromInteger(1LL))
+                            : nullptr;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = a;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* num = toNumber(pContext, a);
                 const proto::ProtoObject* inc;
                 if (!num || num == PROTO_NONE) inc = pContext->fromDouble(std::numeric_limits<double>::quiet_NaN());
@@ -9719,6 +9766,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = a;
                     if (proto::smallIntInRange(val - 1)) {
                         pAutomaticLocals[currentStackBase + _PF().stackTop++] = proto::makeSmallInt(val - 1);
+                        DISPATCH();
+                    }
+                }
+                {
+                    const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                    bool aBig = bigK && a && !proto::isSmallInt(a)
+                        && a->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    if (aBig) {
+                        const proto::ProtoString* vk = JSSymbols::bigIntValue(pContext);
+                        const proto::ProtoObject* ai = a->getAttribute(pContext, vk, false);
+                        const proto::ProtoObject* r = ai
+                            ? ai->subtract(pContext, pContext->fromInteger(1LL))
+                            : nullptr;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = a;
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                            r ? wrapBigInt(pContext, r) : PROTO_NONE;
                         DISPATCH();
                     }
                 }
