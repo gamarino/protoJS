@@ -291,6 +291,16 @@ static const proto::ProtoObject* dateGetDate(proto::ProtoContext* ctx,
         [](const std::tm& tm, int) { return tm.tm_mday; });
 }
 
+// §21.4.4.3 getDay — local day-of-week, 0=Sun..6=Sat.
+static const proto::ProtoObject* dateGetDay(proto::ProtoContext* ctx,
+                                            const proto::ProtoObject* self,
+                                            const proto::ParentLink*,
+                                            const proto::ProtoList*,
+                                            const proto::ProtoSparseList*) {
+    return getComponent(ctx, self, false,
+        [](const std::tm& tm, int) { return tm.tm_wday; });
+}
+
 static const proto::ProtoObject* dateGetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
                                              const proto::ParentLink*,
@@ -435,6 +445,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "getFullYear",        dateGetFullYear, 0);
         registerProtoMethod(ctx, proto, "getMonth",           dateGetMonth, 0);
         registerProtoMethod(ctx, proto, "getDate",            dateGetDate, 0);
+        registerProtoMethod(ctx, proto, "getDay",             dateGetDay, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
