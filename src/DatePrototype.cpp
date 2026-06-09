@@ -774,6 +774,43 @@ static const proto::ProtoObject* dateToUTCString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
+// §21.4.4.42 toString — "Day Mon DD YYYY HH:MM:SS GMT±HHMM (TZ)"
+// Local timezone form per V8/SpiderMonkey/JSC convention.
+static const proto::ProtoObject* dateToString(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject* self,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList*,
+                                              const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) return ctx->fromUTF8String("Invalid Date");
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, false, &tmv, &msrem))
+        return ctx->fromUTF8String("Invalid Date");
+    // Compute offset in HHMM form vs UTC.
+    long long secs = static_cast<long long>(t) / 1000;
+    std::time_t tt = static_cast<std::time_t>(secs);
+    std::tm utcTm;
+    gmtime_r(&tt, &utcTm);
+    std::time_t localEpoch = timegm(&tmv);
+    std::time_t utcEpoch = timegm(&utcTm);
+    long offsetSec = static_cast<long>(localEpoch - utcEpoch);
+    char sign = offsetSec >= 0 ? '+' : '-';
+    long offsetAbs = std::labs(offsetSec);
+    int hh = static_cast<int>(offsetAbs / 3600);
+    int mm = static_cast<int>((offsetAbs % 3600) / 60);
+    char buf[96];
+    std::snprintf(buf, sizeof(buf),
+        "%s %s %02d %04d %02d:%02d:%02d GMT%c%02d%02d",
+        kWeekdayShort[tmv.tm_wday], kMonthShort[tmv.tm_mon],
+        tmv.tm_mday, tmv.tm_year + 1900,
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec,
+        sign, hh, mm);
+    return ctx->fromUTF8String(buf);
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -926,6 +963,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toJSON",             dateToJSON, 1);
         registerProtoMethod(ctx, proto, "toUTCString",        dateToUTCString, 0);
         registerProtoMethod(ctx, proto, "toGMTString",        dateToUTCString, 0);
+        registerProtoMethod(ctx, proto, "toString",           dateToString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
