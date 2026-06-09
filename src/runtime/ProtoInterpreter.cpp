@@ -1269,9 +1269,32 @@ static const proto::ProtoObject* symbolFor(
     if (!ctx || !args || args->getSize(ctx) == 0) return PROTO_NONE;
     const proto::ProtoObject* keyObj = args->getAt(ctx, 0);
     std::string keyStr;
+    // §20.4.2.2 Symbol.for step 1: stringKey = ? ToString(key).  Pre-fix
+    // we only handled raw strings; objects (which test262 exercises via
+    // {toString(){...}} fixtures) were dropped silently.  Route every
+    // non-string through jsToString so the ToPrimitive("string") dance
+    // fires.
     if (keyObj && keyObj->isString(ctx)) {
         if (const proto::ProtoString* ps = keyObj->asString(ctx))
             ps->toUTF8String(ctx, keyStr);
+    } else if (keyObj) {
+        // ToString sloppy: call toString() if available, else valueOf().
+        const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+        if (tsK) {
+            const proto::ProtoObject* tsFn = keyObj->getAttribute(ctx, tsK, true);
+            if (tsFn && tsFn != PROTO_NONE) {
+                const proto::ProtoObject* r = callJSFunction(ctx, tsFn, keyObj, ctx->newList());
+                if (r && r != PROTO_NONE) {
+                    if (r->isString(ctx)) {
+                        if (const proto::ProtoString* ps = r->asString(ctx))
+                            ps->toUTF8String(ctx, keyStr);
+                    } else if (r->isInteger(ctx)) {
+                        keyStr = std::to_string(r->asLong(ctx));
+                    } else if (r == PROTO_TRUE) keyStr = "true";
+                    else if (r == PROTO_FALSE) keyStr = "false";
+                }
+            }
+        }
     }
     // Use a process-static map.
     static std::mutex regMtx;
@@ -1279,8 +1302,25 @@ static const proto::ProtoObject* symbolFor(
     std::lock_guard<std::mutex> lock(regMtx);
     auto it = reg.find(keyStr);
     if (it != reg.end()) return it->second;
-    // Build a fresh symbol-like cell (perpetual: null-ctx + no parent).
-    const proto::ProtoObject* sym = ctx->newObject(true);
+    // Build a fresh symbol-like cell, parented at Symbol.prototype so
+    // accessor methods (description getter, toString, etc.) reach
+    // every Symbol instance.
+    const proto::ProtoObject** gr = getCurrentGlobalRoot();
+    const proto::ProtoObject* symProto = nullptr;
+    if (gr && *gr) {
+        const proto::ProtoObject* symGKo = ctx->fromUTF8String("Symbol");
+        const proto::ProtoString* symGK = symGKo ? symGKo->asString(ctx) : nullptr;
+        if (symGK) {
+            const proto::ProtoObject* symCtor = (*gr)->getAttribute(ctx, symGK, false);
+            if (symCtor && symCtor != PROTO_NONE) {
+                const proto::ProtoString* pk = JSSymbols::prototype(ctx);
+                if (pk) symProto = symCtor->getAttribute(ctx, pk, false);
+            }
+        }
+    }
+    const proto::ProtoObject* sym = symProto && symProto != PROTO_NONE
+        ? symProto->newChild(ctx, true)
+        : ctx->newObject(true);
     if (sym) {
         const proto::ProtoString* tagKey = JSSymbols::isSymbol(ctx);
         if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
@@ -1309,7 +1349,26 @@ static const proto::ProtoObject* symbolConstructor(
     proto::ProtoContext* ctx, const proto::ProtoObject*,
     const proto::ParentLink*, const proto::ProtoList* args, const proto::ProtoSparseList*)
 {
-    const proto::ProtoObject* sym = ctx->newObject(true);
+    // Parent at Symbol.prototype so the description getter and other
+    // accessor methods reach every instance.
+    const proto::ProtoObject* symProto = nullptr;
+    {
+        const proto::ProtoObject** gr = getCurrentGlobalRoot();
+        if (gr && *gr) {
+            const proto::ProtoObject* symGKo = ctx->fromUTF8String("Symbol");
+            const proto::ProtoString* symGK = symGKo ? symGKo->asString(ctx) : nullptr;
+            if (symGK) {
+                const proto::ProtoObject* symCtor = (*gr)->getAttribute(ctx, symGK, false);
+                if (symCtor && symCtor != PROTO_NONE) {
+                    const proto::ProtoString* pk = JSSymbols::prototype(ctx);
+                    if (pk) symProto = symCtor->getAttribute(ctx, pk, false);
+                }
+            }
+        }
+    }
+    const proto::ProtoObject* sym = symProto && symProto != PROTO_NONE
+        ? symProto->newChild(ctx, true)
+        : ctx->newObject(true);
     if (!sym) return PROTO_NONE;
     const proto::ProtoString* tagKey = JSSymbols::isSymbol(ctx);
     if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
@@ -4192,6 +4251,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                                 if (pdk) symProto = symProto->setAttribute(pContext, pdk,
                                     pContext->fromInteger(0x2LL));
+                            }
+                            // §20.4.3.2 get Symbol.prototype.description —
+                            // return this.__symbol_desc__.  Install as
+                            // an accessor sidecar (__get_description__)
+                            // so the runtime's [[Get]] dispatch fires
+                            // the getter from any Symbol instance.
+                            {
+                                auto descGetter = [](proto::ProtoContext* gctx,
+                                                     const proto::ProtoObject* gself,
+                                                     const proto::ParentLink*,
+                                                     const proto::ProtoList*,
+                                                     const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                                    if (!gctx || !gself) return PROTO_NONE;
+                                    const proto::ProtoObject* dko = gctx->fromUTF8String("__symbol_desc__");
+                                    const proto::ProtoString* dk = dko ? dko->asString(gctx) : nullptr;
+                                    if (!dk) return PROTO_NONE;
+                                    const proto::ProtoObject* d = gself->getAttribute(gctx, dk, false);
+                                    if (d && d != PROTO_NONE) return d;
+                                    return getUndefinedSentinel();
+                                };
+                                const proto::ProtoObject* getKo = pContext->fromUTF8String("__get_description__");
+                                const proto::ProtoString* getK = getKo ? getKo->asString(pContext) : nullptr;
+                                if (getK) symProto = symProto->setAttribute(pContext, getK,
+                                    pContext->fromMethod(nullptr, descGetter));
+                                // Mark that accessor sidecars exist on this object so
+                                // resolvePutFieldOOP / OP_get_field probe them.
+                                const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
+                                if (hapK) symProto = symProto->setAttribute(pContext, hapK, PROTO_TRUE);
                             }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
                             // §20.4.2.7 / §17: Symbol.prototype descriptor
