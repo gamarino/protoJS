@@ -117,8 +117,16 @@ static bool decomposeTime(double t, bool utc, std::tm* out, int* msOut) {
 // slash-separated date).  Returns NaN on any failure.
 // ---------------------------------------------------------------------------
 
+// Validate a year string isn't the rejected "-000000" expanded form.
+// §21.4.1.15.1: year 0 must be "+0000" or "0000", never "-0000" or
+// "-000000".  Returns true when the prefix is the negative-zero form.
+static bool isRejectedNegativeZeroYear(const std::string& s) {
+    return s.rfind("-000000", 0) == 0;
+}
+
 static double parseDateString(const std::string& s) {
     if (s.empty()) return std::nan("");
+    if (isRejectedNegativeZeroYear(s)) return std::nan("");
     // Try the ISO 8601 extended form with optional fractional seconds
     // and timezone designator.  Hand-rolled to avoid std::get_time's
     // strict "all-or-nothing" parse — the spec permits truncating any
