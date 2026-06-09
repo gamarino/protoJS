@@ -1050,6 +1050,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toTimeString",       dateToTimeString, 0);
         registerProtoMethod(ctx, proto, "toLocaleString",     dateToLocaleString, 0);
         registerProtoMethod(ctx, proto, "toLocaleDateString", dateToLocaleDateString, 0);
+        registerProtoMethod(ctx, proto, "toLocaleTimeString", dateToLocaleTimeString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
