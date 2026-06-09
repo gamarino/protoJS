@@ -141,6 +141,8 @@ const proto::ProtoString* pdSize(proto::ProtoContext* ctx);         // "__pd_siz
 // Other recurrent symbols from the same audit (2026-06-06):
 const proto::ProtoString* isSymbol(proto::ProtoContext* ctx);       // "__is_symbol__"
 const proto::ProtoString* fieldsInit(proto::ProtoContext* ctx);     // "__fields_init__"
+const proto::ProtoString* isBigInt(proto::ProtoContext* ctx);       // "__is_bigint__"
+const proto::ProtoString* bigIntValue(proto::ProtoContext* ctx);    // "__bigint_value__"
 
 // Per-object hint flag (added 2026-06-06).  Set to PROTO_TRUE the first
 // time Object.defineProperty installs an accessor descriptor (`__set_<i>__`)

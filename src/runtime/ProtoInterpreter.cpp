@@ -16,6 +16,7 @@
 #include "../ObjectPrototype.h"
 #include "../FunctionPrototype.h"
 #include "../DatePrototype.h"
+#include "../BigIntPrototype.h"
 #include "../PromisePrototype.h"
 #include "../ArrayBufferPrototype.h"
 #include "../TypedArrayPrototype.h"
@@ -3706,6 +3707,11 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     // Register Date constructor and Date.prototype methods (upgrades the
     // minimal TimingAPIs stub installed before eval).
     protojs::ensureDateConstructor(pContext, pGlobalRoot);
+    // Register BigInt constructor + BigInt.prototype.  Routes
+    // arbitrary-precision arithmetic through protoCore's existing
+    // SmallInt/LargeInteger machinery via a wrapper carrying the
+    // __is_bigint__ typeof marker (see BigIntPrototype.cpp).
+    protojs::ensureBigIntConstructor(pContext, pGlobalRoot);
 
     // Register well-known global numeric constants (Infinity, NaN, undefined).
     // These are standard globals that must be visible as top-level variable lookups.
@@ -9760,6 +9766,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         return symK && v->getAttribute(pContext, symK, true) == PROTO_TRUE;
                     }()) {
                         typeStr = "symbol";
+                    }
+                    else if ([&]() -> bool {
+                        // §13.5.3 typeof on a BigInt yields "bigint".
+                        // protoJS wraps BigInt values as objects whose
+                        // BigInt.prototype carries __is_bigint__ = true.
+                        const proto::ProtoString* bigK = JSSymbols::isBigInt(pContext);
+                        return bigK && v->getAttribute(pContext, bigK, true) == PROTO_TRUE;
+                    }()) {
+                        typeStr = "bigint";
                     }
                     else if (v->isMethod(pContext) || getBytecodeId(pContext, v) >= 0) typeStr = "function";
                     else {

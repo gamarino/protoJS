@@ -115,6 +115,7 @@ add_library(protojs_core STATIC
     src/StringPrototype.cpp
     src/BooleanPrototype.cpp
     src/DatePrototype.cpp
+    src/BigIntPrototype.cpp
     src/PrototypeUtils.cpp
     src/MapPrototype.cpp
     src/SetPrototype.cpp
