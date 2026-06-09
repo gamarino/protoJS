@@ -1219,8 +1219,17 @@ static const proto::ProtoObject* dateToISOString(proto::ProtoContext* ctx,
     if (!ctx) return PROTO_NONE;
     bool isDate = false;
     double t = readDateValue(ctx, self, &isDate);
-    if (!isDate || std::isnan(t)) {
-        // §21.4.4.36 step 2: throw RangeError when [[DateValue]] is NaN.
+    // §21.4.4.36 step 1: thisTimeValue throws TypeError when receiver
+    // is not a Date instance (this includes []/Array, primitives like
+    // 15, and new String(...)).  Pre-fix this conflated with the NaN
+    // branch and produced RangeError instead.
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
+    }
+    if (std::isnan(t)) {
+        // §21.4.4.36 step 3: throw RangeError when [[DateValue]] is NaN.
         signalNativeException(makeNativeError(ctx, "RangeError",
             "Invalid time value"));
         return PROTO_NONE;
