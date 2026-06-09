@@ -1805,6 +1805,12 @@ static const proto::ProtoObject* dateUTCNew(proto::ProtoContext* ctx,
     };
     double year = pull(0, 0);
     if (sawNaN) return ctx->fromDouble(nan);
+    // §21.4.3.4 step 8: 'If y is not NaN and 0 ≤ ToInteger(y) ≤ 99'.
+    // The 0-99 check applies to the ToInteger-truncated value, not the
+    // raw double — UTC/year-offset.js fixture exercises -0.999999
+    // (truncates to 0, adds 1900) and 99.999999 (truncates to 99,
+    // adds 1900).
+    year = std::trunc(year);
     if (year >= 0 && year <= 99) year += 1900;
     double month = pull(1, 0);
     double date  = pull(2, 1);
