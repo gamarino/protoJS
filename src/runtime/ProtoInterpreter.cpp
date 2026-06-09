@@ -463,6 +463,18 @@ thread_local const proto::ProtoObject*              t_tdzSentinel       = nullpt
 // These are registered as global properties during bootstrap.
 // ---------------------------------------------------------------------------
 
+// §20.4.1 Symbol(...) — `new Symbol(...)` throws TypeError.  Installed
+// as __construct__ so the L_OP_call_constructor dispatch surfaces the
+// throw before allocating an instance (invoked-with-new.js).
+static const proto::ProtoObject* symbolThrowingConstructStub(
+    proto::ProtoContext* ctx, const proto::ProtoObject*,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    signalNativeException(makeNativeError(ctx, "TypeError",
+        "Symbol is not a constructor"));
+    return PROTO_NONE;
+}
+
 // Minimal Symbol() callable.  Each call returns a fresh object tagged
 // with __is_symbol__ = PROTO_TRUE and a description string under
 // __symbol_desc__.  No interning — every call is a unique value.
@@ -4154,6 +4166,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     // is-constructor).
                     const proto::ProtoString* icK = JSSymbols::isConstructor(pContext);
                     if (icK) symbolCtor = symbolCtor->setAttribute(pContext, icK, PROTO_TRUE);
+                    // §20.4.1 step 1: NewTarget !== undefined → TypeError.
+                    // Add __construct__ so `new Symbol(...)` surfaces the
+                    // throw at the L_OP_call_constructor dispatch site.
+                    const proto::ProtoString* conK = JSSymbols::construct(pContext);
+                    if (conK) symbolCtor = symbolCtor->setAttribute(pContext, conK,
+                        pContext->fromMethod(nullptr, symbolThrowingConstructStub));
                     const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                     if (protoKey) {
                         const proto::ProtoObject* symProto = pContext->newObject(true);
