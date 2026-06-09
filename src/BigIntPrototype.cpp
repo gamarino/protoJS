@@ -263,6 +263,11 @@ static const proto::ProtoObject* bigIntToString(proto::ProtoContext* ctx,
                                                 const proto::ProtoList* args,
                                                 const proto::ProtoSparseList*) {
     if (!ctx) return PROTO_NONE;
+    // Step 1 of §21.2.3.3: thisBigIntValue(this).  TypeError on
+    // non-BigInt receivers (BigInt.prototype itself doesn't have
+    // [[BigIntData]] — prototype-call.js tests this directly).  MUST
+    // run before the radix range-check so the TypeError surfaces
+    // instead of a RangeError on `BigInt.prototype.toString(1)`.
     if (!isBigInt(ctx, self)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "BigInt.prototype.toString requires that 'this' be a BigInt"));
@@ -517,9 +522,16 @@ bool isBigInt(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
     // Primitives can't be BigInt — they don't have attributes.
     if (v->isInteger(ctx) || v->isDouble(ctx) || v->isFloat(ctx)
         || v->isBoolean(ctx) || v->isString(ctx)) return false;
-    const proto::ProtoString* mk = JSSymbols::isBigInt(ctx);
-    if (!mk) return false;
-    return v->getAttribute(ctx, mk, true) == PROTO_TRUE;
+    // A receiver is a BigInt instance iff it carries the OWN
+    // __bigint_value__ slot.  Pre-fix the check was on __is_bigint__
+    // alone, which lives on the prototype — BigInt.prototype.toString
+    // .call(BigInt.prototype) saw the marker via the chain and proceeded
+    // as if the prototype itself were a BigInt instance.  Per spec
+    // §21.2.3 the prototype object does NOT have [[BigIntData]], so
+    // method dispatch must throw TypeError there.
+    const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
+    if (!vk) return false;
+    return v->hasOwnAttribute(ctx, vk) == PROTO_TRUE;
 }
 
 const proto::ProtoObject* unwrapBigInt(proto::ProtoContext* ctx,
