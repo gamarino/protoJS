@@ -92,7 +92,7 @@ namespace TimeConstants {
 
 static double timeClip(double t) {
     if (!std::isfinite(t)) return std::nan("");
-    if (std::abs(t) > 8.64e15) return std::nan("");
+    if (std::abs(t) > TimeConstants::maxTime) return std::nan("");
     // §21.4.1.14 step 3: TimeClip returns ToInteger(t).  Use trunc to
     // round toward zero, matching the spec's ToInteger semantics.
     return std::trunc(t);
