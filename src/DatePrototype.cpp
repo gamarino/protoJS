@@ -833,6 +833,37 @@ static const proto::ProtoObject* dateToDateString(proto::ProtoContext* ctx,
     return ctx->fromUTF8String(buf);
 }
 
+// §21.4.4.43 toTimeString — "HH:MM:SS GMT±HHMM (TZ)" (local).
+static const proto::ProtoObject* dateToTimeString(proto::ProtoContext* ctx,
+                                                  const proto::ProtoObject* self,
+                                                  const proto::ParentLink*,
+                                                  const proto::ProtoList*,
+                                                  const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    bool isDate = false;
+    double t = readDateValue(ctx, self, &isDate);
+    if (!isDate || std::isnan(t)) return ctx->fromUTF8String("Invalid Date");
+    std::tm tmv;
+    int msrem = 0;
+    if (!decomposeTime(t, false, &tmv, &msrem))
+        return ctx->fromUTF8String("Invalid Date");
+    long long secs = static_cast<long long>(t) / 1000;
+    std::time_t tt = static_cast<std::time_t>(secs);
+    std::tm utcTm;
+    gmtime_r(&tt, &utcTm);
+    long offsetSec = static_cast<long>(timegm(&tmv) - timegm(&utcTm));
+    char sign = offsetSec >= 0 ? '+' : '-';
+    long offsetAbs = std::labs(offsetSec);
+    int hh = static_cast<int>(offsetAbs / 3600);
+    int mm = static_cast<int>((offsetAbs % 3600) / 60);
+    char buf[64];
+    std::snprintf(buf, sizeof(buf),
+        "%02d:%02d:%02d GMT%c%02d%02d",
+        tmv.tm_hour, tmv.tm_min, tmv.tm_sec,
+        sign, hh, mm);
+    return ctx->fromUTF8String(buf);
+}
+
 // ---------------------------------------------------------------------------
 // Wrapper builder mirroring the pattern used by Number / Boolean prototype
 // constructors.  Returns a callable wrapper carrying the right __native_fn__
@@ -987,6 +1018,7 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         registerProtoMethod(ctx, proto, "toGMTString",        dateToUTCString, 0);
         registerProtoMethod(ctx, proto, "toString",           dateToString, 0);
         registerProtoMethod(ctx, proto, "toDateString",       dateToDateString, 0);
+        registerProtoMethod(ctx, proto, "toTimeString",       dateToTimeString, 0);
 
         if (protoKey) dateObj = dateObj->setAttribute(ctx, protoKey, proto);
     }
