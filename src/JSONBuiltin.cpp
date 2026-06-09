@@ -1588,6 +1588,13 @@ void JSONBuiltin::init(proto::ProtoContext* ctx, const proto::ProtoObject*& glob
             const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
             if (pdks) jsonObj = jsonObj->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
         }
+        // §17 the @@toStringTag slot is non-writable; the hnw hint flag
+        // routes property writes through resolvePutFieldOOP's
+        // writability gate so `JSON[Symbol.toStringTag] = "X"` is a
+        // strict-mode TypeError and a silent no-op in sloppy mode
+        // (built-ins/JSON/Symbol.toStringTag.js verifyProperty).
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) jsonObj = jsonObj->setAttribute(ctx, hnw, PROTO_TRUE);
     }
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "JSON", jsonObj);
     // Spec §17: globalThis.JSON's slot is {writable:true, enumerable:false,

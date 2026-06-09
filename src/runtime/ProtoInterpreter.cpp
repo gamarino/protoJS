@@ -4417,19 +4417,40 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     }
                                     return gself;
                                 };
-                                const proto::ProtoString* tsK = JSSymbols::toString(pContext);
-                                if (tsK) symProto = symProto->setAttribute(pContext, tsK,
-                                    pContext->fromMethod(nullptr, symToString));
-                                const proto::ProtoString* voK = JSSymbols::valueOf(pContext);
-                                if (voK) symProto = symProto->setAttribute(pContext, voK,
-                                    pContext->fromMethod(nullptr, symValueOf));
+                                // §17 the toString / valueOf / @@toPrimitive
+                                // slots are {writable:true, enumerable:false,
+                                // configurable:true} → pd bits 0x3.  Without
+                                // the sidecar Object.keys(Symbol.prototype)
+                                // leaks them (Symbol/prototype/toString/
+                                // prop-desc.js verifyProperty).
+                                auto setProtoMethod = [&](const proto::ProtoString* key,
+                                                          proto::ProtoMethod fn,
+                                                          const char* pdName) {
+                                    if (!key) return;
+                                    symProto = symProto->setAttribute(pContext, key,
+                                        pContext->fromMethod(nullptr, fn));
+                                    std::string pdStr = std::string("__pd_") + pdName + "__";
+                                    const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
+                                    const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                    if (pdk) symProto = symProto->setAttribute(pContext, pdk,
+                                        pContext->fromInteger(0x3LL));
+                                };
+                                setProtoMethod(JSSymbols::toString(pContext), symToString, "toString");
+                                setProtoMethod(JSSymbols::valueOf(pContext),  symValueOf,  "valueOf");
                                 // §20.4.3.5 Symbol.prototype[@@toPrimitive]
-                                // returns thisSymbolValue(this). Bound to
-                                // the well-known "Symbol.toPrimitive" key.
+                                // is {writable:false, enumerable:false,
+                                // configurable:true} → pd bits 0x2.  Bound
+                                // to the well-known "Symbol.toPrimitive" key.
                                 const proto::ProtoObject* tpKo = pContext->fromUTF8String("Symbol.toPrimitive");
                                 const proto::ProtoString* tpK = tpKo ? tpKo->asString(pContext) : nullptr;
-                                if (tpK) symProto = symProto->setAttribute(pContext, tpK,
-                                    pContext->fromMethod(nullptr, symValueOf));
+                                if (tpK) {
+                                    symProto = symProto->setAttribute(pContext, tpK,
+                                        pContext->fromMethod(nullptr, symValueOf));
+                                    const proto::ProtoObject* pdpo = pContext->fromUTF8String("__pd_Symbol.toPrimitive__");
+                                    const proto::ProtoString* pdpk = pdpo ? pdpo->asString(pContext) : nullptr;
+                                    if (pdpk) symProto = symProto->setAttribute(pContext, pdpk,
+                                        pContext->fromInteger(0x2LL));
+                                }
                             }
                             symbolCtor = symbolCtor->setAttribute(pContext, protoKey, symProto);
                             // §20.4.2.7 / §17: Symbol.prototype descriptor
