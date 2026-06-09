@@ -878,11 +878,24 @@ static const proto::ProtoObject* dateSetTime(proto::ProtoContext* ctx,
                                              const proto::ProtoList* args,
                                              const proto::ProtoSparseList*) {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    bool isDate = false;
+    (void)readDateValue(ctx, self, &isDate);
+    if (!isDate) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "this is not a Date object"));
+        return PROTO_NONE;
+    }
     double t = std::nan("");
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* v = args->getAt(ctx, 0);
         if (v && v->isInteger(ctx)) t = static_cast<double>(v->asLong(ctx));
         else if (v && (v->isDouble(ctx) || v->isFloat(ctx))) t = v->asDouble(ctx);
+        else if (v) {
+            const proto::ProtoObject* n = jsToNumber(ctx, v);
+            if (hasCallException()) return PROTO_NONE;
+            if (n && n->isInteger(ctx)) t = static_cast<double>(n->asLong(ctx));
+            else if (n && (n->isDouble(ctx) || n->isFloat(ctx))) t = n->asDouble(ctx);
+        }
     }
     t = timeClip(t);
     writeDateValue(ctx, self, t);
