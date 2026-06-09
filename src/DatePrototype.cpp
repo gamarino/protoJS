@@ -1235,6 +1235,32 @@ static void registerProtoMethod(proto::ProtoContext* ctx,
 
 } // anonymous namespace
 
+// §21.4.3.2 Date.parse — replaces the TimingAPIs stub with the
+// hand-rolled parseDateString.  Single-string arg → time value;
+// anything else → NaN.
+static const proto::ProtoObject* dateParseNew(proto::ProtoContext* ctx,
+                                              const proto::ProtoObject*,
+                                              const proto::ParentLink*,
+                                              const proto::ProtoList* args,
+                                              const proto::ProtoSparseList*) {
+    if (!ctx) return PROTO_NONE;
+    double nan = std::nan("");
+    if (!args || args->getSize(ctx) == 0) return ctx->fromDouble(nan);
+    const proto::ProtoObject* v = args->getAt(ctx, 0);
+    std::string s;
+    if (v && v->isString(ctx)) {
+        v->asString(ctx)->toUTF8String(ctx, s);
+    } else if (v) {
+        // Spec: ToString applied to non-string.  jsToNumber here is
+        // wrong; use a simple coercion: integer → "<n>", null → "null",
+        // undefined → "undefined".  For now, NaN on non-string.
+        return ctx->fromDouble(nan);
+    }
+    double t = parseDateString(s);
+    if (std::isnan(t)) return ctx->fromDouble(nan);
+    return ctx->fromInteger(static_cast<long long>(t));
+}
+
 // ---------------------------------------------------------------------------
 // Public installer
 // ---------------------------------------------------------------------------
@@ -1260,6 +1286,21 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
             ? ctx->space->methodPrototype->newChild(ctx, true)
             : ctx->newObject(true);
         if (!dateObj) return;
+    }
+
+    // Replace Date.parse with the improved parser that handles
+    // fractional seconds and Z / ±HH:MM timezone designators.
+    {
+        const proto::ProtoString* parseKey =
+            ctx->fromUTF8String("parse")
+                ? ctx->fromUTF8String("parse")->asString(ctx) : nullptr;
+        if (parseKey) {
+            const proto::ProtoObject* parseFn =
+                makeMethodWrapper(ctx, "parse", dateParseNew, 1);
+            if (parseFn) {
+                dateObj = dateObj->setAttribute(ctx, parseKey, parseFn);
+            }
+        }
     }
 
     // Wire BOTH call paths to dateCtorCall:
