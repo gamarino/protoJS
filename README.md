@@ -387,6 +387,87 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 20 — 2026-06-09** (2 commits; structural fix unblocking the
+Function constructor invocation path, plus the supporting infrastructure
+for nested compile+run without disturbing the caller's bytecode module).
+
+| Family | Passes | Total | Pass rate | Δ vs R19 |
+|--------|--------|-------|-----------|---------|
+| `built-ins/Number` | 335 | 338 | **99.1 %** | – |
+| `built-ins/Math` | 323 | 327 | **98.8 %** | – |
+| `built-ins/Array` | 2 706 | 3 081 | **87.8 %** | – |
+| `built-ins/Object` | 2 857 | 3 411 | **83.8 %** | **+0.2 pp** (+5) |
+| `built-ins/String` | 1 007 | 1 223 | **82.3 %** | +0.1 pp (+2) |
+| `built-ins/JSON` | 121 | 165 | 73.3 % | – |
+| `built-ins/Function` | 266 | 509 | **52.3 %** | **+5.1 pp** (+26) |
+| `built-ins/Date` | 76 | 594 | 12.8 % (stub) | – |
+| **8-family rollup** | **7 691** | **9 648** | **79.7 %** | **+0.3 pp** (+33) |
+
+The structural bug uncovered and fixed in R20: `Function` (the
+constructor object on globalThis) carried only the
+`__is_constructor__` marker — used by the test262 `IsConstructor`
+probe via `Reflect.construct` — but none of the L_OP_call
+dispatch markers (`__native_fn__`, `__bytecode_id__`,
+`__construct__`, or a dedicated `__<name>_ctor__`).  The
+interpreter's call dispatch fell through to its terminal
+"TypeError: is not a function" branch on every `Function(...)` and
+`new Function(...)` invocation, blocking ~60 test262 cases (the
+`apply`/`call`/`bind` Sputnik tests that wrap `Function("body")`
+inputs, plus the direct `S15.3.2.1_A*` constructor probes).
+
+Two coordinated commits:
+
+  * `6296cda8` — `JSContextWrapper::evalIsolatedToProto(code, filename)`:
+    a script-mode compile+load+run that returns the raw protoCore
+    object the interpreter produced (no `toJS/fromJS` roundtrip, so
+    callable closures keep their `__bytecode_id__` identity), and
+    that *does not* replace the caller's `rootModule_` /
+    `rootModuleStorage_` / `rootModuleHandle_`.  The freshly-built
+    bytecode module is appended to a new `subEvalModules_` vector
+    that lives for the wrapper's lifetime — so any closure the
+    sub-eval produced stays invokable after the call returns.
+    Naïvely routing through the existing `eval()` would have
+    destroyed the parent script's module mid-execution.
+  * `29efa7f2` — Function constructor `[[Call]]`/`[[Construct]]`.
+    FunctionPrototype.cpp stamps the constructor with
+    `__native_fn__` pointing to a new `functionConstructorCall`
+    handler that assembles `"(function anonymous(<params>\n) {\n<body>\n})"`
+    and routes through `evalIsolatedToProto`.  ProtoInterpreter.cpp
+    teaches `L_OP_call` to consult `getClosureModule(func)` before
+    falling back to the current/root module when resolving
+    `__bytecode_id__`: closures created in a foreign module (the
+    Function ctor here; future direct `eval()` later) carry an
+    explicit `__closure_module__` pointer to their owner.  Without
+    this branch the `bcId` would resolve against the caller's
+    module — either missing outright or (worse) colliding with an
+    unrelated nested function at the same index.
+
+The collateral pickups on `built-ins/Object` (+5) and
+`built-ins/String` (+2) come from harness fixtures that
+construct helper functions via `new Function(...)` to set up a
+probe — previously broken at fixture-setup time, now succeed.
+
+Build / sweep procedure note: this is the first round produced
+*after* removing the ZFS zvol from swap on the host.  The R19
+host-safe-mode (`MemorySwapMax=0` cgroup wrapper) was still used
+as a precaution for the sweep — partly to bound my own new
+`subEvalModules_` storage growth if a test loops `Function()`
+calls millions of times — but parallel builds (`cmake --build
+-j4`) and parallel test runs are now routine on the box without
+the deadlock failure mode that blocked R17 and R18.
+
+Carry-overs unchanged from R18 / R19:
+  * R18-#261: `Function.prototype.toString` returning real
+    source for user functions — would convert another ~64
+    Function-family fails. Requires preserving source ranges in
+    the QuickJS bytecode metadata, out of scope here.
+  * R19-#263: regex literal `/a+/.test(...)` bridging — two
+    stacked deep bugs (L_OP_regexp discards bytecode + UTF-8
+    roundtrip mangles raw regex bytecode).  Needs a dedicated
+    round.
+
+---
+
 **Round 19 — 2026-06-08** (no new fixes; instead, a measured
 re-baseline of the eight `built-ins/*` families using a
 cgroup-isolated test harness that protects the host from the
