@@ -1329,6 +1329,10 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
     return PROTO_NONE;
 }
 
+// ----------------------------------------------------------------
+// §B.2.4 Legacy Date methods (getYear / setYear).  Kept for web-
+// compat; modern code should use getFullYear / setFullYear.
+// ----------------------------------------------------------------
 // §B.2.4.1 Date.prototype.getYear — legacy, returns local year minus 1900.
 static const proto::ProtoObject* dateGetYear(proto::ProtoContext* ctx,
                                              const proto::ProtoObject* self,
