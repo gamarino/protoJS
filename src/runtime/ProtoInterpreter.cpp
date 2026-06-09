@@ -4933,6 +4933,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
     dispatch_table[OP_push_false] = &&L_OP_push_false;
     dispatch_table[OP_push_i16] = &&L_OP_push_i16;
     dispatch_table[OP_push_i32] = &&L_OP_push_i32;
+    dispatch_table[OP_push_bigint_i32] = &&L_OP_push_bigint_i32;
     dispatch_table[OP_push_i8] = &&L_OP_push_i8;
     dispatch_table[OP_push_minus1] = &&L_OP_push_minus1;
     dispatch_table[OP_push_this] = &&L_OP_push_this;
@@ -5140,6 +5141,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else {
                     stackPush(pContext, pContext->fromInteger(static_cast<long long>(v)));
                 }
+                DISPATCH();
+            }
+            L_OP_push_bigint_i32: {
+                // QuickJS emits push_bigint_i32 for BigInt literals that
+                // fit in a signed 32-bit immediate (the common 0n / 5n /
+                // -99n case).  Same wire format as push_i32: 4-byte
+                // signed immediate, but the resulting stack value must
+                // be a BigInt wrapper so typeof yields "bigint" and the
+                // arithmetic dispatch routes through bignum ops.  Huge
+                // literals come through the cpool path (push_const)
+                // where TypeBridge::fromJS already wraps them.
+                if (pc + 4 > len) return PROTO_NONE;
+                int32_t v = (int32_t)get_u32(buf + pc);
+                pc += 4;
+                const proto::ProtoObject* inner = pContext->fromInteger(static_cast<long long>(v));
+                stackPush(pContext, wrapBigInt(pContext, inner));
                 DISPATCH();
             }
             L_OP_push_const8: {

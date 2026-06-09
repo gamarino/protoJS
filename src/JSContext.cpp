@@ -9,6 +9,7 @@
 #include "debugging/IntegratedDebugger.h"
 #include "JSPrototypes.h"
 #include "TypeBridge.h"
+#include "BigIntPrototype.h"
 #include "JSSymbols.h"
 #include "runtime/ProtoCompileOnly.h"
 #include "runtime/ProtoBytecodeModule.h"
@@ -112,6 +113,17 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
     // before the first script execution. The script bootstrap path also initializes
     protojs::initializeNullSentinel(pContext);
     protojs::initializeUndefinedSentinel(pContext);
+
+    // Build BigInt.prototype eagerly so that BigInt values arriving via
+    // TypeBridge::fromJS (during cpool init, BEFORE the first runBytecode
+    // entry) can be wrapped against the proper prototype.  Otherwise huge
+    // BigInt literals like 99999999999999999999999999999999n would land
+    // as objectPrototype-rooted wrappers and lose access to
+    // BigInt.prototype.toString.
+    if (pContext && pContext->space && pContext->space->objectPrototype) {
+        protojs::buildBigIntPrototype(pContext->space, pContext,
+                                      pContext->space->objectPrototype);
+    }
     
     // Store pointer to this wrapper in JSContext opaque for GCBridge access
     JS_SetContextOpaque(ctx, this);

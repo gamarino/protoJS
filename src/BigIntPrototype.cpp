@@ -320,10 +320,15 @@ const proto::ProtoObject* wrapBigInt(proto::ProtoContext* ctx,
                                      const proto::ProtoObject* integer) {
     if (!ctx || !integer || integer == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoObject* proto = t_bigIntPrototype;
+    bool needsOwnMarker = false;
     if (!proto && ctx->space) {
-        // Fallback: object prototype.  Misses the typeof marker, but
-        // arithmetic dispatch can still find __bigint_value__.
+        // ensureBigIntConstructor hasn't run yet (typical case: a BigInt
+        // came in via TypeBridge::fromJS during cpool init, before the
+        // first runBytecode entry).  Fall back to objectPrototype and
+        // stamp the marker on the wrapper itself so typeof still
+        // reports "bigint" before the proper prototype is published.
         proto = ctx->space->objectPrototype;
+        needsOwnMarker = true;
     }
     const proto::ProtoObject* w = proto
         ? proto->newChild(ctx, true)
@@ -331,6 +336,10 @@ const proto::ProtoObject* wrapBigInt(proto::ProtoContext* ctx,
     if (!w) return PROTO_NONE;
     const proto::ProtoString* vk = JSSymbols::bigIntValue(ctx);
     if (vk) w = w->setAttribute(ctx, vk, integer);
+    if (needsOwnMarker) {
+        const proto::ProtoString* mk = JSSymbols::isBigInt(ctx);
+        if (mk) w = w->setAttribute(ctx, mk, PROTO_TRUE);
+    }
     return w;
 }
 

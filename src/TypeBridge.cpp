@@ -6,6 +6,7 @@
 #include "ProtoArgumentsAdapter.h"
 #include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
+#include "BigIntPrototype.h"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -65,14 +66,27 @@ const proto::ProtoObject* TypeBridge::fromJS(JSContext* ctx, JSValue val, proto:
     }
 
     if (JS_IsBigInt(ctx, val)) {
-        // Convert BigInt to LargeInteger
-        int64_t v;
-        if (JS_ToBigInt64(ctx, &v, val) == 0) {
-            return pContext->fromLong(v);
+        // Bridge a QuickJS BigInt to a protoJS BigInt wrapper.
+        // QuickJS's JS_ToBigInt64 returns the low 64 bits (mod 2^64) on
+        // overflow without signalling, so it CAN'T be used as a probe
+        // for "fits in int64_t".  Round-trip through the decimal string
+        // form unconditionally — protoCore::fromString builds the right
+        // SmallInt / LargeInteger automatically, and the cost is just
+        // one string allocation per bridge crossing.
+        JSValue strVal = JS_ToString(ctx, val);
+        if (JS_IsException(strVal)) return PROTO_NONE;
+        const char* str = JS_ToCString(ctx, strVal);
+        const proto::ProtoObject* inner = nullptr;
+        if (str) {
+            bool neg = (str[0] == '-');
+            const char* body = neg ? str + 1 : str;
+            inner = pContext->fromString(body, 10);
+            if (inner && neg) inner = inner->negate(pContext);
+            JS_FreeCString(ctx, str);
         }
-        // For very large BigInt beyond int64_t, we'd need LargeInteger support
-        // For now, truncate to int64_t
-        return pContext->fromLong(0); // Placeholder - should use LargeInteger
+        JS_FreeValue(ctx, strVal);
+        if (!inner) inner = pContext->fromInteger(0LL);
+        return wrapBigInt(pContext, inner);
     }
 
     if (JS_IsArray(ctx, val)) {
@@ -442,15 +456,60 @@ JSValue TypeBridge::toJS(JSContext* ctx, const proto::ProtoObject* obj, proto::P
         return JS_NewBool(ctx, obj->asBoolean(pContext));
     }
 
+    // BigInt wrapper detection comes BEFORE the raw-integer branch.
+    // A protoJS BigInt is an object whose chain carries __is_bigint__;
+    // it must marshal to a JS BigInt, not a JS Number, regardless of
+    // whether the inner integer fits in int64_t.  isBigInt routes
+    // through the prototype chain so the wrapper check is O(1).
+    if (isBigInt(pContext, obj)) {
+        const proto::ProtoObject* inner = unwrapBigInt(pContext, obj);
+        if (inner) {
+            // Fast path: inner Integer fits in 64 bits.
+            long long val = inner->asLong(pContext);
+            // protoCore's asLong saturates on overflow; round-trip via
+            // string when |inner| exceeds int64_t range so precision
+            // survives.  Cheap detection: re-stringify and compare.
+            const proto::ProtoString* s10 = inner->asIntegerString(pContext, 10);
+            std::string sCheck;
+            if (s10) s10->toUTF8String(pContext, sCheck);
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%lld", val);
+            if (sCheck == buf) {
+                return JS_NewBigInt64(ctx, val);
+            }
+            // Slow path: QuickJS has no JS_NewBigIntStr — evaluate the
+            // literal "<digits>n" so the parser produces a BigInt
+            // through its own bignum path.  Used when |inner| exceeds
+            // int64_t range (rare unless protoJS arithmetic produced
+            // a huge intermediate that's then crossing back to JS).
+            std::string expr = sCheck + "n";
+            JSValue out = JS_Eval(ctx, expr.c_str(), expr.size(),
+                                  "<bigint-toJS>", JS_EVAL_TYPE_GLOBAL);
+            if (JS_IsException(out)) {
+                // QuickJS lacks JS_ResetUncatchableError in this
+                // vendored version; fall back to the exception
+                // discarding via JS_FreeValue(JS_GetException(ctx)).
+                JS_FreeValue(ctx, JS_GetException(ctx));
+                return JS_NewBigInt64(ctx, val);  // last-resort truncation
+            }
+            return out;
+        }
+        return JS_NewBigInt64(ctx, 0);
+    }
+
     if (obj->isInteger(pContext)) {
         long long val = obj->asLong(pContext);
-        // Check if it fits in 32-bit, otherwise use BigInt
+        // JS Number safely represents integers in [-(2^53), 2^53-1].
+        // Inside that range, prefer the int32 / int64 paths so the
+        // resulting JSValue is typeof 'number'.  protoCore Integers
+        // beyond ±2^53 are rare for protoJS Number primitives (they'd
+        // have come in as Doubles), but if they ever do appear, fall
+        // back to Float64.
         if (val >= INT32_MIN && val <= INT32_MAX) {
             return JS_NewInt32(ctx, static_cast<int32_t>(val));
-        } else {
-            // Use BigInt for large integers
-            return JS_NewBigInt64(ctx, val);
         }
+        // QuickJS represents 33-53 bit Numbers as Float64.
+        return JS_NewFloat64(ctx, static_cast<double>(val));
     }
 
     if (obj->isDouble(pContext)) {
