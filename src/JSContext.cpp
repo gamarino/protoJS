@@ -116,10 +116,11 @@ JSContextWrapper::JSContextWrapper(size_t cpuThreads, size_t ioThreads, double i
 
     // Build BigInt.prototype eagerly so that BigInt values arriving via
     // TypeBridge::fromJS (during cpool init, BEFORE the first runBytecode
-    // entry) can be wrapped against the proper prototype.  Otherwise huge
-    // BigInt literals like 99999999999999999999999999999999n would land
-    // as objectPrototype-rooted wrappers and lose access to
-    // BigInt.prototype.toString.
+    // entry) can be wrapped against the proper prototype.  buildBigIntPrototype
+    // is robust against methodPrototype not yet being populated — it'll
+    // publish the typeof marker now and let ensureBigIntConstructor (which
+    // runs from runBytecode after ensureFunctionPrototype) install the
+    // toString/valueOf methods against the fully-wired Function.prototype.
     if (pContext && pContext->space && pContext->space->objectPrototype) {
         protojs::buildBigIntPrototype(pContext->space, pContext,
                                       pContext->space->objectPrototype);

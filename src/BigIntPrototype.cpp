@@ -492,6 +492,14 @@ static const proto::ProtoObject* installMethod(proto::ProtoContext* ctx,
     return proto;
 }
 
+// Per-thread flag: have we installed toString/valueOf yet?  These need
+// methodPrototype (= Function.prototype) so the resulting wrapper has
+// .call / .apply / .bind reachable via the chain.  When wrapper init
+// runs buildBigIntPrototype, methodPrototype may not be wired yet, so
+// we publish just the type marker first and lazily install the
+// methods when ensureBigIntConstructor runs (post-init).
+static thread_local bool t_bigIntMethodsInstalled = false;
+
 void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
                           proto::ProtoContext* ctx,
                           const proto::ProtoObject* objectProto) {
@@ -505,10 +513,13 @@ void buildBigIntPrototype(proto::ProtoSpace* /*space*/,
     // the first walk step from the wrapper.
     const proto::ProtoString* mk = JSSymbols::isBigInt(ctx);
     if (mk) proto = proto->setAttribute(ctx, mk, PROTO_TRUE);
-    // §21.2.3.1 toString, §21.2.3.4 valueOf — toString on the proto so
-    // String(BigInt) and `${BigInt}` template coercion both fire it.
-    proto = installMethod(ctx, proto, "toString", bigIntToString, 0);
-    proto = installMethod(ctx, proto, "valueOf",  bigIntValueOf,  0);
+    // §21.2.3.1 toString, §21.2.3.4 valueOf — only install if
+    // methodPrototype is ready; ensureBigIntConstructor will retry.
+    if (ctx->space && ctx->space->methodPrototype) {
+        proto = installMethod(ctx, proto, "toString", bigIntToString, 0);
+        proto = installMethod(ctx, proto, "valueOf",  bigIntValueOf,  0);
+        t_bigIntMethodsInstalled = true;
+    }
     // §21.2.3.5 Symbol.toStringTag = "BigInt" with descriptor
     // {W:false, E:false, C:true} = 0x2.
     {
@@ -534,19 +545,11 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
             ? ctx->fromUTF8String("BigInt")->asString(ctx)
             : nullptr;
     if (!keyBigInt) return;
-    const proto::ProtoObject* existing =
-        (*globalRoot)->getAttribute(ctx, keyBigInt, false);
-    if (existing && existing != PROTO_NONE) {
-        // Already registered (e.g. previous wrapper-init pass).
-        // Ensure the prototype is still cached for wrap/isBigInt.
-        const proto::ProtoString* pk = JSSymbols::prototype(ctx);
-        if (pk) {
-            const proto::ProtoObject* p =
-                existing->getAttribute(ctx, pk, false);
-            if (p && p != PROTO_NONE) t_bigIntPrototype = p;
-        }
-        return;
-    }
+    // Note: an existing "BigInt" entry on the global root may be the
+    // unimplemented-ctor stub installed by ProtoInterpreter::init.  We
+    // always overwrite — never adopt the stub's prototype, because that
+    // prototype lacks our toString / valueOf / __is_bigint__ marker.
+    (void)(*globalRoot)->getAttribute(ctx, keyBigInt, false);  // unused
     // Build the prototype if buildBigIntPrototype hasn't run yet.
     if (!t_bigIntPrototype) {
         const proto::ProtoObject* objProto =
@@ -554,6 +557,18 @@ void ensureBigIntConstructor(proto::ProtoContext* ctx,
         if (objProto) buildBigIntPrototype(ctx->space, ctx, objProto);
     }
     if (!t_bigIntPrototype) return;
+    // (Re)install toString / valueOf against the now-fully-populated
+    // methodPrototype.  buildBigIntPrototype's early-init attempt may
+    // have built wrappers parented to a partially-populated
+    // methodPrototype (no .call/.apply/.bind yet); refresh now so the
+    // wrapper chain reaches the full Function.prototype.
+    if (ctx->space && ctx->space->methodPrototype) {
+        t_bigIntPrototype = installMethod(ctx, t_bigIntPrototype, "toString",
+                                          bigIntToString, 0);
+        t_bigIntPrototype = installMethod(ctx, t_bigIntPrototype, "valueOf",
+                                          bigIntValueOf, 0);
+        t_bigIntMethodsInstalled = true;
+    }
     // BigInt constructor object: a function with __native_fn__ for
     // plain call and __construct__ for `new` (which throws TypeError).
     const proto::ProtoObject* fnProto =
