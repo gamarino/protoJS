@@ -1164,6 +1164,14 @@ static const proto::ProtoObject* dateSymbolToPrimitive(proto::ProtoContext* ctx,
                                                        const proto::ProtoList* args,
                                                        const proto::ProtoSparseList* k) {
     if (!ctx) return PROTO_NONE;
+    // §21.4.4.45 step 2: if Type(this) is not Object, throw TypeError.
+    if (!self || self == PROTO_NONE ||
+        self == getUndefinedSentinel() ||
+        self == getNullSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Date.prototype[@@toPrimitive] called on non-object"));
+        return PROTO_NONE;
+    }
     // §21.4.4.45 step 3-5: the hint must be exactly the String value
     // "default", "string", or "number".  Missing argument, undefined,
     // null, the empty string, and any other value all fall through to
