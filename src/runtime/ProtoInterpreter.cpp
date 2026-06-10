@@ -984,6 +984,19 @@ static const proto::ProtoObject* reflectOwnKeys(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.ownKeys")) return PROTO_NONE;
+    // Proxy receiver → dispatch handler.ownKeys.
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "ownKeys");
+        if (trap) {
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            return callJSFunction(ctx, trap, handler, trapArgs);
+        }
+        target = protojs::proxyTarget(ctx, target);
+        if (!target) return PROTO_NONE;
+    }
 
     // Build a real JS array (with __elements__ + __is_array__ + Array
     // prototype). Pre-fix this returned PROTO_NONE, so any caller doing
@@ -1116,6 +1129,18 @@ static const proto::ProtoObject* reflectGetPrototypeOf(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.getPrototypeOf")) return PROTO_NONE;
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "getPrototypeOf");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            return callJSFunction(ctx, trap, handler, trapArgs);
+        }
+        target = protojs::proxyTarget(ctx, target);
+        if (!target) return PROTO_NONE;
+    }
     const proto::ProtoObject* override_ = protojs::getJSProtoOverride(target);
     if (override_) return override_;
     const proto::ProtoObject* p = target->getPrototype(ctx);
@@ -1130,6 +1155,19 @@ static const proto::ProtoObject* reflectIsExtensible(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.isExtensible")) return PROTO_FALSE;
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "isExtensible");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
+            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+        }
+        target = protojs::proxyTarget(ctx, target);
+        if (!target) return PROTO_FALSE;
+    }
     // Honour the NonExtensibleMarker that Object.preventExtensions /
     // .seal / .freeze attach. Pre-fix this returned true unconditionally,
     // so the contract Reflect.isExtensible === Object.isExtensible
@@ -1149,6 +1187,19 @@ static const proto::ProtoObject* reflectPreventExtensions(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.preventExtensions")) return PROTO_FALSE;
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "preventExtensions");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
+            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+        }
+        target = protojs::proxyTarget(ctx, target);
+        if (!target) return PROTO_FALSE;
+    }
     // Forward to the same NonExtensibleMarker attachment that
     // Object.preventExtensions uses, so the marker is observable via
     // either path. Without this Reflect.preventExtensions silently
@@ -1174,6 +1225,19 @@ static const proto::ProtoObject* reflectDefineProperty(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.defineProperty")) return PROTO_FALSE;
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "defineProperty");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            if (args->getSize(ctx) > 1) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 1));
+            if (args->getSize(ctx) > 2) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 2));
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
+            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+        }
+    }
 
     // Forward to globalThis.Object.defineProperty. The native
     // implementation lives in ObjectPrototype.cpp; rather than
@@ -1222,6 +1286,17 @@ static const proto::ProtoObject* reflectGetOwnPropertyDescriptor(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.getOwnPropertyDescriptor")) return PROTO_NONE;
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "getOwnPropertyDescriptor");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            if (args->getSize(ctx) > 1) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 1));
+            return callJSFunction(ctx, trap, handler, trapArgs);
+        }
+    }
 
     const proto::ProtoString* objKey = JSSymbols::Object(ctx);
     const proto::ProtoObject* objCtor = nullptr;
@@ -1250,6 +1325,20 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.setPrototypeOf")) return PROTO_FALSE;
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "setPrototypeOf");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            if (args->getSize(ctx) > 1) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 1));
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
+            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+        }
+        target = protojs::proxyTarget(ctx, target);
+        if (!target) return PROTO_FALSE;
+    }
     const proto::ProtoObject* proto = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (proto == getNullSentinel() || (proto && proto != PROTO_NONE && !proto->isInteger(ctx)
             && !proto->isDouble(ctx) && !proto->isString(ctx) && !proto->isBoolean(ctx))) {

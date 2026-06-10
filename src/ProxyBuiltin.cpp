@@ -200,6 +200,13 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
     return PROTO_TRUE;
 }
 
+const proto::ProtoObject* proxyLookupTrap(proto::ProtoContext* ctx,
+                                           const proto::ProtoObject* proxy,
+                                           const char* trapName) {
+    const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
+    return lookupTrap(ctx, handler, trapName);
+}
+
 // new Proxy(target, handler) — §28.2.1.
 const proto::ProtoObject* proxyConstructor(
     proto::ProtoContext* ctx,
