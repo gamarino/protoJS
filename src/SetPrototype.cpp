@@ -1140,9 +1140,12 @@ static const proto::ProtoObject* setSymmetricDifference(
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!getSetRecord(ctx, other, "symmetricDifference")) return PROTO_NONE;
+    // §24.2.4.13: start with a copy of self, then iterate other's keys
+    // and TOGGLE membership in the result.  Pre-fix the implementation
+    // called other.has during the self-iteration, violating the
+    // "should not invoke .has" assertion in the set-like-* tests.
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
-    // Self ∖ other  (consult other.has so set-likes participate).
     {
         const proto::ProtoSparseList* order = getSetOrder(ctx, self);
         if (order) {
@@ -1151,16 +1154,20 @@ static const proto::ProtoObject* setSymmetricDifference(
                 const proto::ProtoObject* v = it->nextValue(ctx);
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                 if (!v) v = PROTO_NONE;
-                if (!setLikeHas(ctx, other, v))
-                    setAddValue(ctx, result, v);
+                setAddValue(ctx, result, v);
             }
         }
     }
-    // Other ∖ self via the Set-like keys() iteration protocol.
     bool ok = iterateSetLikeKeys(ctx, other,
         [&](const proto::ProtoObject* v) -> bool {
-            if (!setContains(ctx, self, v))
+            // Toggle: if result already has v, remove it; otherwise add.
+            if (setContains(ctx, result, v)) {
+                const proto::ProtoList* delArgs = ctx->newList();
+                delArgs = delArgs->appendLast(ctx, v);
+                setDeleteFn(ctx, result, nullptr, delArgs, nullptr);
+            } else {
                 setAddValue(ctx, result, v);
+            }
             return true;
         });
     if (!ok) return PROTO_NONE;
