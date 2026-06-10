@@ -229,6 +229,28 @@ static unsigned long arrLen(proto::ProtoContext* ctx,
         }
     }
 
+    // §9.1.5.1 [[GetOwnProperty]]: an own setter-only accessor shadows
+    // any inherited length getter — the spec's [[Get]] reads the own
+    // descriptor first and, finding [[Get]] = undefined, returns
+    // undefined.  Probe __set_length__ as a sentinel for the own
+    // setter-only case (defineProperty installs both sidecars on an
+    // accessor; an own setter-only accessor has __set_length__ but
+    // not __get_length__).  Pre-fix the chain-walk fell through to
+    // Object.prototype.__get_length__ and surfaced its value,
+    // bypassing the shadowing semantics
+    // (built-ins/Array/prototype/map/15.4.4.19-2-12 et al).
+    bool ownSetterOnlyAccessor = false;
+    {
+        const proto::ProtoObject* sko = ctx->fromUTF8String("__set_length__");
+        const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        bool hasOwnSetter = sk && arr->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
+        bool hasOwnGetter = gk && arr->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
+        if (hasOwnSetter && !hasOwnGetter) ownSetterOnlyAccessor = true;
+    }
+    if (ownSetterOnlyAccessor) return 0;
+
     const proto::ProtoObject* lenObj = arr->getAttribute(ctx, key, true);
     // §10.4.2 LengthOfArrayLike + §6.2.5 IsAccessorDescriptor: when
     // length is an accessor descriptor stored on the prototype chain,
