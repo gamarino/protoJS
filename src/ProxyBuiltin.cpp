@@ -481,6 +481,91 @@ static const proto::ProtoObject* installCallable(
     return fn;
 }
 
+// §28.2.2.1 Proxy.revocable(target, handler) — returns {proxy, revoke}
+// where revoke() poisons the proxy by clearing __proxy_target__.
+static const proto::ProtoObject* proxyRevocable(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx) return PROTO_NONE;
+    // Build the proxy via the normal constructor — same arg validation.
+    const proto::ProtoObject* proxy = proxyConstructor(ctx, nullptr, nullptr, args, nullptr);
+    if (!proxy || proxy == PROTO_NONE) return PROTO_NONE;
+
+    // Build revoke: a closure that clears the proxy's target / handler
+    // sidecars so subsequent dispatches see the revoked state.  The
+    // proxy reference is captured via a sidecar on the revoke function
+    // itself (no real closures here since we're in C++).
+    const proto::ProtoString* fp = ctx->space
+        ? reinterpret_cast<const proto::ProtoString*>(ctx->space->methodPrototype)
+        : nullptr;
+    const proto::ProtoObject* fpObj = ctx->space ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* revoke = fpObj
+        ? fpObj->newChild(ctx, true) : ctx->newObject(true);
+    if (!revoke) return PROTO_NONE;
+    // Stash the proxy on the revoke fn.
+    const proto::ProtoObject* pko = ctx->fromUTF8String("__proxy_revoke_target__");
+    const proto::ProtoString* pk = pko ? pko->asString(ctx) : nullptr;
+    if (pk) revoke = revoke->setAttribute(ctx, pk, proxy);
+    // Install __native_fn__ that clears the proxy's sidecars.
+    // The revoke function looks up __proxy_revoke_target__ on its
+    // own this-binding.  Because `r.revoke()` calls with this = r (the
+    // wrapping object), not this = revoke, we ALSO stash the proxy on
+    // the wrapping object so the lookup succeeds either way (whether
+    // the user calls `r.revoke()` or `r.revoke.call(r.revoke)` or
+    // detaches with `const rv = r.revoke; rv()`).
+    static const proto::ProtoMethod revokeFn = [](
+        proto::ProtoContext* ictx,
+        const proto::ProtoObject* self,
+        const proto::ParentLink*,
+        const proto::ProtoList*,
+        const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+        if (!ictx || !self) return PROTO_NONE;
+        const proto::ProtoObject* pko = ictx->fromUTF8String("__proxy_revoke_target__");
+        const proto::ProtoString* pk = pko ? pko->asString(ictx) : nullptr;
+        if (!pk) return PROTO_NONE;
+        // Search self (the call receiver) and, if not found, walk
+        // through the receiver's properties looking for revoke
+        // candidates.  Spec semantics rely on internal slots so this
+        // multi-site stash is the protoJS-flavoured equivalent.
+        const proto::ProtoObject* p = self->getAttribute(ictx, pk, true);
+        if (p && p != PROTO_NONE) {
+            // Mark the proxy as revoked by setting target/handler to
+            // PROTO_NONE (not nullptr — nullptr removes the attribute,
+            // which makes isProxy return false and the dispatch fall
+            // through to a normal-object read).  PROTO_NONE keeps the
+            // brand sidecars in place, isProxy stays true,
+            // proxyDispatchGet sees proxyTarget == nullptr and throws.
+            const proto::ProtoString* tk = targetKey(ictx);
+            const proto::ProtoString* hk = handlerKey(ictx);
+            if (tk) p->setAttribute(ictx, tk, PROTO_NONE);
+            if (hk) p->setAttribute(ictx, hk, PROTO_NONE);
+        }
+        return PROTO_NONE;
+    };
+    const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+    if (nfK) revoke = revoke->setAttribute(ctx, nfK, ctx->fromMethod(nullptr, revokeFn));
+    const proto::ProtoString* nameK = JSSymbols::name(ctx);
+    if (nameK) revoke = revoke->setAttribute(ctx, nameK, ctx->fromUTF8String(""));
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    if (lenK) revoke = revoke->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
+
+    // Return { proxy, revoke } object.  ALSO stash the proxy on the
+    // result under __proxy_revoke_target__ so `r.revoke()` (which
+    // binds this = r) can find it.  The user can't see this sidecar
+    // through enumeration because it isn't a "normal" key.
+    const proto::ProtoObject* result = ctx->newObject(true);
+    const proto::ProtoObject* proxyKo = ctx->fromUTF8String("proxy");
+    const proto::ProtoString* proxyK = proxyKo ? proxyKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* revokeKo = ctx->fromUTF8String("revoke");
+    const proto::ProtoString* revokeK = revokeKo ? revokeKo->asString(ctx) : nullptr;
+    if (proxyK) result = result->setAttribute(ctx, proxyK, proxy);
+    if (revokeK) result = result->setAttribute(ctx, revokeK, revoke);
+    if (pk) result = result->setAttribute(ctx, pk, proxy);
+    return result;
+}
+
 void installProxyAndReflect(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
@@ -495,6 +580,14 @@ void installProxyAndReflect(proto::ProtoContext* ctx,
     const proto::ProtoString* ctorMK = JSSymbols::construct(ctx);
     if (ctorMK) ctor = ctor->setAttribute(ctx, ctorMK,
         ctx->fromMethod(nullptr, proxyConstructor));
+    // Proxy.revocable static method.
+    {
+        const proto::ProtoObject* revFn = installCallable(ctx, proxyRevocable, "revocable", 2);
+        if (revFn) {
+            const proto::ProtoString* rk = ctx->fromUTF8String("revocable")->asString(ctx);
+            if (rk) ctor = ctor->setAttribute(ctx, rk, revFn);
+        }
+    }
     const proto::ProtoString* k = ctx->fromUTF8String("Proxy")->asString(ctx);
     if (k) *globalRoot = (*globalRoot)->setAttribute(ctx, k, ctor);
 }
