@@ -1843,7 +1843,9 @@ const proto::ProtoObject* stringReplaceAll(
     if (pattern && pattern != PROTO_NONE && !pattern->isString(ctx)
         && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
         && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)
-        && pattern != getNullSentinel() && pattern != getUndefinedSentinel()) {
+        && pattern != getNullSentinel() && pattern != getUndefinedSentinel()
+        && !(JSSymbols::isBigInt(ctx)
+            && pattern->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)) {
         patternIsRegExp = isRegExpAccessor(pattern);
         if (hasCallException()) return PROTO_NONE;
     }
@@ -1886,20 +1888,45 @@ const proto::ProtoObject* stringReplaceAll(
     if (pattern && pattern != PROTO_NONE && !pattern->isString(ctx)
         && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
         && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)
-        && pattern != getNullSentinel() && pattern != getUndefinedSentinel()) {
+        && pattern != getNullSentinel() && pattern != getUndefinedSentinel()
+        && !(JSSymbols::isBigInt(ctx)
+            && pattern->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)) {
         const proto::ProtoString* replK = JSSymbols::symbolReplace(ctx);
         if (replK) {
-            const proto::ProtoObject* replacer = pattern->getAttribute(ctx, replK, true);
-            if (replacer && replacer != PROTO_NONE && replacer != getUndefinedSentinel()) {
+            // Probe accessor sidecar so a throwing @@replace getter
+            // propagates per §22.1.3.20 GetMethod semantics.
+            std::string replKeyName;
+            replK->toUTF8String(ctx, replKeyName);
+            std::string replGetSk = "__get_" + replKeyName + "__";
+            const proto::ProtoObject* replGetKObj = ctx->fromUTF8String(replGetSk.c_str());
+            const proto::ProtoString* replGetK = replGetKObj ? replGetKObj->asString(ctx) : nullptr;
+            const proto::ProtoObject* replacer = nullptr;
+            if (replGetK) {
+                const proto::ProtoObject* getter = pattern->getAttribute(ctx, replGetK, true);
+                if (getter && getter != PROTO_NONE) {
+                    replacer = callJSFunction(ctx, getter, pattern, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+            if (!replacer || replacer == PROTO_NONE) {
+                replacer = pattern->getAttribute(ctx, replK, true);
+            }
+            // GetMethod: undefined/null → no dispatch (fall through).
+            // Any other non-callable → TypeError.
+            if (replacer && replacer != PROTO_NONE
+                && replacer != getNullSentinel() && replacer != getUndefinedSentinel()) {
                 bool callable = replacer->isMethod(ctx) ||
                     (JSSymbols::bytecodeId(ctx) && replacer->hasAttribute(ctx, JSSymbols::bytecodeId(ctx)) == PROTO_TRUE) ||
                     (JSSymbols::nativeFn(ctx) && replacer->hasAttribute(ctx, JSSymbols::nativeFn(ctx)) == PROTO_TRUE);
-                if (callable) {
-                    const proto::ProtoList* repArgs = ctx->newList();
-                    repArgs = repArgs->appendLast(ctx, self);
-                    repArgs = repArgs->appendLast(ctx, repObj ? repObj : PROTO_NONE);
-                    return callJSFunction(ctx, replacer, pattern, repArgs);
+                if (!callable) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "searchValue[Symbol.replace] is not callable"));
+                    return PROTO_NONE;
                 }
+                const proto::ProtoList* repArgs = ctx->newList();
+                repArgs = repArgs->appendLast(ctx, self);
+                repArgs = repArgs->appendLast(ctx, repObj ? repObj : PROTO_NONE);
+                return callJSFunction(ctx, replacer, pattern, repArgs);
             }
         }
     }
@@ -1927,6 +1954,15 @@ const proto::ProtoObject* stringReplaceAll(
         return false;
     };
     bool repCallable = isCallable(repObj);
+    // §22.1.3.20 step 6.a: when replaceValue is not callable, evaluate
+    // ToString(replaceValue) ONCE before iterating matchPositions.  Pre-fix
+    // we re-coerced inside the loop so a Symbol.toPrimitive / valueOf hook
+    // fired per match.
+    std::string repCached;
+    if (!repCallable) {
+        repCached = objToStr(ctx, repObj);
+        if (hasCallException()) return PROTO_NONE;
+    }
     auto callReplacement = [&](const std::string& matched, size_t offset) -> std::string {
         const proto::ProtoList* callArgs = ctx->newList();
         callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(matched.c_str()));
@@ -1945,12 +1981,10 @@ const proto::ProtoObject* stringReplaceAll(
                 result += callReplacement("", i + 1);
             }
         } else {
-            std::string rep = objToStr(ctx, repObj);
-            if (hasCallException()) return PROTO_NONE;
-            result += applyStringReplacement(s, pat, rep, 0);
+            result += applyStringReplacement(s, pat, repCached, 0);
             for (size_t i = 0; i < s.size(); i++) {
                 result += s[i];
-                result += applyStringReplacement(s, pat, rep, i + 1);
+                result += applyStringReplacement(s, pat, repCached, i + 1);
             }
         }
         return ctx->fromUTF8String(result.c_str());
@@ -1965,9 +1999,7 @@ const proto::ProtoObject* stringReplaceAll(
             result += callReplacement(pat, pos);
             if (hasCallException()) return PROTO_NONE;
         } else {
-            std::string rep = objToStr(ctx, repObj);
-            if (hasCallException()) return PROTO_NONE;
-            result += applyStringReplacement(s, pat, rep, pos);
+            result += applyStringReplacement(s, pat, repCached, pos);
         }
         lastPos = pos + pat.size();
         pos = s.find(pat, lastPos);
