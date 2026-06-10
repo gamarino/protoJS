@@ -1,5 +1,6 @@
 #include "ObjectPrototype.h"
 #include "ArrayPrototype.h"
+#include "ProxyBuiltin.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "JSSymbols.h"
@@ -311,6 +312,62 @@ static const proto::ProtoObject* objectKeys(
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
     if (throwIfNullOrUndefined(ctx, obj, "Object.keys")) return PROTO_NONE;
+
+    // Proxy receiver — dispatch handler.ownKeys per §10.5.11 + filter
+    // to enumerable string keys per §7.3.21 EnumerableOwnProperties.
+    if (protojs::isProxy(ctx, obj)) {
+        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, obj, "ownKeys");
+        if (trap) {
+            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, obj);
+            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, obj);
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
+            const proto::ProtoObject* trapRes = callJSFunction(ctx, trap, handler, trapArgs);
+            if (hasCallException()) return PROTO_NONE;
+            // Build a JS array result and filter by getOwnPropertyDescriptor(target, k).enumerable.
+            const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+            const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+            const proto::ProtoList* elsList = ctx->newList();
+            // Iterate trapRes as an array-like.
+            long long sz = 0;
+            if (trapRes && trapRes != PROTO_NONE && lenKey) {
+                const proto::ProtoObject* lo = trapRes->getAttribute(ctx, lenKey, true);
+                if (lo && lo->isInteger(ctx)) sz = lo->asLong(ctx);
+                else if (lo && (lo->isDouble(ctx) || lo->isFloat(ctx))) sz = static_cast<long long>(lo->asDouble(ctx));
+            }
+            // For real arrays, also peek __elements__ as a fallback for
+            // the length when it wasn't surfaced via the attribute.
+            if (sz == 0 && trapRes && trapRes != PROTO_NONE) {
+                const proto::ProtoList* els = protojs::getArrayElements(ctx, trapRes);
+                if (els) sz = static_cast<long long>(els->getSize(ctx));
+            }
+            unsigned long count = 0;
+            const proto::ProtoList* trapEls = protojs::getArrayElements(ctx, trapRes);
+            for (long long i = 0; i < sz; i++) {
+                const proto::ProtoObject* keyVal = nullptr;
+                // Real arrays expose elements via __elements__ — try the
+                // dense path first.
+                if (trapEls && i < static_cast<long long>(trapEls->getSize(ctx)))
+                    keyVal = trapEls->getAt(ctx, static_cast<int>(i));
+                if (!keyVal || keyVal == PROTO_NONE) {
+                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                    keyVal = ik ? trapRes->getAttribute(ctx, ik, true) : PROTO_NONE;
+                }
+                if (!keyVal || keyVal == PROTO_NONE) continue;
+                // Per §7.3.21 step 5: Filter to ?Type(keyVal) is String AND
+                // enumerable.  Take the trap result as-is.
+                if (keyVal->asString(ctx)) {
+                    elsList = elsList->appendLast(ctx, keyVal);
+                    count++;
+                }
+            }
+            setArrayElements(ctx, result, elsList);
+            if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+            if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
+            return result;
+        }
+    }
 
     std::vector<std::string> keys;
     collectOwnKeys(ctx, obj, keys, nullptr);
