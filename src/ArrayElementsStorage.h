@@ -56,8 +56,30 @@ inline void setArrayElements(proto::ProtoContext* ctx,
     arr->setAttribute(ctx, k, list->asObject(ctx));
     const proto::ProtoString* lk = JSSymbols::length(ctx);
     if (lk) {
-        arr->setAttribute(ctx, lk,
-            ctx->fromInteger(static_cast<long long>(list->getSize(ctx))));
+        // Only grow length forward to match the new dense size.  Sparse
+        // arrays carry length > __elements__.size (the tail past the
+        // first hole lives as string-keyed sidecars); unconditionally
+        // overwriting length with list->size() collapses a sparse
+        // length=8 down to length=2 the moment any dense slot is
+        // touched, breaking pop / sort / shift after a sidecar tail
+        // delete.  Callers that need to SHRINK length (arrSetLen,
+        // arrayPop's dense path, splice's truncation) must set length
+        // explicitly via setAttribute AFTER setArrayElements.  The
+        // chain-walk hasOwn check prevents picking up Array.prototype's
+        // inherited length=0 — without it, every fresh literal would
+        // see curLen=0 < newSize and write length=newSize, but the
+        // *next* slot edit on a sparse parent would see curLen=0 again
+        // and shrink length below the real value.
+        long long newSize = static_cast<long long>(list->getSize(ctx));
+        long long curLen = -1;
+        if (arr->hasOwnAttribute(ctx, lk) == PROTO_TRUE) {
+            const proto::ProtoObject* lv = arr->getAttribute(ctx, lk, false);
+            if (lv && lv != PROTO_NONE && lv->isInteger(ctx))
+                curLen = lv->asLong(ctx);
+        }
+        if (curLen < 0 || curLen < newSize) {
+            arr->setAttribute(ctx, lk, ctx->fromInteger(newSize));
+        }
     }
 }
 

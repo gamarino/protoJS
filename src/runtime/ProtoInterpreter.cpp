@@ -9022,10 +9022,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = val;
                     DISPATCH();
                 }
+                // Per-index accessor descriptor probe (gated on
+                // __has_accessor_props__).  When Object.defineProperty
+                // installs a getter at an integer-named index, the
+                // sidecar __get_<idx>__ exists but the fast __elements__
+                // read otherwise wins.  Mirror the OP_get_field accessor
+                // probe so `arr[N]` fires the getter installed via
+                // defineProperty(arr, N, {get,set}).  Pre-fix the
+                // precise-getter-* sort tests masked here because the
+                // getter never ran.
+                if (arrIdxFast >= 0) {
+                    const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
+                    bool maybeHasAccessor = hapK
+                        && (obj->hasAttribute(pContext, hapK) == PROTO_TRUE)
+                        && (obj->getAttribute(pContext, hapK, true) == PROTO_TRUE);
+                    if (maybeHasAccessor) {
+                        std::string gkStr = "__get_" + std::to_string(arrIdxFast) + "__";
+                        const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
+                        const proto::ProtoString* gks = gko ? gko->asString(pContext) : nullptr;
+                        if (gks) {
+                            const proto::ProtoObject* getter = obj->getAttribute(pContext, gks, true);
+                            if (getter && getter != PROTO_NONE) {
+                                const proto::ProtoObject* r =
+                                    callJSFunction(pContext, getter, obj, pContext->newList());
+                                REFRESH_INTERP_STATE();
+                                if (has_pending_exception) DISPATCH();
+                                pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
+                                DISPATCH();
+                            }
+                        }
+                    }
+                }
                 if (arrIdxFast >= 0) {
                     val = resolveElementOOP(pContext, obj, static_cast<uint32_t>(arrIdxFast));
                 }
-                
+
                 // Fallback to native ProtoList fast path ONLY if behavior didn't find it
                 // (TypedArrays return PROTO_NONE for out-of-bounds, so this works).
                 if (!val && arrIdxFast >= 0) {

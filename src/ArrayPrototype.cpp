@@ -482,6 +482,40 @@ static const proto::ProtoObject* arrSet(proto::ProtoContext* ctx,
             const proto::ProtoList* empty = ctx->newList();
             if (empty) setArrayElements(ctx, arr, empty);
         }
+        // Per-index accessor setter probe (gated on __has_accessor_props__).
+        // When Object.defineProperty installs a setter at an integer
+        // index, the sidecar __set_<idx>__ exists but the fast
+        // __elements__ write otherwise wins.  Mirror the OP_get_array_el
+        // accessor probe so `arr[N] = v` fires the setter installed via
+        // defineProperty(arr, N, {get,set}).  Pre-fix Sputnik
+        // precise-setter-* sort tests masked here because the setter
+        // never ran.
+        {
+            const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
+            bool maybeHasAccessor = hapK
+                && (arr->hasAttribute(ctx, hapK) == PROTO_TRUE)
+                && (arr->getAttribute(ctx, hapK, true) == PROTO_TRUE);
+            if (maybeHasAccessor) {
+                std::string sks = "__set_" + std::to_string(idx) + "__";
+                const proto::ProtoObject* sko2 = ctx->fromUTF8String(sks.c_str());
+                const proto::ProtoString* sk2 = sko2 ? sko2->asString(ctx) : nullptr;
+                // Gate on hasOwnAttribute first (not chain walk) — the
+                // arr itself owns the sidecar after defineProperty.
+                // Walking the chain for __set_<idx>__ is both wrong
+                // (Array.prototype doesn't carry per-index setters) and
+                // a hot-path performance hit on every arr[N] = v.
+                if (sk2 && arr->hasOwnAttribute(ctx, sk2) == PROTO_TRUE) {
+                    const proto::ProtoObject* setter = arr->getAttribute(ctx, sk2, false);
+                    if (setter && setter != PROTO_NONE) {
+                        const proto::ProtoList* sargs = ctx->newList();
+                        sargs = sargs->appendLast(ctx, val ? val : PROTO_NONE);
+                        callJSFunction(ctx, setter, arr, sargs);
+                        if (hasCallException()) return arr;
+                        return arr;
+                    }
+                }
+            }
+        }
         // §9.1.9 OrdinarySet: if no OWN descriptor exists at idx but
         // an INHERITED [[Set]] does, invoke the setter and do NOT
         // create an own data property.  When idx is past the dense
@@ -665,20 +699,27 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
                 if (newLen - size > kSparseFallbackThreshold) {
                     // Fall through to legacy length-attribute set so that semantics
                     // are preserved (length set, elements untouched).
+                    goto setLenAttribute;
                 } else {
                     const proto::ProtoList* padded = els;
                     for (unsigned long i = size; i < newLen; ++i) {
                         padded = padded->appendLast(ctx, PROTO_NONE);
                     }
                     setArrayElements(ctx, arr, padded);
-                    return arr;
+                    // Fall through to setLenAttribute below — setArrayElements
+                    // only bumps length when newSize > curLen, but ArraySetLength
+                    // is the canonical "set length to this value" operation
+                    // and must overwrite even when shrinking from a sparse
+                    // length > curSize.
                 }
-            } else {
-                return arr;  // size unchanged
             }
-            return arr;
+            // For both truncate and pad paths fall through to explicitly
+            // assign the length attribute — setArrayElements no longer
+            // unconditionally writes length (sparse arrays would collapse
+            // to dense size otherwise).
         }
     }
+    setLenAttribute:;
 
     const proto::ProtoString* key = JSSymbols::length(ctx);
     if (!key) return arr;
@@ -1618,15 +1659,18 @@ static const proto::ProtoObject* arrayPop(
             return (removed && removed != PROTO_NONE) ? removed : getUndefinedSentinel();
         }
         // §23.1.3.21 step 4.c: Let element be ? Get(O, ToString(F(newLen))).
-        // Get walks the prototype chain — a hole at the last index
-        // must surface the inherited value (Array.prototype[idx] data
-        // or accessor).  Pre-fix we read list->getAt(size-1) directly
-        // and a PROTO_NONE pad (from `x.length = N` extending past
-        // the dense elements) shadowed Array.prototype[idx]
-        // (Sputnik S15.4.4.6_A4_T1: Array.prototype[1] = 1; x = [0];
-        //  x.length = 2; x.pop() should be 1, not undefined).
+        // The spec reads index lenSpec-1, NOT __elements__.size-1.  Sparse
+        // literals like `[a, b, , , 'X', 'Y']` store the tail past the
+        // first hole as string-keyed sidecars ("4", "5") rather than in
+        // __elements__, so list->getSize() can be smaller than the user-
+        // visible length.  Pre-fix arrayPop indexed by `size - 1` and
+        // returned the wrong element (it grabbed dense[size-1] when the
+        // spec wanted obj[length-1]).  Worse, the subsequent
+        // list->removeLast trimmed the dense prefix and arrSetLen
+        // dropped length to size-1 instead of lenSpec-1, so a single
+        // pop on a sparse literal could drop length from 8 to 1.
         const proto::ProtoObject* removed =
-            arrGet(ctx, self, size - 1);
+            arrGet(ctx, self, lenSpec - 1);
         if (hasCallException()) return PROTO_NONE;
         // §23.1.3.21 step 4.f: Set(O, 'length', newLen, true).  The
         // getter at step 4.c (arrGet above) may have made length non-
@@ -1636,8 +1680,38 @@ static const proto::ProtoObject* arrayPop(
         // before mutating __elements__ so the truncation doesn't
         // happen on the throw path.
         if (throwIfLengthFrozen()) return PROTO_NONE;
-        const proto::ProtoList* shrunk = list->removeLast(ctx);
-        if (shrunk) setArrayElements(ctx, self, shrunk);
+        // Trim __elements__ only when the popped index was actually in
+        // the dense prefix; sidecar-stored tail entries are removed
+        // entirely via setAttribute(key, nullptr) (the canonical
+        // "implRemoveAt" delete) so subsequent hasOwnAttribute / arrGet
+        // report the slot as absent.  Using PROTO_NONE here leaves the
+        // attribute in place with a sentinel value — for sort it caused
+        // the next read to surface the stale pre-pop value.
+        if (lenSpec - 1 < size) {
+            // Dense tail — truncate __elements__ AND drop the length
+            // attribute explicitly.  setArrayElements only grows length
+            // forward (per the sparse-array invariant), so an explicit
+            // setAttribute(length, …) is required for shrinks.
+            const proto::ProtoList* shrunk = list->removeLast(ctx);
+            if (shrunk) setArrayElements(ctx, self, shrunk);
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            if (lenK) self->setAttribute(ctx, lenK,
+                ctx->fromInteger(static_cast<long long>(lenSpec - 1)));
+        } else {
+            // Sidecar tail — DeletePropertyOrThrow the indexed sidecar
+            // entirely (nullptr triggers implRemoveAt, leaving no PROTO_NONE
+            // placeholder).  Set the length attribute DIRECTLY (NOT via
+            // arrSetLen) — arrSetLen pads __elements__ up to newLen when
+            // newLen > current __elements__.size, which would resurrect a
+            // dense slot at the just-deleted index and cause hasOwnProperty
+            // to keep reporting true.
+            const proto::ProtoString* idxKey =
+                JSSymbols::indexKey(ctx, static_cast<uint32_t>(lenSpec - 1));
+            if (idxKey) self->setAttribute(ctx, idxKey, nullptr);
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            if (lenK) self->setAttribute(ctx, lenK,
+                ctx->fromInteger(static_cast<long long>(lenSpec - 1)));
+        }
         return (removed && removed != PROTO_NONE) ? removed : getUndefinedSentinel();
     }
 
@@ -3983,13 +4057,34 @@ static const proto::ProtoObject* arraySort(
     bool isRealArr = isArrKey
         && self->getAttribute(ctx, isArrKey, true) == PROTO_TRUE
         && getArrayElements(ctx, self) != nullptr;
+    // Per §23.1.3.30 step 9: DeletePropertyOrThrow(obj, ToString(j)) for
+    // every j in [itemCount, originalLen).  Spec semantics — make the
+    // slot absent without growing storage.  arrayTryFastSet writes
+    // PROTO_NONE at writeIdx but appends if writeIdx is past the dense
+    // tail, which paradoxically grew __elements__ back to the original
+    // length and resurrected arrLen=originalLen even when a getter-driven
+    // pop had shrunk the array mid-read (Sputnik precise-getter-pops).
+    // Refresh the dense size each iteration; only clear in-range slots
+    // and only touch the sidecar when an own attribute is actually
+    // present.
     for (unsigned long i = 0; i < holeCount; i++) {
         if (isRealArr) {
-            arrayTryFastSet(ctx, self, writeIdx, PROTO_NONE);
+            const proto::ProtoList* curEls = getArrayElements(ctx, self);
+            unsigned long curSize = curEls
+                ? static_cast<unsigned long>(curEls->getSize(ctx)) : 0;
+            if (writeIdx < curSize) {
+                arrayTryFastSet(ctx, self, writeIdx, PROTO_NONE);
+            }
         }
         const proto::ProtoString* delKey =
             JSSymbols::indexKey(ctx, static_cast<uint32_t>(writeIdx));
-        if (delKey) self->setAttribute(ctx, delKey, PROTO_NONE);
+        // True delete (nullptr → implRemoveAt) so the sidecar slot
+        // becomes absent — hasOwnProperty / `in` correctly report
+        // false post-sort for the trailing hole positions.  PROTO_NONE
+        // leaves an own attribute in place with a sentinel value that
+        // hasOwnProperty's array fallback still treats as present.
+        if (delKey && self->hasOwnAttribute(ctx, delKey) == PROTO_TRUE)
+            self->setAttribute(ctx, delKey, nullptr);
         writeIdx++;
     }
 
