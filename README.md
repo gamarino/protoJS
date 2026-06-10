@@ -387,6 +387,71 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 30 — 2026-06-09** (17 commits, +35 tests) — surgical fixes
+across the highest-leverage failure buckets uncovered by the post-R29
+sweep:
+
+  1. `fnIsCallable` probes intrinsic call markers via `hasOwnAttribute`
+     instead of a chain walk — non-functions that inherit from a
+     function (`var obj = new FACTORY; FACTORY.prototype = Function()`)
+     now throw the spec-mandated TypeError on `.apply` / `.call` /
+     `.bind` per §7.2.3.
+  2. `Object.prototype.toString / toLocaleString / valueOf` installed
+     via `installNonEnumerableMethod` so they carry length / name /
+     prop-desc bits per §17.
+  3. `ensureFunctionPrototype` re-parent list extended to cover the
+     above + Annex B accessor reflectors + Symbol.prototype methods +
+     Symbol.{for, keyFor} so `.call` / `.apply` / `.bind` resolve.
+  4. `Object.prototype.toString` now treats Symbol-typed @@toStringTag
+     (marker OR `Symbol.` / `Symbol(` prefix) as not-a-string per
+     §22.1.3.7 step 16 — unblocks the symbol-tag-non-str family.
+  5. `Object.prototype.toString` consults ONLY the WKS key — the
+     legacy `__toStringTag__` sidecar made `delete obj[
+     Symbol.toStringTag]` lose its observable effect.
+  6. Error / ArrayBuffer / DataView prototypes publish their
+     `@@toStringTag` slot under the WKS key (they only had the legacy
+     sidecar; the toString unification regressed them).
+  7. Arguments objects stamp the WKS slot too — Array.prototype.{map,
+     filter, some, every, …} tests that probe arguments via toString
+     all recovered.
+  8. `__lookupGetter__` / `__lookupSetter__` halt on a shadowing data
+     descriptor per §B.2.2.4 / §B.2.2.5 step 4.b.ii.
+  9. `Object.prototype.__proto__` accessor (§B.2.2.1) installed via
+     the sidecar pattern with the cycle check + pd descriptor + and
+     `__has_accessor_props__` hint on Object.prototype. Unblocks 15
+     test262 cases.
+  10. Object.prototype.toString routes the @@toStringTag probe via the
+      matching wrapper prototype so user overrides on Boolean /
+      Number / String .prototype propagate to the primitive value
+      (symbol-tag-override-primitives.js, …).
+  11. `Symbol.prototype.toString / valueOf / @@toPrimitive` wrapped in
+      §17-shaped function objects so name / length / pd descriptors
+      materialise per spec, with the hnw hint stamped.
+  12. ToNumber(BigInt) → TypeError gains a sibling Symbol → TypeError
+      (§7.1.4 step 3).
+  13. String iterator inherits from a lazy %StringIteratorPrototype%
+      with @@toStringTag = "String Iterator" (§22.2.5.1.2).
+  14. `RegExp.prototype` and `%TypedArray%.prototype` switched to
+      `newChild(ctx, true)` (mutable) — same shape as R28's
+      Object.prototype write-suppression bug.
+  15. Argument objects re-parented at `objectPrototype->newChild(true)`
+      instead of bare `newObject(true)` so attribute walks reach
+      `Object.prototype.foo`.
+
+10-family roll-up: 8483 → **8532 / 9823** (86.9 %). Per family:
+Object 2962 → 3000 (+38), Symbol 41 → 44 (+3), Function 309 → 314
+(+5), JSON 122 → 124 (+2), Array 2734 → 2737 (+3), String 1008 →
+1009 (+1).
+
+Remaining concentrated gaps still cluster in three structural
+blockers — Function constructor + nested eval (200+ Sputnik tests),
+String/prototype/{split, match, replace, replaceAll, matchAll,
+search} (≈ 120 tests pinned on RegExp literal bridging), Array/
+prototype/sort precise-getter edge cases — and the Proxy family
+(Proxy support absent).
+
+---
+
 **Round 29.5 — 2026-06-09** (+9 tests, latent-bug closure) — resolved
 the `Object.getOwnPropertyNames(Object.prototype) === []` mystery
 documented as a follow-up in R29:
