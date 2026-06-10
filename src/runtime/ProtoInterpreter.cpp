@@ -8,6 +8,9 @@
 #include "../ArrayPrototype.h"
 #include "../StringPrototype.h"
 #include "../RegExpPrototype.h"
+extern "C" {
+#include "libregexp.h"
+}
 #include "../NumberPrototype.h"
 #include "../BooleanPrototype.h"
 #include "../MapPrototype.h"
@@ -5983,45 +5986,63 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_regexp: {
-                // DEF(regexp, 1, 2, 1, none) — pattern + compiled bytecode
-                // on the stack; push a RegExp object.  Pre-fix the
-                // unimplemented dispatch printed "unsupported opcode
-                // 0x34" and bailed, so any test using a regex literal
-                // (e.g. \`/./\` passed to assert.throws / find / sort)
-                // exited early before the actual assertion could run.
-                //
-                // We don't implement the regex engine here; emit a
-                // RegExp-prototype-parented stub with the source string
-                // captured from the pattern slot.  That's enough for
-                // tests that probe \`typeof /./\` or pass the literal
-                // to API checks (find / sort / IsCallable) without
-                // ever exercising .exec / .test.
+                // DEF(regexp, 1, 2, 1, none) — QJS emits the source
+                // pattern then the already-compiled bytecode on the
+                // stack. Re-route through protojs::regexpConstructor
+                // so the resulting object carries the full RegExp
+                // internals (__re_bytecode__, lastIndex, flag slots)
+                // instead of just .source. Pre-fix the op produced a
+                // bare RegExp.prototype child with only the source
+                // attribute, so r.test / r.exec / r.flags all
+                // returned wrong.
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* bytecode = stackTop(pContext);
                 stackPop(pContext);
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* pattern = stackTop(pContext);
                 stackPop(pContext);
-                (void)bytecode;
+                (void)bytecode; // QJS's compiled bytecode is discarded —
+                                // the constructor recompiles from .source.
+                // Pre-allocate the receiver so regexpConstructor can
+                // populate it in place and we control the parent.
                 REFRESH_GLOBAL_OBJ();
-                const proto::ProtoObject* regexpCtor = nullptr;
+                const proto::ProtoObject* regexpCtorPre = nullptr;
+                const proto::ProtoObject* regexpProtoPre = nullptr;
                 {
                     const proto::ProtoString* rk = JSSymbols::RegExp(pContext);
-                    if (rk && globalObj && globalObj != PROTO_NONE) {
-                        regexpCtor = globalObj->getAttribute(pContext, rk, false);
+                    if (rk && globalObj && globalObj != PROTO_NONE)
+                        regexpCtorPre = globalObj->getAttribute(pContext, rk, false);
+                    if (regexpCtorPre && regexpCtorPre != PROTO_NONE) {
+                        const proto::ProtoString* pk = JSSymbols::prototype(pContext);
+                        if (pk) regexpProtoPre = regexpCtorPre->getAttribute(pContext, pk, false);
                     }
                 }
-                const proto::ProtoObject* regexpProto = nullptr;
-                if (regexpCtor && regexpCtor != PROTO_NONE) {
-                    const proto::ProtoString* pk = JSSymbols::prototype(pContext);
-                    if (pk) regexpProto = regexpCtor->getAttribute(pContext, pk, false);
-                }
-                const proto::ProtoObject* rx = (regexpProto && regexpProto != PROTO_NONE)
-                    ? regexpProto->newChild(pContext, true)
+                const proto::ProtoObject* receiver = regexpProtoPre && regexpProtoPre != PROTO_NONE
+                    ? regexpProtoPre->newChild(pContext, true)
                     : pContext->newObject(true);
-                if (rx && pattern && pattern != PROTO_NONE) {
-                    const proto::ProtoString* sk = JSSymbols::source(pContext);
-                    if (sk) rx = rx->setAttribute(pContext, sk, pattern);
+                const proto::ProtoList* args = pContext->newList();
+                args = args->appendLast(pContext, pattern ? pattern : PROTO_NONE);
+                const proto::ProtoObject* rx =
+                    protojs::regexpConstructor(pContext, receiver, nullptr, args, nullptr);
+                if (!rx || rx == PROTO_NONE) {
+                    // Fall back to the legacy stub on compile failure
+                    // so dependent code at least sees an object.
+                    REFRESH_GLOBAL_OBJ();
+                    const proto::ProtoString* rk = JSSymbols::RegExp(pContext);
+                    const proto::ProtoObject* regexpCtor = (rk && globalObj && globalObj != PROTO_NONE)
+                        ? globalObj->getAttribute(pContext, rk, false) : nullptr;
+                    const proto::ProtoObject* regexpProto = nullptr;
+                    if (regexpCtor && regexpCtor != PROTO_NONE) {
+                        const proto::ProtoString* pk = JSSymbols::prototype(pContext);
+                        if (pk) regexpProto = regexpCtor->getAttribute(pContext, pk, false);
+                    }
+                    rx = regexpProto && regexpProto != PROTO_NONE
+                        ? regexpProto->newChild(pContext, true)
+                        : pContext->newObject(true);
+                    if (rx && pattern && pattern != PROTO_NONE) {
+                        const proto::ProtoString* sk = JSSymbols::source(pContext);
+                        if (sk) rx = rx->setAttribute(pContext, sk, pattern);
+                    }
                 }
                 stackPush(pContext, rx ? rx : PROTO_NONE);
                 DISPATCH();
