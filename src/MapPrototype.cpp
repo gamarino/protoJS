@@ -1362,12 +1362,28 @@ static long long wmGetCount(proto::ProtoContext* ctx, const proto::ProtoObject* 
     return 0;
 }
 
+static bool requireWeakMapThis(proto::ProtoContext* ctx,
+                                 const proto::ProtoObject* self,
+                                 const char* methodName) {
+    if (self && self != PROTO_NONE) {
+        const proto::ProtoObject* bo = ctx->fromUTF8String("__is_weak_map__");
+        const proto::ProtoString* bk = bo ? bo->asString(ctx) : nullptr;
+        if (bk && self->getAttribute(ctx, bk, true) == PROTO_TRUE) return true;
+    }
+    std::string msg = "WeakMap.prototype.";
+    msg += methodName;
+    msg += " called on incompatible receiver";
+    signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+    return false;
+}
+
 static const proto::ProtoObject* weakMapSet(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
     if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireWeakMapThis(ctx, self, "set")) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 1) return const_cast<proto::ProtoObject*>(self);
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     const proto::ProtoObject* val = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
@@ -1423,7 +1439,9 @@ static const proto::ProtoObject* weakMapGet(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !self || self == PROTO_NONE || !args || args->getSize(ctx) < 1) return PROTO_NONE;
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireWeakMapThis(ctx, self, "get")) return PROTO_NONE;
+    if (!args || args->getSize(ctx) < 1) return PROTO_NONE;
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_NONE;
     long long n = wmGetCount(ctx, self);
@@ -1447,7 +1465,9 @@ static const proto::ProtoObject* weakMapHas(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !self || self == PROTO_NONE || !args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_FALSE;
+    if (!requireWeakMapThis(ctx, self, "has")) return PROTO_FALSE;
+    if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
     long long n = wmGetCount(ctx, self);
@@ -1466,7 +1486,9 @@ static const proto::ProtoObject* weakMapDelete(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !self || self == PROTO_NONE || !args || args->getSize(ctx) < 1) return PROTO_FALSE;
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_FALSE;
+    if (!requireWeakMapThis(ctx, self, "delete")) return PROTO_FALSE;
+    if (!args || args->getSize(ctx) < 1) return PROTO_FALSE;
     const proto::ProtoObject* key = args->getAt(ctx, 0);
     if (!key || key == PROTO_NONE) return PROTO_FALSE;
     long long n = wmGetCount(ctx, self);
@@ -1520,6 +1542,13 @@ static const proto::ProtoObject* weakMapConstruct(
     const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
     const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
     if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(0LL));
+    // §24.4.1.1 brand check: stamp __is_weak_map__ so prototype methods
+    // can validate via requireWeakMapThis.  Without this, WeakMap
+    // .prototype.{set,get,has,delete}.call(non-WeakMap, ...) silently
+    // succeeded instead of throwing TypeError.
+    const proto::ProtoObject* brandObj = ctx->fromUTF8String("__is_weak_map__");
+    const proto::ProtoString* brandKey = brandObj ? brandObj->asString(ctx) : nullptr;
+    if (brandKey) self = self->setAttribute(ctx, brandKey, PROTO_TRUE);
     return const_cast<proto::ProtoObject*>(self);
 }
 
