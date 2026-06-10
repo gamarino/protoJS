@@ -17,6 +17,7 @@ extern "C" {
 #include "../SetPrototype.h"
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
+#include "../IteratorPrototype.h"
 #include "../ProxyBuiltin.h"
 #include "../FunctionPrototype.h"
 #include "../DatePrototype.h"
@@ -13758,9 +13759,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH(); // continue executing async body synchronously
                 }
 
-                // Build the iterator object.
-                const proto::ProtoObject* iterObj = pContext->newObject(true);
+                // Build the iterator object, parented at %IteratorPrototype%
+                // so [@@iterator] returning this and [@@toStringTag] =
+                // "Iterator" surface via the chain, with the generator's own
+                // [@@toStringTag] = "Generator" overriding per §27.5.1.5.
+                const proto::ProtoObject* iterParent = protojs::getIteratorPrototype(pContext);
+                const proto::ProtoObject* iterObj = iterParent
+                    ? iterParent->newChild(pContext, true)
+                    : pContext->newObject(true);
                 if (!iterObj) return PROTO_NONE;
+                // §27.5.1.5: %GeneratorPrototype%[@@toStringTag] === "Generator".
+                {
+                    const proto::ProtoString* tagK = JSSymbols::symbolToStringTag(pContext);
+                    if (tagK) {
+                        iterObj = iterObj->setAttribute(pContext, tagK,
+                            pContext->fromUTF8String("Generator"));
+                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_Symbol.toStringTag__");
+                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                        if (pdk) iterObj = iterObj->setAttribute(pContext, pdk,
+                            pContext->fromInteger(0x2LL));
+                    }
+                    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(pContext);
+                    if (hnwK) iterObj = iterObj->setAttribute(pContext, hnwK, PROTO_TRUE);
+                }
 
                 // Helper lambdas: set attributes on iterObj.
                 auto setA = [&](const char* name, const proto::ProtoObject* val) {
