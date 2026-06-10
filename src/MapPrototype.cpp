@@ -1532,6 +1532,140 @@ static const proto::ProtoObject* weakMapDelete(
     return PROTO_FALSE;
 }
 
+// ES2025+ §24.4.3.3a WeakMap.prototype.getOrInsert(key, value).
+static const proto::ProtoObject* weakMapGetOrInsert(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireWeakMapThis(ctx, self, "getOrInsert")) return PROTO_NONE;
+    if (!args || args->getSize(ctx) < 1) return PROTO_NONE;
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key || key == PROTO_NONE) return PROTO_NONE;
+    const proto::ProtoObject* value = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
+    // Reject non-object keys (step 4).
+    if (key->isString(ctx) || key->isInteger(ctx)
+        || key->isDouble(ctx) || key->isFloat(ctx)
+        || key->isBoolean(ctx)
+        || key == getNullSentinel() || key == getUndefinedSentinel()
+        || key == PROTO_TRUE || key == PROTO_FALSE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Invalid value used as weak map key"));
+        return PROTO_NONE;
+    }
+    // Lookup existing.
+    long long n = wmGetCount(ctx, self);
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) {
+            std::string vstr = "__wm_" + std::to_string(i) + "_val__";
+            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+            return vs ? self->getAttribute(ctx, vs, false) : PROTO_NONE;
+        }
+    }
+    // Insert (n, key, value).
+    std::string kstr = "__wm_" + std::to_string(n) + "_key__";
+    std::string vstr = "__wm_" + std::to_string(n) + "_val__";
+    const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+    const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+    if (ks) self = self->setAttribute(ctx, ks, key);
+    if (vs) self = self->setAttribute(ctx, vs, value ? value : PROTO_NONE);
+    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
+    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n + 1));
+    return value ? value : PROTO_NONE;
+}
+
+// ES2025+ §24.4.3.3b WeakMap.prototype.getOrInsertComputed(key, callbackfn).
+static const proto::ProtoObject* weakMapGetOrInsertComputed(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!ctx || !self || self == PROTO_NONE) return PROTO_NONE;
+    if (!requireWeakMapThis(ctx, self, "getOrInsertComputed")) return PROTO_NONE;
+    if (!args || args->getSize(ctx) < 2) return PROTO_NONE;
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    const proto::ProtoObject* cb  = args->getAt(ctx, 1);
+    if (!key || key == PROTO_NONE) return PROTO_NONE;
+    // Validate callable (step 4).
+    bool cbCallable = cb && cb != PROTO_NONE && (
+        cb->isMethod(ctx) ||
+        (JSSymbols::bytecodeId(ctx) && cb->hasAttribute(ctx, JSSymbols::bytecodeId(ctx)) == PROTO_TRUE) ||
+        (JSSymbols::nativeFn(ctx) && cb->hasAttribute(ctx, JSSymbols::nativeFn(ctx)) == PROTO_TRUE) ||
+        (JSSymbols::boundFn(ctx) && cb->hasAttribute(ctx, JSSymbols::boundFn(ctx)) == PROTO_TRUE));
+    if (!cbCallable) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "WeakMap.prototype.getOrInsertComputed callbackfn must be callable"));
+        return PROTO_NONE;
+    }
+    // Reject non-object keys (step 5).
+    if (key->isString(ctx) || key->isInteger(ctx)
+        || key->isDouble(ctx) || key->isFloat(ctx)
+        || key->isBoolean(ctx)
+        || key == getNullSentinel() || key == getUndefinedSentinel()
+        || key == PROTO_TRUE || key == PROTO_FALSE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Invalid value used as weak map key"));
+        return PROTO_NONE;
+    }
+    // Lookup existing.
+    long long n = wmGetCount(ctx, self);
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) {
+            std::string vstr = "__wm_" + std::to_string(i) + "_val__";
+            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+            return vs ? self->getAttribute(ctx, vs, false) : PROTO_NONE;
+        }
+    }
+    // Invoke callbackfn(key) (step 8) and capture the result.
+    const proto::ProtoList* cbArgs = ctx->newList();
+    cbArgs = cbArgs->appendLast(ctx, key);
+    const proto::ProtoObject* value = callJSFunction(ctx, cb, PROTO_NONE, cbArgs);
+    if (hasCallException()) return PROTO_NONE;
+    // Re-check (callbackfn may have mutated the map mid-call).
+    n = wmGetCount(ctx, self);
+    for (long long i = 0; i < n; i++) {
+        std::string kstr = "__wm_" + std::to_string(i) + "_key__";
+        const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+        const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+        if (!ks) continue;
+        if (self->getAttribute(ctx, ks, false) == key) {
+            // Mutate the existing slot to the new value (spec step 9.a.iii).
+            std::string vstr = "__wm_" + std::to_string(i) + "_val__";
+            const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+            const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+            if (vs) self->setAttribute(ctx, vs, value ? value : PROTO_NONE);
+            return value ? value : PROTO_NONE;
+        }
+    }
+    // Insert new entry.
+    std::string kstr = "__wm_" + std::to_string(n) + "_key__";
+    std::string vstr = "__wm_" + std::to_string(n) + "_val__";
+    const proto::ProtoObject* ko = ctx->fromUTF8String(kstr.c_str());
+    const proto::ProtoObject* vo = ctx->fromUTF8String(vstr.c_str());
+    const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+    const proto::ProtoString* vs = vo ? vo->asString(ctx) : nullptr;
+    if (ks) self = self->setAttribute(ctx, ks, key);
+    if (vs) self = self->setAttribute(ctx, vs, value ? value : PROTO_NONE);
+    const proto::ProtoObject* nObj = ctx->fromUTF8String("__wm_n__");
+    const proto::ProtoString* nKey = nObj ? nObj->asString(ctx) : nullptr;
+    if (nKey) self = self->setAttribute(ctx, nKey, ctx->fromInteger(n + 1));
+    return value ? value : PROTO_NONE;
+}
+
 static const proto::ProtoObject* weakMapConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList* /*args*/,
@@ -1572,6 +1706,8 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
         { "get",    weakMapGet,    1 },
         { "has",    weakMapHas,    1 },
         { "delete", weakMapDelete, 1 },
+        { "getOrInsert",         weakMapGetOrInsert,         2 },
+        { "getOrInsertComputed", weakMapGetOrInsertComputed, 2 },
         { nullptr,  nullptr,       0 }
     };
     for (int i = 0; kMethods[i].name; i++)
