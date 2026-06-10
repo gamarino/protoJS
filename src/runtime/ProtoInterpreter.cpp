@@ -9232,11 +9232,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // __has_accessor_props__).  When Object.defineProperty
                 // installs a getter at an integer-named index, the
                 // sidecar __get_<idx>__ exists but the fast __elements__
-                // read otherwise wins.  Mirror the OP_get_field accessor
-                // probe so `arr[N]` fires the getter installed via
-                // defineProperty(arr, N, {get,set}).  Pre-fix the
-                // precise-getter-* sort tests masked here because the
-                // getter never ran.
+                // read otherwise wins.  Pre-fix the precise-getter-*
+                // sort tests masked here because the getter never ran.
+                //
+                // Important: own data properties (__elements__ entries
+                // and own indexed sidecars) MUST shadow inherited
+                // accessor descriptors (§10.1.5 OrdinaryGet step 2).
+                // Probe own __get_<idx>__ first; if that misses, fall
+                // through to the fast path so own __elements__ data
+                // wins.  Only walk the chain when neither own data
+                // nor own accessor is present.
                 if (arrIdxFast >= 0) {
                     const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
                     bool maybeHasAccessor = hapK
@@ -9246,7 +9251,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         std::string gkStr = "__get_" + std::to_string(arrIdxFast) + "__";
                         const proto::ProtoObject* gko = pContext->fromUTF8String(gkStr.c_str());
                         const proto::ProtoString* gks = gko ? gko->asString(pContext) : nullptr;
-                        if (gks) {
+                        // OWN-only probe first.
+                        if (gks && obj->hasOwnAttribute(pContext, gks) == PROTO_TRUE) {
+                            const proto::ProtoObject* getter = obj->getAttribute(pContext, gks, false);
+                            if (getter && getter != PROTO_NONE) {
+                                const proto::ProtoObject* r =
+                                    callJSFunction(pContext, getter, obj, pContext->newList());
+                                REFRESH_INTERP_STATE();
+                                if (has_pending_exception) DISPATCH();
+                                pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
+                                DISPATCH();
+                            }
+                        }
+                        // Chain-walk probe ONLY if the receiver has no
+                        // own data at that index (neither in
+                        // __elements__ nor as an indexed sidecar).
+                        const proto::ProtoList* ownEls = protojs::getArrayElements(pContext, obj);
+                        bool ownDenseHit = ownEls &&
+                            arrIdxFast < static_cast<long long>(ownEls->getSize(pContext)) &&
+                            ownEls->getAt(pContext, static_cast<int>(arrIdxFast)) &&
+                            ownEls->getAt(pContext, static_cast<int>(arrIdxFast)) != PROTO_NONE;
+                        bool ownSidecarHit = false;
+                        if (!ownDenseHit) {
+                            const proto::ProtoString* ik =
+                                JSSymbols::indexKey(pContext, static_cast<uint32_t>(arrIdxFast));
+                            if (ik && obj->hasOwnAttribute(pContext, ik) == PROTO_TRUE) {
+                                const proto::ProtoObject* ov = obj->getAttribute(pContext, ik, false);
+                                if (ov && ov != PROTO_NONE) ownSidecarHit = true;
+                            }
+                        }
+                        if (gks && !ownDenseHit && !ownSidecarHit) {
                             const proto::ProtoObject* getter = obj->getAttribute(pContext, gks, true);
                             if (getter && getter != PROTO_NONE) {
                                 const proto::ProtoObject* r =
