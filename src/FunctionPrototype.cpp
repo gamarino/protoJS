@@ -83,11 +83,17 @@ static const proto::ProtoObject* fnCall(
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
     // §10.2.1.2 OrdinaryCallBindThis: non-strict + null/undefined thisArg
-    // → globalThis.  Mirrors the fix in fnApply below.
-    if (thisArg == PROTO_NONE || thisArg == getUndefinedSentinel()
-        || thisArg == getNullSentinel()) {
-        JSContextWrapper* w = JSContextWrapper::current();
-        if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
+    // → globalThis.  Native receivers (Array.prototype.find etc.) are
+    // spec-strict — they must see the nullish thisArg and throw TypeError
+    // themselves.  Apply only to bytecode closures (which carry a
+    // __bytecode_id__ marker).
+    if ((thisArg == PROTO_NONE || thisArg == getUndefinedSentinel()
+         || thisArg == getNullSentinel()) && !self->isMethod(ctx)) {
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
+            JSContextWrapper* w = JSContextWrapper::current();
+            if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
+        }
     }
 
     const proto::ProtoList* callArgs = ctx->newList();
@@ -118,15 +124,17 @@ static const proto::ProtoObject* fnApply(
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* thisArg = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!thisArg) thisArg = PROTO_NONE;
-    // §10.2.1 [[Call]] step 2 + §10.2.1.2 OrdinaryCallBindThis: when
-    // the function is non-strict and thisArg is null/undefined, this
-    // binds to globalThis.  Pre-fix passing thisArg = PROTO_NONE to
-    // callJSFunction left this = undefined inside the body, so
-    // `(function(){this.x=1}).apply()` silently failed.
-    if (thisArg == PROTO_NONE || thisArg == getUndefinedSentinel()
-        || thisArg == getNullSentinel()) {
-        JSContextWrapper* w = JSContextWrapper::current();
-        if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
+    // §10.2.1.2 OrdinaryCallBindThis: bind nullish thisArg → globalThis
+    // only when the callee is a bytecode user closure (non-strict).
+    // Native methods are spec-strict and must see the nullish thisArg
+    // so they can throw TypeError themselves.
+    if ((thisArg == PROTO_NONE || thisArg == getUndefinedSentinel()
+         || thisArg == getNullSentinel()) && !self->isMethod(ctx)) {
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
+            JSContextWrapper* w = JSContextWrapper::current();
+            if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
+        }
     }
     const proto::ProtoObject* argsArray = (argc > 1) ? args->getAt(ctx, 1) : nullptr;
     // §20.2.3.1 step 4 + §7.3.18 CreateListFromArrayLike: argArray must
