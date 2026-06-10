@@ -851,6 +851,41 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
             }
         }
 
+        // Re-parent Symbol.prototype.{toString, valueOf, @@toPrimitive}
+        // and Symbol.{for, keyFor} statics. They were installed by the
+        // Symbol bootstrap in needsGlobalInit BEFORE the user code can
+        // run but BEFORE ensureFunctionPrototype is reached, so their
+        // method wrappers also point at the empty objectPrototype
+        // snapshot and lack .call/.apply/.bind.
+        {
+            const proto::ProtoString* symGKO = ctx->fromUTF8String("Symbol")
+                ? ctx->fromUTF8String("Symbol")->asString(ctx) : nullptr;
+            const proto::ProtoObject* symCtor = (symGKO && globalRoot && *globalRoot)
+                ? (*globalRoot)->getAttribute(ctx, symGKO, false) : nullptr;
+            if (symCtor && symCtor != PROTO_NONE) {
+                static const char* kSymStatics[] = { "for", "keyFor", nullptr };
+                for (int i = 0; kSymStatics[i]; ++i) {
+                    const proto::ProtoObject* nko = ctx->fromUTF8String(kSymStatics[i]);
+                    const proto::ProtoString* nk = nko ? nko->asString(ctx) : nullptr;
+                    const proto::ProtoObject* w = nk ? symCtor->getAttribute(ctx, nk, false) : nullptr;
+                    if (w && w != PROTO_NONE) w->addParent(ctx, fp);
+                }
+                const proto::ProtoString* pk = JSSymbols::prototype(ctx);
+                const proto::ProtoObject* symProto = pk ? symCtor->getAttribute(ctx, pk, false) : nullptr;
+                if (symProto && symProto != PROTO_NONE) {
+                    static const char* kSymMethods[] = {
+                        "toString", "valueOf", "Symbol.toPrimitive", nullptr
+                    };
+                    for (int i = 0; kSymMethods[i]; ++i) {
+                        const proto::ProtoObject* nko = ctx->fromUTF8String(kSymMethods[i]);
+                        const proto::ProtoString* nk = nko ? nko->asString(ctx) : nullptr;
+                        const proto::ProtoObject* w = nk ? symProto->getAttribute(ctx, nk, false) : nullptr;
+                        if (w && w != PROTO_NONE) w->addParent(ctx, fp);
+                    }
+                }
+            }
+        }
+
         // Same re-parenting pass for the JSON namespace's stringify /
         // parse wrappers. ProtoNativeModule::buildModule allocated them
         // through methodPrototype which, at JSONBuiltin::init time,
