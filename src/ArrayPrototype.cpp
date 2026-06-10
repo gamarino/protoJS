@@ -1756,9 +1756,12 @@ static const proto::ProtoObject* arrayPop(
     const proto::ProtoObject* removed = arrGet(ctx, self, lastIdx);
     if (hasCallException()) return PROTO_NONE;
     // §23.1.3.21 step 4.e: DeletePropertyOrThrow(O, lastIdx).
+    // setAttribute(nullptr) does the canonical implRemoveAt delete so
+    // inherited values surface (Sputnik S15.4.4.6_A4_T1: x.length=2;
+    // Array.prototype[1]=1; x.pop() should return 1).
     const proto::ProtoString* idxKey =
         JSSymbols::indexKey(ctx, static_cast<uint32_t>(lastIdx));
-    if (idxKey) self->setAttribute(ctx, idxKey, PROTO_NONE);
+    if (idxKey) self->setAttribute(ctx, idxKey, nullptr);
     // §23.1.3.21 step 4.f: Set(O, 'length', lastIdx, true).  arrSetLen
     // honours __pd_length__ writable bit — if the user installed a
     // non-writable length descriptor (potentially inside the arrGet
