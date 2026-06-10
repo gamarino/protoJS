@@ -387,6 +387,71 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 32 — 2026-06-10** (+44 tests in 4 measured families) —
+closed out the remaining R31 deferred blockers:
+
+  * **RegExp literal flag recovery**.  `/abc/g`, `/x/i`, `/y/gi`,
+    `/x/m`, `/x/su` etc. previously lost their flag bits because the
+    QJS-emitted bytecode operand crossed TypeBridge via `JS_ToCString`
+    (stops at first NUL).  Read the surviving prefix bytes as the LRE
+    flag bitmap and pass the reconstructed flag string as the second
+    arg to `regexpConstructor`.  Recovers the common single- and
+    short-multi-flag cases; combos that include `LRE_FLAG_NAMED_GROUPS`
+    (0x100) silently fall back to whatever low-byte flags we
+    recovered.
+  * **`%IteratorPrototype%` chain (§27.1.2)**.  Introduce the shared
+    intermediate prototype carrying `[@@iterator]` returning `this`
+    and `[@@toStringTag] = "Iterator"` (pd 0x2 + the
+    `__has_nonwritable_props__` per-target gate).  Re-parent the
+    Array / String / RegExp String iterator prototypes onto it and
+    promote the Map / Set / RegExp String iterators from per-instance
+    `next` installs to shared `%XIteratorPrototype%` objects, each
+    with `@@toStringTag` = "Map Iterator" / "Set Iterator" / "RegExp
+    String Iterator" and a §17-shaped `next` (own `name = "next"` /
+    `length = 0`, pd 0x2; slot pd 0x3).  Unblocks the
+    built-ins/IteratorPrototype + sibling /next/name + Symbol.toStringTag
+    /property-descriptor families (12 → 22 in the iterator sub-bucket,
+    +10).
+  * **`Function.prototype.caller` / `.arguments` poison accessors
+    (§10.2.4)**.  Both `[[Get]]` and `[[Set]]` are the shared
+    `%ThrowTypeError%` per spec; install `__get_caller__` /
+    `__set_caller__` / `__get_arguments__` / `__set_arguments__`
+    sidecars pointing at the same throwing ProtoMethod, plus pd 0x2
+    {enumerable:false, configurable:true} accessor descriptor and the
+    `__has_accessor_props__` hint.
+  * **Array.prototype.sort hole preservation (§23.1.3.30 step 6)**.
+    Two compounded fixes: (a) the scan loop now reads `__elements__`
+    directly so PROTO_NONE-padded in-range slots are recognised as
+    HOLES rather than as explicit-undefined (`arrHas` intentionally
+    conflates the two for forEach/indexOf, but sort must distinguish);
+    (b) the write-back loop clears trailing hole positions via both
+    `arrayTryFastSet(PROTO_NONE)` on `__elements__` AND
+    `setAttribute(indexKey, PROTO_NONE)` on the sidecar — the same
+    canonical "delete own data attribute" pattern copyWithin uses.
+    Bug_596_2 and the wider sparse-sort `.hasOwnProperty` probes
+    pass.  Also bucket PROTO_NONE-via-sidecar (the literal `[, void 0]`
+    storage form) as undefined rather than as a defined value.
+
+10-family roll-up (partial, post-R32):
+Function 345 → 364 (+19), String 1020 → 1040 (+20),
+Object 3001 → 3005 (+4), Array 2737 → 2738 (+1).
+Iterator sub-bucket (cascading from %IteratorPrototype%): 12 → 22
+(+10).  Estimated total **8575 → ~8619 / 9823** (~87.7 %) on the four
+re-measured families; full 10-family re-measurement deferred.
+
+Structural items left unfixed in this round (require larger changes):
+  * **Proxy** — typeof Proxy says "function" but trap dispatch is a
+    no-op; needs OP_get_field / OP_set_field / OP_has_field / OP_call
+    integration plus Reflect invariant checking.  Punted again as a
+    multi-week investment.
+  * **Array.prototype.sort precise getter/setter side effects** —
+    the precise-getter-* / precise-setter-* family probes that the
+    comparator observes intermediate read/writes; we batch reads then
+    write back, so those side effects don't materialise in the
+    expected order.
+
+---
+
 **Round 31 — 2026-06-10** (+43 tests) — attacked the three structural
 blockers documented at the close of R30:
 
