@@ -3201,12 +3201,52 @@ static const proto::ProtoObject* objectToString(
     if (nullSentinel && self == nullSentinel)
         return ctx->fromUTF8String("[object Null]");
 
-    if (self->isBoolean(ctx))
-        return ctx->fromUTF8String("[object Boolean]");
-    if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx))
-        return ctx->fromUTF8String("[object Number]");
-    if (self->isString(ctx))
-        return ctx->fromUTF8String("[object String]");
+    // §22.1.3.7 step 14-17: compute builtinTag, then ALWAYS probe
+    // @@toStringTag; if Type(tag) is String, override builtinTag.
+    // For primitives we route the @@toStringTag probe through the
+    // matching wrapper prototype so user overrides on Boolean.prototype
+    // / Number.prototype / String.prototype propagate to the primitive
+    // value (built-ins/Object/prototype/toString/symbol-tag-override-
+    // primitives.js).
+    const char* primitiveBuiltinTag = nullptr;
+    const proto::ProtoObject* tagSource = self;
+    if (self->isBoolean(ctx)) {
+        primitiveBuiltinTag = "Boolean";
+        if (ctx->space && ctx->space->booleanPrototype)
+            tagSource = ctx->space->booleanPrototype;
+    } else if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx)) {
+        primitiveBuiltinTag = "Number";
+        if (ctx->space && ctx->space->smallIntegerPrototype)
+            tagSource = ctx->space->smallIntegerPrototype;
+    } else if (self->isString(ctx)) {
+        primitiveBuiltinTag = "String";
+        if (ctx->space && ctx->space->stringPrototype)
+            tagSource = reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype);
+    }
+    if (primitiveBuiltinTag) {
+        const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
+        const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+        if (tagK) {
+            const proto::ProtoObject* val = tagSource->getAttribute(ctx, tagK, true);
+            if (val && val != PROTO_NONE && val->isString(ctx)) {
+                const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+                bool isSym = symMk && val->getAttribute(ctx, symMk, true) == PROTO_TRUE;
+                if (!isSym) {
+                    std::string tag;
+                    val->asString(ctx)->toUTF8String(ctx, tag);
+                    if (tag.compare(0, 7, "Symbol.") != 0
+                        && tag.compare(0, 7, "Symbol(") != 0) {
+                        std::string out = "[object " + tag + "]";
+                        return ctx->fromUTF8String(out.c_str());
+                    }
+                }
+            }
+        }
+        std::string out = "[object ";
+        out += primitiveBuiltinTag;
+        out += "]";
+        return ctx->fromUTF8String(out.c_str());
+    }
 
     // Function: JS closure (__bytecode_id__), native ProtoMethod, or wrapped
     // native function (__native_fn__ holds a ProtoMethod pointer).
@@ -3291,17 +3331,16 @@ static const proto::ProtoObject* objectToString(
     // `Boolean.prototype.toString()` (which resolves to
     // Object.prototype.toString) returned "[object Object]"
     // instead of the spec-required "[object Boolean]".
+    const char* wrapperBuiltinTag = nullptr;
     {
         const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
         if (pvKey) {
             const proto::ProtoObject* pv = self->getAttribute(ctx, pvKey, false);
             if (pv && pv != PROTO_NONE) {
-                if (pv->isBoolean(ctx))
-                    return ctx->fromUTF8String("[object Boolean]");
-                if (pv->isInteger(ctx) || pv->isDouble(ctx) || pv->isFloat(ctx))
-                    return ctx->fromUTF8String("[object Number]");
-                if (pv->isString(ctx))
-                    return ctx->fromUTF8String("[object String]");
+                if (pv->isBoolean(ctx)) wrapperBuiltinTag = "Boolean";
+                else if (pv->isInteger(ctx) || pv->isDouble(ctx) || pv->isFloat(ctx))
+                    wrapperBuiltinTag = "Number";
+                else if (pv->isString(ctx)) wrapperBuiltinTag = "String";
             }
         }
     }
@@ -3353,6 +3392,12 @@ static const proto::ProtoObject* objectToString(
         }
     }
 
+    if (wrapperBuiltinTag) {
+        std::string out = "[object ";
+        out += wrapperBuiltinTag;
+        out += "]";
+        return ctx->fromUTF8String(out.c_str());
+    }
     return ctx->fromUTF8String("[object Object]");
 }
 
