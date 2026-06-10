@@ -1,6 +1,8 @@
 #include "ProxyBuiltin.h"
 #include "JSSymbols.h"
+#include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
+#include <cmath>
 
 namespace protojs {
 
@@ -69,6 +71,128 @@ static const proto::ProtoObject* lookupTrap(
     return nullptr;
 }
 
+// ---------------------------------------------------------------------------
+// Invariant helpers — used by the trap dispatchers to enforce the
+// §10.5.* "validate" steps after the user handler returns.  We probe
+// the target's own __pd_<key>__ descriptor sidecar (bit layout: 0x1 =
+// writable, 0x2 = configurable, 0x4 = enumerable) and the
+// NonExtensibleMarker the wrapper attaches via Object.preventExtensions /
+// .seal / .freeze.
+
+struct OwnDescriptor {
+    bool present = false;            // target has this as an own property
+    bool isAccessor = false;         // accessor (vs data) descriptor
+    bool writable = true;            // data only — true if writable
+    bool configurable = true;        // true if configurable
+    bool hasGetter = false;          // accessor only — true if non-undefined
+    bool hasSetter = false;          // accessor only — true if non-undefined
+    const proto::ProtoObject* value = nullptr; // data: the value
+};
+
+static int probeDescriptorBits(proto::ProtoContext* ctx,
+                                const proto::ProtoObject* target,
+                                const proto::ProtoString* key,
+                                const std::string& kstr) {
+    // Default bits when no sidecar present: {writable, enumerable,
+    // configurable} = 7.  Per defineProperty's normalisation path,
+    // freshly created own data props that omit the descriptor have
+    // ALL flags set.
+    const std::string pdStr = "__pd_" + kstr + "__";
+    const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
+    const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+    if (!pdk) return 0x7;
+    if (target->hasOwnAttribute(ctx, pdk) != PROTO_TRUE) return 0x7;
+    const proto::ProtoObject* pdv = target->getAttribute(ctx, pdk, false);
+    if (!pdv || pdv == PROTO_NONE || !pdv->isInteger(ctx)) return 0x7;
+    return static_cast<int>(pdv->asLong(ctx));
+}
+
+static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
+                                          const proto::ProtoObject* target,
+                                          const proto::ProtoString* key) {
+    OwnDescriptor d;
+    if (!target || target == PROTO_NONE || !key) return d;
+    std::string kstr; key->toUTF8String(ctx, kstr);
+
+    // Accessor descriptor: own __get_<key>__ or __set_<key>__ present.
+    const std::string gks = "__get_" + kstr + "__";
+    const std::string sks = "__set_" + kstr + "__";
+    const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
+    const proto::ProtoObject* sko = ctx->fromUTF8String(sks.c_str());
+    const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+    const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+    bool hasOwnGetter = gk && target->hasOwnAttribute(ctx, gk) == PROTO_TRUE;
+    bool hasOwnSetter = sk && target->hasOwnAttribute(ctx, sk) == PROTO_TRUE;
+    if (hasOwnGetter || hasOwnSetter) {
+        d.present = true;
+        d.isAccessor = true;
+        if (hasOwnGetter) {
+            const proto::ProtoObject* gv = target->getAttribute(ctx, gk, false);
+            d.hasGetter = gv && gv != PROTO_NONE;
+        }
+        if (hasOwnSetter) {
+            const proto::ProtoObject* sv = target->getAttribute(ctx, sk, false);
+            d.hasSetter = sv && sv != PROTO_NONE;
+        }
+        int bits = probeDescriptorBits(ctx, target, key, kstr);
+        d.configurable = (bits & 0x2) != 0;
+        return d;
+    }
+
+    // Data descriptor: probed via hasOwnAttribute on the key itself.
+    if (target->hasOwnAttribute(ctx, key) == PROTO_TRUE) {
+        const proto::ProtoObject* v = target->getAttribute(ctx, key, false);
+        // PROTO_NONE-valued own data slot is the "deleted" sentinel
+        // used by the array index delete path — treat as absent.
+        if (v && v != PROTO_NONE) {
+            d.present = true;
+            d.value = v;
+            int bits = probeDescriptorBits(ctx, target, key, kstr);
+            d.writable = (bits & 0x1) != 0;
+            d.configurable = (bits & 0x2) != 0;
+        }
+    }
+    return d;
+}
+
+static bool isTargetNonExtensible(proto::ProtoContext* ctx,
+                                    const proto::ProtoObject* target) {
+    if (!target || target == PROTO_NONE) return false;
+    JSContextWrapper* w = JSContextWrapper::current();
+    if (!w) return false;
+    const proto::ProtoObject* nem = w->getNonExtensibleMarker();
+    return nem && target->hasParent(ctx, nem);
+}
+
+// SameValue per §7.2.10.  For the invariant checks we only need the
+// primitive cases plus pointer-identity for objects.
+static bool sameValue(proto::ProtoContext* ctx,
+                       const proto::ProtoObject* a,
+                       const proto::ProtoObject* b) {
+    if (a == b) return true;
+    if (!a || !b || a == PROTO_NONE || b == PROTO_NONE) return false;
+    if (a->isInteger(ctx) && b->isInteger(ctx))
+        return a->asLong(ctx) == b->asLong(ctx);
+    if ((a->isDouble(ctx) || a->isFloat(ctx) || a->isInteger(ctx)) &&
+        (b->isDouble(ctx) || b->isFloat(ctx) || b->isInteger(ctx))) {
+        double da = a->isInteger(ctx) ? (double)a->asLong(ctx) : a->asDouble(ctx);
+        double db = b->isInteger(ctx) ? (double)b->asLong(ctx) : b->asDouble(ctx);
+        // NaN === NaN per SameValue.
+        if (da != da && db != db) return true;
+        // +0 vs -0 are distinct under SameValue.
+        if (da == 0.0 && db == 0.0) return std::signbit(da) == std::signbit(db);
+        return da == db;
+    }
+    const proto::ProtoString* sa = a->asString(ctx);
+    const proto::ProtoString* sb = b->asString(ctx);
+    if (sa && sb) {
+        std::string xa, xb;
+        sa->toUTF8String(ctx, xa); sb->toUTF8String(ctx, xb);
+        return xa == xb;
+    }
+    return false;
+}
+
 // Default [[Get]] on a non-proxy object: chain-walking getAttribute
 // with accessor descriptor support.  Mirrors what L_OP_get_field
 // would have done.
@@ -109,7 +233,33 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         a = a->appendLast(ctx, receiver ? receiver : proxy);
-        return callJSFunction(ctx, trap, handler, a);
+        const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
+        // §10.5.8 step 9: validate the trap result against the target's
+        // own descriptor when it is non-configurable.
+        OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+        if (od.present && !od.configurable) {
+            if (!od.isAccessor) {
+                // 9.a: non-configurable, non-writable data → result must
+                // SameValue target's value.
+                if (!od.writable && !sameValue(ctx, res, od.value)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'get' on proxy: property descriptor is "
+                        "non-configurable and non-writable but trap "
+                        "returned a different value"));
+                    return PROTO_NONE;
+                }
+            } else if (!od.hasGetter) {
+                // 9.b: accessor with undefined [[Get]] → trap must return undefined.
+                if (res && res != PROTO_NONE) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'get' on proxy: property descriptor is a "
+                        "non-configurable accessor with undefined getter "
+                        "but trap returned a value"));
+                    return PROTO_NONE;
+                }
+            }
+        }
+        return res;
     }
     return defaultGet(ctx, target, propKey);
 }
@@ -134,13 +284,29 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, value ? value : PROTO_NONE);
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        // ECMA-262 §9.5.9 step 9: if the trap returns falsy in strict
-        // mode the assignment must throw a TypeError; out here we
-        // surface the boolean and let the caller decide.
-        if (!r || r == PROTO_NONE) return PROTO_FALSE;
-        if (r == PROTO_FALSE || r == PROTO_TRUE) return r;
-        // Truthy non-boolean → PROTO_TRUE; falsy → PROTO_FALSE.
-        return r ? PROTO_TRUE : PROTO_FALSE;
+        bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
+        // §10.5.9 step 11: if trap returned a truthy result, validate
+        // against the target's own descriptor when non-configurable.
+        if (truthy) {
+            OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+            if (od.present && !od.configurable) {
+                if (!od.isAccessor) {
+                    if (!od.writable && !sameValue(ctx, value, od.value)) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "'set' on proxy: trap returned truthy for "
+                            "non-configurable, non-writable property with "
+                            "different value"));
+                        return PROTO_FALSE;
+                    }
+                } else if (!od.hasSetter) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'set' on proxy: trap returned truthy for "
+                        "non-configurable accessor property with no setter"));
+                    return PROTO_FALSE;
+                }
+            }
+        }
+        return truthy ? PROTO_TRUE : PROTO_FALSE;
     }
     // No trap: write directly to target.
     if (propKey) {
@@ -166,8 +332,26 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        if (!r || r == PROTO_NONE || r == PROTO_FALSE) return PROTO_FALSE;
-        return PROTO_TRUE;
+        bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
+        // §10.5.7 step 9: if trap returned falsy, validate against the
+        // target's own descriptor.  Non-configurable owns and owns on
+        // non-extensible targets cannot be hidden by the trap.
+        if (!truthy) {
+            OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+            if (od.present && !od.configurable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'has' on proxy: trap returned falsy for "
+                    "non-configurable own property"));
+                return PROTO_FALSE;
+            }
+            if (od.present && isTargetNonExtensible(ctx, target)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'has' on proxy: trap returned falsy for "
+                    "an own property of a non-extensible target"));
+                return PROTO_FALSE;
+            }
+        }
+        return truthy ? PROTO_TRUE : PROTO_FALSE;
     }
     // Default: walk the chain like the `in` operator.
     if (propKey && target->hasAttribute(ctx, propKey) == PROTO_TRUE)
@@ -191,8 +375,26 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
-        if (!r || r == PROTO_NONE || r == PROTO_FALSE) return PROTO_FALSE;
-        return PROTO_TRUE;
+        bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
+        // §10.5.10 step 9: if trap returned truthy, validate against the
+        // target's own descriptor.  Non-configurable owns cannot be
+        // deleted, and owns on non-extensible targets cannot vanish.
+        if (truthy) {
+            OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+            if (od.present && !od.configurable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'deleteProperty' on proxy: trap returned truthy for "
+                    "non-configurable own property"));
+                return PROTO_FALSE;
+            }
+            if (od.present && isTargetNonExtensible(ctx, target)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'deleteProperty' on proxy: trap returned truthy for "
+                    "an own property of a non-extensible target"));
+                return PROTO_FALSE;
+            }
+        }
+        return truthy ? PROTO_TRUE : PROTO_FALSE;
     }
     if (propKey) {
         const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, PROTO_NONE);

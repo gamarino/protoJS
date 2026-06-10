@@ -1137,7 +1137,28 @@ static const proto::ProtoObject* reflectGetPrototypeOf(
             const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
             const proto::ProtoList* trapArgs = ctx->newList();
             trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
-            return callJSFunction(ctx, trap, handler, trapArgs);
+            const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, trapArgs);
+            // §10.5.1 step 8: if target is non-extensible, the result must
+            // SameValue target.[[GetPrototypeOf]]().
+            JSContextWrapper* w = JSContextWrapper::current();
+            if (inner && w && w->getNonExtensibleMarker()
+                && inner->hasParent(ctx, w->getNonExtensibleMarker())) {
+                const proto::ProtoObject* override_ = protojs::getJSProtoOverride(inner);
+                const proto::ProtoObject* actual = override_
+                    ? override_
+                    : ((inner->getPrototype(ctx) && inner->getPrototype(ctx) != PROTO_NONE)
+                        ? inner->getPrototype(ctx) : getNullSentinel());
+                const proto::ProtoObject* normalRes =
+                    (!res || res == PROTO_NONE) ? getNullSentinel() : res;
+                if (normalRes != actual) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'getPrototypeOf' on proxy: trap returned a "
+                        "prototype that differs from the actual prototype "
+                        "of a non-extensible target"));
+                    return PROTO_NONE;
+                }
+            }
+            return res;
         }
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_NONE;
@@ -1164,7 +1185,18 @@ static const proto::ProtoObject* reflectIsExtensible(
             const proto::ProtoList* trapArgs = ctx->newList();
             trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
-            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+            bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
+            // §10.5.3 step 6: trap result must equal target.[[IsExtensible]]().
+            JSContextWrapper* w = JSContextWrapper::current();
+            bool targetExtensible = !(inner && w && w->getNonExtensibleMarker()
+                && inner->hasParent(ctx, w->getNonExtensibleMarker()));
+            if (truthy != targetExtensible) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'isExtensible' on proxy: trap result inconsistent "
+                    "with the target's extensibility state"));
+                return PROTO_FALSE;
+            }
+            return truthy ? PROTO_TRUE : PROTO_FALSE;
         }
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_FALSE;
@@ -1196,7 +1228,23 @@ static const proto::ProtoObject* reflectPreventExtensions(
             const proto::ProtoList* trapArgs = ctx->newList();
             trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
-            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+            bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
+            // §10.5.4 step 5: if trap returned truthy, the target must
+            // actually be non-extensible afterwards.  The handler is
+            // expected to call Object.preventExtensions(target) before
+            // returning true; protoJS doesn't auto-propagate.
+            if (truthy) {
+                JSContextWrapper* w = JSContextWrapper::current();
+                bool stillExtensible = !(inner && w && w->getNonExtensibleMarker()
+                    && inner->hasParent(ctx, w->getNonExtensibleMarker()));
+                if (stillExtensible) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'preventExtensions' on proxy: trap returned truthy "
+                        "but the target is still extensible"));
+                    return PROTO_FALSE;
+                }
+            }
+            return truthy ? PROTO_TRUE : PROTO_FALSE;
         }
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_FALSE;
@@ -1331,11 +1379,37 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
         if (trap) {
             const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
             const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+            const proto::ProtoObject* requestedProto = (args->getSize(ctx) > 1)
+                ? args->getAt(ctx, 1) : PROTO_NONE;
             const proto::ProtoList* trapArgs = ctx->newList();
             trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
-            if (args->getSize(ctx) > 1) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 1));
+            trapArgs = trapArgs->appendLast(ctx, requestedProto);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
-            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
+            bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
+            // §10.5.2 step 9: if target is non-extensible AND trap
+            // returned truthy AND the new proto differs from target's
+            // actual proto → throw.
+            if (truthy) {
+                JSContextWrapper* w = JSContextWrapper::current();
+                if (inner && w && w->getNonExtensibleMarker()
+                    && inner->hasParent(ctx, w->getNonExtensibleMarker())) {
+                    const proto::ProtoObject* override_ = protojs::getJSProtoOverride(inner);
+                    const proto::ProtoObject* actual = override_
+                        ? override_
+                        : ((inner->getPrototype(ctx) && inner->getPrototype(ctx) != PROTO_NONE)
+                            ? inner->getPrototype(ctx) : getNullSentinel());
+                    const proto::ProtoObject* req =
+                        (!requestedProto || requestedProto == PROTO_NONE) ? getNullSentinel() : requestedProto;
+                    if (req != actual) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "'setPrototypeOf' on proxy: trap returned truthy "
+                            "for a non-extensible target with a different "
+                            "proposed prototype"));
+                        return PROTO_FALSE;
+                    }
+                }
+            }
+            return truthy ? PROTO_TRUE : PROTO_FALSE;
         }
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_FALSE;
@@ -7938,6 +8012,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (name && protojs::isProxy(pContext, obj)) {
                     val = protojs::proxyDispatchGet(pContext, obj, name, obj);
                     REFRESH_INTERP_STATE();
+                    if (t_hasCallException) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
+                        DISPATCH();
+                    }
                     if (has_pending_exception) DISPATCH();
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
                     DISPATCH();
@@ -7980,6 +8061,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // for subsequent method-call patterns).
                 if (key && protojs::isProxy(pContext, obj)) {
                     const proto::ProtoObject* val = protojs::proxyDispatchGet(pContext, obj, key, obj);
+                    if (t_hasCallException) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
+                        DISPATCH();
+                    }
                     if (has_pending_exception) DISPATCH();
                     stackPush(pContext, val ? val : PROTO_NONE);
                     DISPATCH();
@@ -8022,6 +8110,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // returned boolean (OP_put_field does not push anything).
                 if (protojs::isProxy(pContext, obj)) {
                     protojs::proxyDispatchSet(pContext, obj, key, val, obj);
+                    if (t_hasCallException) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
+                    }
                     DISPATCH();
                 }
 
@@ -10980,6 +11074,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // Proxy receiver → dispatch to handler.has.
                 if (key && protojs::isProxy(pContext, obj)) {
                     const proto::ProtoObject* r = protojs::proxyDispatchHas(pContext, obj, key);
+                    if (t_hasCallException) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
+                        DISPATCH();
+                    }
                     if (has_pending_exception) DISPATCH();
                     stackPush(pContext, r);
                     DISPATCH();
