@@ -3316,8 +3316,22 @@ static const proto::ProtoObject* objectToString(
             if (!key) return {};
             const proto::ProtoObject* val = self->getAttribute(ctx, key, true);
             if (!val || val == PROTO_NONE || !val->isString(ctx)) return {};
+            // §22.1.3.7 step 18: if Type(tag) is not String, fall back to
+            // the builtin tag.  In protoJS well-known Symbols are encoded
+            // as ProtoStrings ("Symbol.iterator", etc.) so the
+            // isString check alone passes them through.  Distinguish a
+            // bona-fide JS Symbol via the __is_symbol__ marker on the
+            // value object before returning the textual tag.
+            const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+            if (symMk && val->getAttribute(ctx, symMk, true) == PROTO_TRUE) return {};
+            // Symbol-as-string textual encoding: any value that looks
+            // like "Symbol." or "Symbol(" came from a well-known or
+            // user-created Symbol in protoJS's storage representation
+            // and must be treated as a Symbol per the spec, not a
+            // String.
             std::string tag;
             val->asString(ctx)->toUTF8String(ctx, tag);
+            if (tag.compare(0, 7, "Symbol.") == 0 || tag.compare(0, 7, "Symbol(") == 0) return {};
             return tag;
         };
 
