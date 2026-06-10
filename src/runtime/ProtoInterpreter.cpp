@@ -4436,20 +4436,54 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // the sidecar Object.keys(Symbol.prototype)
                                 // leaks them (Symbol/prototype/toString/
                                 // prop-desc.js verifyProperty).
+                                // Wrap each native method in a §17-shaped
+                                // function object so name / length /
+                                // pd descriptors materialise on the
+                                // method itself (built-ins/Symbol/
+                                // prototype/<method>/{name, length,
+                                // prop-desc}.js).
+                                auto wrapSymMethod = [&](proto::ProtoMethod fn,
+                                                         const char* methodName,
+                                                         long long argc) -> const proto::ProtoObject* {
+                                    const proto::ProtoObject* mw = pContext->newObject(true);
+                                    const proto::ProtoString* nfKey = JSSymbols::nativeFn(pContext);
+                                    if (nfKey) mw = mw->setAttribute(pContext, nfKey,
+                                        pContext->fromMethod(nullptr, fn));
+                                    const proto::ProtoString* lenKey = JSSymbols::length(pContext);
+                                    if (lenKey) {
+                                        mw = mw->setAttribute(pContext, lenKey,
+                                            pContext->fromInteger(argc));
+                                        const proto::ProtoString* pdlk = JSSymbols::pdLength(pContext);
+                                        if (pdlk) mw = mw->setAttribute(pContext, pdlk,
+                                            pContext->fromInteger(0x2LL));
+                                    }
+                                    const proto::ProtoString* nmKey = JSSymbols::name(pContext);
+                                    if (nmKey) {
+                                        mw = mw->setAttribute(pContext, nmKey,
+                                            pContext->fromUTF8String(methodName));
+                                        const proto::ProtoString* pdnk = JSSymbols::pdName(pContext);
+                                        if (pdnk) mw = mw->setAttribute(pContext, pdnk,
+                                            pContext->fromInteger(0x2LL));
+                                    }
+                                    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(pContext);
+                                    if (hnwK) mw = mw->setAttribute(pContext, hnwK, PROTO_TRUE);
+                                    return mw;
+                                };
                                 auto setProtoMethod = [&](const proto::ProtoString* key,
                                                           proto::ProtoMethod fn,
-                                                          const char* pdName) {
+                                                          const char* pdName,
+                                                          long long argc) {
                                     if (!key) return;
                                     symProto = symProto->setAttribute(pContext, key,
-                                        pContext->fromMethod(nullptr, fn));
+                                        wrapSymMethod(fn, pdName, argc));
                                     std::string pdStr = std::string("__pd_") + pdName + "__";
                                     const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
                                     const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                                     if (pdk) symProto = symProto->setAttribute(pContext, pdk,
                                         pContext->fromInteger(0x3LL));
                                 };
-                                setProtoMethod(JSSymbols::toString(pContext), symToString, "toString");
-                                setProtoMethod(JSSymbols::valueOf(pContext),  symValueOf,  "valueOf");
+                                setProtoMethod(JSSymbols::toString(pContext), symToString, "toString", 0);
+                                setProtoMethod(JSSymbols::valueOf(pContext),  symValueOf,  "valueOf",  0);
                                 // §20.4.3.5 Symbol.prototype[@@toPrimitive]
                                 // is {writable:false, enumerable:false,
                                 // configurable:true} → pd bits 0x2.  Bound
@@ -4458,7 +4492,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 const proto::ProtoString* tpK = tpKo ? tpKo->asString(pContext) : nullptr;
                                 if (tpK) {
                                     symProto = symProto->setAttribute(pContext, tpK,
-                                        pContext->fromMethod(nullptr, symValueOf));
+                                        wrapSymMethod(symValueOf, "[Symbol.toPrimitive]", 1));
                                     const proto::ProtoObject* pdpo = pContext->fromUTF8String("__pd_Symbol.toPrimitive__");
                                     const proto::ProtoString* pdpk = pdpo ? pdpo->asString(pContext) : nullptr;
                                     if (pdpk) symProto = symProto->setAttribute(pContext, pdpk,
