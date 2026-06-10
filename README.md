@@ -387,6 +387,54 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 31 — 2026-06-10** (+43 tests) — attacked the three structural
+blockers documented at the close of R30:
+
+  * **Function constructor + nested eval** (~200 tests gated, R20-#269).
+    - `__construct__` wired to `functionConstructorCall` so
+      `new Function(body)` produces a working closure instead of an
+      empty wrapper that the call-site immediately tripped on.
+    - `toStr()` on the constructor args now invokes user
+      `toString` / `valueOf` and propagates `hasCallException` per
+      §20.2.1.1.1 step 4 (Sputnik S15.3.2.1_A1_T1).
+    - Function 314 → 345 (+31).
+  * **RegExp literal bridging** (R19-#263, ~120 tests gated on
+    String.prototype.{split, match, replace, replaceAll, matchAll,
+    search}). The L_OP_regexp dispatch now discards the QJS-emitted
+    pre-compiled bytecode operand (its serialised representation
+    doesn't survive the TypeBridge roundtrip cleanly) and re-routes
+    through `protojs::regexpConstructor` so the resulting object
+    carries the full RegExp internals (`__re_bytecode__`,
+    `lastIndex`, all the boolean flag slots). Literals without flags
+    (/abc/) now match and exec correctly. Literals with flags
+    (/abc/g) still need a typed-buffer accessor to recover the flag
+    bits from the QJS bytecode — tracked.
+    - String 1009 → 1020 (+11).
+  * **`Object.prototype.toString` @@toStringTag override extended to
+    Array and Function builtinTags** per §22.1.3.7 step 16-17. Pre-
+    fix the Array / Function short-circuits returned the builtin tag
+    directly without consulting the WKS slot, so user overrides on
+    Array / Function instances were ignored (symbol-tag-override-
+    instances.js).
+
+Structural items left unfixed in this round (require larger changes):
+  * **Proxy** — typeof Proxy says "function" but trap dispatch is a
+    no-op; needs OP_get_field / OP_set_field / OP_has_field / OP_call
+    integration plus Reflect invariant checking.
+  * **Array.prototype.sort precise-getter edge cases** — sort fills
+    holes instead of preserving them (Sputnik bug_596_2.js).
+  * **Iterator builtinTag** — ES2024+ requires
+    `%IteratorPrototype%[@@toStringTag] = "Iterator"`; we don't have
+    %IteratorPrototype% as a shared intermediate.
+  * Strict-mode .caller / .arguments throwing (Function/15.3.5.4*gs
+    tests).
+
+10-family roll-up: 8532 → **8575 / 9823** (87.3 %). Per family:
+Function 314 → 345 (+31), String 1009 → 1020 (+11), Object 3000 →
+3001 (+1).
+
+---
+
 **Round 30 — 2026-06-09** (17 commits, +35 tests) — surgical fixes
 across the highest-leverage failure buckets uncovered by the post-R29
 sweep:
