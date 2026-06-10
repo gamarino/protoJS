@@ -4649,7 +4649,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 auto wrapSymMethod = [&](proto::ProtoMethod fn,
                                                          const char* methodName,
                                                          long long argc) -> const proto::ProtoObject* {
-                                    const proto::ProtoObject* mw = pContext->newObject(true);
+                                    // Parent on methodPrototype (Function.prototype) so the
+                                    // wrapper inherits .call / .apply / .bind / .toString —
+                                    // pre-fix Symbol.prototype.toString.call(s) raised
+                                    // "is not a function" because the wrapper had Object.
+                                    // prototype as parent.
+                                    const proto::ProtoObject* fp = pContext->space
+                                        ? pContext->space->methodPrototype : nullptr;
+                                    const proto::ProtoObject* mw = (fp && fp != PROTO_NONE)
+                                        ? fp->newChild(pContext, true)
+                                        : pContext->newObject(true);
                                     const proto::ProtoString* nfKey = JSSymbols::nativeFn(pContext);
                                     if (nfKey) mw = mw->setAttribute(pContext, nfKey,
                                         pContext->fromMethod(nullptr, fn));
