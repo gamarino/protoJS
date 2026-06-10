@@ -3552,11 +3552,22 @@ static const proto::ProtoObject* objectLookupGetter(
     const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
     if (!gk) return getUndefinedSentinel();
+    // Property-key for the data slot — shadowing data props on an
+    // intermediate object must stop the chain walk per spec step 4.b.ii.
+    const proto::ProtoObject* dkObj = ctx->fromUTF8String(keyStr.c_str());
+    const proto::ProtoString* dataKey = dkObj ? dkObj->asString(ctx) : nullptr;
     const proto::ProtoObject* curr = self;
     while (curr && curr != PROTO_NONE) {
         if (curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
             const proto::ProtoObject* getter = curr->getAttribute(ctx, gk, false);
             if (getter && getter != PROTO_NONE) return getter;
+        }
+        // §B.2.2.4 step 4.b.ii: a shadowing data descriptor on the
+        // current level stops the walk and returns undefined.  Pre-fix
+        // we kept walking and surfaced the parent's getter (built-ins/
+        // Object/prototype/__lookupGetter__/lookup-own-data).
+        if (dataKey && curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
+            return getUndefinedSentinel();
         }
         curr = curr->getFirstParent(ctx);
     }
@@ -3599,11 +3610,17 @@ static const proto::ProtoObject* objectLookupSetter(
     const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
     const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
     if (!sk) return getUndefinedSentinel();
+    const proto::ProtoObject* dkObj = ctx->fromUTF8String(keyStr.c_str());
+    const proto::ProtoString* dataKey = dkObj ? dkObj->asString(ctx) : nullptr;
     const proto::ProtoObject* curr = self;
     while (curr && curr != PROTO_NONE) {
         if (curr->hasOwnAttribute(ctx, sk) == PROTO_TRUE) {
             const proto::ProtoObject* setter = curr->getAttribute(ctx, sk, false);
             if (setter && setter != PROTO_NONE) return setter;
+        }
+        // §B.2.2.5 step 4.b.ii: shadowing data slot stops the walk.
+        if (dataKey && curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
+            return getUndefinedSentinel();
         }
         curr = curr->getFirstParent(ctx);
     }
