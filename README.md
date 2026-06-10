@@ -387,6 +387,62 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 33 — 2026-06-10** — closed out the remaining R32 deferred
+blockers: basic Proxy and Array.prototype.sort precise getter/setter
+side effects.
+
+  * **Proxy basic** (§28.2): replace the unimplemented-ctor stub with
+    a real constructor that wraps a `(target, handler)` pair on the
+    `__proxy_target__` / `__proxy_handler__` sidecars.  Interpreter
+    dispatch hooks: L_OP_get_field / L_OP_get_field2 → handler.get;
+    L_OP_put_field → handler.set; L_OP_in → handler.has; OP_delete
+    routes through L_OP_call_method which already handles object
+    receivers correctly.  The four trap entry points also wire into
+    Reflect.get / Reflect.set / Reflect.has / Reflect.deleteProperty so
+    the standard chain-walk completion semantics (default behaviour
+    when no trap is installed) line up.  Invariant enforcement
+    (§9.5.* "validate" steps) is NOT implemented — non-configurable /
+    non-writable-target tests still fail.  apply / construct /
+    getPrototypeOf / setPrototypeOf / isExtensible / preventExtensions
+    / defineProperty / getOwnPropertyDescriptor / ownKeys traps are
+    also unwired in this round.
+    - Proxy + Reflect sub-bucket: **+171 tests** absorbed from a
+      previously near-zero baseline.
+  * **Array.prototype.sort precise getter/setter** (built-ins/Array/
+    prototype/sort/precise-*).  Five compounded fixes — sparse pop
+    indexing the spec'd `lenSpec-1` slot, sidecar delete via
+    setAttribute(nullptr) (the canonical implRemoveAt path),
+    setArrayElements only growing length forward (sparse arrays kept
+    length > __elements__.size before; the unconditional length write
+    was collapsing them back), arrSetLen carrying the length write
+    through both dense / sparse paths, and OP_get_array_el /
+    arrSet probing __get_<idx>__ / __set_<idx>__ sidecars gated on
+    `__has_accessor_props__` — together unblock the
+    precise-getter-pops-elements / precise-setter-decreases-length
+    family.
+    - Array sub-bucket: 2738 → **2748** (+10).
+    - Sort sub-bucket: 32 → 35 (+3).
+
+10-family roll-up update (partial):
+Array 2738 → 2748 (+10), Proxy + Reflect new bucket +171 (was a
+near-zero stub-passes baseline pre-R33).  Total: **~8800 / 9823**
+(≈89.6 %), up from R32's ~8619.  Full 10-family re-measurement
+deferred — the Proxy ctor and accessor-on-indexed-slot changes ripple
+into many other families that the partial sweeps don't cover.
+
+Structural items left unfixed in this round (require larger changes):
+  * **Proxy invariant enforcement (§9.5.* "validate" steps)** — the
+    target-is-non-extensible / target-non-configurable test families
+    still fail because the trap result isn't matched against the
+    target's actual descriptor.
+  * **Proxy apply / construct / defineProperty / getOwnPropertyDescriptor
+    / ownKeys traps** — fall through to default operation on the
+    target without invoking the handler.
+  * **Generator [@@toStringTag] = "Generator"** — the generator
+    intermediate prototype isn't yet a child of %IteratorPrototype%.
+
+---
+
 **Round 32 — 2026-06-10** (+44 tests in 4 measured families) —
 closed out the remaining R31 deferred blockers:
 
