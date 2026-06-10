@@ -3935,13 +3935,15 @@ static const proto::ProtoObject* arraySort(
         }
         // ECMA-262 §23.1.3.30 SortCompare: a value of Type undefined
         // sorts AFTER all defined values, regardless of whether it
-        // was an explicit user `undefined` or the undefined sentinel.
+        // was an explicit user `undefined`, the undefined sentinel,
+        // or a PROTO_NONE-but-present sidecar slot (the literal
+        // `[, void 0]` path stores PROTO_NONE in the sidecar).
         // Pre-fix only PROTO_NONE was bucketed as undefined, so
         // `new Array(undefined, 1).sort()` saw the explicit undefined
         // as a "real" string-keyed value and the result was
         // [undefined, 1] instead of [1, undefined]
         // (Sputnik S15.4.4.11_A1.4_T2).
-        if (!elem || elem == undefSent) {
+        if (!elem || elem == undefSent || elem == PROTO_NONE) {
             undefinedCount++;
         } else {
             defined.push_back(elem);
