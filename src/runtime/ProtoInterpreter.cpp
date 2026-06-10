@@ -5695,6 +5695,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* tagKey = JSSymbols::toStringTag(pContext);
                         if (tagKey && argsObj)
                             argsObj = argsObj->setAttribute(pContext, tagKey, pContext->fromUTF8String("Arguments"));
+                        // Object.prototype.toString reads only the WKS
+                        // @@toStringTag after the legacy-sidecar unification,
+                        // so publish the slot under both keys.
+                        const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(pContext);
+                        if (userKey && argsObj)
+                            argsObj = argsObj->setAttribute(pContext, userKey, pContext->fromUTF8String("Arguments"));
                     }
                     stackPush(pContext, argsObj ? argsObj : PROTO_NONE);
                 } else if (soKind == 2) {
