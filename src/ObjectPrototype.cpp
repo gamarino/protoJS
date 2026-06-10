@@ -3753,6 +3753,23 @@ const proto::ProtoObject* installObjectInstanceMethods(
                     || proto->isString(sctx))) {
                 return getUndefinedSentinel();
             }
+            // §10.4.7.1 [[SetPrototypeOf]] step 4: cycle check —
+            // walking up from `proto` must NOT find `sself`. Throw
+            // TypeError if it does. set-cycle.js / set-cycle-shadowed
+            // / proto-from-ctor-realm-cycle pin this.
+            if (proto && proto != getNullSentinel()) {
+                const proto::ProtoObject* p = proto;
+                while (p && p != getNullSentinel() && p != PROTO_NONE) {
+                    if (p == sself) {
+                        signalNativeException(makeNativeError(sctx, "TypeError",
+                            "Cyclic __proto__ value"));
+                        return PROTO_NONE;
+                    }
+                    auto it = t_jsProtoMap.find(p);
+                    if (it != t_jsProtoMap.end()) { p = it->second; continue; }
+                    p = p->getPrototype(sctx);
+                }
+            }
             setJSProtoOverride(sctx, sself, proto);
             return getUndefinedSentinel();
         };
@@ -3770,6 +3787,11 @@ const proto::ProtoObject* installObjectInstanceMethods(
             ctx->fromMethod(nullptr, protoSetter));
         const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
         if (hapK) base = base->setAttribute(ctx, hapK, PROTO_TRUE);
+        // §B.2.2.1: __proto__ is {enumerable:false, configurable:true}
+        // — descriptor bits 0x2 (no writable bit on accessor props).
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd___proto____");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) base = base->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
     (void)reg; // legacy raw-method installer kept for the special-case branches below
     // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
