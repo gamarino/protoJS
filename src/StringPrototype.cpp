@@ -2398,6 +2398,33 @@ static const proto::ProtoObject* stringIteratorNext(
     return makeResult(charObj, false);
 }
 
+// %StringIteratorPrototype% — shared parent for the iterators returned
+// by String.prototype[@@iterator]().  Lazily created.  §22.2.5.1.2:
+// carries Symbol.toStringTag = "String Iterator" with descriptor
+// {writable:false, enumerable:false, configurable:true} (sidecar bits
+// 0x2).
+static const proto::ProtoObject* s_stringIteratorProto = nullptr;
+
+static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx) {
+    if (s_stringIteratorProto) return s_stringIteratorProto;
+    const proto::ProtoObject* objProto =
+        ctx->space ? ctx->space->objectPrototype : nullptr;
+    const proto::ProtoObject* proto = objProto
+        ? objProto->newChild(ctx, true) : ctx->newObject(true);
+    if (!proto) return nullptr;
+    const proto::ProtoObject* tagUserObj = ctx->fromUTF8String("Symbol.toStringTag");
+    const proto::ProtoString* tagUser = tagUserObj ? tagUserObj->asString(ctx) : nullptr;
+    if (tagUser) {
+        proto = proto->setAttribute(ctx, tagUser,
+            ctx->fromUTF8String("String Iterator"));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
+    s_stringIteratorProto = proto;
+    return proto;
+}
+
 // String[Symbol.iterator]() — returns a fresh iterator over the
 // string's codepoints.  Receiver is the string primitive (this).
 static const proto::ProtoObject* stringSymbolIterator(
@@ -2405,7 +2432,9 @@ static const proto::ProtoObject* stringSymbolIterator(
     const proto::ParentLink*,
     const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    const proto::ProtoObject* iter = ctx->newObject(true);
+    const proto::ProtoObject* protoParent = getStringIteratorProto(ctx);
+    const proto::ProtoObject* iter = protoParent
+        ? protoParent->newChild(ctx, true) : ctx->newObject(true);
     if (!iter) return PROTO_NONE;
     const proto::ProtoObject* strKo = ctx->fromUTF8String("__str__");
     const proto::ProtoString* strKey = strKo ? strKo->asString(ctx) : nullptr;
