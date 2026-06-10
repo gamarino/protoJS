@@ -3250,54 +3250,51 @@ static const proto::ProtoObject* objectToString(
 
     // Function: JS closure (__bytecode_id__), native ProtoMethod, or wrapped
     // native function (__native_fn__ holds a ProtoMethod pointer).
+    // §22.1.3.7 step 14: builtinTag for callables is "Function" but
+    // @@toStringTag on the instance still overrides per step 16-17.
+    // Track the candidate and fall through to the unified WKS probe.
+    const char* funcBuiltinTag = nullptr;
     {
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
         if (bcKey) {
             const proto::ProtoObject* bcVal = self->getAttribute(ctx, bcKey, false);
             if (bcVal && bcVal != PROTO_NONE && bcVal->isInteger(ctx))
-                return ctx->fromUTF8String("[object Function]");
+                funcBuiltinTag = "Function";
         }
-        if (self->isMethod(ctx))
-            return ctx->fromUTF8String("[object Function]");
-        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        if (nfKey) {
-            const proto::ProtoObject* nfVal = self->getAttribute(ctx, nfKey, false);
-            if (nfVal && nfVal != PROTO_NONE && nfVal->isMethod(ctx))
-                return ctx->fromUTF8String("[object Function]");
+        if (!funcBuiltinTag && self->isMethod(ctx))
+            funcBuiltinTag = "Function";
+        if (!funcBuiltinTag) {
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            if (nfKey) {
+                const proto::ProtoObject* nfVal = self->getAttribute(ctx, nfKey, false);
+                if (nfVal && nfVal != PROTO_NONE && nfVal->isMethod(ctx))
+                    funcBuiltinTag = "Function";
+            }
         }
-        // Bound function: has __bound_fn__ pointing to the original callable.
-        const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
-        if (bfKey) {
-            const proto::ProtoObject* bfVal = self->getAttribute(ctx, bfKey, false);
-            if (bfVal && bfVal != PROTO_NONE)
-                return ctx->fromUTF8String("[object Function]");
+        if (!funcBuiltinTag) {
+            const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
+            if (bfKey) {
+                const proto::ProtoObject* bfVal = self->getAttribute(ctx, bfKey, false);
+                if (bfVal && bfVal != PROTO_NONE)
+                    funcBuiltinTag = "Function";
+            }
         }
-        // Function.prototype itself is a function per §20.2.3 (calling
-        // it returns undefined) but is allocated as a plain object
-        // newChild of Object.prototype and carries none of the standard
-        // callable markers. Function.prototype is stamped with
-        // __is_function_prototype__ specifically so toString can
-        // dispatch it (Sputnik S15.3.4_A1).
-        const proto::ProtoObject* fpmo = ctx->fromUTF8String("__is_function_prototype__");
-        const proto::ProtoString* fpms = fpmo ? fpmo->asString(ctx) : nullptr;
-        if (fpms) {
-            const proto::ProtoObject* fpv = self->getAttribute(ctx, fpms, false);
-            if (fpv == PROTO_TRUE)
-                return ctx->fromUTF8String("[object Function]");
+        if (!funcBuiltinTag) {
+            const proto::ProtoObject* fpmo = ctx->fromUTF8String("__is_function_prototype__");
+            const proto::ProtoString* fpms = fpmo ? fpmo->asString(ctx) : nullptr;
+            if (fpms) {
+                const proto::ProtoObject* fpv = self->getAttribute(ctx, fpms, false);
+                if (fpv == PROTO_TRUE)
+                    funcBuiltinTag = "Function";
+            }
         }
-        // Built-in constructor objects (Array, Object, Number, Boolean,
-        // String, Error, ...) are callable via the spec's [[Call]] /
-        // [[Construct]] internal methods. They expose neither
-        // __native_fn__ nor __bytecode_id__ — dispatch goes through the
-        // dedicated __<name>_ctor__ marker — so a pre-fix lookup
-        // produced "[object Object]" instead of the spec-required
-        // "[object Function]" (Object.prototype.toString.call(Array)
-        // and the Sputnik S15.4.3_A1.1_T2 conformance check both broke).
-        const proto::ProtoString* icKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
-        if (icKey) {
-            const proto::ProtoObject* icVal = self->getAttribute(ctx, icKey, false);
-            if (icVal == PROTO_TRUE)
-                return ctx->fromUTF8String("[object Function]");
+        if (!funcBuiltinTag) {
+            const proto::ProtoString* icKey = ctx->fromUTF8String("__is_constructor__")->asString(ctx);
+            if (icKey) {
+                const proto::ProtoObject* icVal = self->getAttribute(ctx, icKey, false);
+                if (icVal == PROTO_TRUE)
+                    funcBuiltinTag = "Function";
+            }
         }
     }
 
@@ -3399,6 +3396,12 @@ static const proto::ProtoObject* objectToString(
     if (arrayBuiltinTag) {
         std::string out = "[object ";
         out += arrayBuiltinTag;
+        out += "]";
+        return ctx->fromUTF8String(out.c_str());
+    }
+    if (funcBuiltinTag) {
+        std::string out = "[object ";
+        out += funcBuiltinTag;
         out += "]";
         return ctx->fromUTF8String(out.c_str());
     }
