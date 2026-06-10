@@ -3302,12 +3302,16 @@ static const proto::ProtoObject* objectToString(
     }
 
     // Array: has __is_array__ as an own attribute (moved from prototype in Phase 7).
+    // §22.1.3.7: builtinTag for Arrays is "Array" but @@toStringTag
+    // on the instance must still override per step 16-17.  Remember
+    // the candidate tag and fall through to the WKS probe.
+    const char* arrayBuiltinTag = nullptr;
     {
         const proto::ProtoString* iaKey = JSSymbols::isArray(ctx);
         if (iaKey) {
             const proto::ProtoObject* iaVal = self->getAttribute(ctx, iaKey, false);
             if (iaVal == PROTO_TRUE)
-                return ctx->fromUTF8String("[object Array]");
+                arrayBuiltinTag = "Array";
         }
     }
     // Symbol primitive: protoJS carries Symbols with the __is_symbol__
@@ -3392,6 +3396,12 @@ static const proto::ProtoObject* objectToString(
         }
     }
 
+    if (arrayBuiltinTag) {
+        std::string out = "[object ";
+        out += arrayBuiltinTag;
+        out += "]";
+        return ctx->fromUTF8String(out.c_str());
+    }
     if (wrapperBuiltinTag) {
         std::string out = "[object ";
         out += wrapperBuiltinTag;
