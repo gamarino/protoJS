@@ -1795,10 +1795,35 @@ const proto::ProtoObject* stringReplaceAll(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) < 2) return self;
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
+    const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     if (!pattern || pattern == PROTO_NONE) {
         std::string sOnly = objToStr(ctx, self);
         if (hasCallException()) return PROTO_NONE;
         return ctx->fromUTF8String(sOnly.c_str());
+    }
+    // §22.1.3.20 step 2.b: if searchValue has @@replace, route through
+    // searchValue[@@replace](O, replaceValue).  Pre-fix the immediate
+    // objToStr below ran the searchValue's toString before checking
+    // @@replace, masking custom replacer dispatch.
+    if (pattern && pattern != PROTO_NONE && !pattern->isString(ctx)
+        && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
+        && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)
+        && pattern != getNullSentinel() && pattern != getUndefinedSentinel()) {
+        const proto::ProtoString* replK = JSSymbols::symbolReplace(ctx);
+        if (replK) {
+            const proto::ProtoObject* replacer = pattern->getAttribute(ctx, replK, true);
+            if (replacer && replacer != PROTO_NONE && replacer != getUndefinedSentinel()) {
+                bool callable = replacer->isMethod(ctx) ||
+                    (JSSymbols::bytecodeId(ctx) && replacer->hasAttribute(ctx, JSSymbols::bytecodeId(ctx)) == PROTO_TRUE) ||
+                    (JSSymbols::nativeFn(ctx) && replacer->hasAttribute(ctx, JSSymbols::nativeFn(ctx)) == PROTO_TRUE);
+                if (callable) {
+                    const proto::ProtoList* repArgs = ctx->newList();
+                    repArgs = repArgs->appendLast(ctx, self);
+                    repArgs = repArgs->appendLast(ctx, repObj ? repObj : PROTO_NONE);
+                    return callJSFunction(ctx, replacer, pattern, repArgs);
+                }
+            }
+        }
     }
     // Per ECMA-262 §22.1.3.20 step 3: ToString(O) PRECEDES every other
     // observable side effect (searchValue/replaceValue coercions or
@@ -1813,8 +1838,6 @@ const proto::ProtoObject* stringReplaceAll(
     if (hasCallException()) return PROTO_NONE;
     std::string pat = objToStr(ctx, pattern);
     if (hasCallException()) return PROTO_NONE;
-
-    const proto::ProtoObject* repObj = args->getAt(ctx, 1);
     // Spec §22.1.3.20 step 8: callable replacement gets (match, offset, string).
     auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
         if (!fn || fn == PROTO_NONE) return false;
