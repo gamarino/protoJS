@@ -258,10 +258,20 @@ static const proto::ProtoObject* fnBind(
     const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
     if (lenKey2) {
         long long targetLen = 0;
-        const proto::ProtoObject* lo = self->getAttribute(ctx, lenKey2, false);
-        if (lo && lo != PROTO_NONE) {
-            if (lo->isInteger(ctx))     targetLen = lo->asLong(ctx);
-            else if (lo->isDouble(ctx)) targetLen = static_cast<long long>(lo->asDouble(ctx));
+        // §20.2.3.2 step 7: F.[[HasOwnProperty]]("length").  Only the
+        // OWN value contributes — inherited length is ignored
+        // (instance-length-default-value pins this).  Pre-fix
+        // getAttribute(lenKey, false) walked the chain and picked up
+        // Object.prototype.length / a manually-set parent.length,
+        // yielding wrong bound.length values.
+        if (self->hasOwnAttribute(ctx, lenKey2) == PROTO_TRUE) {
+            const proto::ProtoObject* lo = self->getAttribute(ctx, lenKey2, false);
+            if (lo && lo != PROTO_NONE) {
+                // §20.2.3.2 step 8: only integer / number values count.
+                // Symbol, Number wrapper, etc. fall through to L = 0.
+                if (lo->isInteger(ctx))      targetLen = lo->asLong(ctx);
+                else if (lo->isDouble(ctx))  targetLen = static_cast<long long>(lo->asDouble(ctx));
+            }
         }
         long long boundLen = targetLen - bcount;
         if (boundLen < 0) boundLen = 0;
