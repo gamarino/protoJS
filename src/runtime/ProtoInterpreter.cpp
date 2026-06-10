@@ -14500,16 +14500,33 @@ const proto::ProtoObject* callJSFunction(
                         : PROTO_NONE;
     }
 
-    // Bytecode closure: resolve __bytecode_id__ against the current or root module.
+    // Bytecode closure: resolve __bytecode_id__.  Closures created
+    // inside an isolated module (Function constructor's
+    // evalIsolatedToProto path) carry an explicit __closure_module__
+    // pointer to the module that owns their nestedFunctions[bcId]
+    // entry.  Without this lookup the bcId would be resolved against
+    // the caller's current/root module — and either miss outright or
+    // collide with an unrelated nested function at the same index, so
+    // Function('return 1;').apply() returned undefined while
+    // Function('return 1;')() returned 1 (OP_call performs the
+    // closure-module lookup; callJSFunction did not).
     int bcId = getBytecodeId(ctx, fn);
-    const ProtoBytecodeModule* resolveMod =
-        (bcId >= 0 && t_currentModule &&
-           static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size())
-            ? t_currentModule
-        : (bcId >= 0 && t_rootModule &&
-           static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
-            ? t_rootModule
-        : nullptr;
+    const ProtoBytecodeModule* resolveMod = nullptr;
+    if (bcId >= 0) {
+        const ProtoBytecodeModule* ownerMod = getClosureModule(ctx, fn);
+        if (ownerMod && static_cast<size_t>(bcId) < ownerMod->nestedFunctions.size())
+            resolveMod = ownerMod;
+    }
+    if (!resolveMod) {
+        resolveMod =
+            (bcId >= 0 && t_currentModule &&
+               static_cast<size_t>(bcId) < t_currentModule->nestedFunctions.size())
+                ? t_currentModule
+            : (bcId >= 0 && t_rootModule &&
+               static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
+                ? t_rootModule
+            : nullptr;
+    }
     if (resolveMod) {
         const ProtoBytecodeModule& nf = resolveMod->nestedFunctions[bcId];
         // Arrow functions use the lexical this captured at closure-creation time.
