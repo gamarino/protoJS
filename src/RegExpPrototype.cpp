@@ -36,6 +36,18 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         snprintf(buf, sizeof(buf), "%.15g", d);
         return buf;
     }
+    // String wrapper object — unwrap via __primitive_value__ sidecar so
+    // `regex[Symbol.split](new String('hello'))` sees 'hello' instead of ''.
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        if (pvKey) {
+            const proto::ProtoObject* pv = obj->getAttribute(ctx, pvKey, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                pv->asString(ctx)->toUTF8String(ctx, r);
+                return r;
+            }
+        }
+    }
     return "";
 }
 
