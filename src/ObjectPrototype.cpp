@@ -3706,6 +3706,71 @@ const proto::ProtoObject* installObjectInstanceMethods(
     base = installNonEnumerableMethod(ctx, base, "__lookupSetter__",    objectLookupSetter,         1);
     base = installNonEnumerableMethod(ctx, base, "__defineGetter__",    objectDefineGetter,         2);
     base = installNonEnumerableMethod(ctx, base, "__defineSetter__",    objectDefineSetter,         2);
+    // §B.2.2.1 Object.prototype.__proto__: paired accessor whose getter
+    // returns ? OrdinaryGetPrototypeOf(? ToObject(this)) and whose
+    // setter forwards to OrdinarySetPrototypeOf. Install via the
+    // accessor sidecar (__get_<key>__ / __set_<key>__ + the
+    // __has_accessor_props__ hint) so OP_get_field and OP_set_field
+    // route through them.
+    {
+        auto protoGetter = [](proto::ProtoContext* gctx,
+                              const proto::ProtoObject* gself,
+                              const proto::ParentLink*,
+                              const proto::ProtoList*,
+                              const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            // §B.2.2.1.1: ToObject(this); null / undefined → TypeError.
+            if (!gself || gself == PROTO_NONE
+                || gself == getNullSentinel() || gself == getUndefinedSentinel()) {
+                signalNativeException(makeNativeError(gctx, "TypeError",
+                    "Cannot convert undefined or null to object"));
+                return PROTO_NONE;
+            }
+            auto it = t_jsProtoMap.find(gself);
+            if (it != t_jsProtoMap.end()) return it->second;
+            const proto::ProtoObject* p = gself->getPrototype(gctx);
+            return (p && p != PROTO_NONE) ? p : getNullSentinel();
+        };
+        auto protoSetter = [](proto::ProtoContext* sctx,
+                              const proto::ProtoObject* sself,
+                              const proto::ParentLink*,
+                              const proto::ProtoList* args,
+                              const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            if (!sself || sself == PROTO_NONE
+                || sself == getNullSentinel() || sself == getUndefinedSentinel()) {
+                signalNativeException(makeNativeError(sctx, "TypeError",
+                    "Cannot convert undefined or null to object"));
+                return PROTO_NONE;
+            }
+            const proto::ProtoObject* proto = (args && args->getSize(sctx) > 0)
+                ? args->getAt(sctx, 0) : getUndefinedSentinel();
+            // §B.2.2.1.2 step 4: skip silently when proto is neither
+            // an Object nor null.
+            if (proto != getNullSentinel()
+                && (!proto || proto == PROTO_NONE
+                    || proto == getUndefinedSentinel()
+                    || proto->isBoolean(sctx) || proto->isInteger(sctx)
+                    || proto->isDouble(sctx) || proto->isFloat(sctx)
+                    || proto->isString(sctx))) {
+                return getUndefinedSentinel();
+            }
+            setJSProtoOverride(sctx, sself, proto);
+            return getUndefinedSentinel();
+        };
+        // Accessor sidecar naming: __get_<propname>__ / __set_<propname>__.
+        // The property name is "__proto__", so the sidecar keys are
+        // "__get___proto____" / "__set___proto____" (4 trailing
+        // underscores: 2 from the propname, 2 from the sidecar pattern).
+        const proto::ProtoObject* getKo = ctx->fromUTF8String("__get___proto____");
+        const proto::ProtoString* getK = getKo ? getKo->asString(ctx) : nullptr;
+        if (getK) base = base->setAttribute(ctx, getK,
+            ctx->fromMethod(nullptr, protoGetter));
+        const proto::ProtoObject* setKo = ctx->fromUTF8String("__set___proto____");
+        const proto::ProtoString* setK = setKo ? setKo->asString(ctx) : nullptr;
+        if (setK) base = base->setAttribute(ctx, setK,
+            ctx->fromMethod(nullptr, protoSetter));
+        const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
+        if (hapK) base = base->setAttribute(ctx, hapK, PROTO_TRUE);
+    }
     (void)reg; // legacy raw-method installer kept for the special-case branches below
     // Object.prototype.toLocaleString (§20.1.3.5): "Return ? Invoke(O, 'toString')".
     // Delegate to the receiver's own toString — for a Number this gives the
