@@ -44,6 +44,13 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
 
+    // Per-target gating flag so resolvePutFieldOOP enforces the
+    // writable=false bit on @@toStringTag.  Without this stamp,
+    // verifyProperty's writable probe (which writes and re-reads)
+    // succeeds and the property-descriptor.js tests fail.
+    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+    if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
+
     s_iteratorProto = proto;
     return s_iteratorProto;
 }

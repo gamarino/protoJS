@@ -150,6 +150,8 @@ static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContex
         const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
+    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+    if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
 
     s_regexpStringIteratorProto = proto;
     return proto;

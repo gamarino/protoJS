@@ -4567,6 +4567,12 @@ static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx)
             }
         }
     }
+    // §22.1.5.2.2: @@toStringTag must be {writable:false, ...}.  Stamp
+    // the per-target gating flag so resolvePutFieldOOP rejects writes
+    // to the slot — verifyProperty's writable probe writes then re-
+    // reads and fails without this stamp.
+    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+    if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
     s_arrayIteratorProto = proto;
     return s_arrayIteratorProto;
 }
