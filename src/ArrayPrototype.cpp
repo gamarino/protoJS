@@ -3895,44 +3895,20 @@ static const proto::ProtoObject* arraySort(
 
     defined.reserve(len);
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
-    // Probe __elements__ once; for in-range PROTO_NONE slots the index
-    // is a real hole per §23.1.3.30, NOT explicit-undefined.  arrHas
-    // intentionally conflates the two (every in-range slot is "present"
-    // for forEach/indexOf/etc.), but sort MUST distinguish so the tail
-    // hole slots come back as ABSENT after the write-back rather than
-    // as own data slots holding undefined.  Mirror the policy used by
-    // hasOwnProperty (els[i] == PROTO_NONE → hole; idx >= els.size()
-    // falls back to the sidecar own-attribute probe).
-    const proto::ProtoList* preEls = getArrayElements(ctx, self);
-    const unsigned long preSize = preEls
-        ? static_cast<unsigned long>(preEls->getSize(ctx)) : 0;
+    // Spec §23.1.3.30 SortIndexedProperties step 4.b: for each k in
+    // [0, len), HasProperty(obj, ToString(k)) decides whether the
+    // value is collected; present values are read via Get(obj, k).
+    // Both probes go through the same arrHasProperty / arrGet pair so
+    // accessor descriptors installed via Object.defineProperty fire
+    // their getter exactly once per index — that is what the
+    // precise-getter-* test262 family verifies.
     for (unsigned long i = 0; i < len; i++) {
-        bool isHole = false;
-        const proto::ProtoObject* elem = nullptr;
-        if (preEls && i < preSize) {
-            elem = preEls->getAt(ctx, static_cast<int>(i));
-            if (!elem || elem == PROTO_NONE) {
-                // Slot may still be backed by a string-keyed sidecar
-                // (Object.defineProperty path); probe before declaring
-                // it a hole.
-                const proto::ProtoString* k =
-                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                if (k && self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
-                    elem = self->getAttribute(ctx, k, false);
-                    if (!elem || elem == PROTO_NONE) isHole = true;
-                } else {
-                    isHole = true;
-                }
-            }
-        } else if (!arrHas(ctx, self, i)) {
-            isHole = true;
-        } else {
-            elem = arrGet(ctx, self, i);
-        }
-        if (isHole) {
+        if (!arrHasProperty(ctx, self, i)) {
             holeCount++;
             continue;
         }
+        const proto::ProtoObject* elem = arrGet(ctx, self, i);
+        if (hasCallException()) return PROTO_NONE;
         // ECMA-262 §23.1.3.30 SortCompare: a value of Type undefined
         // sorts AFTER all defined values, regardless of whether it
         // was an explicit user `undefined`, the undefined sentinel,
