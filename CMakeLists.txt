@@ -122,6 +122,7 @@ add_library(protojs_core STATIC
     src/RegExpPrototype.cpp
     src/RegExpStringIterator.cpp
     src/IteratorPrototype.cpp
+    src/ProxyBuiltin.cpp
     src/ArrayPrototype.cpp
     src/ArrayBufferPrototype.cpp
     src/TypedArrayPrototype.cpp

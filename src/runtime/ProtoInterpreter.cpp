@@ -17,6 +17,7 @@ extern "C" {
 #include "../SetPrototype.h"
 #include "../MathBuiltin.h"
 #include "../ObjectPrototype.h"
+#include "../ProxyBuiltin.h"
 #include "../FunctionPrototype.h"
 #include "../DatePrototype.h"
 #include "../BigIntPrototype.h"
@@ -807,6 +808,8 @@ static const proto::ProtoObject* reflectHas(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    if (protojs::isProxy(ctx, target))
+        return protojs::proxyDispatchHas(ctx, target, k);
     const proto::ProtoObject* v = target->getAttribute(ctx, k, true);
     return (v && v != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
 }
@@ -820,6 +823,15 @@ static const proto::ProtoObject* reflectGet(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.get")) return PROTO_NONE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_NONE;
+    // Proxy receiver → dispatch to handler.get if present.
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoString* pk = key->asString(ctx);
+        if (!pk && key->isInteger(ctx))
+            pk = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
+        const proto::ProtoObject* recv = (args->getSize(ctx) > 2)
+            ? args->getAt(ctx, 2) : target;
+        return protojs::proxyDispatchGet(ctx, target, pk, recv);
+    }
     // §28.1.6 step 4: receiver = target if absent. Pre-fix Reflect.get
     // ignored the 4th argument so accessor getters were always invoked
     // with target as their `this`, breaking
@@ -891,6 +903,9 @@ static const proto::ProtoObject* reflectSet(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    // Proxy receiver → dispatch to handler.set if present.
+    if (protojs::isProxy(ctx, target))
+        return protojs::proxyDispatchSet(ctx, target, k, value, receiver);
     // §9.1.9 [[Set]] dispatch.  Accessor descriptors take priority over
     // the writable check — IsAccessorDescriptor short-circuits to
     // step 7 (invoke the setter, return true if it doesn't throw).
@@ -1043,6 +1058,8 @@ static const proto::ProtoObject* reflectDeleteProperty(
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
+    if (protojs::isProxy(ctx, target))
+        return protojs::proxyDispatchDelete(ctx, target, k);
     // §10.1.10 step 5: own non-configurable data / accessor descriptor
     // cannot be deleted — return false. Frozen and sealed objects
     // install behaviour markers (FrozenBehavior / NonExtensibleBehavior)
@@ -4120,6 +4137,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         };
         for (int gi = 0; kUnimplementedGlobals[gi]; ++gi)
             ensureGlobalConst(kUnimplementedGlobals[gi], PROTO_NONE);
+
+        // Install the real Proxy constructor on top of the bare stub
+        // from kUnimplementedCtors — `new Proxy(target, handler)` now
+        // produces an object that carries __proxy_target__ and
+        // __proxy_handler__, dispatching get / set / has / deleteProperty
+        // through the handler traps.
+        protojs::installProxyAndReflect(pContext, pGlobalRoot);
     }
 
     // Build a JSON namespace object with Symbol.toStringTag = "JSON".
@@ -7804,7 +7828,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // opcode that QuickJS emits for `.length` accesses; no
                 // length fast path needed here.  The rare `s["length"]`
                 // form takes the prototype-chain walk below.
-                const proto::ProtoObject* val = name ? invokeGetterIfPresentFast(obj, name) : PROTO_NONE;
+                // Proxy receiver → dispatch to handler.get; falls back
+                // to the default property lookup on the target when no
+                // trap is present.
+                const proto::ProtoObject* val = nullptr;
+                if (name && protojs::isProxy(pContext, obj)) {
+                    val = protojs::proxyDispatchGet(pContext, obj, name, obj);
+                    REFRESH_INTERP_STATE();
+                    if (has_pending_exception) DISPATCH();
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] = (val) ? (val) : PROTO_NONE;
+                    DISPATCH();
+                }
+                val = name ? invokeGetterIfPresentFast(obj, name) : PROTO_NONE;
                 if (has_pending_exception) DISPATCH();
                 if (!val || val == PROTO_NONE) {
                     val = resolveFieldOOP(pContext, obj, name);
@@ -7837,6 +7872,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // string.length is handled by the dedicated OP_get_length
                 // opcode; no length fast path needed here.
 
+                // Proxy receiver → dispatch to handler.get; keeps obj on
+                // the stack (OP_get_field2 leaves the receiver in place
+                // for subsequent method-call patterns).
+                if (key && protojs::isProxy(pContext, obj)) {
+                    const proto::ProtoObject* val = protojs::proxyDispatchGet(pContext, obj, key, obj);
+                    if (has_pending_exception) DISPATCH();
+                    stackPush(pContext, val ? val : PROTO_NONE);
+                    DISPATCH();
+                }
                 // P-JS-2 — single getAttribute call.  Previously this site
                 // did getAttribute(callbacks=false) THEN, on miss,
                 // resolveFieldOOP which itself called getAttribute(true)
@@ -7870,6 +7914,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !obj) { DISPATCH(); }
+
+                // Proxy receiver → dispatch to handler.set; ignore the
+                // returned boolean (OP_put_field does not push anything).
+                if (protojs::isProxy(pContext, obj)) {
+                    protojs::proxyDispatchSet(pContext, obj, key, val, obj);
+                    DISPATCH();
+                }
 
                 // ECMA-262 §10.4.2.1 ArraySetLength: setting Array
                 // .length validates the new value via ToUint32 +
@@ -10792,6 +10843,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 const proto::ProtoObject* keyObj = toString(pContext, keyVal);
                 const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                // Proxy receiver → dispatch to handler.has.
+                if (key && protojs::isProxy(pContext, obj)) {
+                    const proto::ProtoObject* r = protojs::proxyDispatchHas(pContext, obj, key);
+                    if (has_pending_exception) DISPATCH();
+                    stackPush(pContext, r);
+                    DISPATCH();
+                }
                 // Array index fast path: indices live in __elements__,
                 // not as data keys, so the regular hasAttribute walk
                 // misses them.  Pre-fix `0 in [10,20]` returned false.
