@@ -387,6 +387,50 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 35 — 2026-06-10** — closed the last remaining Proxy gap:
+**§9.5.* invariant enforcement** on the trap-result validate steps.
+
+  * **get (§10.5.8 step 9)** — non-configurable own data property
+    that is non-writable: trap result must SameValue the target's
+    value; non-configurable accessor with undefined [[Get]]: trap
+    must return undefined.
+  * **set (§10.5.9 step 11)** — same descriptor checks, but on the
+    truthy-return path (truthy means "the assignment succeeded").
+    Non-configurable accessor with no setter → TypeError.
+  * **has (§10.5.7 step 9)** — falsy return rejected when target has
+    a non-configurable own property OR an own property on a
+    non-extensible target.
+  * **deleteProperty (§10.5.10 step 9)** — truthy return rejected
+    under the same conditions as `has`.
+  * **getPrototypeOf (§10.5.1 step 8)** — on a non-extensible target
+    the result must SameValue target's actual prototype.
+  * **setPrototypeOf (§10.5.2 step 9)** — non-extensible target +
+    truthy return + different proposed prototype → TypeError.
+  * **isExtensible (§10.5.3 step 6)** — result must equal target's
+    actual extensibility state.
+  * **preventExtensions (§10.5.4 step 5)** — truthy return with a
+    still-extensible target → TypeError.
+
+OwnDescriptor probe via `__pd_<key>__` descriptor sidecar (bit 0x1 =
+writable, 0x2 = configurable, 0x4 = enumerable) plus own
+`__get_<key>__` / `__set_<key>__` accessor sidecars; absent sidecar
+treated as the default-bit fast path (all flags on) per
+defineProperty's normalisation.  Exception propagation: `t_callException`
+promoted to `has_pending_exception` at L_OP_get_field / L_OP_get_field2
+/ L_OP_put_field / L_OP_in dispatch sites so the TypeError surfaces
+from the bytecode caller.
+
+Proxy + Reflect sub-bucket: 179 → **181 (+2)**.
+
+All structural items called out at the close of R33 are now resolved.
+The remaining Proxy-family failures are corner cases in trap-result
+descriptor normalisation (especially around defineProperty +
+getOwnPropertyDescriptor) and Proxy.revocable's two-tier object
+shape; those need a dedicated Reflect.ownKeys / descriptor-shaping
+rewrite rather than a structural blocker.
+
+---
+
 **Round 34 — 2026-06-10** — cleaned up the trailing pendings from R33:
 the remaining Proxy traps (apply / construct / getPrototypeOf /
 setPrototypeOf / isExtensible / preventExtensions / defineProperty /
