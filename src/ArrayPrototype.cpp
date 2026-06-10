@@ -4435,10 +4435,15 @@ static const proto::ProtoObject* arraySplice(
             const proto::ProtoString* delKey =
                 JSSymbols::indexKey(ctx, static_cast<uint32_t>(k));
             if (delKey) {
-                // setAttribute(PROTO_NONE) is the protoCore-canonical
-                // "delete own data attribute" path used elsewhere in
-                // this file (mirrors arrayPop's last-index clear).
-                self->setAttribute(ctx, delKey, PROTO_NONE);
+                // True delete (nullptr → implRemoveAt) so the slot
+                // becomes absent — `x[1]` falls through to inherited
+                // values per OrdinaryGet semantics.  PROTO_NONE leaves
+                // an own attribute carrying the sentinel that
+                // hasOwnAttribute still reports as present, breaking
+                // Sputnik S15.4.4.12_A4 (which probes that an inherited
+                // Array.prototype[1] surfaces after splice removes the
+                // own slot).
+                self->setAttribute(ctx, delKey, nullptr);
             }
         }
     }
