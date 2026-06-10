@@ -1,6 +1,7 @@
 #include "RegExpStringIterator.h"
 #include "RegExpPrototype.h"
 #include "ArrayPrototype.h"
+#include "IteratorPrototype.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
 #include "headers/protoCore.h"
@@ -120,6 +121,40 @@ static int parseFlagsLocal(const std::string& f) {
 // Public API
 // ---------------------------------------------------------------------------
 
+// %RegExpStringIteratorPrototype% — shared parent per §22.2.7.
+// Carries next, [@@iterator] returning this, and
+// [@@toStringTag] = "RegExp String Iterator".  Inherits from
+// %IteratorPrototype% so [@@toStringTag] cascade ends at "Iterator".
+static const proto::ProtoObject* s_regexpStringIteratorProto = nullptr;
+
+static const proto::ProtoObject* getRegExpStringIteratorProto(proto::ProtoContext* ctx) {
+    if (s_regexpStringIteratorProto) return s_regexpStringIteratorProto;
+    const proto::ProtoObject* iterProto = getIteratorPrototype(ctx);
+    const proto::ProtoObject* parent = iterProto ? iterProto
+        : (ctx->space ? ctx->space->objectPrototype : nullptr);
+    const proto::ProtoObject* proto = parent
+        ? parent->newChild(ctx, true) : ctx->newObject(true);
+    if (!proto) return nullptr;
+
+    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+    if (nextKey) {
+        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, regexpStringIteratorNext);
+        if (nextFn) proto = proto->setAttribute(ctx, nextKey, nextFn);
+    }
+
+    const proto::ProtoString* tagUser = JSSymbols::symbolToStringTag(ctx);
+    if (tagUser) {
+        proto = proto->setAttribute(ctx, tagUser,
+            ctx->fromUTF8String("RegExp String Iterator"));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
+
+    s_regexpStringIteratorProto = proto;
+    return proto;
+}
+
 const proto::ProtoObject* makeRegExpStringIterator(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* regexp,
@@ -127,25 +162,12 @@ const proto::ProtoObject* makeRegExpStringIterator(
 {
     if (!ctx || !regexp || regexp == PROTO_NONE) return PROTO_NONE;
 
-    const proto::ProtoObject* iter = ctx->newObject(true);
+    const proto::ProtoObject* protoParent = getRegExpStringIteratorProto(ctx);
+    const proto::ProtoObject* iter = protoParent
+        ? protoParent->newChild(ctx, true) : ctx->newObject(true);
     iter = iter->setAttribute(ctx, JSSymbols::iterRe(ctx),   regexp);
     iter = iter->setAttribute(ctx, JSSymbols::iterStr(ctx),  strObj ? strObj : PROTO_NONE);
     iter = iter->setAttribute(ctx, JSSymbols::iterDone(ctx), PROTO_FALSE);
-
-    const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, regexpStringIteratorNext);
-    iter = iter->setAttribute(ctx, JSSymbols::next(ctx), nextFn);
-
-    // Make the iterator itself iterable.  Use the canonical
-    // JSSymbols::symbolIterator key (Array.from / for-of look up via this
-    // exact interned ProtoString*; storing under a fromUTF8String key
-    // would silently miss).  Symbol.iterator MUST be a function returning
-    // this — storing the iter object itself made Array.from's
-    // Call(iterFn, src) fail and produce an empty result.
-    const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
-    if (symIterKey) {
-        const proto::ProtoObject* iterFn = ctx->fromMethod(nullptr, iteratorReturnSelf);
-        iter = iter->setAttribute(ctx, symIterKey, iterFn);
-    }
 
     return iter;
 }

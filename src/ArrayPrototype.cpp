@@ -1,6 +1,7 @@
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
+#include "IteratorPrototype.h"
 #include "JSContext.h"
 #include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
@@ -4462,8 +4463,12 @@ static const proto::ProtoObject* s_arrayIteratorProto = nullptr;
 
 static const proto::ProtoObject* getArrayIteratorProto(proto::ProtoContext* ctx) {
     if (s_arrayIteratorProto) return s_arrayIteratorProto;
-    const proto::ProtoObject* objProto =
-        ctx->space ? ctx->space->objectPrototype : nullptr;
+    // Chain to %IteratorPrototype% (§22.1.5.2) so Object.getPrototypeOf
+    // of an Array Iterator returns %ArrayIteratorPrototype% whose own
+    // prototype carries [@@iterator] and [@@toStringTag] = "Iterator".
+    const proto::ProtoObject* iterProto = getIteratorPrototype(ctx);
+    const proto::ProtoObject* objProto = iterProto ? iterProto
+        : (ctx->space ? ctx->space->objectPrototype : nullptr);
     const proto::ProtoObject* proto = objProto
         ? objProto->newChild(ctx, true) : ctx->newObject(true);
     if (!proto) return nullptr;

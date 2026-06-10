@@ -2,6 +2,7 @@
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
+#include "IteratorPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "RegExpPrototype.h"
@@ -2407,8 +2408,12 @@ static const proto::ProtoObject* s_stringIteratorProto = nullptr;
 
 static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx) {
     if (s_stringIteratorProto) return s_stringIteratorProto;
-    const proto::ProtoObject* objProto =
-        ctx->space ? ctx->space->objectPrototype : nullptr;
+    // Chain to %IteratorPrototype% per §22.2.5.1 so the iterator's
+    // grandparent surfaces [@@iterator] returning this and
+    // [@@toStringTag] = "Iterator".
+    const proto::ProtoObject* iterProto = getIteratorPrototype(ctx);
+    const proto::ProtoObject* objProto = iterProto ? iterProto
+        : (ctx->space ? ctx->space->objectPrototype : nullptr);
     const proto::ProtoObject* proto = objProto
         ? objProto->newChild(ctx, true) : ctx->newObject(true);
     if (!proto) return nullptr;
