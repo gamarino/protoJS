@@ -481,6 +481,8 @@ static const proto::ProtoObject* functionConstructorCall(
     auto toStr = [&](const proto::ProtoObject* o) -> std::string {
         std::string r;
         if (!o || o == PROTO_NONE) return r;
+        if (o == getUndefinedSentinel()) return "undefined";
+        if (o == getNullSentinel()) return "null";
         if (o->isString(ctx)) { o->asString(ctx)->toUTF8String(ctx, r); return r; }
         if (o->isInteger(ctx)) return std::to_string(o->asLong(ctx));
         if (o->isDouble(ctx) || o->isFloat(ctx)) {
@@ -490,6 +492,37 @@ static const proto::ProtoObject* functionConstructorCall(
         }
         if (o == PROTO_TRUE) return "true";
         if (o == PROTO_FALSE) return "false";
+        // §7.1.17 ToString on Object: ToPrimitive(arg, "string").  Try
+        // toString() then valueOf().  Pre-fix the Function ctor dropped
+        // objects to empty string silently; §20.2.1.1 step 4 / Sputnik
+        // A1_T1 expect the toString() call to fire (and to surface its
+        // exception via signalNativeException).
+        const proto::ProtoString* tsK = JSSymbols::toString(ctx);
+        if (tsK) {
+            const proto::ProtoObject* tsFn = o->getAttribute(ctx, tsK, true);
+            if (tsFn && tsFn != PROTO_NONE && tsFn != getUndefinedSentinel()) {
+                const proto::ProtoList* empty = ctx->newList();
+                const proto::ProtoObject* res = callJSFunction(ctx, tsFn, o, empty);
+                if (hasCallException()) return r;
+                if (res && res->isString(ctx)) {
+                    res->asString(ctx)->toUTF8String(ctx, r);
+                    return r;
+                }
+            }
+        }
+        const proto::ProtoString* voK = JSSymbols::valueOf(ctx);
+        if (voK) {
+            const proto::ProtoObject* voFn = o->getAttribute(ctx, voK, true);
+            if (voFn && voFn != PROTO_NONE && voFn != getUndefinedSentinel()) {
+                const proto::ProtoList* empty = ctx->newList();
+                const proto::ProtoObject* res = callJSFunction(ctx, voFn, o, empty);
+                if (hasCallException()) return r;
+                if (res && res->isString(ctx)) {
+                    res->asString(ctx)->toUTF8String(ctx, r);
+                    return r;
+                }
+            }
+        }
         return r;
     };
 
@@ -502,13 +535,16 @@ static const proto::ProtoObject* functionConstructorCall(
     } else if (argCount == 1) {
         // Function(body)
         body = toStr(args->getAt(ctx, 0));
+        if (hasCallException()) return PROTO_NONE;
     } else {
         // Function(p1, p2, ..., pn, body)
         for (size_t i = 0; i < argCount - 1; i++) {
             if (i > 0) params += ",";
             params += toStr(args->getAt(ctx, static_cast<int>(i)));
+            if (hasCallException()) return PROTO_NONE;
         }
         body = toStr(args->getAt(ctx, static_cast<int>(argCount - 1)));
+        if (hasCallException()) return PROTO_NONE;
     }
 
     // §20.2.1.1.1 CreateDynamicFunction step 30 (function kind):
