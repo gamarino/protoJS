@@ -6001,8 +6001,37 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackEmpty(pContext)) return PROTO_NONE;
                 const proto::ProtoObject* pattern = stackTop(pContext);
                 stackPop(pContext);
-                (void)bytecode; // QJS's compiled bytecode is discarded —
-                                // the constructor recompiles from .source.
+                // Best-effort flag recovery from the QJS-emitted bytecode
+                // operand. The bytecode arrives as a ProtoString via
+                // TypeBridge (JS_ToCString stops at the first NUL, so only
+                // the prefix survives). The first two bytes encode the LRE
+                // flag bitmap (le u16). For the common single-flag cases
+                // (g, i, m, s, u, y, d) the low byte is non-zero and the
+                // high byte is zero, so a 1-char ProtoString still carries
+                // the flag. Multi-flag combos with values <= 0xFF and
+                // bytecode payloads that don't begin with NUL also recover.
+                // Cases with LRE_FLAG_NAMED_GROUPS (0x100) silently fall
+                // back to whatever low-byte flags we did recover.
+                std::string flagsStr;
+                if (bytecode && bytecode != PROTO_NONE) {
+                    const proto::ProtoString* bcStr = bytecode->asString(pContext);
+                    if (bcStr) {
+                        std::string raw = bcStr->toStdString(pContext);
+                        int flags = 0;
+                        if (!raw.empty())
+                            flags = static_cast<unsigned char>(raw[0]);
+                        if (raw.size() >= 2)
+                            flags |= (static_cast<unsigned char>(raw[1]) << 8);
+                        if (flags & LRE_FLAG_INDICES)      flagsStr += 'd';
+                        if (flags & LRE_FLAG_GLOBAL)       flagsStr += 'g';
+                        if (flags & LRE_FLAG_IGNORECASE)   flagsStr += 'i';
+                        if (flags & LRE_FLAG_MULTILINE)    flagsStr += 'm';
+                        if (flags & LRE_FLAG_DOTALL)       flagsStr += 's';
+                        if (flags & LRE_FLAG_UNICODE)      flagsStr += 'u';
+                        if (flags & LRE_FLAG_UNICODE_SETS) flagsStr += 'v';
+                        if (flags & LRE_FLAG_STICKY)       flagsStr += 'y';
+                    }
+                }
                 // Pre-allocate the receiver so regexpConstructor can
                 // populate it in place and we control the parent.
                 REFRESH_GLOBAL_OBJ();
@@ -6022,6 +6051,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     : pContext->newObject(true);
                 const proto::ProtoList* args = pContext->newList();
                 args = args->appendLast(pContext, pattern ? pattern : PROTO_NONE);
+                if (!flagsStr.empty())
+                    args = args->appendLast(pContext, pContext->fromUTF8String(flagsStr.c_str()));
                 const proto::ProtoObject* rx =
                     protojs::regexpConstructor(pContext, receiver, nullptr, args, nullptr);
                 if (!rx || rx == PROTO_NONE) {
