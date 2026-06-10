@@ -1,6 +1,7 @@
 #include "MapPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
+#include "IteratorPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
@@ -523,22 +524,53 @@ static const proto::ProtoObject* mapIteratorNext(
     return makeDone();
 }
 
+// %MapIteratorPrototype% — shared parent per §24.1.5.2 with
+// @@toStringTag = "Map Iterator" and a shared next slot.  Chained to
+// %IteratorPrototype% so the [@@iterator] returning-this and
+// [@@toStringTag] = "Iterator" cascade reach the iterator instance.
+static const proto::ProtoObject* s_mapIteratorProto = nullptr;
+
+static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
+    if (s_mapIteratorProto) return s_mapIteratorProto;
+    const proto::ProtoObject* iterProto = protojs::getIteratorPrototype(ctx);
+    const proto::ProtoObject* parent = iterProto ? iterProto
+        : (ctx->space ? ctx->space->objectPrototype : nullptr);
+    const proto::ProtoObject* proto = parent
+        ? parent->newChild(ctx, true) : ctx->newObject(true);
+    if (!proto) return nullptr;
+
+    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+    if (nextKey) {
+        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, mapIteratorNext);
+        if (nextFn) proto = proto->setAttribute(ctx, nextKey, nextFn);
+    }
+
+    const proto::ProtoString* tagUser = JSSymbols::symbolToStringTag(ctx);
+    if (tagUser) {
+        proto = proto->setAttribute(ctx, tagUser,
+            ctx->fromUTF8String("Map Iterator"));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
+
+    s_mapIteratorProto = proto;
+    return proto;
+}
+
 // Create a Map iterator object for the given kind.
 static const proto::ProtoObject* makeMapIterator(
     proto::ProtoContext* ctx, const proto::ProtoObject* mapObj, const char* kind)
 {
-    const proto::ProtoObject* iter = ctx->newObject(true); // mutable for next() to advance idx
+    const proto::ProtoObject* protoParent = getMapIteratorProto(ctx);
+    const proto::ProtoObject* iter = protoParent
+        ? protoParent->newChild(ctx, true) : ctx->newObject(true);
     const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
     const proto::ProtoString* arrKey2 = JSSymbols::iterArr(ctx);
     const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
-    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
     if (idxKey)  iter = iter->setAttribute(ctx, idxKey,  ctx->fromInteger(0LL));
     if (arrKey2) iter = iter->setAttribute(ctx, arrKey2, mapObj ? mapObj : PROTO_NONE);
     if (kindKey) iter = iter->setAttribute(ctx, kindKey, ctx->fromUTF8String(kind));
-    if (nextKey) {
-        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, mapIteratorNext);
-        if (nextFn) iter = iter->setAttribute(ctx, nextKey, nextFn);
-    }
     return iter;
 }
 

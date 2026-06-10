@@ -1,6 +1,7 @@
 #include "SetPrototype.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
+#include "IteratorPrototype.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
@@ -566,21 +567,50 @@ static const proto::ProtoObject* setIteratorNext(
     return markDone();
 }
 
+// %SetIteratorPrototype% per §24.2.5.2 — shared with @@toStringTag =
+// "Set Iterator" and a shared next, chained to %IteratorPrototype%.
+static const proto::ProtoObject* s_setIteratorProto = nullptr;
+
+static const proto::ProtoObject* getSetIteratorProto(proto::ProtoContext* ctx) {
+    if (s_setIteratorProto) return s_setIteratorProto;
+    const proto::ProtoObject* iterProto = protojs::getIteratorPrototype(ctx);
+    const proto::ProtoObject* parent = iterProto ? iterProto
+        : (ctx->space ? ctx->space->objectPrototype : nullptr);
+    const proto::ProtoObject* proto = parent
+        ? parent->newChild(ctx, true) : ctx->newObject(true);
+    if (!proto) return nullptr;
+
+    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+    if (nextKey) {
+        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, setIteratorNext);
+        if (nextFn) proto = proto->setAttribute(ctx, nextKey, nextFn);
+    }
+
+    const proto::ProtoString* tagUser = JSSymbols::symbolToStringTag(ctx);
+    if (tagUser) {
+        proto = proto->setAttribute(ctx, tagUser,
+            ctx->fromUTF8String("Set Iterator"));
+        const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+        const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+        if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    }
+
+    s_setIteratorProto = proto;
+    return proto;
+}
+
 static const proto::ProtoObject* makeSetIterator(
     proto::ProtoContext* ctx, const proto::ProtoObject* setObj, const char* kind)
 {
-    const proto::ProtoObject* iter = ctx->newObject(true);
+    const proto::ProtoObject* protoParent = getSetIteratorProto(ctx);
+    const proto::ProtoObject* iter = protoParent
+        ? protoParent->newChild(ctx, true) : ctx->newObject(true);
     const proto::ProtoString* idxKey  = JSSymbols::iterIdx(ctx);
     const proto::ProtoString* arrKey2 = JSSymbols::iterArr(ctx);
     const proto::ProtoString* kindKey = JSSymbols::iterKind(ctx);
-    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
     if (idxKey)  iter = iter->setAttribute(ctx, idxKey,  ctx->fromInteger(0LL));
     if (arrKey2) iter = iter->setAttribute(ctx, arrKey2, setObj ? setObj : PROTO_NONE);
     if (kindKey) iter = iter->setAttribute(ctx, kindKey, ctx->fromUTF8String(kind));
-    if (nextKey) {
-        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, setIteratorNext);
-        if (nextFn) iter = iter->setAttribute(ctx, nextKey, nextFn);
-    }
     return iter;
 }
 
