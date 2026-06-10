@@ -221,6 +221,22 @@ void ensureArrayBufferConstructor(proto::ProtoContext* ctx,
         proto = proto->setAttribute(ctx, key, fn);
     }
 
+    // §25.1.4.4 ArrayBuffer.prototype[@@toStringTag] = "ArrayBuffer"
+    // with descriptor {writable:false, enumerable:false,
+    // configurable:true} → 0x2.  Object.prototype.toString.call(ab)
+    // returned "[object Object]" before this stamp.
+    {
+        const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
+        const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+        if (tagK) {
+            proto = proto->setAttribute(ctx, tagK,
+                ctx->fromUTF8String("ArrayBuffer"));
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+        }
+    }
+
     // Cache the prototype for createArrayBuffer.
     s_abProto = proto;
 

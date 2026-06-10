@@ -3135,6 +3135,19 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
             const proto::ProtoString* tagKey = JSSymbols::toStringTag(ctx);
             if (tagKey) proto = proto->setAttribute(ctx, tagKey,
                 ctx->fromUTF8String("Error"));
+            // §20.5.6.4 / §19.1.3.6: also publish under the WKS key
+            // so Object.prototype.toString.call(new Error()) === '[object
+            // Error]'. After unifying Object.prototype.toString around
+            // the WKS-only probe the internal sidecar above is no
+            // longer enough on its own.
+            const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(ctx);
+            if (userKey) {
+                proto = proto->setAttribute(ctx, userKey,
+                    ctx->fromUTF8String("Error"));
+                const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
+                const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+                if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+            }
         }
         // Add toString method to the prototype.
         // §20.5.5.4 marks Error.prototype.toString as
