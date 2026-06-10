@@ -387,6 +387,51 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 34 — 2026-06-10** — cleaned up the trailing pendings from R33:
+the remaining Proxy traps (apply / construct / getPrototypeOf /
+setPrototypeOf / isExtensible / preventExtensions / defineProperty /
+getOwnPropertyDescriptor / ownKeys) and the Generator [@@toStringTag]
+chain.
+
+  * **Proxy apply + construct (§28.2.4.7 / §28.2.4.13)** — hook the
+    isProxy dispatch into callJSFunction (covers indirect calls via
+    Reflect.apply / Promise.then / native callbacks), L_OP_call
+    (covers direct `proxy(args)`), and L_OP_call_constructor (covers
+    `new proxy(args)`).  The trap receives `(target, thisArg,
+    argArray)` or `(target, argArray, newTarget)` where `argArray` is
+    a real JS Array (parent Array.prototype, `__is_array__`, length
+    sidecar) so `args[i]` / `args.length` resolve in the user handler
+    — passing a bare ProtoList wrapper surfaced as `{}`.  Reflect
+    .apply's IsCallable check now also accepts a Proxy whose inner
+    target is callable.
+  * **Proxy getPrototypeOf / setPrototypeOf / isExtensible /
+    preventExtensions / defineProperty / getOwnPropertyDescriptor /
+    ownKeys traps** — each Reflect entry point probes isProxy at
+    entry and dispatches to the named handler trap when present.
+    Falls back to the target's default behaviour when the trap is
+    absent.  Invariant enforcement (§9.5.* "validate" steps) is still
+    NOT implemented; that's the remaining structural Proxy gap.
+  * **Generator [@@toStringTag] = "Generator" + parent at
+    %IteratorPrototype% (§27.5.1.5)** — generator iterators were bare
+    `newObject(true)` children of Object.prototype; now parented at
+    `%IteratorPrototype%` so the [@@iterator] returning this and
+    [@@toStringTag] = "Iterator" defaults surface, with the
+    generator's own [@@toStringTag] = "Generator" overriding via the
+    standard 0x2 descriptor and `__has_nonwritable_props__` gate.
+  * **Destructuring of `undefined` / `null` throws TypeError** —
+    already worked correctly across the full literal / array /
+    spread / rest variants; verified and closed task #201.
+
+Proxy + Reflect sub-bucket: 171 → **179 (+8)**.
+
+Structural item left unfixed (tracked for a future round):
+  * **Proxy invariant enforcement (§9.5.* "validate" steps)** — the
+    target-is-non-extensible / target-non-configurable test families
+    still fail because the trap result isn't matched against the
+    target's actual descriptor.
+
+---
+
 **Round 33 — 2026-06-10** — closed out the remaining R32 deferred
 blockers: basic Proxy and Array.prototype.sort precise getter/setter
 side effects.
