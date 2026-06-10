@@ -3302,13 +3302,27 @@ static const proto::ProtoObject* objectToString(
     // §22.1.3.7: builtinTag for Arrays is "Array" but @@toStringTag
     // on the instance must still override per step 16-17.  Remember
     // the candidate tag and fall through to the WKS probe.
+    // IsArray follows Proxy target chains (§7.2.2 step 3.a), so probe
+    // through __proxy_target__ until we hit a concrete object.
     const char* arrayBuiltinTag = nullptr;
     {
         const proto::ProtoString* iaKey = JSSymbols::isArray(ctx);
-        if (iaKey) {
-            const proto::ProtoObject* iaVal = self->getAttribute(ctx, iaKey, false);
-            if (iaVal == PROTO_TRUE)
-                arrayBuiltinTag = "Array";
+        const proto::ProtoObject* probe = self;
+        const proto::ProtoObject* targetKeyObj = ctx->fromUTF8String("__proxy_target__");
+        const proto::ProtoString* targetKey = targetKeyObj ? targetKeyObj->asString(ctx) : nullptr;
+        int hops = 0;
+        while (probe && probe != PROTO_NONE && hops < 16) {
+            if (iaKey) {
+                const proto::ProtoObject* iaVal = probe->getAttribute(ctx, iaKey, false);
+                if (iaVal == PROTO_TRUE) {
+                    arrayBuiltinTag = "Array";
+                    break;
+                }
+            }
+            if (!targetKey) break;
+            if (probe->hasOwnAttribute(ctx, targetKey) != PROTO_TRUE) break;
+            probe = probe->getAttribute(ctx, targetKey, false);
+            hops++;
         }
     }
     // Symbol primitive: protoJS carries Symbols with the __is_symbol__

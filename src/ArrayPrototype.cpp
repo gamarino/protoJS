@@ -4729,10 +4729,17 @@ static const proto::ProtoObject* arrayIsArray(
     if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
     const proto::ProtoObject* val = args->getAt(ctx, 0);
     if (!val || val == PROTO_NONE) return PROTO_FALSE;
+    // §7.2.2 IsArray: follow Proxy target chains (step 3.a).
     const proto::ProtoString* isArrayKey = JSSymbols::isArray(ctx);
-    if (isArrayKey) {
-        if (val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
+    const proto::ProtoObject* tko = ctx->fromUTF8String("__proxy_target__");
+    const proto::ProtoString* tk = tko ? tko->asString(ctx) : nullptr;
+    int hops = 0;
+    while (val && val != PROTO_NONE && hops < 16) {
+        if (isArrayKey && val->hasOwnAttribute(ctx, isArrayKey) == PROTO_TRUE)
             return PROTO_TRUE;
+        if (!tk || val->hasOwnAttribute(ctx, tk) != PROTO_TRUE) break;
+        val = val->getAttribute(ctx, tk, false);
+        hops++;
     }
     return PROTO_FALSE;
 }
