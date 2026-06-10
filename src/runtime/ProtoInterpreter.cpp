@@ -519,6 +519,19 @@ static const proto::ProtoObject* reflectApply(
             if (!callable && nfK && target->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
             const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
             if (!callable && bfK && target->hasAttribute(ctx, bfK) == PROTO_TRUE) callable = true;
+            // A Proxy wrapping a callable target is itself callable —
+            // §28.2.4.7 sources the trap dispatch through callJSFunction
+            // which transparently routes the proxy receiver.
+            if (!callable && protojs::isProxy(ctx, target)) {
+                const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+                if (inner && (
+                    inner->isMethod(ctx) ||
+                    (bcK && inner->hasAttribute(ctx, bcK) == PROTO_TRUE) ||
+                    (nfK && inner->hasAttribute(ctx, nfK) == PROTO_TRUE) ||
+                    (bfK && inner->hasAttribute(ctx, bfK) == PROTO_TRUE) ||
+                    protojs::isProxy(ctx, inner)))
+                    callable = true;
+            }
         }
         if (!callable) {
             signalNativeException(makeNativeError(ctx, "TypeError",
@@ -11266,6 +11279,82 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 const proto::ProtoObject* func = stackAt(pContext, argc + 1);
                 const proto::ProtoObject* newTarget = stackAt(pContext, argc);
 
+                // Proxy constructor target — dispatch through handler's
+                // construct trap (§28.2.4.13).  When the trap is absent,
+                // fall through to constructing the underlying target.
+                // The stack reshuffling and bound-function unwrap below
+                // operate on the resolved target.
+                if (protojs::isProxy(pContext, func)) {
+                    const proto::ProtoObject* pTarget = protojs::proxyTarget(pContext, func);
+                    if (!pTarget) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Cannot perform 'construct' on a proxy that has been revoked", pGlobalRoot);
+                        has_pending_exception = true;
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                        stackPush(pContext, PROTO_NONE);
+                        DISPATCH();
+                    }
+                    const proto::ProtoObject* pHandler = protojs::proxyHandler(pContext, func);
+                    if (pHandler && pHandler != PROTO_NONE) {
+                        const proto::ProtoObject* trapNameObj = pContext->fromUTF8String("construct");
+                        const proto::ProtoString* trapName = trapNameObj
+                            ? trapNameObj->asString(pContext) : nullptr;
+                        const proto::ProtoObject* trap = trapName
+                            ? pHandler->getAttribute(pContext, trapName, true) : nullptr;
+                        bool trapCallable = trap && trap != PROTO_NONE &&
+                            (trap->isMethod(pContext) ||
+                             (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
+                             (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        if (trapCallable) {
+                            // §28.2.4.13 step 8: trap(target, argArray, newTarget).
+                            // argArray must be a real JS Array — pre-fix
+                            // the trap saw a bare ProtoList wrapper.
+                            const proto::ProtoString* arrK = JSSymbols::arrayProto(pContext);
+                            REFRESH_GLOBAL_OBJ();
+                            const proto::ProtoObject* arrProto = (arrK && globalObj && globalObj != PROTO_NONE)
+                                ? globalObj->getAttribute(pContext, arrK, false) : nullptr;
+                            const proto::ProtoObject* argArrJs = protojs::createNewArray(pContext, arrProto);
+                            if (argArrJs && argc > 0) {
+                                // OP_call_constructor stack layout (QJS):
+                                // [..., func, newTarget, arg0, ..., arg(N-1)].
+                                // Top = arg(N-1).  Read arg0..arg(N-1) in
+                                // order via stackAt(argc - 1 - i).
+                                const proto::ProtoList* argEls = pContext->newList();
+                                for (uint32_t i = 0; i < argc; i++)
+                                    argEls = argEls->appendLast(pContext,
+                                        stackAt(pContext, argc - 1 - i));
+                                protojs::setArrayElements(pContext, argArrJs, argEls);
+                            }
+                            const proto::ProtoList* trapArgs = pContext->newList();
+                            trapArgs = trapArgs->appendLast(pContext, pTarget);
+                            trapArgs = trapArgs->appendLast(pContext, argArrJs ? argArrJs : PROTO_NONE);
+                            trapArgs = trapArgs->appendLast(pContext, newTarget ? newTarget : pTarget);
+                            for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                            const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
+                            if (hasCallException()) DISPATCH();
+                            // §28.2.4.13 step 11: result must be an object.
+                            if (!res || res == PROTO_NONE
+                                || res->isInteger(pContext) || res->isDouble(pContext)
+                                || res->isFloat(pContext) || res->isBoolean(pContext)
+                                || res->asString(pContext)) {
+                                pending_exception = makeError(pContext, "TypeError",
+                                    "'construct' trap returned non-object", pGlobalRoot);
+                                has_pending_exception = true;
+                                stackPush(pContext, PROTO_NONE);
+                                DISPATCH();
+                            }
+                            stackPush(pContext, res);
+                            DISPATCH();
+                        }
+                    }
+                    // No trap → construct on the target directly.
+                    func = pTarget;
+                    // Overwrite the stack slot for func so the downstream
+                    // dispatch (bound-function unwrap, prototype lookup)
+                    // sees the target.
+                    pAutomaticLocals[currentStackBase + _PF().stackTop - (argc + 2)] = pTarget;
+                }
+
                 // CS: argsList held in C++ scratch — see resolvedMod2 branch.
                 proto::ProtoContext::CriticalSection callCs2(pContext);
                 // P-#4 single-allocation builder (matches L_OP_call /
@@ -11740,6 +11829,67 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 }
                 if (stackEmpty(pContext) || stackSize(pContext) < argc + 1) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
+
+                // Proxy callable target — dispatch through handler.apply
+                // (§28.2.4.7).  When the trap is absent, replace func with
+                // the underlying target on the stack so the downstream
+                // dispatch operates on the unwrapped callable.  Pre-fix
+                // calling a function-proxy via `p(args)` ran the native
+                // "is not a function" probe on the proxy receiver, since
+                // the proxy carried no __bytecode_id__ / __native_fn__ of
+                // its own.
+                if (protojs::isProxy(pContext, func)) {
+                    const proto::ProtoObject* pTarget = protojs::proxyTarget(pContext, func);
+                    if (!pTarget) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Cannot perform 'apply' on a proxy that has been revoked", pGlobalRoot);
+                        has_pending_exception = true;
+                        for (uint32_t i = 0; i < argc + 1; i++) stackPop(pContext);
+                        stackPush(pContext, PROTO_NONE);
+                        DISPATCH();
+                    }
+                    const proto::ProtoObject* pHandler = protojs::proxyHandler(pContext, func);
+                    if (pHandler && pHandler != PROTO_NONE) {
+                        const proto::ProtoObject* trapNameObj = pContext->fromUTF8String("apply");
+                        const proto::ProtoString* trapName = trapNameObj
+                            ? trapNameObj->asString(pContext) : nullptr;
+                        const proto::ProtoObject* trap = trapName
+                            ? pHandler->getAttribute(pContext, trapName, true) : nullptr;
+                        bool trapCallable = trap && trap != PROTO_NONE &&
+                            (trap->isMethod(pContext) ||
+                             (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
+                             (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        if (trapCallable) {
+                            // Build a JS Array argArray (real array, not a
+                            // bare ProtoList wrapper) so the user handler
+                            // sees `args[i]` and `args.length` correctly.
+                            const proto::ProtoString* arrK = JSSymbols::arrayProto(pContext);
+                            REFRESH_GLOBAL_OBJ();
+                            const proto::ProtoObject* arrProto = (arrK && globalObj && globalObj != PROTO_NONE)
+                                ? globalObj->getAttribute(pContext, arrK, false) : nullptr;
+                            const proto::ProtoObject* argArrJs = protojs::createNewArray(pContext, arrProto);
+                            if (argArrJs && argc > 0) {
+                                const proto::ProtoList* argEls = pContext->newList();
+                                for (uint32_t i = 0; i < argc; i++)
+                                    argEls = argEls->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                                protojs::setArrayElements(pContext, argArrJs, argEls);
+                            }
+                            const proto::ProtoList* trapArgs = pContext->newList();
+                            trapArgs = trapArgs->appendLast(pContext, pTarget);
+                            trapArgs = trapArgs->appendLast(pContext, PROTO_NONE);
+                            trapArgs = trapArgs->appendLast(pContext, argArrJs ? argArrJs : PROTO_NONE);
+                            for (uint32_t i = 0; i < argc + 1; i++) stackPop(pContext);
+                            const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
+                            if (hasCallException()) DISPATCH();
+                            stackPush(pContext, res ? res : PROTO_NONE);
+                            DISPATCH();
+                        }
+                    }
+                    // No trap — re-target and continue the standard dispatch.
+                    func = pTarget;
+                    pAutomaticLocals[currentStackBase + _PF().stackTop - (argc + 1)] = pTarget;
+                }
+
                 // Read __bytecode_id__ once.  If >= 0, func is a JS closure
                 // and CARRIES its identity by construction — skip the
                 // __native_fn__ unwrap (which would always return nullptr
@@ -14059,6 +14209,57 @@ const proto::ProtoObject* callJSFunction(
     const proto::ProtoList* args)
 {
     if (!fn || fn == PROTO_NONE || !ctx) return PROTO_NONE;
+
+    // Proxy callable target — dispatch through the handler's apply trap
+    // (§28.2.4.7).  When the trap is absent, fall through to invoking
+    // the underlying target directly.  We rely on isProxy probing the
+    // __proxy_target__ marker, so non-proxy targets bypass this branch
+    // after a single sidecar miss.
+    if (protojs::isProxy(ctx, fn)) {
+        const proto::ProtoObject* target = protojs::proxyTarget(ctx, fn);
+        if (!target) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'apply' on a proxy that has been revoked"));
+            return PROTO_NONE;
+        }
+        const proto::ProtoObject* handler = protojs::proxyHandler(ctx, fn);
+        if (handler && handler != PROTO_NONE) {
+            const proto::ProtoObject* trapNameObj = ctx->fromUTF8String("apply");
+            const proto::ProtoString* trapName = trapNameObj ? trapNameObj->asString(ctx) : nullptr;
+            const proto::ProtoObject* trap = trapName
+                ? handler->getAttribute(ctx, trapName, true) : nullptr;
+            bool trapIsCallable = trap && trap != PROTO_NONE && (
+                trap->isMethod(ctx) ||
+                (JSSymbols::bytecodeId(ctx) && trap->hasAttribute(ctx, JSSymbols::bytecodeId(ctx)) == PROTO_TRUE) ||
+                (JSSymbols::nativeFn(ctx) && trap->hasAttribute(ctx, JSSymbols::nativeFn(ctx)) == PROTO_TRUE) ||
+                (JSSymbols::boundFn(ctx) && trap->hasAttribute(ctx, JSSymbols::boundFn(ctx)) == PROTO_TRUE));
+            if (trapIsCallable) {
+                // §28.2.4.7 step 8: trap is called with (target, thisArg, argArray).
+                // argArray MUST be a JS Array (with __is_array__, length
+                // sidecar, and Array.prototype parent) — passing a bare
+                // ProtoList wrapper would surface as `{}` for the user
+                // handler since args[0] / args.length wouldn't resolve.
+                const proto::ProtoString* arrK = JSSymbols::arrayProto(ctx);
+                const proto::ProtoObject* arrProto = (arrK && t_currentGlobalRoot && *t_currentGlobalRoot)
+                    ? (*t_currentGlobalRoot)->getAttribute(ctx, arrK, false) : nullptr;
+                const proto::ProtoObject* argArrJs = protojs::createNewArray(ctx, arrProto);
+                if (argArrJs && args) {
+                    const proto::ProtoList* argEls = ctx->newList();
+                    unsigned long sz = args->getSize(ctx);
+                    for (unsigned long i = 0; i < sz; i++)
+                        argEls = argEls->appendLast(ctx, args->getAt(ctx, i));
+                    protojs::setArrayElements(ctx, argArrJs, argEls);
+                }
+                const proto::ProtoList* trapArgs = ctx->newList();
+                trapArgs = trapArgs->appendLast(ctx, target);
+                trapArgs = trapArgs->appendLast(ctx, thisVal ? thisVal : PROTO_NONE);
+                trapArgs = trapArgs->appendLast(ctx, argArrJs ? argArrJs : PROTO_NONE);
+                return callJSFunction(ctx, trap, handler, trapArgs);
+            }
+        }
+        // No trap → fall through invoking target directly.
+        fn = target;
+    }
 
     const proto::ProtoObject** globalRoot = t_currentGlobalRoot;
 
