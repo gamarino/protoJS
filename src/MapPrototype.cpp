@@ -540,9 +540,30 @@ static const proto::ProtoObject* getMapIteratorProto(proto::ProtoContext* ctx) {
     if (!proto) return nullptr;
 
     const proto::ProtoString* nextKey = JSSymbols::next(ctx);
-    if (nextKey) {
-        const proto::ProtoObject* nextFn = ctx->fromMethod(nullptr, mapIteratorNext);
-        if (nextFn) proto = proto->setAttribute(ctx, nextKey, nextFn);
+    if (nextKey && ctx->space && ctx->space->methodPrototype) {
+        const proto::ProtoObject* wrapper =
+            ctx->space->methodPrototype->newChild(ctx, true);
+        if (wrapper) {
+            const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+            if (nfk) wrapper = wrapper->setAttribute(ctx, nfk,
+                ctx->fromMethod(nullptr, mapIteratorNext));
+            const proto::ProtoString* lk = JSSymbols::length(ctx);
+            if (lk) {
+                wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(0LL));
+                const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+                if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+            }
+            const proto::ProtoString* nk = JSSymbols::name(ctx);
+            if (nk) {
+                wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String("next"));
+                const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+                if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+            }
+            proto = proto->setAttribute(ctx, nextKey, wrapper);
+            const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
+            const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+            if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
+        }
     }
 
     const proto::ProtoString* tagUser = JSSymbols::symbolToStringTag(ctx);

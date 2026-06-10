@@ -2426,8 +2426,43 @@ static const proto::ProtoObject* getStringIteratorProto(proto::ProtoContext* ctx
         const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
         if (pdk) proto = proto->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
     }
-    const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
-    if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
+    // Install `next` on the proto (NOT on every instance) per §22.2.5.1.2
+    // with the §17 function shape: own `name` = "next", own `length` = 0,
+    // both as {writable:false, enumerable:false, configurable:true} = 0x2,
+    // and the slot itself as {writable:true, enumerable:false,
+    // configurable:true} = 0x3.  Pre-fix every instance carried a bare
+    // wrapper missing all descriptor surface, so built-ins/
+    // StringIteratorPrototype/next/name failed with
+    // "Object.getOwnPropertyDescriptor called on null or undefined"
+    // because the test reads StringIteratorProto.next directly.
+    {
+        const proto::ProtoString* nextKey = JSSymbols::next(ctx);
+        if (nextKey && ctx->space && ctx->space->methodPrototype) {
+            const proto::ProtoObject* wrapper =
+                ctx->space->methodPrototype->newChild(ctx, true);
+            if (wrapper) {
+                const proto::ProtoString* nfk = JSSymbols::nativeFn(ctx);
+                if (nfk) wrapper = wrapper->setAttribute(ctx, nfk,
+                    ctx->fromMethod(nullptr, stringIteratorNext));
+                const proto::ProtoString* lk = JSSymbols::length(ctx);
+                if (lk) {
+                    wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(0LL));
+                    const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+                    if (pdlk) wrapper = wrapper->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+                }
+                const proto::ProtoString* nk = JSSymbols::name(ctx);
+                if (nk) {
+                    wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String("next"));
+                    const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+                    if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+                }
+                proto = proto->setAttribute(ctx, nextKey, wrapper);
+                const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_next__");
+                const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+                if (pdnk) proto = proto->setAttribute(ctx, pdnk, ctx->fromInteger(0x3LL));
+            }
+        }
+    }
     s_stringIteratorProto = proto;
     return proto;
 }
@@ -2449,18 +2484,6 @@ static const proto::ProtoObject* stringSymbolIterator(
     const proto::ProtoString* idxKey = idxKo ? idxKo->asString(ctx) : nullptr;
     if (strKey) iter = iter->setAttribute(ctx, strKey, self ? self : PROTO_NONE);
     if (idxKey) iter = iter->setAttribute(ctx, idxKey, ctx->fromInteger(0));
-
-    // .next method on the iterator.
-    const proto::ProtoString* nextKey = JSSymbols::next(ctx);
-    if (nextKey) {
-        const proto::ProtoObject* wrapper = ctx->newObject(true);
-        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
-        const proto::ProtoObject* rawM = ctx->fromMethod(nullptr, stringIteratorNext);
-        if (wrapper && nfKey && rawM) {
-            wrapper = wrapper->setAttribute(ctx, nfKey, rawM);
-            iter = iter->setAttribute(ctx, nextKey, wrapper);
-        }
-    }
     return iter;
 }
 
