@@ -3335,15 +3335,17 @@ static const proto::ProtoObject* objectToString(
             return tag;
         };
 
-        // 1. Try internal sidecar key used by built-in prototypes.
-        std::string tag = tryTagKey(JSSymbols::toStringTag(ctx));
-
-        // 2. If not found, try the WKS string key "Symbol.toStringTag".
-        if (tag.empty()) {
-            const proto::ProtoObject* wksKeyObj = ctx->fromUTF8String("Symbol.toStringTag");
-            const proto::ProtoString* wksKey = wksKeyObj ? wksKeyObj->asString(ctx) : nullptr;
-            tag = tryTagKey(wksKey);
-        }
+        // §22.1.3.7 step 16 requires Get(O, @@toStringTag), i.e. ONLY
+        // the well-known-symbol key. The internal `__toStringTag__`
+        // sidecar was a second store kept for legacy reasons, but
+        // letting it survive caused tests that `delete obj[
+        // Symbol.toStringTag]` and expect the builtinTag fallback to
+        // keep seeing the sidecar (Object/prototype/toString/
+        // symbol-tag-*-builtin verifyProperty). Probe ONLY the WKS
+        // key.
+        const proto::ProtoObject* wksKeyObj = ctx->fromUTF8String("Symbol.toStringTag");
+        const proto::ProtoString* wksKey = wksKeyObj ? wksKeyObj->asString(ctx) : nullptr;
+        std::string tag = tryTagKey(wksKey);
 
         if (!tag.empty()) {
             std::string tagResult = "[object " + tag + "]";
