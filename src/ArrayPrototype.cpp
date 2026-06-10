@@ -3895,21 +3895,53 @@ static const proto::ProtoObject* arraySort(
 
     defined.reserve(len);
     const proto::ProtoObject* undefSent = getUndefinedSentinel();
+    // Probe __elements__ once; for in-range PROTO_NONE slots the index
+    // is a real hole per §23.1.3.30, NOT explicit-undefined.  arrHas
+    // intentionally conflates the two (every in-range slot is "present"
+    // for forEach/indexOf/etc.), but sort MUST distinguish so the tail
+    // hole slots come back as ABSENT after the write-back rather than
+    // as own data slots holding undefined.  Mirror the policy used by
+    // hasOwnProperty (els[i] == PROTO_NONE → hole; idx >= els.size()
+    // falls back to the sidecar own-attribute probe).
+    const proto::ProtoList* preEls = getArrayElements(ctx, self);
+    const unsigned long preSize = preEls
+        ? static_cast<unsigned long>(preEls->getSize(ctx)) : 0;
     for (unsigned long i = 0; i < len; i++) {
-        if (!arrHas(ctx, self, i)) {
+        bool isHole = false;
+        const proto::ProtoObject* elem = nullptr;
+        if (preEls && i < preSize) {
+            elem = preEls->getAt(ctx, static_cast<int>(i));
+            if (!elem || elem == PROTO_NONE) {
+                // Slot may still be backed by a string-keyed sidecar
+                // (Object.defineProperty path); probe before declaring
+                // it a hole.
+                const proto::ProtoString* k =
+                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                if (k && self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
+                    elem = self->getAttribute(ctx, k, false);
+                    if (!elem || elem == PROTO_NONE) isHole = true;
+                } else {
+                    isHole = true;
+                }
+            }
+        } else if (!arrHas(ctx, self, i)) {
+            isHole = true;
+        } else {
+            elem = arrGet(ctx, self, i);
+        }
+        if (isHole) {
             holeCount++;
             continue;
         }
-        const proto::ProtoObject* elem = arrGet(ctx, self, i);
         // ECMA-262 §23.1.3.30 SortCompare: a value of Type undefined
         // sorts AFTER all defined values, regardless of whether it
-        // was a hole, a PROTO_NONE-padded slot, or an explicit user
-        // `undefined`. Pre-fix only PROTO_NONE was bucketed as
-        // undefined, so `new Array(undefined, 1).sort()` saw the
-        // explicit undefined as a "real" string-keyed value and the
-        // result was [undefined, 1] instead of [1, undefined]
+        // was an explicit user `undefined` or the undefined sentinel.
+        // Pre-fix only PROTO_NONE was bucketed as undefined, so
+        // `new Array(undefined, 1).sort()` saw the explicit undefined
+        // as a "real" string-keyed value and the result was
+        // [undefined, 1] instead of [1, undefined]
         // (Sputnik S15.4.4.11_A1.4_T2).
-        if (!elem || elem == PROTO_NONE || elem == undefSent) {
+        if (!elem || elem == undefSent) {
             undefinedCount++;
         } else {
             defined.push_back(elem);
@@ -3947,26 +3979,41 @@ static const proto::ProtoObject* arraySort(
     std::stable_sort(defined.begin(), defined.end(), less);
     if (comparatorAborted) return PROTO_NONE;
 
-    // Write back: sorted defined values, then undefined, then holes (as undefined,
-    // since protoCore has no attribute-delete; absent vs explicit-undefined is
-    // indistinguishable via x[i] access anyway).
+    // Write back: sorted defined values, then explicit-undefined,
+    // then holes preserved as ABSENT slots per §23.1.3.30 step 6
+    // (SortIndexedProperties leaves indices >= itemCount untouched if
+    // they had no own property).  Pre-fix the hole positions were
+    // filled with the undefined sentinel — observable as
+    // `arr.hasOwnProperty(i) === true` and `i in arr === true` for
+    // every tail slot, breaking Sputnik bug_596_2 and the wider
+    // sparse-sort family.
     //
-    // PROTO_NONE in __elements__ is interpreted by arrGet as a hole and
-    // falls through to the string-key sidecar / prototype chain.  For
-    // a previously sparse array (e.g. `new Array(2); x[1] = 1`) the
-    // sidecar attribute "1" carries the old value, so writing
-    // PROTO_NONE to __elements__[1] caused x[1] to surface the stale
-    // 1 after sort (Sputnik S15.4.4.11_A1.2_T1).  Use the user-visible
-    // undefined sentinel for the explicit-undefined trailing slots —
-    // arrGet sees the sentinel as a non-hole and returns it directly.
+    // PROTO_NONE in __elements__ is interpreted by arrGet as a hole;
+    // for a previously sparse array the OLD string-keyed sidecar at
+    // the index must ALSO be cleared, otherwise arrGet falls through
+    // to it and surfaces the stale pre-sort value.  Mirror the delete
+    // pattern used by copyWithin: real arrays clear __elements__ via
+    // arrayTryFastSet(PROTO_NONE); array-likes clear the sidecar via
+    // setAttribute(indexKey, PROTO_NONE).
     unsigned long writeIdx = 0;
     for (const auto* v : defined)
         arrSet(ctx, self, writeIdx++, v);
     const proto::ProtoObject* undefMarker = getUndefinedSentinel();
     for (unsigned long i = 0; i < undefinedCount; i++)
         arrSet(ctx, self, writeIdx++, undefMarker);
-    for (unsigned long i = 0; i < holeCount; i++)
-        arrSet(ctx, self, writeIdx++, undefMarker);
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    bool isRealArr = isArrKey
+        && self->getAttribute(ctx, isArrKey, true) == PROTO_TRUE
+        && getArrayElements(ctx, self) != nullptr;
+    for (unsigned long i = 0; i < holeCount; i++) {
+        if (isRealArr) {
+            arrayTryFastSet(ctx, self, writeIdx, PROTO_NONE);
+        }
+        const proto::ProtoString* delKey =
+            JSSymbols::indexKey(ctx, static_cast<uint32_t>(writeIdx));
+        if (delKey) self->setAttribute(ctx, delKey, PROTO_NONE);
+        writeIdx++;
+    }
 
     return O;
 }
