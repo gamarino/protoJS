@@ -805,6 +805,21 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
                             fnCtor = fnCtor->setAttribute(ctx, nfKey, rawMethod);
                         }
                     }
+                    // §20.2.1.1: `new Function(body)` and `Function(body)`
+                    // share semantics. Wire __construct__ to the same
+                    // CreateDynamicFunction call so OP_call_constructor's
+                    // native-construct dispatch returns the compiled
+                    // function directly (instead of the newly-allocated
+                    // wrapper object that the user immediately tried to
+                    // call and tripped "is not a function" on).
+                    const proto::ProtoString* ctorMK = JSSymbols::construct(ctx);
+                    if (ctorMK) {
+                        const proto::ProtoObject* ctorM =
+                            ctx->fromMethod(nullptr, functionConstructorCall);
+                        if (ctorM) {
+                            fnCtor = fnCtor->setAttribute(ctx, ctorMK, ctorM);
+                        }
+                    }
                 }
 
                 *globalRoot = (*globalRoot)->setAttribute(ctx, keyFunction, fnCtor);
