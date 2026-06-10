@@ -1445,6 +1445,40 @@ const proto::ProtoObject* stringIsWellFormed(
     return PROTO_TRUE;
 }
 
+// ECMA-262 §22.1.3.25 — String.prototype.toWellFormed.
+// Replace any lone (unpaired) surrogate code unit with U+FFFD; valid
+// surrogate pairs and non-surrogates pass through unchanged.
+const proto::ProtoObject* stringToWellFormed(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    std::string s = objToStr(ctx, self);
+    if (hasCallException()) return PROTO_NONE;
+    auto u16 = utf8ToUTF16(s);
+    std::vector<uint16_t> out;
+    out.reserve(u16.size());
+    for (size_t i = 0; i < u16.size(); i++) {
+        uint16_t h = u16[i];
+        if (h >= 0xD800 && h <= 0xDBFF) {
+            if (i + 1 < u16.size() && u16[i+1] >= 0xDC00 && u16[i+1] <= 0xDFFF) {
+                out.push_back(h);
+                out.push_back(u16[i+1]);
+                i++;
+            } else {
+                out.push_back(0xFFFD); // Unpaired high surrogate → replacement
+            }
+        } else if (h >= 0xDC00 && h <= 0xDFFF) {
+            out.push_back(0xFFFD); // Unpaired low surrogate → replacement
+        } else {
+            out.push_back(h);
+        }
+    }
+    std::string result = utf16ToUTF8(out);
+    return ctx->fromUTF8String(result.c_str());
+}
+
 // ECMA-262 §22.1.3.13/14 — StringPad. Apply ToLength to maxLength;
 // fall back to the receiver's length when fillString is "". Reject
 // excessive allocations (V8/Node throw RangeError when the requested
@@ -1700,30 +1734,76 @@ const proto::ProtoObject* stringReplace(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    // §22.1.3.18 step 3 ToString(this value) runs BEFORE the per-arg
-    // branches.  Pre-fix the short-circuit `args->getSize() < 2`
-    // bailed out before coercing the receiver, so
-    // String.prototype.replace.call({toString: undefined, valueOf:
-    // undefined}) silently returned the receiver instead of throwing
-    // the spec-required TypeError from OrdinaryToPrimitive.
+    // Spec §22.1.3.18: GetMethod(searchValue, @@replace) precedes
+    // ToString(O), so the @@replace dispatch must run even when the
+    // call site supplied <2 args (replaceValue defaults to undefined).
+    const proto::ProtoObject* pattern = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoObject* replaceArg = (args && args->getSize(ctx) > 1)
+        ? args->getAt(ctx, 1) : getUndefinedSentinel();
+    // A truly absent pattern (PROTO_NONE / nullptr) coerces to undefined
+    // for the rest of the algorithm; normalise to the undefined sentinel
+    // so the @@replace probe + objToStr both see a real value.  Pre-fix
+    // we returned the receiver verbatim, so `s.replace(unset, fn)` was
+    // a no-op while the test262 reference expected "undefined" -> fn().
+    if (!pattern || pattern == PROTO_NONE) pattern = getUndefinedSentinel();
+
+    // §22.1.3.18 step 2: GetMethod(searchValue, @@replace) on any
+    // non-null/undef pattern.  When defined, route through it before
+    // ToString(O).  Probe both the __get_Symbol.replace__ accessor
+    // sidecar and the data slot; non-callable raises TypeError.
+    // Skip primitives (per "If searchValue is not Object" carve-out)
+    // and BigInt to preserve cstm-replace-on-bigint-primitive semantics.
+    if (pattern != getNullSentinel() && pattern != getUndefinedSentinel()
+        && !pattern->isString(ctx) && !pattern->isInteger(ctx)
+        && !pattern->isDouble(ctx) && !pattern->isFloat(ctx)
+        && !pattern->isBoolean(ctx)
+        && !(JSSymbols::isBigInt(ctx)
+            && pattern->getAttribute(ctx, JSSymbols::isBigInt(ctx), true) == PROTO_TRUE)) {
+        const proto::ProtoString* replK = JSSymbols::symbolReplace(ctx);
+        if (replK) {
+            std::string replKeyName;
+            replK->toUTF8String(ctx, replKeyName);
+            std::string replGetSk = "__get_" + replKeyName + "__";
+            const proto::ProtoObject* replGetKObj = ctx->fromUTF8String(replGetSk.c_str());
+            const proto::ProtoString* replGetK = replGetKObj ? replGetKObj->asString(ctx) : nullptr;
+            const proto::ProtoObject* replacer = nullptr;
+            if (replGetK) {
+                const proto::ProtoObject* getter = pattern->getAttribute(ctx, replGetK, true);
+                if (getter && getter != PROTO_NONE) {
+                    replacer = callJSFunction(ctx, getter, pattern, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+            if (!replacer || replacer == PROTO_NONE) {
+                replacer = pattern->getAttribute(ctx, replK, true);
+            }
+            if (replacer && replacer != PROTO_NONE
+                && replacer != getNullSentinel() && replacer != getUndefinedSentinel()) {
+                bool callable = replacer->isMethod(ctx) ||
+                    (JSSymbols::bytecodeId(ctx) && replacer->hasAttribute(ctx, JSSymbols::bytecodeId(ctx)) == PROTO_TRUE) ||
+                    (JSSymbols::nativeFn(ctx) && replacer->hasAttribute(ctx, JSSymbols::nativeFn(ctx)) == PROTO_TRUE);
+                if (!callable) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "searchValue[Symbol.replace] is not callable"));
+                    return PROTO_NONE;
+                }
+                const proto::ProtoList* newArgs = ctx->newList();
+                newArgs = newArgs->appendLast(ctx, self);
+                newArgs = newArgs->appendLast(ctx, replaceArg);
+                return callJSFunction(ctx, replacer, pattern, newArgs);
+            }
+        }
+    }
+    // Past this point the spec mandates ToString(O) and ToString(searchValue).
+    // When the receiver was given but the call site omitted a replacement, we
+    // still fall through to the string-coercion path with an "undefined"
+    // replacement (matches what the JS reference impl does when no @@replace
+    // is found).
     if (!args || args->getSize(ctx) < 2) {
         std::string coerced = objToStr(ctx, self);
         if (hasCallException()) return PROTO_NONE;
         return ctx->fromUTF8String(coerced.c_str());
-    }
-    const proto::ProtoObject* pattern = args->getAt(ctx, 0);
-    if (!pattern || pattern == PROTO_NONE) return ctx->fromUTF8String(objToStr(ctx, self).c_str());
-
-    if (isRegExp(ctx, pattern)) {
-        const proto::ProtoString* replaceKey = JSSymbols::symbolReplace(ctx);
-        const proto::ProtoObject* replaceFn = pattern->getAttribute(ctx, replaceKey, true);
-        if (replaceFn && replaceFn != PROTO_NONE) {
-            // Call pattern[Symbol.replace](self, replacement)
-            const proto::ProtoList* newArgs = ctx->newList();
-            newArgs = newArgs->appendLast(ctx, self);
-            newArgs = newArgs->appendLast(ctx, args->getAt(ctx, 1));
-            return pattern->call(ctx, nullptr, replaceKey, pattern, newArgs, nullptr);
-        }
     }
 
     // Per ECMA-262 §22.1.3.18 step 5: ToString(searchValue) — non-string
@@ -2746,6 +2826,7 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
     reg("split",             stringSplit,         2);
     reg("normalize",         stringNormalize,     0);
     reg("isWellFormed",      stringIsWellFormed,  0);
+    reg("toWellFormed",      stringToWellFormed,  0);
     reg("matchAll",          stringMatchAll,      1);
 
     // String[Symbol.iterator] — yields each Unicode codepoint (UTF-16
@@ -2826,6 +2907,7 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
         { "split",             stringSplit,         2 },
         { "normalize",         stringNormalize,     0 },
         { "isWellFormed",      stringIsWellFormed,  0 },
+        { "toWellFormed",      stringToWellFormed,  0 },
         { "matchAll",          stringMatchAll,      1 },
         { nullptr, nullptr, 0 }
     };

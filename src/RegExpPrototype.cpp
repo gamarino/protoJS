@@ -3,6 +3,7 @@
 #include "ArrayPrototype.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
+#include "TypeBridge.h"
 #include "headers/protoCore.h"
 extern "C" {
 #include "libregexp.h"
@@ -23,7 +24,8 @@ namespace {
 
 /** Convert any ProtoObject to its string representation. */
 static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
-    if (!obj || obj == PROTO_NONE) return "";
+    if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel()) return "undefined";
+    if (obj == getNullSentinel()) return "null";
     std::string r;
     if (obj->isString(ctx)) {
         obj->asString(ctx)->toUTF8String(ctx, r);
@@ -36,6 +38,7 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
         snprintf(buf, sizeof(buf), "%.15g", d);
         return buf;
     }
+    if (obj->isBoolean(ctx)) return obj->asBoolean(ctx) ? "true" : "false";
     // String wrapper object — unwrap via __primitive_value__ sidecar so
     // `regex[Symbol.split](new String('hello'))` sees 'hello' instead of ''.
     {
@@ -404,9 +407,23 @@ const proto::ProtoObject* regexpSymbolReplace(
 
     auto u16 = utf8ToUTF16(str);
 
+    // Callable replacement: identified by a non-PROTO_NONE bytecodeId
+    // sidecar (user closures) OR a native method marker.  Spec
+    // §22.2.6.11 step 6 demands ToString(replaceValue) ONLY when not
+    // callable — so the undefined sentinel must coerce to "undefined",
+    // not the function-handler short-circuit.
     bool isFnReplace = false;
-    if (replaceValue && replaceValue != PROTO_NONE) {
-        isFnReplace = (replaceValue->getAttribute(ctx, JSSymbols::bytecodeId(ctx), false) != PROTO_NONE);
+    if (replaceValue && replaceValue != PROTO_NONE
+        && replaceValue != getUndefinedSentinel() && replaceValue != getNullSentinel()) {
+        const proto::ProtoObject* bcVal =
+            replaceValue->getAttribute(ctx, JSSymbols::bytecodeId(ctx), false);
+        if (bcVal && bcVal != PROTO_NONE) isFnReplace = true;
+        if (!isFnReplace && replaceValue->isMethod(ctx)) isFnReplace = true;
+        if (!isFnReplace) {
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            if (nfKey && replaceValue->hasAttribute(ctx, nfKey) == PROTO_TRUE)
+                isFnReplace = true;
+        }
     }
     std::string replStr = isFnReplace ? "" : objToStr(ctx, replaceValue);
 
