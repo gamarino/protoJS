@@ -720,6 +720,51 @@ void ensureFunctionPrototype(proto::ProtoContext* ctx,
         if (hnwFp) fp = fp->setAttribute(ctx, hnwFp, PROTO_TRUE);
     }
 
+    // §10.2.4 / Annex E: Function.prototype.caller / .arguments are
+    // strict-mode poisoned — both [[Get]] and [[Set]] are the shared
+    // %ThrowTypeError% function.  Reading or assigning either property
+    // on any strict-mode function instance must throw a TypeError.
+    // Pre-fix the slots were absent, so the test262 _gs probes that
+    // expect `f.caller === undefined && (function(){ f.caller })`-style
+    // throws ran into "f.caller is undefined" instead of TypeError.
+    {
+        static const proto::ProtoMethod throwTypeErrorPoison = [](
+            proto::ProtoContext* ictx,
+            const proto::ProtoObject*,
+            const proto::ParentLink*,
+            const proto::ProtoList*,
+            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            signalNativeException(makeNativeError(ictx, "TypeError",
+                "'caller' / 'arguments' may not be accessed on strict-mode functions"));
+            return PROTO_NONE;
+        };
+        const proto::ProtoObject* poison = ctx->fromMethod(nullptr, throwTypeErrorPoison);
+        const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
+        if (hapK) fp = fp->setAttribute(ctx, hapK, PROTO_TRUE);
+        const char* names[2] = { "caller", "arguments" };
+        for (int i = 0; i < 2; ++i) {
+            const proto::ProtoObject* propNameObj = ctx->fromUTF8String(names[i]);
+            const proto::ProtoString* propName = propNameObj ? propNameObj->asString(ctx) : nullptr;
+            if (!propName) continue;
+            // Install __get_<name>__ and __set_<name>__ sidecars both
+            // pointing at the shared %ThrowTypeError% poison.
+            char buf[64];
+            snprintf(buf, sizeof(buf), "__get_%s__", names[i]);
+            const proto::ProtoObject* getKo = ctx->fromUTF8String(buf);
+            const proto::ProtoString* getK = getKo ? getKo->asString(ctx) : nullptr;
+            if (getK) fp = fp->setAttribute(ctx, getK, poison);
+            snprintf(buf, sizeof(buf), "__set_%s__", names[i]);
+            const proto::ProtoObject* setKo = ctx->fromUTF8String(buf);
+            const proto::ProtoString* setK = setKo ? setKo->asString(ctx) : nullptr;
+            if (setK) fp = fp->setAttribute(ctx, setK, poison);
+            // §16.1: { enumerable:false, configurable:true } accessor → 0x2.
+            snprintf(buf, sizeof(buf), "__pd_%s__", names[i]);
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(buf);
+            const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdk) fp = fp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+        }
+    }
+
     // Register fp as the ProtoSpace method prototype so that ALL native ProtoMethod
     // objects (e.g. Array.prototype.join, Function.prototype.call itself) inherit
     // from Function.prototype.  This is what makes `fn.bind(...)`, `fn.call(...)`,
