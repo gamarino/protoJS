@@ -1801,7 +1801,85 @@ const proto::ProtoObject* stringReplaceAll(
         if (hasCallException()) return PROTO_NONE;
         return ctx->fromUTF8String(sOnly.c_str());
     }
-    // §22.1.3.20 step 2.b: if searchValue has @@replace, route through
+    // §22.1.3.20 step 2.a-b: IsRegExp + flags-must-contain-"g" check
+    // runs BEFORE ToString(O) so a regex/poison receiver pair throws
+    // TypeError from the flags inspection without ever calling
+    // poison.toString.
+    auto isRegExpAccessor = [&](const proto::ProtoObject* obj) -> bool {
+        if (!obj || obj == PROTO_NONE) return false;
+        if (obj->isString(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx)
+            || obj->isFloat(ctx) || obj->isBoolean(ctx)) return false;
+        if (obj == getNullSentinel() || obj == getUndefinedSentinel()) return false;
+        const proto::ProtoString* matchK = JSSymbols::symbolMatch(ctx);
+        if (!matchK) return false;
+        const proto::ProtoObject* m = nullptr;
+        // Probe the __get_<key>__ sidecar for an accessor getter so a
+        // throwing/explicit getter fires before falling back to a data slot.
+        std::string matchKeyName;
+        matchK->toUTF8String(ctx, matchKeyName);
+        std::string gkBuf = "__get_" + matchKeyName + "__";
+        const proto::ProtoObject* gkObj = ctx->fromUTF8String(gkBuf.c_str());
+        const proto::ProtoString* gk = gkObj ? gkObj->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = obj->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE) {
+                m = callJSFunction(ctx, getter, obj, ctx->newList());
+                if (hasCallException()) return false;
+            }
+        }
+        if (!m || m == PROTO_NONE) m = obj->getAttribute(ctx, matchK, true);
+        if (!m || m == PROTO_NONE || m == getUndefinedSentinel()) return false;
+        // ToBoolean
+        if (m == getNullSentinel() || m == PROTO_FALSE) return false;
+        if (m->isInteger(ctx) && m->asLong(ctx) == 0) return false;
+        if (m->isDouble(ctx) && m->asDouble(ctx) == 0.0) return false;
+        if (m->isString(ctx)) {
+            const proto::ProtoString* s = m->asString(ctx);
+            if (s && s->getSize(ctx) == 0) return false;
+        }
+        return true;
+    };
+    bool patternIsRegExp = false;
+    if (pattern && pattern != PROTO_NONE && !pattern->isString(ctx)
+        && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
+        && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)
+        && pattern != getNullSentinel() && pattern != getUndefinedSentinel()) {
+        patternIsRegExp = isRegExpAccessor(pattern);
+        if (hasCallException()) return PROTO_NONE;
+    }
+    if (patternIsRegExp) {
+        const proto::ProtoString* flagsK = ctx->fromUTF8String("flags")->asString(ctx);
+        const proto::ProtoObject* flagsVal = nullptr;
+        // accessor sidecar first — user RegExps and `class extends RegExp`
+        // subclasses expose `.flags` through Object.defineProperty getters,
+        // which the data-slot getAttribute below misses.
+        const proto::ProtoString* flagsGetK = ctx->fromUTF8String("__get_flags__")->asString(ctx);
+        if (flagsGetK) {
+            const proto::ProtoObject* getter = pattern->getAttribute(ctx, flagsGetK, true);
+            if (getter && getter != PROTO_NONE) {
+                flagsVal = callJSFunction(ctx, getter, pattern, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+        if (!flagsVal || flagsVal == PROTO_NONE) {
+            flagsVal = pattern->getAttribute(ctx, flagsK, true);
+        }
+        if (hasCallException()) return PROTO_NONE;
+        if (!flagsVal || flagsVal == PROTO_NONE
+            || flagsVal == getNullSentinel() || flagsVal == getUndefinedSentinel()) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "String.prototype.replaceAll requires regex with 'g' flag"));
+            return PROTO_NONE;
+        }
+        std::string flagsStr = objToStr(ctx, flagsVal);
+        if (hasCallException()) return PROTO_NONE;
+        if (flagsStr.find('g') == std::string::npos) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "String.prototype.replaceAll called with non-global RegExp"));
+            return PROTO_NONE;
+        }
+    }
+    // §22.1.3.20 step 2.c-d: if searchValue has @@replace, route through
     // searchValue[@@replace](O, replaceValue).  Pre-fix the immediate
     // objToStr below ran the searchValue's toString before checking
     // @@replace, masking custom replacer dispatch.
