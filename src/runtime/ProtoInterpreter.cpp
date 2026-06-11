@@ -4792,6 +4792,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // resolvePutFieldOOP / OP_get_field probe them.
                                 const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(pContext);
                                 if (hapK) symProto = symProto->setAttribute(pContext, hapK, PROTO_TRUE);
+                                // §17 accessor descriptor: {enumerable:false,
+                                // configurable:true} → pd bits 0x2.  Pre-fix
+                                // the slot had no sidecar so verifyProperty
+                                // saw enumerable:true.
+                                const proto::ProtoObject* pdo =
+                                    pContext->fromUTF8String("__pd_description__");
+                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                if (pdk) symProto = symProto->setAttribute(pContext, pdk,
+                                    pContext->fromInteger(0x2LL));
                             }
                             // §20.4.3.1 Symbol.prototype.constructor === Symbol.
                             // Need a back-ref so the constructor probe in
