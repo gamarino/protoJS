@@ -3185,20 +3185,26 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    // §20.1.3.4 step 1: ToObject(this); null / undefined throw TypeError
-    // before any inspection (built-ins/Object/prototype/
-    // propertyIsEnumerable/S15.2.4.7_A13).
+    // §20.1.3.4 step 1: ToPropertyKey(V) precedes ToObject(this).
+    if (!args || args->getSize(ctx) == 0) {
+        if (!self || self == PROTO_NONE
+            || self == getNullSentinel() || self == getUndefinedSentinel()) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert undefined or null to object"));
+            return PROTO_NONE;
+        }
+        return PROTO_FALSE;
+    }
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key) key = getUndefinedSentinel();
+    const proto::ProtoString* k = coercePropNameToKey(ctx, key);
+    if (hasCallException()) return PROTO_NONE;
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Cannot convert undefined or null to object"));
         return PROTO_NONE;
     }
-    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
-    const proto::ProtoObject* key = args->getAt(ctx, 0);
-    if (!key || key == PROTO_NONE) return PROTO_FALSE;
-
-    const proto::ProtoString* k = coercePropNameToKey(ctx, key);
     if (!k) return PROTO_FALSE;
 
     if (self->hasOwnAttribute(ctx, k) != PROTO_TRUE) {
