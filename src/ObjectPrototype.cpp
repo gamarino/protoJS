@@ -1296,6 +1296,16 @@ static const proto::ProtoObject* objectPreventExtensions(
     if (isProxy(ctx, obj)) {
         const proto::ProtoObject* handler = proxyHandler(ctx, obj);
         const proto::ProtoObject* target  = proxyTarget(ctx, obj);
+        // §10.5.4 step 3: a revoked proxy (no target) raises TypeError
+        // before any trap dispatch.  Pre-fix the no-handler branch
+        // silently no-op'd through to the addParent path on the proxy
+        // cell itself, leaving Object.preventExtensions(revoked) as a
+        // no-throw.
+        if (!target) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'preventExtensions' on a proxy that has been revoked"));
+            return PROTO_NONE;
+        }
         const proto::ProtoString* trapKs = nullptr;
         const proto::ProtoObject* trapKo = ctx->fromUTF8String("preventExtensions");
         if (trapKo) trapKs = trapKo->asString(ctx);

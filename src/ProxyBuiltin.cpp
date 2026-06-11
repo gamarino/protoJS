@@ -733,16 +733,22 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
         // §10.5.5 step 7: trapResultObj must be Object or undefined.
         if (res == nullptr || res == PROTO_NONE
             || res == getUndefinedSentinel() || res == getNullSentinel()) {
-            // undefined → reflect target's actual descriptor through the
-            // invariant filter.  For non-configurable own / non-extensible
-            // owns the trap can't claim absence — left to a future
-            // invariant audit; for now mirror the spec's "return
-            // undefined" for the common non-existent path.
+            // §10.5.5 step 11.a/b: when the trap reports absence the
+            // own descriptor must either be missing on target or the
+            // target must allow hiding it.  A non-configurable own
+            // can't be hidden (step 11.b.i), and an own on a
+            // non-extensible target can't be hidden either (step 11.b.iv).
             OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
             if (od.present && !od.configurable) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'getOwnPropertyDescriptor' on proxy: trap reported "
                     "undefined for non-configurable own property"));
+                return PROTO_NONE;
+            }
+            if (od.present && isTargetNonExtensible(ctx, target)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'getOwnPropertyDescriptor' on proxy: trap reported "
+                    "undefined for an own property of a non-extensible target"));
                 return PROTO_NONE;
             }
             return PROTO_NONE;
