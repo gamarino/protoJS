@@ -1017,7 +1017,14 @@ static const proto::ProtoObject* mapConstruct(
                 // Pre-fix `new Map([1, 2])` silently produced an empty
                 // Map because primitive entries' readEl(0/1) returned
                 // PROTO_NONE — no throw, no insertion.
-                if (pair->isInteger(ctx) || pair->isDouble(ctx)
+                bool isSymPair = false;
+                {
+                    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+                    if (symK && pair->getAttribute(ctx, symK, true) == PROTO_TRUE)
+                        isSymPair = true;
+                }
+                if (isSymPair
+                    || pair->isInteger(ctx) || pair->isDouble(ctx)
                     || pair->isFloat(ctx) || pair->isString(ctx)
                     || pair->isBoolean(ctx)
                     || pair == getNullSentinel()
