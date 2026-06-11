@@ -2211,7 +2211,11 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    // lastIndexOf iterates DOWN from len-1, so a 4 billion-element
+    // sparse object spins inside the slow path before reaching idx 0.
+    // Keep the RangeError gate here (callers can still use length up
+    // to 2^32-1, just not Infinity).
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.lastIndexOf")) return PROTO_NONE;
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.16 step 3: empty receiver returns -1 BEFORE ToInteger.
     if (len == 0) return ctx->fromInteger(-1LL);
@@ -2325,7 +2329,9 @@ static const proto::ProtoObject* arrayIncludes(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    // includes short-circuits on first match — accept Infinity per
+    // ToLength.  arrLen caps at 0xFFFFFFFFul which bounds the worst
+    // case (no match in sparse data).
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.13 step 3: if len is 0, return false BEFORE the
     // fromIndex coercion runs.  Pre-fix arrayIncludes flowed into the
@@ -3313,7 +3319,7 @@ static const proto::ProtoObject* arrayForEach(
     // §23.1.3.15 step ordering: LengthOfArrayLike precedes IsCallable
     // so a throwing `length` accessor surfaces its own exception
     // instead of a synthetic TypeError.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3539,7 +3545,7 @@ static const proto::ProtoObject* arrayFind(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.8: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3568,7 +3574,7 @@ static const proto::ProtoObject* arrayFindIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.9: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3597,7 +3603,7 @@ static const proto::ProtoObject* arrayFindLast(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3626,7 +3632,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.11: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3655,7 +3661,7 @@ static const proto::ProtoObject* arraySome(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.28: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3685,7 +3691,7 @@ static const proto::ProtoObject* arrayEvery(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.6: LengthOfArrayLike precedes IsCallable.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3790,7 +3796,7 @@ static const proto::ProtoObject* arrayReduce(
     // surfaced a synthetic TypeError "not callable" whenever the
     // length getter threw, instead of letting the user's exception
     // propagate.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
@@ -3858,7 +3864,7 @@ static const proto::ProtoObject* arrayReduceRight(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27: LengthOfArrayLike precedes IsCallable; see arrayReduce.
-    // Non-allocating iteration — accept Infinity via arrLen cap.
+    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
