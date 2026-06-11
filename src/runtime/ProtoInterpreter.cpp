@@ -12393,8 +12393,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                     && !opts->isBoolean(pContext)) {
                                     const proto::ProtoObject* causeKo = pContext->fromUTF8String("cause");
                                     const proto::ProtoString* causeK = causeKo ? causeKo->asString(pContext) : nullptr;
-                                    if (causeK && opts->hasAttribute(pContext, causeK) == PROTO_TRUE) {
+                                    // HasProperty("cause") — accessor sidecar
+                                    // or own data slot.  An accessor with a
+                                    // throwing getter must propagate per §6.2.5.5.
+                                    const proto::ProtoObject* getCauseKo = pContext->fromUTF8String("__get_cause__");
+                                    const proto::ProtoString* getCauseK = getCauseKo ? getCauseKo->asString(pContext) : nullptr;
+                                    bool hasCause = (causeK && opts->hasAttribute(pContext, causeK) == PROTO_TRUE)
+                                        || (getCauseK && opts->hasAttribute(pContext, getCauseK) == PROTO_TRUE);
+                                    if (causeK && hasCause) {
                                         const proto::ProtoObject* causeVal = opts->getAttribute(pContext, causeK, true);
+                                        // Probe accessor getter if data slot
+                                        // is undefined.
+                                        if ((!causeVal || causeVal == PROTO_NONE || causeVal == getUndefinedSentinel())
+                                            && getCauseK) {
+                                            const proto::ProtoObject* getter = opts->getAttribute(pContext, getCauseK, true);
+                                            if (getter && getter != PROTO_NONE) {
+                                                causeVal = callJSFunction(pContext, getter, opts, pContext->newList());
+                                            }
+                                        }
                                         if (t_hasCallException) {
                                             pending_exception = t_callException;
                                             has_pending_exception = true;
