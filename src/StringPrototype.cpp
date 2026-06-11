@@ -3009,7 +3009,30 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
             const proto::ProtoObject* rawM = ctx->fromMethod(nullptr, stringSymbolIterator);
             if (wrapper && nfKey && rawM) {
                 wrapper = wrapper->setAttribute(ctx, nfKey, rawM);
+                // §17 built-in function descriptors: name and length
+                // are both {writable:false, enumerable:false,
+                // configurable:true} → pd bits 0x2.  Pre-fix the slots
+                // were absent so name / length / prop-desc fixtures
+                // for String.prototype[@@iterator] failed.
+                {
+                    const proto::ProtoString* lk = JSSymbols::length(ctx);
+                    if (lk) wrapper = wrapper->setAttribute(ctx, lk, ctx->fromInteger(0LL));
+                    const proto::ProtoString* pdLk = JSSymbols::pdLength(ctx);
+                    if (pdLk) wrapper = wrapper->setAttribute(ctx, pdLk, ctx->fromInteger(0x2LL));
+                }
+                {
+                    const proto::ProtoString* nk = JSSymbols::name(ctx);
+                    if (nk) wrapper = wrapper->setAttribute(ctx, nk, ctx->fromUTF8String("[Symbol.iterator]"));
+                    const proto::ProtoObject* pdnko = ctx->fromUTF8String("__pd_name__");
+                    const proto::ProtoString* pdnk = pdnko ? pdnko->asString(ctx) : nullptr;
+                    if (pdnk) wrapper = wrapper->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+                }
                 sp = sp->setAttribute(ctx, sik, wrapper);
+                // Mark the slot itself as {writable:true, enumerable:
+                // false, configurable:true} → 0x3 per §17.
+                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.iterator__");
+                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
             }
         }
     }
