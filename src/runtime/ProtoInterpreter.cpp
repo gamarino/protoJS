@@ -4469,6 +4469,12 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                         if (pdk) reflectStub = reflectStub->setAttribute(pContext, pdk,
                             pContext->fromInteger(0x2LL));
+                        // resolvePutFieldOOP gates the writability check on
+                        // __has_nonwritable_props__ as a hot-path hint —
+                        // without it the 0x2 descriptor was silently ignored
+                        // and `Reflect[@@toStringTag] = "X"` succeeded.
+                        const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(pContext);
+                        if (hnwK) reflectStub = reflectStub->setAttribute(pContext, hnwK, PROTO_TRUE);
                     }
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, rfKey, reflectStub);
