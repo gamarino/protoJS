@@ -586,7 +586,13 @@ const proto::ProtoObject* regexpSymbolReplace(
                 isFnReplace = true;
         }
     }
+    // §22.2.6.11 step 6: ToString(replaceValue) on the non-callable
+    // branch.  objToStr's OrdinaryToPrimitive failure raises TypeError
+    // via hasCallException; propagate it instead of using the empty
+    // fallback string (Sputnik S15.5.4.11_A1_T16 hits the both-non-
+    // primitive case via {toString: ()=>fn}).
     std::string replStr = isFnReplace ? "" : objToStr(ctx, replaceValue);
+    if (!isFnReplace && hasCallException()) return PROTO_NONE;
 
     std::string result;
     size_t lastMatchEnd = 0;
