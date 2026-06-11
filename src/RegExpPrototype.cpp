@@ -909,16 +909,34 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
 
     const proto::ProtoObject* sp = regexpProto;
 
+    // Use the proper Function.prototype-parented wrapper so the
+    // length/name slots are own attributes (not chain-resolved via
+    // ProtoMethod machinery) and Object.getOwnPropertyDescriptor
+    // surfaces them.  Pre-fix `fromMethod` returned a tagged Cell
+    // whose attribute slots were observably empty on hasOwn probes,
+    // so the entire RegExp.prototype.* method-descriptor suite
+    // (length / name / prop-desc) failed for every entry.
     auto reg = [&](const char* name, proto::ProtoMethod fn, long long length) {
         const proto::ProtoString* key = ctx->fromUTF8String(name)->asString(ctx);
-        if (key) {
-            const proto::ProtoObject* mObj = ctx->fromMethod(nullptr, fn);
-            if (mObj && mObj != PROTO_NONE) {
-                mObj = mObj->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(length));
-                mObj = mObj->setAttribute(ctx, JSSymbols::name(ctx),   ctx->fromUTF8String(name));
-            }
-            sp = sp->setAttribute(ctx, key, mObj);
-        }
+        if (!key) return;
+        const proto::ProtoObject* parent =
+            (ctx->space && ctx->space->methodPrototype)
+            ? ctx->space->methodPrototype : nullptr;
+        const proto::ProtoObject* mObj = parent
+            ? parent->newChild(ctx, true) : ctx->newObject(true);
+        if (!mObj) return;
+        const proto::ProtoObject* rawMethod = ctx->fromMethod(nullptr, fn);
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && rawMethod) mObj = mObj->setAttribute(ctx, nfKey, rawMethod);
+        mObj = mObj->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(length));
+        mObj = mObj->setAttribute(ctx, JSSymbols::name(ctx), ctx->fromUTF8String(name));
+        const proto::ProtoString* pdlk = JSSymbols::pdLength(ctx);
+        if (pdlk) mObj = mObj->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+        const proto::ProtoString* pdnk = JSSymbols::pdName(ctx);
+        if (pdnk) mObj = mObj->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+        const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
+        if (hnw) mObj = mObj->setAttribute(ctx, hnw, PROTO_TRUE);
+        sp = sp->setAttribute(ctx, key, mObj);
     };
 
     reg("exec",     regexpExec,     1);
