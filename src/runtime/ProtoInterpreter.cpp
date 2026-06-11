@@ -840,8 +840,7 @@ static const proto::ProtoObject* reflectHas(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.has")) return PROTO_FALSE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_FALSE;
-    // §28.1.9 step 2: ToPropertyKey propagates abrupts (test262
-    // Reflect/has/return-abrupt-from-property-key).
+    // §28.1.9 step 2: ToPropertyKey propagates abrupts.
     const proto::ProtoString* k = protojs::toPropertyKey(ctx, key);
     if (t_hasCallException) return PROTO_NONE;
     if (!k && key->isInteger(ctx))
@@ -862,9 +861,7 @@ static const proto::ProtoObject* reflectGet(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.get")) return PROTO_NONE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_NONE;
-    // §28.1.6 step 2: ToPropertyKey(propertyKey) — propagate abrupts
-    // from a throwing toString / @@toPrimitive (test262 Reflect/get/
-    // return-abrupt-from-property-key).
+    // §28.1.6 step 2: ToPropertyKey(propertyKey) propagates abrupts.
     const proto::ProtoString* k = protojs::toPropertyKey(ctx, key);
     if (t_hasCallException) return PROTO_NONE;
     if (!k && key->isInteger(ctx))

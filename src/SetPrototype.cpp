@@ -691,10 +691,11 @@ static const proto::ProtoObject* setConstruct(
         // assigning Set.prototype.add = null saw the iterable silently
         // ingested without the throw the spec mandates. The check has
         // to happen before any iteration begins.
+        const proto::ProtoObject* adder = PROTO_NONE;
         {
             const proto::ProtoObject* addKo = ctx->fromUTF8String("add");
             const proto::ProtoString* addKs = addKo ? addKo->asString(ctx) : nullptr;
-            const proto::ProtoObject* adder = addKs
+            adder = addKs
                 ? self->getAttribute(ctx, addKs, true) : PROTO_NONE;
             bool callable = false;
             if (adder && adder != PROTO_NONE && adder != getUndefinedSentinel()) {
@@ -793,16 +794,14 @@ static const proto::ProtoObject* setConstruct(
             }
             for (long i = 0; i < len; i++) {
                 const proto::ProtoObject* val = readIndex(i);
-                val = normalizeSetVal(ctx, val);
-                if (!setContains(ctx, self, val)) {
-                    const proto::ProtoSet* core  = getSetCore(ctx, self);
-                    const proto::ProtoSparseList* order = getSetOrder(ctx, self);
-                    long sz = getSetSize(ctx, self);
-                    if (core)  setSetCoreInPlace(ctx, self, core->add(ctx, val));
-                    if (order) setSetOrderInPlace(ctx, self,
-                                   order->setAt(ctx, static_cast<unsigned long>(sz), val));
-                    setSetSizeInPlace(ctx, self, sz + 1);
-                }
+                // §24.2.1.1 step 9.f: Call(adder, set, [nextValue]) —
+                // dispatch through the resolved adder so user overrides
+                // of Set.prototype.add are observable (test262 set-
+                // iterable-calls-add).
+                const proto::ProtoList* addArgs = ctx->newList();
+                addArgs = addArgs->appendLast(ctx, val);
+                callJSFunction(ctx, adder, self, addArgs);
+                if (hasCallException()) return PROTO_NONE;
             }
         }
     }
