@@ -3568,6 +3568,48 @@ static const proto::ProtoObject* objectValueOf(
             "Cannot convert undefined or null to object"));
         return PROTO_NONE;
     }
+    // §20.1.3.7 step 1 ToObject(this): primitives are boxed into the
+    // matching wrapper.  Pre-fix valueOf returned the boolean / number /
+    // string sentinel as-is, so typeof Object.prototype.valueOf.call(true)
+    // was "boolean" instead of the spec-required "object" (test262
+    // valueOf/15.2.4.4-1, -2).
+    if (self == PROTO_TRUE || self == PROTO_FALSE || self->isBoolean(ctx)) {
+        JSContextWrapper* w = JSContextWrapper::current();
+        const proto::ProtoObject* boolProto =
+            (ctx->space && ctx->space->booleanPrototype)
+            ? ctx->space->booleanPrototype : nullptr;
+        const proto::ProtoObject* wrapper = boolProto
+            ? boolProto->newChild(ctx, true) : ctx->newObject(true);
+        if (wrapper) {
+            const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+            if (pvK) wrapper = wrapper->setAttribute(ctx, pvK, self);
+            (void)w;
+            return wrapper;
+        }
+    }
+    if (self->isInteger(ctx) || self->isDouble(ctx) || self->isFloat(ctx)) {
+        const proto::ProtoObject* numProto =
+            (ctx->space && ctx->space->smallIntegerPrototype)
+            ? ctx->space->smallIntegerPrototype : nullptr;
+        const proto::ProtoObject* wrapper = numProto
+            ? numProto->newChild(ctx, true) : ctx->newObject(true);
+        if (wrapper) {
+            const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+            if (pvK) wrapper = wrapper->setAttribute(ctx, pvK, self);
+            return wrapper;
+        }
+    }
+    if (self->isString(ctx)) {
+        const proto::ProtoObject* strProto = (ctx->space && ctx->space->stringPrototype)
+            ? reinterpret_cast<const proto::ProtoObject*>(ctx->space->stringPrototype) : nullptr;
+        const proto::ProtoObject* wrapper = strProto
+            ? strProto->newChild(ctx, true) : ctx->newObject(true);
+        if (wrapper) {
+            const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+            if (pvK) wrapper = wrapper->setAttribute(ctx, pvK, self);
+            return wrapper;
+        }
+    }
     return self;
 }
 
