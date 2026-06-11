@@ -3815,7 +3815,115 @@ static const proto::ProtoObject* objectIsPrototypeOf(
     return PROTO_FALSE;
 }
 
+// File-scope static handlers for Object.prototype.__proto__ so
+// ensureObjectConstructor can RE-wrap them later (after
+// Function.prototype is published) into proper Function-prototype-
+// parented wrappers carrying name + length descriptors.  Pre-fix the
+// initial install ran at BootstrapJSPrototypes time when
+// methodPrototype was still Object.prototype, so the resulting
+// accessor wraps had no .call / .apply / .bind in their chain — every
+// `Object.getOwnPropertyDescriptor(Object.prototype, '__proto__').set
+// .call({})` test262 case failed with "is not a function".
+static const proto::ProtoObject* protoAccessorGetter(
+    proto::ProtoContext* gctx, const proto::ProtoObject* gself,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!gself || gself == PROTO_NONE
+        || gself == getNullSentinel() || gself == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(gctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    auto it = t_jsProtoMap.find(gself);
+    if (it != t_jsProtoMap.end()) return it->second;
+    const proto::ProtoObject* p = gself->getPrototype(gctx);
+    return (p && p != PROTO_NONE) ? p : getNullSentinel();
+}
+
+static const proto::ProtoObject* protoAccessorSetter(
+    proto::ProtoContext* sctx, const proto::ProtoObject* sself,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!sself || sself == PROTO_NONE
+        || sself == getNullSentinel() || sself == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(sctx, "TypeError",
+            "Cannot convert undefined or null to object"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* proto = (args && args->getSize(sctx) > 0)
+        ? args->getAt(sctx, 0) : getUndefinedSentinel();
+    if (proto != getNullSentinel()
+        && (!proto || proto == PROTO_NONE
+            || proto == getUndefinedSentinel()
+            || proto->isBoolean(sctx) || proto->isInteger(sctx)
+            || proto->isDouble(sctx) || proto->isFloat(sctx)
+            || proto->isString(sctx))) {
+        return getUndefinedSentinel();
+    }
+    if (proto && proto != getNullSentinel()) {
+        const proto::ProtoObject* p = proto;
+        while (p && p != getNullSentinel() && p != PROTO_NONE) {
+            if (p == sself) {
+                signalNativeException(makeNativeError(sctx, "TypeError",
+                    "Cyclic __proto__ value"));
+                return PROTO_NONE;
+            }
+            auto it = t_jsProtoMap.find(p);
+            if (it != t_jsProtoMap.end()) { p = it->second; continue; }
+            p = p->getPrototype(sctx);
+        }
+    }
+    setJSProtoOverride(sctx, sself, proto);
+    return getUndefinedSentinel();
+}
+
 } // anonymous namespace
+
+// Re-wrap the Object.prototype.__proto__ getter / setter with a
+// Function.prototype-parented wrapper so .call / .apply / .bind
+// resolve through the chain.  Called from ensureObjectConstructor
+// after ensureFunctionPrototype has published the canonical
+// Function.prototype as ctx->space->methodPrototype.
+void reinstallObjectProtoAccessor(proto::ProtoContext* ctx) {
+    if (!ctx || !ctx->space || !ctx->space->objectPrototype) return;
+    const proto::ProtoObject* base = ctx->space->objectPrototype;
+    auto wrapAccessor = [&](proto::ProtoMethod fn, const char* nm) -> const proto::ProtoObject* {
+        const proto::ProtoObject* parent =
+            (ctx->space && ctx->space->methodPrototype)
+            ? ctx->space->methodPrototype : nullptr;
+        const proto::ProtoObject* wrap = parent
+            ? parent->newChild(ctx, true) : ctx->newObject(true);
+        if (!wrap) return nullptr;
+        proto::ProtoObject* mWrap = const_cast<proto::ProtoObject*>(wrap);
+        const proto::ProtoObject* raw = ctx->fromMethod(mWrap, fn);
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK && raw) wrap = wrap->setAttribute(ctx, nfK, raw);
+        const proto::ProtoString* lenK = JSSymbols::length(ctx);
+        if (lenK) {
+            wrap = wrap->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
+            const proto::ProtoString* pdlK = JSSymbols::pdLength(ctx);
+            if (pdlK) wrap = wrap->setAttribute(ctx, pdlK, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* nmK = JSSymbols::name(ctx);
+        if (nmK) {
+            wrap = wrap->setAttribute(ctx, nmK, ctx->fromUTF8String(nm));
+            const proto::ProtoString* pdnK = JSSymbols::pdName(ctx);
+            if (pdnK) wrap = wrap->setAttribute(ctx, pdnK, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
+        return wrap;
+    };
+    const proto::ProtoString* getK = ctx->fromUTF8String("__get___proto____")->asString(ctx);
+    const proto::ProtoString* setK = ctx->fromUTF8String("__set___proto____")->asString(ctx);
+    if (getK) base = base->setAttribute(ctx, getK,
+        wrapAccessor(protojs::protoAccessorGetter, "get __proto__"));
+    if (setK) base = base->setAttribute(ctx, setK,
+        wrapAccessor(protojs::protoAccessorSetter, "set __proto__"));
+    ctx->space->objectPrototype = const_cast<proto::ProtoObject*>(base);
+}
 
 const proto::ProtoObject* installObjectInstanceMethods(
     proto::ProtoContext* ctx,
@@ -3857,66 +3965,13 @@ const proto::ProtoObject* installObjectInstanceMethods(
     // __has_accessor_props__ hint) so OP_get_field and OP_set_field
     // route through them.
     {
-        auto protoGetter = [](proto::ProtoContext* gctx,
-                              const proto::ProtoObject* gself,
-                              const proto::ParentLink*,
-                              const proto::ProtoList*,
-                              const proto::ProtoSparseList*) -> const proto::ProtoObject* {
-            // §B.2.2.1.1: ToObject(this); null / undefined → TypeError.
-            if (!gself || gself == PROTO_NONE
-                || gself == getNullSentinel() || gself == getUndefinedSentinel()) {
-                signalNativeException(makeNativeError(gctx, "TypeError",
-                    "Cannot convert undefined or null to object"));
-                return PROTO_NONE;
-            }
-            auto it = t_jsProtoMap.find(gself);
-            if (it != t_jsProtoMap.end()) return it->second;
-            const proto::ProtoObject* p = gself->getPrototype(gctx);
-            return (p && p != PROTO_NONE) ? p : getNullSentinel();
-        };
-        auto protoSetter = [](proto::ProtoContext* sctx,
-                              const proto::ProtoObject* sself,
-                              const proto::ParentLink*,
-                              const proto::ProtoList* args,
-                              const proto::ProtoSparseList*) -> const proto::ProtoObject* {
-            if (!sself || sself == PROTO_NONE
-                || sself == getNullSentinel() || sself == getUndefinedSentinel()) {
-                signalNativeException(makeNativeError(sctx, "TypeError",
-                    "Cannot convert undefined or null to object"));
-                return PROTO_NONE;
-            }
-            const proto::ProtoObject* proto = (args && args->getSize(sctx) > 0)
-                ? args->getAt(sctx, 0) : getUndefinedSentinel();
-            // §B.2.2.1.2 step 4: skip silently when proto is neither
-            // an Object nor null.
-            if (proto != getNullSentinel()
-                && (!proto || proto == PROTO_NONE
-                    || proto == getUndefinedSentinel()
-                    || proto->isBoolean(sctx) || proto->isInteger(sctx)
-                    || proto->isDouble(sctx) || proto->isFloat(sctx)
-                    || proto->isString(sctx))) {
-                return getUndefinedSentinel();
-            }
-            // §10.4.7.1 [[SetPrototypeOf]] step 4: cycle check —
-            // walking up from `proto` must NOT find `sself`. Throw
-            // TypeError if it does. set-cycle.js / set-cycle-shadowed
-            // / proto-from-ctor-realm-cycle pin this.
-            if (proto && proto != getNullSentinel()) {
-                const proto::ProtoObject* p = proto;
-                while (p && p != getNullSentinel() && p != PROTO_NONE) {
-                    if (p == sself) {
-                        signalNativeException(makeNativeError(sctx, "TypeError",
-                            "Cyclic __proto__ value"));
-                        return PROTO_NONE;
-                    }
-                    auto it = t_jsProtoMap.find(p);
-                    if (it != t_jsProtoMap.end()) { p = it->second; continue; }
-                    p = p->getPrototype(sctx);
-                }
-            }
-            setJSProtoOverride(sctx, sself, proto);
-            return getUndefinedSentinel();
-        };
+        // The actual getter/setter live as file-scope static functions
+        // (`protoAccessorGetter` / `protoAccessorSetter`) so they can be
+        // referenced later from `reinstallObjectProtoAccessor()` — called
+        // from ensureObjectConstructor after Function.prototype is
+        // published as space->methodPrototype.
+        proto::ProtoMethod protoGetter = protoAccessorGetter;
+        proto::ProtoMethod protoSetter = protoAccessorSetter;
         // Accessor sidecar naming: __get_<propname>__ / __set_<propname>__.
         // The property name is "__proto__", so the sidecar keys are
         // "__get___proto____" / "__set___proto____" (4 trailing
@@ -4087,6 +4142,13 @@ const proto::ProtoObject* installObjectInstanceMethods(
 void ensureObjectConstructor(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot) {
     if (!ctx || !globalRoot || !*globalRoot) return;
+
+    // Re-wrap the Object.prototype.__proto__ getter / setter with a
+    // Function.prototype-parented Function object now that
+    // ensureFunctionPrototype has published methodPrototype.
+    // BootstrapJSPrototypes installed them too early to inherit
+    // .call / .apply / .bind.
+    reinstallObjectProtoAccessor(ctx);
 
     const proto::ProtoString* keyObject = JSSymbols::Object(ctx);
     if (!keyObject) return;
