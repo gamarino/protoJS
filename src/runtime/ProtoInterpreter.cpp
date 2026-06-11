@@ -673,6 +673,23 @@ static const proto::ProtoObject* reflectConstruct(
         if (lenK) {
             const proto::ProtoObject* lv = argsArr->getAttribute(ctx, lenK, true);
             if (hasCallException()) return PROTO_NONE;
+            // Probe the accessor descriptor sidecar — Object.defineProperty
+            // installs accessor getters at __get_length__ with the
+            // undefined sentinel as the data slot, and a throwing
+            // getter must propagate per §7.3.17 ReturnIfAbrupt(len).
+            // Pre-fix the path only read the data slot, missed the
+            // accessor entirely, and silently used len=0.
+            if (!lv || lv == PROTO_NONE || lv == getUndefinedSentinel()) {
+                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                if (gks) {
+                    const proto::ProtoObject* getter = argsArr->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        lv = callJSFunction(ctx, getter, argsArr, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
             if (lv && lv != PROTO_NONE) {
                 if (lv->isInteger(ctx)) len = lv->asLong(ctx);
                 else if (lv->isDouble(ctx) || lv->isFloat(ctx)) {
