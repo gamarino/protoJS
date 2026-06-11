@@ -999,9 +999,21 @@ static const proto::ProtoObject* proxyRevocable(
     const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
     if (nfK) revoke = revoke->setAttribute(ctx, nfK, ctx->fromMethod(nullptr, revokeFn));
     const proto::ProtoString* nameK = JSSymbols::name(ctx);
-    if (nameK) revoke = revoke->setAttribute(ctx, nameK, ctx->fromUTF8String(""));
+    if (nameK) {
+        revoke = revoke->setAttribute(ctx, nameK, ctx->fromUTF8String(""));
+        // Per §28.2.2.1.1 step 7: name descriptor is
+        // {writable: false, enumerable: false, configurable: true} = 0x2.
+        const proto::ProtoString* pdnK = JSSymbols::pdName(ctx);
+        if (pdnK) revoke = revoke->setAttribute(ctx, pdnK, ctx->fromInteger(0x2LL));
+    }
     const proto::ProtoString* lenK = JSSymbols::length(ctx);
-    if (lenK) revoke = revoke->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
+    if (lenK) {
+        revoke = revoke->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
+        // §28.2.2.1.1 step 8: length descriptor is
+        // {writable: false, enumerable: false, configurable: true} = 0x2.
+        const proto::ProtoString* pdlK = JSSymbols::pdLength(ctx);
+        if (pdlK) revoke = revoke->setAttribute(ctx, pdlK, ctx->fromInteger(0x2LL));
+    }
 
     // Return { proxy, revoke } object.  ALSO stash the proxy on the
     // result under __proxy_revoke_target__ so `r.revoke()` (which
