@@ -1467,6 +1467,20 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
         if (!target) return PROTO_FALSE;
     }
     const proto::ProtoObject* proto = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
+    // §28.1.11 step 2: Type(proto) not Object and proto !== null → TypeError.
+    // Pre-fix undefined / numbers / strings / booleans silently went
+    // through the noop branch and returned without throwing
+    // (test262 Reflect/setPrototypeOf/proto-is-not-object-and-not-null-
+    // throws.js).
+    if (proto != getNullSentinel()
+        && (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
+            || proto->isInteger(ctx) || proto->isDouble(ctx)
+            || proto->isFloat(ctx) || proto->isString(ctx)
+            || proto->isBoolean(ctx))) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Reflect.setPrototypeOf: prototype must be an Object or null"));
+        return PROTO_NONE;
+    }
     if (proto == getNullSentinel() || (proto && proto != PROTO_NONE && !proto->isInteger(ctx)
             && !proto->isDouble(ctx) && !proto->isString(ctx) && !proto->isBoolean(ctx))) {
         // §10.1.2.1 step 4: non-extensible targets reject any
