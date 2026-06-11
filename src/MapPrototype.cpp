@@ -1210,6 +1210,40 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         mp = installNonEnumerableMethod(ctx, mp, "entries", mapEntries, 0);
         mp = installNonEnumerableMethod(ctx, mp, "getOrInsert",          mapGetOrInsert,         2);
         mp = installNonEnumerableMethod(ctx, mp, "getOrInsertComputed",  mapGetOrInsertComputed, 2);
+        // Re-build the size getter wrapper with Function.prototype
+        // parent now that methodPrototype is published. Same pattern
+        // as the parallel Set fix; the initial install ran before
+        // ensureFunctionPrototype and left the getter with no
+        // .call / .apply / .bind.
+        {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* parent = ctx->space->methodPrototype;
+                const proto::ProtoObject* getter = parent ? parent->newChild(ctx, true) : nullptr;
+                if (getter) {
+                    const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+                    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
+                    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, mapSizeGetter);
+                    if (nfKey && raw) getter = getter->setAttribute(ctx, nfKey, raw);
+                    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                    if (lenKey) {
+                        getter = getter->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+                        const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
+                        if (pdls) getter = getter->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
+                    }
+                    const proto::ProtoString* nmKey = JSSymbols::name(ctx);
+                    if (nmKey) {
+                        getter = getter->setAttribute(ctx, nmKey, ctx->fromUTF8String("get size"));
+                        const proto::ProtoString* pdns = JSSymbols::pdName(ctx);
+                        if (pdns) getter = getter->setAttribute(ctx, pdns, ctx->fromInteger(0x2LL));
+                    }
+                    const proto::ProtoString* hnwG = JSSymbols::hasNonWritableProps(ctx);
+                    if (hnwG) getter = getter->setAttribute(ctx, hnwG, PROTO_TRUE);
+                    mp = mp->setAttribute(ctx, gks, getter);
+                }
+            }
+        }
         s_mapPrototype = mp;
     }
 
