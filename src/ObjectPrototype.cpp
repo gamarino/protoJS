@@ -1344,6 +1344,44 @@ static const proto::ProtoObject* objectIsExtensible(
     if (!obj || obj == PROTO_NONE) return PROTO_FALSE;
     if (isPrimitive(ctx, obj)) return PROTO_FALSE;
 
+    // Proxy override per §10.5.3 [[IsExtensible]]: route through
+    // handler.isExtensible(target); pre-fix the trap was never consulted
+    // and the proxy's own non-extensible-marker (always absent because
+    // the wrapper is fresh) decided.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* handler = proxyHandler(ctx, obj);
+        const proto::ProtoObject* target  = proxyTarget(ctx, obj);
+        if (!target) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'isExtensible' on a proxy that has been revoked"));
+            return PROTO_FALSE;
+        }
+        const proto::ProtoObject* trapKo = ctx->fromUTF8String("isExtensible");
+        const proto::ProtoString* trapKs = trapKo ? trapKo->asString(ctx) : nullptr;
+        const proto::ProtoObject* trap = (handler && trapKs)
+            ? handler->getAttribute(ctx, trapKs, true) : nullptr;
+        if (trap && trap != PROTO_NONE && trap != getUndefinedSentinel()
+            && trap != getNullSentinel()) {
+            const proto::ProtoList* a = ctx->newList();
+            a = a->appendLast(ctx, target);
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+            if (hasCallException()) return PROTO_FALSE;
+            bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
+                || r == getUndefinedSentinel() || r == getNullSentinel());
+            // §10.5.3 step 9: invariant — trap result must equal
+            // target's actual extensibility.
+            JSContextWrapper* w2 = JSContextWrapper::current();
+            bool targetExt = !(w2 && target->hasParent(ctx, w2->getNonExtensibleMarker()));
+            if (truthy != targetExt) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'isExtensible' on proxy: trap result doesn't match target's actual extensibility"));
+                return PROTO_FALSE;
+            }
+            return truthy ? PROTO_TRUE : PROTO_FALSE;
+        }
+        obj = target;  // no trap → recurse onto target
+    }
+
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper && obj->hasParent(ctx, wrapper->getNonExtensibleMarker())) {
         return PROTO_FALSE;
