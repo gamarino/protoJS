@@ -239,11 +239,22 @@ const proto::ProtoObject* regexpExec(
     }
 
 
+    // §22.2.7.2 step 10: if global is false and sticky is false, set
+    // lastIndex to 0 BEFORE the engine runs.  Pre-fix the impl honoured
+    // lastIndex for non-global / non-sticky regexes too, so
+    // `var re = /pat/; re.lastIndex = 12; "x".match(re)` started at 12
+    // and returned null instead of matching from the start.
+    {
+        int flags = lre_get_flags(bc);
+        bool isGlobal = (flags & LRE_FLAG_GLOBAL) != 0;
+        bool isSticky = (flags & LRE_FLAG_STICKY) != 0;
+        if (!isGlobal && !isSticky) lastIndex = 0;
+    }
     void* opaque = nullptr;
     if (JSContextWrapper::current()) opaque = JSContextWrapper::current()->getJSContext();
 
-    int ret = lre_exec(captures, bc, reinterpret_cast<const uint8_t*>(u16.data()), 
-                       static_cast<int>(lastIndex), static_cast<int>(u16.size()), 
+    int ret = lre_exec(captures, bc, reinterpret_cast<const uint8_t*>(u16.data()),
+                       static_cast<int>(lastIndex), static_cast<int>(u16.size()),
                        1, opaque);
 
 
