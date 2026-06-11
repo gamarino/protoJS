@@ -52,7 +52,38 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
             }
         }
     }
-    return "";
+    // OrdinaryToPrimitive(hint:"string") — invoke toString (then valueOf
+    // as a fallback) and re-coerce the primitive return.  Pre-fix the
+    // local helper returned "" for any unknown object, so regex.exec on
+    // a `{toString: fn}` receiver searched the empty string and yielded
+    // null (Sputnik S15.5.4.11_A1_T4..16).
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
+        if (bcKey && fn->hasAttribute(ctx, bcKey) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+        if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
+        return false;
+    };
+    const proto::ProtoString* tsK = ctx->fromUTF8String("toString")->asString(ctx);
+    const proto::ProtoString* voK = ctx->fromUTF8String("valueOf")->asString(ctx);
+    for (const proto::ProtoString* k : {tsK, voK}) {
+        if (!k) continue;
+        const proto::ProtoObject* fn = obj->getAttribute(ctx, k, true);
+        if (!isCallable(fn)) continue;
+        const proto::ProtoObject* prim = callJSFunction(ctx, fn, obj, ctx->newList());
+        if (hasCallException()) return "";
+        if (!prim || prim == PROTO_NONE) continue;
+        if (prim->isString(ctx)) { prim->asString(ctx)->toUTF8String(ctx, r); return r; }
+        if (prim->isInteger(ctx)) return std::to_string(prim->asLong(ctx));
+        if (prim->isDouble(ctx))  { return objToStr(ctx, prim); }
+        if (prim->isBoolean(ctx)) return prim->asBoolean(ctx) ? "true" : "false";
+        if (prim == getNullSentinel()) return "null";
+        if (prim == getUndefinedSentinel()) return "undefined";
+        // Returned an object — fall through to the other hook.
+    }
+    return "[object Object]";
 }
 
 // ---------------------------------------------------------------------------
