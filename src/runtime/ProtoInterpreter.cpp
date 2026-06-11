@@ -939,7 +939,10 @@ static const proto::ProtoObject* reflectSet(
         }
     }
     if (!key) return PROTO_FALSE;
-    const proto::ProtoString* k = key->asString(ctx);
+    // §28.1.13 step 2: ToPropertyKey propagates abrupts (test262
+    // Reflect/set/return-abrupt-from-property-key).
+    const proto::ProtoString* k = protojs::toPropertyKey(ctx, key);
+    if (t_hasCallException) return PROTO_NONE;
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
