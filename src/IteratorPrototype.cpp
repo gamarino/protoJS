@@ -361,6 +361,12 @@ static const proto::ProtoObject* iteratorFind(
 // underlying iterator + the per-helper callback / count / state.
 // Stored under unique attribute keys so .next() can recover them.
 // ---------------------------------------------------------------------------
+// Forward declarations — used by makeHelperIterator below.
+static const proto::ProtoObject* iteratorHelperReturn(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*);
+
 static const proto::ProtoObject* makeHelperIterator(
     proto::ProtoContext* ctx,
     proto::ProtoMethod nextMethod,
@@ -386,6 +392,10 @@ static const proto::ProtoObject* makeHelperIterator(
     const proto::ProtoObject* nxKo = ctx->fromUTF8String("next");
     const proto::ProtoString* nxK = nxKo ? nxKo->asString(ctx) : nullptr;
     if (nxK) it = it->setAttribute(ctx, nxK, ctx->fromMethod(nullptr, nextMethod));
+    // Install .return() that forwards to the underlying iterator once.
+    const proto::ProtoObject* rtKo = ctx->fromUTF8String("return");
+    const proto::ProtoString* rtK = rtKo ? rtKo->asString(ctx) : nullptr;
+    if (rtK) it = it->setAttribute(ctx, rtK, ctx->fromMethod(nullptr, iteratorHelperReturn));
     return it;
 }
 
@@ -398,6 +408,46 @@ static const proto::ProtoObject* makeIterResult(proto::ProtoContext* ctx,
     if (vK) r = r->setAttribute(ctx, vK, value ? value : getUndefinedSentinel());
     if (dK) r = r->setAttribute(ctx, dK, done ? PROTO_TRUE : PROTO_FALSE);
     return r;
+}
+
+// §27.1.4.x helper-iterator .return() — forwards once to the
+// underlying iterator's .return.  Idempotent: a __helper_returned__
+// flag prevents re-forwarding on subsequent calls.  Always yields the
+// canonical {value: undefined, done: true} record.
+static const proto::ProtoObject* iteratorHelperReturn(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* flagKo = ctx->fromUTF8String("__helper_returned__");
+    const proto::ProtoString* flagK = flagKo ? flagKo->asString(ctx) : nullptr;
+    bool alreadyReturned = false;
+    if (flagK) {
+        const proto::ProtoObject* fv = self->getAttribute(ctx, flagK, false);
+        if (fv == PROTO_TRUE) alreadyReturned = true;
+    }
+    if (!alreadyReturned) {
+        if (flagK) self->setAttribute(ctx, flagK, PROTO_TRUE);
+        const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
+        const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+        const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
+        if (underlying && underlying != PROTO_NONE) {
+            iterClose(ctx, underlying);
+            if (hasCallException()) return PROTO_NONE;
+        }
+        const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
+        const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
+        if (innerK) {
+            const proto::ProtoObject* inner = self->getAttribute(ctx, innerK, false);
+            if (inner && inner != PROTO_NONE && inner != getUndefinedSentinel()) {
+                iterClose(ctx, inner);
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+    }
+    return makeIterResult(ctx, getUndefinedSentinel(), true);
 }
 
 // .next for the map() helper: pulls value from underlying, runs cb(v, c).
