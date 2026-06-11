@@ -1607,15 +1607,34 @@ static const proto::ProtoObject* symbolKeyFor(
     const proto::ProtoObject* sym = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : getUndefinedSentinel();
     // §20.4.2.5 step 1: if Type(sym) is not Symbol, throw TypeError.
+    // In protoJS Symbols come in two forms — user-created
+    // Symbol("desc") objects carry __is_symbol__ = PROTO_TRUE, and
+    // well-known symbols (Symbol.iterator, Symbol.dispose, …) are
+    // ProtoStrings whose value begins with "Symbol." or "Symbol(".
+    // Both shapes are accepted; well-known symbols don't have a
+    // registry key (they fall through to step 3's undefined return).
     const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
-    if (!sym || sym == PROTO_NONE || sym == getUndefinedSentinel()
-        || sym == getNullSentinel()
-        || !symMk
-        || sym->getAttribute(ctx, symMk, true) != PROTO_TRUE) {
+    bool isUserSymbol = sym && sym != PROTO_NONE
+        && symMk && sym->getAttribute(ctx, symMk, true) == PROTO_TRUE;
+    bool isWellKnownSymbol = false;
+    if (!isUserSymbol && sym && sym != PROTO_NONE && sym->isString(ctx)) {
+        const proto::ProtoString* s = sym->asString(ctx);
+        if (s) {
+            std::string sv;
+            s->toUTF8String(ctx, sv);
+            if (sv.compare(0, 7, "Symbol.") == 0
+                || sv.compare(0, 7, "Symbol(") == 0)
+                isWellKnownSymbol = true;
+        }
+    }
+    if (!isUserSymbol && !isWellKnownSymbol) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Symbol.keyFor requires that 'sym' be a Symbol"));
         return PROTO_NONE;
     }
+    // Well-known symbols are NOT in the registry — step 3 returns
+    // undefined.  Skip the registered-symbol probe.
+    if (isWellKnownSymbol) return getUndefinedSentinel();
     // §20.4.2.5 step 2-3: only registered symbols (those created by
     // Symbol.for and tracked in the GlobalSymbolRegistry) round-trip
     // through keyFor; bare Symbol() returns undefined.
