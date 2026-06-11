@@ -1301,6 +1301,23 @@ static const proto::ProtoObject* reflectDefineProperty(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.defineProperty")) return PROTO_FALSE;
+    // §28.1.3 step 2-3: ToPropertyKey propagates abrupts.  Pre-fix the
+    // key was forwarded to Object.defineProperty unchanged, but
+    // Reflect.defineProperty swallows abrupts from the underlying
+    // [[DefineOwnProperty]] call — including the spec-mandated step-2
+    // throw from a poisoned toString (test262 Reflect/defineProperty/
+    // return-abrupt-from-property-key).  Coerce the key here so the
+    // abrupt propagates to the caller.
+    {
+        const proto::ProtoObject* keyArg = (args->getSize(ctx) > 1)
+            ? args->getAt(ctx, 1) : PROTO_NONE;
+        if (keyArg && keyArg != PROTO_NONE
+            && keyArg != getNullSentinel() && keyArg != getUndefinedSentinel()) {
+            const proto::ProtoString* k = protojs::toPropertyKey(ctx, keyArg);
+            if (t_hasCallException) return PROTO_NONE;
+            (void)k;
+        }
+    }
     if (protojs::isProxy(ctx, target)) {
         const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "defineProperty");
         if (trap) {
