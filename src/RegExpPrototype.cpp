@@ -1129,6 +1129,16 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
 
     // Set .constructor on prototype
     regexpProto = regexpProto->setAttribute(ctx, JSSymbols::constructor(ctx), ctor);
+    // §22.2.5.2 / §17: RegExp.prototype.constructor descriptor
+    // {writable:true, enumerable:false, configurable:true} → 0x3.
+    // Pre-fix the slot took protoCore's default of "all bits set"
+    // and Object.getOwnPropertyDescriptor reported enumerable:true,
+    // failing the 15.2.3.3-4-163.js fixture.
+    {
+        const proto::ProtoObject* pdco = ctx->fromUTF8String("__pd_constructor__");
+        const proto::ProtoString* pdck = pdco ? pdco->asString(ctx) : nullptr;
+        if (pdck) regexpProto = regexpProto->setAttribute(ctx, pdck, ctx->fromInteger(0x3LL));
+    }
     // Re-set .prototype on constructor because regexpProto was updated!
     ctor = ctor->setAttribute(ctx, JSSymbols::prototype(ctx), regexpProto);
     // §22.2.2.1 / §17: RegExp.prototype descriptor bits 0x0.
