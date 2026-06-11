@@ -59,7 +59,17 @@ static const proto::ProtoObject* lookupTrap(
     const proto::ProtoString* name = nameObj ? nameObj->asString(ctx) : nullptr;
     if (!name) return nullptr;
     const proto::ProtoObject* trap = handler->getAttribute(ctx, name, true);
-    if (!trap || trap == PROTO_NONE) return nullptr;
+    // §7.3.10 GetMethod step 3-5: null / undefined → return undefined
+    // (no trap dispatch).  Absent → likewise.  Present but non-callable
+    // → TypeError.  Pre-fix the non-callable path returned nullptr
+    // identically to "absent", which silently fell through to the
+    // default behaviour instead of surfacing the spec TypeError
+    // (test262 Proxy/<trap>/trap-is-not-callable across get / set /
+    // has / deleteProperty / apply / construct / etc.).
+    if (!trap || trap == PROTO_NONE
+        || trap == getUndefinedSentinel() || trap == getNullSentinel()) {
+        return nullptr;
+    }
     // Probe callability via the same markers IsCallable uses elsewhere.
     if (trap->isMethod(ctx)) return trap;
     const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
@@ -68,6 +78,11 @@ static const proto::ProtoObject* lookupTrap(
     if (nfK && trap->hasAttribute(ctx, nfK) == PROTO_TRUE) return trap;
     const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
     if (bfK && trap->hasAttribute(ctx, bfK) == PROTO_TRUE) return trap;
+    // Present but non-callable.
+    std::string msg = "Proxy handler's '";
+    msg += trapName;
+    msg += "' trap is not callable";
+    signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
     return nullptr;
 }
 
