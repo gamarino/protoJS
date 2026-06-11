@@ -762,6 +762,39 @@ static const proto::ProtoObject* mapGroupBy(
     if (!iterable) iterable = PROTO_NONE;
     if (!keyFn)    keyFn    = PROTO_NONE;
 
+    // §24.1.2.1 step 2: IsCallable(callbackfn) → TypeError otherwise.
+    // Pre-fix Map.groupBy([], null) silently returned an empty Map
+    // (test262 Map/groupBy/invalid-callback).
+    {
+        bool callable = false;
+        if (keyFn && keyFn != PROTO_NONE && keyFn != getUndefinedSentinel()
+            && keyFn != getNullSentinel()) {
+            if (keyFn->isMethod(ctx)) callable = true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (!callable && bcK && keyFn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (!callable && nfK && keyFn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
+            const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+            if (!callable && bfK && keyFn->hasAttribute(ctx, bfK) == PROTO_TRUE) callable = true;
+        }
+        if (!callable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Map.groupBy: callbackfn is not callable"));
+            return PROTO_NONE;
+        }
+    }
+
+    // §24.1.2.1 step 3: GetIterator(items) — non-iterable iterable
+    // throws TypeError before any callback fires.
+    if (iterable == getNullSentinel() || iterable == getUndefinedSentinel()
+        || iterable == PROTO_NONE
+        || (iterable && (iterable->isInteger(ctx) || iterable->isDouble(ctx)
+            || iterable->isFloat(ctx) || iterable->isBoolean(ctx)))) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Map.groupBy: items is not iterable"));
+        return PROTO_NONE;
+    }
+
     // Create a result Map.
     const proto::ProtoObject* result = s_mapPrototype
         ? s_mapPrototype->newChild(ctx, true) : ctx->newObject(true);
