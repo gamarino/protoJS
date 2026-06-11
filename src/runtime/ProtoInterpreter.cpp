@@ -1486,14 +1486,18 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
     // through the noop branch and returned without throwing
     // (test262 Reflect/setPrototypeOf/proto-is-not-object-and-not-null-
     // throws.js).
-    if (proto != getNullSentinel()
-        && (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
-            || proto->isInteger(ctx) || proto->isDouble(ctx)
-            || proto->isFloat(ctx) || proto->isString(ctx)
-            || proto->isBoolean(ctx))) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "Reflect.setPrototypeOf: prototype must be an Object or null"));
-        return PROTO_NONE;
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        bool isSym = proto && symK && proto->getAttribute(ctx, symK, true) == PROTO_TRUE;
+        if (proto != getNullSentinel()
+            && (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
+                || proto->isInteger(ctx) || proto->isDouble(ctx)
+                || proto->isFloat(ctx) || proto->isString(ctx)
+                || proto->isBoolean(ctx) || isSym)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Reflect.setPrototypeOf: prototype must be an Object or null"));
+            return PROTO_NONE;
+        }
     }
     if (proto == getNullSentinel() || (proto && proto != PROTO_NONE && !proto->isInteger(ctx)
             && !proto->isDouble(ctx) && !proto->isString(ctx) && !proto->isBoolean(ctx))) {
