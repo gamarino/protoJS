@@ -673,17 +673,112 @@ static const proto::ProtoObject* iteratorDrop(
     return makeHelperIterator(ctx, iteratorDropNext, self, PROTO_NONE, skipCount);
 }
 
-// flatMap stub: not implemented; method exists so typeof checks pass.
-// Actual semantics require nested iterator dispatch which is more
-// involved than the linear helpers above.
-static const proto::ProtoObject* iteratorFlatMap(
-    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+// .next for flatMap(): pulls value from underlying, maps via cb,
+// extracts an iterator from the result (via @@iterator), and yields
+// each value from that inner iterator before pulling the next outer
+// value.  __helper_underlying__ holds the outer iterator;
+// __helper_cb__ holds the mapper; __helper_counter__ holds the outer
+// counter; __helper_inner__ (added below) holds the live inner
+// iterator.
+static const proto::ProtoObject* iteratorFlatMapNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*,
     const proto::ProtoSparseList*)
 {
-    signalNativeException(makeNativeError(ctx, "TypeError",
-        "Iterator.prototype.flatMap is not yet implemented"));
-    return PROTO_NONE;
+    if (!self || self == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
+    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* outer = uK ? self->getAttribute(ctx, uK, false) : nullptr;
+    const proto::ProtoObject* cKo = ctx->fromUTF8String("__helper_cb__");
+    const proto::ProtoString* cK = cKo ? cKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* cb = cK ? self->getAttribute(ctx, cK, false) : nullptr;
+    const proto::ProtoObject* nKo = ctx->fromUTF8String("__helper_counter__");
+    const proto::ProtoString* nK = nKo ? nKo->asString(ctx) : nullptr;
+    long long counter = 0;
+    if (nK) {
+        const proto::ProtoObject* cv = self->getAttribute(ctx, nK, false);
+        if (cv && cv->isInteger(ctx)) counter = cv->asLong(ctx);
+    }
+    const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
+    const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
+    if (!outer || outer == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    for (;;) {
+        // Drain any live inner iterator first.
+        const proto::ProtoObject* inner = innerK ? self->getAttribute(ctx, innerK, false) : nullptr;
+        if (inner && inner != PROTO_NONE && inner != getUndefinedSentinel()) {
+            const proto::ProtoObject* innerNext = iterGetNext(ctx, inner, "flatMap");
+            if (!innerNext) return PROTO_NONE;
+            bool innerDone = false;
+            const proto::ProtoObject* innerVal = nullptr;
+            (void)iterStep(ctx, inner, innerNext, &innerDone, &innerVal);
+            if (hasCallException()) return PROTO_NONE;
+            if (!innerDone) return makeIterResult(ctx, innerVal, false);
+            // Inner exhausted — clear and continue to next outer.
+            if (innerK) self->setAttribute(ctx, innerK, getUndefinedSentinel());
+        }
+        // Pull next outer value.
+        const proto::ProtoObject* outerNext = iterGetNext(ctx, outer, "flatMap");
+        if (!outerNext) return PROTO_NONE;
+        bool outerDone = false;
+        const proto::ProtoObject* outerVal = nullptr;
+        (void)iterStep(ctx, outer, outerNext, &outerDone, &outerVal);
+        if (hasCallException()) return PROTO_NONE;
+        if (outerDone) return makeIterResult(ctx, getUndefinedSentinel(), true);
+        // Invoke mapper.
+        const proto::ProtoList* cbArgs = ctx->newList();
+        cbArgs = cbArgs->appendLast(ctx, outerVal ? outerVal : PROTO_NONE);
+        cbArgs = cbArgs->appendLast(ctx, ctx->fromInteger(counter++));
+        if (nK) self->setAttribute(ctx, nK, ctx->fromInteger(counter));
+        const proto::ProtoObject* mapped = callJSFunction(ctx, cb, getUndefinedSentinel(), cbArgs);
+        if (hasCallException()) { iterClose(ctx, outer); return PROTO_NONE; }
+        if (!mapped || mapped == PROTO_NONE
+            || mapped == getNullSentinel() || mapped == getUndefinedSentinel()
+            || mapped->isInteger(ctx) || mapped->isDouble(ctx)
+            || mapped->isFloat(ctx) || mapped->isBoolean(ctx)) {
+            // §27.1.4.3 step 4.b.iv.2: mapper must return an Object.
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Iterator.prototype.flatMap: mapper must return an Object"));
+            iterClose(ctx, outer);
+            return PROTO_NONE;
+        }
+        // GetIterator: invoke mapped[@@iterator]() to extract its iterator.
+        const proto::ProtoString* sIK = JSSymbols::symbolIterator(ctx);
+        const proto::ProtoObject* itoFn = sIK ? mapped->getAttribute(ctx, sIK, true) : nullptr;
+        const proto::ProtoObject* newInner = nullptr;
+        if (itoFn && itoFn != PROTO_NONE && itoFn != getUndefinedSentinel()) {
+            newInner = callJSFunction(ctx, itoFn, mapped, ctx->newList());
+            if (hasCallException()) { iterClose(ctx, outer); return PROTO_NONE; }
+        }
+        if (!newInner || newInner == PROTO_NONE || newInner == getUndefinedSentinel()) {
+            // Treat as no-yield; loop to next outer.
+            continue;
+        }
+        if (innerK) self->setAttribute(ctx, innerK, newInner);
+    }
+}
+
+static const proto::ProtoObject* iteratorFlatMap(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (!iterRequireObject(ctx, self, "flatMap")) return PROTO_NONE;
+    const proto::ProtoObject* fn = (args && args->getSize(ctx) > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    bool callable = fn && fn != PROTO_NONE && fn->isMethod(ctx);
+    if (!callable && fn && fn != PROTO_NONE) {
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (!callable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
+    }
+    if (!callable) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Iterator.prototype.flatMap: callback is not callable"));
+        return PROTO_NONE;
+    }
+    if (!iterGetNext(ctx, self, "flatMap")) return PROTO_NONE;
+    return makeHelperIterator(ctx, iteratorFlatMapNext, self, fn, 0);
 }
 
 // ---------------------------------------------------------------------------
