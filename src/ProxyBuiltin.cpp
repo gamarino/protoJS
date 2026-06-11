@@ -447,6 +447,147 @@ const proto::ProtoObject* proxyLookupTrap(proto::ProtoContext* ctx,
     return lookupTrap(ctx, handler, trapName);
 }
 
+// §10.5.5 [[GetOwnProperty]]: handler.getOwnPropertyDescriptor(target, P)
+// — if absent forward to target.[[GetOwnProperty]](P).  The trap result
+// must be either an Object (descriptor) or undefined; anything else is
+// a TypeError.  We then normalise via ToPropertyDescriptor +
+// FromPropertyDescriptor by constructing a fresh ordinary object with
+// the spec-mandated slot set ({value, writable, enumerable,
+// configurable} for data or {get, set, enumerable, configurable} for
+// accessor) per §6.2.5.5.
+const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy,
+    const proto::ProtoString* propKey) {
+    if (!ctx || !proxy || !propKey) return PROTO_NONE;
+    const proto::ProtoObject* target = proxyTarget(ctx, proxy);
+    if (!target) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot perform 'getOwnPropertyDescriptor' on a proxy that has been revoked"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
+    const proto::ProtoObject* trap = lookupTrap(ctx, handler, "getOwnPropertyDescriptor");
+    if (trap) {
+        const proto::ProtoList* a = ctx->newList();
+        a = a->appendLast(ctx, target);
+        a = a->appendLast(ctx, propKey->asObject(ctx));
+        const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
+        if (hasCallException()) return PROTO_NONE;
+        // §10.5.5 step 7: trapResultObj must be Object or undefined.
+        if (res == nullptr || res == PROTO_NONE
+            || res == getUndefinedSentinel() || res == getNullSentinel()) {
+            // undefined → reflect target's actual descriptor through the
+            // invariant filter.  For non-configurable own / non-extensible
+            // owns the trap can't claim absence — left to a future
+            // invariant audit; for now mirror the spec's "return
+            // undefined" for the common non-existent path.
+            OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+            if (od.present && !od.configurable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'getOwnPropertyDescriptor' on proxy: trap reported "
+                    "undefined for non-configurable own property"));
+                return PROTO_NONE;
+            }
+            return PROTO_NONE;
+        }
+        // Must be an Object — primitives reject with TypeError.
+        if (res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx)
+            || res->isBoolean(ctx) || res->isString(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'getOwnPropertyDescriptor' on proxy: trap returned non-Object"));
+            return PROTO_NONE;
+        }
+        // FromPropertyDescriptor — rebuild the canonical 4-slot
+        // descriptor object so the caller can read each slot in the
+        // order the spec mandates.  We honour both data and accessor
+        // shapes; if the trap returned a mixed object (rare), prefer
+        // accessor.
+        JSContextWrapper* w = JSContextWrapper::current();
+        const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
+        const proto::ProtoObject* desc = op ? op->newChild(ctx, true) : ctx->newObject(true);
+        auto put = [&](const char* name, const proto::ProtoObject* v){
+            const proto::ProtoObject* nk = ctx->fromUTF8String(name);
+            const proto::ProtoString* ks = nk ? nk->asString(ctx) : nullptr;
+            if (ks) desc = desc->setAttribute(ctx, ks, v ? v : getUndefinedSentinel());
+        };
+        auto read = [&](const char* name) -> const proto::ProtoObject* {
+            const proto::ProtoObject* nk = ctx->fromUTF8String(name);
+            const proto::ProtoString* ks = nk ? nk->asString(ctx) : nullptr;
+            if (!ks) return PROTO_NONE;
+            return res->getAttribute(ctx, ks, true);
+        };
+        const proto::ProtoObject* getter = read("get");
+        const proto::ProtoObject* setter = read("set");
+        bool hasGetter = getter && getter != PROTO_NONE && getter != getUndefinedSentinel();
+        bool hasSetter = setter && setter != PROTO_NONE && setter != getUndefinedSentinel();
+        const proto::ProtoObject* enumerable   = read("enumerable");
+        const proto::ProtoObject* configurable = read("configurable");
+        auto toBool = [&](const proto::ProtoObject* v) -> const proto::ProtoObject* {
+            if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) return PROTO_FALSE;
+            if (v == PROTO_TRUE || v == PROTO_FALSE) return v;
+            if (v->isBoolean(ctx)) return v->asBoolean(ctx) ? PROTO_TRUE : PROTO_FALSE;
+            return PROTO_TRUE;
+        };
+        if (hasGetter || hasSetter) {
+            put("get",          hasGetter ? getter : getUndefinedSentinel());
+            put("set",          hasSetter ? setter : getUndefinedSentinel());
+            put("enumerable",   toBool(enumerable));
+            put("configurable", toBool(configurable));
+        } else {
+            const proto::ProtoObject* value    = read("value");
+            const proto::ProtoObject* writable = read("writable");
+            put("value",        value ? value : getUndefinedSentinel());
+            put("writable",     toBool(writable));
+            put("enumerable",   toBool(enumerable));
+            put("configurable", toBool(configurable));
+        }
+        return desc;
+    }
+    // No trap — forward to target.  If target is itself a Proxy,
+    // recurse; otherwise build a descriptor by reading the target's
+    // own attribute layer.  We defer to objectGetOwnPropertyDescriptor's
+    // caller path by signalling "no proxy override" via PROTO_NONE +
+    // a sentinel handled by the caller.  Simpler: probe own descriptor
+    // here and synthesise.
+    if (isProxy(ctx, target))
+        return proxyDispatchGetOwnPropertyDescriptor(ctx, target, propKey);
+    OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+    if (!od.present) return PROTO_NONE;
+    JSContextWrapper* w = JSContextWrapper::current();
+    const proto::ProtoObject* op = w ? w->getJSObjectPrototype() : nullptr;
+    const proto::ProtoObject* desc = op ? op->newChild(ctx, true) : ctx->newObject(true);
+    auto putB = [&](const char* name, bool b){
+        const proto::ProtoObject* nk = ctx->fromUTF8String(name);
+        const proto::ProtoString* ks = nk ? nk->asString(ctx) : nullptr;
+        if (ks) desc = desc->setAttribute(ctx, ks, b ? PROTO_TRUE : PROTO_FALSE);
+    };
+    auto putV = [&](const char* name, const proto::ProtoObject* v){
+        const proto::ProtoObject* nk = ctx->fromUTF8String(name);
+        const proto::ProtoString* ks = nk ? nk->asString(ctx) : nullptr;
+        if (ks) desc = desc->setAttribute(ctx, ks, v ? v : getUndefinedSentinel());
+    };
+    if (od.isAccessor) {
+        std::string kstr; propKey->toUTF8String(ctx, kstr);
+        const std::string gks = "__get_" + kstr + "__";
+        const std::string sks = "__set_" + kstr + "__";
+        const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
+        const proto::ProtoObject* sko = ctx->fromUTF8String(sks.c_str());
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
+        putV("get",          gk ? target->getAttribute(ctx, gk, false) : nullptr);
+        putV("set",          sk ? target->getAttribute(ctx, sk, false) : nullptr);
+        putB("enumerable",   true);
+        putB("configurable", od.configurable);
+    } else {
+        putV("value",        od.value);
+        putB("writable",     od.writable);
+        putB("enumerable",   true);
+        putB("configurable", od.configurable);
+    }
+    return desc;
+}
+
 // new Proxy(target, handler) — §28.2.1.
 const proto::ProtoObject* proxyConstructor(
     proto::ProtoContext* ctx,

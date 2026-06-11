@@ -2446,6 +2446,13 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptor(
     const proto::ProtoString* k = coercePropNameToKey(ctx, propNameObj);
     if (!k) return PROTO_NONE;
 
+    // Proxy override per §10.5.5 [[GetOwnProperty]]: route through the
+    // handler.getOwnPropertyDescriptor trap, with the spec's
+    // FromPropertyDescriptor normalisation done inside the dispatch.
+    if (isProxy(ctx, target)) {
+        return proxyDispatchGetOwnPropertyDescriptor(ctx, target, k);
+    }
+
     // String primitive: per §22.1.4 ToObject promotes to a String
     // exotic so the per-char and 'length' descriptors materialise.
     // Pre-fix the primitive path returned undefined for any key —

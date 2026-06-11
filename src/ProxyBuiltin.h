@@ -79,6 +79,19 @@ const proto::ProtoObject* proxyLookupTrap(proto::ProtoContext* ctx,
                                            const proto::ProtoObject* proxy,
                                            const char* trapName);
 
+/**
+ * [[GetOwnProperty]] dispatch per §10.5.5: calls handler.getOwnProperty-
+ * Descriptor(target, P) if present, otherwise forwards to the target.
+ * Returns a descriptor object (the same shape FromPropertyDescriptor
+ * produces) or PROTO_NONE if the property is absent.  On abrupt or
+ * invariant violation, signals via the standard exception plumbing and
+ * returns PROTO_NONE.
+ */
+const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy,
+    const proto::ProtoString* propKey);
+
 /** Install Proxy + Reflect on the global root.  Called from bootstrap. */
 void installProxyAndReflect(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot);
