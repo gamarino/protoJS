@@ -3554,7 +3554,14 @@ static void ensureBuiltinErrorConstructors(proto::ProtoContext* ctx,
         // prop-desc) saw enumerable:true.
         const proto::ProtoString* toStringKey = JSSymbols::toString(ctx);
         if (toStringKey) {
-            const proto::ProtoObject* toStringMethod = ctx->fromMethod(nullptr, errorPrototypeToString);
+            // §17: built-in Function objects have name + length data
+            // properties.  Pre-fix the slot was a raw ProtoMethod cell
+            // which can't carry attributes, so Object.getOwnProperty
+            // Descriptor(Error.prototype.toString, "length") returned
+            // undefined.  Wrap via the standard Function.prototype
+            // child + __native_fn__ pattern.
+            const proto::ProtoObject* toStringMethod = wrapNativeFunction(
+                ctx, errorPrototypeToString, "toString", 0, globalRoot);
             if (toStringMethod) proto = proto->setAttribute(ctx, toStringKey, toStringMethod);
             const proto::ProtoObject* pdto = ctx->fromUTF8String("__pd_toString__");
             const proto::ProtoString* pdtk = pdto ? pdto->asString(ctx) : nullptr;
