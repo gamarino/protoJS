@@ -230,9 +230,30 @@ static const proto::ProtoObject* promiseThen(
     int state = getPromiseState(ctx, self);
     const proto::ProtoObject* value = getPromiseValue(ctx, self);
 
+    // §27.2.1.4 / §27.2.1.7 PerformPromiseThen: if onFulfilled /
+    // onRejected aren't callable, fall back to identity / thrower so
+    // the chain still propagates the value or reason.  Pre-fix the
+    // check `onFulfilled != PROTO_NONE` was satisfied by the
+    // undefined sentinel too, so `p.then(undefined, undefined)` ran
+    // callJSFunction with undefined as the callback and the chain
+    // collapsed to undefined (test262 then/S25.4.5.3_A4.1_T1 / T2 /
+    // A4.2_T1 / T2).
+    auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE
+            || fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
+        if (fn->isMethod(ctx)) return true;
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (bcK && fn->hasAttribute(ctx, bcK) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) return true;
+        const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+        if (bfK && fn->hasAttribute(ctx, bfK) == PROTO_TRUE) return true;
+        return false;
+    };
+
     if (state == 1) {
-        // Fulfilled: invoke onFulfilled.
-        if (onFulfilled && onFulfilled != PROTO_NONE) {
+        // Fulfilled: invoke onFulfilled if callable, else propagate value.
+        if (isCallable(onFulfilled)) {
             const proto::ProtoList* cbArgs = ctx->newList();
             cbArgs = cbArgs->appendLast(ctx, value ? value : PROTO_NONE);
             const proto::ProtoObject* result = callJSFunction(ctx, onFulfilled, PROTO_NONE, cbArgs);
@@ -244,8 +265,8 @@ static const proto::ProtoObject* promiseThen(
     }
 
     if (state == 2) {
-        // Rejected: invoke onRejected.
-        if (onRejected && onRejected != PROTO_NONE) {
+        // Rejected: invoke onRejected if callable, else propagate rejection.
+        if (isCallable(onRejected)) {
             const proto::ProtoList* cbArgs = ctx->newList();
             cbArgs = cbArgs->appendLast(ctx, value ? value : PROTO_NONE);
             const proto::ProtoObject* result = callJSFunction(ctx, onRejected, PROTO_NONE, cbArgs);
