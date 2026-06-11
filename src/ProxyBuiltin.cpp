@@ -312,7 +312,25 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
-        bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
+        // §10.5.9 step 9 ToBoolean(trapResult): null, undefined, +0/-0,
+        // NaN and "" are all falsy.  Pre-fix the check accepted any
+        // non-PROTO_FALSE / non-nullptr return as truthy, so a `null`
+        // /`0`/`""` from the user trap was silently treated as "set
+        // succeeded".  test262 set/boolean-trap-result-is-{false,null,
+        // 0, NaN, ""}-return-false.
+        bool truthy;
+        {
+            if (r == nullptr || r == PROTO_NONE
+                || r == PROTO_FALSE || r == getNullSentinel()
+                || r == getUndefinedSentinel()) truthy = false;
+            else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+            else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+            else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+            else if (r->isString(ctx)) {
+                std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+                truthy = !s.empty();
+            } else truthy = true;
+        }
         // §10.5.9 step 11: if trap returned a truthy result, validate
         // against the target's own descriptor when non-configurable.
         if (truthy) {
@@ -363,7 +381,19 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
-        bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
+        bool truthy;
+        {
+            if (r == nullptr || r == PROTO_NONE
+                || r == PROTO_FALSE || r == getNullSentinel()
+                || r == getUndefinedSentinel()) truthy = false;
+            else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+            else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+            else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+            else if (r->isString(ctx)) {
+                std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+                truthy = !s.empty();
+            } else truthy = true;
+        }
         // §10.5.7 step 9: if trap returned falsy, validate against the
         // target's own descriptor.  Non-configurable owns and owns on
         // non-extensible targets cannot be hidden by the trap.
@@ -413,7 +443,19 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
-        bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
+        bool truthy;
+        {
+            if (r == nullptr || r == PROTO_NONE
+                || r == PROTO_FALSE || r == getNullSentinel()
+                || r == getUndefinedSentinel()) truthy = false;
+            else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+            else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+            else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+            else if (r->isString(ctx)) {
+                std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+                truthy = !s.empty();
+            } else truthy = true;
+        }
         // §10.5.10 step 9: if trap returned truthy, validate against the
         // target's own descriptor.  Non-configurable owns cannot be
         // deleted, and owns on non-extensible targets cannot vanish.
@@ -583,9 +625,19 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
     a = a->appendLast(ctx, newProto ? newProto : getNullSentinel());
     const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
     if (hasCallException()) return PROTO_NONE;
-    bool truthy = !(r == nullptr || r == PROTO_NONE
-                     || r == PROTO_FALSE || r == getNullSentinel()
-                     || r == getUndefinedSentinel());
+    bool truthy;
+    {
+        if (r == nullptr || r == PROTO_NONE
+            || r == PROTO_FALSE || r == getNullSentinel()
+            || r == getUndefinedSentinel()) truthy = false;
+        else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+        else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+        else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+        else if (r->isString(ctx)) {
+            std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+            truthy = !s.empty();
+        } else truthy = true;
+    }
     return truthy ? PROTO_TRUE : PROTO_FALSE;
 }
 
@@ -621,9 +673,19 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
     a = a->appendLast(ctx, descriptor ? descriptor : PROTO_NONE);
     const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
     if (hasCallException()) return PROTO_NONE;
-    bool truthy = !(r == nullptr || r == PROTO_NONE
-                     || r == PROTO_FALSE || r == getNullSentinel()
-                     || r == getUndefinedSentinel());
+    bool truthy;
+    {
+        if (r == nullptr || r == PROTO_NONE
+            || r == PROTO_FALSE || r == getNullSentinel()
+            || r == getUndefinedSentinel()) truthy = false;
+        else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+        else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+        else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+        else if (r->isString(ctx)) {
+            std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+            truthy = !s.empty();
+        } else truthy = true;
+    }
     if (truthy) {
         OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
         if (od.present && !od.configurable) {
