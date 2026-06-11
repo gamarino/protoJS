@@ -3557,12 +3557,55 @@ static const proto::ProtoObject* objectToString(
         }
     }
     // Symbol primitive: protoJS carries Symbols with the __is_symbol__
-    // marker. §20.1.3.6 dispatches them to the built-in tag "Symbol"
-    // before the generic Object fallback.
+    // marker.  Default tag is "Symbol" but @@toStringTag may override
+    // (§22.1.3.7 step 16-17) — Symbol.prototype carries the WKS
+    // mapping by default but user code may delete or replace it.
+    // Pre-fix the symbol branch hard-coded "[object Symbol]" and
+    // ignored @@toStringTag overrides, so
+    // `delete Symbol.prototype[Symbol.toStringTag]` still surfaced
+    // "[object Symbol]" instead of falling through to the default
+    // "Object" tag (test262 toString/symbol-tag-non-str-builtin).
     {
         const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-        if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE)
-            return ctx->fromUTF8String("[object Symbol]");
+        if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+            const proto::ProtoObject* tagKo = ctx->fromUTF8String("Symbol.toStringTag");
+            const proto::ProtoString* tagK = tagKo ? tagKo->asString(ctx) : nullptr;
+            std::string tag = "Symbol";
+            if (tagK) {
+                const proto::ProtoObject* val = self->getAttribute(ctx, tagK, true);
+                if (val && val != PROTO_NONE && val != getUndefinedSentinel()
+                    && val->isString(ctx)) {
+                    const proto::ProtoString* isSymMk = JSSymbols::isSymbol(ctx);
+                    bool isSymVal = isSymMk && val->getAttribute(ctx, isSymMk, true) == PROTO_TRUE;
+                    if (!isSymVal) {
+                        std::string s;
+                        val->asString(ctx)->toUTF8String(ctx, s);
+                        if (s.compare(0, 7, "Symbol.") != 0
+                            && s.compare(0, 7, "Symbol(") != 0) {
+                            tag = s;
+                        }
+                    } else {
+                        // §22.1.3.7 step 16: non-string tag → use the
+                        // builtinTag.  For a Symbol primitive whose
+                        // Symbol.prototype[@@toStringTag] is itself a
+                        // Symbol (the spec default), that means
+                        // builtinTag for Symbol-shaped objects is
+                        // "Object" since the spec doesn't list Symbol
+                        // among the slot-detected builtins.
+                        tag = "Object";
+                    }
+                } else if (val && val != PROTO_NONE && val != getUndefinedSentinel()) {
+                    // Non-string tag → fall back to builtinTag = "Object".
+                    tag = "Object";
+                } else {
+                    // tag absent / undefined → builtinTag = "Object"
+                    // per §22.1.3.7 step 16.
+                    tag = "Object";
+                }
+            }
+            std::string out = "[object " + tag + "]";
+            return ctx->fromUTF8String(out.c_str());
+        }
     }
 
     // ECMA-262 §22.1.3.7 Object.prototype.toString: when O has an
