@@ -1380,11 +1380,32 @@ static const proto::ProtoObject* weakMapSet(
     // all rejected. The pre-fix path silently stored primitives,
     // which made identity-tracked test262 cases pass for the wrong
     // reasons.
-    if (key->isString(ctx) || key->isInteger(ctx)
+    // §24.4.3.6 step 5 + the ES2024 symbols-as-weakmap-keys proposal:
+    // primitives are rejected EXCEPT non-registered Symbols, which
+    // CanBeHeldWeakly per the new rule.  Well-known symbols
+    // (Symbol.hasInstance, etc.) are encoded as ProtoStrings in
+    // protoJS but still count as Symbols via the WKS prefix — accept
+    // those too.
+    bool isSymbolKey = false;
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && key->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+            isSymbolKey = true;
+        }
+        if (!isSymbolKey && key->isString(ctx)) {
+            const proto::ProtoString* s = key->asString(ctx);
+            if (s) {
+                std::string sv;
+                s->toUTF8String(ctx, sv);
+                if (sv.compare(0, 7, "Symbol.") == 0) isSymbolKey = true;
+            }
+        }
+    }
+    if (!isSymbolKey && (key->isString(ctx) || key->isInteger(ctx)
         || key->isDouble(ctx) || key->isFloat(ctx)
         || key->isBoolean(ctx)
         || key == getNullSentinel() || key == getUndefinedSentinel()
-        || key == PROTO_TRUE || key == PROTO_FALSE) {
+        || key == PROTO_TRUE || key == PROTO_FALSE)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Invalid value used as weak map key"));
         return PROTO_NONE;
@@ -1531,11 +1552,32 @@ static const proto::ProtoObject* weakMapGetOrInsert(
     if (!key || key == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoObject* value = args->getSize(ctx) > 1 ? args->getAt(ctx, 1) : PROTO_NONE;
     // Reject non-object keys (step 4).
-    if (key->isString(ctx) || key->isInteger(ctx)
+    // §24.4.3.6 step 5 + the ES2024 symbols-as-weakmap-keys proposal:
+    // primitives are rejected EXCEPT non-registered Symbols, which
+    // CanBeHeldWeakly per the new rule.  Well-known symbols
+    // (Symbol.hasInstance, etc.) are encoded as ProtoStrings in
+    // protoJS but still count as Symbols via the WKS prefix — accept
+    // those too.
+    bool isSymbolKey = false;
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && key->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+            isSymbolKey = true;
+        }
+        if (!isSymbolKey && key->isString(ctx)) {
+            const proto::ProtoString* s = key->asString(ctx);
+            if (s) {
+                std::string sv;
+                s->toUTF8String(ctx, sv);
+                if (sv.compare(0, 7, "Symbol.") == 0) isSymbolKey = true;
+            }
+        }
+    }
+    if (!isSymbolKey && (key->isString(ctx) || key->isInteger(ctx)
         || key->isDouble(ctx) || key->isFloat(ctx)
         || key->isBoolean(ctx)
         || key == getNullSentinel() || key == getUndefinedSentinel()
-        || key == PROTO_TRUE || key == PROTO_FALSE) {
+        || key == PROTO_TRUE || key == PROTO_FALSE)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Invalid value used as weak map key"));
         return PROTO_NONE;
@@ -1593,11 +1635,32 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
         return PROTO_NONE;
     }
     // Reject non-object keys (step 5).
-    if (key->isString(ctx) || key->isInteger(ctx)
+    // §24.4.3.6 step 5 + the ES2024 symbols-as-weakmap-keys proposal:
+    // primitives are rejected EXCEPT non-registered Symbols, which
+    // CanBeHeldWeakly per the new rule.  Well-known symbols
+    // (Symbol.hasInstance, etc.) are encoded as ProtoStrings in
+    // protoJS but still count as Symbols via the WKS prefix — accept
+    // those too.
+    bool isSymbolKey = false;
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && key->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+            isSymbolKey = true;
+        }
+        if (!isSymbolKey && key->isString(ctx)) {
+            const proto::ProtoString* s = key->asString(ctx);
+            if (s) {
+                std::string sv;
+                s->toUTF8String(ctx, sv);
+                if (sv.compare(0, 7, "Symbol.") == 0) isSymbolKey = true;
+            }
+        }
+    }
+    if (!isSymbolKey && (key->isString(ctx) || key->isInteger(ctx)
         || key->isDouble(ctx) || key->isFloat(ctx)
         || key->isBoolean(ctx)
         || key == getNullSentinel() || key == getUndefinedSentinel()
-        || key == PROTO_TRUE || key == PROTO_FALSE) {
+        || key == PROTO_TRUE || key == PROTO_FALSE)) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Invalid value used as weak map key"));
         return PROTO_NONE;
