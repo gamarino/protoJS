@@ -1688,6 +1688,16 @@ static const proto::ProtoObject* symbolConstructor(
         //   spec-required toString/valueOf side effects never fired
         // (built-ins/Symbol/desc-to-string.js).
         if (d && d != PROTO_NONE && d != getUndefinedSentinel()) {
+            // §20.4.1 step 3 ToString on a Symbol primitive throws
+            // TypeError per §7.1.17.  Pre-fix Symbol(Symbol("x"))
+            // silently produced a Symbol whose description was
+            // "Symbol(x)" (test262 Symbol/desc-to-string-symbol).
+            const proto::ProtoString* isSymMk = JSSymbols::isSymbol(ctx);
+            if (isSymMk && d->getAttribute(ctx, isSymMk, true) == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot convert a Symbol value to a string"));
+                return PROTO_NONE;
+            }
             std::string s;
             bool gotString = false;
             if (d == getNullSentinel()) {
