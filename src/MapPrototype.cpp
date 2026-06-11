@@ -1668,7 +1668,7 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
 
 static const proto::ProtoObject* weakMapConstruct(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
-    const proto::ParentLink*, const proto::ProtoList* /*args*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
     if (!self) return PROTO_NONE;
@@ -1683,6 +1683,81 @@ static const proto::ProtoObject* weakMapConstruct(
     const proto::ProtoObject* brandObj = ctx->fromUTF8String("__is_weak_map__");
     const proto::ProtoString* brandKey = brandObj ? brandObj->asString(ctx) : nullptr;
     if (brandKey) self = self->setAttribute(ctx, brandKey, PROTO_TRUE);
+
+    // §24.4.1.1 step 4-9: AddEntriesFromIterable(self, iterable, set).
+    // Pre-fix the constructor ignored its iterable argument entirely,
+    // so `new WeakMap([[k1,v1],[k2,v2]])` produced an empty map.
+    int argc = args ? static_cast<int>(args->getSize(ctx)) : 0;
+    if (argc > 0) {
+        const proto::ProtoObject* iterable = args->getAt(ctx, 0);
+        if (iterable && iterable != PROTO_NONE
+            && iterable != getUndefinedSentinel() && iterable != getNullSentinel()) {
+            // §24.4.1.1 step 6 GetMethod(self, "set") via prototype chain.
+            // Honour user overrides on WeakMap.prototype.set so the spec's
+            // "Get(_map_, 'set')" semantic flows through.
+            const proto::ProtoString* sKs =
+                ctx->fromUTF8String("set")->asString(ctx);
+            const proto::ProtoObject* setterFn = sKs
+                ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
+            bool callable = false;
+            if (setterFn && setterFn != PROTO_NONE && setterFn != getUndefinedSentinel()) {
+                if (setterFn->isMethod(ctx)) callable = true;
+                const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                if (!callable && bcK && setterFn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
+                const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                if (!callable && nfK && setterFn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
+                const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+                if (!callable && bfK && setterFn->hasAttribute(ctx, bfK) == PROTO_TRUE) callable = true;
+            }
+            if (!callable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "WeakMap: 'set' is not callable"));
+                return PROTO_NONE;
+            }
+            // Walk the iterable as an array-like: read .length, then
+            // entry[0]/entry[1] via __elements__ first.
+            auto readEl = [&](const proto::ProtoObject* arr, long i) -> const proto::ProtoObject* {
+                if (!arr || arr == PROTO_NONE) return PROTO_NONE;
+                const proto::ProtoObject* v =
+                    arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
+                if (v) return v;
+                const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                v = ik ? arr->getAttribute(ctx, ik, true) : nullptr;
+                return v ? v : PROTO_NONE;
+            };
+            const proto::ProtoString* lenKs = JSSymbols::length(ctx);
+            long len = -1;
+            if (lenKs) {
+                const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
+                if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+                    len = lenObj->asLong(ctx);
+            }
+            if (len < 0) {
+                const proto::ProtoList* els = getArrayElements(ctx, iterable);
+                if (els) len = static_cast<long>(els->getSize(ctx));
+            }
+            for (long i = 0; i < len; i++) {
+                const proto::ProtoObject* pair = readEl(iterable, i);
+                if (!pair || pair == PROTO_NONE) continue;
+                // §24.4.1.1 step 8.e.iii: each entry must be an Object.
+                if (pair->isInteger(ctx) || pair->isDouble(ctx)
+                    || pair->isFloat(ctx) || pair->isString(ctx)
+                    || pair->isBoolean(ctx)
+                    || pair == getNullSentinel() || pair == getUndefinedSentinel()) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Iterator value is not an entry object"));
+                    return PROTO_NONE;
+                }
+                const proto::ProtoObject* pkey = readEl(pair, 0);
+                const proto::ProtoObject* pval = readEl(pair, 1);
+                const proto::ProtoList* setArgs = ctx->newList();
+                setArgs = setArgs->appendLast(ctx, pkey);
+                setArgs = setArgs->appendLast(ctx, pval);
+                callJSFunction(ctx, setterFn, self, setArgs);
+                if (hasCallException()) return PROTO_NONE;
+            }
+        }
+    }
     return const_cast<proto::ProtoObject*>(self);
 }
 
