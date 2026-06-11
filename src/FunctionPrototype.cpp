@@ -6,7 +6,9 @@
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
+#include <cmath>
 #include <cstdio>
+#include <limits>
 #include <string>
 
 namespace protojs {
@@ -287,25 +289,41 @@ static const proto::ProtoObject* fnBind(
     // instance-length and instance-name).
     const proto::ProtoString* lenKey2 = JSSymbols::length(ctx);
     if (lenKey2) {
+        // §20.2.3.2 step 6-7: ToIntegerOrInfinity on target.length.
+        // Honour the spec branches: NaN → 0, -Infinity → 0, +Infinity
+        // → preserve, fractional → floor toward 0.  Pre-fix the
+        // implementation cast double → long long unconditionally so
+        // Infinity wrapped to LLONG_MIN and -0.77 truncated to 0
+        // matched only by luck (instance-length-tointeger).
+        bool lengthIsInfinity = false;
         long long targetLen = 0;
-        // §20.2.3.2 step 7: F.[[HasOwnProperty]]("length").  Only the
-        // OWN value contributes — inherited length is ignored
-        // (instance-length-default-value pins this).  Pre-fix
-        // getAttribute(lenKey, false) walked the chain and picked up
-        // Object.prototype.length / a manually-set parent.length,
-        // yielding wrong bound.length values.
         if (self->hasOwnAttribute(ctx, lenKey2) == PROTO_TRUE) {
             const proto::ProtoObject* lo = self->getAttribute(ctx, lenKey2, false);
             if (lo && lo != PROTO_NONE) {
-                // §20.2.3.2 step 8: only integer / number values count.
-                // Symbol, Number wrapper, etc. fall through to L = 0.
-                if (lo->isInteger(ctx))      targetLen = lo->asLong(ctx);
-                else if (lo->isDouble(ctx))  targetLen = static_cast<long long>(lo->asDouble(ctx));
+                if (lo->isInteger(ctx)) {
+                    targetLen = lo->asLong(ctx);
+                } else if (lo->isDouble(ctx) || lo->isFloat(ctx)) {
+                    double d = lo->asDouble(ctx);
+                    if (std::isnan(d)) targetLen = 0;
+                    else if (std::isinf(d)) {
+                        if (d > 0) lengthIsInfinity = true;
+                        else targetLen = 0;
+                    } else {
+                        targetLen = static_cast<long long>(d < 0 ? std::ceil(d) : std::floor(d));
+                    }
+                }
             }
         }
-        long long boundLen = targetLen - bcount;
-        if (boundLen < 0) boundLen = 0;
-        bound = bound->setAttribute(ctx, lenKey2, ctx->fromInteger(boundLen));
+        if (lengthIsInfinity) {
+            // SetFunctionLength: a finite Number "Infinity" must round-
+            // trip through Number → double => store as double.
+            bound = bound->setAttribute(ctx, lenKey2,
+                ctx->fromDouble(std::numeric_limits<double>::infinity()));
+        } else {
+            long long boundLen = targetLen - bcount;
+            if (boundLen < 0) boundLen = 0;
+            bound = bound->setAttribute(ctx, lenKey2, ctx->fromInteger(boundLen));
+        }
         const proto::ProtoString* pdls = JSSymbols::pdLength(ctx);
         if (pdls) bound = bound->setAttribute(ctx, pdls, ctx->fromInteger(0x2LL));
     }
