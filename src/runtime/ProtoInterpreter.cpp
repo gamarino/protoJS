@@ -11067,7 +11067,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 } else if (v && v != PROTO_NONE && !v->isNone(pContext) && v != t_undefinedSentinel) {
                     if (v->isBoolean(pContext)) typeStr = "boolean";
                     else if (v->isInteger(pContext) || v->isDouble(pContext) || v->isFloat(pContext)) typeStr = "number";
-                    else if (v->asString(pContext)) typeStr = "string";
+                    // Well-known symbols (Symbol.iterator, Symbol.dispose, …)
+                    // are encoded as ProtoStrings in protoJS but typeof must
+                    // surface them as "symbol" per §13.5.3 (test262
+                    // Symbol/{dispose,asyncDispose,hasInstance,iterator,
+                    // …}/prop-desc verifyProperty kickoff).
+                    else if (v->asString(pContext)) {
+                        std::string sv;
+                        v->asString(pContext)->toUTF8String(pContext, sv);
+                        if (sv.compare(0, 7, "Symbol.") == 0
+                            || sv.compare(0, 7, "Symbol(") == 0)
+                            typeStr = "symbol";
+                        else
+                            typeStr = "string";
+                    }
                     else if ([&]() -> bool {
                         // §7.1.13.1 typeof: a Symbol value yields "symbol".
                         // protoJS carries Symbols as objects with the
