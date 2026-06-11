@@ -927,8 +927,21 @@ static const proto::ProtoObject* reflectSet(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.set")) return PROTO_FALSE;
-    if (!args || args->getSize(ctx) < 3) return PROTO_FALSE;
+    if (!args || args->getSize(ctx) < 2) return PROTO_FALSE;
     const proto::ProtoObject* key    = args->getAt(ctx, 1);
+    // §28.1.13 step 2 happens BEFORE the value check: ToPropertyKey(key)
+    // must run and propagate abrupts even when the call form omits the
+    // value argument.  Pre-fix the early `args->getSize < 3` return
+    // short-circuited the coercion, so Reflect.set(o, throwingKey)
+    // silently returned false instead of surfacing the throw.
+    {
+        if (key && key != PROTO_NONE
+            && key != getNullSentinel() && key != getUndefinedSentinel()) {
+            (void)protojs::toPropertyKey(ctx, key);
+            if (t_hasCallException) return PROTO_NONE;
+        }
+    }
+    if (args->getSize(ctx) < 3) return PROTO_FALSE;
     const proto::ProtoObject* value  = args->getAt(ctx, 2);
     // Per §28.1.13 step 4, if receiver is not present, receiver = target.
     // Pre-fix Reflect.set ignored the 4th argument entirely and always
