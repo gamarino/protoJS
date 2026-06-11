@@ -1633,15 +1633,17 @@ const proto::ProtoObject* stringMatch(
         return arr;
     }
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
-    if (isRegExp(ctx, pattern)) {
+    // §22.1.3.13 step 2: dispatch @@match on ANY non-null/undef non-
+    // primitive pattern (not just RegExp).  Pre-fix the dispatch was
+    // gated on isRegExp, so `"abc".match({[Symbol.match]: fn})`
+    // skipped the user method (test262 match/cstm-match-invocation).
+    if (pattern && pattern != PROTO_NONE && pattern != getNullSentinel()
+        && pattern != getUndefinedSentinel() && !pattern->isString(ctx)
+        && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
+        && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)) {
         const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
         const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
-        if (matchFn && matchFn != PROTO_NONE) {
-            // §22.1.3.13: Call(pattern[@@match], pattern, [O]).  Use
-            // callJSFunction so the dispatch flows through the same
-            // path as every other @@-method dispatch — the legacy
-            // ProtoObject::call(...) returns PROTO_NONE for
-            // data-attribute-installed @@-methods (see split rewrite).
+        if (matchFn && matchFn != PROTO_NONE && matchFn != getUndefinedSentinel()) {
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
             return callJSFunction(ctx, matchFn, pattern, newArgs);
@@ -1699,12 +1701,14 @@ const proto::ProtoObject* stringSearch(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) return ctx->fromInteger(0);
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
-    if (isRegExp(ctx, pattern)) {
+    // §22.1.3.15: dispatch @@search on any non-primitive pattern.
+    if (pattern && pattern != PROTO_NONE && pattern != getNullSentinel()
+        && pattern != getUndefinedSentinel() && !pattern->isString(ctx)
+        && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
+        && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)) {
         const proto::ProtoString* searchKey = JSSymbols::symbolSearch(ctx);
         const proto::ProtoObject* searchFn = pattern->getAttribute(ctx, searchKey, true);
-        if (searchFn && searchFn != PROTO_NONE) {
-            // §22.1.3.15: Call(pattern[@@search], pattern, [O]); use
-            // callJSFunction for the same reason as @@match / @@split.
+        if (searchFn && searchFn != PROTO_NONE && searchFn != getUndefinedSentinel()) {
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
             return callJSFunction(ctx, searchFn, pattern, newArgs);
@@ -2176,6 +2180,31 @@ const proto::ProtoObject* stringSplit(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
+    // §22.1.3.21 step 2: GetMethod(separator, @@split) and dispatch
+    // BEFORE ToUint32(limit) and ToString(O).  Pre-fix the limit
+    // coercion ran first, so when limit was "limit" (→ ToUint32 = 0)
+    // the early return collapsed before the user's @@split fired
+    // (test262 split/cstm-split-invocation).
+    if (args && args->getSize(ctx) > 0) {
+        const proto::ProtoObject* sepProbe = args->getAt(ctx, 0);
+        if (sepProbe && sepProbe != PROTO_NONE
+            && sepProbe != getNullSentinel() && sepProbe != getUndefinedSentinel()
+            && !sepProbe->isString(ctx) && !sepProbe->isInteger(ctx)
+            && !sepProbe->isDouble(ctx) && !sepProbe->isFloat(ctx)
+            && !sepProbe->isBoolean(ctx)) {
+            const proto::ProtoString* splitKey = JSSymbols::symbolSplit(ctx);
+            const proto::ProtoObject* splitFn = sepProbe->getAttribute(ctx, splitKey, true);
+            if (splitFn && splitFn != PROTO_NONE && splitFn != getUndefinedSentinel()) {
+                const proto::ProtoList* newArgs = ctx->newList();
+                newArgs = newArgs->appendLast(ctx, self);
+                if (args->getSize(ctx) > 1) {
+                    newArgs = newArgs->appendLast(ctx, args->getAt(ctx, 1));
+                }
+                return callJSFunction(ctx, splitFn, sepProbe, newArgs);
+            }
+        }
+    }
+
     std::string s = objToStr(ctx, self);
     // Result array — use createNewArray so that [] prototype methods (join, forEach, etc.) are inherited.
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
@@ -2234,29 +2263,8 @@ const proto::ProtoObject* stringSplit(
         return result;
     }
 
-    if (isRegExp(ctx, sepArg)) {
-        const proto::ProtoString* splitKey = JSSymbols::symbolSplit(ctx);
-        const proto::ProtoObject* splitFn = sepArg->getAttribute(ctx, splitKey, true);
-        if (splitFn && splitFn != PROTO_NONE) {
-            // §22.1.3.21 step 5-6 dispatch: Call(pattern[@@split], pattern,
-            // [O, limit]).  Pre-fix this used `sepArg->call(ctx, nullptr,
-            // splitKey, ...)` which routed through the protoCore
-            // method-call path expecting splitFn as a bound method on
-            // sepArg.  After the R36 rework that installed Symbol.* as
-            // plain data attributes carrying __native_fn__ wrappers, the
-            // method-call path returned PROTO_NONE because there is no
-            // dispatch-time resolution; switched to the canonical
-            // callJSFunction so the user-visible @@split / @@match /
-            // @@replace dispatch goes through the same call machinery
-            // every other handler uses.
-            const proto::ProtoList* newArgs = ctx->newList();
-            newArgs = newArgs->appendLast(ctx, self);
-            if (args->getSize(ctx) > 1) {
-                newArgs = newArgs->appendLast(ctx, args->getAt(ctx, 1));
-            }
-            return callJSFunction(ctx, splitFn, sepArg, newArgs);
-        }
-    }
+    // (@@split dispatch already happened at the top of the function,
+    // before ToUint32(limit) and ToString(O).)
 
     // Non-regexp separator: coerce to string via ToString (ECMAScript step 8).
     // objToStr handles null→"null", numbers, booleans, etc.
