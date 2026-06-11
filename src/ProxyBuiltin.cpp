@@ -234,6 +234,7 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
+        if (hasCallException()) return PROTO_NONE;
         // §10.5.8 step 9: validate the trap result against the target's
         // own descriptor when it is non-configurable.
         OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
@@ -284,6 +285,7 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, value ? value : PROTO_NONE);
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+        if (hasCallException()) return PROTO_NONE;
         bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
         // §10.5.9 step 11: if trap returned a truthy result, validate
         // against the target's own descriptor when non-configurable.
@@ -332,6 +334,7 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+        if (hasCallException()) return PROTO_NONE;
         bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
         // §10.5.7 step 9: if trap returned falsy, validate against the
         // target's own descriptor.  Non-configurable owns and owns on
@@ -375,6 +378,7 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         a = a->appendLast(ctx, target);
         a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+        if (hasCallException()) return PROTO_NONE;
         bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE);
         // §10.5.10 step 9: if trap returned truthy, validate against the
         // target's own descriptor.  Non-configurable owns cannot be

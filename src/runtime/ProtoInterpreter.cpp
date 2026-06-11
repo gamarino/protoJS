@@ -1212,6 +1212,11 @@ static const proto::ProtoObject* reflectIsExtensible(
             const proto::ProtoList* trapArgs = ctx->newList();
             trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
+            // §10.5.3 step 3 propagates abrupts from the trap before the
+            // step-6 invariant check fires.  Pre-fix the pending throw
+            // was overridden by the synthetic "trap result inconsistent"
+            // TypeError (test262 Reflect/isExtensible/return-abrupt-from-result).
+            if (t_hasCallException) return PROTO_NONE;
             bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
             // §10.5.3 step 6: trap result must equal target.[[IsExtensible]]().
             JSContextWrapper* w = JSContextWrapper::current();
