@@ -132,6 +132,14 @@ const proto::ProtoObject* makeNativeError(proto::ProtoContext* ctx,
 bool hasCallException();
 
 /**
+ * Returns the pending exception (or null if none) and clears the thread-local
+ * exception flag.  Used by native methods that want to handle the abrupt
+ * completion themselves (e.g. Promise.try wraps it as a rejected Promise
+ * rather than re-throwing).  Returning nullptr is a no-op.
+ */
+const proto::ProtoObject* consumeCallException();
+
+/**
  * Spec ToNumber(value): coerces a JS value to a number (Integer/Double).
  * Invokes valueOf / toString on objects per ToPrimitive(hint:"number").
  * Returns PROTO_NONE if a callback raised an exception (drain via

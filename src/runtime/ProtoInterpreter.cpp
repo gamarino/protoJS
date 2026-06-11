@@ -14425,6 +14425,14 @@ bool hasCallException() {
     return t_hasCallException;
 }
 
+const proto::ProtoObject* consumeCallException() {
+    if (!t_hasCallException) return nullptr;
+    const proto::ProtoObject* e = t_callException;
+    t_hasCallException = false;
+    t_callException    = nullptr;
+    return e;
+}
+
 const proto::ProtoObject* jsToNumber(proto::ProtoContext* context,
                                      const proto::ProtoObject* value) {
     return toNumber(context, value);

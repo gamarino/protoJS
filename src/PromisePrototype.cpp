@@ -377,6 +377,35 @@ static const proto::ProtoObject* promiseStaticResolve(
 }
 
 // ---------------------------------------------------------------------------
+// Promise.try(callback, ...args) — ES2025 §27.2.4.7.
+// Synchronously invoke callback with args; resolve with its return value or
+// reject with any thrown exception.  Equivalent to
+// `new Promise((res) => res(callback(...args)))` but skips the extra
+// microtask hop and exposes thrown exceptions as a rejected Promise without
+// requiring a try/catch in user code.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* promiseStaticTry(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* self,
+    const proto::ParentLink*,
+    const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    if (throwIfNotPromiseConstructor(ctx, self)) return PROTO_NONE;
+    int argc = args ? args->getSize(ctx) : 0;
+    const proto::ProtoObject* cb = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
+    const proto::ProtoList* fwd = ctx->newList();
+    for (int i = 1; i < argc; i++) fwd = fwd->appendLast(ctx, args->getAt(ctx, i));
+    const proto::ProtoObject* result = callJSFunction(ctx, cb, getUndefinedSentinel(), fwd);
+    if (hasCallException()) {
+        const proto::ProtoObject* err = consumeCallException();
+        return makeSettledPromise(ctx, 2, err ? err : PROTO_NONE);
+    }
+    if (isPromise(ctx, result)) return result;
+    return makeSettledPromise(ctx, 1, result ? result : PROTO_NONE);
+}
+
+// ---------------------------------------------------------------------------
 // Promise.reject(reason) — static method.
 // ---------------------------------------------------------------------------
 static const proto::ProtoObject* promiseStaticReject(
@@ -820,6 +849,7 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
     regStatic("allSettled",    promiseAllSettled,    1);
     regStatic("race",          promiseRace,          1);
     regStatic("any",           promiseAny,           1);
+    regStatic("try",           promiseStaticTry,     1);
 
     // §27.2.4.5 get Promise[@@species]: a getter returning `this`,
     // with descriptor {enumerable:false, configurable:true} → 0x2.
