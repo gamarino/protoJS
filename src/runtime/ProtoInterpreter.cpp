@@ -4799,6 +4799,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             {
                                 const proto::ProtoString* cK = JSSymbols::constructor(pContext);
                                 if (cK) symProto = symProto->setAttribute(pContext, cK, symbolCtor);
+                                // §17: Symbol.prototype.constructor descriptor
+                                // {writable:true, enumerable:false, configurable:true}
+                                // → pd bits 0x3.  Pre-fix the slot leaked
+                                // enumerable:true to verifyProperty.
+                                const proto::ProtoObject* pdo =
+                                    pContext->fromUTF8String("__pd_constructor__");
+                                const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                if (pdk) symProto = symProto->setAttribute(pContext, pdk,
+                                    pContext->fromInteger(0x3LL));
                             }
                             // §20.4.3.3 Symbol.prototype.toString and
                             // §20.4.3.4 Symbol.prototype.valueOf:  both
