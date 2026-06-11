@@ -1785,6 +1785,32 @@ static const proto::ProtoObject* objectDefineProperty(
         }
     }
 
+    // Proxy override per §10.5.6 [[DefineOwnProperty]]: route through
+    // handler.defineProperty(target, P, Desc).  We hand the user
+    // descriptor object through verbatim — the trap is expected to
+    // interpret it via the spec ToPropertyDescriptor at the receiver's
+    // discretion.  Return target on success per Object.defineProperty
+    // §20.1.2.4 step 4 (return O).
+    if (isProxy(ctx, target)) {
+        const proto::ProtoObject* r =
+            proxyDispatchDefineProperty(ctx, target, k, desc);
+        if (hasCallException()) return PROTO_NONE;
+        if (r == nullptr) {
+            // No trap — fall through to the default define-on-target,
+            // but unwrap the proxy first so the default path operates on
+            // the real cell.  We re-bind `target` to the resolved proxy
+            // target to keep the rest of the function unchanged.
+            const proto::ProtoObject* unwrapped = proxyTarget(ctx, target);
+            if (unwrapped) target = unwrapped;
+        } else if (r == PROTO_FALSE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object.defineProperty: trap returned falsy"));
+            return PROTO_NONE;
+        } else {
+            return args->getAt(ctx, 0);  // return the original proxy
+        }
+    }
+
     bool propExists = (target->hasOwnAttribute(ctx, k) == PROTO_TRUE);
     const proto::ProtoObject* existingVal = propExists ? target->getAttribute(ctx, k, false) : nullptr;
     std::string kstr;

@@ -92,6 +92,23 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
     const proto::ProtoObject* proxy,
     const proto::ProtoString* propKey);
 
+/**
+ * [[DefineOwnProperty]] dispatch per §10.5.6: calls handler.define-
+ * Property(target, P, Desc) if present, otherwise the caller may
+ * proceed with its default define-on-target path.
+ *
+ * Returns:
+ *   PROTO_TRUE / PROTO_FALSE — trap result (ToBoolean'd).
+ *   PROTO_NONE on abrupt completion (caller must check hasCallException).
+ *   The sentinel proxy::FORWARD_TO_TARGET (= nullptr) when no trap is
+ *   present and the caller should perform the default define on target.
+ */
+const proto::ProtoObject* proxyDispatchDefineProperty(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy,
+    const proto::ProtoString* propKey,
+    const proto::ProtoObject* descriptor);
+
 /** Install Proxy + Reflect on the global root.  Called from bootstrap. */
 void installProxyAndReflect(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot);
