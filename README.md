@@ -387,6 +387,129 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 41 — 2026-06-12** (15 commits, autonomous follow-up to R40) —
+ground-up rebuild of the Proxy trap surface.  The 10-family table
+moves to **8 493 / 9 514 (89.27 %)** — +75 tests, +0.79 pp — driven
+almost entirely by `built-ins/Proxy` going from **94 / 311 (30.2 %) →
+164 / 311 (52.7 %)** (+70 tests, +22.5 pp).  Zero regressions on
+every other family.
+
+This round closed the gap between protoJS's existing `get` / `set` /
+`has` / `deleteProperty` trap path and the seven other §10.5 trap
+dispatches that were missing entirely.  Each trap follows the same
+shape: lookup on handler, abrupt-propagation check, ToBoolean'd
+result, spec invariant gate.
+
+  * **§10.5.5 [[GetOwnProperty]] — Object.getOwnPropertyDescriptor.**
+    proxyDispatchGetOwnPropertyDescriptor calls handler.getOwn-
+    PropertyDescriptor(target, P) and normalises via FromProperty-
+    Descriptor (canonical 4-slot {value, writable, enumerable,
+    configurable} or {get, set, enumerable, configurable} parented on
+    Object.prototype).  Non-Object trap result → TypeError.  Trap
+    reporting undefined for a non-configurable / non-extensible own
+    → TypeError (§10.5.5 step 11).  No-trap forwards to the target's
+    descriptor via probeOwnDescriptor.
+
+  * **§10.5.6 [[DefineOwnProperty]] — Object.defineProperty.**
+    proxyDispatchDefineProperty calls handler.defineProperty(target,
+    P, Desc), ToBoolean's the result, and runs the non-extensible
+    invariant from §10.5.6 step 17.b.  PROTO_TRUE returns the
+    original proxy per §20.1.2.4 step 4; PROTO_FALSE raises
+    TypeError; nullptr signals "no trap" so the caller can fall
+    through to the default define-on-target.
+
+  * **§10.5.1 / §10.5.2 [[GetPrototypeOf]] / [[SetPrototypeOf]] —
+    Object.{get,set}PrototypeOf.**  proxyDispatchGetPrototypeOf
+    validates the trap result is Object or Null (primitives
+    reject).  proxyDispatchSetPrototypeOf ToBoolean's the result.
+    No-trap recurses through proxy chains.
+
+  * **§10.5.11 [[OwnPropertyKeys]] — Reflect.ownKeys +
+    Object.getOwnPropertyNames + Object.getOwnPropertySymbols +
+    Object.values + Object.entries.**  proxyDispatchOwnKeys applies
+    CreateListFromArrayLike per §7.3.18 — reads length, then 0..n-1
+    via the __elements__ fast path; each entry must be a String or
+    a Symbol (TypeError otherwise).  Object.getOwnPropertyNames
+    filters to string keys; Object.getOwnPropertySymbols filters to
+    Symbol-tagged entries; Object.values / Object.entries call
+    proxyDispatchGetOwnPropertyDescriptor for the enumerable gate and
+    proxyDispatchGet for the value, matching the §7.3.23
+    EnumerableOwnProperties algorithm.
+
+  * **§10.5.3 [[IsExtensible]] — Object.isExtensible.**  Routes
+    through handler.isExtensible(target) with the §10.5.3 step 9
+    invariant (trap result must equal target's actual extensibility);
+    revoked-proxy guard.
+
+  * **§10.5.12 / §10.5.13 [[Call]] / [[Construct]] — proxy as
+    callable / Reflect.construct.**  Function.prototype.call /
+    .apply / .bind now treat a Proxy as callable iff its underlying
+    target is callable (recurses through chains).
+    Reflect.construct dispatches handler.construct(target, args,
+    newTarget) and validates the trap result is an Object — and
+    walks proxy chains when the inner trap is undefined (Proxy of
+    Proxy of fn with construct only on the inner).
+
+Trap-shared infrastructure:
+
+  * **Proxy constructor argument validation.**  Rejects null /
+    undefined / Symbol target or handler upfront per §28.2.1.1
+    steps 1-3 (pre-fix only number / boolean / string / float were
+    rejected).
+
+  * **ToBoolean on every gated trap.**  Pre-fix proxyDispatchSet /
+    Has / Delete / DefineProperty / SetPrototypeOf / Object.is-
+    Extensible / Object.preventExtensions tested only
+    `!(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE)`, so
+    `null` / `undefined` / `0` / `NaN` / `""` returned from a user
+    trap silently surfaced as truthy.  All five sites now apply the
+    full §7.1.2 ToBoolean coercion (boolean / int / double / string /
+    object branches; sentinels short-circuit to false).
+
+  * **Proxy.revocable revoke function descriptor bits.**  The
+    revocation function now carries `__pd_name__` / `__pd_length__`
+    = 0x2 per §28.2.2.1.1 steps 7-8, matching the spec
+    {writable:false, enumerable:false, configurable:true} layout.
+
+10-family roll-up — Proxy carries the round; Object's +5 from the
+Object.{values, entries, getOwnPropertySymbols} Proxy paths picking
+up a few all-strings-on-Symbol-keyed-target tests; everything else
+held:
+
+| Family | This run | R40 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 404 / 509 (79.4 %) | 404 / 509 | 0 |
+| `built-ins/Object` | **3 036 / 3 411** (89.0 %) | 3 031 / 3 411 | **+5** |
+| `built-ins/Array` | 2 871 / 3 081 (93.2 %) | 2 871 / 3 081 | 0 |
+| `built-ins/String` | 1 118 / 1 223 (91.4 %) | 1 118 / 1 223 | 0 |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | 192 / 204 (94.1 %) | 192 / 204 | 0 |
+| `built-ins/Set` | 366 / 383 (95.6 %) | 366 / 383 | 0 |
+| `built-ins/Proxy` | **164 / 311** (52.7 %) | 94 / 311 (30.2 %) | **+70** (+22.5 pp) |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 131 / 141 (92.9 %) | 131 / 141 | 0 |
+| **TOTAL** | **8 493 / 9 514** (**89.27 %**) | 8 418 / 9 514 (88.48 %) | **+75** (+0.79 pp) |
+
+Off-table family — Iterator held stable; R41 work focused on Proxy:
+
+| Family | This run | R40 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Iterator` | 367 / 510 (72.0 %) | 367 / 510 | 0 |
+
+The remaining Proxy gap (147 failures, 47.3 %) clusters on the
+cross-realm tests (`*-realm.js`, no realm-2 support in protoJS), the
+proxy-as-prototype invariant chain (the wider §10.1.x [[Get]] /
+[[HasProperty]] / [[Set]] paths walk via protoCore's parent chain,
+which doesn't yet dispatch into a proxy parent), and the more
+specific §10.5 invariant gates we left untouched (setPrototypeOf
+internals call order, defineProperty cross-cell descriptor validation
+under non-extensible targets).  These are the next layer of work.
+
+Cumulative R37 → R41 (103 commits): 87.20 % → 89.27 % on the 10-fam
+table — +207 tests in five focused rounds.
+
+---
+
 **Round 40 — 2026-06-12** (3 commits, autonomous follow-up to R39) —
 held the 10-family table at **8 418 / 9 514 (88.48 %)** with zero
 regressions and rounded out the Iterator family from R39's helper
