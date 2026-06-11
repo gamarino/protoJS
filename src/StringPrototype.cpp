@@ -2725,6 +2725,32 @@ static const proto::ProtoObject* stringSymbolIterator(
     const proto::ParentLink*,
     const proto::ProtoList*, const proto::ProtoSparseList*)
 {
+    // §22.1.5.1 step 1: RequireObjectCoercible(this) — null / undefined
+    // throw TypeError.  Step 2: S = ToString(O), abrupt completion
+    // propagates per ReturnIfAbrupt.  Pre-fix the iterator stored the
+    // raw receiver as __str__, so a non-string object whose toString
+    // threw never ran toString, and the iterator silently produced
+    // garbage when the iterator-next read codepoints out of it.
+    if (!self || self == PROTO_NONE || self == getNullSentinel()
+        || self == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "String.prototype[Symbol.iterator] called on null or undefined"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* strVal = self;
+    if (!self->isString(ctx)) {
+        // Reject Symbol per ToString TypeError.
+        const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+        if (symMk && self->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert a Symbol value to a string"));
+            return PROTO_NONE;
+        }
+        std::string converted = objToStr(ctx, self);
+        if (hasCallException()) return PROTO_NONE;
+        strVal = ctx->fromUTF8String(converted.c_str());
+        if (!strVal) strVal = ctx->fromUTF8String("");
+    }
     const proto::ProtoObject* protoParent = getStringIteratorProto(ctx);
     const proto::ProtoObject* iter = protoParent
         ? protoParent->newChild(ctx, true) : ctx->newObject(true);
@@ -2733,7 +2759,7 @@ static const proto::ProtoObject* stringSymbolIterator(
     const proto::ProtoString* strKey = strKo ? strKo->asString(ctx) : nullptr;
     const proto::ProtoObject* idxKo = ctx->fromUTF8String("__idx__");
     const proto::ProtoString* idxKey = idxKo ? idxKo->asString(ctx) : nullptr;
-    if (strKey) iter = iter->setAttribute(ctx, strKey, self ? self : PROTO_NONE);
+    if (strKey) iter = iter->setAttribute(ctx, strKey, strVal);
     if (idxKey) iter = iter->setAttribute(ctx, idxKey, ctx->fromInteger(0));
     return iter;
 }
@@ -2876,7 +2902,18 @@ void BuildStringPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
         const proto::ProtoObject* siko = ctx->fromUTF8String("Symbol.iterator");
         const proto::ProtoString* sik = siko ? siko->asString(ctx) : nullptr;
         if (sik) {
-            const proto::ProtoObject* wrapper = ctx->newObject(true);
+            // Parent on methodPrototype (Function.prototype) so .call /
+            // .apply / .bind are inherited.  Pre-fix the wrapper used
+            // ctx->newObject and `.call` came back undefined, breaking
+            // String.prototype[Symbol.iterator].call(o) — the test262
+            // built-ins/String/prototype/Symbol.iterator/this-val-to-
+            // str-err probes that exact path.  Methodprototype may not
+            // be ready at first install; reinstall step backfills.
+            const proto::ProtoObject* parent =
+                (ctx->space && ctx->space->methodPrototype)
+                ? ctx->space->methodPrototype : nullptr;
+            const proto::ProtoObject* wrapper = parent
+                ? parent->newChild(ctx, true) : ctx->newObject(true);
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
             const proto::ProtoObject* rawM = ctx->fromMethod(nullptr, stringSymbolIterator);
             if (wrapper && nfKey && rawM) {
@@ -2953,6 +2990,28 @@ void ReinstallStringPrototypeMethods(proto::ProtoContext* ctx) {
     for (int i = 0; kMethods[i].name; i++) {
         sp = installNonEnumerableMethod(ctx, sp, kMethods[i].name,
                                         kMethods[i].fn, kMethods[i].argc);
+    }
+
+    // Re-parent the @@iterator wrapper on Function.prototype now that
+    // methodPrototype is available — the initial install ran before
+    // methodPrototype was published, so the wrapper inherited from
+    // plain Object and .call / .apply / .bind were absent.  The
+    // built-ins/String/prototype/Symbol.iterator/this-val-to-str-err
+    // fixture probes that exact call form.
+    {
+        const proto::ProtoObject* siko = ctx->fromUTF8String("Symbol.iterator");
+        const proto::ProtoString* sik = siko ? siko->asString(ctx) : nullptr;
+        if (sik) {
+            const proto::ProtoObject* parent = ctx->space->methodPrototype;
+            const proto::ProtoObject* wrapper = parent
+                ? parent->newChild(ctx, true) : ctx->newObject(true);
+            const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
+            const proto::ProtoObject* rawM = ctx->fromMethod(nullptr, stringSymbolIterator);
+            if (wrapper && nfKey && rawM) {
+                wrapper = wrapper->setAttribute(ctx, nfKey, rawM);
+                sp = sp->setAttribute(ctx, sik, wrapper);
+            }
+        }
     }
 
     // Set reinstall sentinel.
