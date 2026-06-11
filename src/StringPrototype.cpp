@@ -3,6 +3,7 @@
 #include "ArrayElementsStorage.h"
 #include "FunctionPrototype.h"
 #include "IteratorPrototype.h"
+#include "JSContext.h"
 #include "JSSymbols.h"
 #include "PrototypeUtils.h"
 #include "RegExpPrototype.h"
@@ -2172,12 +2173,42 @@ const proto::ProtoObject* stringMatchAll(
 
     // Step 4: RegExpCreate(regexp, "g") — fall-through path covers
     // both `s.matchAll()` (regexp is undefined → empty pattern) and
-    // `s.matchAll("foo")` (string pattern).
+    // `s.matchAll("foo")` (string pattern).  When regexp is null, the
+    // spec stringifies it ("null") and runs the pattern verbatim —
+    // pre-fix the null branch went via the empty-pattern fallback so
+    // `"-null-".matchAll(null)` produced an iterator that emitted
+    // empty matches instead of the literal "null" hit at index 1.
+    const proto::ProtoObject* patternArg = nullptr;
+    if (!regexp || regexp == PROTO_NONE || regexp == undefSentinel) {
+        patternArg = ctx->fromUTF8String("");
+    } else if (regexp == nullSentinel) {
+        patternArg = ctx->fromUTF8String("null");
+    } else {
+        patternArg = regexp;
+    }
     const proto::ProtoList* ctorArgs = ctx->newList();
-    ctorArgs = ctorArgs->appendLast(ctx,
-        regexpIsNullish ? ctx->fromUTF8String("") : regexp);
+    ctorArgs = ctorArgs->appendLast(ctx, patternArg);
     ctorArgs = ctorArgs->appendLast(ctx, ctx->fromUTF8String("g"));
-    const proto::ProtoObject* rx = regexpConstructor(ctx, PROTO_NONE, nullptr, ctorArgs, nullptr);
+    // Pre-allocate a wrapper child of RegExp.prototype so the
+    // constructor's `self` parameter starts properly chained — without
+    // this the bare ctx->newObject fallback inside regexpConstructor
+    // produces a RegExp-shaped cell with no prototype link, and the
+    // @@matchAll lookup below can't walk to RegExp.prototype.
+    const proto::ProtoObject* rePro = nullptr;
+    {
+        JSContextWrapper* w = JSContextWrapper::current();
+        const proto::ProtoObject* gr = w ? w->getNativeGlobal() : nullptr;
+        if (gr) {
+            const proto::ProtoObject* reKo = ctx->fromUTF8String("RegExp");
+            const proto::ProtoString* reKs = reKo ? reKo->asString(ctx) : nullptr;
+            const proto::ProtoObject* reCtor = reKs ? gr->getAttribute(ctx, reKs, false) : nullptr;
+            const proto::ProtoString* protoK = JSSymbols::prototype(ctx);
+            rePro = (reCtor && protoK) ? reCtor->getAttribute(ctx, protoK, false) : nullptr;
+        }
+    }
+    const proto::ProtoObject* rxSeed = (rePro && rePro != PROTO_NONE)
+        ? rePro->newChild(ctx, true) : PROTO_NONE;
+    const proto::ProtoObject* rx = regexpConstructor(ctx, rxSeed, nullptr, ctorArgs, nullptr);
     if (!rx || rx == PROTO_NONE) return PROTO_NONE;
 
     // Step 5: rx[@@matchAll](self).
