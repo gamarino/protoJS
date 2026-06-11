@@ -1235,6 +1235,38 @@ static const proto::ProtoObject* objectPreventExtensions(
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
 
+    // §20.1.2.16 step 2: call [[PreventExtensions]] and throw TypeError
+    // when it returns false.  Proxy invariant: the handler may veto by
+    // returning a falsy value; pre-fix Object.preventExtensions on a
+    // Proxy ignored the trap result and silently flagged the proxy
+    // non-extensible.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* handler = proxyHandler(ctx, obj);
+        const proto::ProtoObject* target  = proxyTarget(ctx, obj);
+        const proto::ProtoString* trapKs = nullptr;
+        const proto::ProtoObject* trapKo = ctx->fromUTF8String("preventExtensions");
+        if (trapKo) trapKs = trapKo->asString(ctx);
+        const proto::ProtoObject* trap = (handler && trapKs)
+            ? handler->getAttribute(ctx, trapKs, true) : nullptr;
+        if (trap && trap != PROTO_NONE && trap != getUndefinedSentinel()
+            && trap != getNullSentinel()) {
+            const proto::ProtoList* a = ctx->newList();
+            a = a->appendLast(ctx, target ? target : PROTO_NONE);
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+            if (hasCallException()) return PROTO_NONE;
+            bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
+                || r == getUndefinedSentinel() || r == getNullSentinel());
+            if (!truthy) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'preventExtensions' on proxy: trap returned falsish"));
+                return PROTO_NONE;
+            }
+            return obj;
+        }
+        // No trap → recurse into target.
+        obj = target ? target : obj;
+    }
+
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper) {
         obj->addParent(ctx, wrapper->getNonExtensibleMarker());
