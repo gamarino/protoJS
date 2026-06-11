@@ -531,23 +531,22 @@ Symbol / Map / Set / Proxy / Reflect / WeakMap):
 | `built-ins/Function` | **404 / 509** (79.4 %) | 401 / 509 | **+3** |
 | `built-ins/Object` | **3 012 / 3 411** (88.3 %) | 2 785 / 3 411 | **+227** |
 | `built-ins/Array` | **2 865 / 3 081** (93.0 %) | 2 771 / 3 081 | **+94** |
-| `built-ins/String` | **1 070 / 1 223** (87.5 %) | 1 086 / 1 223 | **−16** |
+| `built-ins/String` | **1 087 / 1 223** (88.9 %) | 1 086 / 1 223 | **+1** |
 | `built-ins/Symbol` | 47 / 98 (48.0 %) | 47 / 98 | 0 |
 | `built-ins/Map` | **184 / 204** (90.2 %) | 181 / 204 | **+3** |
 | `built-ins/Set` | **351 / 383** (91.6 %) | 349 / 383 | **+2** |
 | `built-ins/Proxy` | 70 / 311 (22.5 %) | 70 / 311 | 0 |
 | `built-ins/Reflect` | **131 / 153** (85.6 %) | 130 / 153 | **+1** |
 | `built-ins/WeakMap` | **111 / 141** (78.7 %) | 103 / 141 | **+8** |
-| **TOTAL** | **8 245 / 9 514** (**86.66 %**) | 7 923 / 9 514 (83.28 %) | **+322** (+3.38 pp) |
+| **TOTAL** | **8 262 / 9 514** (**86.84 %**) | 7 923 / 9 514 (83.28 %) | **+339** (+3.56 pp) |
 
-The String regression (−16) is bracketed by a String /
-prototype.match correctness fix that ships in the same round (the
-`null`-sentinel-on-no-match issue described above): without it,
-String would have shown a much larger regression in the
-match / replace / search buckets.  The session-late commits
-recover that, but the table above reflects the snapshot taken at
-the close of the unattended block.  Full re-measurement deferred
-to R37 with the post-fix RegExp + String sweeps already in flight.
+A late-session String regression (caught by an intermediate
+snapshot at −16) was resolved by recognising the JS null sentinel
+as no-match across `@@match` / `@@replace` / `@@search` / test /
+the String iterator: pre-fix the global-match loop kept iterating
+past the last match and appended a phantom slot
+(`"aba".match(/a/g)` returned length 3 with a trailing null).
+The post-fix String sweep above replaces that snapshot.
 
 Off-table families that benefitted disproportionately:
 **Promise** (`built-ins/Promise/{all,allSettled,race,any}`)
