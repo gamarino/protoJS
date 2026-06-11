@@ -970,7 +970,34 @@ static const proto::ProtoObject* objectFreeze(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
-    
+    // §20.1.2.6 step 2: SetIntegrityLevel(O, "frozen") begins with
+    // O.[[PreventExtensions]]() and aborts (TypeError) when it returns
+    // false.  Forward to the Proxy preventExtensions trap before adding
+    // the freeze marker.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* handler = proxyHandler(ctx, obj);
+        const proto::ProtoObject* target  = proxyTarget(ctx, obj);
+        const proto::ProtoString* trapKs = nullptr;
+        const proto::ProtoObject* trapKo = ctx->fromUTF8String("preventExtensions");
+        if (trapKo) trapKs = trapKo->asString(ctx);
+        const proto::ProtoObject* trap = (handler && trapKs)
+            ? handler->getAttribute(ctx, trapKs, true) : nullptr;
+        if (trap && trap != PROTO_NONE && trap != getUndefinedSentinel()
+            && trap != getNullSentinel()) {
+            const proto::ProtoList* a = ctx->newList();
+            a = a->appendLast(ctx, target ? target : PROTO_NONE);
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+            if (hasCallException()) return PROTO_NONE;
+            bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
+                || r == getUndefinedSentinel() || r == getNullSentinel());
+            if (!truthy) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Object.freeze: preventExtensions trap returned falsish"));
+                return PROTO_NONE;
+            }
+        }
+    }
+
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper) {
         // Order matters: addParent prepends, so the LAST added shows
@@ -1130,6 +1157,32 @@ static const proto::ProtoObject* objectSeal(
     const proto::ProtoObject* obj = args->getAt(ctx, 0);
     if (!obj || obj == PROTO_NONE) return PROTO_NONE;
     if (isPrimitive(ctx, obj)) return obj;
+    // §20.1.2.20 step 2: SetIntegrityLevel(O, "sealed") calls
+    // O.[[PreventExtensions]]() first and aborts with TypeError when
+    // the result is false — same pattern as Object.freeze.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* handler = proxyHandler(ctx, obj);
+        const proto::ProtoObject* target  = proxyTarget(ctx, obj);
+        const proto::ProtoString* trapKs = nullptr;
+        const proto::ProtoObject* trapKo = ctx->fromUTF8String("preventExtensions");
+        if (trapKo) trapKs = trapKo->asString(ctx);
+        const proto::ProtoObject* trap = (handler && trapKs)
+            ? handler->getAttribute(ctx, trapKs, true) : nullptr;
+        if (trap && trap != PROTO_NONE && trap != getUndefinedSentinel()
+            && trap != getNullSentinel()) {
+            const proto::ProtoList* a = ctx->newList();
+            a = a->appendLast(ctx, target ? target : PROTO_NONE);
+            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+            if (hasCallException()) return PROTO_NONE;
+            bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
+                || r == getUndefinedSentinel() || r == getNullSentinel());
+            if (!truthy) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Object.seal: preventExtensions trap returned falsish"));
+                return PROTO_NONE;
+            }
+        }
+    }
 
     JSContextWrapper* wrapper = JSContextWrapper::current();
     if (wrapper) {
