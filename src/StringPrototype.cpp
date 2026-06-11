@@ -2261,8 +2261,13 @@ const proto::ProtoObject* stringSplit(
     }
 
     const proto::ProtoObject* sepArg = args->getAt(ctx, 0);
-    // Undefined separator: return array with entire string
-    if (!sepArg || sepArg == PROTO_NONE) {
+    // Undefined separator: return array with entire string per
+    // §22.1.3.21 step 14 (the "separator is undefined" branch).  Pre-
+    // fix the check only caught PROTO_NONE; the heap-allocated
+    // undefined sentinel slipped through and got coerced to the literal
+    // string "undefined", so `"undefinedd".split(undefined)` returned
+    // ["", "d"] instead of ["undefinedd"].
+    if (!sepArg || sepArg == PROTO_NONE || sepArg == getUndefinedSentinel()) {
         els = els->appendLast(ctx, ctx->fromUTF8String(s.c_str()));
         protojs::setArrayElements(ctx, result, els);
         if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(1));
