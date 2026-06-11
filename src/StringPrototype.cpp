@@ -393,6 +393,12 @@ static long long getIntArg(proto::ProtoContext* ctx, const proto::ProtoList* arg
     if (!args || static_cast<unsigned long>(args->getSize(ctx)) <= idx) return defaultVal;
     const proto::ProtoObject* a = args->getAt(ctx, static_cast<int>(idx));
     if (!a || a == PROTO_NONE) return defaultVal;
+    // §22.1.3.20 substring (and the wider slice/substr/indexOf family)
+    // treat undefined as "use the spec default" (often length / 0).
+    // Pre-fix the helper coerced undefined to NaN→0 via ToIntegerOrInfinity
+    // and so substring(undefined, undefined) returned ""; the spec wants
+    // the full string ("undefined"-coerced receiver, start=0, end=len).
+    if (a == getUndefinedSentinel()) return defaultVal;
     // ECMA-262 §7.1.5 ToIntegerOrInfinity: ToNumber(arg) first, then
     // truncate toward zero (NaN → 0, ±∞ → ±∞).  Pre-fix the helper only
     // handled string / integer / double values directly; any

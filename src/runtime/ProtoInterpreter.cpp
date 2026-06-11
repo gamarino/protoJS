@@ -2991,10 +2991,29 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
     // fix the helper swallowed throws and dropped to "[object Object]"
     // (Sputnik S15.5.4.11_A1_T12 / equivalents on every method that
     // coerces a search argument before processing replacement).
+    // §7.1.1 OrdinaryToPrimitive step 3: if toString/valueOf is not
+    // callable (data slot holding undefined, null, or a primitive),
+    // skip it and try the next coercion method.  Pre-fix the path here
+    // entered the callJSFunction branch with a non-callable tfn, which
+    // returned PROTO_NONE and got stringified to "undefined" — the test
+    // ({toString: void 0, valueOf: ()=>{}}).toString() expected
+    // "undefined" via valueOf, but
+    //   ({toString: void 0}).toString() expected "[object Object]" via
+    // the final fallback rather than the bogus "undefined".
+    auto tpIsCallable = [&](const proto::ProtoObject* fn) -> bool {
+        if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel()
+            || fn == t_undefinedSentinel || fn == t_nullSentinel) return false;
+        if (fn->isMethod(context)) return true;
+        const proto::ProtoString* bcKey = JSSymbols::bytecodeId(context);
+        if (bcKey && fn->hasAttribute(context, bcKey) == PROTO_TRUE) return true;
+        const proto::ProtoString* nfKey = JSSymbols::nativeFn(context);
+        if (nfKey && fn->hasAttribute(context, nfKey) == PROTO_TRUE) return true;
+        return false;
+    };
     const proto::ProtoString* tk = JSSymbols::toString(context);
     if (tk) {
         const proto::ProtoObject* tfn = value->getAttribute(context, tk, true);
-        if (tfn && tfn != PROTO_NONE) {
+        if (tpIsCallable(tfn)) {
             const proto::ProtoObject* prim = nullptr;
             if (tfn->isMethod(context)) {
                 prim = tfn->asMethod(context)(context, value, nullptr, nullptr, nullptr);
@@ -3037,7 +3056,7 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
     const proto::ProtoString* vk = JSSymbols::valueOf(context);
     if (vk) {
         const proto::ProtoObject* vfn = value->getAttribute(context, vk, true);
-        if (vfn && vfn != PROTO_NONE) {
+        if (tpIsCallable(vfn)) {
             const proto::ProtoObject* prim = nullptr;
             if (vfn->isMethod(context)) {
                 prim = vfn->asMethod(context)(context, value, nullptr, nullptr, nullptr);
@@ -3046,6 +3065,11 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
                 prim = callJSFunction(context, vfn, value, noArgs);
             }
             if (hasCallException()) return PROTO_NONE;
+            // §7.1.1 step 4.b: undefined / null return is a primitive.
+            if (prim == getUndefinedSentinel() || prim == t_undefinedSentinel
+                || prim == PROTO_NONE || !prim)
+                return context->fromUTF8String("undefined");
+            if (prim == t_nullSentinel) return context->fromUTF8String("null");
             if (prim && prim->isString(context)) return prim;
             if (prim && isStringPrim(prim)) return toString(context, prim);
         }
