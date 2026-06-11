@@ -1627,7 +1627,11 @@ const proto::ProtoObject* stringMatch(
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     if (!args || args->getSize(ctx) == 0) {
         // Spec: match(undefined) wraps via RegExpCreate(undefined) which
-        // becomes /(?:)/, matching the empty string at position 0.
+        // becomes /(?:)/, matching the empty string at position 0.  The
+        // resulting match record carries `.index = 0` and `.input = O`
+        // per §22.2.7.2 MatchOrReplace step 23.  Pre-fix the no-args
+        // branch only populated `[0] = ""` so test262 match/A1_T4
+        // (CHECK#2/3) failed at `__matched.index === 0`.
         const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
         const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
         if (isArrKey) arr = arr->setAttribute(ctx, isArrKey, PROTO_TRUE);
@@ -1636,6 +1640,15 @@ const proto::ProtoObject* stringMatch(
         setArrayElements(ctx, arr, els);
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         if (lenKey) arr = arr->setAttribute(ctx, lenKey, ctx->fromInteger(1LL));
+        {
+            const proto::ProtoString* ixK = JSSymbols::index(ctx);
+            if (ixK) arr = arr->setAttribute(ctx, ixK, ctx->fromInteger(0LL));
+            const proto::ProtoString* inK = JSSymbols::input(ctx);
+            if (inK) {
+                std::string sv = objToStr(ctx, self);
+                arr = arr->setAttribute(ctx, inK, ctx->fromUTF8String(sv.c_str()));
+            }
+        }
         return arr;
     }
     const proto::ProtoObject* pattern = args->getAt(ctx, 0);
