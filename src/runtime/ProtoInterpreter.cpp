@@ -9685,6 +9685,35 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
 
+                // Proxy receiver via bracket access — dispatch to
+                // handler.set.  Pre-fix OP_put_field handled this for
+                // dotted access but bracket access went straight to
+                // the target's __elements__ / setAttribute, so
+                // `new Proxy(t, {set(){...}})['k'] = v` never fired
+                // the trap.
+                if (protojs::isProxy(pContext, obj)) {
+                    const proto::ProtoString* nameStr = nullptr;
+                    if (index && index->isString(pContext)) {
+                        nameStr = index->asString(pContext);
+                    } else if (index) {
+                        nameStr = protojs::toPropertyKey(pContext, index);
+                    }
+                    if (nameStr) {
+                        (void)protojs::proxyDispatchSet(pContext, obj, nameStr, value, obj);
+                        REFRESH_INTERP_STATE();
+                        if (t_hasCallException) {
+                            pending_exception     = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException    = false;
+                            t_callException       = nullptr;
+                            DISPATCH();
+                        }
+                        if (has_pending_exception) DISPATCH();
+                        // Spec: no push — the operand stack ends 3 slots smaller.
+                        DISPATCH();
+                    }
+                }
+
                 long long idxFast = numericArrayIndexOrNeg(pContext, index);
                 const proto::ProtoObject* newObj = nullptr;
 
