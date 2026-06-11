@@ -699,6 +699,49 @@ static const proto::ProtoObject* reflectConstruct(
         ? args->getAt(ctx, 2) : target;
     if (!newTarget || newTarget == PROTO_NONE) newTarget = target;
 
+    // Proxy target — dispatch handler.construct(target, argsArray,
+    // newTarget) per §10.5.13.  Pre-fix Reflect.construct ignored the
+    // trap entirely; the proxy looked non-constructible to
+    // isConstructible() and the call rejected with TypeError.
+    if (protojs::isProxy(ctx, target)) {
+        const proto::ProtoObject* pTarget = protojs::proxyTarget(ctx, target);
+        if (!pTarget) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'construct' on a proxy that has been revoked"));
+            return PROTO_NONE;
+        }
+        const proto::ProtoObject* pHandler = protojs::proxyHandler(ctx, target);
+        const proto::ProtoObject* trap = pHandler
+            ? protojs::proxyLookupTrap(ctx, target, "construct") : nullptr;
+        if (trap) {
+            // Forward the argsArray as-given so the trap observes the
+            // same array-like the caller passed.  newTarget defaults
+            // (see above) before reaching the trap.
+            const proto::ProtoObject* argsArr = args->getSize(ctx) > 1
+                ? args->getAt(ctx, 1) : PROTO_NONE;
+            const proto::ProtoList* trapArgs = ctx->newList();
+            trapArgs = trapArgs->appendLast(ctx, pTarget);
+            trapArgs = trapArgs->appendLast(ctx, argsArr ? argsArr : PROTO_NONE);
+            trapArgs = trapArgs->appendLast(ctx, newTarget);
+            const proto::ProtoObject* res = callJSFunction(ctx, trap, pHandler, trapArgs);
+            if (hasCallException()) return PROTO_NONE;
+            // §10.5.13 step 9: trap result must be an Object.
+            if (!res || res == PROTO_NONE
+                || res == getUndefinedSentinel() || res == getNullSentinel()
+                || res == PROTO_TRUE || res == PROTO_FALSE
+                || res->isInteger(ctx) || res->isDouble(ctx)
+                || res->isFloat(ctx)   || res->isString(ctx)
+                || res->isBoolean(ctx)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'construct' on proxy: trap returned non-object"));
+                return PROTO_NONE;
+            }
+            return res;
+        }
+        // No trap → recurse onto target.
+        target = pTarget;
+    }
+
     // CreateListFromArrayLike per §7.3.17. The argumentsList must be an
     // Object; primitives (number / boolean / string / undefined / null)
     // throw TypeError up front. Length is fetched via [[Get]] — a
