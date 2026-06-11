@@ -4793,6 +4793,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     { "split",              "Symbol.split"              },
                     { "asyncIterator",      "Symbol.asyncIterator"      },
                     { "unscopables",        "Symbol.unscopables"        },
+                    { "dispose",            "Symbol.dispose"            },
+                    { "asyncDispose",       "Symbol.asyncDispose"       },
                     { nullptr, nullptr }
                 };
                 for (int wi = 0; wks[wi].prop; ++wi) {
