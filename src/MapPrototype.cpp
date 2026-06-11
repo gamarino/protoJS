@@ -892,14 +892,12 @@ static const proto::ProtoObject* mapConstruct(
         // ingested its iterable via internal storage and never observed
         // a thrown .set getter; spec says propagate that abrupt
         // completion BEFORE the iteration starts.
+        const proto::ProtoObject* setterFn = PROTO_NONE;
         {
             const proto::ProtoObject* sKo = ctx->fromUTF8String("set");
             const proto::ProtoString* sKs = sKo ? sKo->asString(ctx) : nullptr;
-            const proto::ProtoObject* setterFn = sKs
+            setterFn = sKs
                 ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
-            // Accessor: __get_set__ lives behind the undefined sentinel
-            // placeholder. Invoking the getter propagates abrupt completions
-            // and resolves to the actual function value.
             if (!setterFn || setterFn == PROTO_NONE || setterFn == getUndefinedSentinel()) {
                 const proto::ProtoObject* gko = ctx->fromUTF8String("__get_set__");
                 const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
@@ -997,33 +995,19 @@ static const proto::ProtoObject* mapConstruct(
                 }
                 const proto::ProtoObject* pkey = readEl(pair, 0);
                 const proto::ProtoObject* pval = readEl(pair, 1);
-                {
-                        // Inline map.set(pkey, pval).
-                        unsigned long existingIdx = 0;
-                        const proto::ProtoSparseList* kl = getMapList(ctx, self, "__map_keys__");
-                        const proto::ProtoSparseList* vl = getMapList(ctx, self, "__map_vals__");
-                        const proto::ProtoSparseList* hl = getMapList(ctx, self, "__map_hash__");
-                        long sz = getMapSize(ctx, self);
-                        if (kl && vl && hl) {
-                            if (mapFind(ctx, self, pkey, existingIdx)) {
-                                setMapListInPlace(ctx, self, "__map_vals__",
-                                    vl->setAt(ctx, existingIdx, pval));
-                            } else {
-                                unsigned long ni = static_cast<unsigned long>(sz);
-                                kl = kl->setAt(ctx, ni, pkey);
-                                vl = vl->setAt(ctx, ni, pval);
-                                unsigned long h = szvHash(ctx, pkey);
-                                if (!hl->has(ctx, h))
-                                    hl = hl->setAt(ctx, h, ctx->fromInteger(static_cast<long long>(ni)));
-                                setMapListInPlace(ctx, self, "__map_keys__", kl);
-                                setMapListInPlace(ctx, self, "__map_vals__", vl);
-                                setMapListInPlace(ctx, self, "__map_hash__", hl);
-                                setMapSizeInPlace(ctx, self, sz + 1);
-                            }
-                        }
-                    }
-                }
+                // §24.1.1.2 step 9.k: Call(adder, map, [key, value]).
+                // Dispatch through the resolved setter so user overrides
+                // of Map.prototype.set are observable; the resolved
+                // function is in `setterFn`.  Pre-fix the loop inlined
+                // the map state mutation directly, which the test262
+                // built-ins/Map/iterable-calls-set caught.
+                const proto::ProtoList* setArgs = ctx->newList();
+                setArgs = setArgs->appendLast(ctx, pkey);
+                setArgs = setArgs->appendLast(ctx, pval);
+                callJSFunction(ctx, setterFn, self, setArgs);
+                if (hasCallException()) return PROTO_NONE;
             }
+        }
         }
     return self;
 }
