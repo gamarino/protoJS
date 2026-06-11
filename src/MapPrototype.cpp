@@ -1843,6 +1843,26 @@ static const proto::ProtoObject* weakMapConstruct(
         const proto::ProtoObject* iterable = args->getAt(ctx, 0);
         if (iterable && iterable != PROTO_NONE
             && iterable != getUndefinedSentinel() && iterable != getNullSentinel()) {
+            // §24.4.1.1 step 7.d: GetIterator(iterable) — requires the
+            // iterable to expose [@@iterator] or be a real Array.
+            // Pre-fix `new WeakMap({})` walked the missing .length /
+            // empty __elements__ and returned an empty WeakMap instead
+            // of the TypeError the spec demands (test262 WeakMap/
+            // iterable-failure).
+            {
+                const proto::ProtoString* itoK = JSSymbols::symbolIterator(ctx);
+                bool hasIter = itoK && iterable->hasAttribute(ctx, itoK) == PROTO_TRUE;
+                const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+                bool isArr = isArrK && iterable->getAttribute(ctx, isArrK, true) == PROTO_TRUE;
+                const proto::ProtoString* isStrInst = nullptr;
+                bool isStr = iterable->isString(ctx);
+                (void)isStrInst;
+                if (!hasIter && !isArr && !isStr) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "WeakMap: argument is not iterable"));
+                    return PROTO_NONE;
+                }
+            }
             // §24.4.1.1 step 6 GetMethod(self, "set") via prototype chain.
             // Honour user overrides on WeakMap.prototype.set so the spec's
             // "Get(_map_, 'set')" semantic flows through.
