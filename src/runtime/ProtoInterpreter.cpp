@@ -9304,6 +9304,36 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     DISPATCH();
                 }
+                // Proxy receiver via bracket access — dispatch to
+                // handler.get.  Pre-fix OP_get_field handled this for
+                // dotted access but bracket access (OP_get_array_el)
+                // walked the target's own attributes directly, so
+                // `new Proxy(t, {get(){return 2}})['attr']` returned
+                // undefined instead of firing the trap.  Coerce the
+                // index to a property key string for the trap argument.
+                if (protojs::isProxy(pContext, obj)) {
+                    const proto::ProtoString* nameStr = nullptr;
+                    if (index && index->isString(pContext)) {
+                        nameStr = index->asString(pContext);
+                    } else if (index) {
+                        nameStr = protojs::toPropertyKey(pContext, index);
+                    }
+                    if (nameStr) {
+                        const proto::ProtoObject* r =
+                            protojs::proxyDispatchGet(pContext, obj, nameStr, obj);
+                        REFRESH_INTERP_STATE();
+                        if (t_hasCallException) {
+                            pending_exception     = t_callException;
+                            has_pending_exception = true;
+                            t_hasCallException    = false;
+                            t_callException       = nullptr;
+                            DISPATCH();
+                        }
+                        if (has_pending_exception) DISPATCH();
+                        pAutomaticLocals[currentStackBase + _PF().stackTop++] = r ? r : PROTO_NONE;
+                        DISPATCH();
+                    }
+                }
                 const proto::ProtoObject* val = nullptr;
                 long long arrIdxFast = numericArrayIndexOrNeg(pContext, index);
                 // String character indexing: `"abc"[0]` → "a".  Pre-fix
