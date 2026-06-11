@@ -1210,6 +1210,25 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         mp = installNonEnumerableMethod(ctx, mp, "entries", mapEntries, 0);
         mp = installNonEnumerableMethod(ctx, mp, "getOrInsert",          mapGetOrInsert,         2);
         mp = installNonEnumerableMethod(ctx, mp, "getOrInsertComputed",  mapGetOrInsertComputed, 2);
+        // §24.1.3.12 Map.prototype[@@iterator] === Map.prototype.entries
+        // (same identity).  Re-alias the Symbol.iterator slot here so it
+        // points at the freshly minted entries wrapper rather than the
+        // BuildMapPrototype-era one (which was parented before
+        // ensureFunctionPrototype published methodPrototype).
+        {
+            const proto::ProtoObject* eKo = ctx->fromUTF8String("entries");
+            const proto::ProtoString* eK = eKo ? eKo->asString(ctx) : nullptr;
+            const proto::ProtoObject* entriesFn = eK ? mp->getAttribute(ctx, eK, false) : nullptr;
+            if (entriesFn && entriesFn != PROTO_NONE) {
+                const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+                if (symIterKey) {
+                    mp = mp->setAttribute(ctx, symIterKey, entriesFn);
+                    const proto::ProtoObject* pdiko = ctx->fromUTF8String("__pd_Symbol.iterator__");
+                    const proto::ProtoString* pdiks = pdiko ? pdiko->asString(ctx) : nullptr;
+                    if (pdiks) mp = mp->setAttribute(ctx, pdiks, ctx->fromInteger(0x3LL));
+                }
+            }
+        }
         // Re-build the size getter wrapper with Function.prototype
         // parent now that methodPrototype is published. Same pattern
         // as the parallel Set fix; the initial install ran before
