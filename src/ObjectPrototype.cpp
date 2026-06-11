@@ -523,6 +523,31 @@ static const proto::ProtoObject* objectAssign(
         if (ctx->space) target = wrapPrimitive(target, ctx->space->doublePrototype);
     } else if (target == PROTO_TRUE || target == PROTO_FALSE) {
         if (ctx->space) target = wrapPrimitive(target, ctx->space->booleanPrototype);
+    } else {
+        // §7.1.18 ToObject on a Symbol primitive boxes it in a Symbol
+        // wrapper whose [[SymbolData]] is the original symbol.  Pre-fix
+        // Object.assign(symbol, src) returned the symbol unchanged, so
+        // typeof result === "symbol" (test262 Object/assign/Target-Symbol
+        // expected "object" because the wrapper hides the primitive
+        // typeof tag behind a wrapper-shaped own-attribute layout).
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+        if (isSymK && target->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
+            const proto::ProtoObject* symProto = nullptr;
+            JSContextWrapper* aw2 = JSContextWrapper::current();
+            if (aw2 && aw2->getNativeGlobal()) {
+                const proto::ProtoObject* symGKo = ctx->fromUTF8String("Symbol");
+                const proto::ProtoString* symGK = symGKo ? symGKo->asString(ctx) : nullptr;
+                if (symGK) {
+                    const proto::ProtoObject* symCtor =
+                        aw2->getNativeGlobal()->getAttribute(ctx, symGK, false);
+                    if (symCtor && symCtor != PROTO_NONE) {
+                        const proto::ProtoString* pk = JSSymbols::prototype(ctx);
+                        if (pk) symProto = symCtor->getAttribute(ctx, pk, false);
+                    }
+                }
+            }
+            target = wrapPrimitive(target, symProto);
+        }
     }
 
     for (int si = 1; si < argc; si++) {

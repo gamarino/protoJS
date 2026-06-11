@@ -4715,7 +4715,25 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                      const proto::ProtoSparseList*) -> const proto::ProtoObject* {
                                     if (!gctx || !gself) return PROTO_NONE;
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
-                                    if (!symMk || gself->getAttribute(gctx, symMk, true) != PROTO_TRUE) {
+                                    // §20.4.3.4 step 1 → §20.4.2.1
+                                    // thisSymbolValue: accept either a
+                                    // raw symbol primitive (__is_symbol__)
+                                    // or a Symbol object whose
+                                    // [[SymbolData]] (= __primitive_value__)
+                                    // holds the symbol.  Unwrap so the
+                                    // descriptor probe below sees the
+                                    // primitive's own __symbol_desc__.
+                                    bool isPrim = symMk && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
+                                    if (!isPrim) {
+                                        const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
+                                        const proto::ProtoObject* pv = pvK ? gself->getAttribute(gctx, pvK, true) : nullptr;
+                                        if (pv && pv != PROTO_NONE && symMk &&
+                                            pv->getAttribute(gctx, symMk, true) == PROTO_TRUE) {
+                                            gself = pv;
+                                            isPrim = true;
+                                        }
+                                    }
+                                    if (!isPrim) {
                                         signalNativeException(makeNativeError(gctx, "TypeError",
                                             "Symbol.prototype.toString requires that 'this' be a Symbol"));
                                         return PROTO_NONE;
@@ -4742,7 +4760,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                                     const proto::ProtoSparseList*) -> const proto::ProtoObject* {
                                     if (!gctx || !gself) return PROTO_NONE;
                                     const proto::ProtoString* symMk = JSSymbols::isSymbol(gctx);
-                                    if (!symMk || gself->getAttribute(gctx, symMk, true) != PROTO_TRUE) {
+                                    bool isPrim = symMk && gself->getAttribute(gctx, symMk, true) == PROTO_TRUE;
+                                    if (!isPrim) {
+                                        const proto::ProtoString* pvK = JSSymbols::primitiveValue(gctx);
+                                        const proto::ProtoObject* pv = pvK ? gself->getAttribute(gctx, pvK, true) : nullptr;
+                                        if (pv && pv != PROTO_NONE && symMk &&
+                                            pv->getAttribute(gctx, symMk, true) == PROTO_TRUE) {
+                                            return pv;
+                                        }
+                                    }
+                                    if (!isPrim) {
                                         signalNativeException(makeNativeError(gctx, "TypeError",
                                             "Symbol.prototype.valueOf requires that 'this' be a Symbol"));
                                         return PROTO_NONE;
