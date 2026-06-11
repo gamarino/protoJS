@@ -114,6 +114,22 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
     const proto::ProtoString* doneK = JSSymbols::done(ctx);
     const proto::ProtoObject* dv = doneK ? step->getAttribute(ctx, doneK, true) : nullptr;
     if (hasCallException()) return nullptr;
+    // Accessor descriptor probe — if `done` is defined as a getter the
+    // data slot reads PROTO_NONE/undefined; __get_done__ holds the getter
+    // and we must call it so an abrupt completion in the getter
+    // propagates (test262 next-method-returns-throwing-done.js).
+    if (!dv || dv == PROTO_NONE || dv == getUndefinedSentinel()) {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_done__");
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = step->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()
+                && getter != getNullSentinel()) {
+                dv = callJSFunction(ctx, getter, step, ctx->newList());
+                if (hasCallException()) return nullptr;
+            }
+        }
+    }
     bool isDone = (dv == PROTO_TRUE);
     if (!isDone && dv && dv != PROTO_NONE && dv != PROTO_FALSE) {
         // ToBoolean of any truthy non-False value.
@@ -128,6 +144,20 @@ static const proto::ProtoObject* iterStep(proto::ProtoContext* ctx,
         const proto::ProtoString* valueK = JSSymbols::value(ctx);
         const proto::ProtoObject* v = valueK ? step->getAttribute(ctx, valueK, true) : PROTO_NONE;
         if (hasCallException()) return nullptr;
+        // Accessor descriptor probe for `value` — same rationale as for
+        // `done` above (test262 next-method-returns-throwing-value.js).
+        if (!v || v == PROTO_NONE || v == getUndefinedSentinel()) {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = step->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()
+                    && getter != getNullSentinel()) {
+                    v = callJSFunction(ctx, getter, step, ctx->newList());
+                    if (hasCallException()) return nullptr;
+                }
+            }
+        }
         if (outValue) *outValue = v ? v : PROTO_NONE;
     }
     return step;
