@@ -2160,10 +2160,25 @@ const proto::ProtoObject* stringMatchAll(
                 return PROTO_NONE;
             }
         }
-        // Step 2.c-d: delegate to regexp[@@matchAll](this).
+        // Step 2.c-d: delegate to regexp[@@matchAll](this).  Probe the
+        // accessor sidecar first — a `get [Symbol.matchAll]() { throw }`
+        // installed via Object.defineProperty must fire and propagate.
+        // Pre-fix only the data slot was read so a thrown getter was
+        // silently swallowed (test262 regexp-get-matchAll-throws).
         const proto::ProtoString* matchAllKey = JSSymbols::symbolMatchAll(ctx);
         const proto::ProtoObject* matcher = matchAllKey
             ? regexp->getAttribute(ctx, matchAllKey, true) : PROTO_NONE;
+        if (!matcher || matcher == PROTO_NONE || matcher == undefSentinel) {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.matchAll__");
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = regexp->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE && getter != undefSentinel) {
+                    matcher = callJSFunction(ctx, getter, regexp, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
         if (matcher && matcher != PROTO_NONE && matcher != undefSentinel) {
             const proto::ProtoList* callArgs = ctx->newList();
             callArgs = callArgs->appendLast(ctx, self);
