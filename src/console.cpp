@@ -399,6 +399,17 @@ void Console::init(proto::ProtoContext* ctx, const proto::ProtoObject*& globalOb
         ProtoNativeModule::buildModule(ctx, entries, 19);
     if (!consoleObj) return;
     globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "console", consoleObj);
+
+    // Test262 harness scripts (notably doneprintHandle.js) use a bare
+    // `print` global to emit "Test262:AsyncTestComplete" markers.
+    // Install one as a thin alias for console.log so async test
+    // wrappers don't crash with "is not a function".
+    {
+        const proto::ProtoObject* printObj = ctx->fromMethod(nullptr, Console::log);
+        if (printObj) {
+            globalObj = ProtoNativeModule::registerOnGlobal(ctx, globalObj, "print", printObj);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
