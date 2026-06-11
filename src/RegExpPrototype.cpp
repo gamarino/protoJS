@@ -10,6 +10,8 @@ extern "C" {
 #include "libregexp.h"
 }
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -212,7 +214,25 @@ const proto::ProtoObject* regexpExec(
     const proto::ProtoString* lastIndexKey = JSSymbols::lastIndex(ctx);
     long long lastIndex = 0;
     const proto::ProtoObject* liObj = self->getAttribute(ctx, lastIndexKey, false);
-    if (liObj && liObj->isInteger(ctx)) lastIndex = liObj->asLong(ctx);
+    // §22.2.7.2 step 6 ToLength(? Get(R, "lastIndex")) — accept strings
+    // and doubles by routing through std::strtoll on the ToString form
+    // so `re.lastIndex = "12"` honours the spec contract (test262
+    // S15.10.6.2_A4_T8).
+    if (liObj && liObj != PROTO_NONE) {
+        if (liObj->isInteger(ctx)) {
+            lastIndex = liObj->asLong(ctx);
+        } else if (liObj->isDouble(ctx) || liObj->isFloat(ctx)) {
+            double d = liObj->asDouble(ctx);
+            if (std::isnan(d) || d < 0) lastIndex = 0;
+            else lastIndex = static_cast<long long>(d);
+        } else if (liObj->isString(ctx)) {
+            std::string s;
+            liObj->asString(ctx)->toUTF8String(ctx, s);
+            char* end = nullptr;
+            long long v = std::strtoll(s.c_str(), &end, 10);
+            if (end != s.c_str() && v >= 0) lastIndex = v;
+        }
+    }
 
 
     void* opaque = nullptr;
