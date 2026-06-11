@@ -2979,19 +2979,6 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
         return s_null;
     }
 
-    // §7.1.17 ToString step 2: if argument is a Symbol, throw TypeError.
-    // Pre-fix Error(Symbol()) / String(Symbol()) at the static-toString
-    // dispatch site (Error constructor, etc.) silently fell through to
-    // the string branch and surfaced "Symbol(<desc>)" as the message.
-    {
-        const proto::ProtoString* isSymK = JSSymbols::isSymbol(context);
-        if (isSymK && value->getAttribute(context, isSymK, true) == PROTO_TRUE) {
-            signalNativeException(makeNativeError(context, "TypeError",
-                "Cannot convert a Symbol value to a string"));
-            return PROTO_NONE;
-        }
-    }
-
     if (value->isString(context)) {
         const proto::ProtoString* s = value->asString(context);
         return s ? s->asObject(context) : context->fromUTF8String("");
@@ -12358,12 +12345,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         unsigned msgArgIdx = isAggregate ? 1u : 0u;
                         if (argc > msgArgIdx) {
                             const proto::ProtoObject* messageArg = argsList->getAt(pContext, static_cast<int>(msgArgIdx));
-                            // §19.5.1.1 step 3.a: ToString(message) — abrupt
-                            // completions (including ToString(Symbol) which
-                            // raises TypeError per §7.1.17) propagate.  Pre-
-                            // fix the call site continued with mVal == NONE
-                            // and built an Error with no message, so
-                            // `Error(Symbol())` silently produced "Error".
+                            // §19.5.1.1 step 3.a: ToString(message) — Symbol
+                            // primitives raise TypeError per §7.1.17 ToString
+                            // step 2.
+                            if (messageArg && messageArg != PROTO_NONE
+                                && messageArg != getUndefinedSentinel()) {
+                                const proto::ProtoString* isSymK = JSSymbols::isSymbol(pContext);
+                                if (isSymK && messageArg->getAttribute(pContext, isSymK, true) == PROTO_TRUE) {
+                                    pending_exception = makeError(pContext, "TypeError",
+                                        "Cannot convert a Symbol value to a string", pGlobalRoot);
+                                    has_pending_exception = true;
+                                    DISPATCH();
+                                }
+                            }
                             const proto::ProtoObject* mVal = (messageArg && messageArg != getUndefinedSentinel())
                                 ? toString(pContext, messageArg) : nullptr;
                             if (t_hasCallException) {
@@ -12901,7 +12895,21 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (argc > 0) {
                                 const proto::ProtoObject* msgArgRaw = stackAt(pContext, argc - 1);
                                 // §19.5.1.1 step 3.a: ToString(message) —
-                                // abrupts (Symbol → TypeError) propagate.
+                                // Symbol primitives raise TypeError per
+                                // §7.1.17 ToString step 2.
+                                if (msgArgRaw && msgArgRaw != PROTO_NONE
+                                    && msgArgRaw != getUndefinedSentinel()) {
+                                    const proto::ProtoString* isSymK = JSSymbols::isSymbol(pContext);
+                                    if (isSymK && msgArgRaw->getAttribute(pContext, isSymK, true) == PROTO_TRUE) {
+                                        for (uint32_t i = 0; i <= argc; i++) stackPop(pContext);
+                                        pending_exception = makeError(pContext, "TypeError",
+                                            "Cannot convert a Symbol value to a string", pGlobalRoot);
+                                        has_pending_exception = true;
+                                        if (is_tail_call) return PROTO_NONE;
+                                        stackPush(pContext, PROTO_NONE);
+                                        DISPATCH();
+                                    }
+                                }
                                 const proto::ProtoObject* msgObj =
                                     (msgArgRaw && msgArgRaw != getUndefinedSentinel())
                                     ? toString(pContext, msgArgRaw) : nullptr;
