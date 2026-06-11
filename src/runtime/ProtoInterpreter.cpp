@@ -556,6 +556,17 @@ static const proto::ProtoObject* reflectApply(
             "Reflect.apply: argumentsList must be an Object"));
         return PROTO_NONE;
     }
+    // Symbol primitive carries __is_symbol__; spec rejects it as
+    // non-Object for CreateListFromArrayLike (test262 Reflect/apply/
+    // arguments-list-is-not-array-like).
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && argsArr->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Reflect.apply: argumentsList must be an Object"));
+            return PROTO_NONE;
+        }
+    }
     const proto::ProtoList* callArgs = ctx->newList();
     const proto::ProtoString* lenK = JSSymbols::length(ctx);
     long long len = 0;
@@ -645,6 +656,17 @@ static const proto::ProtoObject* reflectConstruct(
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Reflect.construct: argumentsList must be an Object"));
             return PROTO_NONE;
+        }
+        // Symbol primitive rejected as non-Object for
+        // CreateListFromArrayLike (test262 Reflect/construct/
+        // arguments-list-is-not-array-like).
+        {
+            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+            if (symK && argsArr->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Reflect.construct: argumentsList must be an Object"));
+                return PROTO_NONE;
+            }
         }
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
         long long len = 0;
