@@ -7,6 +7,8 @@
 #include "PrototypeUtils.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
+#include <cmath>
+#include <limits>
 
 namespace protojs {
 
@@ -576,26 +578,55 @@ static const proto::ProtoObject* iteratorTake(
         ? args->getAt(ctx, 0) : PROTO_NONE;
     // §27.1.4.5 step 2-4: ToIntegerOrInfinity then RangeError on negative
     // / NaN.  Pre-fix the call swallowed those for non-number args.
+    // §27.1.4.5 step 3-6: numLimit = ToNumber(limit), NaN/negative →
+    // RangeError, undefined → NaN → RangeError, null → 0, boolean →
+    // 0 or 1, strings parsed via ToNumber.  Pre-fix the helper only
+    // accepted explicit Integer/Double cells.
     double limitNum = 0.0;
+    bool valid = false;
     if (!limitArg || limitArg == PROTO_NONE || limitArg == getUndefinedSentinel()) {
+        limitNum = std::nan("");  // ToNumber(undefined) = NaN
+    } else if (limitArg == getNullSentinel()) {
+        limitNum = 0.0;
+        valid = true;
+    } else if (limitArg == PROTO_TRUE) {
+        limitNum = 1.0;
+        valid = true;
+    } else if (limitArg == PROTO_FALSE) {
+        limitNum = 0.0;
+        valid = true;
+    } else if (limitArg->isInteger(ctx)) {
+        limitNum = static_cast<double>(limitArg->asLong(ctx));
+        valid = true;
+    } else if (limitArg->isDouble(ctx) || limitArg->isFloat(ctx)) {
+        limitNum = limitArg->asDouble(ctx);
+        valid = true;
+    } else if (limitArg->isString(ctx)) {
+        std::string s;
+        limitArg->asString(ctx)->toUTF8String(ctx, s);
+        try { limitNum = std::stod(s); valid = true; }
+        catch (...) { limitNum = std::nan(""); }
+    } else {
+        // Object → would normally ToPrimitive then ToNumber.  For
+        // simplicity reject as NaN.
+        limitNum = std::nan("");
+    }
+    // §27.1.4.5 step 4: NaN → RangeError.
+    if (limitNum != limitNum) {
         signalNativeException(makeNativeError(ctx, "RangeError",
-            "Iterator.prototype.take: limit must be a non-negative integer"));
+            "Iterator.prototype.take: limit must not be NaN"));
         return PROTO_NONE;
     }
-    if (limitArg->isInteger(ctx)) limitNum = static_cast<double>(limitArg->asLong(ctx));
-    else if (limitArg->isDouble(ctx) || limitArg->isFloat(ctx)) limitNum = limitArg->asDouble(ctx);
-    else {
+    // Step 5: integerLimit = ToIntegerOrInfinity(numLimit) — truncate
+    // toward zero; for -0.5 this yields 0 (not -1).
+    double integerLimit = std::trunc(limitNum);
+    if (integerLimit < 0) {
         signalNativeException(makeNativeError(ctx, "RangeError",
-            "Iterator.prototype.take: limit must be a non-negative integer"));
+            "Iterator.prototype.take: limit must be non-negative"));
         return PROTO_NONE;
     }
-    if (limitNum != limitNum /*NaN*/ || limitNum < 0) {
-        signalNativeException(makeNativeError(ctx, "RangeError",
-            "Iterator.prototype.take: limit must be a non-negative integer"));
-        return PROTO_NONE;
-    }
-    long long remaining = (limitNum > static_cast<double>(0x7FFFFFFFLL))
-        ? 0x7FFFFFFFLL : static_cast<long long>(limitNum);
+    long long remaining = (integerLimit > static_cast<double>(0x7FFFFFFFLL))
+        ? 0x7FFFFFFFLL : static_cast<long long>(integerLimit);
     if (!iterGetNext(ctx, self, "take")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorTakeNext, self, PROTO_NONE, remaining);
 }
@@ -649,26 +680,44 @@ static const proto::ProtoObject* iteratorDrop(
     if (!iterRequireObject(ctx, self, "drop")) return PROTO_NONE;
     const proto::ProtoObject* limitArg = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
+    // §27.1.4.6 step 3-6: same ToNumber + NaN-RangeError + non-negative
+    // pattern as take.
     double limitNum = 0.0;
+    bool valid = false;
     if (!limitArg || limitArg == PROTO_NONE || limitArg == getUndefinedSentinel()) {
+        limitNum = std::numeric_limits<double>::quiet_NaN();
+    } else if (limitArg == getNullSentinel()) {
+        limitNum = 0.0; valid = true;
+    } else if (limitArg == PROTO_TRUE) {
+        limitNum = 1.0; valid = true;
+    } else if (limitArg == PROTO_FALSE) {
+        limitNum = 0.0; valid = true;
+    } else if (limitArg->isInteger(ctx)) {
+        limitNum = static_cast<double>(limitArg->asLong(ctx)); valid = true;
+    } else if (limitArg->isDouble(ctx) || limitArg->isFloat(ctx)) {
+        limitNum = limitArg->asDouble(ctx); valid = true;
+    } else if (limitArg->isString(ctx)) {
+        std::string s;
+        limitArg->asString(ctx)->toUTF8String(ctx, s);
+        try { limitNum = std::stod(s); valid = true; }
+        catch (...) { limitNum = std::numeric_limits<double>::quiet_NaN(); }
+    } else {
+        limitNum = std::numeric_limits<double>::quiet_NaN();
+    }
+    if (limitNum != limitNum) {
         signalNativeException(makeNativeError(ctx, "RangeError",
-            "Iterator.prototype.drop: limit must be a non-negative integer"));
+            "Iterator.prototype.drop: limit must not be NaN"));
         return PROTO_NONE;
     }
-    if (limitArg->isInteger(ctx)) limitNum = static_cast<double>(limitArg->asLong(ctx));
-    else if (limitArg->isDouble(ctx) || limitArg->isFloat(ctx)) limitNum = limitArg->asDouble(ctx);
-    else {
+    double integerLimit = std::trunc(limitNum);
+    if (integerLimit < 0) {
         signalNativeException(makeNativeError(ctx, "RangeError",
-            "Iterator.prototype.drop: limit must be a non-negative integer"));
+            "Iterator.prototype.drop: limit must be non-negative"));
         return PROTO_NONE;
     }
-    if (limitNum != limitNum /*NaN*/ || limitNum < 0) {
-        signalNativeException(makeNativeError(ctx, "RangeError",
-            "Iterator.prototype.drop: limit must be a non-negative integer"));
-        return PROTO_NONE;
-    }
-    long long skipCount = (limitNum > static_cast<double>(0x7FFFFFFFLL))
-        ? 0x7FFFFFFFLL : static_cast<long long>(limitNum);
+    (void)valid;
+    long long skipCount = (integerLimit > static_cast<double>(0x7FFFFFFFLL))
+        ? 0x7FFFFFFFLL : static_cast<long long>(integerLimit);
     if (!iterGetNext(ctx, self, "drop")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorDropNext, self, PROTO_NONE, skipCount);
 }
