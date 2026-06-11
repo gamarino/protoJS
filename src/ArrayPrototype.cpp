@@ -709,6 +709,41 @@ static const proto::ProtoObject* arrSetLen(proto::ProtoContext* ctx,
     }
 
     if (isRealArray) {
+        // Walk own attributes once and drop any whose key parses as a
+        // uint32 ≥ newLen.  Required to evict sparse high-index entries
+        // (e.g. arr[4294967294] = v before arr.length = 2) — without
+        // this, `arr[4294967294]` still resolved after truncation
+        // (built-ins/Array/length/S15.4.5.2_A3_T4 et al).
+        const proto::ProtoSparseList* own = arr->getOwnAttributes(ctx);
+        if (own) {
+            std::vector<std::string> keysToDrop;
+            const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+            while (it && it->hasNext(ctx)) {
+                unsigned long rawKey = it->nextKey(ctx);
+                (void)it->nextValue(ctx);
+                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                const proto::ProtoString* propKey =
+                    reinterpret_cast<const proto::ProtoString*>(rawKey);
+                if (!propKey) continue;
+                std::string ks;
+                propKey->toUTF8String(ctx, ks);
+                if (ks.empty()) continue;
+                bool allDigits = true;
+                for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
+                if (!allDigits) continue;
+                if (ks.size() > 1 && ks[0] == '0') continue;
+                try {
+                    unsigned long long idx = std::stoull(ks);
+                    if (idx >= static_cast<unsigned long long>(newLen))
+                        keysToDrop.push_back(ks);
+                } catch (...) {}
+            }
+            for (const auto& ks : keysToDrop) {
+                const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+                const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+                if (k) arr = const_cast<proto::ProtoObject*>(arr->removeAttribute(ctx, k));
+            }
+        }
         // FAST PATH: native ProtoList storage — truncate or pad in place.
         if (const proto::ProtoList* els = getArrayElements(ctx, arr)) {
             unsigned long size = static_cast<unsigned long>(els->getSize(ctx));

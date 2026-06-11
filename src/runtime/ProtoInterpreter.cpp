@@ -202,13 +202,74 @@ static const proto::ProtoObject* resolvePutFieldOOP(proto::ProtoContext* ctx, co
         }
     }
 
-    if (behavior == reg.getDefault()) {
-        return obj->setAttribute(ctx, key, val);
+    const proto::ProtoObject* res = (behavior == reg.getDefault())
+        ? obj->setAttribute(ctx, key, val)
+        : (behavior->putField(ctx, obj, key, val)
+            ? behavior->putField(ctx, obj, key, val)
+            : obj->setAttribute(ctx, key, val));
+    // §10.4.2.4 ArraySetLength: writing `length` on a real array must
+    // also drop every own property whose key is a uint32 ≥ newLen.
+    // Pre-fix `arr[4294967294] = v; arr.length = 2` left the sparse
+    // entry behind because the writer only updated the data slot.
+    if (res) {
+        if (keyStr.empty()) key->toUTF8String(ctx, keyStr);
+        if (keyStr == "length") {
+            const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+            const proto::ProtoObject* isArrV = isArrK
+                ? res->getAttribute(ctx, isArrK, false) : nullptr;
+            if (isArrV == PROTO_TRUE && val
+                && (val->isInteger(ctx) || val->isDouble(ctx) || val->isFloat(ctx))) {
+                long long newLen = val->isInteger(ctx)
+                    ? val->asLong(ctx)
+                    : static_cast<long long>(val->asDouble(ctx));
+                if (newLen >= 0) {
+                    // Truncate __elements__ when present.
+                    const proto::ProtoList* els = protojs::getArrayElements(ctx, res);
+                    if (els) {
+                        unsigned long sz = els->getSize(ctx);
+                        if (static_cast<long long>(sz) > newLen) {
+                            const proto::ProtoList* trimmed = ctx->newList();
+                            for (long long i = 0; i < newLen; ++i)
+                                trimmed = trimmed->appendLast(ctx, els->getAt(ctx, static_cast<int>(i)));
+                            protojs::setArrayElements(ctx, res, trimmed);
+                        }
+                    }
+                    // Walk own attributes once and drop uint32 keys ≥ newLen.
+                    const proto::ProtoSparseList* own = res->getOwnAttributes(ctx);
+                    if (own) {
+                        std::vector<std::string> keysToDrop;
+                        const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+                        while (it && it->hasNext(ctx)) {
+                            unsigned long rawKey = it->nextKey(ctx);
+                            (void)it->nextValue(ctx);
+                            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                            const proto::ProtoString* propKey =
+                                reinterpret_cast<const proto::ProtoString*>(rawKey);
+                            if (!propKey) continue;
+                            std::string ks;
+                            propKey->toUTF8String(ctx, ks);
+                            if (ks.empty()) continue;
+                            bool allDigits = true;
+                            for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
+                            if (!allDigits) continue;
+                            if (ks.size() > 1 && ks[0] == '0') continue;
+                            try {
+                                unsigned long long idx = std::stoull(ks);
+                                if (idx >= static_cast<unsigned long long>(newLen))
+                                    keysToDrop.push_back(ks);
+                            } catch (...) {}
+                        }
+                        for (const auto& ks : keysToDrop) {
+                            const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+                            const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+                            if (k) res = res->removeAttribute(ctx, k);
+                        }
+                    }
+                }
+            }
+        }
     }
-
-    const proto::ProtoObject* res = behavior->putField(ctx, obj, key, val);
-    if (res) return res;
-    return obj->setAttribute(ctx, key, val);
+    return res ? res : obj;
 }
 
 static const proto::ProtoObject* resolveElementOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj, uint32_t index) {

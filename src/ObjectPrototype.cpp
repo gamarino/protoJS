@@ -2351,16 +2351,41 @@ static const proto::ProtoObject* objectDefineProperty(
                         protojs::setArrayElements(ctx, target, trimmed);
                     }
                 }
-                // Also delete any indexed string-keyed slots beyond newLen.
-                int misses = 0;
-                for (long long i = newLen; i < newLen + 1000LL && misses < 8; ++i) {
-                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                    if (!ik) break;
-                    if (target->hasOwnAttribute(ctx, ik) == PROTO_TRUE) {
-                        target = target->removeAttribute(ctx, ik);
-                        misses = 0;
-                    } else {
-                        misses++;
+                // Walk own attributes once and delete any whose key
+                // parses as a uint32 ≥ newLen.  Pre-fix the loop only
+                // probed newLen..newLen+1000 with a 8-miss bail-out, so
+                // sparse high-index entries (e.g. arr[4294967294]=v
+                // before arr.length=2) were left intact and arr[high]
+                // still resolved after the truncation.
+                const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
+                if (own) {
+                    std::vector<std::string> keysToDrop;
+                    const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+                    while (it && it->hasNext(ctx)) {
+                        unsigned long rawKey = it->nextKey(ctx);
+                        (void)it->nextValue(ctx);
+                        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                        const proto::ProtoString* propKey =
+                            reinterpret_cast<const proto::ProtoString*>(rawKey);
+                        if (!propKey) continue;
+                        std::string ks;
+                        propKey->toUTF8String(ctx, ks);
+                        if (ks.empty()) continue;
+                        bool allDigits = true;
+                        for (char c : ks) if (c < '0' || c > '9') { allDigits = false; break; }
+                        if (!allDigits) continue;
+                        if (ks.size() > 1 && ks[0] == '0') continue;
+                        try {
+                            unsigned long long idx = std::stoull(ks);
+                            if (idx >= static_cast<unsigned long long>(newLen)) {
+                                keysToDrop.push_back(ks);
+                            }
+                        } catch (...) {}
+                    }
+                    for (const auto& ks : keysToDrop) {
+                        const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+                        const proto::ProtoString* k = ko ? ko->asString(ctx) : nullptr;
+                        if (k) target = target->removeAttribute(ctx, k);
                     }
                 }
             }
