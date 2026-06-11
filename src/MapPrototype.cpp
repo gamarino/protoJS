@@ -1271,6 +1271,20 @@ void ensureMapConstructor(proto::ProtoContext* ctx,
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, mapConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
     }
+    // §24.1.1.1 step 1: Map called without new → TypeError.
+    {
+        static const proto::ProtoMethod mapCall = [](
+            proto::ProtoContext* sctx, const proto::ProtoObject*,
+            const proto::ParentLink*, const proto::ProtoList*,
+            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            signalNativeException(makeNativeError(sctx, "TypeError",
+                "Constructor Map requires 'new'"));
+            return PROTO_NONE;
+        };
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK) ctor = ctor->setAttribute(ctx, nfK,
+            ctx->fromMethod(nullptr, mapCall));
+    }
 
     // Map.groupBy static method
     {
@@ -1998,6 +2012,20 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     if (constructKs) {
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, weakMapConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
+    }
+    // §24.4.1.1 step 1: WeakMap called without new → TypeError.
+    {
+        static const proto::ProtoMethod weakMapCall = [](
+            proto::ProtoContext* sctx, const proto::ProtoObject*,
+            const proto::ParentLink*, const proto::ProtoList*,
+            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            signalNativeException(makeNativeError(sctx, "TypeError",
+                "Constructor WeakMap requires 'new'"));
+            return PROTO_NONE;
+        };
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK) ctor = ctor->setAttribute(ctx, nfK,
+            ctx->fromMethod(nullptr, weakMapCall));
     }
 
     // Set prototype.constructor = ctor (non-enumerable via property descriptor).
