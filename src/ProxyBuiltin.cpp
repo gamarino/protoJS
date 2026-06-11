@@ -447,6 +447,74 @@ const proto::ProtoObject* proxyLookupTrap(proto::ProtoContext* ctx,
     return lookupTrap(ctx, handler, trapName);
 }
 
+// §10.5.1 [[GetPrototypeOf]]: handler.getPrototypeOf(target).  Trap
+// result must be Object or Null; on non-extensible target the result
+// must SameValue target.[[GetPrototypeOf]]() (§10.5.1 step 11).
+const proto::ProtoObject* proxyDispatchGetPrototypeOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy) {
+    if (!ctx || !proxy) return PROTO_NONE;
+    const proto::ProtoObject* target = proxyTarget(ctx, proxy);
+    if (!target) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot perform 'getPrototypeOf' on a proxy that has been revoked"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
+    const proto::ProtoObject* trap = lookupTrap(ctx, handler, "getPrototypeOf");
+    if (trap) {
+        const proto::ProtoList* a = ctx->newList();
+        a = a->appendLast(ctx, target);
+        const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+        if (hasCallException()) return PROTO_NONE;
+        // Trap result must be Object or Null.
+        if (r != getNullSentinel()) {
+            if (!r || r == PROTO_NONE || r == getUndefinedSentinel()
+                || r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
+                || r == PROTO_TRUE || r == PROTO_FALSE || r->isString(ctx)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'getPrototypeOf' on proxy: trap returned neither Object nor Null"));
+                return PROTO_NONE;
+            }
+        }
+        return r;
+    }
+    // No trap — forward.
+    if (isProxy(ctx, target)) return proxyDispatchGetPrototypeOf(ctx, target);
+    const proto::ProtoObject* p = target->getPrototype(ctx);
+    return (p && p != PROTO_NONE) ? p : getNullSentinel();
+}
+
+// §10.5.2 [[SetPrototypeOf]]: handler.setPrototypeOf(target, V).
+const proto::ProtoObject* proxyDispatchSetPrototypeOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy,
+    const proto::ProtoObject* newProto) {
+    if (!ctx || !proxy) return PROTO_NONE;
+    const proto::ProtoObject* target = proxyTarget(ctx, proxy);
+    if (!target) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot perform 'setPrototypeOf' on a proxy that has been revoked"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
+    const proto::ProtoObject* trap = lookupTrap(ctx, handler, "setPrototypeOf");
+    if (!trap) {
+        if (isProxy(ctx, target))
+            return proxyDispatchSetPrototypeOf(ctx, target, newProto);
+        return nullptr;  // forward to default
+    }
+    const proto::ProtoList* a = ctx->newList();
+    a = a->appendLast(ctx, target);
+    a = a->appendLast(ctx, newProto ? newProto : getNullSentinel());
+    const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
+    if (hasCallException()) return PROTO_NONE;
+    bool truthy = !(r == nullptr || r == PROTO_NONE
+                     || r == PROTO_FALSE || r == getNullSentinel()
+                     || r == getUndefinedSentinel());
+    return truthy ? PROTO_TRUE : PROTO_FALSE;
+}
+
 // §10.5.6 [[DefineOwnProperty]]: handler.defineProperty(target, P, Desc).
 // When the trap is absent, returns nullptr so the caller can perform
 // the standard define-on-target work (we don't recurse into Object.

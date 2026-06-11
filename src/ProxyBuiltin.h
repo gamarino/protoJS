@@ -109,6 +109,26 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
     const proto::ProtoString* propKey,
     const proto::ProtoObject* descriptor);
 
+/**
+ * [[GetPrototypeOf]] dispatch per §10.5.1: calls handler.getPrototypeOf
+ * (target) if present, otherwise forwards.  Returns the resolved
+ * prototype object, getNullSentinel() for a null [[Prototype]], or
+ * PROTO_NONE on abrupt.
+ */
+const proto::ProtoObject* proxyDispatchGetPrototypeOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy);
+
+/**
+ * [[SetPrototypeOf]] dispatch per §10.5.2: calls handler.setPrototypeOf
+ * (target, V) if present, otherwise returns nullptr so the caller may
+ * fall through.  Returns PROTO_TRUE / PROTO_FALSE / PROTO_NONE-on-abrupt.
+ */
+const proto::ProtoObject* proxyDispatchSetPrototypeOf(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy,
+    const proto::ProtoObject* newProto);
+
 /** Install Proxy + Reflect on the global root.  Called from bootstrap. */
 void installProxyAndReflect(proto::ProtoContext* ctx,
                              const proto::ProtoObject** globalRoot);

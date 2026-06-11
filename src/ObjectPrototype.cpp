@@ -1424,6 +1424,10 @@ static const proto::ProtoObject* objectGetPrototypeOf(
             "Cannot convert null to object"));
         return PROTO_NONE;
     }
+    // Proxy override per §10.5.1 [[GetPrototypeOf]].
+    if (isProxy(ctx, obj)) {
+        return proxyDispatchGetPrototypeOf(ctx, obj);
+    }
     // Check for an explicit JS prototype override first.
     {
         auto it = t_jsProtoMap.find(obj);
@@ -1484,6 +1488,20 @@ static const proto::ProtoObject* objectSetPrototypeOf(
                 "Object.setPrototypeOf: prototype must be an Object or null"));
             return PROTO_NONE;
         }
+    }
+    // Proxy override per §10.5.2 [[SetPrototypeOf]].
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* r = proxyDispatchSetPrototypeOf(ctx, obj, proto);
+        if (hasCallException()) return PROTO_NONE;
+        if (r == PROTO_TRUE) return obj;
+        if (r == PROTO_FALSE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Object.setPrototypeOf: trap returned falsy"));
+            return PROTO_NONE;
+        }
+        // r == nullptr → no trap, fall through onto the proxy target.
+        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
+        if (unwrapped) obj = unwrapped;
     }
     // §10.1.2.1 SetImmutablePrototype-style check: non-extensible
     // objects can only accept a SetPrototypeOf when proto matches the
