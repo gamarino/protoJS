@@ -3696,34 +3696,20 @@ static const proto::ProtoObject* objectLookupGetter(
     if (!args || args->getSize(ctx) < 1) return getUndefinedSentinel();
     const proto::ProtoObject* keyArg = args->getAt(ctx, 0);
     if (!keyArg) return getUndefinedSentinel();
-    // ToPropertyKey on the argument — primitive ToString for non-Symbol.
+    // §B.2.2.4 step 2: ToPropertyKey(P) — route through the canonical
+    // coercion so a throwing toString / @@toPrimitive propagates the
+    // abrupt completion instead of being silently converted to
+    // "undefined".  Pre-fix non-primitive keys fell through to the
+    // return-undefined branch (test262 __lookupGetter__/key-invalid).
+    const proto::ProtoString* dataKey = coercePropNameToKey(ctx, keyArg);
+    if (hasCallException()) return PROTO_NONE;
+    if (!dataKey) return getUndefinedSentinel();
     std::string keyStr;
-    if (keyArg->isString(ctx)) {
-        keyArg->asString(ctx)->toUTF8String(ctx, keyStr);
-    } else {
-        // Reuse the same coercion the protoJS coercePropNameToKey path
-        // already performs — for now ToString through asString.
-        const proto::ProtoObject* coerced = keyArg;
-        if (coerced->isInteger(ctx)) {
-            keyStr = std::to_string(coerced->asLong(ctx));
-        } else if (coerced->isDouble(ctx) || coerced->isFloat(ctx)) {
-            keyStr = std::to_string(coerced->asDouble(ctx));
-        } else if (coerced == PROTO_TRUE) {
-            keyStr = "true";
-        } else if (coerced == PROTO_FALSE) {
-            keyStr = "false";
-        } else {
-            return getUndefinedSentinel();
-        }
-    }
+    dataKey->toUTF8String(ctx, keyStr);
     std::string gkStr = "__get_" + keyStr + "__";
     const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
     const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
     if (!gk) return getUndefinedSentinel();
-    // Property-key for the data slot — shadowing data props on an
-    // intermediate object must stop the chain walk per spec step 4.b.ii.
-    const proto::ProtoObject* dkObj = ctx->fromUTF8String(keyStr.c_str());
-    const proto::ProtoString* dataKey = dkObj ? dkObj->asString(ctx) : nullptr;
     const proto::ProtoObject* curr = self;
     while (curr && curr != PROTO_NONE) {
         if (curr->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
@@ -3732,9 +3718,8 @@ static const proto::ProtoObject* objectLookupGetter(
         }
         // §B.2.2.4 step 4.b.ii: a shadowing data descriptor on the
         // current level stops the walk and returns undefined.  Pre-fix
-        // we kept walking and surfaced the parent's getter (built-ins/
-        // Object/prototype/__lookupGetter__/lookup-own-data).
-        if (dataKey && curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
+        // we kept walking and surfaced the parent's getter.
+        if (curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
         curr = curr->getFirstParent(ctx);
@@ -3760,26 +3745,17 @@ static const proto::ProtoObject* objectLookupSetter(
     if (!args || args->getSize(ctx) < 1) return getUndefinedSentinel();
     const proto::ProtoObject* keyArg = args->getAt(ctx, 0);
     if (!keyArg) return getUndefinedSentinel();
+    // §B.2.2.5 step 2: ToPropertyKey(P) — propagate abrupts from a
+    // throwing toString / @@toPrimitive.
+    const proto::ProtoString* dataKey = coercePropNameToKey(ctx, keyArg);
+    if (hasCallException()) return PROTO_NONE;
+    if (!dataKey) return getUndefinedSentinel();
     std::string keyStr;
-    if (keyArg->isString(ctx)) {
-        keyArg->asString(ctx)->toUTF8String(ctx, keyStr);
-    } else if (keyArg->isInteger(ctx)) {
-        keyStr = std::to_string(keyArg->asLong(ctx));
-    } else if (keyArg->isDouble(ctx) || keyArg->isFloat(ctx)) {
-        keyStr = std::to_string(keyArg->asDouble(ctx));
-    } else if (keyArg == PROTO_TRUE) {
-        keyStr = "true";
-    } else if (keyArg == PROTO_FALSE) {
-        keyStr = "false";
-    } else {
-        return getUndefinedSentinel();
-    }
+    dataKey->toUTF8String(ctx, keyStr);
     std::string skStr = "__set_" + keyStr + "__";
     const proto::ProtoObject* sko = ctx->fromUTF8String(skStr.c_str());
     const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
     if (!sk) return getUndefinedSentinel();
-    const proto::ProtoObject* dkObj = ctx->fromUTF8String(keyStr.c_str());
-    const proto::ProtoString* dataKey = dkObj ? dkObj->asString(ctx) : nullptr;
     const proto::ProtoObject* curr = self;
     while (curr && curr != PROTO_NONE) {
         if (curr->hasOwnAttribute(ctx, sk) == PROTO_TRUE) {
@@ -3787,7 +3763,7 @@ static const proto::ProtoObject* objectLookupSetter(
             if (setter && setter != PROTO_NONE) return setter;
         }
         // §B.2.2.5 step 4.b.ii: shadowing data slot stops the walk.
-        if (dataKey && curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
+        if (curr->hasOwnAttribute(ctx, dataKey) == PROTO_TRUE) {
             return getUndefinedSentinel();
         }
         curr = curr->getFirstParent(ctx);
