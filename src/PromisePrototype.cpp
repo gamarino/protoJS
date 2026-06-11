@@ -251,9 +251,34 @@ static const proto::ProtoObject* promiseCatch(
     const proto::ProtoObject* onRej = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!onRej) onRej = PROTO_NONE;
 
+    // §27.2.5.1 step 2: Return Invoke(self, "then", [undefined, onRejected]).
+    // That dispatch routes through GetV(self, "then") which sees user
+    // overrides on Boolean.prototype / Number.prototype / String.prototype
+    // / Symbol.prototype.then (test262 this-value-obj-coercible) — pre-fix
+    // catch always called our native promiseThen, ignoring user overrides
+    // and primitive receivers entirely.
     const proto::ProtoList* thenArgs = ctx->newList();
     thenArgs = thenArgs->appendLast(ctx, PROTO_NONE);
     thenArgs = thenArgs->appendLast(ctx, onRej);
+    if (self && self != PROTO_NONE) {
+        const proto::ProtoString* thenK = ctx->fromUTF8String("then")->asString(ctx);
+        if (thenK) {
+            const proto::ProtoObject* thenFn = self->getAttribute(ctx, thenK, true);
+            // Prefer the user-visible "then" when it isn't our native one,
+            // or when the receiver isn't a Promise at all (primitive case).
+            bool useUserThen = thenFn && thenFn != PROTO_NONE
+                && thenFn != getUndefinedSentinel()
+                && !isPromise(ctx, self);
+            if (useUserThen) {
+                bool callable = thenFn->isMethod(ctx);
+                const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+                if (!callable && bcK && thenFn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
+                const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+                if (!callable && nfK && thenFn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
+                if (callable) return callJSFunction(ctx, thenFn, self, thenArgs);
+            }
+        }
+    }
     return promiseThen(ctx, self, pl, thenArgs, psl);
 }
 
