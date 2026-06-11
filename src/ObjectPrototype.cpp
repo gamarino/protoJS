@@ -3906,14 +3906,47 @@ const proto::ProtoObject* installObjectInstanceMethods(
         // The property name is "__proto__", so the sidecar keys are
         // "__get___proto____" / "__set___proto____" (4 trailing
         // underscores: 2 from the propname, 2 from the sidecar pattern).
+        // Build the getter/setter as full Function objects (parented at
+        // methodPrototype, with name + length descriptors) so
+        // getOwnPropertyDescriptor(Object.prototype, "__proto__").get.name
+        // resolves to "get __proto__" per §17 spec.  Pre-fix the raw
+        // ProtoMethod wrapper carried no name slot, so the test262
+        // __proto__/get-fn-name / set-fn-name checks failed.
+        auto wrapAccessor = [&](proto::ProtoMethod fn, const char* nm) -> const proto::ProtoObject* {
+            const proto::ProtoObject* parent =
+                (ctx->space && ctx->space->methodPrototype)
+                ? ctx->space->methodPrototype : nullptr;
+            const proto::ProtoObject* wrap = parent
+                ? parent->newChild(ctx, true) : ctx->newObject(true);
+            if (!wrap) return nullptr;
+            proto::ProtoObject* mWrap = const_cast<proto::ProtoObject*>(wrap);
+            const proto::ProtoObject* raw = ctx->fromMethod(mWrap, fn);
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (nfK && raw) wrap = wrap->setAttribute(ctx, nfK, raw);
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            if (lenK) {
+                wrap = wrap->setAttribute(ctx, lenK, ctx->fromInteger(0LL));
+                const proto::ProtoString* pdlK = JSSymbols::pdLength(ctx);
+                if (pdlK) wrap = wrap->setAttribute(ctx, pdlK, ctx->fromInteger(0x2LL));
+            }
+            const proto::ProtoString* nmK = JSSymbols::name(ctx);
+            if (nmK) {
+                wrap = wrap->setAttribute(ctx, nmK, ctx->fromUTF8String(nm));
+                const proto::ProtoString* pdnK = JSSymbols::pdName(ctx);
+                if (pdnK) wrap = wrap->setAttribute(ctx, pdnK, ctx->fromInteger(0x2LL));
+            }
+            const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+            if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
+            return wrap;
+        };
         const proto::ProtoObject* getKo = ctx->fromUTF8String("__get___proto____");
         const proto::ProtoString* getK = getKo ? getKo->asString(ctx) : nullptr;
         if (getK) base = base->setAttribute(ctx, getK,
-            ctx->fromMethod(nullptr, protoGetter));
+            wrapAccessor(protoGetter, "get __proto__"));
         const proto::ProtoObject* setKo = ctx->fromUTF8String("__set___proto____");
         const proto::ProtoString* setK = setKo ? setKo->asString(ctx) : nullptr;
         if (setK) base = base->setAttribute(ctx, setK,
-            ctx->fromMethod(nullptr, protoSetter));
+            wrapAccessor(protoSetter, "set __proto__"));
         const proto::ProtoString* hapK = JSSymbols::hasAccessorProps(ctx);
         if (hapK) base = base->setAttribute(ctx, hapK, PROTO_TRUE);
         // §B.2.2.1: __proto__ is {enumerable:false, configurable:true}
