@@ -798,11 +798,22 @@ const proto::ProtoObject* proxyConstructor(
     }
     const proto::ProtoObject* target = args->getAt(ctx, 0);
     const proto::ProtoObject* handler = args->getAt(ctx, 1);
-    // Both arguments must be objects (not null / undefined / primitive).
+    // Both arguments must be Objects (not null / undefined / number /
+    // boolean / string / symbol).  Per §28.2.1.1 step 1+3 the type
+    // check happens BEFORE allocation; primitives must reject.  Pre-fix
+    // the lambda accepted getNullSentinel / getUndefinedSentinel /
+    // Symbol primitives because none of them carry the integer / float
+    // / string / boolean markers — only the asString/isInteger probes
+    // were consulted.
     auto isObj = [&](const proto::ProtoObject* o) {
         if (!o || o == PROTO_NONE) return false;
+        if (o == getNullSentinel() || o == getUndefinedSentinel()) return false;
+        if (o == PROTO_TRUE || o == PROTO_FALSE) return false;
         if (o->isInteger(ctx) || o->isDouble(ctx) || o->isFloat(ctx)) return false;
         if (o->isBoolean(ctx) || o->asString(ctx)) return false;
+        // Symbol primitives are tagged with __is_symbol__ — reject.
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && o->getAttribute(ctx, symK, false) == PROTO_TRUE) return false;
         return true;
     };
     if (!isObj(target) || !isObj(handler)) {
