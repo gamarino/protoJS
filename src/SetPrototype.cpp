@@ -1259,11 +1259,16 @@ static const proto::ProtoObject* setIsSupersetOf(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "isSupersetOf")) return PROTO_NONE;
+    double otherSize = 0.0;
+    if (!getSetRecord(ctx, other, "isSupersetOf", &otherSize)) return PROTO_NONE;
+    // §24.2.4.7 step 3: if SetDataSize(this) < other.size, return false.
+    // Pre-fix the impl iterated other.keys() unconditionally, calling
+    // .keys before short-circuiting — the test set-like-array fixture
+    // installs a throwing .keys to prove the early bail-out fires.
+    long thisSize = getSetSize(ctx, self);
+    if (static_cast<double>(thisSize) < otherSize) return PROTO_FALSE;
     // Iterate other's keys() via the Set-like protocol and bail with
-    // false the first time self doesn't contain a value. Pre-fix this
-    // ran only against real native Sets (via __set_order__) and
-    // returned true for any class-style Set-like.
+    // false the first time self doesn't contain a value.
     bool isSuperset = true;
     bool ok = iterateSetLikeKeys(ctx, other,
         [&](const proto::ProtoObject* v) -> bool {
