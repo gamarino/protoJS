@@ -49,6 +49,21 @@ static const proto::ProtoObject* iterGetNext(proto::ProtoContext* ctx,
     const proto::ProtoString* nextK = nextKo ? nextKo->asString(ctx) : nullptr;
     if (!nextK) return nullptr;
     const proto::ProtoObject* fn = iter->getAttribute(ctx, nextK, true);
+    // Accessor descriptor probe — the data slot is the undefined
+    // sentinel while __get_next__ holds the getter.  GetMethod fires
+    // the getter and uses its return value (test262 this-plain-
+    // iterator.js installs `get next() { return function(){...}; }`).
+    if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_next__");
+        const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+        if (gk) {
+            const proto::ProtoObject* getter = iter->getAttribute(ctx, gk, true);
+            if (getter && getter != PROTO_NONE && getter != getUndefinedSentinel()) {
+                fn = callJSFunction(ctx, getter, iter, ctx->newList());
+                if (hasCallException()) return nullptr;
+            }
+        }
+    }
     if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) {
         std::string msg = "Iterator.prototype.";
         msg += name;
