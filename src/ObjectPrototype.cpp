@@ -1517,20 +1517,36 @@ static const proto::ProtoString* coercePropNameToKey(
             }
         }
 
-        // 1. Try toString()
+        // 1. Try toString().  Probe the __get_toString__ accessor
+        // sidecar first so a `get toString() { throw }` propagates per
+        // §7.1.1 (test262 topropertykey_before_toobject).
         const proto::ProtoString* tsKey = JSSymbols::toString(ctx);
-        const proto::ProtoObject* tsFn = (!prim && tsKey) ? current->getAttribute(ctx, tsKey, true) : nullptr;
+        auto resolveCoercer = [&](const proto::ProtoString* nameK, const char* getKey) -> const proto::ProtoObject* {
+            if (!nameK) return nullptr;
+            const proto::ProtoObject* gkO = ctx->fromUTF8String(getKey);
+            const proto::ProtoString* gk = gkO ? gkO->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = current->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    return callJSFunction(ctx, getter, current, ctx->newList());
+                }
+            }
+            return current->getAttribute(ctx, nameK, true);
+        };
+        const proto::ProtoObject* tsFn = !prim ? resolveCoercer(tsKey, "__get_toString__") : nullptr;
+        if (hasCallException()) return nullptr;
         if (!prim && isCallable(tsFn)) {
             const proto::ProtoObject* res = callJSFunction(ctx, tsFn, current, ctx->newList());
             if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
                 prim = res;
             }
         }
-        
+
         // 2. Try valueOf()
         if (!prim && !hasCallException()) {
             const proto::ProtoString* voKey = ctx->fromUTF8String("valueOf")->asString(ctx);
-            const proto::ProtoObject* voFn = voKey ? current->getAttribute(ctx, voKey, true) : nullptr;
+            const proto::ProtoObject* voFn = resolveCoercer(voKey, "__get_valueOf__");
+            if (hasCallException()) return nullptr;
             if (isCallable(voFn)) {
                 const proto::ProtoObject* res = callJSFunction(ctx, voFn, current, ctx->newList());
                 if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
@@ -3048,25 +3064,32 @@ static const proto::ProtoObject* objectHasOwnProperty(
     const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    // §20.1.3.2 step 1 calls ToObject(this) before any property test;
-    // null / undefined make ToObject throw TypeError. Pre-fix the
-    // method returned false silently, breaking
-    // Object.prototype.hasOwnProperty.call(null, 'foo') and a string of
-    // built-ins/Object/prototype/* tests that depend on the abrupt.
-    // §20.1.3.2 step 1 calls ToObject(this); null / undefined throw
-    // TypeError before any property lookup (built-ins/Object/prototype/
-    // hasOwnProperty/this-not-object-coercible).
+    // §20.1.3.2 step 1: ToPropertyKey(V) precedes ToObject(this).
+    // A throwing toString / @@toPrimitive on V surfaces BEFORE the
+    // null/undefined receiver check (Sputnik
+    // hasOwnProperty/topropertykey_before_toobject pins this order).
+    if (!args || args->getSize(ctx) == 0) {
+        // No key supplied — fall through to ToObject(this); spec
+        // returns false after the receiver-check throws or succeeds.
+        if (!self || self == PROTO_NONE
+            || self == getNullSentinel() || self == getUndefinedSentinel()) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot convert undefined or null to object"));
+            return PROTO_NONE;
+        }
+        return PROTO_FALSE;
+    }
+    const proto::ProtoObject* key = args->getAt(ctx, 0);
+    if (!key) key = getUndefinedSentinel();
+    const proto::ProtoString* k = coercePropNameToKey(ctx, key);
+    if (hasCallException()) return PROTO_NONE;
+    // Step 2: ToObject(this) — null / undefined now throw post key coercion.
     if (!self || self == PROTO_NONE
         || self == getNullSentinel() || self == getUndefinedSentinel()) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Cannot convert undefined or null to object"));
         return PROTO_NONE;
     }
-    if (!args || args->getSize(ctx) == 0) return PROTO_FALSE;
-    const proto::ProtoObject* key = args->getAt(ctx, 0);
-    if (!key || key == PROTO_NONE) return PROTO_FALSE;
-
-    const proto::ProtoString* k = coercePropNameToKey(ctx, key);
     if (!k) return PROTO_FALSE;
 
     if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
