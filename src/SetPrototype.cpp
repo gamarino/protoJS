@@ -951,14 +951,40 @@ static bool getSetRecord(proto::ProtoContext* ctx,
         signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
         return false;
     }
+    // §24.2.1.2 step 3: ToNumber(rawSize) — invokes valueOf /
+    // Symbol.toPrimitive on objects, rejects BigInt with TypeError,
+    // coerces strings via parsing.  Pre-fix only int / double cells
+    // were accepted (test262 difference/size-is-a-number variations).
     bool sizeOk = false;
     double sizeNum = 0.0;
+    // BigInt → TypeError per ToNumber.
+    {
+        const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+        if (bigK && sizeV->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+            std::string msg = std::string("Set.prototype.") + methodName +
+                ": cannot convert BigInt .size to Number";
+            signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
+            return false;
+        }
+    }
     if (sizeV->isInteger(ctx)) {
         sizeOk = true;
         sizeNum = static_cast<double>(sizeV->asLong(ctx));
     } else if (sizeV->isDouble(ctx) || sizeV->isFloat(ctx)) {
         sizeNum = sizeV->asDouble(ctx);
         if (!std::isnan(sizeNum)) sizeOk = true;
+    } else {
+        const proto::ProtoObject* numV = jsToNumber(ctx, sizeV);
+        if (hasCallException()) return false;
+        if (numV && numV != PROTO_NONE) {
+            if (numV->isInteger(ctx)) {
+                sizeOk = true;
+                sizeNum = static_cast<double>(numV->asLong(ctx));
+            } else if (numV->isDouble(ctx) || numV->isFloat(ctx)) {
+                sizeNum = numV->asDouble(ctx);
+                if (!std::isnan(sizeNum)) sizeOk = true;
+            }
+        }
     }
     if (!sizeOk) {
         std::string msg = std::string("Set.prototype.") + methodName +
