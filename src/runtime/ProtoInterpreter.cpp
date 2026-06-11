@@ -4901,8 +4901,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             ? pContext->fromUTF8String(wks[wi].prop)->asString(pContext) : nullptr;
                     const proto::ProtoObject* keyVal =
                         pContext->fromUTF8String(wks[wi].key);
-                    if (propKey && keyVal)
+                    if (propKey && keyVal) {
                         symbolObj = symbolObj->setAttribute(pContext, propKey, keyVal);
+                        // §19.4 well-known symbols have {writable:false,
+                        // enumerable:false, configurable:false}. Pre-fix
+                        // every Symbol.<wks> property descriptor read as
+                        // {writable:true, enumerable:true, configurable:true}
+                        // and the prop-desc.js / cross-realm.js test262
+                        // tests for each WKS failed.
+                        std::string pdName = std::string("__pd_") + wks[wi].prop + "__";
+                        const proto::ProtoObject* pdKo = pContext->fromUTF8String(pdName.c_str());
+                        const proto::ProtoString* pdKs = pdKo ? pdKo->asString(pContext) : nullptr;
+                        if (pdKs) symbolObj = symbolObj->setAttribute(pContext, pdKs, pContext->fromInteger(0LL));
+                    }
+                }
+                // The flag-tracking sidecar tells the [[Set]] / delete
+                // helpers there's at least one non-writable own prop on
+                // this object so they consult __pd_<key>__ instead of
+                // silently succeeding.
+                {
+                    const proto::ProtoObject* hnpKo = pContext->fromUTF8String("__has_nonwritable_props__");
+                    const proto::ProtoString* hnpKs = hnpKo ? hnpKo->asString(pContext) : nullptr;
+                    if (hnpKs) symbolObj = symbolObj->setAttribute(pContext, hnpKs, PROTO_TRUE);
                 }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, symbolGlobalKey, symbolObj);
             }
