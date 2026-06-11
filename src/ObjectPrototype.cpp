@@ -3464,7 +3464,27 @@ static const proto::ProtoObject* objectToString(
         // Helper lambda: extract a string tag value from a protoCore attribute lookup.
         auto tryTagKey = [&](const proto::ProtoString* key) -> std::string {
             if (!key) return {};
-            const proto::ProtoObject* val = self->getAttribute(ctx, key, true);
+            // §22.1.3.7 step 16: Get(O, @@toStringTag) — must fire
+            // accessor getters and propagate their abrupt completion.
+            // Pre-fix only the data slot was probed, so
+            // Object.defineProperty(obj, Symbol.toStringTag, {get:fn})
+            // never triggered fn (test262 get-symbol-tag-err).
+            const proto::ProtoObject* val = nullptr;
+            std::string keyName;
+            key->toUTF8String(ctx, keyName);
+            std::string gkStr = "__get_" + keyName + "__";
+            const proto::ProtoString* gk =
+                ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+            if (gk) {
+                const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    val = callJSFunction(ctx, getter, self, ctx->newList());
+                    if (hasCallException()) return {};
+                }
+            }
+            if (!val || val == PROTO_NONE) {
+                val = self->getAttribute(ctx, key, true);
+            }
             if (!val || val == PROTO_NONE || !val->isString(ctx)) return {};
             // §22.1.3.7 step 18: if Type(tag) is not String, fall back to
             // the builtin tag.  In protoJS well-known Symbols are encoded
@@ -3496,6 +3516,7 @@ static const proto::ProtoObject* objectToString(
         const proto::ProtoObject* wksKeyObj = ctx->fromUTF8String("Symbol.toStringTag");
         const proto::ProtoString* wksKey = wksKeyObj ? wksKeyObj->asString(ctx) : nullptr;
         std::string tag = tryTagKey(wksKey);
+        if (hasCallException()) return PROTO_NONE;
 
         if (!tag.empty()) {
             std::string tagResult = "[object " + tag + "]";
