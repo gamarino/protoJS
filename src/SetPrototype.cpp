@@ -1492,6 +1492,23 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
         const proto::ProtoObject* constructFn = ctx->fromMethod(nullptr, setConstruct);
         if (constructFn) ctor = ctor->setAttribute(ctx, constructKs, constructFn);
     }
+    // §24.2.1.1 step 1: Set called without new → TypeError.  Install a
+    // __native_fn__ throwing stub so `Set()` raises instead of being
+    // silently treated as the no-op constructor call (test262 Set/
+    // set-undefined-newtarget.js).
+    {
+        static const proto::ProtoMethod setCall = [](
+            proto::ProtoContext* sctx, const proto::ProtoObject*,
+            const proto::ParentLink*, const proto::ProtoList*,
+            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            signalNativeException(makeNativeError(sctx, "TypeError",
+                "Constructor Set requires 'new'"));
+            return PROTO_NONE;
+        };
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK) ctor = ctor->setAttribute(ctx, nfK,
+            ctx->fromMethod(nullptr, setCall));
+    }
 
     // Set.prototype.constructor === Set per §24.2.3.2 (non-enumerable).
     if (s_setPrototype) {
