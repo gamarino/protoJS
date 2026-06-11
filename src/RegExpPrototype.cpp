@@ -759,7 +759,12 @@ const proto::ProtoObject* regexpSymbolSplit(
     long long resultLen = 0;
     size_t lastEnd = 0;
 
-    for (size_t pos = 0; pos <= strLen; ) {
+    // §22.2.6.14 step 18: the match loop is "while q < size", not
+    // "≤ size".  Pre-fix the empty-pattern path matched at pos=size
+    // and pushed an extra empty piece into the result — so
+    // `"hello".split(new RegExp)` returned ["h","e","l","l","o",""]
+    // instead of the spec's ["h","e","l","l","o"].
+    for (size_t pos = 0; pos < strLen; ) {
         int ret = lre_exec(captures, stickyBc,
                            reinterpret_cast<const uint8_t*>(u16.data()),
                            static_cast<int>(pos), static_cast<int>(strLen), 1, opaque);
