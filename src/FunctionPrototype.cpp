@@ -96,6 +96,37 @@ static const proto::ProtoObject* fnCall(
             JSContextWrapper* w = JSContextWrapper::current();
             if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
         }
+    } else if (thisArg && thisArg != PROTO_NONE && !self->isMethod(ctx)) {
+        // §10.2.1.2 OrdinaryCallBindThis step 5.b: non-strict primitive
+        // thisArg is ToObject-coerced to the corresponding wrapper.
+        // Pre-fix `(function(){return this}).call(1)` returned the bare
+        // primitive 1, so `this.touched = true` silently no-op'd
+        // (test262 Function/prototype/{apply,call}/A5_T*).
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        const bool isBC = bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE;
+        bool isStrictBody = false;
+        const proto::ProtoObject* strictKo = ctx->fromUTF8String("__is_strict__");
+        const proto::ProtoString* strictKs = strictKo ? strictKo->asString(ctx) : nullptr;
+        if (strictKs && self->getAttribute(ctx, strictKs, false) == PROTO_TRUE)
+            isStrictBody = true;
+        if (isBC && !isStrictBody && ctx->space) {
+            auto wrapPrim = [&](const proto::ProtoObject* prim,
+                                 const proto::ProtoObject* proto) -> const proto::ProtoObject* {
+                const proto::ProtoObject* w = (proto && proto != PROTO_NONE)
+                    ? proto->newChild(ctx, true) : ctx->newObject(true);
+                if (w) {
+                    const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+                    if (pvK) w = w->setAttribute(ctx, pvK, prim);
+                }
+                return w ? w : prim;
+            };
+            if (thisArg->isString(ctx))
+                thisArg = wrapPrim(thisArg, ctx->space->stringPrototype);
+            else if (thisArg->isInteger(ctx) || thisArg->isDouble(ctx) || thisArg->isFloat(ctx))
+                thisArg = wrapPrim(thisArg, ctx->space->doublePrototype);
+            else if (thisArg == PROTO_TRUE || thisArg == PROTO_FALSE)
+                thisArg = wrapPrim(thisArg, ctx->space->booleanPrototype);
+        }
     }
 
     const proto::ProtoList* callArgs = ctx->newList();
@@ -136,6 +167,37 @@ static const proto::ProtoObject* fnApply(
         if (bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE) {
             JSContextWrapper* w = JSContextWrapper::current();
             if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
+        }
+    } else if (thisArg && thisArg != PROTO_NONE && !self->isMethod(ctx)) {
+        // §10.2.1.2 OrdinaryCallBindThis step 5.b: non-strict primitive
+        // thisArg is ToObject-coerced to the corresponding wrapper.
+        // Pre-fix `(function(){return this}).call(1)` returned the bare
+        // primitive 1, so `this.touched = true` silently no-op'd
+        // (test262 Function/prototype/{apply,call}/A5_T*).
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        const bool isBC = bcK && self->hasAttribute(ctx, bcK) == PROTO_TRUE;
+        bool isStrictBody = false;
+        const proto::ProtoObject* strictKo = ctx->fromUTF8String("__is_strict__");
+        const proto::ProtoString* strictKs = strictKo ? strictKo->asString(ctx) : nullptr;
+        if (strictKs && self->getAttribute(ctx, strictKs, false) == PROTO_TRUE)
+            isStrictBody = true;
+        if (isBC && !isStrictBody && ctx->space) {
+            auto wrapPrim = [&](const proto::ProtoObject* prim,
+                                 const proto::ProtoObject* proto) -> const proto::ProtoObject* {
+                const proto::ProtoObject* w = (proto && proto != PROTO_NONE)
+                    ? proto->newChild(ctx, true) : ctx->newObject(true);
+                if (w) {
+                    const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+                    if (pvK) w = w->setAttribute(ctx, pvK, prim);
+                }
+                return w ? w : prim;
+            };
+            if (thisArg->isString(ctx))
+                thisArg = wrapPrim(thisArg, ctx->space->stringPrototype);
+            else if (thisArg->isInteger(ctx) || thisArg->isDouble(ctx) || thisArg->isFloat(ctx))
+                thisArg = wrapPrim(thisArg, ctx->space->doublePrototype);
+            else if (thisArg == PROTO_TRUE || thisArg == PROTO_FALSE)
+                thisArg = wrapPrim(thisArg, ctx->space->booleanPrototype);
         }
     }
     const proto::ProtoObject* argsArray = (argc > 1) ? args->getAt(ctx, 1) : nullptr;
