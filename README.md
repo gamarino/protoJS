@@ -387,6 +387,96 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 40 — 2026-06-12** (3 commits, autonomous follow-up to R39) —
+held the 10-family table at **8 418 / 9 514 (88.48 %)** with zero
+regressions and rounded out the Iterator family from R39's helper
+landing, pushing `built-ins/Iterator` from **296 / 510 (58.0 %) →
+367 / 510 (72.0 %)** — +71 tests, +14.0 pp on a single family.
+
+  * **Iterator statics — Iterator.from / Iterator.concat /
+    Iterator.zip / Iterator.zipKeyed (§27.1.2, Stage 4 2025).**  The
+    static surface was missing entirely; R39 only landed the
+    prototype helpers.  Each static is wrapped via
+    `installIteratorStatics` on the Iterator constructor stub:
+
+    - `Iterator.from(O)` accepts an iterable Object (routes through
+      `O[@@iterator]`), a String (delegates to its String Iterator),
+      or an existing iterator (returns it wrapped in a helper that
+      forwards next / return).  Validates that what `[@@iterator]()`
+      returned is itself an Object with callable `.next`.
+    - `Iterator.concat(...iters)` validates every argument is an
+      iterable Object before pulling.  A throw mid-chain closes the
+      currently-draining iterator via IfAbruptCloseIterator and
+      leaves the remaining unconsumed.
+    - `Iterator.zip(iters, opts)` / `Iterator.zipKeyed(iters, opts)`
+      pull one value per round-robin step from each underlying.
+      `opts.mode` ∈ {"shortest", "longest", "strict"} is honoured;
+      "strict" throws on length mismatch, "longest" pads with
+      opts.padding (or undefined per slot).  Argument validation is
+      eager — non-iterable in the list rejects immediately, after
+      closing the iterators already started.
+
+  * **Helper iterators install `.return()` that forwards once to the
+    underlying (§27.1.4.x).**  Every helper iterator built via
+    `makeHelperIterator` (map / filter / take / drop / flatMap and the
+    wrappers returned by Iterator.from / .concat / .zip / .zipKeyed)
+    now carries an `iteratorHelperReturn` that calls
+    `underlying.return(undefined)` once and uses a `__helper_returned__`
+    sidecar flag for idempotency.  Pre-fix a `using` declaration on a
+    helper-chain iterator never reached the underlying.
+
+  * **iterStep probes `__get_done__` / `__get_value__` accessor
+    sidecars.**  The previous read of `step->getAttribute(ctx, doneK)`
+    /  `step->getAttribute(ctx, valueK)` returned the raw data slot,
+    which reads PROTO_NONE for accessor-defined properties — so a
+    `{ get value() { throw … } }` next-result silently lost the
+    abrupt.  Now both reads fall through to a `__get_<name>__` probe
+    (same pattern iterGetNext uses for `next`) and propagate the
+    getter's abrupt through every helper.  test262
+    `next-method-returns-throwing-done.js` and `…-throwing-value.js`
+    now pass on the full helper family.
+
+10-family roll-up — stable; this round's gains live in the Iterator
+off-table family:
+
+| Family | This run | R39 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 404 / 509 (79.4 %) | 404 / 509 | 0 |
+| `built-ins/Object` | 3 031 / 3 411 (88.9 %) | 3 031 / 3 411 | 0 |
+| `built-ins/Array` | 2 871 / 3 081 (93.2 %) | 2 871 / 3 081 | 0 |
+| `built-ins/String` | 1 118 / 1 223 (91.4 %) | 1 118 / 1 223 | 0 |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | 192 / 204 (94.1 %) | 192 / 204 | 0 |
+| `built-ins/Set` | 366 / 383 (95.6 %) | 366 / 383 | 0 |
+| `built-ins/Proxy` | 94 / 311 (30.2 %) | 94 / 311 | 0 |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 131 / 141 (92.9 %) | 131 / 141 | 0 |
+| **TOTAL** | **8 418 / 9 514** (**88.48 %**) | 8 418 / 9 514 (88.48 %) | **0** |
+
+Off-table family surge:
+
+| Family | This run | R39 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Iterator` | **367 / 510** (72.0 %) | 296 / 510 (58.0 %) | **+71** (+14.0 pp) |
+
+Total cumulative including Iterator family: **+71 tests** vs R39.
+
+Three R40 commits, three orthogonal root causes — Iterator statics
+added a brand-new static surface (the four §27.1.2 entry points),
+the iteratorHelperReturn fix made `using` semantics correct on
+helper chains, and the accessor-sidecar probe fixed the
+last-resort-abrupt path through every helper.  Cumulative across
+R37 → R40 (88 commits): 87.20 % → 88.48 % on the 10-family table,
+plus an entirely new Iterator surface that brought a fifth family
+(`built-ins/Iterator`) from 13.1 % → 72.0 %.
+
+The remaining Iterator failures cluster on the closing protocol
+(forwarded-return interleaving with active iteration, GetMethod
+edge cases on `.return`) and a long tail of strict-mode generator
+semantics behind several zip / zipKeyed paths.
+
+---
+
 **Round 39 — 2026-06-12** (8 commits, autonomous follow-up to R38) —
 the big surface lift this round was the **Iterator Helpers proposal**
 (ES2024 §27.1.4): a from-scratch implementation on
