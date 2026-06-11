@@ -4720,7 +4720,17 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->fromMethod(nullptr, symbolThrowingConstructStub));
                     const proto::ProtoString* protoKey = JSSymbols::prototype(pContext);
                     if (protoKey) {
-                        const proto::ProtoObject* symProto = pContext->newObject(true);
+                        // Parent on Object.prototype so Symbol.prototype
+                        // chains to it for hasOwnProperty / propertyIsEnumerable
+                        // / etc.  Pre-fix the slot was a bare object so
+                        // `Symbol().hasOwnProperty('x')` raised TypeError
+                        // ("is not a function") instead of returning false.
+                        const proto::ProtoObject* objProto =
+                            (pContext->space && pContext->space->objectPrototype)
+                            ? pContext->space->objectPrototype : nullptr;
+                        const proto::ProtoObject* symProto = objProto
+                            ? objProto->newChild(pContext, true)
+                            : pContext->newObject(true);
                         if (symProto) {
                             // §20.4.3.4 Symbol.prototype[@@toStringTag]
                             // === "Symbol" with {writable:false,
