@@ -3407,7 +3407,17 @@ static const proto::ProtoObject* objectToString(
             }
             if (!targetKey) break;
             if (probe->hasOwnAttribute(ctx, targetKey) != PROTO_TRUE) break;
-            probe = probe->getAttribute(ctx, targetKey, false);
+            const proto::ProtoObject* nextTarget = probe->getAttribute(ctx, targetKey, false);
+            // §7.2.2 IsArray step 3.a: a Proxy whose [[ProxyHandler]] is
+            // null (revoked) throws TypeError before the chain walk
+            // continues.  Pre-fix the loop silently broke and toString
+            // returned "[object Object]" (test262 toString/proxy-revoked).
+            if (!nextTarget || nextTarget == PROTO_NONE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Cannot perform 'IsArray' on a proxy that has been revoked"));
+                return PROTO_NONE;
+            }
+            probe = nextTarget;
             hops++;
         }
     }
