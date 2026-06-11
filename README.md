@@ -387,6 +387,115 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 39 — 2026-06-12** (8 commits, autonomous follow-up to R38) —
+the big surface lift this round was the **Iterator Helpers proposal**
+(ES2024 §27.1.4): a from-scratch implementation on
+%IteratorPrototype% pushed the `built-ins/Iterator` family from
+**67 / 510 (13.1 %) → 296 / 510 (58.0 %)** — +229 tests.
+
+  * **Iterator.prototype.{toArray, forEach, reduce, every, some, find,
+    map, filter, take, drop, flatMap}** — install the public iterator-
+    helper surface on `%IteratorPrototype%` per §27.1.4.  Each helper
+    routes through a `wrapNativeFunction`-shaped wrapper so .call /
+    .apply / .bind work and §17 name + length descriptors surface.
+    Receivers are validated as Object (TypeError on
+    null / undefined / primitive); `.next` is re-fetched per call via
+    GetMethod-equivalent semantics (callability check, accessor
+    sidecar probe).  Each next-call result is validated as an Object
+    via iterStep, and abrupt completions propagate via the existing
+    t_callException mechanism.
+
+  * **IfAbruptCloseIterator on argument-validation reject.**  The
+    helpers that take a callback (map / filter / flatMap) close the
+    underlying iterator's `.return` before re-raising the TypeError;
+    same for take / drop's NaN / negative-limit RangeError.  The
+    swallow-during-cleanup rule means a throwing `.return` does NOT
+    overwrite the original abrupt.
+
+  * **Wrapper-iterator pattern.**  Stateful helpers (map / filter /
+    take / drop / flatMap) return a fresh iterator that chains on
+    %IteratorPrototype%; .next pulls from the underlying via internal
+    sidecars `__helper_underlying__` / `__helper_cb__` /
+    `__helper_counter__` (and `__helper_inner__` for flatMap's live
+    nested iterator).
+
+  * **Iterator.prototype.flatMap (§27.1.4.3) — full implementation.**
+    The first cut was a throwing stub; replace with a real impl that
+    runs the mapper, validates the result is an Object, calls
+    GetIterator via @@iterator, and drains each nested iterator
+    before pulling the next outer value.  Handles the mapper-throws
+    /  inner-iterator-throws paths with iterClose on the outer.
+
+  * **Iterator.prototype[@@dispose] (§27.1.4.13 — explicit-resource-
+    management).**  Calls this.return() when present; required for
+    `using` declarations and the wider explicit-resource-management
+    proposal landing in Stage 3.
+
+  * **Iterator constructor → shared %IteratorPrototype%.**  The
+    unimplemented-ctor stub was creating a fresh empty prototype, so
+    Iterator.prototype.<helper> came back as undefined even after the
+    helpers were installed.  Route the stub to getIteratorPrototype()
+    so generator-derived instances (which already chain on it)
+    inherit the helpers and `<gen>() instanceof Iterator` walks the
+    expected chain.
+
+  * **iterGetNext accessor sidecar probe.**  GetMethod(iter, "next")
+    must fire `get next` accessor getters.  Pre-fix the helper only
+    read the data slot, so the canonical test262
+    this-plain-iterator.js fixture (an iterator with `get next() {
+    return fn; }`) saw the data slot as undefined and surfaced
+    "this.next is not callable" before the getter could run.
+
+  * **take / drop limit coercion per §27.1.4.5/6.**  ToNumber(limit)
+    accepts null / boolean / string (not just integer / double), then
+    NaN → RangeError, then std::trunc → integerLimit, then
+    integerLimit < 0 → RangeError.  `take(-0.5)` now produces an
+    empty take (trunc → 0) instead of throwing, matching the spec's
+    truncate-toward-zero semantics.
+
+10-family roll-up — modest gains this round; the Iterator helper
+installations don't surface on this table (Iterator is a separate
+family above):
+
+| Family | This run | R38 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 404 / 509 (79.4 %) | 404 / 509 | 0 |
+| `built-ins/Object` | 3 031 / 3 411 (88.9 %) | 3 031 / 3 411 | 0 |
+| `built-ins/Array` | **2 871 / 3 081** (93.2 %) | 2 866 / 3 081 | **+5** |
+| `built-ins/String` | 1 118 / 1 223 (91.4 %) | 1 118 / 1 223 | 0 |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | 192 / 204 (94.1 %) | 192 / 204 | 0 |
+| `built-ins/Set` | 366 / 383 (95.6 %) | 366 / 383 | 0 |
+| `built-ins/Proxy` | 94 / 311 (30.2 %) | 94 / 311 | 0 |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 131 / 141 (92.9 %) | 131 / 141 | 0 |
+| **TOTAL** | **8 418 / 9 514** (**88.48 %**) | 8 413 / 9 514 (88.43 %) | **+5** (+0.05 pp) |
+
+Off-table family surge:
+
+| Family | This run | Before R39 | Δ |
+|--------|---------:|-----------:|--:|
+| `built-ins/Iterator` | **296 / 510** (58.0 %) | 67 / 510 (13.1 %) | **+229** (+44.9 pp) |
+
+Total cumulative including Iterator family: **+234 tests** vs R38.
+
+Array's +5 lands on the `OP_put_array_el` length-bump path: the
+previous guard was `idxFast < 0xFFFFFFFE` (strict), excluding the
+canonical max array index 2^32-2, so `arr[2**32 - 2] = v` left
+arr.length at 0.  Including 0xFFFFFFFE recovered the
+`lastIndexOf/length-near-integer-limit` and `indexOf/length-near-
+integer-limit` families.
+
+The remaining Iterator failures cluster on flatMap (16), take (14),
+drop (12), map (10), filter (9), find (6), some (6), every (5) —
+mostly around the `return-is-forwarded-to-underlying-iterator` /
+`get-return-method-throws` / `iterator-return-method-throws` lifecycle
+tests, plus the unimplemented Iterator-static methods (Iterator.from
++18, Iterator.concat +29, Iterator.zip +33, Iterator.zipKeyed +40)
+that would round out the surface.
+
+---
+
 **Round 38 — 2026-06-11** (17 commits, autonomous follow-up to R37) —
 narrow surgical fixes across String / RegExp dispatch, Error
 constructor semantics, Map.groupBy iterator validation, Proxy default-
