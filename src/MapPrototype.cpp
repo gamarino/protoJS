@@ -794,6 +794,40 @@ static const proto::ProtoObject* mapGroupBy(
             "Map.groupBy: items is not iterable"));
         return PROTO_NONE;
     }
+    // §7.4.3 GetIterator step 3: method = GetMethod(obj, @@iterator) —
+    // when @@iterator is explicitly nullish but the slot exists, the
+    // call is rejected; only an absent slot is allowed to fall through
+    // to the spec's array-like-style protocol.  Pre-fix any iterable
+    // without an own @@iterator slot fell into the length-based walk;
+    // an explicit `{[Symbol.iterator]: null}` was treated identically
+    // to a plain `{}` and silently produced an empty map (test262
+    // Map/groupBy/invalid-iterable).
+    {
+        const proto::ProtoString* itoK = JSSymbols::symbolIterator(ctx);
+        if (itoK && iterable->hasAttribute(ctx, itoK) == PROTO_TRUE) {
+            const proto::ProtoObject* itoFn = iterable->getAttribute(ctx, itoK, true);
+            if (!itoFn || itoFn == PROTO_NONE
+                || itoFn == getUndefinedSentinel() || itoFn == getNullSentinel()) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Map.groupBy: items[@@iterator] is not callable"));
+                return PROTO_NONE;
+            }
+            // Non-callable @@iterator value → TypeError too.
+            bool itoCallable = false;
+            if (itoFn->isMethod(ctx)) itoCallable = true;
+            const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+            if (!itoCallable && bcK && itoFn->hasAttribute(ctx, bcK) == PROTO_TRUE) itoCallable = true;
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (!itoCallable && nfK && itoFn->hasAttribute(ctx, nfK) == PROTO_TRUE) itoCallable = true;
+            const proto::ProtoString* bfK = JSSymbols::boundFn(ctx);
+            if (!itoCallable && bfK && itoFn->hasAttribute(ctx, bfK) == PROTO_TRUE) itoCallable = true;
+            if (!itoCallable) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Map.groupBy: items[@@iterator] is not callable"));
+                return PROTO_NONE;
+            }
+        }
+    }
 
     // Create a result Map.
     const proto::ProtoObject* result = s_mapPrototype
