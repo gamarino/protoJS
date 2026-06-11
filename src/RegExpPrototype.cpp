@@ -202,9 +202,13 @@ const proto::ProtoObject* regexpExec(
     const proto::ProtoByteBuffer* bcBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
     const uint8_t* bc = reinterpret_cast<const uint8_t*>(bcBuffer->getBuffer(ctx));
 
-    std::string input = "";
+    // §22.2.7.2 step 4 ToString(S).  A missing arg means S is undefined,
+    // which ToString-coerces to the literal "undefined" (test262 A12).
+    std::string input;
     if (args && args->getSize(ctx) > 0) {
         input = objToStr(ctx, args->getAt(ctx, 0));
+    } else {
+        input = "undefined";
     }
 
     auto u16 = utf8ToUTF16(input);
