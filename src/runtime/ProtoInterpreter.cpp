@@ -10070,7 +10070,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
 
                 put_array_el_update_length:
                 // Update .length if index is a valid array index (and not a special object handled above).
-                if (newObj && idxFast >= 0 && idxFast < (long long)0xFFFFFFFELL) {
+                // §22.1.5.1: a valid array index is 0 to 2^32 - 2 inclusive
+                // (so that length = idx + 1 can fit in 2^32 - 1).  Pre-fix
+                // the bound was strict `< 0xFFFFFFFE` which excluded the
+                // canonical max index 2^32-2 and left arr.length at 0
+                // after `arr[2**32-2] = v` (test262 Array/prototype/
+                // lastIndexOf/15.4.4.15-5-12).
+                if (newObj && idxFast >= 0 && idxFast <= (long long)0xFFFFFFFELL) {
                     const proto::ProtoString* lenKey = JSSymbols::length(pContext);
                     if (lenKey) {
                         const proto::ProtoObject* curLenVal = newObj->getAttribute(pContext, lenKey, false);
