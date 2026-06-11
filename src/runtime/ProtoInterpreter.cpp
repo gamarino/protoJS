@@ -12376,6 +12376,42 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (mVal && mVal->isString(pContext)) mVal->asString(pContext)->toUTF8String(pContext, msg);
                         }
                         result = makeError(pContext, type.c_str(), msg.c_str(), pGlobalRoot);
+                        // §19.5.7.1.1 step 4 (Error) / §19.5.x AggregateError
+                        // step 5: InstallErrorCause(O, options).  When the
+                        // options object exposes "cause" as own/inherited,
+                        // copy it onto the result as a {writable:true,
+                        // enumerable:false, configurable:true} data prop
+                        // (descriptor bits 0x3).
+                        {
+                            unsigned optsIdx = isAggregate ? 2u : 1u;
+                            if (argc > optsIdx && result && result != PROTO_NONE) {
+                                const proto::ProtoObject* opts = argsList->getAt(pContext, static_cast<int>(optsIdx));
+                                if (opts && opts != PROTO_NONE
+                                    && opts != getUndefinedSentinel() && opts != getNullSentinel()
+                                    && !opts->isInteger(pContext) && !opts->isDouble(pContext)
+                                    && !opts->isFloat(pContext) && !opts->isString(pContext)
+                                    && !opts->isBoolean(pContext)) {
+                                    const proto::ProtoObject* causeKo = pContext->fromUTF8String("cause");
+                                    const proto::ProtoString* causeK = causeKo ? causeKo->asString(pContext) : nullptr;
+                                    if (causeK && opts->hasAttribute(pContext, causeK) == PROTO_TRUE) {
+                                        const proto::ProtoObject* causeVal = opts->getAttribute(pContext, causeK, true);
+                                        if (t_hasCallException) {
+                                            pending_exception = t_callException;
+                                            has_pending_exception = true;
+                                            t_hasCallException = false;
+                                            t_callException = nullptr;
+                                            DISPATCH();
+                                        }
+                                        result = result->setAttribute(pContext, causeK,
+                                            causeVal ? causeVal : PROTO_NONE);
+                                        const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_cause__");
+                                        const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                                        if (pdk) result = result->setAttribute(pContext, pdk,
+                                            pContext->fromInteger(0x3LL));
+                                    }
+                                }
+                            }
+                        }
                         // Populate errors[]: deep-copy the iterable arg
                         // into an array (the spec requires real iteration
                         // via the iterator protocol, but our most-common
