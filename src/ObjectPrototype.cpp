@@ -2794,11 +2794,57 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (throwIfNullOrUndefined(ctx, target, "Object.getOwnPropertySymbols"))
         return PROTO_NONE;
+    // Proxy override per §10.5.11: route through handler.ownKeys and
+    // keep only Symbol-tagged entries.
+    if (isProxy(ctx, target)) {
+        const proto::ProtoObject* full = proxyDispatchOwnKeys(ctx, target);
+        if (hasCallException()) return PROTO_NONE;
+        if (full) {
+            const proto::ProtoList* els = getArrayElements(ctx, full);
+            const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+            const proto::ProtoList* filt = ctx->newList();
+            size_t n = els ? els->getSize(ctx) : 0;
+            for (size_t i = 0; i < n; i++) {
+                const proto::ProtoObject* k = els->getAt(ctx, i);
+                if (!k || k == PROTO_NONE) continue;
+                bool isSym = isSymK && k->getAttribute(ctx, isSymK, false) == PROTO_TRUE;
+                if (isSym) filt = filt->appendLast(ctx, k);
+            }
+            const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+            setArrayElements(ctx, arr, filt);
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            const proto::ProtoString* isArrK2 = JSSymbols::isArray(ctx);
+            if (lenK) arr = arr->setAttribute(ctx, lenK, ctx->fromInteger(static_cast<long long>(filt->getSize(ctx))));
+            if (isArrK2) arr = arr->setAttribute(ctx, isArrK2, PROTO_TRUE);
+            return arr;
+        }
+        // No trap → forward onto resolved target's own-symbol collection.
+        const proto::ProtoObject* unwrapped = proxyTarget(ctx, target);
+        if (unwrapped) target = unwrapped;
+    }
+    // Walk target's own attributes and emit only the Symbol-tagged ones.
+    // protoJS stores Symbol primitives as objects with __is_symbol__.
+    const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+    const proto::ProtoList* outEls = ctx->newList();
+    const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
+    const proto::ProtoSparseListIterator* it = own ? own->getIterator(ctx) : nullptr;
+    while (it && it->hasNext(ctx)) {
+        unsigned long rawKey = it->nextKey(ctx);
+        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+        const proto::ProtoString* keyStr = reinterpret_cast<const proto::ProtoString*>(rawKey);
+        if (!keyStr) continue;
+        const proto::ProtoObject* keyObj = keyStr->asObject(ctx);
+        if (!keyObj) continue;
+        if (isSymK && keyObj->getAttribute(ctx, isSymK, false) == PROTO_TRUE) {
+            outEls = outEls->appendLast(ctx, keyObj);
+        }
+    }
     const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+    setArrayElements(ctx, result, outEls);
     const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
     if (isArrKey) result = result->setAttribute(ctx, isArrKey, PROTO_TRUE);
     const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(0LL));
+    if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(static_cast<long long>(outEls->getSize(ctx))));
     return result;
 }
 
