@@ -1427,6 +1427,7 @@ static const proto::ProtoObject* weakMapSet(
     // protoJS but still count as Symbols via the WKS prefix — accept
     // those too.
     bool isSymbolKey = false;
+    bool isRegisteredSymbol = false;
     {
         const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && key->getAttribute(ctx, symK, true) == PROTO_TRUE) {
@@ -1440,6 +1441,21 @@ static const proto::ProtoObject* weakMapSet(
                 if (sv.compare(0, 7, "Symbol.") == 0) isSymbolKey = true;
             }
         }
+        // §10.2.1 CanBeHeldWeakly step 2.b: registered symbols cannot
+        // be held weakly.  Probe __symbol_registered__ on the symbol
+        // value — Symbol.for(...) creates it; bare Symbol(...) does not.
+        if (isSymbolKey) {
+            const proto::ProtoObject* regO = ctx->fromUTF8String("__symbol_registered__");
+            const proto::ProtoString* regK = regO ? regO->asString(ctx) : nullptr;
+            if (regK && key->getAttribute(ctx, regK, false) == PROTO_TRUE) {
+                isRegisteredSymbol = true;
+            }
+        }
+    }
+    if (isRegisteredSymbol) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Invalid value used as weak map key"));
+        return PROTO_NONE;
     }
     if (!isSymbolKey && (key->isString(ctx) || key->isInteger(ctx)
         || key->isDouble(ctx) || key->isFloat(ctx)
@@ -1599,6 +1615,7 @@ static const proto::ProtoObject* weakMapGetOrInsert(
     // protoJS but still count as Symbols via the WKS prefix — accept
     // those too.
     bool isSymbolKey = false;
+    bool isRegisteredSymbol = false;
     {
         const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && key->getAttribute(ctx, symK, true) == PROTO_TRUE) {
@@ -1612,6 +1629,21 @@ static const proto::ProtoObject* weakMapGetOrInsert(
                 if (sv.compare(0, 7, "Symbol.") == 0) isSymbolKey = true;
             }
         }
+        // §10.2.1 CanBeHeldWeakly step 2.b: registered symbols cannot
+        // be held weakly.  Probe __symbol_registered__ on the symbol
+        // value — Symbol.for(...) creates it; bare Symbol(...) does not.
+        if (isSymbolKey) {
+            const proto::ProtoObject* regO = ctx->fromUTF8String("__symbol_registered__");
+            const proto::ProtoString* regK = regO ? regO->asString(ctx) : nullptr;
+            if (regK && key->getAttribute(ctx, regK, false) == PROTO_TRUE) {
+                isRegisteredSymbol = true;
+            }
+        }
+    }
+    if (isRegisteredSymbol) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Invalid value used as weak map key"));
+        return PROTO_NONE;
     }
     if (!isSymbolKey && (key->isString(ctx) || key->isInteger(ctx)
         || key->isDouble(ctx) || key->isFloat(ctx)
@@ -1682,6 +1714,7 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
     // protoJS but still count as Symbols via the WKS prefix — accept
     // those too.
     bool isSymbolKey = false;
+    bool isRegisteredSymbol = false;
     {
         const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
         if (symK && key->getAttribute(ctx, symK, true) == PROTO_TRUE) {
@@ -1695,6 +1728,21 @@ static const proto::ProtoObject* weakMapGetOrInsertComputed(
                 if (sv.compare(0, 7, "Symbol.") == 0) isSymbolKey = true;
             }
         }
+        // §10.2.1 CanBeHeldWeakly step 2.b: registered symbols cannot
+        // be held weakly.  Probe __symbol_registered__ on the symbol
+        // value — Symbol.for(...) creates it; bare Symbol(...) does not.
+        if (isSymbolKey) {
+            const proto::ProtoObject* regO = ctx->fromUTF8String("__symbol_registered__");
+            const proto::ProtoString* regK = regO ? regO->asString(ctx) : nullptr;
+            if (regK && key->getAttribute(ctx, regK, false) == PROTO_TRUE) {
+                isRegisteredSymbol = true;
+            }
+        }
+    }
+    if (isRegisteredSymbol) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Invalid value used as weak map key"));
+        return PROTO_NONE;
     }
     if (!isSymbolKey && (key->isString(ctx) || key->isInteger(ctx)
         || key->isDouble(ctx) || key->isFloat(ctx)
