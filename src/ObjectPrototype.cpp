@@ -3474,20 +3474,32 @@ static const proto::ProtoObject* objectToString(
     // §22.1.3.7 step 14: builtinTag for callables is "Function" but
     // @@toStringTag on the instance still overrides per step 16-17.
     // Track the candidate and fall through to the unified WKS probe.
+    // For a Proxy, recurse into the target — IsCallable(proxy) is
+    // routed through IsCallable(target).
+    const proto::ProtoObject* funcProbe = self;
+    {
+        const proto::ProtoObject* walk = self;
+        int hops = 0;
+        while (walk && walk != PROTO_NONE && isProxy(ctx, walk) && hops < 16) {
+            walk = proxyTarget(ctx, walk);
+            hops++;
+        }
+        if (walk && walk != PROTO_NONE) funcProbe = walk;
+    }
     const char* funcBuiltinTag = nullptr;
     {
         const proto::ProtoString* bcKey = JSSymbols::bytecodeId(ctx);
         if (bcKey) {
-            const proto::ProtoObject* bcVal = self->getAttribute(ctx, bcKey, false);
+            const proto::ProtoObject* bcVal = funcProbe->getAttribute(ctx, bcKey, false);
             if (bcVal && bcVal != PROTO_NONE && bcVal->isInteger(ctx))
                 funcBuiltinTag = "Function";
         }
-        if (!funcBuiltinTag && self->isMethod(ctx))
+        if (!funcBuiltinTag && funcProbe->isMethod(ctx))
             funcBuiltinTag = "Function";
         if (!funcBuiltinTag) {
             const proto::ProtoString* nfKey = JSSymbols::nativeFn(ctx);
             if (nfKey) {
-                const proto::ProtoObject* nfVal = self->getAttribute(ctx, nfKey, false);
+                const proto::ProtoObject* nfVal = funcProbe->getAttribute(ctx, nfKey, false);
                 if (nfVal && nfVal != PROTO_NONE && nfVal->isMethod(ctx))
                     funcBuiltinTag = "Function";
             }
@@ -3495,7 +3507,7 @@ static const proto::ProtoObject* objectToString(
         if (!funcBuiltinTag) {
             const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
             if (bfKey) {
-                const proto::ProtoObject* bfVal = self->getAttribute(ctx, bfKey, false);
+                const proto::ProtoObject* bfVal = funcProbe->getAttribute(ctx, bfKey, false);
                 if (bfVal && bfVal != PROTO_NONE)
                     funcBuiltinTag = "Function";
             }
