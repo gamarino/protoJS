@@ -467,6 +467,31 @@ static std::vector<const proto::ProtoObject*> collectIterable(
 // ---------------------------------------------------------------------------
 // Promise.all(iterable)
 // ---------------------------------------------------------------------------
+// §27.2.4.1/4/5 GetIterator(iterable): iterable must be Object or string.
+// Boolean / number / symbol / null / undefined → TypeError, which
+// IfAbruptRejectPromise converts to a rejected promise.
+static const proto::ProtoObject* rejectIfNotIterable(
+    proto::ProtoContext* ctx, const proto::ProtoObject* iterable,
+    const char* method)
+{
+    if (iterable == getNullSentinel() || iterable == getUndefinedSentinel()
+        || iterable == PROTO_NONE
+        || iterable->isBoolean(ctx) || iterable->isInteger(ctx)
+        || iterable->isDouble(ctx)  || iterable->isFloat(ctx)) {
+        std::string msg = std::string(method) + ": argument is not iterable";
+        const proto::ProtoObject* err =
+            makeNativeError(ctx, "TypeError", msg.c_str());
+        return makeSettledPromise(ctx, 2, err);
+    }
+    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+    if (symK && iterable->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+        const proto::ProtoObject* err =
+            makeNativeError(ctx, "TypeError", "Symbol is not iterable");
+        return makeSettledPromise(ctx, 2, err);
+    }
+    return nullptr;
+}
+
 static const proto::ProtoObject* promiseAll(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* /*self*/,
@@ -477,6 +502,9 @@ static const proto::ProtoObject* promiseAll(
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
+
+    if (const proto::ProtoObject* rejected = rejectIfNotIterable(ctx, iterable, "Promise.all"))
+        return rejected;
 
     auto items = collectIterable(ctx, iterable);
 
@@ -514,6 +542,9 @@ static const proto::ProtoObject* promiseAllSettled(
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
+
+    if (const proto::ProtoObject* rejected = rejectIfNotIterable(ctx, iterable, "Promise.allSettled"))
+        return rejected;
 
     auto items = collectIterable(ctx, iterable);
 
@@ -566,6 +597,9 @@ static const proto::ProtoObject* promiseRace(
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
 
+    if (const proto::ProtoObject* rejected = rejectIfNotIterable(ctx, iterable, "Promise.race"))
+        return rejected;
+
     auto items = collectIterable(ctx, iterable);
     for (const auto& item : items) {
         if (isPromise(ctx, item)) {
@@ -592,6 +626,9 @@ static const proto::ProtoObject* promiseAny(
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* iterable = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!iterable) iterable = PROTO_NONE;
+
+    if (const proto::ProtoObject* rejected = rejectIfNotIterable(ctx, iterable, "Promise.any"))
+        return rejected;
 
     auto items = collectIterable(ctx, iterable);
 
