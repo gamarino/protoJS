@@ -325,7 +325,37 @@ const proto::ProtoObject* regexpConstructor(
     std::memcpy(bcCopy, bc, static_cast<size_t>(bc_len));
     free(bc);
     obj = obj->setAttribute(ctx, bcKey, ctx->fromBuffer(static_cast<unsigned long>(bc_len), bcCopy, true));
-    obj = obj->setAttribute(ctx, srcKey, ctx->fromUTF8String(pattern.c_str()));
+    // Per §22.2.3.2.5 EscapeRegExpPattern: the public `source` value is
+    // the escaped pattern that round-trips through `/` + src + `/` lexer
+    // parsing.  Pre-fix we stored the raw pattern, so `new RegExp('/').source`
+    // returned "/" instead of "\\/" and the test262 value-* suite failed.
+    std::string escSrc;
+    {
+        bool inCharClass = false;
+        for (size_t i = 0; i < pattern.size(); i++) {
+            char c = pattern[i];
+            if (c == '\\' && i + 1 < pattern.size()) {
+                escSrc.push_back(c);
+                escSrc.push_back(pattern[++i]);
+                continue;
+            }
+            if (c == '[') inCharClass = true;
+            else if (c == ']') inCharClass = false;
+            if (c == '/' && !inCharClass) { escSrc.append("\\/"); continue; }
+            if (c == '\n') { escSrc.append("\\n"); continue; }
+            if (c == '\r') { escSrc.append("\\r"); continue; }
+            if (c == '\xE2' && i + 2 < pattern.size()
+                && pattern[i+1] == '\x80'
+                && (pattern[i+2] == '\xA8' || pattern[i+2] == '\xA9')) {
+                escSrc.append(pattern[i+2] == '\xA8' ? "\\u2028" : "\\u2029");
+                i += 2;
+                continue;
+            }
+            escSrc.push_back(c);
+        }
+        if (escSrc.empty()) escSrc = "(?:)";
+    }
+    obj = obj->setAttribute(ctx, srcKey, ctx->fromUTF8String(escSrc.c_str()));
     obj = obj->setAttribute(ctx, flgKey, ctx->fromUTF8String(flags_str.c_str()));
     obj = obj->setAttribute(ctx, liKey, ctx->fromInteger(0));
 
@@ -669,6 +699,173 @@ done:
 // Public API
 // ---------------------------------------------------------------------------
 
+// Helper: ToBoolean on a getAttribute result.  null/undefined/PROTO_NONE,
+// the boolean false, 0/NaN integers/doubles, and the empty string yield false.
+static bool reFlagToBoolean(proto::ProtoContext* ctx, const proto::ProtoObject* v) {
+    if (!v || v == PROTO_NONE || v == getUndefinedSentinel() || v == getNullSentinel())
+        return false;
+    if (v == PROTO_FALSE) return false;
+    if (v == PROTO_TRUE)  return true;
+    if (v->isBoolean(ctx)) return v->asBoolean(ctx);
+    if (v->isInteger(ctx)) return v->asLong(ctx) != 0;
+    if (v->isDouble(ctx))  { double d = v->asDouble(ctx); return d != 0.0 && d == d; }
+    if (v->isString(ctx))  return v->asString(ctx) && v->asString(ctx)->getSize(ctx) > 0;
+    return true;
+}
+
+// Cached pointer to RegExp.prototype itself so the §22.2.6.x step 3.a
+// carve-out can recognise the prototype receiver.  Set once during
+// ensureRegExpConstructor and immutable thereafter.
+static thread_local const proto::ProtoObject* t_regexpPrototype = nullptr;
+
+// Reject primitives + null/undefined per §22.2.6.x step 1-2 (RequireObject).
+static bool reRequireObjectThis(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()
+        || self->isString(ctx) || self->isInteger(ctx) || self->isDouble(ctx)
+        || self->isFloat(ctx) || self->isBoolean(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp flag getter called on non-Object"));
+        return false;
+    }
+    const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+    if (symK && self->getAttribute(ctx, symK, true) == PROTO_TRUE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp flag getter called on Symbol"));
+        return false;
+    }
+    const proto::ProtoString* bigK = JSSymbols::isBigInt(ctx);
+    if (bigK && self->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp flag getter called on BigInt"));
+        return false;
+    }
+    return true;
+}
+
+// §22.2.6.x step 3: if R lacks [[OriginalFlags]], the getter returns
+// undefined when R is RegExp.prototype and throws TypeError otherwise.
+// We detect [[OriginalFlags]] via the __re_bytecode__ data attribute
+// installed only on real RegExp instances.
+static bool reHasInternalSlot(proto::ProtoContext* ctx, const proto::ProtoObject* self) {
+    const proto::ProtoString* bcK = JSSymbols::reBytecode(ctx);
+    if (!bcK) return false;
+    return self->hasAttribute(ctx, bcK) == PROTO_TRUE;
+}
+
+// Generate a Boolean-coercing getter for a single flag attribute key.
+#define DEFINE_FLAG_GETTER(getterName, jsAttr)                                          \
+static const proto::ProtoObject* getterName(                                            \
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,                           \
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)   \
+{                                                                                       \
+    if (!reRequireObjectThis(ctx, self)) return PROTO_NONE;                             \
+    if (!reHasInternalSlot(ctx, self)) {                                                \
+        if (self == t_regexpPrototype) return getUndefinedSentinel();                   \
+        signalNativeException(makeNativeError(ctx, "TypeError",                         \
+            "RegExp flag getter called on non-RegExp"));                                \
+        return PROTO_NONE;                                                              \
+    }                                                                                   \
+    const proto::ProtoObject* v = self->getAttribute(ctx, jsAttr(ctx), true);           \
+    return reFlagToBoolean(ctx, v) ? PROTO_TRUE : PROTO_FALSE;                          \
+}
+DEFINE_FLAG_GETTER(reGlobalGetter,     JSSymbols::global)
+DEFINE_FLAG_GETTER(reIgnoreCaseGetter, JSSymbols::ignoreCase)
+DEFINE_FLAG_GETTER(reMultilineGetter,  JSSymbols::multiline)
+DEFINE_FLAG_GETTER(reDotAllGetter,     JSSymbols::dotAll)
+DEFINE_FLAG_GETTER(reStickyGetter,     JSSymbols::sticky)
+DEFINE_FLAG_GETTER(reUnicodeGetter,    JSSymbols::unicode)
+DEFINE_FLAG_GETTER(reHasIndicesGetter, JSSymbols::hasIndices)
+#undef DEFINE_FLAG_GETTER
+
+// §22.2.6.5 RegExp.prototype.flags — assemble the canonical character
+// string from each individual ToBoolean(get(R, name)) probe so user
+// overrides on subclasses are honoured per spec.
+static const proto::ProtoObject* reFlagsGetter(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!reRequireObjectThis(ctx, self)) return PROTO_NONE;
+    std::string result;
+    auto probe = [&](const proto::ProtoString* key, char letter) {
+        if (!key) return;
+        const proto::ProtoObject* v = self->getAttribute(ctx, key, true);
+        if (reFlagToBoolean(ctx, v)) result.push_back(letter);
+    };
+    probe(JSSymbols::hasIndices(ctx), 'd');
+    probe(JSSymbols::global(ctx),     'g');
+    probe(JSSymbols::ignoreCase(ctx), 'i');
+    probe(JSSymbols::multiline(ctx),  'm');
+    probe(JSSymbols::dotAll(ctx),     's');
+    probe(JSSymbols::unicode(ctx),    'u');
+    // unicodeSets ("v") falls through silently; not all builds expose it.
+    probe(JSSymbols::sticky(ctx),     'y');
+    return ctx->fromUTF8String(result.c_str());
+}
+
+// §22.2.6.10 RegExp.prototype.source getter — returns the pattern text
+// stored on construction (data attribute "source").  The prototype's
+// receiver yields the literal "(?:)"; non-RegExp receivers throw.
+static const proto::ProtoObject* reSourceGetter(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
+{
+    if (!reRequireObjectThis(ctx, self)) return PROTO_NONE;
+    if (!reHasInternalSlot(ctx, self)) {
+        if (self == t_regexpPrototype) return ctx->fromUTF8String("(?:)");
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp.prototype.source getter called on non-RegExp"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoString* srcK = JSSymbols::source(ctx);
+    if (!srcK) return ctx->fromUTF8String("(?:)");
+    const proto::ProtoObject* v = self->getAttribute(ctx, srcK, true);
+    if (!v || v == PROTO_NONE) return ctx->fromUTF8String("(?:)");
+    return v;
+}
+
+// Install an accessor getter on RegExp.prototype.  Mirrors the
+// Symbol.species install pattern in this file.
+static const proto::ProtoObject* installRegExpGetter(
+    proto::ProtoContext* ctx, const proto::ProtoObject* sp,
+    const char* nameStr, proto::ProtoMethod fn)
+{
+    const proto::ProtoObject* parent =
+        (ctx->space && ctx->space->methodPrototype)
+        ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* getter = parent
+        ? parent->newChild(ctx, true) : ctx->newObject(true);
+    if (!getter) return sp;
+    proto::ProtoObject* mGetter = const_cast<proto::ProtoObject*>(getter);
+    const proto::ProtoObject* raw = ctx->fromMethod(mGetter, fn);
+    if (raw) getter = getter->setAttribute(ctx, JSSymbols::nativeFn(ctx), raw);
+    getter = getter->setAttribute(ctx, JSSymbols::length(ctx), ctx->fromInteger(0LL));
+    const proto::ProtoObject* pdlo = ctx->fromUTF8String("__pd_length__");
+    const proto::ProtoString* pdlk = pdlo ? pdlo->asString(ctx) : nullptr;
+    if (pdlk) getter = getter->setAttribute(ctx, pdlk, ctx->fromInteger(0x2LL));
+    std::string nm = std::string("get ") + nameStr;
+    getter = getter->setAttribute(ctx, JSSymbols::name(ctx), ctx->fromUTF8String(nm.c_str()));
+    const proto::ProtoObject* pdno = ctx->fromUTF8String("__pd_name__");
+    const proto::ProtoString* pdnk = pdno ? pdno->asString(ctx) : nullptr;
+    if (pdnk) getter = getter->setAttribute(ctx, pdnk, ctx->fromInteger(0x2LL));
+    getter = getter->setAttribute(ctx, JSSymbols::hasNonWritableProps(ctx), PROTO_TRUE);
+
+    // Install __get_<name>__ on the prototype + descriptor 0x2.  The
+    // data slot is intentionally left PROTO_NONE so accessor probes
+    // win on getOwnPropertyDescriptor(RegExp.prototype, name).
+    std::string gkStr = "__get_" + std::string(nameStr) + "__";
+    const proto::ProtoString* gk =
+        ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
+    if (gk) sp = sp->setAttribute(ctx, gk, getter);
+    const proto::ProtoString* nk = ctx->fromUTF8String(nameStr)->asString(ctx);
+    if (nk) sp = sp->setAttribute(ctx, nk, PROTO_NONE);
+    std::string pdStr = "__pd_" + std::string(nameStr) + "__";
+    const proto::ProtoString* pdk =
+        ctx->fromUTF8String(pdStr.c_str())->asString(ctx);
+    if (pdk) sp = sp->setAttribute(ctx, pdk, ctx->fromInteger(0x2LL));
+    return sp;
+}
+
 const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
                                                 const proto::ProtoObject* regexpProto) {
     if (!space || !ctx || !regexpProto) return regexpProto;
@@ -695,6 +892,20 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
     reg("Symbol.search",  regexpSymbolSearch,  1);
     reg("Symbol.split",    regexpSymbolSplit,    2);
     reg("Symbol.matchAll", regexpSymbolMatchAll, 1);
+
+    // §22.2.6.{1,5,6,7,8,9,10,11,12} accessor getters on RegExp.prototype.
+    // Pre-fix the flag/source slots lived only as data attributes on
+    // instances, so getOwnPropertyDescriptor(RegExp.prototype, "flags")
+    // surfaced undefined and the test262 property-shape suite failed.
+    sp = installRegExpGetter(ctx, sp, "flags",      reFlagsGetter);
+    sp = installRegExpGetter(ctx, sp, "global",     reGlobalGetter);
+    sp = installRegExpGetter(ctx, sp, "ignoreCase", reIgnoreCaseGetter);
+    sp = installRegExpGetter(ctx, sp, "multiline",  reMultilineGetter);
+    sp = installRegExpGetter(ctx, sp, "dotAll",     reDotAllGetter);
+    sp = installRegExpGetter(ctx, sp, "sticky",     reStickyGetter);
+    sp = installRegExpGetter(ctx, sp, "unicode",    reUnicodeGetter);
+    sp = installRegExpGetter(ctx, sp, "hasIndices", reHasIndicesGetter);
+    sp = installRegExpGetter(ctx, sp, "source",     reSourceGetter);
 
     // Set Symbol.toStringTag so Object.prototype.toString.call(new RegExp())
     // === "[object RegExp]". Install under both internal and user-visible
@@ -732,6 +943,7 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
         : ctx->newObject(true);
 
     regexpProto = BuildRegExpPrototype(ctx->space, ctx, regexpProto);
+    t_regexpPrototype = regexpProto;
 
     const proto::ProtoObject* ctor = ctx->newObject(true);
     if (!ctor) return;
