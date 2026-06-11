@@ -256,6 +256,11 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         if (!isDone && d && d != PROTO_NONE && d->isBoolean(ctx) && d->asBoolean(ctx)) isDone = true;
         if (isDone) break;
         const proto::ProtoObject* val = valueKs ? step->getAttribute(ctx, valueKs, false) : nullptr;
+        // §24.2.1.2 (GetSetRecord-driven loops) step 7.b.ii: if nextValue
+        // is -0𝔽, set nextValue to +0𝔽 BEFORE handing it to the operation.
+        // Without this, difference/intersection/etc. treat the set-like
+        // key "-0" as distinct from the receiver's stored "+0".
+        if (val) val = normalizeSetVal(ctx, val);
         if (!emit(val ? val : PROTO_NONE)) return false;
     }
     return true;
@@ -906,7 +911,8 @@ static bool isCallableValue(proto::ProtoContext* ctx,
 
 static bool getSetRecord(proto::ProtoContext* ctx,
                          const proto::ProtoObject* obj,
-                         const char* methodName)
+                         const char* methodName,
+                         double* outSize = nullptr)
 {
     if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel() ||
         obj == PROTO_TRUE || obj == PROTO_FALSE ||
@@ -924,7 +930,10 @@ static bool getSetRecord(proto::ProtoContext* ctx,
     // (§24.2.1.2 GetSetRecord) would otherwise call the size getter
     // via [[Get]], but for our native Sets the receiver invariants are
     // already satisfied.
-    if (getSetOrder(ctx, obj)) return true;
+    if (getSetOrder(ctx, obj)) {
+        if (outSize) *outSize = static_cast<double>(getSetSize(ctx, obj));
+        return true;
+    }
     const proto::ProtoObject* sizeKo = ctx->fromUTF8String("size");
     const proto::ProtoString* sizeKs = sizeKo ? sizeKo->asString(ctx) : nullptr;
     const proto::ProtoObject* sizeV = sizeKs
@@ -997,6 +1006,7 @@ static bool getSetRecord(proto::ProtoContext* ctx,
         signalNativeException(makeNativeError(ctx, "RangeError", msg.c_str()));
         return false;
     }
+    if (outSize) *outSize = sizeNum;
     // Resolve .has — accessor descriptors install the getter at
     // __get_has__ with the undefined sentinel as the data placeholder.
     // Pre-fix the validator only consulted the data slot and rejected
@@ -1140,19 +1150,40 @@ static const proto::ProtoObject* setDifference(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "difference")) return PROTO_NONE;
+    double otherSize = 0.0;
+    if (!getSetRecord(ctx, other, "difference", &otherSize)) return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return result;
-    const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        if (!v) v = PROTO_NONE;
-        if (!setLikeHas(ctx, other, v))
-            setAddValue(ctx, result, v);
+    long thisSize = getSetSize(ctx, self);
+    // §24.2.4.5 step 4: pick the cheaper path. If thisSize ≤ otherSize,
+    // iterate self and probe other.has. Otherwise, start with a copy of
+    // self and iterate other.keys() removing each value. This matters
+    // for both performance AND observable side effects — the tests
+    // assert other.has is NOT called when thisSize > otherSize.
+    if (static_cast<double>(thisSize) <= otherSize) {
+        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            const proto::ProtoObject* v = it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (!v) v = PROTO_NONE;
+            if (!setLikeHas(ctx, other, v))
+                setAddValue(ctx, result, v);
+        }
+        return result;
     }
+    setAddAllFrom(ctx, result, self);
+    bool ok = iterateSetLikeKeys(ctx, other,
+        [&](const proto::ProtoObject* v) -> bool {
+            if (setContains(ctx, result, v)) {
+                const proto::ProtoList* delArgs = ctx->newList();
+                delArgs = delArgs->appendLast(ctx, v);
+                setDeleteFn(ctx, result, nullptr, delArgs, nullptr);
+            }
+            return true;
+        });
+    if (!ok) return PROTO_NONE;
     return result;
 }
 
