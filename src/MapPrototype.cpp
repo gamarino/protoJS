@@ -1948,7 +1948,16 @@ void ensureWeakMapConstructor(proto::ProtoContext* ctx,
     // Set prototype.constructor = ctor (non-enumerable via property descriptor).
     {
         const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
-        if (ctorKey) proto = proto->setAttribute(ctx, ctorKey, ctor);
+        if (ctorKey) {
+            proto = proto->setAttribute(ctx, ctorKey, ctor);
+            // §17 prototype.constructor descriptor 0x3 — writable,
+            // configurable, NOT enumerable.  Pre-fix the slot defaulted
+            // to fully enumerable and the test262 prop-desc check
+            // (built-ins/WeakMap/prototype/constructor) reported
+            // enumerable=true.
+            const proto::ProtoString* pdc = JSSymbols::pdConstructor(ctx);
+            if (pdc) proto = proto->setAttribute(ctx, pdc, ctx->fromInteger(0x3LL));
+        }
     }
 
     *globalRoot = (*globalRoot)->setAttribute(ctx, key, ctor);
