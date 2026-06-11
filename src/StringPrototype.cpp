@@ -1637,10 +1637,14 @@ const proto::ProtoObject* stringMatch(
         const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
         const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
         if (matchFn && matchFn != PROTO_NONE) {
-            // Call pattern[Symbol.match](self)
+            // §22.1.3.13: Call(pattern[@@match], pattern, [O]).  Use
+            // callJSFunction so the dispatch flows through the same
+            // path as every other @@-method dispatch — the legacy
+            // ProtoObject::call(...) returns PROTO_NONE for
+            // data-attribute-installed @@-methods (see split rewrite).
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
-            return pattern->call(ctx, nullptr, matchKey, pattern, newArgs, nullptr);
+            return callJSFunction(ctx, matchFn, pattern, newArgs);
         }
     }
     // Non-regex pattern: spec wraps via RegExpCreate(pattern). For the
@@ -1699,10 +1703,11 @@ const proto::ProtoObject* stringSearch(
         const proto::ProtoString* searchKey = JSSymbols::symbolSearch(ctx);
         const proto::ProtoObject* searchFn = pattern->getAttribute(ctx, searchKey, true);
         if (searchFn && searchFn != PROTO_NONE) {
-            // Call pattern[Symbol.search](self)
+            // §22.1.3.15: Call(pattern[@@search], pattern, [O]); use
+            // callJSFunction for the same reason as @@match / @@split.
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
-            return pattern->call(ctx, nullptr, searchKey, pattern, newArgs, nullptr);
+            return callJSFunction(ctx, searchFn, pattern, newArgs);
         }
     }
     // Spec §22.1.3.20: when pattern isn't a regex object it's still
@@ -2233,13 +2238,23 @@ const proto::ProtoObject* stringSplit(
         const proto::ProtoString* splitKey = JSSymbols::symbolSplit(ctx);
         const proto::ProtoObject* splitFn = sepArg->getAttribute(ctx, splitKey, true);
         if (splitFn && splitFn != PROTO_NONE) {
-            // Call pattern[Symbol.split](self, limit)
+            // §22.1.3.21 step 5-6 dispatch: Call(pattern[@@split], pattern,
+            // [O, limit]).  Pre-fix this used `sepArg->call(ctx, nullptr,
+            // splitKey, ...)` which routed through the protoCore
+            // method-call path expecting splitFn as a bound method on
+            // sepArg.  After the R36 rework that installed Symbol.* as
+            // plain data attributes carrying __native_fn__ wrappers, the
+            // method-call path returned PROTO_NONE because there is no
+            // dispatch-time resolution; switched to the canonical
+            // callJSFunction so the user-visible @@split / @@match /
+            // @@replace dispatch goes through the same call machinery
+            // every other handler uses.
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
             if (args->getSize(ctx) > 1) {
                 newArgs = newArgs->appendLast(ctx, args->getAt(ctx, 1));
             }
-            return sepArg->call(ctx, nullptr, splitKey, sepArg, newArgs, nullptr);
+            return callJSFunction(ctx, splitFn, sepArg, newArgs);
         }
     }
 
