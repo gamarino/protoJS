@@ -262,6 +262,9 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
         }
         return res;
     }
+    // §10.5.8 step 7: trap is undefined → forward to target.[[Get]](P, R).
+    // Recurse when the target itself is a Proxy.
+    if (isProxy(ctx, target)) return proxyDispatchGet(ctx, target, propKey, receiver);
     return defaultGet(ctx, target, propKey);
 }
 
@@ -310,7 +313,9 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
         }
         return truthy ? PROTO_TRUE : PROTO_FALSE;
     }
-    // No trap: write directly to target.
+    // §10.5.9 step 7: trap is undefined → forward to target.[[Set]](P, V, R).
+    // Recurse when the target is a Proxy.
+    if (isProxy(ctx, target)) return proxyDispatchSet(ctx, target, propKey, value, receiver);
     if (propKey) {
         const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey,
             value ? value : PROTO_NONE);
@@ -356,7 +361,13 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
         }
         return truthy ? PROTO_TRUE : PROTO_FALSE;
     }
-    // Default: walk the chain like the `in` operator.
+    // §10.5.7 step 7: trap is undefined → forward to target.[[HasProperty]](P).
+    // When the target is itself a Proxy, that means recursing into its
+    // dispatcher. Pre-fix the default branch only consulted
+    // target->hasAttribute, which on a proxy-cell sees only the
+    // __proxy_target__ / __proxy_handler__ sidecars and returns false
+    // for every real property.
+    if (isProxy(ctx, target)) return proxyDispatchHas(ctx, target, propKey);
     if (propKey && target->hasAttribute(ctx, propKey) == PROTO_TRUE)
         return PROTO_TRUE;
     return PROTO_FALSE;
@@ -400,6 +411,8 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
         }
         return truthy ? PROTO_TRUE : PROTO_FALSE;
     }
+    // §10.5.10 step 7: trap is undefined → forward to target.[[Delete]](P).
+    if (isProxy(ctx, target)) return proxyDispatchDelete(ctx, target, propKey);
     if (propKey) {
         const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, PROTO_NONE);
     }
