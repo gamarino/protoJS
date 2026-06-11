@@ -387,6 +387,163 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 37 — 2026-06-11** (~60 commits, autonomous "advance 100
+commits, pick the most effective") — post-R36 cleanup across the
+Proxy bracket-access dispatch, Reflect descriptor abrupts, Symbol
+descriptor + chain hygiene, WeakMap/Set/Map set-like algorithm
+branching, Array length truncation, and the Function-prototype
+parenting gap for `.size` / `@@iterator` accessor wrappers.
+
+  * **Proxy bracket access (§9.5.8 / §9.5.9).**  `OP_get_array_el`
+    and `OP_put_array_el` now route through `proxyDispatchGet` /
+    `proxyDispatchSet` when the receiver is a Proxy.  Pre-fix
+    dotted access fired the handler trap correctly but `p["k"] = v`
+    / `p["k"]` went straight to the target's `__elements__` /
+    `setAttribute` and silently bypassed the trap.  Together with
+    nested-Proxy fall-through (`get` / `set` / `has` /
+    `deleteProperty` now recurse into the target if the target is
+    itself a Proxy — the spec's "return target.[[…]](…)" step),
+    Proxy passes climbed **70/311 → 89/311**.
+
+  * **Reflect.defineProperty pre-materialises descriptor abrupts
+    (§28.1.3 step 3).**  Walk the standard slots (`enumerable` /
+    `configurable` / `writable` / `value` / `get` / `set`) before
+    the Object.defineProperty forward call so a throwing getter on
+    the descriptor object surfaces immediately rather than being
+    swallowed into `PROTO_FALSE`.  `Reflect.set` now runs
+    ToPropertyKey even when the value arg is missing
+    (`Reflect.set(o, throwingKey)` was returning false instead of
+    propagating).  `Reflect.construct` propagates the accessor
+    `.length` abrupt on argumentsList.  `Reflect.setPrototypeOf`
+    rejects a Symbol proto (Symbols carry the marker on an
+    Object-shaped cell, so the prior primitive check missed them).
+    Reflect: **131/153 → 142/153**.
+
+  * **Symbol descriptor + chain hygiene.**  Each well-known Symbol
+    (Symbol.iterator / asyncDispose / hasInstance / …) now carries
+    `__pd_<wks>__ = 0` and the `__has_nonwritable_props__` hint;
+    the descriptor surfaces as `{writable:false, enumerable:false,
+    configurable:false}` instead of all-true.  Symbol.prototype
+    parented on Object.prototype (was a parentless newObject, so
+    `Symbol().hasOwnProperty` came back undefined).
+    Symbol.prototype.{constructor, description} gained
+    non-enumerable sidecars (`__pd_constructor__ = 0x3`,
+    `__pd_description__ = 0x2`).  `typeof` returns `"symbol"` for
+    WKS (encoded as `"Symbol.<name>"` strings).  Symbol auto-boxing
+    via `Object.assign` works for Symbol primitive targets, and
+    Symbol.prototype.toString / .valueOf unwrap via
+    `[[SymbolData]]` (= `__primitive_value__`) on the wrapper.
+    Symbol: **47/98 → 69/98**.
+
+  * **Set-like algorithm branching (§24.2.4.{5,7,10}).**
+    Set.prototype.{difference, isDisjointFrom, isSupersetOf} now
+    branch on `thisSize` vs `otherSize`.  Pre-fix the impl always
+    took the self-iteration + `other.has` path and tripped the
+    canonical set-like-class fixtures (whose `.has` / `.keys`
+    throw to detect wrong-branch dispatch).  isSupersetOf step 3
+    short-circuits to false when `thisSize < otherSize` without
+    invoking `.has` / `.keys` at all.  `iterateSetLikeKeys` now
+    normalises -0 to +0 on the yielded value
+    (§24.2.1.2 step 7.b.ii).  Set: **351/383 → 366/383**.
+
+  * **Map.prototype / Set.prototype `size` getter + iterator
+    identity.**  The initial install ran before
+    `ensureFunctionPrototype` published `methodPrototype`, so the
+    getter wrapper inherited from a parentless newObject and
+    `Object.getOwnPropertyDescriptor(Map.prototype, "size").get
+    .call(m)` raised `"is not a function"` because `.call` /
+    `.apply` / `.bind` were absent.  Reinstall in the
+    `ensureXConstructor` step with Function.prototype parent.  Same
+    pattern restored `Set.prototype.{keys, @@iterator} ===
+    Set.prototype.values` and `Map.prototype[@@iterator] ===
+    Map.prototype.entries` — both spec-mandated identities were
+    failing because each method was minted by its own
+    installNonEnumerableMethod call.  Map: **184/204 → 191/204**.
+
+  * **Object.preventExtensions / freeze / seal on Proxy
+    (§20.1.2.{6,16,20}).**  TypeError when the `preventExtensions`
+    trap returns falsish; abrupts from the trap propagate.  Pre-fix
+    the impl stamped the integrity marker on the proxy cell
+    without consulting the trap.
+
+  * **OP_put_array_el on non-extensible array (§10.1.6.1 /
+    §10.4.2.4).**  Adding a NEW index (idx ≥ length) on a
+    non-extensible array now silently fails in sloppy mode and
+    throws TypeError in strict mode; existing in-place writes
+    still succeed.  Plus `Array.length = N` now removes every own
+    property whose key parses as a uint32 ≥ newLen — applied at
+    `resolvePutFieldOOP`, `arrSetLen`, and `objectDefineProperty`
+    so user-level assignment, the Array.prototype mutators, and
+    defineProperty all see the same truncation behaviour
+    (built-ins/Array/length/S15.4.5.2_A3_T4).
+
+  * **WeakMap constructor: TypeError on non-iterable
+    (§24.4.1.1 step 7.d).**  `new WeakMap({})` requires the
+    argument to expose `@@iterator` or be a real Array / String —
+    pre-fix the empty-length walk silently produced an empty
+    WeakMap.  Plus the prior round's iterable + Symbol-key fixes
+    settled. WeakMap: **111/141 → 131/141**.
+
+  * **String.prototype.normalize: TypeError on Symbol form
+    (§22.1.3.14 step 5).**  ToString(form) raises before the form
+    whitelist check.  String.prototype[@@iterator] now does
+    RequireObjectCoercible + ToString(this) per §22.1.5.1, and the
+    wrapper itself carries name / length descriptors.  The
+    generic `toString` helper's `valueOf`/`toString` callability
+    gate (was entering the call branch on any non-PROTO_NONE slot
+    including `{toString: void 0}`).  `getIntArg` treats an
+    explicit undefined arg as "use the spec default" so
+    `substring(undefined, undefined)` on a wrapper returns the
+    full string, not "".  String: **1087/1223 → 1104/1223**.
+
+  * **Object.prototype.valueOf ToObject coercion** (Boolean /
+    Number / String wrappers via `__primitive_value__`).  Object:
+    **3012/3411 → 3029/3411**.
+
+  * **Error.prototype.toString: TypeError on non-Object receiver
+    (§20.5.3.4 step 2).**  Plus the slot is wrapped via
+    `wrapNativeFunction` so §17 length/name descriptors surface.
+
+  * **RegExp.prototype.constructor non-enumerable
+    (§22.2.5.2).**  Stamped `__pd_constructor__ = 0x3` so the
+    descriptor reports `enumerable:false`.
+
+  * **Map.groupBy / Map / Set / WeakMap constructor: dispatch
+    through resolved setter** so user overrides of
+    `prototype.set` / `prototype.add` are observable.  All three
+    constructors now throw "called without new" TypeError when
+    invoked as functions (§24.{1,2,4}.1.1 step 1).
+
+10-family roll-up (built-ins Function / Object / Array / String /
+Symbol / Map / Set / Proxy / Reflect / WeakMap):
+
+| Family | This run | R36 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 404 / 509 (79.4 %) | 404 / 509 | 0 |
+| `built-ins/Object` | **3 029 / 3 411** (88.8 %) | 3 012 / 3 411 | **+17** |
+| `built-ins/Array` | **2 866 / 3 081** (93.0 %) | 2 865 / 3 081 | **+1** |
+| `built-ins/String` | **1 104 / 1 223** (90.3 %) | 1 087 / 1 223 | **+17** |
+| `built-ins/Symbol` | **69 / 98** (70.4 %) | 47 / 98 | **+22** |
+| `built-ins/Map` | **191 / 204** (93.6 %) | 184 / 204 | **+7** |
+| `built-ins/Set` | **366 / 383** (95.6 %) | 351 / 383 | **+15** |
+| `built-ins/Proxy` | **89 / 311** (28.6 %) | 70 / 311 | **+19** |
+| `built-ins/Reflect` | **142 / 153** (92.8 %) | 131 / 153 | **+11** |
+| `built-ins/WeakMap` | **131 / 141** (92.9 %) | 111 / 141 | **+20** |
+| **TOTAL** | **8 391 / 9 514** (**88.20 %**) | 8 262 / 9 514 (86.84 %) | **+129** (+1.36 pp) |
+
+Symbol cleared its long-standing floor (47/98 → 69/98) once
+Symbol.prototype was parented on Object.prototype and the
+well-known-symbol descriptors got their `__pd_<wks>__ = 0`
+sidecar — the cross-realm fixtures still gate on Realm support
+that protoJS doesn't ship.  Proxy's 28.6 % floor is now bottle-
+necked on the spec's ownKeys / getOwnPropertyDescriptor invariant
+machinery (the lower 80 % of failing Proxy tests touch the
+own-property-order and `[[OwnPropertyKeys]]` invariants, which
+need the protoCore attribute-order rewrite outside this round's
+scope).
+
+---
+
 **Round 36 — 2026-06-10 → 2026-06-11** (45 commits, ~6 h
 unattended toward the 90 % target; user prompt was
 "vamos por 90 %") — broad-front sweep across the families that
