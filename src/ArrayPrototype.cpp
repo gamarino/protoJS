@@ -2099,13 +2099,12 @@ static const proto::ProtoObject* arrayIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.indexOf")) return PROTO_NONE;
+    // §23.1.3.13 indexOf does NOT allocate a new array, so
+    // ToLength(Infinity) → 2^53-1 is the spec form.  Don't apply the
+    // 2^32-1 RangeError clamp here (that's only for array-creating
+    // methods like map/filter/slice).  arrLen already caps to
+    // 0xFFFFFFFFul which terminates iteration safely.
     long long len = static_cast<long long>(arrLen(ctx, self));
-    // ECMA-262 §23.1.3.13 step 3: if len is 0, return -1 BEFORE
-    // ToIntegerOrInfinity runs on fromIndex.  Pre-fix the fromIndex
-    // coercion was attempted even on an empty receiver, surfacing
-    // user-visible side effects of `fromIndex.valueOf()` that the
-    // spec explicitly bypasses.
     if (len == 0) return ctx->fromInteger(-1LL);
     // §23.1.3.13 step 5: searchElement defaults to undefined when no
     // argument is supplied.  Pre-fix indexOf returned -1 unconditionally
@@ -2212,7 +2211,7 @@ static const proto::ProtoObject* arrayLastIndexOf(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.lastIndexOf")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.16 step 3: empty receiver returns -1 BEFORE ToInteger.
     if (len == 0) return ctx->fromInteger(-1LL);
@@ -2326,7 +2325,7 @@ static const proto::ProtoObject* arrayIncludes(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.includes")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     long long len = static_cast<long long>(arrLen(ctx, self));
     // §23.1.3.13 step 3: if len is 0, return false BEFORE the
     // fromIndex coercion runs.  Pre-fix arrayIncludes flowed into the
@@ -3314,7 +3313,7 @@ static const proto::ProtoObject* arrayForEach(
     // §23.1.3.15 step ordering: LengthOfArrayLike precedes IsCallable
     // so a throwing `length` accessor surfaces its own exception
     // instead of a synthetic TypeError.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.forEach")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3540,7 +3539,7 @@ static const proto::ProtoObject* arrayFind(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.8: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.find")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3569,7 +3568,7 @@ static const proto::ProtoObject* arrayFindIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.9: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.findIndex")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3598,7 +3597,7 @@ static const proto::ProtoObject* arrayFindLast(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.findLast")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3627,7 +3626,7 @@ static const proto::ProtoObject* arrayFindLastIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.11: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.findLastIndex")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3656,7 +3655,7 @@ static const proto::ProtoObject* arraySome(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.28: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.some")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3686,7 +3685,7 @@ static const proto::ProtoObject* arrayEvery(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.6: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.every")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3791,7 +3790,7 @@ static const proto::ProtoObject* arrayReduce(
     // surfaced a synthetic TypeError "not callable" whenever the
     // length getter threw, instead of letting the user's exception
     // propagate.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.reduce")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
@@ -3859,7 +3858,7 @@ static const proto::ProtoObject* arrayReduceRight(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27: LengthOfArrayLike precedes IsCallable; see arrayReduce.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype.reduceRight")) return PROTO_NONE;
+    // Non-allocating iteration — accept Infinity via arrLen cap.
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
