@@ -3,6 +3,7 @@
 #include "JSSymbols.h"
 #include "ObjectPrototype.h"
 #include "PrototypeUtils.h"
+#include "ProxyBuiltin.h"
 #include "ArrayElementsStorage.h"
 #include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
@@ -66,6 +67,16 @@ static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn)
     // callJSFunction unwraps them transparently.
     const proto::ProtoString* bfKey = JSSymbols::boundFn(ctx);
     if (bfKey && fn->hasAttribute(ctx, bfKey) == PROTO_TRUE) return true;
+    // Proxy wrapping a callable target — per §10.5.12 a Proxy is callable
+    // iff its underlying target is callable.  callJSFunction already
+    // dispatches the apply trap when handed a callable-target Proxy, but
+    // Function.prototype.{call,apply,bind} reject the receiver upfront
+    // without this branch.
+    if (isProxy(ctx, fn)) {
+        const proto::ProtoObject* t = proxyTarget(ctx, fn);
+        if (!t) return false;
+        return fnIsCallable(ctx, t);
+    }
     return false;
 }
 
