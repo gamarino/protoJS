@@ -400,6 +400,50 @@ static const proto::ProtoObject* objectValues(
         ? args->getAt(ctx, 0) : nullptr;
     if (throwIfNullOrUndefined(ctx, obj, "Object.values")) return PROTO_NONE;
 
+    // Proxy receiver: walk handler.ownKeys → enumerable filter via
+    // handler.getOwnPropertyDescriptor → handler.get per §7.3.23
+    // EnumerableOwnProperties("value").  Pre-fix Object.values walked
+    // the proxy cell's own attribute layer (the __proxy_target__ /
+    // __proxy_handler__ sidecars only), so the result was always [].
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
+        if (hasCallException()) return PROTO_NONE;
+        if (keysArr) {
+            const proto::ProtoList* outEls = ctx->newList();
+            long long count = 0;
+            const proto::ProtoList* els = getArrayElements(ctx, keysArr);
+            size_t n = els ? els->getSize(ctx) : 0;
+            for (size_t i = 0; i < n; i++) {
+                const proto::ProtoObject* kObj = els->getAt(ctx, i);
+                if (!kObj || kObj == PROTO_NONE || !kObj->asString(ctx)) continue;
+                const proto::ProtoString* kStr = kObj->asString(ctx);
+                const proto::ProtoObject* desc =
+                    proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
+                if (hasCallException()) return PROTO_NONE;
+                if (!desc || desc == PROTO_NONE) continue;
+                const proto::ProtoString* enumK = ctx->fromUTF8String("enumerable")->asString(ctx);
+                const proto::ProtoObject* ev = enumK ? desc->getAttribute(ctx, enumK, true) : nullptr;
+                if (ev != PROTO_TRUE) continue;
+                const proto::ProtoObject* val =
+                    protojs::proxyDispatchGet(ctx, obj, kStr, obj);
+                if (hasCallException()) return PROTO_NONE;
+                outEls = outEls->appendLast(ctx, val ? val : PROTO_NONE);
+                count++;
+            }
+            const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+            const proto::ProtoString* lenKey  = JSSymbols::length(ctx);
+            const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+            setArrayElements(ctx, result, outEls);
+            if (lenKey)  result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+            if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
+            return result;
+        }
+        // No ownKeys trap → unwrap target and fall through to normal
+        // enumeration so a trap-less Proxy behaves like its target.
+        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
+        if (unwrapped) obj = unwrapped;
+    }
+
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
     collectOwnKeys(ctx, obj, keys, &vals);
@@ -436,6 +480,52 @@ static const proto::ProtoObject* objectEntries(
     const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : nullptr;
     if (throwIfNullOrUndefined(ctx, obj, "Object.entries")) return PROTO_NONE;
+
+    // Proxy receiver — same trap-driven enumeration as Object.values
+    // per §7.3.23, except the per-key result is a [key, value] pair.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
+        if (hasCallException()) return PROTO_NONE;
+        if (keysArr) {
+            const proto::ProtoList* outerList = ctx->newList();
+            long long count = 0;
+            const proto::ProtoList* els = getArrayElements(ctx, keysArr);
+            size_t n = els ? els->getSize(ctx) : 0;
+            const proto::ProtoString* lenKey  = JSSymbols::length(ctx);
+            const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
+            for (size_t i = 0; i < n; i++) {
+                const proto::ProtoObject* kObj = els->getAt(ctx, i);
+                if (!kObj || kObj == PROTO_NONE || !kObj->asString(ctx)) continue;
+                const proto::ProtoString* kStr = kObj->asString(ctx);
+                const proto::ProtoObject* desc =
+                    proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
+                if (hasCallException()) return PROTO_NONE;
+                if (!desc || desc == PROTO_NONE) continue;
+                const proto::ProtoString* enumK = ctx->fromUTF8String("enumerable")->asString(ctx);
+                const proto::ProtoObject* ev = enumK ? desc->getAttribute(ctx, enumK, true) : nullptr;
+                if (ev != PROTO_TRUE) continue;
+                const proto::ProtoObject* val =
+                    protojs::proxyDispatchGet(ctx, obj, kStr, obj);
+                if (hasCallException()) return PROTO_NONE;
+                const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
+                const proto::ProtoList* pairEls = ctx->newList();
+                pairEls = pairEls->appendLast(ctx, kObj);
+                pairEls = pairEls->appendLast(ctx, val ? val : PROTO_NONE);
+                setArrayElements(ctx, pair, pairEls);
+                if (lenKey)    pair = pair->setAttribute(ctx, lenKey, ctx->fromInteger(2LL));
+                if (isArrKey2) pair = pair->setAttribute(ctx, isArrKey2, PROTO_TRUE);
+                outerList = outerList->appendLast(ctx, pair);
+                count++;
+            }
+            const proto::ProtoObject* result = createNewArray(ctx, nullptr);
+            setArrayElements(ctx, result, outerList);
+            if (lenKey)  result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
+            if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
+            return result;
+        }
+        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
+        if (unwrapped) obj = unwrapped;
+    }
 
     std::vector<std::string> keys;
     std::vector<const proto::ProtoObject*> vals;
