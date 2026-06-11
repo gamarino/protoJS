@@ -702,8 +702,10 @@ static const proto::ProtoObject* reflectConstruct(
     // Proxy target — dispatch handler.construct(target, argsArray,
     // newTarget) per §10.5.13.  Pre-fix Reflect.construct ignored the
     // trap entirely; the proxy looked non-constructible to
-    // isConstructible() and the call rejected with TypeError.
-    if (protojs::isProxy(ctx, target)) {
+    // isConstructible() and the call rejected with TypeError.  Walk
+    // the proxy chain when the trap is undefined (so a Proxy of a
+    // Proxy that defines `construct` is still reached).
+    while (protojs::isProxy(ctx, target)) {
         const proto::ProtoObject* pTarget = protojs::proxyTarget(ctx, target);
         if (!pTarget) {
             signalNativeException(makeNativeError(ctx, "TypeError",
