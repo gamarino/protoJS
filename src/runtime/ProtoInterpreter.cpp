@@ -4489,7 +4489,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (ex && ex != PROTO_NONE) continue;
                 // Build a minimal constructor stub with a prototype so instanceof doesn't throw,
                 // plus a __native_fn__ backing so typeof returns 'function'.
-                const proto::ProtoObject* stubProto = pContext->newObject(true);
+                // Iterator's prototype is the shared %IteratorPrototype%
+                // so generator-derived instances (which already chain on
+                // it) inherit the public iterator-helper surface via
+                // `instanceof Iterator` / Iterator.prototype.<helper>.
+                const proto::ProtoObject* stubProto =
+                    (std::string(ctorName) == "Iterator")
+                        ? const_cast<proto::ProtoObject*>(protojs::getIteratorPrototype(pContext))
+                        : pContext->newObject(true);
                 // §22.3.3.* / §24.* etc: every built-in's prototype carries
                 // Symbol.toStringTag = the constructor name. Object.prototype
                 // .toString.call(new Stub()) must yield "[object Stub]"; pre-
