@@ -1478,7 +1478,39 @@ void ensureSetConstructor(proto::ProtoContext* ctx,
         sp = installNonEnumerableMethod(ctx, sp, "clear",   setClear,    0);
         sp = installNonEnumerableMethod(ctx, sp, "forEach", setForEach,  1);
         sp = installNonEnumerableMethod(ctx, sp, "values",  setValues,   0);
-        sp = installNonEnumerableMethod(ctx, sp, "keys",    setKeys,     0);
+        // §24.2.3.8 Set.prototype.keys === Set.prototype.values (the
+        // SAME function object).  Pre-fix installing each independently
+        // produced two distinct wrappers and the identity check
+        // assert.sameValue(Set.prototype.keys, Set.prototype.values)
+        // failed.  Read the values slot back and alias it to "keys"
+        // and Symbol.iterator below.
+        {
+            const proto::ProtoObject* vKo = ctx->fromUTF8String("values");
+            const proto::ProtoString* vK = vKo ? vKo->asString(ctx) : nullptr;
+            const proto::ProtoObject* valuesFn = vK
+                ? sp->getAttribute(ctx, vK, false) : nullptr;
+            const proto::ProtoObject* kKo = ctx->fromUTF8String("keys");
+            const proto::ProtoString* kK = kKo ? kKo->asString(ctx) : nullptr;
+            if (valuesFn && valuesFn != PROTO_NONE && kK) {
+                sp = sp->setAttribute(ctx, kK, valuesFn);
+                const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_keys__");
+                const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
+                if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x3LL));
+            }
+            // §24.2.3.12 Set.prototype[@@iterator] === Set.prototype.values
+            // (same identity).  Re-alias here after reinstall so the
+            // Symbol.iterator slot points at the fresh wrapper rather
+            // than the BuildSetPrototype-era one.
+            if (valuesFn && valuesFn != PROTO_NONE) {
+                const proto::ProtoString* symIterKey = JSSymbols::symbolIterator(ctx);
+                if (symIterKey) {
+                    sp = sp->setAttribute(ctx, symIterKey, valuesFn);
+                    const proto::ProtoObject* pdiko = ctx->fromUTF8String("__pd_Symbol.iterator__");
+                    const proto::ProtoString* pdiks = pdiko ? pdiko->asString(ctx) : nullptr;
+                    if (pdiks) sp = sp->setAttribute(ctx, pdiks, ctx->fromInteger(0x3LL));
+                }
+            }
+        }
         sp = installNonEnumerableMethod(ctx, sp, "entries", setEntries,  0);
         sp = installNonEnumerableMethod(ctx, sp, "union",               setUnion,               1);
         sp = installNonEnumerableMethod(ctx, sp, "intersection",        setIntersection,        1);
