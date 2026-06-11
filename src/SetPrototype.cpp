@@ -1309,6 +1309,11 @@ void BuildSetPrototype(proto::ProtoSpace* space, proto::ProtoContext* ctx,
             const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
             const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
             if (pdks) setProto = setProto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+            // resolvePutFieldOOP gates writability on __has_nonwritable_props__
+            // so `Set.prototype[@@toStringTag] = "X"` would otherwise silently
+            // succeed (test262 Symbol.toStringTag verifyProperty fails).
+            const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+            if (hnwK) setProto = setProto->setAttribute(ctx, hnwK, PROTO_TRUE);
         }
     }
 

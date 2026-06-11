@@ -1050,6 +1050,8 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
             const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
             const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
             if (pdks) sp = sp->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+            const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+            if (hnwK) sp = sp->setAttribute(ctx, hnwK, PROTO_TRUE);
         }
     }
 

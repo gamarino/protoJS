@@ -964,6 +964,8 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
             const proto::ProtoObject* pdko = ctx->fromUTF8String("__pd_Symbol.toStringTag__");
             const proto::ProtoString* pdks = pdko ? pdko->asString(ctx) : nullptr;
             if (pdks) proto = proto->setAttribute(ctx, pdks, ctx->fromInteger(0x2LL));
+            const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+            if (hnwK) proto = proto->setAttribute(ctx, hnwK, PROTO_TRUE);
         }
     }
 
