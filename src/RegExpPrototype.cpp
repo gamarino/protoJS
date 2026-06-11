@@ -323,7 +323,12 @@ const proto::ProtoObject* regexpTest(
     const proto::ProtoSparseList* sparse)
 {
     const proto::ProtoObject* res = regexpExec(ctx, self, parent, args, sparse);
-    return (res && res != PROTO_NONE) ? PROTO_TRUE : PROTO_FALSE;
+    // §22.2.6.13 RegExp.prototype.test: true iff RegExpExec returned a
+    // match record.  regexpExec returns the JS null sentinel on
+    // no-match (per §22.2.7.2), which is non-null at the C++ level —
+    // recognise it alongside PROTO_NONE.
+    if (!res || res == PROTO_NONE || res == getNullSentinel()) return PROTO_FALSE;
+    return PROTO_TRUE;
 }
 
 const proto::ProtoObject* regexpToString(
@@ -510,14 +515,16 @@ const proto::ProtoObject* regexpSymbolMatch(
     int count = 0;
     while (true) {
         const proto::ProtoObject* match = regexpExec(ctx, self, parent, args, sparse);
-        if (!match || match == PROTO_NONE) break;
-        
+        // regexpExec now returns the JS null sentinel on no-match (per
+        // §22.2.7.2); recognise it alongside PROTO_NONE / nullptr.
+        if (!match || match == PROTO_NONE || match == getNullSentinel()) break;
+
         const proto::ProtoObject* firstMatch = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), true);
         result = result->setAttribute(ctx, JSSymbols::indexKey(ctx, count++), firstMatch);
 
         const proto::ProtoObject* liObj = self->getAttribute(ctx, JSSymbols::lastIndex(ctx), false);
         if (liObj && liObj->isInteger(ctx) && liObj->asLong(ctx) == 0) {
-             break; 
+             break;
         }
     }
     
@@ -579,7 +586,7 @@ const proto::ProtoObject* regexpSymbolReplace(
 
     while (true) {
         const proto::ProtoObject* match = regexpExec(ctx, self, nullptr, execArgs, nullptr);
-        if (!match || match == PROTO_NONE) break;
+        if (!match || match == PROTO_NONE || match == getNullSentinel()) break;
 
         const proto::ProtoObject* fullMatchObj = match->getAttribute(ctx, JSSymbols::indexKey(ctx, 0), false);
         const proto::ProtoObject* matchIdxObj  = match->getAttribute(ctx, JSSymbols::index(ctx), false);
@@ -683,8 +690,9 @@ const proto::ProtoObject* regexpSymbolSearch(
     const proto::ProtoSparseList* sparse)
 {
     const proto::ProtoObject* match = regexpExec(ctx, self, parent, args, sparse);
-    if (!match || match == PROTO_NONE) return ctx->fromInteger(-1LL);
-    
+    if (!match || match == PROTO_NONE || match == getNullSentinel())
+        return ctx->fromInteger(-1LL);
+
     return match->getAttribute(ctx, JSSymbols::index(ctx), true);
 }
 

@@ -4,6 +4,7 @@
 #include "IteratorPrototype.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
+#include "TypeBridge.h"
 #include "headers/protoCore.h"
 extern "C" {
 #include "libregexp.h"
@@ -76,7 +77,7 @@ static const proto::ProtoObject* regexpStringIteratorNext(
 
     const proto::ProtoObject* match = regexpExec(ctx, reObj, nullptr, execArgs, nullptr);
 
-    if (!match || match == PROTO_NONE) {
+    if (!match || match == PROTO_NONE || match == getNullSentinel()) {
         self->setAttribute(ctx, JSSymbols::iterDone(ctx), PROTO_TRUE);
         return doneResult;
     }
