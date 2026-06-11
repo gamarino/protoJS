@@ -213,9 +213,14 @@ static bool sameValue(proto::ProtoContext* ctx,
 // would have done.
 static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
                                               const proto::ProtoObject* target,
-                                              const proto::ProtoString* key) {
+                                              const proto::ProtoString* key,
+                                              const proto::ProtoObject* receiver = nullptr) {
     if (!target || target == PROTO_NONE || !key) return PROTO_NONE;
-    // Accessor sidecar probe.
+    // Accessor sidecar probe.  §10.1.8.1 [[Get]] step 8.c: when the
+    // own property is an accessor, invoke its getter with `Receiver`
+    // (not target) as `this`.  Pre-fix the bind always used target,
+    // so `var p = new Proxy(t, {}); p.attr` returned t instead of p
+    // when t had `get attr(){ return this }`.
     std::string ks; key->toUTF8String(ctx, ks);
     const std::string gks = "__get_" + ks + "__";
     const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
@@ -224,7 +229,8 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
         const proto::ProtoObject* getter = target->getAttribute(ctx, gk, true);
         if (getter && getter != PROTO_NONE) {
             const proto::ProtoList* a = ctx->newList();
-            return callJSFunction(ctx, getter, target, a);
+            const proto::ProtoObject* recv = (receiver && receiver != PROTO_NONE) ? receiver : target;
+            return callJSFunction(ctx, getter, recv, a);
         }
     }
     const proto::ProtoObject* v = target->getAttribute(ctx, key, true);
@@ -280,7 +286,7 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
     // §10.5.8 step 7: trap is undefined → forward to target.[[Get]](P, R).
     // Recurse when the target itself is a Proxy.
     if (isProxy(ctx, target)) return proxyDispatchGet(ctx, target, propKey, receiver);
-    return defaultGet(ctx, target, propKey);
+    return defaultGet(ctx, target, propKey, receiver ? receiver : proxy);
 }
 
 const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
