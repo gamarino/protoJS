@@ -3412,6 +3412,27 @@ static const proto::ProtoObject* errorPrototypeToString(
         const proto::ProtoList* /*params*/,
         const proto::ProtoSparseList* /*kw*/) {
     if (!context) return PROTO_NONE;
+    // §20.5.3.4 step 2: If Type(O) is not Object, throw a TypeError.
+    // Pre-fix Error.prototype.toString.call(undefined / 1 / "string" /
+    // Symbol()) silently returned the literal "Error" instead of
+    // surfacing the spec TypeError.
+    if (!self || self == PROTO_NONE || self == getNullSentinel()
+        || self == getUndefinedSentinel()
+        || self->isInteger(context) || self->isDouble(context)
+        || self->isFloat(context) || self->isString(context)
+        || self->isBoolean(context)) {
+        signalNativeException(makeNativeError(context, "TypeError",
+            "Error.prototype.toString called on non-object"));
+        return PROTO_NONE;
+    }
+    {
+        const proto::ProtoString* isSymKey = JSSymbols::isSymbol(context);
+        if (isSymKey && self->getAttribute(context, isSymKey, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(context, "TypeError",
+                "Error.prototype.toString called on Symbol primitive"));
+            return PROTO_NONE;
+        }
+    }
     const proto::ProtoString* nameKey = JSSymbols::name(context);
     const proto::ProtoString* msgKey  = JSSymbols::message(context);
     std::string nameStr = "Error", msgStr;
