@@ -9771,6 +9771,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 //    list, so `arr[0] = 10` followed by `arr[0]` returns 1.
                 //    arrayTryFastSet returns false for non-arrays, so this is a
                 //    no-op for them and OOP dispatch runs as before.
+                // §10.4.2.4 ArraySetLength + §10.1.6.1 OrdinaryDefineOwnProperty
+                // step 2: on a non-extensible array, adding a NEW index
+                // (one beyond .length) must reject — silently in sloppy
+                // mode, with TypeError under strict mode.  Pre-fix the
+                // fast path appended unconditionally, so
+                // `var a = []; Object.preventExtensions(a); a[0] = 1`
+                // still added index 0.
+                if (idxFast >= 0) {
+                    JSContextWrapper* w = JSContextWrapper::current();
+                    if (w && w->getNonExtensibleMarker()
+                        && obj->hasParent(pContext, w->getNonExtensibleMarker())) {
+                        const proto::ProtoList* els = protojs::getArrayElements(pContext, obj);
+                        long long currLen = els ? static_cast<long long>(els->getSize(pContext)) : 0;
+                        if (idxFast >= currLen) {
+                            if (module && module->isStrict) {
+                                pending_exception = makeError(pContext, "TypeError",
+                                    "Cannot add property to non-extensible object", pGlobalRoot);
+                                has_pending_exception = true;
+                            }
+                            DISPATCH();
+                        }
+                    }
+                }
                 if (idxFast >= 0 &&
                     arrayTryFastSet(pContext, obj, static_cast<unsigned long>(idxFast), value)) {
                     newObj = obj;
