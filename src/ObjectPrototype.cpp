@@ -1317,8 +1317,19 @@ static const proto::ProtoObject* objectPreventExtensions(
             a = a->appendLast(ctx, target ? target : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
             if (hasCallException()) return PROTO_NONE;
-            bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
-                || r == getUndefinedSentinel() || r == getNullSentinel());
+            bool truthy;
+            {
+                if (r == nullptr || r == PROTO_NONE
+                    || r == PROTO_FALSE || r == getNullSentinel()
+                    || r == getUndefinedSentinel()) truthy = false;
+                else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+                else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+                else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+                else if (r->isString(ctx)) {
+                    std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+                    truthy = !s.empty();
+                } else truthy = true;
+            }
             if (!truthy) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'preventExtensions' on proxy: trap returned falsish"));
@@ -1376,8 +1387,23 @@ static const proto::ProtoObject* objectIsExtensible(
             a = a->appendLast(ctx, target);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
             if (hasCallException()) return PROTO_FALSE;
-            bool truthy = !(r == nullptr || r == PROTO_NONE || r == PROTO_FALSE
-                || r == getUndefinedSentinel() || r == getNullSentinel());
+            // §10.5.3 step 5 ToBoolean(trapResult) — null/undefined/0/
+            // NaN/"" must reduce to false.  Pre-fix only PROTO_FALSE +
+            // sentinels were treated as false, so isExtensible trap
+            // returning 0 / "" silently surfaced as true.
+            bool truthy;
+            {
+                if (r == nullptr || r == PROTO_NONE
+                    || r == PROTO_FALSE || r == getNullSentinel()
+                    || r == getUndefinedSentinel()) truthy = false;
+                else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+                else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+                else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+                else if (r->isString(ctx)) {
+                    std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+                    truthy = !s.empty();
+                } else truthy = true;
+            }
             // §10.5.3 step 9: invariant — trap result must equal
             // target's actual extensibility.
             JSContextWrapper* w2 = JSContextWrapper::current();
