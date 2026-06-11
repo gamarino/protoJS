@@ -32,6 +32,16 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
 const proto::ProtoObject* getJSProtoOverride(const proto::ProtoObject* obj);
 
 /**
+ * ToPropertyKey(V): coerce any JS value to a ProtoString property key by
+ * routing through Symbol.toPrimitive / toString / valueOf as needed.
+ * Returns nullptr on coercion failure (and signals a TypeError); abrupt
+ * completions from user-supplied coercion methods propagate via
+ * hasCallException — callers must check.
+ */
+const proto::ProtoString* toPropertyKey(proto::ProtoContext* ctx,
+                                        const proto::ProtoObject* value);
+
+/**
  * Record an explicit JS [[Prototype]] override for obj. Used by OP_define_class
  * so Object.getPrototypeOf(DerivedClass) === ParentClass.
  * Pass nullptr to clear any prior override (equivalent to "no override").

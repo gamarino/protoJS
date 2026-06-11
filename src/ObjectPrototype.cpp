@@ -3907,6 +3907,11 @@ static const proto::ProtoObject* protoAccessorSetter(
 // resolve through the chain.  Called from ensureObjectConstructor
 // after ensureFunctionPrototype has published the canonical
 // Function.prototype as ctx->space->methodPrototype.
+const proto::ProtoString* toPropertyKey(proto::ProtoContext* ctx,
+                                        const proto::ProtoObject* value) {
+    return coercePropNameToKey(ctx, value);
+}
+
 void reinstallObjectProtoAccessor(proto::ProtoContext* ctx) {
     if (!ctx || !ctx->space || !ctx->space->objectPrototype) return;
     const proto::ProtoObject* base = ctx->space->objectPrototype;

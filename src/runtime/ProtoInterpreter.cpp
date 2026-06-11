@@ -837,14 +837,19 @@ static const proto::ProtoObject* reflectGet(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.get")) return PROTO_NONE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_NONE;
+    // §28.1.6 step 2: ToPropertyKey(propertyKey) — propagate abrupts
+    // from a throwing toString / @@toPrimitive (test262 Reflect/get/
+    // return-abrupt-from-property-key).
+    const proto::ProtoString* k = protojs::toPropertyKey(ctx, key);
+    if (t_hasCallException) return PROTO_NONE;
+    if (!k && key->isInteger(ctx))
+        k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
+    if (!k) return PROTO_NONE;
     // Proxy receiver → dispatch to handler.get if present.
     if (protojs::isProxy(ctx, target)) {
-        const proto::ProtoString* pk = key->asString(ctx);
-        if (!pk && key->isInteger(ctx))
-            pk = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
         const proto::ProtoObject* recv = (args->getSize(ctx) > 2)
             ? args->getAt(ctx, 2) : target;
-        return protojs::proxyDispatchGet(ctx, target, pk, recv);
+        return protojs::proxyDispatchGet(ctx, target, k, recv);
     }
     // §28.1.6 step 4: receiver = target if absent. Pre-fix Reflect.get
     // ignored the 4th argument so accessor getters were always invoked
@@ -854,10 +859,6 @@ static const proto::ProtoObject* reflectGet(
     const proto::ProtoObject* receiver = (args->getSize(ctx) > 2)
         ? args->getAt(ctx, 2) : target;
     if (!receiver || receiver == PROTO_NONE) receiver = target;
-    const proto::ProtoString* k = key->asString(ctx);
-    if (!k && key->isInteger(ctx))
-        k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
-    if (!k) return PROTO_NONE;
     const proto::ProtoObject* v = target->getAttribute(ctx, k, true);
     // §9.1.8 step 7: if the lookup landed on an accessor (data slot is
     // undefined sentinel and __get_<key>__ is present), invoke the
