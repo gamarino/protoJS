@@ -1,4 +1,6 @@
 #include "ProxyBuiltin.h"
+#include "ArrayPrototype.h"
+#include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
@@ -445,6 +447,78 @@ const proto::ProtoObject* proxyLookupTrap(proto::ProtoContext* ctx,
                                            const char* trapName) {
     const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
     return lookupTrap(ctx, handler, trapName);
+}
+
+// §10.5.11 [[OwnPropertyKeys]]: handler.ownKeys(target).
+// CreateListFromArrayLike per §7.3.18 — read length, then 0..length-1
+// entries.  Each entry must be a String or a Symbol object.  Returns
+// a fresh JS Array carrying the keys; nullptr means "no trap, forward
+// to default".
+const proto::ProtoObject* proxyDispatchOwnKeys(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy) {
+    if (!ctx || !proxy) return nullptr;
+    const proto::ProtoObject* target = proxyTarget(ctx, proxy);
+    if (!target) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot perform 'ownKeys' on a proxy that has been revoked"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* handler = proxyHandler(ctx, proxy);
+    const proto::ProtoObject* trap = lookupTrap(ctx, handler, "ownKeys");
+    if (!trap) {
+        if (isProxy(ctx, target)) return proxyDispatchOwnKeys(ctx, target);
+        return nullptr;  // forward to default
+    }
+    const proto::ProtoList* a = ctx->newList();
+    a = a->appendLast(ctx, target);
+    const proto::ProtoObject* trapResult = callJSFunction(ctx, trap, handler, a);
+    if (hasCallException()) return PROTO_NONE;
+    if (!trapResult || trapResult == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "'ownKeys' on proxy: trap returned non-Object"));
+        return PROTO_NONE;
+    }
+    // CreateListFromArrayLike: read length, then index 0..len-1.
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    const proto::ProtoObject* lenV = lenK ? trapResult->getAttribute(ctx, lenK, true) : nullptr;
+    long long len = 0;
+    if (lenV && lenV->isInteger(ctx)) len = lenV->asLong(ctx);
+    else if (lenV && lenV->isDouble(ctx)) len = static_cast<long long>(lenV->asDouble(ctx));
+    if (len < 0) len = 0;
+    // Try the fast __elements__ path first (almost every callsite
+    // returns a normal Array literal).
+    const proto::ProtoList* fastEls = getArrayElements(ctx, trapResult);
+    const proto::ProtoList* outEls = ctx->newList();
+    for (long long i = 0; i < len; i++) {
+        const proto::ProtoObject* kv = nullptr;
+        if (fastEls && i < static_cast<long long>(fastEls->getSize(ctx))) {
+            kv = fastEls->getAt(ctx, static_cast<size_t>(i));
+        } else {
+            std::string idx = std::to_string(i);
+            const proto::ProtoObject* idxKey = ctx->fromUTF8String(idx.c_str());
+            const proto::ProtoString* ik = idxKey ? idxKey->asString(ctx) : nullptr;
+            if (ik) kv = trapResult->getAttribute(ctx, ik, true);
+        }
+        if (!kv || kv == PROTO_NONE) kv = getUndefinedSentinel();
+        // Each entry must be a String or a Symbol object — per
+        // §7.3.18 step 5.f the check is a runtime TypeError.
+        bool ok = kv->isString(ctx);
+        if (!ok) {
+            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+            if (symK && kv->getAttribute(ctx, symK, false) == PROTO_TRUE) ok = true;
+        }
+        if (!ok) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'ownKeys' on proxy: trap returned an entry that is neither String nor Symbol"));
+            return PROTO_NONE;
+        }
+        outEls = outEls->appendLast(ctx, kv);
+    }
+    const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+    setArrayElements(ctx, arr, outEls);
+    if (lenK) arr = arr->setAttribute(ctx, lenK, ctx->fromInteger(len));
+    return arr;
 }
 
 // §10.5.1 [[GetPrototypeOf]]: handler.getPrototypeOf(target).  Trap

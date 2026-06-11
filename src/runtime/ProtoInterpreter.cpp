@@ -1102,16 +1102,15 @@ static const proto::ProtoObject* reflectOwnKeys(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.ownKeys")) return PROTO_NONE;
-    // Proxy receiver → dispatch handler.ownKeys.
+    // Proxy receiver → dispatch handler.ownKeys via the canonical
+    // path which applies CreateListFromArrayLike + per-entry
+    // String-or-Symbol validation per §10.5.11 / §7.3.18.  Pre-fix
+    // we called the trap and returned its raw result without
+    // validation, so a non-array trap result silently leaked.
     if (protojs::isProxy(ctx, target)) {
-        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "ownKeys");
-        if (trap) {
-            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
-            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
-            const proto::ProtoList* trapArgs = ctx->newList();
-            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
-            return callJSFunction(ctx, trap, handler, trapArgs);
-        }
+        const proto::ProtoObject* r = protojs::proxyDispatchOwnKeys(ctx, target);
+        if (hasCallException()) return PROTO_NONE;
+        if (r) return r;
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_NONE;
     }

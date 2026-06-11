@@ -120,6 +120,19 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
     const proto::ProtoObject* proxy);
 
 /**
+ * [[OwnPropertyKeys]] dispatch per §10.5.11: calls handler.ownKeys
+ * (target) if present, otherwise returns nullptr to signal "no trap"
+ * to the caller.
+ *
+ * When the trap is present, returns a fresh JS array of the trap
+ * result (after CreateListFromArrayLike — each entry must be a string
+ * or a symbol object).
+ */
+const proto::ProtoObject* proxyDispatchOwnKeys(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* proxy);
+
+/**
  * [[SetPrototypeOf]] dispatch per §10.5.2: calls handler.setPrototypeOf
  * (target, V) if present, otherwise returns nullptr so the caller may
  * fall through.  Returns PROTO_TRUE / PROTO_FALSE / PROTO_NONE-on-abrupt.

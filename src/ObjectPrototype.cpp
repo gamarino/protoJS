@@ -1371,6 +1371,37 @@ static const proto::ProtoObject* objectGetOwnPropertyNames(
     if (throwIfNullOrUndefined(ctx, obj, "Object.getOwnPropertyNames"))
         return PROTO_NONE;
 
+    // Proxy override per §10.5.11 [[OwnPropertyKeys]]: route through
+    // handler.ownKeys then filter to string keys only.
+    if (isProxy(ctx, obj)) {
+        const proto::ProtoObject* full = proxyDispatchOwnKeys(ctx, obj);
+        if (hasCallException()) return PROTO_NONE;
+        if (full) {
+            const proto::ProtoList* els = getArrayElements(ctx, full);
+            const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+            const proto::ProtoList* filt = ctx->newList();
+            size_t n = els ? els->getSize(ctx) : 0;
+            for (size_t i = 0; i < n; i++) {
+                const proto::ProtoObject* k = els->getAt(ctx, i);
+                if (!k || k == PROTO_NONE) continue;
+                if (isSymK && k->getAttribute(ctx, isSymK, false) == PROTO_TRUE)
+                    continue;
+                if (!k->isString(ctx)) continue;
+                filt = filt->appendLast(ctx, k);
+            }
+            const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
+            setArrayElements(ctx, arr, filt);
+            const proto::ProtoString* lenK = JSSymbols::length(ctx);
+            const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+            if (lenK)  arr = arr->setAttribute(ctx, lenK,  ctx->fromInteger(static_cast<long long>(filt->getSize(ctx))));
+            if (isArrK) arr = arr->setAttribute(ctx, isArrK, PROTO_TRUE);
+            return arr;
+        }
+        // No trap — fall through to default keys.
+        const proto::ProtoObject* unwrapped = proxyTarget(ctx, obj);
+        if (unwrapped) obj = unwrapped;
+    }
+
     // Pass includeNonEnumerable=true to collect all own string properties.
     std::vector<std::string> keys;
     collectOwnKeys(ctx, obj, keys, nullptr, /*includeNonEnumerable=*/true);
