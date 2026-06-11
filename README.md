@@ -387,6 +387,154 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 38 — 2026-06-11** (17 commits, autonomous follow-up to R37) —
+narrow surgical fixes across String / RegExp dispatch, Error
+constructor semantics, Map.groupBy iterator validation, Proxy default-
+get receiver binding, and Proxy lookupTrap callable check.
+
+  * **String.prototype.split: undefined separator returns `[O]`
+    per §22.1.3.21 step 14.**  The undefined-separator early return
+    only matched PROTO_NONE; the heap-allocated undefined sentinel
+    slipped through and got coerced to the literal "undefined" via
+    objToStr, so `"undefinedd".split(undefined)` returned `["", "d"]`
+    instead of `["undefinedd"]`.
+
+  * **RegExp.prototype[@@split]: loop bound is q < size per
+    §22.2.6.14 step 18.**  The match loop ran while `pos <= strLen`,
+    so an empty pattern matched at `pos = size` and pushed an extra
+    empty piece into the result.  `"hello".split(new RegExp)` returned
+    `["h","e","l","l","o",""]` (length 6) instead of the spec's
+    `["h","e","l","l","o"]` (length 5).
+
+  * **RegExp.prototype.exec: reset lastIndex on non-global non-sticky
+    per §22.2.7.2 step 10.**  The engine ignored the spec's
+    "if global is false and sticky is false, set lastIndex to 0"
+    step, so `var re = /pat/; re.lastIndex = 12; "x".match(re)`
+    returned null instead of finding the match.
+
+  * **Object.prototype.toString on Symbol primitives — consult
+    @@toStringTag per §22.1.3.7 step 16-17.**  Pre-fix the Symbol
+    branch hard-coded "[object Symbol]" and ignored
+    Symbol.prototype[@@toStringTag] overrides, so
+    `delete Symbol.prototype[Symbol.toStringTag]` still surfaced
+    "[object Symbol]" instead of falling through to "[object Object]".
+    Non-string tags collapse to builtinTag = "Object" per the spec
+    pattern shared with the primitive-builtin branch.
+
+  * **Object.prototype.toString on callable Proxy — recurse to
+    target per §10.5.13 / §22.1.3.7.**  IsCallable(proxy) = IsCallable
+    (target), but the "Function" builtinTag probe inspected the proxy
+    cell directly (which only carries __proxy_target__ /
+    __proxy_handler__ sidecars), so
+    `Object.prototype.toString.call(new Proxy(function(){}, {}))`
+    returned "[object Object]" instead of "[object Function]".
+    Walk up to 16 hops through nested Proxy wrappers and probe the
+    underlying target.
+
+  * **String.prototype.matchAll: RegExp.prototype-parented rx +
+    null stringification per §22.1.3.13 step 4 + accessor sidecar
+    on regexp[@@matchAll].**  The fall-through path passed PROTO_NONE
+    to regexpConstructor, producing a bare RegExp-shaped cell with no
+    prototype link; the follow-up @@matchAll lookup walked an empty
+    chain and returned undefined, so `"-null-".matchAll(null)`
+    produced `undefined` instead of an iterator.  Also stringify null
+    explicitly (the prior null branch collapsed to "" so the
+    "-null-" hit was missed), and probe `__get_Symbol.matchAll__` so
+    a throwing accessor getter propagates.
+
+  * **String.prototype.match() no-args: index = 0, input = O per
+    §22.2.7.2 step 23.**  The match(undefined) early return only
+    populated `[0] = ""` and length, omitting the .index and .input
+    properties that the spec's MatchOrReplace records on every match
+    result.
+
+  * **Error.prototype.toString: TypeError on non-Object receiver per
+    §20.5.3.4 step 2.**  The spec rejects every primitive at step 2.
+    Pre-fix the impl silently dropped through to reading "name" /
+    "message" on the primitive and returned "Error" instead of
+    throwing.
+
+  * **Error.prototype.toString: name / length descriptors via
+    wrapNativeFunction.**  The slot was installed as a raw ProtoMethod
+    cell which can't carry own attributes; switch to a Function-
+    prototype-parented wrapper so the §17 length/name descriptors
+    surface.
+
+  * **Error constructor (OP_call + OP_call_constructor) — TypeError
+    on Symbol message + InstallErrorCause per §19.5.1.1 step 3.a +
+    step 4.**  Reject Symbol message arg at both call paths so
+    `Error(Symbol())` / `new Error(Symbol())` raise the spec
+    TypeError.  Plus InstallErrorCause: copy options.cause onto the
+    result as a {writable:true, enumerable:false, configurable:true}
+    data prop (0x3) when the options object exposes the key, and
+    propagate any abrupt from a throwing accessor `get cause()`.
+
+  * **Map.groupBy: TypeError on nullish @@iterator per §7.4.3
+    step 3.**  GetIterator(obj) calls GetMethod(obj, @@iterator);
+    GetMethod rejects present-but-nullish values with TypeError.
+    Pre-fix the impl walked the array-like length protocol whenever
+    @@iterator was absent, so `{[Symbol.iterator]: null}` fell
+    through to silently produce an empty Map.
+
+  * **Proxy lookupTrap: TypeError on present-but-non-callable trap
+    per §7.3.10 GetMethod step 5.**  GetMethod(handler, "trap")
+    rejects non-callable values that are neither null nor undefined.
+    Pre-fix lookupTrap collapsed both "absent / nullish" and "present
+    but non-callable" into nullptr, so `new Proxy({}, {get: {}})`
+    silently fell through to the default behaviour instead of
+    surfacing the spec TypeError.
+
+  * **Proxy default get: invoke accessor getter with Receiver as
+    `this` per §10.1.8.1 step 8.c.**  When the proxy has no get trap
+    and the resolved property is an accessor descriptor, defaultGet
+    must invoke the getter with the original Receiver bound as
+    `this`, not the target.  Pre-fix `var t = { get attr() { return
+    this; } }; var p = new Proxy(t, {}); p.attr` returned `t`
+    instead of `p`.
+
+  * **RegExp.prototype[@@replace]: propagate ToString(replaceValue)
+    abrupt per §22.2.6.11 step 6.**  objToStr already throws
+    TypeError when both toString and valueOf return non-primitives,
+    but regexpSymbolReplace ignored hasCallException() after the
+    call and used the empty fallback as the replacement string.
+
+R38 also reverts an overly broad Symbol guard in the generic
+toString helper (it fired on every Object display / iteration of
+Symbol-keyed properties, regressing Object.entries / values / freeze
+/ seal) and the apply/call primitive-boxing fix (no strict-mode
+marker on closures, so the box ran under strict-mode call.call(prim)
+and tripped the 6-test 15.3.4.{3,4}-N-s family).  The Error
+Symbol-message TypeError survives as an explicit guard at the
+construct path instead of via the generic helper.
+
+10-family roll-up (built-ins Function / Object / Array / String /
+Symbol / Map / Set / Proxy / Reflect / WeakMap):
+
+| Family | This run | R37 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 404 / 509 (79.4 %) | 404 / 509 | 0 |
+| `built-ins/Object` | **3 031 / 3 411** (88.9 %) | 3 029 / 3 411 | **+2** |
+| `built-ins/Array` | 2 866 / 3 081 (93.0 %) | 2 866 / 3 081 | 0 |
+| `built-ins/String` | **1 118 / 1 223** (91.4 %) | 1 104 / 1 223 | **+14** |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | **192 / 204** (94.1 %) | 191 / 204 | **+1** |
+| `built-ins/Set` | 366 / 383 (95.6 %) | 366 / 383 | 0 |
+| `built-ins/Proxy` | **94 / 311** (30.2 %) | 89 / 311 | **+5** |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 131 / 141 (92.9 %) | 131 / 141 | 0 |
+| **TOTAL** | **8 413 / 9 514** (**88.43 %**) | 8 391 / 9 514 (88.20 %) | **+22** (+0.23 pp) |
+
+The bulk of R38's gains land in String (matchAll + match no-args +
+split undefined-separator + RegExp[@@split] loop bound + exec
+non-global lastIndex reset) and Proxy (lookupTrap callable check +
+default-get receiver binding).  Function / Symbol / Array / Reflect /
+WeakMap held flat — the remaining failures there gate on harder
+infrastructure work (strict-mode marker on closures, primitive vs
+boxed Symbol identity, sparse-hole vs explicit-undefined
+distinction, ownKeys spec ordering, iterator-close protocol).
+
+---
+
 **Round 37 — 2026-06-11** (~60 commits, autonomous "advance 100
 commits, pick the most effective") — post-R36 cleanup across the
 Proxy bracket-access dispatch, Reflect descriptor abrupts, Symbol
