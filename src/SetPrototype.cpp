@@ -1283,17 +1283,36 @@ static const proto::ProtoObject* setIsDisjointFrom(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "isDisjointFrom")) return PROTO_NONE;
+    double otherSize = 0.0;
+    if (!getSetRecord(ctx, other, "isDisjointFrom", &otherSize)) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
-    const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
-    while (it && it->hasNext(ctx)) {
-        const proto::ProtoObject* v = it->nextValue(ctx);
-        it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
-        if (!v) v = PROTO_NONE;
-        if (setLikeHas(ctx, other, v)) return PROTO_FALSE;
+    long thisSize = getSetSize(ctx, self);
+    // §24.2.4.10 step 4: when this.size <= other.size, iterate self and
+    // probe other.has; otherwise iterate other.keys() and probe
+    // self.has. The branch matters because the tests assert other.has
+    // is NOT called when this.size > other.size.
+    if (static_cast<double>(thisSize) <= otherSize) {
+        const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            const proto::ProtoObject* v = it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            if (!v) v = PROTO_NONE;
+            if (setLikeHas(ctx, other, v)) return PROTO_FALSE;
+        }
+        return PROTO_TRUE;
     }
-    return PROTO_TRUE;
+    bool disjoint = true;
+    bool ok = iterateSetLikeKeys(ctx, other,
+        [&](const proto::ProtoObject* v) -> bool {
+            if (setContains(ctx, self, v)) { disjoint = false; return false; }
+            return true;
+        });
+    if (!ok && !disjoint == false) {
+        // ok=false from abrupt completion; propagate.
+        if (hasCallException()) return PROTO_NONE;
+    }
+    return disjoint ? PROTO_TRUE : PROTO_FALSE;
 }
 
 } // anonymous namespace
