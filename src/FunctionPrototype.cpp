@@ -169,7 +169,23 @@ static const proto::ProtoObject* fnApply(
         const proto::ProtoString* lenKey = JSSymbols::length(ctx);
         long long alen = 0;
         if (lenKey) {
-            const proto::ProtoObject* lo = argsArray->getAttribute(ctx, lenKey, false);
+            // §7.3.18 CreateListFromArrayLike: Get(obj, "length") must
+            // fire accessor getters and propagate their abrupt completions.
+            // Pre-fix only the data slot was read so a `get length()` that
+            // threw was silently swallowed (test262 apply/get-length-abrupt).
+            const proto::ProtoObject* lo = nullptr;
+            const proto::ProtoString* gk =
+                ctx->fromUTF8String("__get_length__")->asString(ctx);
+            if (gk) {
+                const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE) {
+                    lo = callJSFunction(ctx, getter, argsArray, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+            if (!lo || lo == PROTO_NONE) {
+                lo = argsArray->getAttribute(ctx, lenKey, true);
+            }
             if (lo && lo != PROTO_NONE) {
                 if (lo->isInteger(ctx))      alen = lo->asLong(ctx);
                 else if (lo->isDouble(ctx))  alen = static_cast<long long>(lo->asDouble(ctx));
@@ -178,12 +194,26 @@ static const proto::ProtoObject* fnApply(
         for (long long i = 0; i < alen; i++) {
             // Read via arrayTryFastGet first (arrays store elements in
             // __elements__ ProtoList) — falling back to indexed-attribute
-            // lookup keeps legacy array-likes working.
+            // lookup keeps legacy array-likes working.  Also probe the
+            // __get_<i>__ sidecar so accessor getters fire and abrupt
+            // completions propagate (apply/get-index-abrupt).
             const proto::ProtoObject* av = arrayTryFastGet(ctx, argsArray, static_cast<unsigned long>(i));
             if (!av) {
-                const proto::ProtoString* ik =
-                    JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                av = ik ? argsArray->getAttribute(ctx, ik, false) : PROTO_NONE;
+                std::string gks = "__get_" + std::to_string(i) + "__";
+                const proto::ProtoString* gk =
+                    ctx->fromUTF8String(gks.c_str())->asString(ctx);
+                if (gk) {
+                    const proto::ProtoObject* getter = argsArray->getAttribute(ctx, gk, true);
+                    if (getter && getter != PROTO_NONE) {
+                        av = callJSFunction(ctx, getter, argsArray, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+                if (!av || av == PROTO_NONE) {
+                    const proto::ProtoString* ik =
+                        JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
+                    av = ik ? argsArray->getAttribute(ctx, ik, true) : PROTO_NONE;
+                }
             }
             callArgs = callArgs->appendLast(ctx, av ? av : PROTO_NONE);
         }
