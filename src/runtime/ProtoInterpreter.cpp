@@ -1340,6 +1340,55 @@ static const proto::ProtoObject* reflectDefineProperty(
             (void)k;
         }
     }
+    // §28.1.3 step 3: ToPropertyDescriptor(attributes) — abrupt
+    // completions from accessor getters on the descriptor object must
+    // propagate.  Pre-fix this routed the whole call through
+    // Object.defineProperty, then swallowed all abrupts into PROTO_FALSE
+    // — so an `enumerable` getter that threw was hidden.  Pre-read each
+    // standard descriptor slot here; any throw surfaces before the
+    // forward call.  HasProperty + Get sequence per §6.2.5.5.
+    {
+        const proto::ProtoObject* desc = (args->getSize(ctx) > 2)
+            ? args->getAt(ctx, 2) : PROTO_NONE;
+        if (desc && desc != PROTO_NONE && desc != getNullSentinel()
+            && desc != getUndefinedSentinel()
+            && !desc->isInteger(ctx) && !desc->isDouble(ctx)
+            && !desc->isFloat(ctx) && !desc->isString(ctx)
+            && !desc->isBoolean(ctx)) {
+            static const char* descKeys[] = {
+                "enumerable", "configurable", "writable",
+                "value", "get", "set", nullptr
+            };
+            for (int i = 0; descKeys[i]; ++i) {
+                const proto::ProtoObject* ko = ctx->fromUTF8String(descKeys[i]);
+                const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+                if (!ks) continue;
+                if (desc->hasAttribute(ctx, ks) != PROTO_TRUE) {
+                    // Check accessor sidecar.
+                    std::string sk = std::string("__get_") + descKeys[i] + "__";
+                    const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+                    const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+                    if (!sks || desc->hasAttribute(ctx, sks) != PROTO_TRUE) continue;
+                }
+                // Probe the value (or invoke the getter) once to surface
+                // any abrupt.  Ignore the result — the downstream
+                // delegate re-reads.
+                (void)desc->getAttribute(ctx, ks, true);
+                if (t_hasCallException) return PROTO_NONE;
+                std::string sk = std::string("__get_") + descKeys[i] + "__";
+                const proto::ProtoObject* sko = ctx->fromUTF8String(sk.c_str());
+                const proto::ProtoString* sks = sko ? sko->asString(ctx) : nullptr;
+                if (sks) {
+                    const proto::ProtoObject* getter = desc->getAttribute(ctx, sks, true);
+                    if (getter && getter != PROTO_NONE
+                        && getter != getUndefinedSentinel()) {
+                        (void)callJSFunction(ctx, getter, desc, ctx->newList());
+                        if (t_hasCallException) return PROTO_NONE;
+                    }
+                }
+            }
+        }
+    }
     if (protojs::isProxy(ctx, target)) {
         const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "defineProperty");
         if (trap) {
