@@ -4,6 +4,7 @@
 #include "JSSymbols.h"
 #include "JSContext.h"
 #include "TypeBridge.h"
+#include "runtime/ProtoInterpreter.h"
 #include "headers/protoCore.h"
 extern "C" {
 #include "libregexp.h"
@@ -483,7 +484,38 @@ const proto::ProtoObject* regexpSymbolReplace(
                 }
             }
         } else {
-            replacement = fullMatch;
+            // §22.2.6.11 step 14.k: build (match, ...captures, position,
+            // string) and call the replacer.  Pre-fix the function branch
+            // dropped its return value and used `fullMatch` as the
+            // replacement, so every regex /.../ + function callback was a
+            // no-op (Sputnik S15.5.4.11_A4_T1..4).
+            const proto::ProtoList* callArgs = ctx->newList();
+            callArgs = callArgs->appendLast(ctx, ctx->fromUTF8String(fullMatch.c_str()));
+            // Walk numbered captures sequentially via indexKey(1..N).
+            // Stop on the first absent slot — the match exposes captures
+            // as own integer-indexed attrs starting at 1, with the
+            // total count not directly stored, so probing-until-absent
+            // is the cheapest portable shape.
+            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+            long long captureCount = 0;
+            if (lenKey) {
+                const proto::ProtoObject* lenVal = match->getAttribute(ctx, lenKey, false);
+                if (lenVal && lenVal->isInteger(ctx)) captureCount = lenVal->asLong(ctx);
+            }
+            for (long long ci = 1; ci < captureCount; ci++) {
+                const proto::ProtoObject* cap =
+                    match->getAttribute(ctx, JSSymbols::indexKey(ctx, static_cast<uint32_t>(ci)), false);
+                if (!cap || cap == PROTO_NONE) {
+                    callArgs = callArgs->appendLast(ctx, getUndefinedSentinel());
+                } else {
+                    callArgs = callArgs->appendLast(ctx, cap);
+                }
+            }
+            callArgs = callArgs->appendLast(ctx, ctx->fromInteger(matchStart));
+            callArgs = callArgs->appendLast(ctx, strArg);
+            const proto::ProtoObject* fnRes = callJSFunction(ctx, replaceValue, PROTO_NONE, callArgs);
+            if (hasCallException()) return PROTO_NONE;
+            replacement = objToStr(ctx, fnRes);
         }
 
         result += replacement;
