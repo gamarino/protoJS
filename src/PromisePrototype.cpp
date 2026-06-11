@@ -323,6 +323,34 @@ static const proto::ProtoObject* promiseFinally(
     const proto::ProtoObject* onFinally = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     if (!onFinally) onFinally = PROTO_NONE;
 
+    // §27.2.5.3 step 7: Return ? Invoke(promise, "then", «thenFinally,
+    // catchFinally»).  Dispatch through Get(self, "then") so a user-
+    // overridden `then` on the receiver / its prototype chain fires
+    // (test262 finally/invokes-then-with-function, finally/
+    // resolved-observable-then-calls).  Pre-fix the native fast path
+    // ran the onFinally callback inline and skipped self.then entirely.
+    // §27.2.5.3 step 7: ALWAYS go through Get(self, "then") so a
+    // user-installed override on the receiver (even when the receiver
+    // is a native Promise) fires per spec.
+    const proto::ProtoString* thenK = ctx->fromUTF8String("then")->asString(ctx);
+    const proto::ProtoObject* thenFn = thenK
+        ? self->getAttribute(ctx, thenK, true) : PROTO_NONE;
+    bool useUserThen = thenFn && thenFn != PROTO_NONE
+        && thenFn != getUndefinedSentinel();
+    if (useUserThen) {
+        bool callable = thenFn->isMethod(ctx);
+        const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+        if (!callable && bcK && thenFn->hasAttribute(ctx, bcK) == PROTO_TRUE) callable = true;
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (!callable && nfK && thenFn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
+        if (callable) {
+            const proto::ProtoList* cbArgs = ctx->newList();
+            cbArgs = cbArgs->appendLast(ctx, onFinally);
+            cbArgs = cbArgs->appendLast(ctx, onFinally);
+            return callJSFunction(ctx, thenFn, self, cbArgs);
+        }
+    }
+
     int state = getPromiseState(ctx, self);
     const proto::ProtoObject* value = getPromiseValue(ctx, self);
 
