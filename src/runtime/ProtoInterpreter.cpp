@@ -818,7 +818,10 @@ static const proto::ProtoObject* reflectHas(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.has")) return PROTO_FALSE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_FALSE;
-    const proto::ProtoString* k = key->asString(ctx);
+    // §28.1.9 step 2: ToPropertyKey propagates abrupts (test262
+    // Reflect/has/return-abrupt-from-property-key).
+    const proto::ProtoString* k = protojs::toPropertyKey(ctx, key);
+    if (t_hasCallException) return PROTO_NONE;
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
@@ -1082,7 +1085,8 @@ static const proto::ProtoObject* reflectDeleteProperty(
     if (reflectThrowIfNotObject(ctx, target, "Reflect.deleteProperty")) return PROTO_FALSE;
     const proto::ProtoObject* key = (args->getSize(ctx) > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
     if (!key) return PROTO_FALSE;
-    const proto::ProtoString* k = key->asString(ctx);
+    const proto::ProtoString* k = protojs::toPropertyKey(ctx, key);
+    if (t_hasCallException) return PROTO_NONE;
     if (!k && key->isInteger(ctx))
         k = JSSymbols::indexKey(ctx, static_cast<uint32_t>(key->asLong(ctx)));
     if (!k) return PROTO_FALSE;
