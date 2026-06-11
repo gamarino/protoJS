@@ -458,12 +458,13 @@ static const proto::ProtoObject* iteratorMap(
         if (!callable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
     }
     if (!callable) {
+        // §27.1.4.x step 2 IfAbruptCloseIterator: argument-validation
+        // failure must close the underlying iterator first.
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Iterator.prototype.map: callback is not callable"));
         return PROTO_NONE;
     }
-    // Validate underlying iterator now so test262 can verify ordering.
-    if (!iterGetNext(ctx, self, "map")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorMapNext, self, fn, 0);
 }
 
@@ -527,11 +528,11 @@ static const proto::ProtoObject* iteratorFilter(
         if (!callable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
     }
     if (!callable) {
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Iterator.prototype.filter: callback is not callable"));
         return PROTO_NONE;
     }
-    if (!iterGetNext(ctx, self, "filter")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorFilterNext, self, fn, 0);
 }
 
@@ -611,8 +612,10 @@ static const proto::ProtoObject* iteratorTake(
         // simplicity reject as NaN.
         limitNum = std::nan("");
     }
-    // §27.1.4.5 step 4: NaN → RangeError.
+    // §27.1.4.5 step 4: NaN → RangeError.  IfAbruptCloseIterator: close
+    // the underlying iterator before re-raising.
     if (limitNum != limitNum) {
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "RangeError",
             "Iterator.prototype.take: limit must not be NaN"));
         return PROTO_NONE;
@@ -621,13 +624,13 @@ static const proto::ProtoObject* iteratorTake(
     // toward zero; for -0.5 this yields 0 (not -1).
     double integerLimit = std::trunc(limitNum);
     if (integerLimit < 0) {
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "RangeError",
             "Iterator.prototype.take: limit must be non-negative"));
         return PROTO_NONE;
     }
     long long remaining = (integerLimit > static_cast<double>(0x7FFFFFFFLL))
         ? 0x7FFFFFFFLL : static_cast<long long>(integerLimit);
-    if (!iterGetNext(ctx, self, "take")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorTakeNext, self, PROTO_NONE, remaining);
 }
 
@@ -705,12 +708,14 @@ static const proto::ProtoObject* iteratorDrop(
         limitNum = std::numeric_limits<double>::quiet_NaN();
     }
     if (limitNum != limitNum) {
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "RangeError",
             "Iterator.prototype.drop: limit must not be NaN"));
         return PROTO_NONE;
     }
     double integerLimit = std::trunc(limitNum);
     if (integerLimit < 0) {
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "RangeError",
             "Iterator.prototype.drop: limit must be non-negative"));
         return PROTO_NONE;
@@ -718,7 +723,6 @@ static const proto::ProtoObject* iteratorDrop(
     (void)valid;
     long long skipCount = (integerLimit > static_cast<double>(0x7FFFFFFFLL))
         ? 0x7FFFFFFFLL : static_cast<long long>(integerLimit);
-    if (!iterGetNext(ctx, self, "drop")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorDropNext, self, PROTO_NONE, skipCount);
 }
 
@@ -822,11 +826,11 @@ static const proto::ProtoObject* iteratorFlatMap(
         if (!callable && nfK && fn->hasAttribute(ctx, nfK) == PROTO_TRUE) callable = true;
     }
     if (!callable) {
+        iterClose(ctx, self);
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Iterator.prototype.flatMap: callback is not callable"));
         return PROTO_NONE;
     }
-    if (!iterGetNext(ctx, self, "flatMap")) return PROTO_NONE;
     return makeHelperIterator(ctx, iteratorFlatMapNext, self, fn, 0);
 }
 
