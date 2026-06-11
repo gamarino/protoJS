@@ -2323,7 +2323,22 @@ const proto::ProtoObject* stringNormalize(
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* formArg = args->getAt(ctx, 0);
         if (formArg && formArg != PROTO_NONE && formArg != getUndefinedSentinel()) {
+            // §22.1.3.14 step 5: ToString(form) propagates abrupt
+            // completions.  ToString on a Symbol primitive raises
+            // TypeError per §7.1.17; pre-fix objToStr silently
+            // stringified Symbols as "Symbol(...)" and the form check
+            // dropped down to the RangeError branch instead of the
+            // TypeError the test262 fixture asserts.
+            {
+                const proto::ProtoString* symMk = JSSymbols::isSymbol(ctx);
+                if (symMk && formArg->getAttribute(ctx, symMk, true) == PROTO_TRUE) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Cannot convert a Symbol value to a string"));
+                    return PROTO_NONE;
+                }
+            }
             std::string form = objToStr(ctx, formArg);
+            if (hasCallException()) return PROTO_NONE;
             if (form != "NFC" && form != "NFD" && form != "NFKC" && form != "NFKD") {
                 signalNativeException(makeNativeError(ctx, "RangeError",
                     "Invalid normalization form"));
