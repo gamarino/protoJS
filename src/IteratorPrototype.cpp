@@ -873,6 +873,63 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
     installHelper(ctx, &proto, "drop",    iteratorDrop,    1);
     installHelper(ctx, &proto, "flatMap", iteratorFlatMap, 1);
 
+    // §27.1.4.13 Iterator.prototype[@@dispose] — calls this.return()
+    // if present.  Used by the explicit-resource-management proposal
+    // (Stage 3, 2024).
+    {
+        static const auto iteratorSymbolDispose = [](
+            proto::ProtoContext* dctx, const proto::ProtoObject* dself,
+            const proto::ParentLink*, const proto::ProtoList*,
+            const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+            if (!iterRequireObject(dctx, dself, "[Symbol.dispose]")) return PROTO_NONE;
+            const proto::ProtoObject* retKo = dctx->fromUTF8String("return");
+            const proto::ProtoString* retK = retKo ? retKo->asString(dctx) : nullptr;
+            if (retK) {
+                const proto::ProtoObject* fn = dself->getAttribute(dctx, retK, true);
+                if (fn && fn != PROTO_NONE && fn != getUndefinedSentinel()
+                    && fn != getNullSentinel()) {
+                    bool callable = fn->isMethod(dctx);
+                    const proto::ProtoString* bcK = JSSymbols::bytecodeId(dctx);
+                    if (!callable && bcK && fn->hasAttribute(dctx, bcK) == PROTO_TRUE) callable = true;
+                    const proto::ProtoString* nfK = JSSymbols::nativeFn(dctx);
+                    if (!callable && nfK && fn->hasAttribute(dctx, nfK) == PROTO_TRUE) callable = true;
+                    if (callable) {
+                        (void)callJSFunction(dctx, fn, dself, dctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
+            return getUndefinedSentinel();
+        };
+        const proto::ProtoObject* dispKo = ctx->fromUTF8String("Symbol.dispose");
+        const proto::ProtoString* dispK = dispKo ? dispKo->asString(ctx) : nullptr;
+        if (dispK) {
+            // Build a Function-prototype-parented wrapper, same shape as
+            // installHelper.
+            const proto::ProtoObject* parent = ctx->space ? ctx->space->methodPrototype : nullptr;
+            const proto::ProtoObject* wrap = parent
+                ? parent->newChild(ctx, true) : ctx->newObject(true);
+            const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+            if (nfK) wrap = wrap->setAttribute(ctx, nfK, ctx->fromMethod(nullptr, iteratorSymbolDispose));
+            const proto::ProtoString* nK = JSSymbols::name(ctx);
+            if (nK) {
+                wrap = wrap->setAttribute(ctx, nK, ctx->fromUTF8String("[Symbol.dispose]"));
+                const proto::ProtoString* pdnK = JSSymbols::pdName(ctx);
+                if (pdnK) wrap = wrap->setAttribute(ctx, pdnK, ctx->fromInteger(0x2LL));
+            }
+            const proto::ProtoString* lK = JSSymbols::length(ctx);
+            if (lK) {
+                wrap = wrap->setAttribute(ctx, lK, ctx->fromInteger(0LL));
+                const proto::ProtoString* pdlK = JSSymbols::pdLength(ctx);
+                if (pdlK) wrap = wrap->setAttribute(ctx, pdlK, ctx->fromInteger(0x2LL));
+            }
+            proto = proto->setAttribute(ctx, dispK, wrap);
+            const proto::ProtoObject* pdo = ctx->fromUTF8String("__pd_Symbol.dispose__");
+            const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdK) proto = proto->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
+        }
+    }
+
     s_iteratorProto = proto;
     return s_iteratorProto;
 }
