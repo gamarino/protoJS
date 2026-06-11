@@ -198,6 +198,29 @@ static const proto::ProtoObject* promiseThen(
         return PROTO_NONE;
     }
 
+    // §27.2.5.4 step 3 + §27.2.4.7 SpeciesConstructor: when
+    // self.constructor is non-undefined non-Object, TypeError.  Pre-fix
+    // the species check never ran on .then so
+    // `p.constructor = null; p.then()` silently succeeded (test262
+    // then/ctor-null, ctor-throws).
+    {
+        const proto::ProtoString* ctorKey = JSSymbols::constructor(ctx);
+        if (ctorKey) {
+            const proto::ProtoObject* c = self->getAttribute(ctx, ctorKey, true);
+            if (c && c != PROTO_NONE && c != getUndefinedSentinel()) {
+                bool isPrim = c == getNullSentinel()
+                    || c->isInteger(ctx) || c->isDouble(ctx)
+                    || c->isFloat(ctx)   || c->isBoolean(ctx)
+                    || c->isString(ctx);
+                if (isPrim) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "SpeciesConstructor: constructor is not an Object"));
+                    return PROTO_NONE;
+                }
+            }
+        }
+    }
+
     int argc = args ? args->getSize(ctx) : 0;
     const proto::ProtoObject* onFulfilled = (argc > 0) ? args->getAt(ctx, 0) : PROTO_NONE;
     const proto::ProtoObject* onRejected  = (argc > 1) ? args->getAt(ctx, 1) : PROTO_NONE;
