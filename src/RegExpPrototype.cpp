@@ -175,11 +175,27 @@ const proto::ProtoObject* regexpExec(
     const proto::ParentLink*, const proto::ProtoList* args,
     const proto::ProtoSparseList*)
 {
-    if (!ctx || !self) return PROTO_NONE;
-
+    if (!ctx) return PROTO_NONE;
+    // §22.2.6.2 step 1-2: receiver must be an Object with an
+    // [[OriginalSource]] internal slot.  Pre-fix the bcObj absence
+    // silently returned PROTO_NONE (interpreted as `undefined`), so
+    // `RegExp.prototype.exec.call({}, ...)` produced undefined where
+    // the spec demands TypeError.
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()
+        || self->isString(ctx) || self->isInteger(ctx)
+        || self->isDouble(ctx) || self->isFloat(ctx) || self->isBoolean(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp.prototype.exec called on non-Object"));
+        return PROTO_NONE;
+    }
     const proto::ProtoString* bcKey = JSSymbols::reBytecode(ctx);
     const proto::ProtoObject* bcObj = self->getAttribute(ctx, bcKey, false);
-    if (!bcObj || bcObj == PROTO_NONE) return PROTO_NONE;
+    if (!bcObj || bcObj == PROTO_NONE) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp.prototype.exec called on a non-RegExp object"));
+        return PROTO_NONE;
+    }
 
     const proto::ProtoByteBuffer* bcBuffer = reinterpret_cast<const proto::ProtoByteBuffer*>(bcObj);
     const uint8_t* bc = reinterpret_cast<const uint8_t*>(bcBuffer->getBuffer(ctx));
@@ -269,7 +285,11 @@ const proto::ProtoObject* regexpExec(
             self->setAttribute(ctx, lastIndexKey, ctx->fromInteger(0));
         }
         delete[] captures;
-        return PROTO_NONE;
+        // §22.2.7.2 step 31: RegExpBuiltinExec returns null on no match.
+        // Pre-fix the PROTO_NONE return surfaced as `undefined` at the
+        // JS level, so the standard `while ((m = re.exec(s)) !== null)`
+        // idiom broke on global regexes.
+        return getNullSentinel();
     }
 }
 
