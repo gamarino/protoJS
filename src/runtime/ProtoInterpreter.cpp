@@ -4590,6 +4590,13 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(pContext);
                     if (hnw) stub = stub->setAttribute(pContext, hnw, PROTO_TRUE);
                 }
+                // Iterator static methods (Iterator.from / .concat /
+                // .zip / .zipKeyed) — §27.1.2 Stage 4 2025.  Hook into
+                // the unimplemented-ctor loop so the statics are
+                // visible on `Iterator.<method>` from JS.
+                if (std::string(ctorName) == "Iterator") {
+                    stub = protojs::installIteratorStatics(pContext, stub);
+                }
                 *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, ck, stub);
                 // §17 globalThis.<Ctor> descriptor 0x3.
                 std::string pdStr = std::string("__pd_") + ctorName + "__";

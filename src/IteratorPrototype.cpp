@@ -987,4 +987,475 @@ const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx) {
     return s_iteratorProto;
 }
 
+// ---------------------------------------------------------------------------
+// Iterator static methods (ES2024 §27.1.2.*).
+// ---------------------------------------------------------------------------
+
+// Helper: GetIterator(O, hint=sync) — calls O[@@iterator]() to extract
+// the iterator.  Returns the inner iterator or nullptr on abrupt.
+// When O directly carries a callable `.next`, treat it as already an
+// iterator and return as-is (§27.1.2.1.1.1 step 3 fallback).
+static const proto::ProtoObject* getIteratorFor(
+    proto::ProtoContext* ctx, const proto::ProtoObject* O)
+{
+    if (!O || O == PROTO_NONE || O == getNullSentinel()
+        || O == getUndefinedSentinel()) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Iterator.from: argument is not iterable"));
+        return nullptr;
+    }
+    // Numeric / Boolean primitives: not iterable.
+    if (O->isInteger(ctx) || O->isDouble(ctx) || O->isFloat(ctx)
+        || O->isBoolean(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Iterator.from: primitive not iterable"));
+        return nullptr;
+    }
+    const proto::ProtoString* itoK = JSSymbols::symbolIterator(ctx);
+    const proto::ProtoObject* itoFn = itoK ? O->getAttribute(ctx, itoK, true) : nullptr;
+    if (itoFn && itoFn != PROTO_NONE && itoFn != getUndefinedSentinel()
+        && itoFn != getNullSentinel()) {
+        const proto::ProtoObject* it = callJSFunction(ctx, itoFn, O, ctx->newList());
+        if (hasCallException()) return nullptr;
+        if (!it || it == PROTO_NONE
+            || it == getNullSentinel() || it == getUndefinedSentinel()
+            || it->isInteger(ctx) || it->isDouble(ctx)
+            || it->isFloat(ctx) || it->isBoolean(ctx) || it->isString(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Iterator.from: @@iterator did not return an Object"));
+            return nullptr;
+        }
+        return it;
+    }
+    // Fallback: treat O itself as the iterator (must have callable next).
+    const proto::ProtoObject* nextFn = iterGetNext(ctx, O, "from");
+    if (!nextFn) return nullptr;
+    return O;
+}
+
+// ---------------------------------------------------------------------------
+// Iterator.from(O) — wrap an iterable / iterator into a fresh iterator
+// chained on %IteratorPrototype% (§27.1.2.1).
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* iteratorFromNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
+    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* underlying = uK ? self->getAttribute(ctx, uK, false) : nullptr;
+    if (!underlying || underlying == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* nextFn = iterGetNext(ctx, underlying, "from");
+    if (!nextFn) return PROTO_NONE;
+    bool done = false;
+    const proto::ProtoObject* val = nullptr;
+    (void)iterStep(ctx, underlying, nextFn, &done, &val);
+    if (hasCallException()) return PROTO_NONE;
+    if (done) return makeIterResult(ctx, getUndefinedSentinel(), true);
+    return makeIterResult(ctx, val, false);
+}
+
+static const proto::ProtoObject* iteratorFrom(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* O = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    // String primitive: wrap via @@iterator route below; ToObject first.
+    if (O && O->isString(ctx)) {
+        // Use the String wrapper's @@iterator path — but our impl exposes
+        // the protostring's iterator directly via stringPrototype.
+        // For simplicity, extract characters into an array iterator.
+        const proto::ProtoString* itoK = JSSymbols::symbolIterator(ctx);
+        if (itoK) {
+            const proto::ProtoObject* itoFn = O->getAttribute(ctx, itoK, true);
+            if (itoFn && itoFn != PROTO_NONE) {
+                const proto::ProtoObject* inner = callJSFunction(ctx, itoFn, O, ctx->newList());
+                if (hasCallException()) return PROTO_NONE;
+                if (inner && inner != PROTO_NONE) {
+                    return makeHelperIterator(ctx, iteratorFromNext, inner, PROTO_NONE, 0);
+                }
+            }
+        }
+    }
+    const proto::ProtoObject* inner = getIteratorFor(ctx, O);
+    if (!inner) return PROTO_NONE;
+    // Optimisation: if `inner` is already chained on %IteratorPrototype%,
+    // the spec says we can return it directly.  But for simplicity wrap
+    // every result so the helpers chain through our prototype.
+    return makeHelperIterator(ctx, iteratorFromNext, inner, PROTO_NONE, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Iterator.concat(...iterables) — flatten the supplied iterables into
+// a single iterator (§27.1.2.2 Stage 4 2025).
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* iteratorConcatNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    // __helper_underlying__ holds an array of the source iterables.
+    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
+    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* sources = uK ? self->getAttribute(ctx, uK, false) : nullptr;
+    if (!sources || sources == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* idxKo = ctx->fromUTF8String("__helper_counter__");
+    const proto::ProtoString* idxK = idxKo ? idxKo->asString(ctx) : nullptr;
+    long long idx = 0;
+    if (idxK) {
+        const proto::ProtoObject* cv = self->getAttribute(ctx, idxK, false);
+        if (cv && cv->isInteger(ctx)) idx = cv->asLong(ctx);
+    }
+    const proto::ProtoObject* innerKo = ctx->fromUTF8String("__helper_inner__");
+    const proto::ProtoString* innerK = innerKo ? innerKo->asString(ctx) : nullptr;
+    const proto::ProtoList* arr = getArrayElements(ctx, sources);
+    if (!arr) return makeIterResult(ctx, getUndefinedSentinel(), true);
+    long long arrLen = static_cast<long long>(arr->getSize(ctx));
+    for (;;) {
+        const proto::ProtoObject* inner = innerK ? self->getAttribute(ctx, innerK, false) : nullptr;
+        if (inner && inner != PROTO_NONE && inner != getUndefinedSentinel()) {
+            const proto::ProtoObject* innerNext = iterGetNext(ctx, inner, "concat");
+            if (!innerNext) return PROTO_NONE;
+            bool done = false;
+            const proto::ProtoObject* val = nullptr;
+            (void)iterStep(ctx, inner, innerNext, &done, &val);
+            if (hasCallException()) return PROTO_NONE;
+            if (!done) return makeIterResult(ctx, val, false);
+            // Inner exhausted — move to next source.
+            if (innerK) self->setAttribute(ctx, innerK, getUndefinedSentinel());
+            idx++;
+            if (idxK) self->setAttribute(ctx, idxK, ctx->fromInteger(idx));
+        }
+        if (idx >= arrLen) return makeIterResult(ctx, getUndefinedSentinel(), true);
+        const proto::ProtoObject* src = arr->getAt(ctx, static_cast<int>(idx));
+        if (!src || src == PROTO_NONE) { idx++; if (idxK) self->setAttribute(ctx, idxK, ctx->fromInteger(idx)); continue; }
+        const proto::ProtoObject* newInner = getIteratorFor(ctx, src);
+        if (!newInner) return PROTO_NONE;
+        if (innerK) self->setAttribute(ctx, innerK, newInner);
+    }
+}
+
+static const proto::ProtoObject* iteratorConcat(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    // §27.1.2.2 step 2: every argument must be an Object with
+    // @@iterator (or itself an iterator).  Validate them eagerly before
+    // returning the wrapper so the test262 fixtures see the abrupt at
+    // call time, not at first .next().
+    int argc = args ? args->getSize(ctx) : 0;
+    const proto::ProtoObject* sources = createNewArray(ctx, nullptr);
+    const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+    if (isArrK) sources = sources->setAttribute(ctx, isArrK, PROTO_TRUE);
+    const proto::ProtoList* els = ctx->newList();
+    for (int i = 0; i < argc; i++) {
+        const proto::ProtoObject* it = args->getAt(ctx, i);
+        if (!it || it == PROTO_NONE
+            || it == getNullSentinel() || it == getUndefinedSentinel()
+            || it->isInteger(ctx) || it->isDouble(ctx)
+            || it->isFloat(ctx) || it->isBoolean(ctx)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Iterator.concat: argument is not an iterable"));
+            return PROTO_NONE;
+        }
+        // GetMethod(@@iterator) must be callable.  We don't call it
+        // here — that happens lazily in .next — but we validate
+        // presence/callability up front.
+        const proto::ProtoString* itoK = JSSymbols::symbolIterator(ctx);
+        const proto::ProtoObject* itoFn = itoK ? it->getAttribute(ctx, itoK, true) : nullptr;
+        if (!itoFn || itoFn == PROTO_NONE
+            || itoFn == getUndefinedSentinel() || itoFn == getNullSentinel()) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Iterator.concat: argument lacks @@iterator"));
+            return PROTO_NONE;
+        }
+        els = els->appendLast(ctx, it);
+    }
+    setArrayElements(ctx, sources, els);
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    if (lenK) sources = sources->setAttribute(ctx, lenK, ctx->fromInteger(static_cast<long long>(argc)));
+    return makeHelperIterator(ctx, iteratorConcatNext, sources, PROTO_NONE, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Iterator.zip(iterables) — pair-wise zip of N iterators into tuples.
+// (§27.1.2.3 Stage 4 2025).  Stops at the first exhausted source by
+// default; options.mode = "longest" / "shortest" / "strict".
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* iteratorZipNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
+    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    // sources is an Array of inner iterators.
+    const proto::ProtoObject* sources = uK ? self->getAttribute(ctx, uK, false) : nullptr;
+    if (!sources || sources == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoList* arr = getArrayElements(ctx, sources);
+    if (!arr) return makeIterResult(ctx, getUndefinedSentinel(), true);
+    unsigned long n = arr->getSize(ctx);
+    if (n == 0) return makeIterResult(ctx, getUndefinedSentinel(), true);
+    // Build a result array; stop at first exhausted source (shortest).
+    const proto::ProtoObject* tuple = createNewArray(ctx, nullptr);
+    const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+    if (isArrK) tuple = tuple->setAttribute(ctx, isArrK, PROTO_TRUE);
+    const proto::ProtoList* tEls = ctx->newList();
+    for (unsigned long i = 0; i < n; i++) {
+        const proto::ProtoObject* inner = arr->getAt(ctx, static_cast<int>(i));
+        if (!inner || inner == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
+        const proto::ProtoObject* nextFn = iterGetNext(ctx, inner, "zip");
+        if (!nextFn) return PROTO_NONE;
+        bool done = false;
+        const proto::ProtoObject* val = nullptr;
+        (void)iterStep(ctx, inner, nextFn, &done, &val);
+        if (hasCallException()) return PROTO_NONE;
+        if (done) {
+            // Close remaining inner iterators.
+            for (unsigned long j = 0; j < n; j++) {
+                if (j != i) {
+                    const proto::ProtoObject* other = arr->getAt(ctx, static_cast<int>(j));
+                    if (other && other != PROTO_NONE) iterClose(ctx, other);
+                }
+            }
+            return makeIterResult(ctx, getUndefinedSentinel(), true);
+        }
+        tEls = tEls->appendLast(ctx, val ? val : PROTO_NONE);
+    }
+    setArrayElements(ctx, tuple, tEls);
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    if (lenK) tuple = tuple->setAttribute(ctx, lenK, ctx->fromInteger(static_cast<long long>(n)));
+    return makeIterResult(ctx, tuple, false);
+}
+
+static const proto::ProtoObject* iteratorZip(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* iterables = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (!iterables || iterables == PROTO_NONE
+        || iterables == getNullSentinel() || iterables == getUndefinedSentinel()
+        || iterables->isInteger(ctx) || iterables->isDouble(ctx)
+        || iterables->isFloat(ctx) || iterables->isBoolean(ctx)
+        || iterables->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Iterator.zip: iterables must be an Object"));
+        return PROTO_NONE;
+    }
+    // Materialise inner iterators eagerly.
+    const proto::ProtoList* outerEls = getArrayElements(ctx, iterables);
+    if (!outerEls) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Iterator.zip: iterables must be array-like"));
+        return PROTO_NONE;
+    }
+    const proto::ProtoObject* inners = createNewArray(ctx, nullptr);
+    const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+    if (isArrK) inners = inners->setAttribute(ctx, isArrK, PROTO_TRUE);
+    const proto::ProtoList* innersEls = ctx->newList();
+    unsigned long n = outerEls->getSize(ctx);
+    for (unsigned long i = 0; i < n; i++) {
+        const proto::ProtoObject* src = outerEls->getAt(ctx, static_cast<int>(i));
+        const proto::ProtoObject* inner = getIteratorFor(ctx, src);
+        if (!inner) {
+            // Close previously-acquired iterators.
+            for (unsigned long j = 0; j < i; j++) {
+                const proto::ProtoObject* prev = innersEls->getAt(ctx, static_cast<int>(j));
+                if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
+            }
+            return PROTO_NONE;
+        }
+        innersEls = innersEls->appendLast(ctx, inner);
+    }
+    setArrayElements(ctx, inners, innersEls);
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    if (lenK) inners = inners->setAttribute(ctx, lenK, ctx->fromInteger(static_cast<long long>(n)));
+    return makeHelperIterator(ctx, iteratorZipNext, inners, PROTO_NONE, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Iterator.zipKeyed(iterables) — like zip but yields {key: val, ...}
+// objects keyed by the input object's own keys.  Simpler shape: input
+// is a plain object whose own enumerable values are the iterables.
+// ---------------------------------------------------------------------------
+static const proto::ProtoObject* iteratorZipKeyedNext(
+    proto::ProtoContext* ctx, const proto::ProtoObject* self,
+    const proto::ParentLink*, const proto::ProtoList*,
+    const proto::ProtoSparseList*)
+{
+    if (!self || self == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    // __helper_underlying__ holds the {keys, iters} record (encoded as
+    // a length-2 array: [keysArray, itersArray]).
+    const proto::ProtoObject* uKo = ctx->fromUTF8String("__helper_underlying__");
+    const proto::ProtoString* uK = uKo ? uKo->asString(ctx) : nullptr;
+    const proto::ProtoObject* pair = uK ? self->getAttribute(ctx, uK, false) : nullptr;
+    if (!pair || pair == PROTO_NONE)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoList* pairEls = getArrayElements(ctx, pair);
+    if (!pairEls || pairEls->getSize(ctx) < 2)
+        return makeIterResult(ctx, getUndefinedSentinel(), true);
+    const proto::ProtoObject* keys = pairEls->getAt(ctx, 0);
+    const proto::ProtoObject* iters = pairEls->getAt(ctx, 1);
+    const proto::ProtoList* keysEls = getArrayElements(ctx, keys);
+    const proto::ProtoList* itersEls = getArrayElements(ctx, iters);
+    if (!keysEls || !itersEls) return makeIterResult(ctx, getUndefinedSentinel(), true);
+    unsigned long n = keysEls->getSize(ctx);
+    const proto::ProtoObject* out = ctx->newObject(true);
+    for (unsigned long i = 0; i < n; i++) {
+        const proto::ProtoObject* inner = itersEls->getAt(ctx, static_cast<int>(i));
+        if (!inner || inner == PROTO_NONE) return makeIterResult(ctx, getUndefinedSentinel(), true);
+        const proto::ProtoObject* nextFn = iterGetNext(ctx, inner, "zipKeyed");
+        if (!nextFn) return PROTO_NONE;
+        bool done = false;
+        const proto::ProtoObject* val = nullptr;
+        (void)iterStep(ctx, inner, nextFn, &done, &val);
+        if (hasCallException()) return PROTO_NONE;
+        if (done) {
+            for (unsigned long j = 0; j < n; j++) {
+                if (j != i) {
+                    const proto::ProtoObject* other = itersEls->getAt(ctx, static_cast<int>(j));
+                    if (other && other != PROTO_NONE) iterClose(ctx, other);
+                }
+            }
+            return makeIterResult(ctx, getUndefinedSentinel(), true);
+        }
+        const proto::ProtoObject* key = keysEls->getAt(ctx, static_cast<int>(i));
+        if (key && key->isString(ctx)) {
+            const proto::ProtoString* keyS = key->asString(ctx);
+            if (keyS) out = out->setAttribute(ctx, keyS, val ? val : PROTO_NONE);
+        }
+    }
+    return makeIterResult(ctx, out, false);
+}
+
+static const proto::ProtoObject* iteratorZipKeyed(
+    proto::ProtoContext* ctx, const proto::ProtoObject* /*self*/,
+    const proto::ParentLink*, const proto::ProtoList* args,
+    const proto::ProtoSparseList*)
+{
+    const proto::ProtoObject* obj = (args && args->getSize(ctx) > 0)
+        ? args->getAt(ctx, 0) : PROTO_NONE;
+    if (!obj || obj == PROTO_NONE
+        || obj == getNullSentinel() || obj == getUndefinedSentinel()
+        || obj->isInteger(ctx) || obj->isDouble(ctx)
+        || obj->isFloat(ctx) || obj->isBoolean(ctx) || obj->isString(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Iterator.zipKeyed: argument must be an Object"));
+        return PROTO_NONE;
+    }
+    // Walk own enumerable keys, gather (key, iterator) pairs.
+    const proto::ProtoObject* keysArr = createNewArray(ctx, nullptr);
+    const proto::ProtoObject* itersArr = createNewArray(ctx, nullptr);
+    const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+    if (isArrK) {
+        keysArr = keysArr->setAttribute(ctx, isArrK, PROTO_TRUE);
+        itersArr = itersArr->setAttribute(ctx, isArrK, PROTO_TRUE);
+    }
+    const proto::ProtoList* keysEls = ctx->newList();
+    const proto::ProtoList* itersEls = ctx->newList();
+    long long count = 0;
+    const proto::ProtoSparseList* own = obj->getOwnAttributes(ctx);
+    if (own) {
+        const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
+        while (it && it->hasNext(ctx)) {
+            unsigned long rawKey = it->nextKey(ctx);
+            const proto::ProtoObject* val = it->nextValue(ctx);
+            it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+            const proto::ProtoString* propKey =
+                reinterpret_cast<const proto::ProtoString*>(rawKey);
+            if (!propKey || !val || val == PROTO_NONE) continue;
+            std::string ks;
+            propKey->toUTF8String(ctx, ks);
+            if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue; // internal
+            const proto::ProtoObject* inner = getIteratorFor(ctx, val);
+            if (!inner) {
+                // Close any already-gathered iterators.
+                unsigned long sz = itersEls->getSize(ctx);
+                for (unsigned long j = 0; j < sz; j++) {
+                    const proto::ProtoObject* prev = itersEls->getAt(ctx, static_cast<int>(j));
+                    if (prev && prev != PROTO_NONE) iterClose(ctx, prev);
+                }
+                return PROTO_NONE;
+            }
+            keysEls = keysEls->appendLast(ctx, ctx->fromUTF8String(ks.c_str()));
+            itersEls = itersEls->appendLast(ctx, inner);
+            count++;
+        }
+    }
+    setArrayElements(ctx, keysArr, keysEls);
+    setArrayElements(ctx, itersArr, itersEls);
+    const proto::ProtoString* lenK = JSSymbols::length(ctx);
+    if (lenK) {
+        keysArr = keysArr->setAttribute(ctx, lenK, ctx->fromInteger(count));
+        itersArr = itersArr->setAttribute(ctx, lenK, ctx->fromInteger(count));
+    }
+    const proto::ProtoObject* pair = createNewArray(ctx, nullptr);
+    if (isArrK) pair = pair->setAttribute(ctx, isArrK, PROTO_TRUE);
+    const proto::ProtoList* pairEls = ctx->newList();
+    pairEls = pairEls->appendLast(ctx, keysArr);
+    pairEls = pairEls->appendLast(ctx, itersArr);
+    setArrayElements(ctx, pair, pairEls);
+    if (lenK) pair = pair->setAttribute(ctx, lenK, ctx->fromInteger(2));
+    return makeHelperIterator(ctx, iteratorZipKeyedNext, pair, PROTO_NONE, 0);
+}
+
+const proto::ProtoObject* installIteratorStatics(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* stub)
+{
+    if (!ctx || !stub || stub == PROTO_NONE) return stub;
+    auto installStatic = [&](const char* name, proto::ProtoMethod fn, long long length) {
+        const proto::ProtoObject* parent = ctx->space ? ctx->space->methodPrototype : nullptr;
+        const proto::ProtoObject* wrap = parent
+            ? parent->newChild(ctx, true) : ctx->newObject(true);
+        if (!wrap) return;
+        const proto::ProtoString* nfK = JSSymbols::nativeFn(ctx);
+        if (nfK) wrap = wrap->setAttribute(ctx, nfK, ctx->fromMethod(nullptr, fn));
+        const proto::ProtoString* nK = JSSymbols::name(ctx);
+        if (nK) {
+            wrap = wrap->setAttribute(ctx, nK, ctx->fromUTF8String(name));
+            const proto::ProtoString* pdnK = JSSymbols::pdName(ctx);
+            if (pdnK) wrap = wrap->setAttribute(ctx, pdnK, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* lK = JSSymbols::length(ctx);
+        if (lK) {
+            wrap = wrap->setAttribute(ctx, lK, ctx->fromInteger(length));
+            const proto::ProtoString* pdlK = JSSymbols::pdLength(ctx);
+            if (pdlK) wrap = wrap->setAttribute(ctx, pdlK, ctx->fromInteger(0x2LL));
+        }
+        const proto::ProtoString* hnwK = JSSymbols::hasNonWritableProps(ctx);
+        if (hnwK) wrap = wrap->setAttribute(ctx, hnwK, PROTO_TRUE);
+        const proto::ProtoObject* mKo = ctx->fromUTF8String(name);
+        const proto::ProtoString* mK = mKo ? mKo->asString(ctx) : nullptr;
+        if (mK) {
+            stub = stub->setAttribute(ctx, mK, wrap);
+            std::string pdName = std::string("__pd_") + name + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pdName.c_str());
+            const proto::ProtoString* pdK = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdK) stub = stub->setAttribute(ctx, pdK, ctx->fromInteger(0x3LL));
+        }
+    };
+    installStatic("from",     iteratorFrom,     1);
+    installStatic("concat",   iteratorConcat,   0);
+    installStatic("zip",      iteratorZip,      1);
+    installStatic("zipKeyed", iteratorZipKeyed, 1);
+    return stub;
+}
+
 } // namespace protojs

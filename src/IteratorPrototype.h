@@ -25,6 +25,16 @@ namespace protojs {
  */
 const proto::ProtoObject* getIteratorPrototype(proto::ProtoContext* ctx);
 
+/**
+ * Installs the ES2024 Iterator static methods (Iterator.from / .concat /
+ * .zip / .zipKeyed) onto the supplied stub constructor cell.  Returns
+ * the new (possibly-rebuilt) stub since setAttribute returns a new
+ * pointer on every call.
+ */
+const proto::ProtoObject* installIteratorStatics(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* stub);
+
 } // namespace protojs
 
 #endif // PROTOJS_ITERATORPROTOTYPE_H
