@@ -255,14 +255,51 @@ const proto::ProtoObject* regexpToString(
     proto::ProtoContext* ctx, const proto::ProtoObject* self,
     const proto::ParentLink*, const proto::ProtoList*, const proto::ProtoSparseList*)
 {
-    if (!ctx || !self) return ctx->fromUTF8String("/(?:)/");
-
+    // §22.2.6.13 step 1-2: receiver must be Object — primitives and
+    // null/undefined raise TypeError.  Pre-fix bare-call
+    // RegExp.prototype.toString() silently returned "/(?:)/" with
+    // self=PROTO_NONE.
+    if (!ctx) return nullptr;
+    if (!self || self == PROTO_NONE
+        || self == getNullSentinel() || self == getUndefinedSentinel()
+        || self->isString(ctx) || self->isInteger(ctx)
+        || self->isDouble(ctx) || self->isFloat(ctx) || self->isBoolean(ctx)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "RegExp.prototype.toString called on non-Object"));
+        return PROTO_NONE;
+    }
+    // §22.2.6.13 step 3-5: read `source` and `flags` via Get (with chain
+    // walk).  These reach the prototype's accessor getters for arbitrary
+    // receivers, so a plain object whose `flags` accessor throws
+    // propagates.
     const proto::ProtoString* srcKey = JSSymbols::source(ctx);
     const proto::ProtoString* flgKey = JSSymbols::flags(ctx);
-    
-    std::string src = objToStr(ctx, self->getAttribute(ctx, srcKey, false));
-    std::string flg = objToStr(ctx, self->getAttribute(ctx, flgKey, false));
-    
+
+    auto invoke = [&](const proto::ProtoString* k) -> std::string {
+        if (!k) return "";
+        // Probe the __get_<k>__ accessor sidecar so a throwing/explicit
+        // getter fires before we fall back to the data slot.
+        std::string nameUtf8;
+        k->toUTF8String(ctx, nameUtf8);
+        std::string gkBuf = "__get_" + nameUtf8 + "__";
+        const proto::ProtoString* gk =
+            ctx->fromUTF8String(gkBuf.c_str())->asString(ctx);
+        const proto::ProtoObject* getter = gk
+            ? self->getAttribute(ctx, gk, true) : PROTO_NONE;
+        const proto::ProtoObject* val = nullptr;
+        if (getter && getter != PROTO_NONE) {
+            val = callJSFunction(ctx, getter, self, ctx->newList());
+            if (hasCallException()) return "";
+        }
+        if (!val || val == PROTO_NONE) val = self->getAttribute(ctx, k, true);
+        return objToStr(ctx, val);
+    };
+
+    std::string src = invoke(srcKey);
+    if (hasCallException()) return PROTO_NONE;
+    std::string flg = invoke(flgKey);
+    if (hasCallException()) return PROTO_NONE;
+
     if (src.empty()) src = "(?:)";
     return ctx->fromUTF8String(("/" + src + "/" + flg).c_str());
 }
