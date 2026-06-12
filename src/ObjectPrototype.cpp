@@ -3957,8 +3957,27 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
                 if (!nx || nx == tgt) break;
                 tgt = nx;
             }
-            if (tgt && tgt != target)
+            if (tgt && tgt != target) {
                 collectOwnKeys(ctx, tgt, defaultKeys, nullptr, true);
+                // collectOwnKeys filters \`@@sym#\` symbol-identity keys.
+                // gOPDs must report symbol-keyed descriptors too, so
+                // walk own attributes separately for those.
+                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
+                const proto::ProtoSparseListIterator* tit =
+                    tOwn ? tOwn->getIterator(ctx) : nullptr;
+                while (tit && tit->hasNext(ctx)) {
+                    unsigned long rk = tit->nextKey(ctx);
+                    (void)tit->nextValue(ctx);
+                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
+                    const proto::ProtoString* ks =
+                        reinterpret_cast<const proto::ProtoString*>(rk);
+                    if (!ks) continue;
+                    std::string s; ks->toUTF8String(ctx, s);
+                    if (s.size() >= 6 && s[0]=='@' && s[1]=='@'
+                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#')
+                        defaultKeys.push_back(std::move(s));
+                }
+            }
         }
         const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
         size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
