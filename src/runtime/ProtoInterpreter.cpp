@@ -1606,7 +1606,24 @@ static const proto::ProtoObject* reflectDefineProperty(
         if (t_hasCallException) return PROTO_NONE;
         if (r == PROTO_TRUE) return PROTO_TRUE;
         if (r == PROTO_FALSE) return PROTO_FALSE;
-        // r == nullptr (no trap) — fall through to default on target.
+        // r == nullptr (no trap) — fall through to default on the
+        // CONCRETE target, not the still-Proxy receiver. Without this
+        // unwrap, Object.defineProperty would re-dispatch endlessly
+        // (test262 Proxy/defineProperty/trap-is-missing-target-is-
+        // proxy.js).
+        int g = 16;
+        while (g-- > 0 && protojs::isProxy(ctx, target)) {
+            const proto::ProtoObject* n = protojs::proxyTarget(ctx, target);
+            if (!n || n == target) break;
+            target = n;
+        }
+        // Re-stage args with the unwrapped target so Object.defineProperty
+        // operates on it.
+        const proto::ProtoList* newArgs = ctx->newList();
+        newArgs = newArgs->appendLast(ctx, target);
+        for (size_t i = 1; i < args->getSize(ctx); ++i)
+            newArgs = newArgs->appendLast(ctx, args->getAt(ctx, i));
+        args = newArgs;
     }
 
     // Forward to globalThis.Object.defineProperty. The native

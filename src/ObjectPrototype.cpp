@@ -2150,12 +2150,20 @@ static const proto::ProtoObject* objectDefineProperty(
             proxyDispatchDefineProperty(ctx, target, k, desc);
         if (hasCallException()) return PROTO_NONE;
         if (r == nullptr) {
-            // No trap — fall through to the default define-on-target,
-            // but unwrap the proxy first so the default path operates on
-            // the real cell.  We re-bind `target` to the resolved proxy
-            // target to keep the rest of the function unchanged.
-            const proto::ProtoObject* unwrapped = proxyTarget(ctx, target);
-            if (unwrapped) target = unwrapped;
+            // No trap → unwrap through nested Proxies until we reach
+            // the concrete target so default-path mutations (Array
+            // index synthesis, __elements__ updates, etc.) land on
+            // the actual cell. A single unwrap left the immediate
+            // target as still a Proxy (test262
+            // Proxy/defineProperty/trap-is-undefined-target-is-
+            // proxy.js — Object.defineProperty(Proxy(Proxy([], {}),
+            // {dP: undef}), "0", {value:1}) must materialise array[0]).
+            int g = 16;
+            while (g-- > 0 && isProxy(ctx, target)) {
+                const proto::ProtoObject* n = proxyTarget(ctx, target);
+                if (!n || n == target) break;
+                target = n;
+            }
         } else if (r == PROTO_FALSE) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Object.defineProperty: trap returned falsy"));
