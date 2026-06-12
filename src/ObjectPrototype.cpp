@@ -3222,15 +3222,58 @@ static const proto::ProtoObject* objectFromEntries(
     }
     const proto::ProtoObject* result = ctx->newObject(true);
 
-    // Iterable element read: prefer __elements__ first (real arrays
-    // and Map.entries() / Set.entries() pair tuples store data there;
-    // pre-fix only checked indexed-attribute keys and silently produced
-    // {} for both [[k,v],...] arrays AND Map iterables).
+    // Iterable element read.  §7.3.2 Get fires accessor getters; their
+    // abrupt completion must propagate (test262 fromEntries/iterator-
+    // closed-for-throwing-entry-{key,value}-accessor).  Probe the
+    // `__get_<i>__` accessor sidecar FIRST so a throwing entry getter
+    // surfaces via hasCallException; else use the array-element fast
+    // path; else fall back to the indexed-attribute chain walk.
     auto readEl = [&](const proto::ProtoObject* arr, long long i) -> const proto::ProtoObject* {
         if (!arr || arr == PROTO_NONE) return PROTO_NONE;
+        {
+            std::string gkStr = "__get_" + std::to_string(i) + "__";
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = arr->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    const proto::ProtoObject* r =
+                        callJSFunction(ctx, getter, arr, ctx->newList());
+                    return r ? r : PROTO_NONE;
+                }
+            }
+        }
         const proto::ProtoObject* v =
             arrayTryFastGet(ctx, arr, static_cast<unsigned long>(i));
         if (v) return v;
+        // String-wrapper entry: `Object('ab')` has __primitive_value__='ab';
+        // index 0 → 'a', index 1 → 'b' per §22.1.4 ToObject semantics.
+        const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+        if (pvK) {
+            const proto::ProtoObject* pv = arr->getAttribute(ctx, pvK, false);
+            if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                const proto::ProtoString* ps = pv->asString(ctx);
+                if (ps) {
+                    std::string s;
+                    ps->toUTF8String(ctx, s);
+                    size_t bi = 0;
+                    long long cpIdx = 0;
+                    while (bi < s.size() && cpIdx < i) {
+                        unsigned char c = static_cast<unsigned char>(s[bi]);
+                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                        if (bi + cl > s.size()) break;
+                        bi += cl;
+                        cpIdx++;
+                    }
+                    if (cpIdx == i && bi < s.size()) {
+                        unsigned char c = static_cast<unsigned char>(s[bi]);
+                        size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                        if (bi + cl <= s.size())
+                            return ctx->fromUTF8String(s.substr(bi, cl).c_str());
+                    }
+                }
+            }
+        }
         const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
         v = ik ? arr->getAttribute(ctx, ik, false) : nullptr;
         return v ? v : PROTO_NONE;
@@ -3339,14 +3382,43 @@ static const proto::ProtoObject* objectFromEntries(
             return PROTO_NONE;
         };
         long long safety = 0;
+        // Helper: fire `__get_<name>__` accessor sidecar then fall
+        // back to chain-walk getAttribute.  Spec §7.4.3 IteratorComplete
+        // / §7.4.4 IteratorValue require Get() to invoke the accessor.
+        auto readDoneOrValue = [&](const proto::ProtoObject* obj,
+                                   const proto::ProtoString* key,
+                                   const char* gkStr) -> const proto::ProtoObject* {
+            const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr);
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    const proto::ProtoObject* r =
+                        callJSFunction(ctx, getter, obj, ctx->newList());
+                    return r ? r : PROTO_NONE;
+                }
+            }
+            return obj->getAttribute(ctx, key, true);
+        };
         while (nextFn && nextFn != PROTO_NONE) {
             const proto::ProtoList* nArgs = ctx->newList();
             const proto::ProtoObject* res = callJSFunction(ctx, nextFn, iter, nArgs);
             if (hasCallException()) return PROTO_NONE;  // next() threw
             if (!res || res == PROTO_NONE) break;
-            const proto::ProtoObject* dv = res->getAttribute(ctx, doneKey, false);
-            if (dv == PROTO_TRUE) break;
-            const proto::ProtoObject* pair = res->getAttribute(ctx, valueKey, false);
+            // §7.4.3 IteratorComplete: Get(step, "done") fires the
+            // accessor; abrupt completion propagates WITHOUT calling
+            // iterator.return (test262 fromEntries/iterator-not-
+            // closed-for-throwing-done-accessor).
+            const proto::ProtoObject* dv = readDoneOrValue(res, doneKey, "__get_done__");
+            if (hasCallException()) return PROTO_NONE;
+            bool isDone = dv == PROTO_TRUE
+                || (dv && dv->isBoolean(ctx) && dv->asBoolean(ctx));
+            if (isDone) break;
+            const proto::ProtoObject* pair = readDoneOrValue(res, valueKey, "__get_value__");
+            // §7.4.4 IteratorValue: a throwing `get value()` DOES
+            // propagate without iterator.return either (the spec only
+            // closes for abrupt completions after a successful step).
+            if (hasCallException()) return PROTO_NONE;
             processPair(pair);
             if (hasCallException()) return closeAndPropagate();
             if (++safety > 100000) break;
