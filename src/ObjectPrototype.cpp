@@ -2086,8 +2086,26 @@ static const proto::ProtoString* coercePropNameToKey(
         if (hasCallException()) return nullptr;
         if (!prim && isCallable(tsFn)) {
             const proto::ProtoObject* res = callJSFunction(ctx, tsFn, current, ctx->newList());
-            if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
-                prim = res;
+            if (!hasCallException() && res) {
+                // ECMA-262 §7.1.1.1 OrdinaryToPrimitive returns the first
+                // result that is not an Object — Symbols qualify per
+                // §6.1.5 (primitive type).  Pre-fix the Symbol arm was
+                // missing here, so a wrapper whose toString() returned
+                // a Symbol fell through to valueOf().  built-ins/Object
+                // /hasOwn/symbol_property_toString pins the case: its
+                // valueOf throws a Test262Error to assert it is never
+                // called.  Recognise the Symbol marker BEFORE the
+                // primitive check and short-circuit to return the
+                // symbol-tagged ProtoString directly — mirroring the
+                // Symbol.toPrimitive path above.
+                const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
+                if (isSK && res->hasAttribute(ctx, isSK) == PROTO_TRUE
+                    && res->getAttribute(ctx, isSK, false) == PROTO_TRUE) {
+                    return res->asString(ctx);
+                }
+                if (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel()) {
+                    prim = res;
+                }
             }
         }
 
@@ -2098,8 +2116,18 @@ static const proto::ProtoString* coercePropNameToKey(
             if (hasCallException()) return nullptr;
             if (isCallable(voFn)) {
                 const proto::ProtoObject* res = callJSFunction(ctx, voFn, current, ctx->newList());
-                if (!hasCallException() && res && (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel())) {
-                    prim = res;
+                if (!hasCallException() && res) {
+                    // Same Symbol short-circuit as the toString arm —
+                    // a Symbol returned from valueOf is a primitive
+                    // and IS the property key.
+                    const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
+                    if (isSK && res->hasAttribute(ctx, isSK) == PROTO_TRUE
+                        && res->getAttribute(ctx, isSK, false) == PROTO_TRUE) {
+                        return res->asString(ctx);
+                    }
+                    if (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel()) {
+                        prim = res;
+                    }
                 }
             }
         }
