@@ -6509,8 +6509,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         // @@toStringTag after the legacy-sidecar unification,
                         // so publish the slot under both keys.
                         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(pContext);
-                        if (userKey && argsObj)
+                        if (userKey && argsObj) {
                             argsObj = argsObj->setAttribute(pContext, userKey, pContext->fromUTF8String("Arguments"));
+                            // \xc2\xa720.5.5.13 + \xc2\xa720.5.5.5: Symbol.toStringTag is
+                            // {writable:false, enumerable:false, configurable:true}
+                            // -> descriptor 0x2.  Pre-fix the slot had no
+                            // __pd_<Symbol.toStringTag>__ sidecar and defaulted
+                            // to fully enumerable.  Object.defineProperties iterated
+                            // the WKS entry as if it were an own descriptor and
+                            // dispatched objectDefineProperty with the string
+                            // "Arguments" as the descriptor value, which the
+                            // type filter rejected with "Property description
+                            // must be an object" (built-ins/Object/defineProperties/
+                            // 15.2.3.7-2-16 pinned the shape).
+                            std::string pdStr = std::string("__pd_");
+                            std::string ukName;
+                            userKey->toUTF8String(pContext, ukName);
+                            pdStr += ukName + "__";
+                            const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
+                            const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
+                            if (pdk) argsObj = argsObj->setAttribute(pContext, pdk,
+                                pContext->fromInteger(0x2LL));
+                        }
                     }
                     stackPush(pContext, argsObj ? argsObj : PROTO_NONE);
                 } else if (soKind == 2) {
