@@ -3576,9 +3576,53 @@ static const proto::ProtoObject* arrayCreateDataPropertyOrThrow(
     unsigned long idx,
     const proto::ProtoObject* val) {
     if (arrayThrowIfCreateDataPropertyFails(ctx, obj, idx)) return obj;
-    // Write the value via arrSet so __elements__ is updated for real
-    // arrays.
-    const proto::ProtoObject* updated = arrSet(ctx, obj, idx, val);
+    // \xc2\xa710.1.6.5 CreateDataProperty installs a FRESH own data
+    // property.  It must NOT invoke an inherited [[Set]] — when the
+    // receiver inherits a setter at that index (e.g.
+    // Object.defineProperty(Array.prototype, '0', {set: fn})), arrSet's
+    // OrdinarySet path would route through it and skip the own data
+    // write, so the result array silently kept length 0
+    // (built-ins/Array/prototype/filter/15.4.4.20-9-c-i-22 pinned the
+    // shape).  Write directly via __elements__ for real arrays and via
+    // the indexed-attribute fallback otherwise; both paths bypass the
+    // chain-walking setter probe in arrSet.
+    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+    bool isRealArr = isArrKey
+        && obj->getAttribute(ctx, isArrKey, true) == PROTO_TRUE;
+    const proto::ProtoObject* updated = obj;
+    if (isRealArr) {
+        const proto::ProtoList* els = getArrayElements(ctx, obj);
+        if (!els) {
+            const proto::ProtoList* empty = ctx->newList();
+            if (empty) setArrayElements(ctx, obj, empty);
+            els = getArrayElements(ctx, obj);
+        }
+        if (els) {
+            unsigned long sz = static_cast<unsigned long>(els->getSize(ctx));
+            const proto::ProtoList* out = els;
+            while (sz < idx) {
+                out = out->appendLast(ctx, PROTO_NONE);
+                sz++;
+            }
+            if (sz == idx) {
+                out = out->appendLast(ctx, val ? val : PROTO_NONE);
+            } else {
+                out = out->setAt(ctx, static_cast<int>(idx), val ? val : PROTO_NONE);
+            }
+            setArrayElements(ctx, obj, out);
+            const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+            if (lenKey) {
+                long long curLen = 0;
+                const proto::ProtoObject* lv = obj->getAttribute(ctx, lenKey, false);
+                if (lv && lv->isInteger(ctx)) curLen = lv->asLong(ctx);
+                long long need = static_cast<long long>(idx) + 1;
+                if (need > curLen)
+                    updated = obj->setAttribute(ctx, lenKey, ctx->fromInteger(need));
+            }
+        }
+    } else {
+        updated = arrSet(ctx, obj, idx, val);
+    }
     if (hasCallException()) return updated;
     // Reset __pd_<idx>__ to defaults so a ctor-installed
     // (writable:false, enumerable:false) descriptor is replaced
