@@ -1505,6 +1505,63 @@ static const proto::ProtoObject* objectSeal(
                 return PROTO_NONE;
             }
         }
+        // \xc2\xa77.3.16 SetIntegrityLevel('sealed') on a Proxy: dispatch
+        // ownKeys then per-key defineProperty trap with
+        // {configurable: false}.  Pre-fix Object.seal(proxy) only
+        // installed the local markers and never fired the proxy's
+        // defineProperty trap (built-ins/Object/seal/proxy-with-
+        // defineProperty-handler.js pins the case).
+        const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
+        if (hasCallException()) return PROTO_NONE;
+        // No ownKeys trap: fall back to the unwrapped target's own
+        // attributes (string keys + symbol-keys).  Same pattern as
+        // Object.defineProperties Proxy dispatch from R49.
+        std::vector<std::string> defaultKeys;
+        if (!keysArr || keysArr == PROTO_NONE) {
+            const proto::ProtoObject* tgt = target;
+            int guard = 16;
+            while (guard-- > 0 && isProxy(ctx, tgt)) {
+                const proto::ProtoObject* nx = proxyTarget(ctx, tgt);
+                if (!nx || nx == tgt) break;
+                tgt = nx;
+            }
+            if (tgt) {
+                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
+                const proto::ProtoSparseListIterator* tit =
+                    tOwn ? tOwn->getIterator(ctx) : nullptr;
+                while (tit && tit->hasNext(ctx)) {
+                    unsigned long rk = tit->nextKey(ctx);
+                    (void)tit->nextValue(ctx);
+                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
+                    const proto::ProtoString* ks =
+                        reinterpret_cast<const proto::ProtoString*>(rk);
+                    if (!ks) continue;
+                    std::string s; ks->toUTF8String(ctx, s);
+                    bool isSym = s.size() >= 6 && s[0]=='@' && s[1]=='@'
+                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#';
+                    if (!isSym && isInternalKey(ctx, ks)) continue;
+                    defaultKeys.push_back(std::move(s));
+                }
+            }
+        }
+        const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
+        size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
+        // Build a {configurable: false} descriptor object.
+        const proto::ProtoObject* sealDesc = ctx->newObject(true);
+        const proto::ProtoString* confK = ctx->fromUTF8String("configurable")
+            ? ctx->fromUTF8String("configurable")->asString(ctx) : nullptr;
+        if (confK) sealDesc = sealDesc->setAttribute(ctx, confK, PROTO_FALSE);
+        for (size_t i = 0; i < kn; ++i) {
+            const proto::ProtoObject* kObj = els
+                ? els->getAt(ctx, i)
+                : ctx->fromUTF8String(defaultKeys[i].c_str());
+            if (!kObj || kObj == PROTO_NONE) continue;
+            const proto::ProtoString* kStr = kObj->asString(ctx);
+            if (!kStr) continue;
+            proxyDispatchDefineProperty(ctx, obj, kStr, sealDesc);
+            if (hasCallException()) return PROTO_NONE;
+        }
+        return obj;
     }
 
     JSContextWrapper* wrapper = JSContextWrapper::current();
