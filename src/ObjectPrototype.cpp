@@ -2445,6 +2445,111 @@ static const proto::ProtoObject* objectDefineProperty(
             if (newC && !curConfigurable) ok = false;
         }
         if (ok) {
+            // Array length truncation via Object.defineProperty path.
+            // §10.4.2.4 ArraySetLength step 16: when shrinking, walk
+            // i = oldLen-1 down to newLen and refuse if any element is
+            // non-configurable; otherwise also trim __elements__ so
+            // iteration / hasOwn / length round-trips agree.
+            // Pre-fix this early-return path skipped both the
+            // invariant and the truncation (the later "kstr == length"
+            // block is unreachable on a value-only redefine of
+            // a writable-but-not-configurable property).
+            if (hasValue && kstr == "length") {
+                const proto::ProtoString* isArrKArr = JSSymbols::isArray(ctx);
+                const proto::ProtoObject* isArrVArr = isArrKArr
+                    ? target->getAttribute(ctx, isArrKArr, true) : nullptr;
+                if (isArrVArr == PROTO_TRUE) {
+                    const proto::ProtoObject* newValRaw = descKeyValue("value");
+                    long long newLenArr = -1;
+                    if (newValRaw && newValRaw->isInteger(ctx))
+                        newLenArr = newValRaw->asLong(ctx);
+                    else if (newValRaw && (newValRaw->isDouble(ctx)
+                        || newValRaw->isFloat(ctx))) {
+                        double d = newValRaw->asDouble(ctx);
+                        if (!std::isnan(d) && !std::isinf(d)
+                            && d == std::trunc(d) && d >= 0)
+                            newLenArr = (long long)d;
+                    }
+                    long long oldLenArr = -1;
+                    if (existingVal && existingVal->isInteger(ctx))
+                        oldLenArr = existingVal->asLong(ctx);
+                    if (oldLenArr < 0) {
+                        const proto::ProtoList* els =
+                            protojs::getArrayElements(ctx, target);
+                        oldLenArr = els ? (long long)els->getSize(ctx) : 0;
+                    }
+                    if (newLenArr >= 0 && oldLenArr > newLenArr) {
+                        for (long long i = oldLenArr - 1; i >= newLenArr; --i) {
+                            std::string pdks = "__pd_" + std::to_string(i) + "__";
+                            const proto::ProtoObject* pdko =
+                                ctx->fromUTF8String(pdks.c_str());
+                            const proto::ProtoString* pdkks =
+                                pdko ? pdko->asString(ctx) : nullptr;
+                            if (!pdkks
+                                || target->hasOwnAttribute(ctx, pdkks) != PROTO_TRUE)
+                                continue;
+                            const proto::ProtoObject* pdv =
+                                target->getAttribute(ctx, pdkks, false);
+                            if (!pdv || pdv == PROTO_NONE || !pdv->isInteger(ctx))
+                                continue;
+                            uint8_t pdbits = (uint8_t)pdv->asLong(ctx);
+                            if (!(pdbits & 0x2)) {
+                                signalNativeException(makeNativeError(ctx, "TypeError",
+                                    "Cannot redefine Array.length below a "
+                                    "non-configurable indexed element"));
+                                return PROTO_NONE;
+                            }
+                        }
+                        // Truncate __elements__ to newLen.
+                        const proto::ProtoList* curEls =
+                            protojs::getArrayElements(ctx, target);
+                        if (curEls
+                            && (long long)curEls->getSize(ctx) > newLenArr) {
+                            const proto::ProtoList* trimmed = ctx->newList();
+                            for (long long i = 0; i < newLenArr; ++i)
+                                trimmed = trimmed->appendLast(ctx,
+                                    curEls->getAt(ctx, (int)i));
+                            protojs::setArrayElements(ctx, target, trimmed);
+                        }
+                        // Drop sparse own-attribute index entries >= newLen.
+                        const proto::ProtoSparseList* own =
+                            target->getOwnAttributes(ctx);
+                        if (own) {
+                            std::vector<std::string> drop;
+                            const proto::ProtoSparseListIterator* it =
+                                own->getIterator(ctx);
+                            while (it && it->hasNext(ctx)) {
+                                unsigned long rk = it->nextKey(ctx);
+                                (void)it->nextValue(ctx);
+                                it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
+                                const proto::ProtoString* pk =
+                                    reinterpret_cast<const proto::ProtoString*>(rk);
+                                if (!pk) continue;
+                                std::string ks;
+                                pk->toUTF8String(ctx, ks);
+                                if (ks.empty()) continue;
+                                bool allDigits = true;
+                                for (char c : ks)
+                                    if (c < '0' || c > '9') { allDigits = false; break; }
+                                if (!allDigits) continue;
+                                if (ks.size() > 1 && ks[0] == '0') continue;
+                                try {
+                                    unsigned long long idx = std::stoull(ks);
+                                    if (idx >= (unsigned long long)newLenArr)
+                                        drop.push_back(ks);
+                                } catch (...) {}
+                            }
+                            for (const auto& ks : drop) {
+                                const proto::ProtoObject* ko =
+                                    ctx->fromUTF8String(ks.c_str());
+                                const proto::ProtoString* kk =
+                                    ko ? ko->asString(ctx) : nullptr;
+                                if (kk) target = target->removeAttribute(ctx, kk);
+                            }
+                        }
+                    }
+                }
+            }
             // Apply the in-place updates (value change + bit toggles).
             if (hasValue) {
                 const proto::ProtoObject* newVal = descKeyValue("value");
@@ -2729,6 +2834,49 @@ static const proto::ProtoObject* objectDefineProperty(
             long long newLen = (newLenV && newLenV != PROTO_NONE && newLenV->isInteger(ctx))
                 ? newLenV->asLong(ctx) : -1;
             if (newLen >= 0) {
+                // §10.4.2.4 ArraySetLength step 16 — when shrinking,
+                // walk from oldLen-1 down to newLen and refuse if any
+                // element in the deletion range is non-configurable
+                // (its __pd_<i>__ sidecar reports bit 0x2 clear).
+                // Pre-fix the truncation went through unconditionally
+                // and silently dropped non-configurable own indices
+                // (test262 Object/defineProperty/15.2.3.6-4-116.js,
+                // 117.js, …).
+                const proto::ProtoList* curElsPre =
+                    protojs::getArrayElements(ctx, target);
+                long long oldLen = curElsPre
+                    ? (long long)curElsPre->getSize(ctx) : 0;
+                {
+                    const proto::ProtoString* lk = JSSymbols::length(ctx);
+                    const proto::ProtoObject* lv = lk
+                        ? target->getAttribute(ctx, lk, false) : nullptr;
+                    if (lv && lv->isInteger(ctx)) {
+                        long long stored = lv->asLong(ctx);
+                        if (stored > oldLen) oldLen = stored;
+                    }
+                }
+                for (long long i = oldLen - 1; i >= newLen; --i) {
+                    std::string pdks = "__pd_" + std::to_string(i) + "__";
+                    const proto::ProtoObject* pdko =
+                        ctx->fromUTF8String(pdks.c_str());
+                    const proto::ProtoString* pdkks =
+                        pdko ? pdko->asString(ctx) : nullptr;
+                    if (!pdkks
+                        || target->hasOwnAttribute(ctx, pdkks) != PROTO_TRUE)
+                        continue;
+                    const proto::ProtoObject* pdv =
+                        target->getAttribute(ctx, pdkks, false);
+                    if (!pdv || pdv == PROTO_NONE || !pdv->isInteger(ctx))
+                        continue;
+                    uint8_t bits = (uint8_t)pdv->asLong(ctx);
+                    if (!(bits & 0x2)) {
+                        // Non-configurable element blocks length shrink.
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot redefine non-configurable Array.length "
+                            "below an index with a non-configurable element"));
+                        return PROTO_NONE;
+                    }
+                }
                 const proto::ProtoList* curEls = protojs::getArrayElements(ctx, target);
                 if (curEls) {
                     size_t curSz = curEls->getSize(ctx);
