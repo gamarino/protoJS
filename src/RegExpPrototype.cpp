@@ -486,6 +486,27 @@ const proto::ProtoObject* regexpConstructor(
     obj = obj->setAttribute(ctx, srcKey, ctx->fromUTF8String(escSrc.c_str()));
     obj = obj->setAttribute(ctx, flgKey, ctx->fromUTF8String(flags_str.c_str()));
     obj = obj->setAttribute(ctx, liKey, ctx->fromInteger(0));
+    // §22.2.7.5 RegExp instance descriptors: every own data property
+    // (lastIndex, source, flags, global, ignoreCase, multiline, dotAll,
+    // unicode, sticky, hasIndices) is non-enumerable. Pre-fix the
+    // installer wrote them with default 0x7 bits, so for-in over a
+    // RegExp surfaced `lastIndex` and Object.create({}, regex) tried
+    // to treat its other own slots as descriptors (test262
+    // Object/create/15.2.3.5-4-{12,35}.js).
+    {
+        const proto::ProtoString* pdLiKey =
+            ctx->fromUTF8String("__pd_lastIndex__")->asString(ctx);
+        if (pdLiKey)
+            obj = obj->setAttribute(ctx, pdLiKey, ctx->fromInteger(0x3LL));
+        for (const char* nm : {"source","flags","global","ignoreCase",
+                               "multiline","dotAll","unicode","sticky",
+                               "hasIndices"}) {
+            std::string pds = std::string("__pd_") + nm + "__";
+            const proto::ProtoObject* pdo = ctx->fromUTF8String(pds.c_str());
+            const proto::ProtoString* pdss = pdo ? pdo->asString(ctx) : nullptr;
+            if (pdss) obj = obj->setAttribute(ctx, pdss, ctx->fromInteger(0x3LL));
+        }
+    }
 
     obj = obj->setAttribute(ctx, JSSymbols::global(ctx),     (re_flags & LRE_FLAG_GLOBAL)     ? PROTO_TRUE : PROTO_FALSE);
     obj = obj->setAttribute(ctx, JSSymbols::ignoreCase(ctx), (re_flags & LRE_FLAG_IGNORECASE)  ? PROTO_TRUE : PROTO_FALSE);
