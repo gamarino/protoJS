@@ -2884,13 +2884,21 @@ static const proto::ProtoObject* objectDefineProperty(
         std::string gkStr = "__get_" + kstr + "__";
         const proto::ProtoString* gk = ctx->fromUTF8String(gkStr.c_str())->asString(ctx);
         if (gk && hasGet) {
-            const proto::ProtoObject* gVal = (getter && getter != getUndefinedSentinel()) ? getter : nullptr;
+            // §6.2.5.1 ToPropertyDescriptor — when "get" is present in
+            // the descriptor (even as undefined), the result is an
+            // accessor descriptor with [[Get]] = the value. Pre-fix we
+            // stored nullptr (= removeAttribute) when getter was
+            // undefined, so gOPD's hasOwnAttribute(__get_<key>__) probe
+            // reported false and reconstructed the descriptor as a data
+            // slot {value: undefined} — test262
+            // Object/defineProperty/15.2.3.6-4-430.js et al.
+            const proto::ProtoObject* gVal = getter ? getter : getUndefinedSentinel();
             target = target->setAttribute(ctx, gk, gVal);
         }
         std::string skStr = "__set_" + kstr + "__";
         const proto::ProtoString* sk = ctx->fromUTF8String(skStr.c_str())->asString(ctx);
         if (sk && hasSet) {
-            const proto::ProtoObject* sVal = (setter && setter != getUndefinedSentinel()) ? setter : nullptr;
+            const proto::ProtoObject* sVal = setter ? setter : getUndefinedSentinel();
             target = target->setAttribute(ctx, sk, sVal);
             // Hot-path hint: when the setter is installed at a numeric
             // array-index key, tag the target with __has_indexed_setters__
@@ -2899,7 +2907,7 @@ static const proto::ProtoObject* objectDefineProperty(
             // accessor descriptor is present on the prototype chain.
             // Validate via round-trip: only counts as an "indexed" key if
             // ToUint32(kstr) == kstr exactly (canonical integer string).
-            if (sVal && !kstr.empty()) {
+            if (sVal && sVal != getUndefinedSentinel() && !kstr.empty()) {
                 const char* c = kstr.c_str();
                 bool allDigits = true;
                 for (size_t i = 0; i < kstr.size(); ++i) {
