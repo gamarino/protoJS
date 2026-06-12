@@ -1,6 +1,7 @@
 #include "PromisePrototype.h"
 #include "ArrayElementsStorage.h"
 #include "JSSymbols.h"
+#include "ObjectPrototype.h"
 #include "headers/protoCore.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cstdio>
@@ -925,8 +926,20 @@ void ensurePromiseConstructor(proto::ProtoContext* ctx,
 {
     if (!ctx || !globalRoot || !*globalRoot) return;
 
-    // Build constructor object with static methods.
-    const proto::ProtoObject* ctor = ctx->newObject(true);
+    // \xc2\xa727.2.3 / \xc2\xa720.2.3: Promise's [[Prototype]] is
+    // %Function.prototype% so Object.getPrototypeOf(Promise) ===
+    // Function.prototype and Promise.call / apply / bind resolve
+    // through the inherited methods.  Pre-fix ctx->newObject(true)
+    // produced a parentless ctor and the JS-visible chain reported
+    // the fallback objectPrototype (Date / RegExp had the same shape
+    // before the R49 fixes; same pattern applies here).
+    const proto::ProtoObject* methodProto =
+        (ctx->space && ctx->space->methodPrototype)
+            ? ctx->space->methodPrototype : nullptr;
+    const proto::ProtoObject* ctor = methodProto
+        ? methodProto->newChild(ctx, true)
+        : ctx->newObject(true);
+    if (methodProto) setJSProtoOverride(ctx, ctor, methodProto);
 
     // Raw __construct__ stays a bare ProtoMethod — OP_call_constructor
     // dispatches it directly, never reading name / length.
