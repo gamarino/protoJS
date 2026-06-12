@@ -1896,11 +1896,32 @@ const proto::ProtoObject* stringMatch(
         && !pattern->isInteger(ctx) && !pattern->isDouble(ctx)
         && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)) {
         const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
-        const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
-        // §7.3.10 GetMethod step 3: null and undefined coerce to
+        // \xc2\xa722.1.3.13 step 2 \xc2\xa77.3.10 GetMethod: route through OrdinaryGet,
+        // which fires accessor getters.  Pre-fix the probe used raw
+        // getAttribute and missed the \`get [Symbol.match]() { throw }\`
+        // accessor sidecar (built-ins/String/prototype/match/cstm-
+        // matcher-get-err.js).  Probe \`__get_Symbol.match__\` first;
+        // when present and callable, invoke it and use its return as
+        // the matchFn.
+        const proto::ProtoObject* matchFn = nullptr;
+        {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.match__");
+            const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = pattern->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE
+                    && getter != getUndefinedSentinel()) {
+                    matchFn = callJSFunction(ctx, getter, pattern, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
+        if (!matchFn || matchFn == PROTO_NONE)
+            matchFn = pattern->getAttribute(ctx, matchKey, true);
+        // \xc2\xa77.3.10 GetMethod step 3: null and undefined coerce to
         // undefined, so the dispatch must be skipped per spec.
         // Pre-fix only undefined / PROTO_NONE were rejected, so
-        // `regexp[Symbol.match] = null` invoked the null trap and
+        // \`regexp[Symbol.match] = null\` invoked the null trap and
         // threw "is not a function" (test262 cstm-matcher-is-null).
         if (matchFn && matchFn != PROTO_NONE
             && matchFn != getUndefinedSentinel()
