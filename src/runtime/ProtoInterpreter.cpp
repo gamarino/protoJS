@@ -15541,6 +15541,41 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         }
                     }
 
+                    // \xc2\xa722.1.4 String-exotic objects: char indices '0'..'n-1'
+                    // are own enumerable properties resolved from
+                    // __primitive_value__, not as own attributes.  Pre-fix
+                    // for-in on \`new String('abc')\` produced no entries
+                    // (built-ins/String/numeric-properties.js verifyProperty
+                    // -> isEnumerable's for-in probe failed).  Synthesise
+                    // the indices before walking own attributes so they
+                    // appear ahead of any user-added named properties.
+                    {
+                        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(pContext);
+                        const proto::ProtoObject* pv = pvKey
+                            ? fiObj->getAttribute(pContext, pvKey, false) : nullptr;
+                        if (pv && pv != PROTO_NONE && pv->isString(pContext)) {
+                            const proto::ProtoString* ps = pv->asString(pContext);
+                            if (ps) {
+                                std::string s8;
+                                ps->toUTF8String(pContext, s8);
+                                size_t i = 0;
+                                unsigned long u16 = 0;
+                                while (i < s8.size()) {
+                                    unsigned char c = static_cast<unsigned char>(s8[i]);
+                                    size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                                    if (i + cl > s8.size()) break;
+                                    std::string k = std::to_string(u16);
+                                    if (!fiSeen.count(k)) {
+                                        fiSeen.insert(k);
+                                        addFiKey(k);
+                                    }
+                                    u16 += (cl == 4) ? 2 : 1;
+                                    i += cl;
+                                }
+                            }
+                        }
+                    }
+
                     // Walk the full [[Prototype]] chain per ES2015+ EnumerateObjectProperties.
                     // Keys seen at closer levels shadow the same key from ancestors.
                     // A visited-pointer set guards against cycles in the C++ parent chain;

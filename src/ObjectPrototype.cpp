@@ -4385,21 +4385,38 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
             const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
             const proto::ProtoObject* isArr = isArrKey
                 ? self->getAttribute(ctx, isArrKey, true) : nullptr;
-            if (isArr == PROTO_TRUE) {
-                long long idx = -1;
-                if (!keyStr.empty()) {
-                    char* end = nullptr;
-                    long long v = std::strtoll(keyStr.c_str(), &end, 10);
-                    if (end && *end == '\0' && v >= 0 && std::to_string(v) == keyStr)
-                        idx = v;
+            long long idx = -1;
+            if (!keyStr.empty()) {
+                char* end = nullptr;
+                long long v = std::strtoll(keyStr.c_str(), &end, 10);
+                if (end && *end == '\0' && v >= 0 && std::to_string(v) == keyStr)
+                    idx = v;
+            }
+            if (isArr == PROTO_TRUE && idx >= 0) {
+                const proto::ProtoString* lenKey = JSSymbols::length(ctx);
+                const proto::ProtoObject* lenVal = lenKey
+                    ? self->getAttribute(ctx, lenKey, false) : nullptr;
+                if (lenVal && lenVal != PROTO_NONE && lenVal->isInteger(ctx)) {
+                    if (idx < lenVal->asLong(ctx)) return PROTO_TRUE;
                 }
-                if (idx >= 0) {
-                    const proto::ProtoString* lenKey = JSSymbols::length(ctx);
-                    const proto::ProtoObject* lenVal = lenKey
-                        ? self->getAttribute(ctx, lenKey, false) : nullptr;
-                    if (lenVal && lenVal != PROTO_NONE && lenVal->isInteger(ctx)) {
-                        if (idx < lenVal->asLong(ctx)) return PROTO_TRUE;
-                    }
+            }
+            // \xc2\xa722.1.4 String wrapper char-index probe: indices in
+            // [0, length) are own enumerable per spec.  Pre-fix the
+            // descriptor-walk path returned PROTO_FALSE because the char
+            // indices live in __primitive_value__, not as own attributes
+            // — propertyIsEnumerable diverged from
+            // getOwnPropertyDescriptor (which DID surface them via the
+            // String-wrapper char-index synthesis at lines 3412+).
+            // built-ins/String/numeric-properties.js: verifyProperty
+            // asserts every char index is enumerable.
+            if (idx >= 0) {
+                const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+                const proto::ProtoObject* pv = pvKey
+                    ? self->getAttribute(ctx, pvKey, false) : nullptr;
+                if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                    const proto::ProtoString* ps = pv->asString(ctx);
+                    if (ps && idx < (long long)ps->getSize(ctx))
+                        return PROTO_TRUE;
                 }
             }
             return PROTO_FALSE;
