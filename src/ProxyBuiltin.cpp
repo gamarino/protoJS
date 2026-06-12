@@ -167,11 +167,24 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
         d.isAccessor = true;
         if (hasOwnGetter) {
             const proto::ProtoObject* gv = target->getAttribute(ctx, gk, false);
-            d.hasGetter = gv && gv != PROTO_NONE;
+            // Object.defineProperty(target, k, {get: undefined, ...}) now
+            // preserves the accessor slot by storing the undefined
+            // sentinel (commit 01a9384f5).  Treat the JS-visible
+            // undefined as "no getter" so the Proxy [[Get]] invariant
+            // at §10.5.8 step 9.c fires when the trap returns a
+            // non-undefined value for a non-configurable accessor
+            // whose [[Get]] is undefined.  Pre-fix `gv != PROTO_NONE`
+            // alone left the sentinel through and the invariant
+            // never tripped (built-ins/Proxy/get/accessor-get-is-
+            // undefined-throws.js).
+            d.hasGetter = gv && gv != PROTO_NONE && gv != getUndefinedSentinel();
         }
         if (hasOwnSetter) {
             const proto::ProtoObject* sv = target->getAttribute(ctx, sk, false);
-            d.hasSetter = sv && sv != PROTO_NONE;
+            // Same rationale as the getter arm — undefined-sentinel
+            // [[Set]] must register as "no setter" so the §10.5.9
+            // step 11 invariant catches truthy trap results.
+            d.hasSetter = sv && sv != PROTO_NONE && sv != getUndefinedSentinel();
         }
         int bits = probeDescriptorBits(ctx, target, key, kstr);
         d.configurable = (bits & 0x2) != 0;
