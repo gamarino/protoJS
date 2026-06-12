@@ -10520,6 +10520,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                     }
                     if (key) {
+                        // §10.1.9.2 step 2.c — add-to-non-extensible
+                        // also covers bracket-access string and Symbol
+                        // keys, not just dotted access. See OP_put_field
+                        // for the rationale; test262
+                        // Object/preventExtensions/symbol-object-
+                        // contains-symbol-properties-strict.js exercises
+                        // the Symbol-key path through this site.
+                        {
+                            JSContextWrapper* wNE2 =
+                                JSContextWrapper::current();
+                            if (wNE2 && wNE2->getNonExtensibleMarker()
+                                && obj->hasParent(pContext,
+                                    wNE2->getNonExtensibleMarker())
+                                && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                                bool hasAccessor = false;
+                                std::string ks;
+                                key->toUTF8String(pContext, ks);
+                                std::string sks2 = "__set_" + ks + "__";
+                                const proto::ProtoObject* sko2 =
+                                    pContext->fromUTF8String(sks2.c_str());
+                                const proto::ProtoString* sksk2 =
+                                    sko2 ? sko2->asString(pContext) : nullptr;
+                                if (sksk2
+                                    && obj->hasOwnAttribute(pContext, sksk2) == PROTO_TRUE) {
+                                    hasAccessor = true;
+                                }
+                                if (!hasAccessor) {
+                                    if (module && module->isStrict) {
+                                        pending_exception = makeError(pContext,
+                                            "TypeError",
+                                            "Cannot add property to non-extensible object",
+                                            pGlobalRoot);
+                                        has_pending_exception = true;
+                                    }
+                                    DISPATCH();
+                                }
+                            }
+                        }
                         // §10.4.2.4 — honour __pd_length__ writable bit
                         // when assigning Array.length via bracket access
                         // (see OP_put_field for the dotted path; the same

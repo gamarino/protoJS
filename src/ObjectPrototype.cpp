@@ -2230,6 +2230,22 @@ static const proto::ProtoObject* objectDefineProperty(
             }
         }
     }
+    // §10.1.6.3 step 2 — define-on-non-extensible with a new property
+    // raises TypeError. Pre-fix the path silently extended frozen /
+    // sealed / preventExtensions'd objects via defineProperty
+    // (test262 Object/preventExtensions/symbol-object-contains-
+    // symbol-properties-strict.js: Object.defineProperty(obj, symC, {…})
+    // after preventExtensions must throw).
+    if (!propExists) {
+        JSContextWrapper* wNE = JSContextWrapper::current();
+        if (wNE && wNE->getNonExtensibleMarker()
+            && target->hasParent(ctx, wNE->getNonExtensibleMarker())) {
+            // Array index-extension also counts; we don't carve that out.
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot define property on non-extensible object"));
+            return PROTO_NONE;
+        }
+    }
     // ECMA-262 §10.4.2.4 ArraySetLength considers each indexed element
     // (k in [0, length)) an own data property. protoJS keeps these in
     // the native __elements__ ProtoList, NOT as string-keyed own
