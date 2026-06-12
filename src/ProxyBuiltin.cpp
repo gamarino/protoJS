@@ -257,12 +257,13 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
         }
     }
     // Array exotic: §10.4.2 [[Get]] for an integer-indexed key reads
-    // from the internal element storage, not from the attribute slot
-    // (protoJS keeps dense elements in __array_elements__).  Pre-fix
-    // defaultGet's getAttribute-only probe returned PROTO_NONE for
-    // every numeric index on an Array target — `new Proxy([1,2,3],
-    // {})[0]` surfaced undefined and every Array.prototype.* method
-    // routed through the proxy iterated over empty slots.
+    // from the internal element storage, not from the attribute slot.
+    // String exotic: §22.1.4 [[Get]] for an integer-indexed key in
+    // [0, length) returns the codepoint at that UTF-16 index; "length"
+    // returns the code-unit count.  Pre-fix defaultGet returned
+    // PROTO_NONE for every indexed access on a String wrapper target
+    // (test262 Proxy/get/trap-is-null-target-is-proxy.js stringTarget
+    // subset: stringProxy[0] / stringProxy.length).
     {
         std::string keyStr; key->toUTF8String(ctx, keyStr);
         bool numeric = !keyStr.empty();
@@ -273,6 +274,47 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
             if (endp && *endp == '\0') {
                 const proto::ProtoObject* v = protojs::arrayTryFastGet(ctx, target, idx);
                 if (v && v != PROTO_NONE) return v;
+                // String wrapper char-index fallback.
+                const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+                if (pvK) {
+                    const proto::ProtoObject* pv = target->getAttribute(ctx, pvK, false);
+                    if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                        const proto::ProtoString* ps = pv->asString(ctx);
+                        if (ps) {
+                            std::string s;
+                            ps->toUTF8String(ctx, s);
+                            size_t bi = 0;
+                            unsigned long pos = 0;
+                            while (bi < s.size() && pos < idx) {
+                                unsigned char c = static_cast<unsigned char>(s[bi]);
+                                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2
+                                          : (c < 0xF0) ? 3 : 4;
+                                if (bi + cl > s.size()) break;
+                                bi += cl;
+                                pos += (cl == 4) ? 2 : 1;
+                            }
+                            if (pos == idx && bi < s.size()) {
+                                unsigned char c = static_cast<unsigned char>(s[bi]);
+                                size_t cl = (c < 0x80) ? 1 : (c < 0xE0) ? 2
+                                          : (c < 0xF0) ? 3 : 4;
+                                if (bi + cl <= s.size())
+                                    return ctx->fromUTF8String(s.substr(bi, cl).c_str());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // String wrapper .length fallback.
+        if (keyStr == "length") {
+            const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+            if (pvK) {
+                const proto::ProtoObject* pv = target->getAttribute(ctx, pvK, false);
+                if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+                    const proto::ProtoString* ps = pv->asString(ctx);
+                    if (ps) return ctx->fromInteger(
+                        static_cast<long long>(ps->getSize(ctx)));
+                }
             }
         }
     }

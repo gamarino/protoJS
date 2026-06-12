@@ -11423,6 +11423,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         pContext->fromInteger(n);
                     DISPATCH();
                 }
+                // Proxy receiver → dispatch [[Get]]("length") through
+                // the get trap.  Pre-fix OP_get_length walked the
+                // attribute chain directly so `(new Proxy(s, {})).length`
+                // skipped the trap and returned undefined for any
+                // receiver lacking an own / data-inherited length slot
+                // (test262 Proxy/get/trap-is-null-target-is-proxy.js
+                // string-target subset).
+                if (obj && obj != PROTO_NONE && protojs::isProxy(pContext, obj)) {
+                    const proto::ProtoString* lk0 = JSSymbols::length(pContext);
+                    const proto::ProtoObject* v =
+                        protojs::proxyDispatchGet(pContext, obj, lk0, obj);
+                    REFRESH_INTERP_STATE();
+                    if (t_hasCallException) {
+                        pending_exception     = t_callException;
+                        has_pending_exception = true;
+                        t_hasCallException    = false;
+                        t_callException       = nullptr;
+                        DISPATCH();
+                    }
+                    pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                        (v ? v : PROTO_NONE);
+                    DISPATCH();
+                }
 
                 const proto::ProtoString* lk = JSSymbols::length(pContext);
                 // ECMA-262 §10.1.8 / §13.3.2.1: a user-defined
