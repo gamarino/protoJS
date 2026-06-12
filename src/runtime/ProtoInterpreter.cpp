@@ -11866,6 +11866,49 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     stackPush(pContext, PROTO_FALSE);
                     DISPATCH();
                 }
+                // §13.10.2 / §10.1.6 OrdinaryHasInstance — walk the
+                // receiver's [[GetPrototypeOf]] chain comparing each step
+                // to F.prototype. When the chain includes a Proxy, the
+                // step MUST dispatch the Proxy's getPrototypeOf trap;
+                // protoCore's native isInstanceOf walks only the C++
+                // parent chain and misses trap overrides
+                // (test262 Proxy/getPrototypeOf/instanceof-custom-
+                // return-accepted.js).
+                if (obj && protoObj && protoObj != PROTO_NONE
+                    && (protojs::isProxy(pContext, obj)
+                        || (obj->getPrototype(pContext)
+                            && protojs::isProxy(pContext, obj->getPrototype(pContext))))) {
+                    const proto::ProtoObject* cursor = obj;
+                    int guard = 64;
+                    bool found = false;
+                    while (guard-- > 0 && cursor && cursor != PROTO_NONE
+                        && cursor != t_nullSentinel) {
+                        const proto::ProtoObject* next = nullptr;
+                        if (protojs::isProxy(pContext, cursor)) {
+                            next = protojs::proxyDispatchGetPrototypeOf(pContext, cursor);
+                            REFRESH_INTERP_STATE();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                stackPush(pContext, PROTO_FALSE);
+                                DISPATCH();
+                            }
+                        } else {
+                            const proto::ProtoObject* over =
+                                protojs::getJSProtoOverride(cursor);
+                            next = over ? over : cursor->getPrototype(pContext);
+                        }
+                        if (!next || next == PROTO_NONE
+                            || next == t_nullSentinel) break;
+                        if (next == protoObj) { found = true; break; }
+                        if (next == cursor) break;
+                        cursor = next;
+                    }
+                    stackPush(pContext, found ? PROTO_TRUE : PROTO_FALSE);
+                    DISPATCH();
+                }
                 const proto::ProtoObject* res = (obj && protoObj && protoObj != PROTO_NONE)
                     ? obj->isInstanceOf(pContext, protoObj) : PROTO_FALSE;
                 stackPush(pContext, (res == PROTO_TRUE) ? PROTO_TRUE : PROTO_FALSE);
