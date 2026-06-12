@@ -4856,7 +4856,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         }
         // Non-constructor globals stubbed as PROTO_NONE to prevent ReferenceError.
         static const char* kUnimplementedGlobals[] = {
-            "eval", "Reflect", "Atomics",
+            "Reflect", "Atomics",
             "globalThis", "arguments",
             // Test262 harness globals.
             "$DONE", "$262", "print",
@@ -4864,6 +4864,59 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
         };
         for (int gi = 0; kUnimplementedGlobals[gi]; ++gi)
             ensureGlobalConst(kUnimplementedGlobals[gi], PROTO_NONE);
+
+        // Install a stub eval(x) as a real function so the global
+        // descriptor probe (Object.getOwnPropertyDescriptor(this,
+        // 'eval').value === global.eval) round-trips.  Pre-fix eval was
+        // stamped as PROTO_NONE, so the descriptor's value field was
+        // absent and built-ins/Object/getOwnPropertyDescriptor/
+        // 15.2.3.3-4-4.js threw 'Cannot read properties of undefined'.
+        // The stub throws when called — direct eval semantics are not
+        // implemented — but the function value exists and the
+        // descriptor probes work.
+        {
+            const proto::ProtoString* evalKey =
+                pContext->fromUTF8String("eval")
+                    ? pContext->fromUTF8String("eval")->asString(pContext) : nullptr;
+            const proto::ProtoObject* mpProto =
+                (pContext->space && pContext->space->methodPrototype)
+                    ? pContext->space->methodPrototype : nullptr;
+            const proto::ProtoObject* evalFn = mpProto
+                ? mpProto->newChild(pContext, true) : pContext->newObject(true);
+            if (evalFn) {
+                static const proto::ProtoMethod evalStub = [](
+                    proto::ProtoContext* ictx, const proto::ProtoObject*,
+                    const proto::ParentLink*, const proto::ProtoList*,
+                    const proto::ProtoSparseList*) -> const proto::ProtoObject* {
+                    signalNativeException(makeNativeError(ictx, "SyntaxError",
+                        "eval is not implemented in protoJS"));
+                    return PROTO_NONE;
+                };
+                const proto::ProtoString* nfK = JSSymbols::nativeFn(pContext);
+                if (nfK) evalFn = evalFn->setAttribute(pContext, nfK,
+                    pContext->fromMethod(nullptr, evalStub));
+                const proto::ProtoString* nK = JSSymbols::name(pContext);
+                if (nK) evalFn = evalFn->setAttribute(pContext, nK,
+                    pContext->fromUTF8String("eval"));
+                const proto::ProtoString* lK = JSSymbols::length(pContext);
+                if (lK) evalFn = evalFn->setAttribute(pContext, lK,
+                    pContext->fromInteger(1LL));
+                const proto::ProtoString* pdnK = JSSymbols::pdName(pContext);
+                if (pdnK) evalFn = evalFn->setAttribute(pContext, pdnK,
+                    pContext->fromInteger(0x2LL));
+                const proto::ProtoString* pdlK = JSSymbols::pdLength(pContext);
+                if (pdlK) evalFn = evalFn->setAttribute(pContext, pdlK,
+                    pContext->fromInteger(0x2LL));
+                if (evalKey)
+                    *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, evalKey, evalFn);
+                // \xc2\xa719.2.1: eval's global descriptor is {writable: true,
+                // enumerable: false, configurable: true} \xe2\x86\x92 0x3.
+                const proto::ProtoObject* pdo = pContext->fromUTF8String("__pd_eval__");
+                const proto::ProtoString* pdks = pdo ? pdo->asString(pContext) : nullptr;
+                if (pdks) *pGlobalRoot = (*pGlobalRoot)->setAttribute(pContext, pdks,
+                    pContext->fromInteger(0x3LL));
+            }
+        }
 
         // Install the real Proxy constructor on top of the bare stub
         // from kUnimplementedCtors — `new Proxy(target, handler)` now
