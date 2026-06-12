@@ -10203,6 +10203,26 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         key = ensureInternedOOP(pContext, index);
                         if (!key) {
                             const proto::ProtoObject* keyObj = toString(pContext, index);
+                            // \xc2\xa77.1.21 ToPropertyKey -> \xc2\xa77.1.17 ToString: a throwing
+                            // valueOf / toString surfaces a TypeError abrupt
+                            // that the helper writes to t_callException.
+                            // Pre-fix OP_get_array_el ignored the abrupt
+                            // and let key resolution silently produce
+                            // undefined; the caller's try / catch frame
+                            // caught the abrupt at the NEXT dispatch as
+                            // if it had been thrown after the read, so
+                            // \`var y = arr[obj]; print('got y', y);\` printed
+                            // 'undefined' AND THEN the catch block fired.
+                            // (Sputnik built-ins/Array/S15.4_A1.1_T9-T10
+                            // pin the shape.)  Propagate immediately so
+                            // the throw aligns with the read site.
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                DISPATCH();
+                            }
                             key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                         }
                     }
