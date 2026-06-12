@@ -1349,9 +1349,15 @@ static const proto::ProtoObject* objectFreeze(
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                 const proto::ProtoString* k =
                     reinterpret_cast<const proto::ProtoString*>(raw);
-                if (!k || isInternalKey(ctx, k)) continue;
+                if (!k) continue;
                 std::string ks;
                 k->toUTF8String(ctx, ks);
+                // Allow per-instance Symbol identity keys through — they
+                // ARE user-visible properties that must have their
+                // configurable / writable bits cleared by seal / freeze.
+                bool isSymKey = ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+                    && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#';
+                if (!isSymKey && isInternalKey(ctx, k)) continue;
                 keysToUpdate.push_back(std::move(ks));
             }
             for (const auto& ks : keysToUpdate) {
@@ -1522,9 +1528,15 @@ static const proto::ProtoObject* objectSeal(
                 it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
                 const proto::ProtoString* k =
                     reinterpret_cast<const proto::ProtoString*>(raw);
-                if (!k || isInternalKey(ctx, k)) continue;
+                if (!k) continue;
                 std::string ks;
                 k->toUTF8String(ctx, ks);
+                // Allow per-instance Symbol identity keys through — they
+                // ARE user-visible properties that must have their
+                // configurable / writable bits cleared by seal / freeze.
+                bool isSymKey = ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+                    && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#';
+                if (!isSymKey && isInternalKey(ctx, k)) continue;
                 keysToUpdate.push_back(std::move(ks));
             }
             for (const auto& ks : keysToUpdate) {
