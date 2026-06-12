@@ -14689,6 +14689,108 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     && !fiObj->isInteger(pContext)
                     && !fiObj->isDouble(pContext)) {
 
+                    // Proxy receivers: EnumerateObjectProperties is defined to
+                    // observe the ownKeys / getOwnPropertyDescriptor traps,
+                    // NOT the target's own attributes. Dispatch ownKeys and
+                    // filter to enumerable string keys; without this branch
+                    // `for (var k in proxy)` returned no keys (verifyProperty
+                    // -> isEnumerable failed on
+                    // Proxy/getOwnPropertyDescriptor/trap-is-undefined.js).
+                    bool fiProxyHandled = false;
+                    if (protojs::isProxy(pContext, fiObj)) {
+                        const proto::ProtoObject* keysObj =
+                            protojs::proxyDispatchOwnKeys(pContext, fiObj);
+                        if (t_hasCallException) {
+                            pending_exception = t_callException;
+                            t_callException = nullptr;
+                            t_hasCallException = false;
+                            keysObj = nullptr;
+                        }
+                        // No ownKeys trap: unwrap to target and let the
+                        // regular chain-walk handle enumeration. This
+                        // keeps `for (var k in new Proxy(t,{}))` working
+                        // for the verifyProperty isEnumerable check on
+                        // getOwnPropertyDescriptor/trap-is-undefined.js.
+                        if (!keysObj || keysObj == PROTO_NONE) {
+                            // Unwrap nested proxies until we reach a
+                            // non-Proxy concrete target. Array, RegExp,
+                            // and other exotic targets only enumerate
+                            // their elements when the chain walk sees
+                            // the underlying object.
+                            const proto::ProtoObject* tgt = fiObj;
+                            int guard = 16;
+                            while (guard-- > 0 && protojs::isProxy(pContext, tgt)) {
+                                const proto::ProtoObject* next =
+                                    protojs::proxyTarget(pContext, tgt);
+                                if (!next || next == tgt) break;
+                                tgt = next;
+                            }
+                            if (tgt) fiObj = tgt;
+                        } else {
+                        fiProxyHandled = true;
+                            const proto::ProtoObject* lenK = keysObj->getAttribute(
+                                pContext, JSSymbols::length(pContext), true);
+                            long long klen = (lenK && lenK->isInteger(pContext))
+                                ? lenK->asLong(pContext) : 0;
+                            std::unordered_set<std::string> fiSeenProxy;
+                            for (long long i = 0; i < klen; ++i) {
+                                const proto::ProtoString* idxK =
+                                    JSSymbols::indexKey(pContext, (uint32_t)i);
+                                const proto::ProtoObject* kv = idxK
+                                    ? keysObj->getAttribute(pContext, idxK, true)
+                                    : nullptr;
+                                if (!kv || kv == PROTO_NONE) continue;
+                                // Skip Symbol-typed keys for for-in (string-only).
+                                if (kv->getAttribute(
+                                        pContext, JSSymbols::isSymbol(pContext), true) == PROTO_TRUE)
+                                    continue;
+                                const proto::ProtoString* ks = kv->asString(pContext);
+                                if (!ks) continue;
+                                std::string kstr;
+                                ks->toUTF8String(pContext, kstr);
+                                if (fiSeenProxy.count(kstr)) continue;
+                                // Probe enumerability via gOPD trap on the Proxy.
+                                const proto::ProtoObject* desc =
+                                    protojs::proxyDispatchGetOwnPropertyDescriptor(
+                                        pContext, fiObj, ks);
+                                if (t_hasCallException) {
+                                    pending_exception = t_callException;
+                                    t_callException = nullptr;
+                                    t_hasCallException = false;
+                                    break;
+                                }
+                                if (!desc || desc == PROTO_NONE
+                                    || desc == t_undefinedSentinel
+                                    || desc == t_nullSentinel) continue;
+                                const proto::ProtoObject* eko =
+                                    pContext->fromUTF8String("enumerable");
+                                const proto::ProtoString* eks =
+                                    eko ? eko->asString(pContext) : nullptr;
+                                const proto::ProtoObject* ev = eks
+                                    ? desc->getAttribute(pContext, eks, true)
+                                    : nullptr;
+                                if (!ev || ev == PROTO_NONE) continue;
+                                bool enumerable = (ev == PROTO_TRUE)
+                                    || (ev->isBoolean(pContext) && ev->asBoolean(pContext));
+                                if (!enumerable) continue;
+                                fiSeenProxy.insert(kstr);
+                                addFiKey(kstr);
+                            }
+                        }
+                    }
+                    if (fiProxyHandled) {
+                        // Proxies model their own enumeration entirely via
+                        // traps — skip the prototype-chain walk below.
+                        if (fiLenKey)
+                            fiKeyArr = fiKeyArr->setAttribute(pContext, fiLenKey,
+                                pContext->fromInteger(fiCount));
+                        if (fiArrKey) fiIter = fiIter->setAttribute(pContext, fiArrKey, fiKeyArr);
+                        if (fiIdxKey) fiIter = fiIter->setAttribute(pContext, fiIdxKey,
+                            pContext->fromInteger(0LL));
+                        stackPush(pContext, fiIter);
+                        DISPATCH();
+                    }
+
                     // Detect arrays to suppress "length" (check on the original object only).
                     bool fiIsArray = false;
                     if (fiIsArr) {
