@@ -9896,6 +9896,51 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     pAutomaticLocals[currentStackBase + _PF().stackTop++] = val;
                     DISPATCH();
                 }
+                // String-wrapper char-index fast path — `new String("abc")[0]`.
+                // The wrapper carries the codepoint string under
+                // __primitive_value__, so the regular attribute walk
+                // returns undefined. Pre-fix this also blocked
+                // verifyProperty's value probe on a frozen String wrapper
+                // (test262 Object/freeze/15.2.3.9-2-a-12.js).
+                if (arrIdxFast >= 0 && obj && obj != PROTO_NONE
+                    && !obj->isString(pContext)) {
+                    const proto::ProtoString* pvK =
+                        protojs::JSSymbols::primitiveValue(pContext);
+                    const proto::ProtoObject* pvV = pvK
+                        ? obj->getAttribute(pContext, pvK, false) : nullptr;
+                    if (pvV && pvV != PROTO_NONE && pvV->isString(pContext)) {
+                        const proto::ProtoString* ps = pvV->asString(pContext);
+                        if (ps) {
+                            long long sz = (long long)ps->getSize(pContext);
+                            if (arrIdxFast < sz) {
+                                std::string utf8;
+                                ps->toUTF8String(pContext, utf8);
+                                size_t i = 0;
+                                long long seen = 0;
+                                while (i < utf8.size() && seen < arrIdxFast) {
+                                    unsigned char c = (unsigned char)utf8[i];
+                                    if (c < 0x80) i += 1;
+                                    else if (c < 0xE0) i += 2;
+                                    else if (c < 0xF0) i += 3;
+                                    else i += 4;
+                                    seen++;
+                                }
+                                if (i < utf8.size()) {
+                                    unsigned char c = (unsigned char)utf8[i];
+                                    size_t lenc = (c < 0x80) ? 1 : (c < 0xE0) ? 2 : (c < 0xF0) ? 3 : 4;
+                                    if (i + lenc <= utf8.size()) {
+                                        std::string single = utf8.substr(i, lenc);
+                                        const proto::ProtoObject* cv =
+                                            pContext->fromUTF8String(single.c_str());
+                                        pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                                            cv ? cv : PROTO_NONE;
+                                        DISPATCH();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 // Per-index accessor descriptor probe (gated on
                 // __has_accessor_props__).  When Object.defineProperty
                 // installs a getter at an integer-named index, the
