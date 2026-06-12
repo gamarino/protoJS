@@ -953,6 +953,58 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
         }
         outEls = outEls->appendLast(ctx, kv);
     }
+    // §10.5.11 step 17 — every non-configurable own key of target
+    // MUST appear in the trap result. Pre-fix a trap that omitted a
+    // frozen own slot silently slipped through (test262
+    // Proxy/ownKeys/return-all-non-configurable-keys.js).
+    // §10.5.11 step 18 — when target is non-extensible, every own
+    // key of target MUST also appear (return-all-non-configurable-
+    // keys is a subset; the full invariant covers extensibility).
+    bool targetNonExt = isTargetNonExtensible(ctx, target);
+    {
+        const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
+        const proto::ProtoSparseListIterator* it2 =
+            own ? own->getIterator(ctx) : nullptr;
+        while (it2 && it2->hasNext(ctx)) {
+            unsigned long rk = it2->nextKey(ctx);
+            it2 = const_cast<proto::ProtoSparseListIterator*>(it2)->advance(ctx);
+            const proto::ProtoString* k =
+                reinterpret_cast<const proto::ProtoString*>(rk);
+            if (!k) continue;
+            std::string ks; k->toUTF8String(ctx, ks);
+            if (ks.size() >= 2 && ks[0] == '_' && ks[1] == '_') continue;
+            // Skip "length" on arrays — it's reported via the synthesised
+            // strKeys/arr-length path elsewhere and not in trap result.
+            OwnDescriptor od = probeOwnDescriptor(ctx, target, k);
+            bool mustAppear = od.present && (!od.configurable || targetNonExt);
+            if (!mustAppear) continue;
+            std::string needle = "S:" + ks;
+            if (!seenKeys.count(needle)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'ownKeys' on proxy: trap result missed a "
+                    "non-configurable own property of the target"));
+                return PROTO_NONE;
+            }
+        }
+    }
+    // §10.5.11 step 19 — when target is non-extensible, the trap
+    // result must not contain any keys not present on target.
+    if (targetNonExt) {
+        for (const auto& sk : seenKeys) {
+            if (sk.size() < 2) continue;
+            if (sk[0] != 'S') continue;
+            std::string ks = sk.substr(2);
+            const proto::ProtoObject* ko = ctx->fromUTF8String(ks.c_str());
+            const proto::ProtoString* kss = ko ? ko->asString(ctx) : nullptr;
+            if (!kss) continue;
+            if (target->hasOwnAttribute(ctx, kss) != PROTO_TRUE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'ownKeys' on proxy: trap result contains a key not "
+                    "present on the non-extensible target"));
+                return PROTO_NONE;
+            }
+        }
+    }
     const proto::ProtoObject* arr = createNewArray(ctx, nullptr);
     setArrayElements(ctx, arr, outEls);
     if (lenK) arr = arr->setAttribute(ctx, lenK, ctx->fromInteger(len));
