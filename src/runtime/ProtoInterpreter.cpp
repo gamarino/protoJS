@@ -9928,7 +9928,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // (ToPropertyKey semantics).  Pre-fix any PROTO_NONE key
                 // silently skipped the define.
                 const proto::ProtoString* keyStr2 = nullptr;
-                if (keyVal && keyVal != PROTO_NONE) {
+                // Symbol-tagged keys use the per-instance
+                // __symbol_str_key__ identity — same key the put / get /
+                // hasOwn paths use — so a computed accessor
+                // `{ set [sym](v) { ... } }` is installed under the
+                // identity \`obj[sym] = v\` later routes through.
+                // Pre-fix \`asString\` returned nullptr for Symbol, the
+                // fallback ToString produced "Symbol(<desc>)" — a
+                // distinct ProtoString — so the setter sidecar ended
+                // up keyed differently from the put path and the
+                // setter never fired (built-ins/Object/assign/target-
+                // is-frozen-accessor-property-set-succeeds.js's
+                // Symbol-keyed setter arm).
+                keyStr2 = ensureInternedOOP(pContext, keyVal);
+                if (!keyStr2 && keyVal && keyVal != PROTO_NONE) {
                     keyStr2 = keyVal->asString(pContext);
                     if (!keyStr2 && keyVal->isInteger(pContext)) {
                         long long idx = keyVal->asLong(pContext);
@@ -9937,8 +9950,8 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
                 if (!keyStr2) {
-                    // ToPropertyKey: coerce via ToString (handles undefined→"undefined",
-                    // null→"null", numbers, objects, etc.).
+                    // ToPropertyKey: coerce via ToString (handles undefined\xe2\x86\x92"undefined",
+                    // null\xe2\x86\x92"null", numbers, objects, etc.).
                     const proto::ProtoObject* coerced = toString(pContext, keyVal);
                     keyStr2 = coerced ? coerced->asString(pContext) : nullptr;
                 }
