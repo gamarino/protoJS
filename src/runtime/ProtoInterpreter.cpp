@@ -8873,6 +8873,47 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (!val || val == PROTO_NONE) {
                     val = resolveFieldOOP(pContext, obj, key);
                 }
+                // \xc2\xa710.1.8.1 OrdinaryGet step 6 — same Proxy-ancestor
+                // walk OP_get_field uses above.  When obj's prototype
+                // chain includes a Proxy and the attribute resolves to
+                // something other than the underlying value the
+                // user-supplied get trap would return (e.g. an inherited
+                // method whose identity differs through the proxy), the
+                // method-call site needs to fire the trap.  Pre-fix
+                // OP_get_field2 skipped this walk so
+                // \`Object.create(proxy).method()\` silently returned
+                // the wrong handle and the subsequent
+                // OP_call_method dispatched 'is not a function' on a
+                // value that typeof had reported as 'function'
+                // (built-ins/Object/prototype/__lookupGetter__/lookup-
+                // proto-{get,proto}-err pinned the case for
+                // Object.prototype.__lookupGetter__ on a proxied
+                // receiver).
+                if ((!val || val == PROTO_NONE || val == t_undefinedSentinel)
+                    && key && obj && obj != PROTO_NONE
+                    && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                    auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
+                        const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                        if (over) return over;
+                        return o->getPrototype(pContext);
+                    };
+                    const proto::ProtoObject* cur = advance(obj);
+                    while (cur && cur != PROTO_NONE && cur != t_nullSentinel) {
+                        if (protojs::isProxy(pContext, cur)) {
+                            val = protojs::proxyDispatchGet(pContext, cur, key, obj);
+                            REFRESH_INTERP_STATE();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                DISPATCH();
+                            }
+                            break;
+                        }
+                        cur = advance(cur);
+                    }
+                }
                 // (Accessor fallback removed; handled above)
 
                 stackPush(pContext, val && val != PROTO_NONE ? val : PROTO_NONE);
