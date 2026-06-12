@@ -3687,14 +3687,23 @@ static const proto::ProtoObject* objectDefineProperties(
                     if ((bits & 0x4) == 0) continue; // skip non-enumerable
                 }
             }
-            // If the descriptor entry is an accessor (sidecar getter
-            // present), resolve the value via the getter before
-            // dispatching to defineProperty.
+            // If the descriptor entry is an OWN accessor (sidecar getter
+            // present on the receiver itself), resolve the value via the
+            // getter before dispatching to defineProperty.  Pre-fix the
+            // probe used getAttribute(ctx, gk, false) — the third arg
+            // is the callbacks gate, not a chain-walk disable, so the
+            // walk still crossed into parent prototypes and fired any
+            // inherited getter even when the current level already
+            // carried an OWN data slot that should have shadowed it
+            // (built-ins/Object/defineProperties/15.2.3.7-5-a-2.js
+            // pins the case: an OWN \`prop\` data slot was masked by
+            // an inherited accessor returning a different descriptor
+            // and obj.prop ended up at the inherited value).
             {
                 std::string gkStr = std::string("__get_") + keyStr + "__";
                 const proto::ProtoObject* gko = ctx->fromUTF8String(gkStr.c_str());
                 const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
-                if (gk) {
+                if (gk && propsObj->hasOwnAttribute(ctx, gk) == PROTO_TRUE) {
                     const proto::ProtoObject* getter =
                         propsObj->getAttribute(ctx, gk, false);
                     if (getter && getter != PROTO_NONE
