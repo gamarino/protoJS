@@ -790,12 +790,6 @@ static const proto::ProtoObject* setConstruct(
                 }
                 return self;
             }
-            // Element read: prefer the __elements__ native storage for
-            // real arrays.  Pre-fix the constructor only read via
-            // getAttribute(indexKey, true), so `new Set([1,2,3])`
-            // silently produced an empty set — arrays now keep their
-            // elements in __elements__, and getAttribute(\"0\") returns
-            // nullptr.
             auto readIndex = [&](long i) -> const proto::ProtoObject* {
                 const proto::ProtoObject* v =
                     arrayTryFastGet(ctx, iterable, static_cast<unsigned long>(i));
@@ -804,30 +798,123 @@ static const proto::ProtoObject* setConstruct(
                 v = ik ? iterable->getAttribute(ctx, ik, true) : nullptr;
                 return v ? v : PROTO_NONE;
             };
-            const proto::ProtoString* lenKs = JSSymbols::length(ctx);
-            long len = -1;
-            if (lenKs) {
-                const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
-                if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
-                    len = lenObj->asLong(ctx);
-            }
-            // If __elements__ exists but .length attribute doesn't (some
-            // built-ins set elements without writing length), fall back
-            // to the elements list size.
-            if (len < 0) {
-                const proto::ProtoList* els = getArrayElements(ctx, iterable);
-                if (els) len = static_cast<long>(els->getSize(ctx));
-            }
-            for (long i = 0; i < len; i++) {
-                const proto::ProtoObject* val = readIndex(i);
-                // §24.2.1.1 step 9.f: Call(adder, set, [nextValue]) —
-                // dispatch through the resolved adder so user overrides
-                // of Set.prototype.add are observable (test262 set-
-                // iterable-calls-add).
-                const proto::ProtoList* addArgs = ctx->newList();
-                addArgs = addArgs->appendLast(ctx, val);
-                callJSFunction(ctx, adder, self, addArgs);
+            // §24.2.1.1 step 9 — GetIterator + walk via .next(); on
+            // any abrupt (next throw, adder throw, value getter
+            // abrupt), IteratorClose-call iterator.return(undefined)
+            // and propagate the inner abrupt.  Pre-fix the Set ctor
+            // walked .length + indexed-attribute reads only.
+            const proto::ProtoString* itoK = JSSymbols::symbolIterator(ctx);
+            const proto::ProtoObject* iterFn = itoK
+                ? iterable->getAttribute(ctx, itoK, true) : PROTO_NONE;
+            bool hasIter = iterFn && iterFn != PROTO_NONE
+                && iterFn != getUndefinedSentinel() && iterFn != getNullSentinel();
+            if (hasIter) {
+                const proto::ProtoList* iterArgs = ctx->newList();
+                const proto::ProtoObject* iterator =
+                    callJSFunction(ctx, iterFn, iterable, iterArgs);
                 if (hasCallException()) return PROTO_NONE;
+                if (!iterator || iterator == PROTO_NONE
+                    || iterator == getUndefinedSentinel()
+                    || iterator == getNullSentinel()
+                    || iterator->isInteger(ctx) || iterator->isDouble(ctx)
+                    || iterator->isFloat(ctx)   || iterator->isString(ctx)
+                    || iterator->isBoolean(ctx)) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Set iterable returned a non-Object iterator"));
+                    return PROTO_NONE;
+                }
+                const proto::ProtoObject* nKo = ctx->fromUTF8String("next");
+                const proto::ProtoString* nKs = nKo ? nKo->asString(ctx) : nullptr;
+                const proto::ProtoObject* nextFn = nKs
+                    ? iterator->getAttribute(ctx, nKs, true) : PROTO_NONE;
+                if (!nextFn || nextFn == PROTO_NONE
+                    || nextFn == getUndefinedSentinel() || nextFn == getNullSentinel()) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "Set iterator has no callable 'next'"));
+                    return PROTO_NONE;
+                }
+                auto closeIter = [&]() {
+                    const proto::ProtoObject* savedEx = consumeCallException();
+                    const proto::ProtoObject* rKo = ctx->fromUTF8String("return");
+                    const proto::ProtoString* rKs = rKo ? rKo->asString(ctx) : nullptr;
+                    if (rKs) {
+                        const proto::ProtoObject* retFn = iterator->getAttribute(ctx, rKs, true);
+                        if (retFn && retFn != PROTO_NONE
+                            && retFn != getUndefinedSentinel()
+                            && retFn != getNullSentinel()) {
+                            const proto::ProtoList* retArgs = ctx->newList();
+                            callJSFunction(ctx, retFn, iterator, retArgs);
+                            (void)consumeCallException();
+                        }
+                    }
+                    if (savedEx) signalNativeException(savedEx);
+                };
+                while (true) {
+                    const proto::ProtoList* nextArgs = ctx->newList();
+                    const proto::ProtoObject* stepRes =
+                        callJSFunction(ctx, nextFn, iterator, nextArgs);
+                    if (hasCallException()) return PROTO_NONE;
+                    if (!stepRes || stepRes == PROTO_NONE
+                        || stepRes->isInteger(ctx) || stepRes->isDouble(ctx)
+                        || stepRes->isFloat(ctx)   || stepRes->isString(ctx)
+                        || stepRes->isBoolean(ctx)
+                        || stepRes == getNullSentinel()
+                        || stepRes == getUndefinedSentinel()) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Set iterator.next() returned a non-Object"));
+                        return PROTO_NONE;
+                    }
+                    const proto::ProtoString* doneKs =
+                        ctx->fromUTF8String("done")->asString(ctx);
+                    const proto::ProtoObject* doneV =
+                        doneKs ? stepRes->getAttribute(ctx, doneKs, true) : PROTO_NONE;
+                    bool done = doneV == PROTO_TRUE
+                        || (doneV && doneV->isBoolean(ctx) && doneV->asBoolean(ctx));
+                    if (done) break;
+                    const proto::ProtoString* valKs =
+                        ctx->fromUTF8String("value")->asString(ctx);
+                    const proto::ProtoObject* val = nullptr;
+                    // §7.4.4 IteratorValue: fire `__get_value__` accessor
+                    // so a throwing `get value` propagates.
+                    {
+                        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
+                        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                        if (gks) {
+                            const proto::ProtoObject* getter = stepRes->getAttribute(ctx, gks, true);
+                            if (getter && getter != PROTO_NONE) {
+                                val = callJSFunction(ctx, getter, stepRes, ctx->newList());
+                                if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                            }
+                        }
+                    }
+                    if (!val || val == PROTO_NONE) {
+                        val = valKs ? stepRes->getAttribute(ctx, valKs, true) : PROTO_NONE;
+                    }
+                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                    const proto::ProtoList* addArgs = ctx->newList();
+                    addArgs = addArgs->appendLast(ctx, val);
+                    callJSFunction(ctx, adder, self, addArgs);
+                    if (hasCallException()) { closeIter(); return PROTO_NONE; }
+                }
+            } else {
+                const proto::ProtoString* lenKs = JSSymbols::length(ctx);
+                long len = -1;
+                if (lenKs) {
+                    const proto::ProtoObject* lenObj = iterable->getAttribute(ctx, lenKs, true);
+                    if (lenObj && lenObj != PROTO_NONE && lenObj->isInteger(ctx))
+                        len = lenObj->asLong(ctx);
+                }
+                if (len < 0) {
+                    const proto::ProtoList* els = getArrayElements(ctx, iterable);
+                    if (els) len = static_cast<long>(els->getSize(ctx));
+                }
+                for (long i = 0; i < len; i++) {
+                    const proto::ProtoObject* val = readIndex(i);
+                    const proto::ProtoList* addArgs = ctx->newList();
+                    addArgs = addArgs->appendLast(ctx, val);
+                    callJSFunction(ctx, adder, self, addArgs);
+                    if (hasCallException()) return PROTO_NONE;
+                }
             }
         }
     }
