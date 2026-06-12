@@ -3342,14 +3342,23 @@ static const proto::ProtoObject* arrayCopyWithin(
                 // arrayTryFastSet to write PROTO_NONE into __elements__
                 // so the slot becomes a hole; setAttribute remains for
                 // the array-like (non-native-storage) path.
-                const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
-                bool isRealArr = isArrKey
-                    && self->getAttribute(ctx, isArrKey, true) == PROTO_TRUE
-                    && getArrayElements(ctx, self) != nullptr;
-                if (isRealArr) {
-                    arrayTryFastSet(ctx, self, toIdx, PROTO_NONE);
+                // For Proxy receivers, route through the deleteProperty
+                // trap so the spec-required abrupt surfaces
+                // (built-ins/Array/prototype/copyWithin/return-abrupt-
+                // from-delete-proxy-target.js).
+                if (isProxy(ctx, self)) {
+                    proxyDispatchDelete(ctx, self, tk);
+                    if (hasCallException()) return PROTO_NONE;
                 } else {
-                    self->setAttribute(ctx, tk, PROTO_NONE);
+                    const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
+                    bool isRealArr = isArrKey
+                        && self->getAttribute(ctx, isArrKey, true) == PROTO_TRUE
+                        && getArrayElements(ctx, self) != nullptr;
+                    if (isRealArr) {
+                        arrayTryFastSet(ctx, self, toIdx, PROTO_NONE);
+                    } else {
+                        self->setAttribute(ctx, tk, PROTO_NONE);
+                    }
                 }
             }
         }
