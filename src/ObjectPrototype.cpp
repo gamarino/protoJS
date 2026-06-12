@@ -2177,6 +2177,44 @@ static const proto::ProtoObject* objectDefineProperty(
     const proto::ProtoObject* existingVal = propExists ? target->getAttribute(ctx, k, false) : nullptr;
     std::string kstr;
     k->toUTF8String(ctx, kstr);
+    // §10.4.2.4 step 4.b — eagerly reject any indexed-property define
+    // that would extend an Array whose length is non-writable. Pre-fix
+    // the per-property mutations (sparse own attr, __elements__ mirror)
+    // ran first and the auto-bump check at the function's end saw the
+    // already-extended length, so the throw never fired (test262
+    // Object/defineProperties/15.2.3.7-6-a-184.js, 185.js).
+    if (!kstr.empty()) {
+        char* ie = nullptr;
+        long long iv0 = std::strtoll(kstr.c_str(), &ie, 10);
+        if (ie && *ie == '\0' && iv0 >= 0 && iv0 < 4294967295LL
+            && std::to_string(iv0) == kstr) {
+            const proto::ProtoString* isAK = JSSymbols::isArray(ctx);
+            const proto::ProtoObject* isAV = isAK
+                ? target->getAttribute(ctx, isAK, true) : nullptr;
+            if (isAV == PROTO_TRUE) {
+                const proto::ProtoString* lK = JSSymbols::length(ctx);
+                const proto::ProtoObject* lV = lK
+                    ? target->getAttribute(ctx, lK, false) : nullptr;
+                long long cur = (lV && lV->isInteger(ctx))
+                    ? lV->asLong(ctx) : 0;
+                if (iv0 + 1 > cur) {
+                    const proto::ProtoObject* pdLko =
+                        ctx->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdLk =
+                        pdLko ? pdLko->asString(ctx) : nullptr;
+                    const proto::ProtoObject* pdlV = pdLk
+                        ? target->getAttribute(ctx, pdLk, false) : nullptr;
+                    if (pdlV && pdlV->isInteger(ctx)
+                        && !(pdlV->asLong(ctx) & 0x1)) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Cannot extend Array.length when length is "
+                            "non-writable"));
+                        return PROTO_NONE;
+                    }
+                }
+            }
+        }
+    }
     // ECMA-262 §10.4.2.4 ArraySetLength considers each indexed element
     // (k in [0, length)) an own data property. protoJS keeps these in
     // the native __elements__ ProtoList, NOT as string-keyed own
@@ -3021,15 +3059,12 @@ static const proto::ProtoObject* objectDefineProperty(
                 long long curLen = (lenV && lenV != PROTO_NONE && lenV->isInteger(ctx))
                     ? lenV->asLong(ctx) : 0;
                 if (iv + 1 > curLen) {
-                    // §10.4.2.4 step 4.b: extending an Array's length via
-                    // an indexed define when length is non-writable must
-                    // throw TypeError. Pre-fix the auto-bump silently
-                    // mutated arr.length and accepted the new index
-                    // (test262 Object/defineProperty/15.2.3.6-4-188.js,
-                    // 189.js).
-                    const proto::ProtoObject* pdlV =
-                        target->getAttribute(ctx,
-                            JSSymbols::pdLength(ctx), false);
+                    const proto::ProtoObject* pdLko =
+                        ctx->fromUTF8String("__pd_length__");
+                    const proto::ProtoString* pdLk =
+                        pdLko ? pdLko->asString(ctx) : nullptr;
+                    const proto::ProtoObject* pdlV = pdLk
+                        ? target->getAttribute(ctx, pdLk, false) : nullptr;
                     if (pdlV && pdlV->isInteger(ctx)
                         && !(pdlV->asLong(ctx) & 0x1)) {
                         signalNativeException(makeNativeError(ctx, "TypeError",
