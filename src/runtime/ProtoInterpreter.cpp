@@ -3351,7 +3351,14 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
             if (prim && isStringPrim(prim)) return toString(context, prim);
         }
     }
-    return context->fromUTF8String("[object Object]");
+    // §7.1.1 OrdinaryToPrimitive step 5: when neither toString nor
+    // valueOf returned a primitive, the spec throws TypeError. Pre-fix
+    // the helper returned the literal "[object Object]" silently, so
+    // String({toString: () => ({})}) produced a string instead of
+    // throwing (test262 String/S8.12.8_A1.js, _A2.js, S15.5.2.1_A1_T13).
+    signalNativeException(makeNativeError(context, "TypeError",
+        "Cannot convert object to primitive value"));
+    return PROTO_NONE;
 }
 
 /** JS Abstract Equality Comparison (==): performs type coercions per ECMAScript spec §7.2.13.
