@@ -3312,7 +3312,21 @@ static const proto::ProtoObject* toString(proto::ProtoContext* context,
             // dedicated Number / Boolean cases at the top of this
             // helper format them correctly.
             if (prim && prim->isString(context)) return prim;
-            if (prim) return toString(context, prim);
+            // §7.1.1 step 4.b — if the value returned by toString is
+            // NOT a primitive (typeof === "object" or a callable
+            // function), fall through to valueOf per the spec's
+            // OrdinaryToPrimitive algorithm. Pre-fix we recursively
+            // toString'd any non-string return, which ran the object
+            // path again and produced "[object Object]" instead of
+            // honouring the valueOf fallback (test262
+            // String/S15.5.2.1_A1_T11.js, _T13.js, S15.5.5.1_A* —
+            // `new String({toString:()=>({}),valueOf:()=>true})`
+            // expects "true").
+            bool primIsPrimitive = !prim
+                || prim == PROTO_NONE
+                || prim->isInteger(context) || prim->isDouble(context)
+                || prim->isFloat(context)   || prim->isBoolean(context);
+            if (prim && primIsPrimitive) return toString(context, prim);
         }
     }
     // Fallback to valueOf, then to the canonical literal.
