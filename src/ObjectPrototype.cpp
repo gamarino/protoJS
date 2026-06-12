@@ -2250,6 +2250,23 @@ static const proto::ProtoObject* objectDefineProperty(
                 "Property description must be an object"));
             return PROTO_NONE;
         }
+        // §7.1.13 ToPropertyDescriptor rejects BigInt primitives the
+        // same way Symbols are rejected — \xc2\xa76.1.5 lists both among the
+        // seven primitive types.  Pre-fix the BigInt marker wasn't
+        // probed and \`Object.defineProperty({}, 'a', 0n)\` /
+        // \`Object.defineProperties({}, {a: 0n})\` reached the descriptor
+        // walk on a primitive, where the absent fields fell through to
+        // their defaults rather than the spec-mandated TypeError abrupt.
+        // built-ins/Object/defineProperties/property-description-must-
+        // be-an-object-not-bigint.js (and the matching defineProperty
+        // sibling) pin the exact shape.
+        const proto::ProtoString* bigK = ctx->fromUTF8String("__is_bigint__")
+            ? ctx->fromUTF8String("__is_bigint__")->asString(ctx) : nullptr;
+        if (bigK && desc->getAttribute(ctx, bigK, true) == PROTO_TRUE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Property description must be an object"));
+            return PROTO_NONE;
+        }
     }
 
     // Proxy override per §10.5.6 [[DefineOwnProperty]]: route through
