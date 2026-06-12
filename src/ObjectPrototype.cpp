@@ -2977,9 +2977,23 @@ static const proto::ProtoObject* objectDefineProperty(
                                 els->setAt(ctx, (size_t)iv3, storedVal);
                             if (updated)
                                 protojs::setArrayElements(ctx, target, updated);
-                        } else if (els) {
+                        } else if (els
+                            && iv3 < 0xFFFFFFFELL
+                            && iv3 - (long long)els->getSize(ctx)
+                                <= (long long)protojs::kSparseFallbackThreshold) {
                             // Extension within the auto-bump path below
                             // — append PROTO_NONE up to iv3 then the value.
+                            // §22.1.5.1 valid array indices are [0,2^32-2];
+                            // anything beyond is a string-keyed own
+                            // property only (no __elements__ mirror, no
+                            // length bump). Also cap the dense pad-and-
+                            // append to kSparseFallbackThreshold so
+                            // defineProperty(arr, 10_000_000, …) doesn't
+                            // OOM the process trying to materialise
+                            // 10 M hole slots (regression introduced in
+                            // R47's value-mirror commit; surfaced by
+                            // test262 Object/defineProperty/15.2.3.6-4-186.js
+                            // calling defineProperty(arr, 4294967297, …)).
                             const proto::ProtoList* grown = els;
                             for (long long i = (long long)els->getSize(ctx); i < iv3; ++i)
                                 grown = grown->appendLast(ctx, PROTO_NONE);
