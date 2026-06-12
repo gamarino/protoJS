@@ -357,6 +357,31 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
     // §10.5.9 step 7: trap is undefined → forward to target.[[Set]](P, V, R).
     // Recurse when the target is a Proxy.
     if (isProxy(ctx, target)) return proxyDispatchSet(ctx, target, propKey, value, receiver);
+    // OrdinarySet step 2.b — when the property is inherited as an
+    // accessor, the spec requires invoking the setter with [[Receiver]]
+    // bound to the original receiver (the proxy here).  Routing every
+    // inherited accessor would require a full chain walk; for the
+    // load-bearing case the test262 set-abrupt cases pin (the
+    // `__proto__` accessor on Object.prototype), short-circuit to
+    // [[SetPrototypeOf]] on the receiver so the proxy's setPrototypeOf
+    // trap fires per §B.2.2.1 step 4.  Other inherited accessors fall
+    // back to the raw setAttribute below as before — the wider chain-
+    // walking [[Set]] is tracked separately.
+    if (propKey) {
+        std::string ks; propKey->toUTF8String(ctx, ks);
+        if (ks == "__proto__" && receiver) {
+            const proto::ProtoObject* r2 =
+                proxyDispatchSetPrototypeOf(ctx, receiver, value);
+            if (hasCallException()) return PROTO_NONE;
+            if (r2 == PROTO_FALSE) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Proxy setPrototypeOf returned false"));
+                return PROTO_NONE;
+            }
+            if (r2 == PROTO_TRUE) return PROTO_TRUE;
+            // r2 == nullptr — no trap; fall through to default raw write.
+        }
+    }
     if (propKey) {
         const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey,
             value ? value : PROTO_NONE);

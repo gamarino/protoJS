@@ -4445,6 +4445,14 @@ static const proto::ProtoObject* protoAccessorGetter(
             "Cannot convert undefined or null to object"));
         return PROTO_NONE;
     }
+    // §B.2.2.1 step 2: return O.[[GetPrototypeOf]]().  When O is a
+    // Proxy, this routes through the handler.getPrototypeOf trap;
+    // pre-fix protoAccessorGetter read t_jsProtoMap / getPrototype
+    // directly, bypassing the trap and silently dropping the throw
+    // (built-ins/Object/prototype/__proto__/get-abrupt.js).
+    if (isProxy(gctx, gself)) {
+        return proxyDispatchGetPrototypeOf(gctx, gself);
+    }
     auto it = t_jsProtoMap.find(gself);
     if (it != t_jsProtoMap.end()) return it->second;
     const proto::ProtoObject* p = gself->getPrototype(gctx);
@@ -4464,13 +4472,64 @@ static const proto::ProtoObject* protoAccessorSetter(
     }
     const proto::ProtoObject* proto = (args && args->getSize(sctx) > 0)
         ? args->getAt(sctx, 0) : getUndefinedSentinel();
+    // §B.2.2.1 step 2: when proto is neither Object nor Null, return
+    // undefined without rebinding.  Symbol primitives are tagged
+    // Objects (the `__is_symbol__` marker) — the spec excludes them
+    // from the "Object" set, so reject explicitly.  Pre-fix only the
+    // raw primitives (boolean/number/string/undefined) were filtered
+    // and a Symbol argument fell through to setJSProtoOverride.
+    bool protoIsSymbol = false;
+    {
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(sctx);
+        if (isSymK && proto && proto != PROTO_NONE
+            && proto != getNullSentinel()
+            && proto->hasAttribute(sctx, isSymK) == PROTO_TRUE
+            && proto->getAttribute(sctx, isSymK, true) == PROTO_TRUE)
+            protoIsSymbol = true;
+    }
     if (proto != getNullSentinel()
         && (!proto || proto == PROTO_NONE
             || proto == getUndefinedSentinel()
             || proto->isBoolean(sctx) || proto->isInteger(sctx)
             || proto->isDouble(sctx) || proto->isFloat(sctx)
-            || proto->isString(sctx))) {
+            || proto->isString(sctx) || protoIsSymbol)) {
         return getUndefinedSentinel();
+    }
+    // §B.2.2.1 step 4: dispatch [[SetPrototypeOf]] through Proxy
+    // trap if applicable.  Per §10.5.2, the trap returns boolean;
+    // false → TypeError; nullptr → fall through to default.
+    if (isProxy(sctx, sself)) {
+        const proto::ProtoObject* r =
+            proxyDispatchSetPrototypeOf(sctx, sself, proto);
+        if (hasCallException()) return PROTO_NONE;
+        if (r == PROTO_FALSE) {
+            signalNativeException(makeNativeError(sctx, "TypeError",
+                "Proxy setPrototypeOf returned false"));
+            return PROTO_NONE;
+        }
+        if (r == PROTO_TRUE) return getUndefinedSentinel();
+        // r == nullptr means no trap — fall through to default.
+    }
+    // §10.1.2.1 OrdinarySetPrototypeOf step 2: a non-extensible
+    // receiver must reject any rebind to a DIFFERENT prototype.
+    // Same-value rebinds remain a no-op (step 4: SameValue(V,
+    // current) is true → return true).
+    {
+        JSContextWrapper* w = JSContextWrapper::current();
+        if (w && w->getNonExtensibleMarker()
+            && sself->hasParent(sctx, w->getNonExtensibleMarker())) {
+            const proto::ProtoObject* curr = nullptr;
+            auto it2 = t_jsProtoMap.find(sself);
+            if (it2 != t_jsProtoMap.end()) curr = it2->second;
+            else                          curr = sself->getPrototype(sctx);
+            if (!curr || curr == PROTO_NONE) curr = getNullSentinel();
+            if (curr != proto) {
+                signalNativeException(makeNativeError(sctx, "TypeError",
+                    "Cannot rebind [[Prototype]] of non-extensible object"));
+                return PROTO_NONE;
+            }
+            return getUndefinedSentinel();
+        }
     }
     if (proto && proto != getNullSentinel()) {
         const proto::ProtoObject* p = proto;
