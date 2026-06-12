@@ -10328,6 +10328,34 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // (test262 Object/defineProperty/15.2.3.6-4-190.js).
                 if (idxFast >= 0) {
                     std::string idxKs = std::to_string(idxFast);
+                    // Accessor sidecar probe — invoke __set_<i>__ if
+                    // present. Pre-fix arr[i]=v went straight to
+                    // __elements__ even when Object.defineProperty had
+                    // installed an accessor at index i (test262
+                    // Object/defineProperties/15.2.3.7-6-a-204.js).
+                    std::string sks = "__set_" + idxKs + "__";
+                    const proto::ProtoObject* sko =
+                        pContext->fromUTF8String(sks.c_str());
+                    const proto::ProtoString* sksk =
+                        sko ? sko->asString(pContext) : nullptr;
+                    if (sksk
+                        && obj->hasOwnAttribute(pContext, sksk) == PROTO_TRUE) {
+                        const proto::ProtoObject* setter =
+                            obj->getAttribute(pContext, sksk, false);
+                        if (setter && setter != PROTO_NONE
+                            && setter != t_undefinedSentinel) {
+                            const proto::ProtoList* sargs = pContext->newList();
+                            sargs = sargs->appendLast(pContext, value);
+                            (void)callJSFunction(pContext, setter, obj, sargs);
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                            }
+                            DISPATCH();
+                        }
+                    }
                     std::string pds = "__pd_" + idxKs + "__";
                     const proto::ProtoObject* pdo =
                         pContext->fromUTF8String(pds.c_str());
