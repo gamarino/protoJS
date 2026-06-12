@@ -3644,6 +3644,69 @@ static const proto::ProtoObject* objectDefineProperties(
         }
     }
 
+    // \xc2\xa719.1.2.3 step 5: keys be ? from.[[OwnPropertyKeys]]().  A Proxy
+    // receiver dispatches the ownKeys / getOwnPropertyDescriptor traps;
+    // each per-key descriptor read goes through the gOPD trap with
+    // ToString(key) per spec.  Pre-fix defineProperties walked the
+    // raw protoCore SparseList and never touched the Proxy traps
+    // (built-ins/Object/defineProperties/proxy-no-ownkeys-returned-
+    // keys-order.js pins the case — the test asserts the gOPD trap
+    // is called with each key, in chronological order).
+    if (isProxy(ctx, propsObj)) {
+        const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, propsObj);
+        if (hasCallException()) return PROTO_NONE;
+        // No ownKeys trap: forward to the target's own keys via
+        // collectOwnKeys (the default [[OwnPropertyKeys]] behaviour).
+        std::vector<std::string> defaultKeys;
+        if (!keysArr || keysArr == PROTO_NONE) {
+            const proto::ProtoObject* tgt = propsObj;
+            int guard = 16;
+            while (guard-- > 0 && isProxy(ctx, tgt)) {
+                const proto::ProtoObject* nx = proxyTarget(ctx, tgt);
+                if (!nx || nx == tgt) break;
+                tgt = nx;
+            }
+            if (tgt && tgt != propsObj)
+                collectOwnKeys(ctx, tgt, defaultKeys, nullptr, /*includeNonEnumerable=*/true);
+        }
+        const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
+        size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
+        for (size_t i = 0; i < kn; ++i) {
+            const proto::ProtoObject* kObj = els
+                ? els->getAt(ctx, i)
+                : ctx->fromUTF8String(defaultKeys[i].c_str());
+            if (!kObj || kObj == PROTO_NONE) continue;
+            const proto::ProtoString* kStr = kObj->asString(ctx);
+            if (!kStr) continue;
+            const proto::ProtoObject* desc =
+                proxyDispatchGetOwnPropertyDescriptor(ctx, propsObj, kStr);
+            if (hasCallException()) return PROTO_NONE;
+            if (!desc || desc == PROTO_NONE
+                || desc == getUndefinedSentinel() || desc == getNullSentinel())
+                continue;
+            // Skip non-enumerable per \xc2\xa719.1.2.3 step 5.b.iii.
+            const proto::ProtoString* enumK = ctx->fromUTF8String("enumerable")
+                ? ctx->fromUTF8String("enumerable")->asString(ctx) : nullptr;
+            if (enumK) {
+                const proto::ProtoObject* ev = desc->getAttribute(ctx, enumK, true);
+                if (ev != PROTO_TRUE && (!ev || !ev->isBoolean(ctx) || !ev->asBoolean(ctx)))
+                    continue;
+            }
+            // Reflect.get(proxy, key) for the descriptor value.
+            const proto::ProtoObject* descRead =
+                proxyDispatchGet(ctx, propsObj, kStr, propsObj);
+            if (hasCallException()) return PROTO_NONE;
+            const proto::ProtoList* dpArgs = ctx->newList();
+            dpArgs = dpArgs->appendLast(ctx, target);
+            dpArgs = dpArgs->appendLast(ctx, kObj);
+            dpArgs = dpArgs->appendLast(ctx, descRead ? descRead : PROTO_NONE);
+            const proto::ProtoObject* newTarget = objectDefineProperty(ctx, nullptr, nullptr, dpArgs, nullptr);
+            if (hasCallException()) return PROTO_NONE;
+            if (newTarget && newTarget != PROTO_NONE) target = newTarget;
+        }
+        return target;
+    }
+
     const proto::ProtoSparseList* own = propsObj->getOwnAttributes(ctx);
     if (!own) return target;
     const proto::ProtoSparseListIterator* it = own->getIterator(ctx);
