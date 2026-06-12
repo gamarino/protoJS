@@ -1862,12 +1862,25 @@ static const proto::ProtoObject* objectSetPrototypeOf(
         return PROTO_NONE;
     }
     const proto::ProtoObject* proto = args->getAt(ctx, 1);
-    // §20.1.2.21 step 2: proto must be Object or Null.
+    // §20.1.2.21 step 2: proto must be Object or Null — Symbol
+    // primitives (objects with __is_symbol__) are also rejected per
+    // §6.1.5. Pre-fix the type check missed Symbols and silently
+    // installed a Symbol as the prototype slot, breaking the
+    // §10.1.2.1 invariant (test262
+    // Object/setPrototypeOf/proto-not-obj.js).
     if (proto != getNullSentinel()) {
+        bool protoIsSymbol = false;
+        {
+            const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+            if (isSymK && proto && proto != PROTO_NONE
+                && proto->hasAttribute(ctx, isSymK) == PROTO_TRUE
+                && proto->getAttribute(ctx, isSymK, true) == PROTO_TRUE)
+                protoIsSymbol = true;
+        }
         if (!proto || proto == PROTO_NONE || proto == getUndefinedSentinel()
             || proto->isInteger(ctx) || proto->isDouble(ctx)
             || proto->isFloat(ctx) || proto == PROTO_TRUE || proto == PROTO_FALSE
-            || proto->isString(ctx)) {
+            || proto->isString(ctx) || protoIsSymbol) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "Object.setPrototypeOf: prototype must be an Object or null"));
             return PROTO_NONE;
