@@ -4650,6 +4650,61 @@ static const proto::ProtoObject* objectGroupBy(
         ownedEls = true;
     }
     if (!els) {
+        // \xc2\xa724.1.2.13 step 3: GetIterator(items) — if @@iterator is
+        // present and callable, dispatch its iterator protocol; any
+        // abrupt from next() surfaces as the groupBy abrupt
+        // (built-ins/Object/groupBy/iterator-next-throws.js pins the
+        // case via a throwing next).  Pre-fix groupBy only handled
+        // Arrays and strings via the dense fast path above, so any
+        // user-defined iterator fell through to 'not iterable'.
+        const proto::ProtoString* itK = JSSymbols::symbolIterator(ctx);
+        const proto::ProtoObject* itFn = itK
+            ? items->getAttribute(ctx, itK, true) : nullptr;
+        if (itFn && itFn != PROTO_NONE
+            && itFn != getUndefinedSentinel() && itFn != getNullSentinel()
+            && isCb(itFn)) {
+            const proto::ProtoObject* iterObj =
+                callJSFunction(ctx, itFn, items, ctx->newList());
+            if (hasCallException()) return PROTO_NONE;
+            if (iterObj && iterObj != PROTO_NONE) {
+                const proto::ProtoString* nextK =
+                    ctx->fromUTF8String("next")
+                        ? ctx->fromUTF8String("next")->asString(ctx) : nullptr;
+                const proto::ProtoString* doneK =
+                    ctx->fromUTF8String("done")
+                        ? ctx->fromUTF8String("done")->asString(ctx) : nullptr;
+                const proto::ProtoString* valueK =
+                    ctx->fromUTF8String("value")
+                        ? ctx->fromUTF8String("value")->asString(ctx) : nullptr;
+                const proto::ProtoList* built = ctx->newList();
+                int guard = 0x100000;
+                while (guard-- > 0) {
+                    const proto::ProtoObject* nextFn = nextK
+                        ? iterObj->getAttribute(ctx, nextK, true) : nullptr;
+                    if (!isCb(nextFn)) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "Object.groupBy: iterator next is not callable"));
+                        return PROTO_NONE;
+                    }
+                    const proto::ProtoObject* step =
+                        callJSFunction(ctx, nextFn, iterObj, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                    if (!step || step == PROTO_NONE) break;
+                    const proto::ProtoObject* doneVal = doneK
+                        ? step->getAttribute(ctx, doneK, true) : nullptr;
+                    bool done = doneVal == PROTO_TRUE
+                        || (doneVal && doneVal->isBoolean(ctx)
+                            && doneVal->asBoolean(ctx));
+                    if (done) break;
+                    const proto::ProtoObject* val = valueK
+                        ? step->getAttribute(ctx, valueK, true) : nullptr;
+                    built = built->appendLast(ctx, val ? val : PROTO_NONE);
+                }
+                els = built;
+            }
+        }
+    }
+    if (!els) {
         signalNativeException(makeNativeError(ctx, "TypeError",
             "Object.groupBy: items is not iterable"));
         return PROTO_NONE;
