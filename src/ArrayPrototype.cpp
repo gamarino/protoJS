@@ -2853,6 +2853,20 @@ static const proto::ProtoObject* arrayConcat(
     const proto::ProtoSparseList*)
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
+    // \xc2\xa723.1.3.1 step 2: ArraySpeciesCreate(O, 0) — step 1.a invokes
+    // IsArray(O), which throws TypeError on a revoked Proxy per
+    // \xc2\xa77.2.2 step 3.a.  Pre-fix arrayConcat had no revoked-proxy
+    // guard at the entry point; the descriptor-walking helpers below
+    // bottomed out on the missing target and silently returned an
+    // empty array (built-ins/Array/prototype/concat/create-revoked-
+    // proxy.js pinned the divergence — even with a custom
+    // \`get constructor\` on the proxy, concat must throw BEFORE the
+    // getter could fire).
+    if (isProxy(ctx, self) && !proxyTarget(ctx, self)) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "Cannot perform 'concat' on a proxy that has been revoked"));
+        return PROTO_NONE;
+    }
     // Spec §22.1.3.1 step 1: O = ToObject(this). For primitives the
     // wrapper participates as a non-spreadable Object so the result
     // contains the wrapper itself, not the primitive. Pre-fix concat
@@ -2914,6 +2928,19 @@ static const proto::ProtoObject* arrayConcat(
         if (!obj || obj == PROTO_NONE) return false;
         if (obj->isInteger(ctx) || obj->isDouble(ctx) || obj->isFloat(ctx) ||
             obj->isString(ctx) || obj->isBoolean(ctx)) return false;
+        // \xc2\xa710.5.8 [[Get]] step 3: revoked Proxy throws TypeError
+        // before any property lookup.  IsConcatSpreadable's Get on
+        // @@isConcatSpreadable surfaces that abrupt at the top of the
+        // arg-iteration loop.  Pre-fix arrayConcat had no probe and
+        // the attribute walk silently returned PROTO_NONE, so a revoked
+        // proxy argument was treated as a single non-spreadable element
+        // (built-ins/Array/prototype/concat/is-concat-spreadable-{is-
+        // array,}-proxy-revoked.js).
+        if (isProxy(ctx, obj) && !proxyTarget(ctx, obj)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'get' on a proxy that has been revoked"));
+            return false;
+        }
         // Step 2: probe @@isConcatSpreadable via the WKS string key.
         // Cached via JSSymbols to avoid a per-call createSymbol + asString
         // pair (~1us each) that showed up on list_snapshot_history's
@@ -2959,7 +2986,18 @@ static const proto::ProtoObject* arrayConcat(
                 return true;  // Objects coerce to true.
             }
         }
-        // Step 4: IsArray(O) — probe the __is_array__ marker.
+        // Step 4: IsArray(O) — probe the __is_array__ marker.  IsArray
+        // per \xc2\xa77.2.2 step 3.a throws TypeError on a revoked Proxy;
+        // when the @@isConcatSpreadable get trap revokes the proxy as a
+        // side effect (built-ins/Array/prototype/concat/is-concat-
+        // spreadable-is-array-proxy-revoked.js), the fallback IsArray
+        // must surface that abrupt.  Pre-fix the inline marker probe
+        // silently returned false for a now-revoked proxy.
+        if (isProxy(ctx, obj) && !proxyTarget(ctx, obj)) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "Cannot perform 'isArray' on a proxy that has been revoked"));
+            return false;
+        }
         const proto::ProtoString* isArrKey = JSSymbols::isArray(ctx);
         if (isArrKey) {
             const proto::ProtoObject* ia = obj->getAttribute(ctx, isArrKey, true);
@@ -3023,6 +3061,9 @@ static const proto::ProtoObject* arrayConcat(
                         const proto::ProtoObject* item = args->getAt(ctx, static_cast<int>(ai));
                         argItem.push_back(item);
                         bool spread = isSpreadable(item);
+                        // isSpreadable may have surfaced a revoked-Proxy
+                        // abrupt via signalNativeException; propagate.
+                        if (hasCallException()) return PROTO_NONE;
                         const proto::ProtoList* els = nullptr;
                         if (spread) {
                             if (!cleanArray(item, &els)) { ok = false; break; }
