@@ -1508,17 +1508,25 @@ static const proto::ProtoObject* reflectDefineProperty(
         }
     }
     if (protojs::isProxy(ctx, target)) {
-        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "defineProperty");
-        if (trap) {
-            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
-            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
-            const proto::ProtoList* trapArgs = ctx->newList();
-            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
-            if (args->getSize(ctx) > 1) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 1));
-            if (args->getSize(ctx) > 2) trapArgs = trapArgs->appendLast(ctx, args->getAt(ctx, 2));
-            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
-            return (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE)) ? PROTO_TRUE : PROTO_FALSE;
-        }
+        // Route through proxyDispatchDefineProperty so the §10.5.6 trap-
+        // result ToBoolean coercion and non-extensible-target invariant
+        // fire correctly.  Pre-fix the inlined dispatch above accepted
+        // any non-false non-undefined return as truthy (an integer 0
+        // returned by the user trap was treated as truthy and
+        // Reflect.defineProperty returned true instead of false).
+        const proto::ProtoObject* keyArg = (args->getSize(ctx) > 1)
+            ? args->getAt(ctx, 1) : getUndefinedSentinel();
+        const proto::ProtoObject* descArg = (args->getSize(ctx) > 2)
+            ? args->getAt(ctx, 2) : getUndefinedSentinel();
+        const proto::ProtoString* propKey = protojs::toPropertyKey(ctx, keyArg);
+        if (t_hasCallException) return PROTO_NONE;
+        if (!propKey) return PROTO_FALSE;
+        const proto::ProtoObject* r =
+            protojs::proxyDispatchDefineProperty(ctx, target, propKey, descArg);
+        if (t_hasCallException) return PROTO_NONE;
+        if (r == PROTO_TRUE) return PROTO_TRUE;
+        if (r == PROTO_FALSE) return PROTO_FALSE;
+        // r == nullptr (no trap) — fall through to default on target.
     }
 
     // Forward to globalThis.Object.defineProperty. The native

@@ -797,15 +797,70 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
     }
     if (truthy) {
         OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
-        if (od.present && !od.configurable) {
-            // Already non-configurable — the trap cannot loosen this.
-            // (Full §10.5.6 step 17 invariant set is broader; we cover
-            // the most-common test262 enforcement here.)
-        }
+        // §10.5.6 step 16: trap accepted but the target is non-extensible
+        // and there is no existing own descriptor for P — TypeError.
         if (!od.present && isTargetNonExtensible(ctx, target)) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "'defineProperty' on proxy: trap returned truthy adding "
                 "a property to a non-extensible target"));
+            return PROTO_FALSE;
+        }
+        // Inspect the Desc the trap saw to enforce the remaining
+        // §10.5.6 step 17–20 invariants.  Desc is the JS-side
+        // descriptor object the caller passed.
+        bool descHasConfigurable = false;
+        bool descConfigurable    = true;
+        bool descHasWritable     = false;
+        bool descWritable        = true;
+        if (descriptor && descriptor != PROTO_NONE) {
+            const proto::ProtoObject* cko = ctx->fromUTF8String("configurable");
+            const proto::ProtoString* cks = cko ? cko->asString(ctx) : nullptr;
+            if (cks && descriptor->hasAttribute(ctx, cks) == PROTO_TRUE) {
+                descHasConfigurable = true;
+                const proto::ProtoObject* cv = descriptor->getAttribute(ctx, cks, false);
+                descConfigurable = (cv == PROTO_TRUE);
+            }
+            const proto::ProtoObject* wko = ctx->fromUTF8String("writable");
+            const proto::ProtoString* wks = wko ? wko->asString(ctx) : nullptr;
+            if (wks && descriptor->hasAttribute(ctx, wks) == PROTO_TRUE) {
+                descHasWritable = true;
+                const proto::ProtoObject* wv = descriptor->getAttribute(ctx, wks, false);
+                descWritable = (wv == PROTO_TRUE);
+            }
+        }
+        // §10.5.6 step 17: targetDesc is undefined && (Desc has any
+        // configurable:false) → TypeError.
+        if (!od.present && descHasConfigurable && !descConfigurable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'defineProperty' on proxy: trap returned truthy adding "
+                "a non-configurable property to a target without one"));
+            return PROTO_FALSE;
+        }
+        // §10.5.6 step 20.a: targetDesc present && Desc not compatible
+        // → TypeError.  Conservative check: when targetDesc is non-
+        // configurable, any Desc that wants to flip configurable to
+        // false-vs-true OR change writable on a data slot raises.
+        if (od.present && !od.configurable
+            && descHasConfigurable && descConfigurable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'defineProperty' on proxy: trap returned truthy making "
+                "a non-configurable property configurable"));
+            return PROTO_FALSE;
+        }
+        if (od.present && !od.configurable && !od.isAccessor
+            && !od.writable && descHasWritable && descWritable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'defineProperty' on proxy: trap returned truthy making "
+                "a non-configurable non-writable property writable"));
+            return PROTO_FALSE;
+        }
+        // §10.5.6 step 20.b: settingConfigFalse on a configurable
+        // targetDesc → TypeError.
+        if (od.present && od.configurable
+            && descHasConfigurable && !descConfigurable) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'defineProperty' on proxy: trap returned truthy making "
+                "a configurable property non-configurable when target has it as configurable"));
             return PROTO_FALSE;
         }
     }
