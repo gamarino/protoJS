@@ -387,6 +387,167 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 46 — 2026-06-12** (20 commits, autonomous follow-up to R45) —
+Proxy nested-target unwrap + remaining §10.5 invariants pass.  The
+10-family table moves to **8 663 / 9 514 (91.06 %)** — +33 tests,
++0.35 pp, zero regressions.  Built-ins/Proxy goes from
+**220 / 311 (70.7 %) → 245 / 311 (78.8 %)** (+25, +8.1 pp).
+Object (+6), Symbol (+2) carry the remainder; the rest held.
+
+Most of this round was the same shape twenty times in a row: a
+Proxy receiver method had a single `proxyTarget` unwrap that
+silently bypassed every intermediate trap when the immediate
+target was itself a Proxy.  Replacing each one with a bounded
+loop (or recursing through the dispatcher) closed the
+forwarding gap for `[[OwnPropertyKeys]]`,
+`[[GetOwnProperty]]`, `[[Delete]]`, `[[DefineOwnProperty]]`,
+`[[Set]]`, `[[Get]]`, `[[HasProperty]]`, `[[IsExtensible]]`,
+`[[PreventExtensions]]`, and `[[Call]]`.
+
+The remaining commits closed concrete §10.5 invariants the
+dispatcher had stubbed (gOPD step 17/22, dP step 16.c.i +
+step 20.a value check, ownKeys step 17/18/19, getPrototypeOf
+step 11) and three pieces of supporting machinery that depend
+on them: `Object.prototype.hasOwnProperty` /
+`propertyIsEnumerable` / `for-in` had to dispatch through the
+gOPD trap so `verifyProperty` accepted Proxy descriptors;
+`OP_instanceof` had to walk the chain through
+`proxyDispatchGetPrototypeOf` rather than protoCore's native
+parent walk; and the strict-mode write trap on Symbol
+primitive receivers had to surface as TypeError in
+OP_put_field / OP_put_array_el.
+
+  * **§10.5.5 gOPD step 22 + Array exotic probe in
+    probeOwnDescriptor.**  Two related [[GetOwnProperty]] gaps:
+    the trap-non-configurable invariant on an absent target
+    descriptor (step 22), and `probeOwnDescriptor` missing
+    Array exotic indices entirely (`__elements__` not in own
+    attrs) and the `length` synthesised slot.  Together
+    unblocked the missing-own / non-extensible variants and
+    set the stage for the hasOwnProperty / propertyIsEnumerable
+    Proxy dispatch below.  +2 tests.
+
+  * **`hasOwnProperty` + `propertyIsEnumerable` route Proxy
+    receivers via the gOPD trap.**  §20.1.3.2 / §20.1.3.4
+    define both as derived from `O.[[GetOwnProperty]](P)`'s
+    presence / `[[Enumerable]]` slot.  Pre-fix both went
+    straight to `hasOwnAttribute` on the Proxy receiver, which
+    always reported false (the descriptor lives on the target).
+    `verifyProperty`'s `__hasOwnProperty` + `__propertyIsEnumerable`
+    probes were the gate.  +1 test.
+
+  * **OP_for_in_start dispatches Proxy receivers via ownKeys +
+    gOPD traps.**  §14.7.5.6 EnumerateObjectProperties observes
+    the Proxy traps rather than the target's own attributes;
+    pre-fix the for-in walked the protoCore parent chain on
+    the Proxy cell directly (only the proxy sidecars), so
+    `for (var k in proxy)` produced no keys and the
+    isEnumerable check failed.  Dispatches `proxyDispatchOwnKeys`
+    + per-key enumerability via gOPD; on no-trap fallback,
+    unwraps to a concrete target (Array, RegExp, String wrapper)
+    before the regular chain walk.  +1 test.
+
+  * **proxyDispatchDelete: accessor / descriptor sidecars +
+    Array index path.**  The no-trap concrete fallback wiped
+    only the data attribute and left `__get_<k>__` /
+    `__set_<k>__` / `__pd_<k>__` sidecars intact, so deleting
+    an accessor was a silent no-op.  And `delete proxy[i]` on
+    a Proxy(Array) never reached `__elements__`, since array
+    indices don't live as own attributes.  Detect both at the
+    fallback path; refuse `delete proxy.length` on Arrays
+    per §10.4.2.5.  +2 tests.
+
+  * **OP_get_length + OP_get_array_el: walk
+    [[Prototype]] chain for Proxy ancestors.**  Same shape as
+    the R45 OP_get_field chain walk, but applied at the two
+    sites that still bypassed it: `Object.create(proxy).length`
+    and `Object.create(proxy)[k]`.  Bounded at 32 hops.  +2 tests.
+
+  * **ownKeys forwarding chain: nested-Proxy unwrap +
+    String-wrapper indices + Symbol identity.**  Three
+    overlapping fixes: every `Object.keys` / `Object.values` /
+    `Object.entries` / `Object.assign` / `Object.fromEntries` /
+    `Reflect.ownKeys` site looped its proxyDispatchOwnKeys
+    fallback to unwrap chained proxies fully; reflectOwnKeys
+    synthesised String-wrapper char indices from
+    `__primitive_value__`; and emitted Symbol-typed keys as
+    the original primitive (not the `"Symbol(desc)"` string)
+    so SameValue compareArray checks matched identity.  +3 tests.
+
+  * **proxyDispatchHas String-wrapper char-index fallback.**
+    `Reflect.has(new Proxy(new String("str"), {}), "0")`
+    returned false because the Array-element fast path had
+    no equivalent for String exotic wrappers.  +1 test.
+
+  * **proxyDispatchDefineProperty step 16.c.i + step 20.a
+    invariants.**  Two §6.2.5.6 IsCompatiblePropertyDescriptor
+    gaps: value mismatch on a frozen target slot (step 20.a),
+    and writable-flip on a non-configurable but writable
+    target (step 16.c.i).  +2 tests.
+
+  * **OP_instanceof walks [[GetPrototypeOf]] dispatching the
+    Proxy trap.**  protoCore's native `isInstanceOf` walks
+    only the C++ parent chain, so `p instanceof Custom`
+    returned false even when `Object.getPrototypeOf(p) ===
+    Custom.prototype`.  When obj is a Proxy or its immediate
+    prototype is one, walk the chain manually dispatching
+    `proxyDispatchGetPrototypeOf` at each step.  +2 tests.
+
+  * **objectIsExtensible + objectPreventExtensions forward
+    through nested Proxy traps.**  Single-unwrap left the
+    immediate target as a Proxy with no marker; recurse via
+    `objectPreventExtensions` so an inner trap that returns
+    false still surfaces the spec TypeError.  +3 tests.
+
+  * **OP_call + OP_call_method unwrap nested Proxies until
+    the underlying callable.**  Promoting the `if (isProxy)`
+    unwrap to a `while` lets `p(args)` traverse a chain of
+    proxies with `apply: null` / `apply: undefined` until
+    reaching the real callable target.  +1 test.
+
+  * **defineProperty no-trap fallthrough unwraps to the
+    concrete target.**  Both Object.defineProperty and
+    Reflect.defineProperty had a single-step unwrap, so
+    `Object.defineProperty(Proxy(Proxy([], {}), {dP: undef}),
+    "0", {value: 1})` never reached `array[0]`.  +1 test.
+
+  * **proxyDispatchGetPrototypeOf step 11 non-extensible
+    SameValue.**  When target is non-extensible, the trap
+    result must SameValue `target.[[GetPrototypeOf]]()` —
+    pre-fix any result was accepted.  +2 tests.
+
+  * **proxyDispatchOwnKeys step 17 / 18 / 19 invariants.**
+    Non-configurable own keys MUST appear in the trap result
+    (step 17); non-extensible targets MUST include every own
+    key (step 18) and MUST NOT contain keys not present on
+    target (step 19).  +1 test.
+
+  * **OP_put_field + OP_put_array_el throw TypeError on
+    strict-mode Symbol receivers.**  §10.1.9.2 OrdinarySet on
+    a primitive receiver fails silently in sloppy mode and
+    throws in strict mode.  protoJS carries Symbol primitives
+    as JSObjects with `__is_symbol__`, so the writes silently
+    persisted.  Probe the marker under module->isStrict.
+    +2 tests.
+
+10-family roll-up — Proxy carries the round; Object's +6 from the
+ownKeys / hasOwnProperty / propertyIsEnumerable / for-in refactors;
+Symbol's +2 from the strict-mode write trap; the rest held:
+
+| Family | This run | R45 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 421 / 509 (82.7 %) | 421 / 509 | 0 |
+| `built-ins/Object` | 3 064 / 3 411 (89.8 %) | 3 058 / 3 411 | **+6** |
+| `built-ins/Array` | 2 877 / 3 081 (93.4 %) | 2 877 / 3 081 | 0 |
+| `built-ins/String` | 1 125 / 1 223 (92.0 %) | 1 125 / 1 223 | 0 |
+| `built-ins/Symbol` | 71 / 98 (72.4 %) | 69 / 98 | **+2** |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | **245 / 311** (78.8 %) | 220 / 311 (70.7 %) | **+25** (+8.1 pp) |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **8 663 / 9 514** (**91.06 %**) | 8 630 / 9 514 (90.71 %) | **+33** (+0.35 pp) |
+
 **Round 45 — 2026-06-12** (7 commits, autonomous follow-up to R44) —
 deeper Proxy + [[Set]] / [[Get]] chain walk pass.  The 10-family
 table moves to **8 630 / 9 514 (90.71 %)** — +17 tests, +0.18 pp,
