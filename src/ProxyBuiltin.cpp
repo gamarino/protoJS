@@ -1001,6 +1001,28 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
                 return PROTO_NONE;
             }
         }
+        // §10.5.1 step 11 — if target is non-extensible, the trap
+        // result must SameValue target.[[GetPrototypeOf]]().
+        // Pre-fix any trap result was accepted on a frozen target
+        // (test262 Proxy/getPrototypeOf/not-extensible-not-same-
+        // proto-throws.js).
+        if (isTargetNonExtensible(ctx, target)) {
+            const proto::ProtoObject* tp = nullptr;
+            if (isProxy(ctx, target)) {
+                tp = proxyDispatchGetPrototypeOf(ctx, target);
+                if (hasCallException()) return PROTO_NONE;
+            } else {
+                const proto::ProtoObject* over = getJSProtoOverride(target);
+                tp = over ? over : target->getPrototype(ctx);
+                if (!tp || tp == PROTO_NONE) tp = getNullSentinel();
+            }
+            if (!sameValue(ctx, r, tp ? tp : getNullSentinel())) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'getPrototypeOf' on proxy: trap returned a value "
+                    "different from target's prototype for a non-extensible target"));
+                return PROTO_NONE;
+            }
+        }
         return r;
     }
     // No trap — forward.  When target is itself a Proxy, recurse;
