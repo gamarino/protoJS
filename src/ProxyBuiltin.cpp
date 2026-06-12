@@ -924,6 +924,56 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
                 "'getOwnPropertyDescriptor' on proxy: trap returned non-Object"));
             return PROTO_NONE;
         }
+        // §10.5.5 step 17 — when trap returned a descriptor object
+        // but the target has no own descriptor for P AND target is
+        // non-extensible, raise TypeError (test262 gOPD/resultdesc-
+        // is-not-configurable-targetdesc-is-undefined.js, resultdesc-
+        // is-invalid-descriptor.js).
+        {
+            OwnDescriptor odPre = probeOwnDescriptor(ctx, target, propKey);
+            if (!odPre.present && isTargetNonExtensible(ctx, target)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'getOwnPropertyDescriptor' on proxy: trap returned a "
+                    "descriptor for an absent property on a non-extensible target"));
+                return PROTO_NONE;
+            }
+            // §10.5.5 step 21 (subset of IsCompatiblePropertyDescriptor):
+            // when targetDesc is present and non-configurable, the trap
+            // result must (a) also be non-configurable, and (b) for a
+            // non-writable data targetDesc, also be non-writable.
+            if (odPre.present && !odPre.configurable) {
+                const proto::ProtoObject* cko = ctx->fromUTF8String("configurable");
+                const proto::ProtoString* cks = cko ? cko->asString(ctx) : nullptr;
+                bool resConfig = true;
+                if (cks) {
+                    const proto::ProtoObject* cv = res->getAttribute(ctx, cks, true);
+                    if (cv == PROTO_FALSE) resConfig = false;
+                    else if (cv && cv->isBoolean(ctx)) resConfig = cv->asBoolean(ctx);
+                }
+                if (resConfig) {
+                    signalNativeException(makeNativeError(ctx, "TypeError",
+                        "'getOwnPropertyDescriptor' on proxy: trap reported "
+                        "configurable for a non-configurable own property"));
+                    return PROTO_NONE;
+                }
+                if (!odPre.isAccessor && !odPre.writable) {
+                    const proto::ProtoObject* wko = ctx->fromUTF8String("writable");
+                    const proto::ProtoString* wks = wko ? wko->asString(ctx) : nullptr;
+                    bool resWritable = true;
+                    if (wks) {
+                        const proto::ProtoObject* wv = res->getAttribute(ctx, wks, true);
+                        if (wv == PROTO_FALSE) resWritable = false;
+                        else if (wv && wv->isBoolean(ctx)) resWritable = wv->asBoolean(ctx);
+                    }
+                    if (resWritable) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "'getOwnPropertyDescriptor' on proxy: trap reported "
+                            "writable for a non-configurable non-writable own property"));
+                        return PROTO_NONE;
+                    }
+                }
+            }
+        }
         // FromPropertyDescriptor — rebuild the canonical 4-slot
         // descriptor object so the caller can read each slot in the
         // order the spec mandates.  We honour both data and accessor

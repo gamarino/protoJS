@@ -11892,6 +11892,61 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 if (stackSize(pContext) < argc + 2) return PROTO_NONE;
                 const proto::ProtoObject* func = stackAt(pContext, argc);
                 const proto::ProtoObject* thisVal = stackAt(pContext, argc + 1);
+                // §10.5.12 [[Call]] on a Proxy receiver — dispatch the
+                // handler.apply trap (raises on revoked).  Pre-fix
+                // OP_call_method walked the protoCore callable check
+                // directly, so a function-proxy called via `obj.method()`
+                // ran on the proxy cell (which has no __bytecode_id__ /
+                // __native_fn__) and silently returned undefined.
+                if (protojs::isProxy(pContext, func)) {
+                    const proto::ProtoObject* pTarget = protojs::proxyTarget(pContext, func);
+                    if (!pTarget) {
+                        pending_exception = makeError(pContext, "TypeError",
+                            "Cannot perform 'apply' on a proxy that has been revoked", pGlobalRoot);
+                        has_pending_exception = true;
+                        for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                        stackPush(pContext, PROTO_NONE);
+                        DISPATCH();
+                    }
+                    const proto::ProtoObject* pHandler = protojs::proxyHandler(pContext, func);
+                    if (pHandler && pHandler != PROTO_NONE) {
+                        const proto::ProtoObject* trapNameObj = pContext->fromUTF8String("apply");
+                        const proto::ProtoString* trapName = trapNameObj
+                            ? trapNameObj->asString(pContext) : nullptr;
+                        const proto::ProtoObject* trap = trapName
+                            ? pHandler->getAttribute(pContext, trapName, true) : nullptr;
+                        bool trapCallable = trap && trap != PROTO_NONE &&
+                            (trap->isMethod(pContext) ||
+                             (JSSymbols::bytecodeId(pContext) && trap->hasAttribute(pContext, JSSymbols::bytecodeId(pContext)) == PROTO_TRUE) ||
+                             (JSSymbols::nativeFn(pContext) && trap->hasAttribute(pContext, JSSymbols::nativeFn(pContext)) == PROTO_TRUE));
+                        if (trapCallable) {
+                            const proto::ProtoString* arrK = JSSymbols::arrayProto(pContext);
+                            REFRESH_GLOBAL_OBJ();
+                            const proto::ProtoObject* arrProto = (arrK && globalObj && globalObj != PROTO_NONE)
+                                ? globalObj->getAttribute(pContext, arrK, false) : nullptr;
+                            const proto::ProtoObject* argArrJs = protojs::createNewArray(pContext, arrProto);
+                            if (argArrJs && argc > 0) {
+                                const proto::ProtoList* argEls = pContext->newList();
+                                for (uint32_t i = 0; i < argc; i++)
+                                    argEls = argEls->appendLast(pContext, stackAt(pContext, argc - 1 - i));
+                                protojs::setArrayElements(pContext, argArrJs, argEls);
+                            }
+                            const proto::ProtoList* trapArgs = pContext->newList();
+                            trapArgs = trapArgs->appendLast(pContext, pTarget);
+                            trapArgs = trapArgs->appendLast(pContext, thisVal ? thisVal : PROTO_NONE);
+                            trapArgs = trapArgs->appendLast(pContext, argArrJs ? argArrJs : PROTO_NONE);
+                            for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
+                            const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
+                            REFRESH_INTERP_STATE();
+                            if (hasCallException()) DISPATCH();
+                            stackPush(pContext, res ? res : PROTO_NONE);
+                            DISPATCH();
+                        }
+                    }
+                    // No trap — re-target onto the underlying callable.
+                    func = pTarget;
+                    pAutomaticLocals[currentStackBase + _PF().stackTop - (argc + 2)] = pTarget;
+                }
                 // Unwrap native function wrapper: if func has __native_fn__, use the
                 // raw method it contains. This allows .length and .name to be stored
                 // on wrapper objects while still dispatching to the ProtoMethod.
@@ -15198,7 +15253,12 @@ const proto::ProtoObject* callJSFunction(
     // the underlying target directly.  We rely on isProxy probing the
     // __proxy_target__ marker, so non-proxy targets bypass this branch
     // after a single sidecar miss.
-    if (protojs::isProxy(ctx, fn)) {
+    // Walk a chain of nested Proxy callables: at each step, dispatch
+    // the apply trap if present and callable; otherwise unwrap to the
+    // target and loop.  §10.5.12 step 6 explicitly states "if trap is
+    // undefined, return Call(target, thisArg, argList)" — so a `null`
+    // / `undefined` slot on the handler propagates to the inner.
+    while (protojs::isProxy(ctx, fn)) {
         const proto::ProtoObject* target = protojs::proxyTarget(ctx, fn);
         if (!target) {
             signalNativeException(makeNativeError(ctx, "TypeError",
@@ -15240,7 +15300,9 @@ const proto::ProtoObject* callJSFunction(
                 return callJSFunction(ctx, trap, handler, trapArgs);
             }
         }
-        // No trap → fall through invoking target directly.
+        // No trap (or trap is null/undefined) → re-point fn at the
+        // target and loop; if target is itself a Proxy we'll either
+        // dispatch its trap or unwrap once more.
         fn = target;
     }
 
