@@ -3671,6 +3671,26 @@ static const proto::ProtoObject* objectHasOwnProperty(
     }
     if (!k) return PROTO_FALSE;
 
+    // §20.1.3.2 / §7.3.13 — HasOwnProperty(O, P) is defined as
+    // ? O.[[GetOwnProperty]](P) !== undefined. For Proxies, [[GetOwnProperty]]
+    // is the gOPD trap (or its target fallback). Pre-fix the method went
+    // straight to hasOwnAttribute on the Proxy receiver, which always
+    // reported false because the trap's result lives on the target.
+    // test262 Proxy/getOwnPropertyDescriptor/trap-is-undefined.js pinned
+    // this — Object.prototype.hasOwnProperty.call(p, 'attr') must return
+    // true when target has the own data property and the Proxy has no
+    // handler.
+    if (protojs::isProxy(ctx, self)) {
+        const proto::ProtoObject* desc =
+            protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, self, k);
+        if (hasCallException()) return PROTO_NONE;
+        if (desc && desc != PROTO_NONE
+            && desc != getUndefinedSentinel() && desc != getNullSentinel()) {
+            return PROTO_TRUE;
+        }
+        return PROTO_FALSE;
+    }
+
     if (self->hasOwnAttribute(ctx, k) == PROTO_TRUE) {
         // protoCore has no public deleteAttribute; the array prototype
         // simulates 'delete arr[i]' by writing PROTO_NONE to the slot.
@@ -3785,6 +3805,31 @@ static const proto::ProtoObject* objectPropertyIsEnumerable(
         return PROTO_NONE;
     }
     if (!k) return PROTO_FALSE;
+
+    // §20.1.3.4 / §7.3.14 — OrdinaryHasProperty derived directly from
+    // [[GetOwnProperty]] result's [[Enumerable]] attribute. Pre-fix
+    // a Proxy receiver was probed via hasOwnAttribute and always
+    // reported false, breaking verifyProperty's isEnumerable() check
+    // on Proxy/getOwnPropertyDescriptor/trap-is-undefined.js.
+    if (protojs::isProxy(ctx, self)) {
+        const proto::ProtoObject* desc =
+            protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, self, k);
+        if (hasCallException()) return PROTO_NONE;
+        if (!desc || desc == PROTO_NONE
+            || desc == getUndefinedSentinel() || desc == getNullSentinel()) {
+            return PROTO_FALSE;
+        }
+        // Read the descriptor's `enumerable` data slot.
+        const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
+        const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+        if (!eks) return PROTO_FALSE;
+        const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, true);
+        if (!ev || ev == PROTO_NONE) return PROTO_FALSE;
+        if (ev == PROTO_TRUE) return PROTO_TRUE;
+        if (ev == PROTO_FALSE) return PROTO_FALSE;
+        if (ev->isBoolean(ctx)) return ev->asBoolean(ctx) ? PROTO_TRUE : PROTO_FALSE;
+        return PROTO_FALSE;
+    }
 
     if (self->hasOwnAttribute(ctx, k) != PROTO_TRUE) {
         // Also check accessors
