@@ -13057,9 +13057,28 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // 2. Dispatch.
                 int bcId = getBytecodeId(pContext, func);
                 const ProtoBytecodeModule* resolved = nullptr;
-                if (bcId >= 0 && static_cast<size_t>(bcId) < module->nestedFunctions.size())
+                // Closures created inside a foreign sub-module — e.g. the
+                // Function constructor's evalIsolatedToProto path — carry
+                // an explicit __closure_module__ pointer to the module
+                // that owns their nestedFunctions[bcId] entry.  Pre-fix
+                // L_OP_call_constructor jumped straight to the
+                // module/t_rootModule lookup and missed every closure
+                // produced by `new Function(...)`, so `new FACTORY()`
+                // fell through to the "function is not a constructor"
+                // arm even though FACTORY is a regular constructible
+                // JS function.  Mirror the dispatch L_OP_call performs
+                // at line 13657 so the resolution paths agree.
+                if (bcId >= 0) {
+                    const ProtoBytecodeModule* ownerMod =
+                        getClosureModule(pContext, func);
+                    if (ownerMod &&
+                        static_cast<size_t>(bcId) < ownerMod->nestedFunctions.size())
+                        resolved = &ownerMod->nestedFunctions[bcId];
+                }
+                if (!resolved && bcId >= 0 &&
+                    static_cast<size_t>(bcId) < module->nestedFunctions.size())
                     resolved = &module->nestedFunctions[bcId];
-                else if (bcId >= 0 && t_rootModule &&
+                else if (!resolved && bcId >= 0 && t_rootModule &&
                          static_cast<size_t>(bcId) < t_rootModule->nestedFunctions.size())
                     resolved = &t_rootModule->nestedFunctions[bcId];
 
