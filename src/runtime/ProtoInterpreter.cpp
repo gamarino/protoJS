@@ -8858,6 +8858,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             if (!val->isInteger(pContext) && !val->isDouble(pContext)
                                 && !val->isFloat(pContext)) {
                                 numVal = jsToNumber(pContext, val);
+                                // §7.1.5 ToNumber on an object whose
+                                // toString / valueOf both return objects
+                                // throws TypeError ("Cannot convert
+                                // object to primitive value"). Propagate
+                                // the abrupt so the spec-mandated
+                                // TypeError surfaces (test262
+                                // Array/length/S15.4.5.1_A1.3_T2.js).
+                                if (t_hasCallException) {
+                                    pending_exception     = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException    = false;
+                                    t_callException       = nullptr;
+                                    DISPATCH();
+                                }
                             }
                             double d = 0.0;
                             bool gotNum = false;
