@@ -839,13 +839,19 @@ static const proto::ProtoObject* objectAssign(
             const proto::ProtoString* propKey =
                 reinterpret_cast<const proto::ProtoString*>(rawKey);
             if (!propKey) continue;
-            if (isInternalKey(ctx, propKey)) continue;
-            // §20.1.2.1 step 4.c.ii.1: only enumerable own properties
-            // are copied. Probe the __pd_<key>__ descriptor sidecar;
-            // when absent the property defaults to fully enumerable
-            // (matches our other descriptor probes).
+            // \xc2\xa720.1.2.1 step 4.c iterates ALL own keys including
+            // symbol-keyed entries.  isInternalKey skips internal
+            // bookkeeping (\`__*__\`) AND per-instance Symbol identity
+            // (\`@@sym#<addr>\`) — but the symbol-keyed entries ARE
+            // user-visible and must be copied.  Allow \`@@sym#\` keys
+            // through here; the regular \`__*__\` filter still applies.
             std::string keyStr;
             propKey->toUTF8String(ctx, keyStr);
+            bool isSymKeyStr = keyStr.size() >= 6
+                && keyStr[0]=='@' && keyStr[1]=='@'
+                && keyStr[2]=='s' && keyStr[3]=='y'
+                && keyStr[4]=='m' && keyStr[5]=='#';
+            if (!isSymKeyStr && isInternalKey(ctx, propKey)) continue;
             std::string pdStr = std::string("__pd_") + keyStr + "__";
             const proto::ProtoObject* pdo = ctx->fromUTF8String(pdStr.c_str());
             const proto::ProtoString* pdk = pdo ? pdo->asString(ctx) : nullptr;
