@@ -1663,7 +1663,14 @@ const proto::ProtoObject* stringMatch(
         && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)) {
         const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
         const proto::ProtoObject* matchFn = pattern->getAttribute(ctx, matchKey, true);
-        if (matchFn && matchFn != PROTO_NONE && matchFn != getUndefinedSentinel()) {
+        // §7.3.10 GetMethod step 3: null and undefined coerce to
+        // undefined, so the dispatch must be skipped per spec.
+        // Pre-fix only undefined / PROTO_NONE were rejected, so
+        // `regexp[Symbol.match] = null` invoked the null trap and
+        // threw "is not a function" (test262 cstm-matcher-is-null).
+        if (matchFn && matchFn != PROTO_NONE
+            && matchFn != getUndefinedSentinel()
+            && matchFn != getNullSentinel()) {
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
             return callJSFunction(ctx, matchFn, pattern, newArgs);
@@ -1728,7 +1735,10 @@ const proto::ProtoObject* stringSearch(
         && !pattern->isFloat(ctx) && !pattern->isBoolean(ctx)) {
         const proto::ProtoString* searchKey = JSSymbols::symbolSearch(ctx);
         const proto::ProtoObject* searchFn = pattern->getAttribute(ctx, searchKey, true);
-        if (searchFn && searchFn != PROTO_NONE && searchFn != getUndefinedSentinel()) {
+        // GetMethod step 3: null and undefined → skip dispatch.
+        if (searchFn && searchFn != PROTO_NONE
+            && searchFn != getUndefinedSentinel()
+            && searchFn != getNullSentinel()) {
             const proto::ProtoList* newArgs = ctx->newList();
             newArgs = newArgs->appendLast(ctx, self);
             return callJSFunction(ctx, searchFn, pattern, newArgs);
@@ -2168,18 +2178,32 @@ const proto::ProtoObject* stringMatchAll(
         const proto::ProtoString* matchAllKey = JSSymbols::symbolMatchAll(ctx);
         const proto::ProtoObject* matcher = matchAllKey
             ? regexp->getAttribute(ctx, matchAllKey, true) : PROTO_NONE;
-        if (!matcher || matcher == PROTO_NONE || matcher == undefSentinel) {
+        // §7.3.10 GetMethod: null and undefined coerce to undefined;
+        // both must fall through to the default RegExpCreate path
+        // BELOW (not skip the @@matchAll dispatch entirely — the
+        // chain may still hold an inherited matchAll on RegExp.prototype
+        // that the regexp shadowed with null/undefined).  Pre-fix
+        // only undefined was treated this way, so
+        // `regexp[Symbol.matchAll] = null` produced PROTO_NONE here
+        // and the regexp fall-through created a fresh /./g without
+        // honouring the inherited matcher (test262 matchAll/
+        // regexp-matchAll-is-undefined-or-null.js, regexp-prototype-
+        // matchAll-is-undefined-or-null.js).
+        if (!matcher || matcher == PROTO_NONE
+            || matcher == undefSentinel || matcher == nullSentinel) {
             const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.matchAll__");
             const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
             if (gk) {
                 const proto::ProtoObject* getter = regexp->getAttribute(ctx, gk, true);
-                if (getter && getter != PROTO_NONE && getter != undefSentinel) {
+                if (getter && getter != PROTO_NONE
+                    && getter != undefSentinel && getter != nullSentinel) {
                     matcher = callJSFunction(ctx, getter, regexp, ctx->newList());
                     if (hasCallException()) return PROTO_NONE;
                 }
             }
         }
-        if (matcher && matcher != PROTO_NONE && matcher != undefSentinel) {
+        if (matcher && matcher != PROTO_NONE
+            && matcher != undefSentinel && matcher != nullSentinel) {
             const proto::ProtoList* callArgs = ctx->newList();
             callArgs = callArgs->appendLast(ctx, self);
             return callJSFunction(ctx, matcher, regexp, callArgs);
@@ -2259,7 +2283,10 @@ const proto::ProtoObject* stringSplit(
             && !sepProbe->isBoolean(ctx)) {
             const proto::ProtoString* splitKey = JSSymbols::symbolSplit(ctx);
             const proto::ProtoObject* splitFn = sepProbe->getAttribute(ctx, splitKey, true);
-            if (splitFn && splitFn != PROTO_NONE && splitFn != getUndefinedSentinel()) {
+            // GetMethod step 3: null and undefined → skip dispatch.
+            if (splitFn && splitFn != PROTO_NONE
+                && splitFn != getUndefinedSentinel()
+                && splitFn != getNullSentinel()) {
                 const proto::ProtoList* newArgs = ctx->newList();
                 newArgs = newArgs->appendLast(ctx, self);
                 if (args->getSize(ctx) > 1) {
