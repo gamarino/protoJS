@@ -12460,8 +12460,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     has_pending_exception = true;
                     DISPATCH();
                 }
-                const proto::ProtoObject* keyObj = toString(pContext, keyVal);
-                const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                // \xc2\xa713.10.1: ToPropertyKey(keyVal).  Symbol primitives
+                // must route through their per-instance __symbol_str_key__
+                // (the put / hasOwn path's storage identity), not be
+                // ToString-coerced to "Symbol(<desc>)".  Pre-fix
+                // \`sym in obj\` (where obj[sym] was set) returned false
+                // because the toString path produced a different
+                // ProtoString* than the storage key
+                // (built-ins/Object/defineProperty/symbol-data-property-*).
+                const proto::ProtoString* key = ensureInternedOOP(pContext, keyVal);
+                if (!key) {
+                    const proto::ProtoObject* keyObj = toString(pContext, keyVal);
+                    key = keyObj ? keyObj->asString(pContext) : nullptr;
+                }
                 // Proxy receiver → dispatch to handler.has.
                 if (key && protojs::isProxy(pContext, obj)) {
                     const proto::ProtoObject* r = protojs::proxyDispatchHas(pContext, obj, key);
@@ -12566,8 +12577,15 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoObject* obj = stackTop(pContext);
                 stackPop(pContext);
-                const proto::ProtoObject* keyObj = toString(pContext, keyVal);
-                const proto::ProtoString* key = keyObj ? keyObj->asString(pContext) : nullptr;
+                // ToPropertyKey(keyVal).  Symbol primitives route through
+                // their per-instance __symbol_str_key__ — see L_OP_in for
+                // the matching pattern (the put / hasOwn / delete paths
+                // share storage identity).
+                const proto::ProtoString* key = ensureInternedOOP(pContext, keyVal);
+                if (!key) {
+                    const proto::ProtoObject* keyObj = toString(pContext, keyVal);
+                    key = keyObj ? keyObj->asString(pContext) : nullptr;
+                }
                 // §10.5.10 [[Delete]] on a Proxy dispatches the
                 // deleteProperty trap.  Pre-fix OP_delete walked the
                 // raw protoCore attribute layer, so a Proxy with a
