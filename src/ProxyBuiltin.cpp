@@ -692,11 +692,23 @@ const proto::ProtoObject* proxyDispatchGetPrototypeOf(
         a = a->appendLast(ctx, target);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
-        // Trap result must be Object or Null.
+        // §10.5.1 step 7: trap result must be Object or Null —
+        // Symbol primitives (Object-tagged with `__is_symbol__`)
+        // also reject here.  Pre-fix the rejector missed Symbol
+        // and the `r->isString` check alone let through anything
+        // whose asString returned null (the Symbol case).
         if (r != getNullSentinel()) {
+            bool resIsSymbol = false;
+            {
+                const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+                if (isSymK && r && r != PROTO_NONE
+                    && r->getAttribute(ctx, isSymK, true) == PROTO_TRUE)
+                    resIsSymbol = true;
+            }
             if (!r || r == PROTO_NONE || r == getUndefinedSentinel()
                 || r->isInteger(ctx) || r->isDouble(ctx) || r->isFloat(ctx)
-                || r == PROTO_TRUE || r == PROTO_FALSE || r->isString(ctx)) {
+                || r == PROTO_TRUE || r == PROTO_FALSE || r->isString(ctx)
+                || resIsSymbol) {
                 signalNativeException(makeNativeError(ctx, "TypeError",
                     "'getPrototypeOf' on proxy: trap returned neither Object nor Null"));
                 return PROTO_NONE;
