@@ -193,6 +193,18 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 if (nfKey && fn->hasAttribute(ctx, nfKey) == PROTO_TRUE) return true;
                 return false;
             };
+            // §7.3.11 GetMethod step 4: if the method is present
+            // (neither undefined nor null) but not callable, throw
+            // TypeError. Skipping silently here masks the spec abrupt
+            // (test262 String/prototype/indexOf/searchstring-tostring-
+            // toprimitive.js: `{[Symbol.toPrimitive]: 1}` or `{}`).
+            if (tpFn && tpFn != PROTO_NONE
+                && tpFn != getUndefinedSentinel() && tpFn != getNullSentinel()
+                && !isCallable(tpFn)) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "Symbol.toPrimitive is not a function"));
+                return "";
+            }
             if (isCallable(tpFn)) {
                 const proto::ProtoList* hintArgs = ctx->newList();
                 hintArgs = hintArgs->appendLast(ctx, ctx->fromUTF8String("string"));
