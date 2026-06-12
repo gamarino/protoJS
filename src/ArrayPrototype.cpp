@@ -3781,8 +3781,29 @@ static const proto::ProtoObject* arrayFindLast(
     long long len = 0;
     {
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
-        const proto::ProtoObject* lenV = lenK
-            ? self->getAttribute(ctx, lenK, true) : nullptr;
+        const proto::ProtoObject* lenV = nullptr;
+        // \xc2\xa723.1.3.10 step 2 routes through Get(O, 'length') which
+        // fires accessor getters per OrdinaryGet.  Pre-fix the local
+        // length read used self->getAttribute on the raw 'length' key —
+        // an Object.defineProperty(O, 'length', {get: throws}) installed
+        // its sidecar under __get_length__ and the raw read returned
+        // PROTO_NONE, so len stayed 0 and the subsequent IsCallable
+        // check on the callback surfaced TypeError instead of the
+        // getter's abrupt (built-ins/Array/prototype/findLast/
+        // return-abrupt-from-this-length.js pins the case).
+        {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+            const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE
+                    && getter != getUndefinedSentinel()) {
+                    lenV = callJSFunction(ctx, getter, self, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
+        if (!lenV && lenK) lenV = self->getAttribute(ctx, lenK, true);
         if (lenV && lenV != PROTO_NONE) {
             double d = 0.0;
             bool gotNum = false;
@@ -3836,8 +3857,22 @@ static const proto::ProtoObject* arrayFindLastIndex(
     long long len = 0;
     {
         const proto::ProtoString* lenK = JSSymbols::length(ctx);
-        const proto::ProtoObject* lenV = lenK
-            ? self->getAttribute(ctx, lenK, true) : nullptr;
+        // Mirror findLast's accessor-aware probe — see the matching
+        // comment above for the regression detail.
+        const proto::ProtoObject* lenV = nullptr;
+        {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_length__");
+            const proto::ProtoString* gk  = gko ? gko->asString(ctx) : nullptr;
+            if (gk) {
+                const proto::ProtoObject* getter = self->getAttribute(ctx, gk, true);
+                if (getter && getter != PROTO_NONE
+                    && getter != getUndefinedSentinel()) {
+                    lenV = callJSFunction(ctx, getter, self, ctx->newList());
+                    if (hasCallException()) return PROTO_NONE;
+                }
+            }
+        }
+        if (!lenV && lenK) lenV = self->getAttribute(ctx, lenK, true);
         if (lenV && lenV != PROTO_NONE) {
             double d = 0.0;
             bool gotNum = false;
