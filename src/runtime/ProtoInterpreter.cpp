@@ -9256,7 +9256,20 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     if (i2 >= 0)
                         idxKey2 = JSSymbols::indexKey(pContext, static_cast<uint32_t>(i2));
                 } else if (idxVal && idxVal != PROTO_NONE) {
-                    idxKey2 = idxVal->asString(pContext);
+                    // Symbol primitives have a per-instance
+                    // __symbol_str_key__ that the put / hasOwn paths
+                    // key off of.  Route through ensureInternedOOP so
+                    // an object literal \`{[sym]: v}\` stores under the
+                    // SAME ProtoString identity \`obj[sym] = v\` would
+                    // use elsewhere; pre-fix the asString fallback
+                    // produced a distinct ProtoString and subsequent
+                    // lookups via the Symbol returned undefined
+                    // (built-ins/Object/assign/target-is-non-extensible-
+                    // existing-data-property and the matching sealed
+                    // variant pinned the case via Object.assign onto
+                    // a literal { [sym]: 1 } source).
+                    idxKey2 = ensureInternedOOP(pContext, idxVal);
+                    if (!idxKey2) idxKey2 = idxVal->asString(pContext);
                     if (!idxKey2) {
                         // Not already a ProtoString — coerce via the user's
                         // .toString() chain (may run JS code, mutating
