@@ -1,6 +1,7 @@
 #include "RegExpPrototype.h"
 #include "RegExpStringIterator.h"
 #include "ArrayPrototype.h"
+#include "ObjectPrototype.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
 #include "TypeBridge.h"
@@ -1255,8 +1256,22 @@ void ensureRegExpConstructor(proto::ProtoContext* ctx,
         }
     }
 
+    // \xc2\xa720.4.3 / \xc2\xa722.2.3: every built-in constructor's [[Prototype]]
+    // is %Function.prototype%.  ctor was built via ctx->newObject(true)
+    // with no parent, so getPrototypeOf reported objectPrototype
+    // (the fallback null-prototype default).  Wire the methodPrototype
+    // parent in for attribute resolution (call / apply / bind) and
+    // pin the JS-visible [[Prototype]] via setJSProtoOverride so
+    // Object.getPrototypeOf(RegExp) === Function.prototype.  The R49
+    // resolveFieldOOP fix (commit 5884845c3) walks the C++ parent
+    // chain when probing for overrides so the override value continues
+    // to route lookups through Object.prototype.
+    if (ctx->space && ctx->space->methodPrototype) {
+        const_cast<proto::ProtoObject*>(ctor)->addParent(ctx, ctx->space->methodPrototype);
+        setJSProtoOverride(ctx, ctor, ctx->space->methodPrototype);
+    }
     *globalRoot = (*globalRoot)->setAttribute(ctx, keyRegExp, ctor);
-    // §17: every built-in constructor on globalThis is
+    // \xc2\xa717: every built-in constructor on globalThis is
     // { writable: true, enumerable: false, configurable: true }.
     // Pre-fix the bare setAttribute fell through to default enumerable=true,
     // and Object.getOwnPropertyDescriptor(globalThis, "RegExp").enumerable

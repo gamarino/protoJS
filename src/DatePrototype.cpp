@@ -2057,15 +2057,25 @@ void ensureDateConstructor(proto::ProtoContext* ctx,
         if (!dateObj) return;
     } else if (ctx->space && ctx->space->methodPrototype) {
         // Pre-existing Date stub (installed by TimingAPIs::init before
-        // ensureFunctionPrototype) is rooted at objectPrototype — its
-        // chain misses Function.prototype.call / apply / bind / etc.
-        // Wire methodPrototype into the chain so call/apply/bind/
-        // hasOwnProperty all resolve.  addParent leaves the original
-        // objectPrototype as the first slot so getPrototypeOf still
-        // returns objectPrototype (not Function.prototype as the spec
-        // requires) — a separate setParents experiment broke
-        // hasOwnProperty resolution.
+        // ensureFunctionPrototype) is rooted at objectPrototype.  Two
+        // visible problems:
+        //   1. its chain misses Function.prototype.call / apply / bind,
+        //   2. \xc2\xa720.4.3 says Object.getPrototypeOf(Date) ===
+        //      Function.prototype, but our impl reports objectPrototype.
+        // addParent(methodPrototype) plugs (1) by adding a second
+        // C++ parent that resolveFieldOOP's chain walk sees.  To fix
+        // (2) we ALSO install a t_jsProtoMap override so the
+        // JS-visible [[Prototype]] points at Function.prototype — the
+        // R49 resolveFieldOOP fix (commit 5884845c3) walks the C++
+        // parent chain when probing for overrides, so the override
+        // value (methodPrototype) routes attribute lookups through
+        // Function.prototype's own attributes and on to Object.prototype
+        // exactly as the spec lays it out.  Pre-fix the
+        // setParents-experiment regression noted in the prior comment
+        // happened because the chain walker couldn't follow the
+        // override back to Object.prototype; that no longer applies.
         dateObj->addParent(ctx, ctx->space->methodPrototype);
+        setJSProtoOverride(ctx, dateObj, ctx->space->methodPrototype);
     }
 
     // Replace Date.parse with the improved parser that handles
