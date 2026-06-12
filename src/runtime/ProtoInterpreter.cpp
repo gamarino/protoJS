@@ -12816,16 +12816,23 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (opcode != OP_tail_call_method) stackPush(pContext, result ? result : PROTO_NONE);
                     } else {
                         for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
-                        // func is neither bytecode, native, nor bound — throw TypeError.
-                        if (!func || func == PROTO_NONE) {
-                            pending_exception = makeError(pContext, "TypeError",
-                                "is not a function", pGlobalRoot);
-                            has_pending_exception = true;
-                        } else {
-                            // Non-null but unrecognized callable — best-effort PROTO_NONE.
-                            if (opcode != OP_tail_call_method)
-                                stackPush(pContext, PROTO_NONE);
-                        }
+                        // ECMA-262 §7.3.13 step 2: if IsCallable(func) is
+                        // false, throw TypeError.  L_OP_call_method
+                        // previously fell through to silently push
+                        // PROTO_NONE for "non-null but unrecognised"
+                        // receivers, which let `Object.prototype()`,
+                        // `f.prototype()`, and any other plain-object
+                        // call expression complete normally — diverging
+                        // from L_OP_call's throw at the same spec point
+                        // (sputnik built-ins/Object/prototype/S15.2.4
+                        // _A3 pinned the behaviour for Object.prototype).
+                        // Throw uniformly so callable-receiver checks
+                        // behave the same regardless of whether the
+                        // call site was compiled as OP_call_method
+                        // (member-access call) or OP_call.
+                        pending_exception = makeError(pContext, "TypeError",
+                            "is not a function", pGlobalRoot);
+                        has_pending_exception = true;
                     }
                 }
                 DISPATCH();
