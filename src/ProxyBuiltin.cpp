@@ -81,13 +81,23 @@ static const proto::ProtoObject* lookupTrap(
     const proto::ProtoObject* nameObj = ctx->fromUTF8String(trapName);
     const proto::ProtoString* name = nameObj ? nameObj->asString(ctx) : nullptr;
     if (!name) return nullptr;
-    // §7.3.10 GetMethod calls Get(handler, trapName) — which fires
-    // accessor getters.  Probe the `__get_<trapName>__` accessor
-    // sidecar first so a throwing `get setPrototypeOf()` propagates
-    // via hasCallException (test262 setPrototypeOf/return-abrupt-
-    // from-get-trap.js).
+    // \xc2\xa77.3.10 GetMethod calls Get(handler, trapName) — which dispatches
+    // through the handler's own [[Get]].  When the handler is itself a
+    // Proxy (built-ins/Object/{entries,values,getOwnPropertyDescriptors}/
+    // observable-operations.js pin the case), Get fires the outer
+    // proxy's get trap and the trap-lookup observable accesses must
+    // surface.  Pre-fix lookupTrap read via raw getAttribute and missed
+    // the outer get-trap firing entirely.
     const proto::ProtoObject* trap = nullptr;
-    {
+    if (isProxy(ctx, handler)) {
+        trap = proxyDispatchGet(ctx, handler, name, handler);
+        if (hasCallException()) return nullptr;
+    } else {
+        // \xc2\xa77.3.10 GetMethod calls Get(handler, trapName) — which fires
+        // accessor getters.  Probe the \`__get_<trapName>__\` accessor
+        // sidecar first so a throwing \`get setPrototypeOf()\` propagates
+        // via hasCallException (test262 setPrototypeOf/return-abrupt-
+        // from-get-trap.js).
         std::string gks = std::string("__get_") + trapName + "__";
         const proto::ProtoObject* gko = ctx->fromUTF8String(gks.c_str());
         const proto::ProtoString* gk = gko ? gko->asString(ctx) : nullptr;
@@ -98,9 +108,9 @@ static const proto::ProtoObject* lookupTrap(
                 if (hasCallException()) return nullptr;
             }
         }
+        if (!trap || trap == PROTO_NONE)
+            trap = handler->getAttribute(ctx, name, true);
     }
-    if (!trap || trap == PROTO_NONE)
-        trap = handler->getAttribute(ctx, name, true);
     // §7.3.10 GetMethod step 3-5: null / undefined → return undefined
     // (no trap dispatch).  Absent → likewise.  Present but non-callable
     // → TypeError.  Pre-fix the non-callable path returned nullptr
