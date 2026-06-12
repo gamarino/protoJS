@@ -1313,6 +1313,83 @@ static const proto::ProtoObject* objectFreeze(
                 return PROTO_NONE;
             }
         }
+        // \xc2\xa77.3.16 SetIntegrityLevel('frozen') on a Proxy: dispatch
+        // per-key defineProperty trap with a descriptor whose
+        // configurable AND writable bits are false (data properties)
+        // or configurable false (accessor properties).  Pre-fix
+        // Object.freeze(proxy) didn't dispatch the trap at all
+        // (built-ins/Object/freeze/proxy-with-defineProperty-handler.js).
+        const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, obj);
+        if (hasCallException()) return PROTO_NONE;
+        std::vector<std::string> defaultKeys;
+        if (!keysArr || keysArr == PROTO_NONE) {
+            const proto::ProtoObject* tgt = target;
+            int guard = 16;
+            while (guard-- > 0 && isProxy(ctx, tgt)) {
+                const proto::ProtoObject* nx = proxyTarget(ctx, tgt);
+                if (!nx || nx == tgt) break;
+                tgt = nx;
+            }
+            if (tgt) {
+                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
+                const proto::ProtoSparseListIterator* tit =
+                    tOwn ? tOwn->getIterator(ctx) : nullptr;
+                while (tit && tit->hasNext(ctx)) {
+                    unsigned long rk = tit->nextKey(ctx);
+                    (void)tit->nextValue(ctx);
+                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
+                    const proto::ProtoString* ks =
+                        reinterpret_cast<const proto::ProtoString*>(rk);
+                    if (!ks) continue;
+                    std::string s; ks->toUTF8String(ctx, s);
+                    bool isSym = s.size() >= 6 && s[0]=='@' && s[1]=='@'
+                        && s[2]=='s' && s[3]=='y' && s[4]=='m' && s[5]=='#';
+                    if (!isSym && isInternalKey(ctx, ks)) continue;
+                    defaultKeys.push_back(std::move(s));
+                }
+            }
+        }
+        const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
+        size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
+        const proto::ProtoString* confK = ctx->fromUTF8String("configurable")
+            ? ctx->fromUTF8String("configurable")->asString(ctx) : nullptr;
+        const proto::ProtoString* writK = ctx->fromUTF8String("writable")
+            ? ctx->fromUTF8String("writable")->asString(ctx) : nullptr;
+        for (size_t i = 0; i < kn; ++i) {
+            const proto::ProtoObject* kObj = els
+                ? els->getAt(ctx, i)
+                : ctx->fromUTF8String(defaultKeys[i].c_str());
+            if (!kObj || kObj == PROTO_NONE) continue;
+            const proto::ProtoString* kStr = kObj->asString(ctx);
+            if (!kStr) continue;
+            // \xc2\xa77.3.16 step 8.b: when current descriptor is an accessor,
+            // pass {configurable: false}; when data, pass {writable: false,
+            // configurable: false}.  Probe the proxy's
+            // getOwnPropertyDescriptor to discriminate; if it returns
+            // undefined / a primitive, default to the data shape.
+            const proto::ProtoObject* curDesc =
+                proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
+            if (hasCallException()) return PROTO_NONE;
+            bool isAccessor = false;
+            if (curDesc && curDesc != PROTO_NONE
+                && curDesc != getUndefinedSentinel()
+                && curDesc != getNullSentinel()) {
+                const proto::ProtoString* getK = ctx->fromUTF8String("get")
+                    ? ctx->fromUTF8String("get")->asString(ctx) : nullptr;
+                const proto::ProtoString* setK = ctx->fromUTF8String("set")
+                    ? ctx->fromUTF8String("set")->asString(ctx) : nullptr;
+                if ((getK && curDesc->hasAttribute(ctx, getK) == PROTO_TRUE)
+                    || (setK && curDesc->hasAttribute(ctx, setK) == PROTO_TRUE))
+                    isAccessor = true;
+            }
+            const proto::ProtoObject* freezeDesc = ctx->newObject(true);
+            if (confK) freezeDesc = freezeDesc->setAttribute(ctx, confK, PROTO_FALSE);
+            if (!isAccessor && writK)
+                freezeDesc = freezeDesc->setAttribute(ctx, writK, PROTO_FALSE);
+            proxyDispatchDefineProperty(ctx, obj, kStr, freezeDesc);
+            if (hasCallException()) return PROTO_NONE;
+        }
+        return obj;
     }
 
     JSContextWrapper* wrapper = JSContextWrapper::current();
