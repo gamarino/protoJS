@@ -10697,7 +10697,19 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 DISPATCH();
             }
             L_OP_undefined: ;
-                pAutomaticLocals[currentStackBase + _PF().stackTop++] = PROTO_NONE;
+                // §6.1.1 The Undefined Type: push the JS-visible undefined
+                // sentinel, not PROTO_NONE. Pre-fix `void 0` (which the
+                // QuickJS compiler emits as OP_undefined) pushed PROTO_NONE
+                // — the runtime's "absent" marker — and `[1, null, void 0]`
+                // recorded a hole at index 2 instead of an explicit
+                // undefined slot. Distinguishes `void 0` from absent
+                // (test262 Array/prototype/flat/null-undefined-elements.js
+                // requires explicit-undefined slots to flow through flat,
+                // indexOf/15.4.4.14-9-4.js requires them to count for
+                // indexOf, and a wider set of literal-array fixtures
+                // depends on hasOwnProperty returning true).
+                pAutomaticLocals[currentStackBase + _PF().stackTop++] =
+                    t_undefinedSentinel ? t_undefinedSentinel : PROTO_NONE;
                 DISPATCH();
             L_OP_null: ;
                 // JS null is the null sentinel, not PROTO_NONE (which is undefined).
