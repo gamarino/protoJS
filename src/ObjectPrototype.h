@@ -42,6 +42,16 @@ const proto::ProtoString* toPropertyKey(proto::ProtoContext* ctx,
                                         const proto::ProtoObject* value);
 
 /**
+ * Per-instance Symbol identity registry — populated by the Symbol()
+ * constructor when it stashes the per-instance __symbol_str_key__.
+ * Used by Object.getOwnPropertySymbols / Reflect.ownKeys to translate
+ * the internal string-keyed attribute name back to the originating
+ * Symbol value.
+ */
+void registerSymbolByStrKey(const std::string& key, const proto::ProtoObject* sym);
+const proto::ProtoObject* lookupSymbolByStrKey(const std::string& key);
+
+/**
  * Record an explicit JS [[Prototype]] override for obj. Used by OP_define_class
  * so Object.getPrototypeOf(DerivedClass) === ParentClass.
  * Pass nullptr to clear any prior override (equivalent to "no override").

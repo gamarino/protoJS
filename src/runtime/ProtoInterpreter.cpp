@@ -1290,6 +1290,18 @@ static const proto::ProtoObject* reflectOwnKeys(
         }
         std::string ks;
         propKey->toUTF8String(ctx, ks);
+        // Per-instance Symbol identity keys (\`@@sym#<addr>\`): translate
+        // back to the originating Symbol value via the registry, emit
+        // as a Symbol-section entry.  Pre-fix Reflect.ownKeys reported
+        // these as bare strings, failing identity comparison against
+        // the original Symbol() value (built-ins/Reflect/ownKeys/
+        // return-on-corresponding-order.js asserted Symbol identity).
+        if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+            && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
+            const proto::ProtoObject* sym = protojs::lookupSymbolByStrKey(ks);
+            if (sym) symKeys.push_back(sym);
+            continue;
+        }
         if (ks.compare(0, 2, "__") == 0) continue;
         if (ks == "length" && (targetIsArr || targetIsStringWrapper)) continue;  // emitted at end
         bool isNumeric = !ks.empty() &&
@@ -2036,8 +2048,14 @@ static const proto::ProtoObject* symbolConstructor(
             // match the canonical pointer by identity.
             const proto::ProtoString* keyStr =
                 proto::ProtoString::createSymbol(ctx, buf);
-            if (keyStr)
+            if (keyStr) {
                 sym = sym->setAttribute(ctx, sskKey, keyStr->asObject(ctx));
+                // Register the reverse mapping so
+                // Object.getOwnPropertySymbols / Reflect.ownKeys can
+                // translate the internal @@sym#<addr> attribute name
+                // back to its Symbol identity.
+                protojs::registerSymbolByStrKey(std::string(buf), sym);
+            }
         }
     }
     if (args && args->getSize(ctx) > 0) {

@@ -1082,6 +1082,13 @@ static const proto::ProtoObject* objectDefineProperty(
 extern thread_local std::unordered_map<const proto::ProtoObject*,
                                        const proto::ProtoObject*> t_jsProtoMap;
 
+// Reverse map: per-instance __symbol_str_key__ string ("@@sym#<addr>")
+// to the originating Symbol() value.  Populated when Symbol() runs via
+// registerSymbolByStrKey; consulted by Object.getOwnPropertySymbols and
+// Reflect.ownKeys to translate the internal string-keyed attribute
+// back to its Symbol identity.  Definitions live at the bottom of the
+// outer protojs namespace; only the forward decl is here.
+
 // ---------------------------------------------------------------------------
 // Object.create(proto[, propertiesObject]) → new object with [[Prototype]]=proto
 // ---------------------------------------------------------------------------
@@ -3646,8 +3653,14 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
         const proto::ProtoObject* unwrapped = proxyTarget(ctx, target);
         if (unwrapped) target = unwrapped;
     }
-    // Walk target's own attributes and emit only the Symbol-tagged ones.
-    // protoJS stores Symbol primitives as objects with __is_symbol__.
+    // Walk target's own attributes and emit Symbol-keyed entries.  Two
+    // shapes apply:
+    //   (1) per-instance \`@@sym#<addr>\` string keys installed by the
+    //       R50 Symbol-keys feature — look up the originating Symbol
+    //       via the protojs::lookupSymbolByStrKey registry.
+    //   (2) legacy keys whose own __is_symbol__ marker indicates they
+    //       ARE the Symbol object (pre-R50 callers and ad-hoc storage
+    //       sites that may still go through that path).
     const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
     const proto::ProtoList* outEls = ctx->newList();
     const proto::ProtoSparseList* own = target->getOwnAttributes(ctx);
@@ -3657,6 +3670,13 @@ static const proto::ProtoObject* objectGetOwnPropertySymbols(
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         const proto::ProtoString* keyStr = reinterpret_cast<const proto::ProtoString*>(rawKey);
         if (!keyStr) continue;
+        std::string ks; keyStr->toUTF8String(ctx, ks);
+        if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+            && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
+            const proto::ProtoObject* sym = lookupSymbolByStrKey(ks);
+            if (sym) outEls = outEls->appendLast(ctx, sym);
+            continue;
+        }
         const proto::ProtoObject* keyObj = keyStr->asObject(ctx);
         if (!keyObj) continue;
         if (isSymK && keyObj->getAttribute(ctx, isSymK, false) == PROTO_TRUE) {
@@ -6205,6 +6225,16 @@ void setJSProtoOverride(proto::ProtoContext* ctx,
     parents = parents->appendLast(ctx, proto);
     if (!parents) return;
     (void)obj->setParents(ctx, parents);
+}
+
+static thread_local std::unordered_map<std::string,
+                                       const proto::ProtoObject*> t_symbolByStrKey;
+void registerSymbolByStrKey(const std::string& key, const proto::ProtoObject* sym) {
+    t_symbolByStrKey[key] = sym;
+}
+const proto::ProtoObject* lookupSymbolByStrKey(const std::string& key) {
+    auto it = t_symbolByStrKey.find(key);
+    return it != t_symbolByStrKey.end() ? it->second : nullptr;
 }
 
 } // namespace protojs
