@@ -1490,6 +1490,21 @@ static const proto::ProtoObject* objectPreventExtensions(
                     "'preventExtensions' on proxy: trap returned falsish"));
                 return PROTO_NONE;
             }
+            // §10.5.4 step 8 — after a truthy trap result, the target
+            // must actually be non-extensible.  The handler is
+            // expected to call Object.preventExtensions(target) before
+            // returning true.  Pre-fix the truthy path returned obj
+            // unconditionally, missing the spec invariant (test262
+            // preventExtensions/return-true-target-is-extensible.js).
+            JSContextWrapper* w = JSContextWrapper::current();
+            bool stillExtensible = !(target && w && w->getNonExtensibleMarker()
+                && target->hasParent(ctx, w->getNonExtensibleMarker()));
+            if (stillExtensible) {
+                signalNativeException(makeNativeError(ctx, "TypeError",
+                    "'preventExtensions' on proxy: trap returned truthy "
+                    "but the target is still extensible"));
+                return PROTO_NONE;
+            }
             return obj;
         }
         // No trap → recurse into target.

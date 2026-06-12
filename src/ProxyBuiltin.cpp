@@ -641,8 +641,24 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
     }
     // §10.5.10 step 7: trap is undefined → forward to target.[[Delete]](P).
     if (isProxy(ctx, target)) return proxyDispatchDelete(ctx, target, propKey);
+    // §10.1.10 OrdinaryDelete on a plain Object target: a
+    // non-configurable own descriptor cannot be deleted — return
+    // false.  Frozen / sealed receivers similarly reject.  Pre-fix
+    // the fallback raw-setAttribute'd PROTO_NONE without consulting
+    // the descriptor bits, so a Proxy whose target had a non-
+    // configurable own incorrectly reported delete=true (test262
+    // Proxy/deleteProperty/trap-is-undefined-strict.js, trap-is-
+    // null-target-is-proxy.js).
     if (propKey) {
-        const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, PROTO_NONE);
+        OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+        if (od.present && !od.configurable) return PROTO_FALSE;
+        // Pass nullptr (not PROTO_NONE) so protoCore's setAttribute
+        // routes to implRemoveAt — actually removing the entry from
+        // the own-attribute sparse list.  Pre-fix PROTO_NONE was
+        // silently treated as "present but valueless", so
+        // hasOwnProperty still returned true and the inherited
+        // hasAttribute walk continued reporting the property.
+        const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey, nullptr);
     }
     return PROTO_TRUE;
 }

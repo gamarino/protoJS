@@ -1387,7 +1387,12 @@ static const proto::ProtoObject* reflectPreventExtensions(
     const proto::ProtoObject* target = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.preventExtensions")) return PROTO_FALSE;
-    if (protojs::isProxy(ctx, target)) {
+    // Walk a chain of Proxy targets — when a handler's
+    // preventExtensions slot is null / undefined / absent, forward to
+    // target.[[PreventExtensions]] which is another Proxy dispatch on
+    // a Proxy target (test262 preventExtensions/trap-is-null-target-
+    // is-proxy.js).
+    while (protojs::isProxy(ctx, target)) {
         const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "preventExtensions");
         if (trap) {
             const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
@@ -1395,11 +1400,24 @@ static const proto::ProtoObject* reflectPreventExtensions(
             const proto::ProtoList* trapArgs = ctx->newList();
             trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
             const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
-            bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
-            // §10.5.4 step 5: if trap returned truthy, the target must
-            // actually be non-extensible afterwards.  The handler is
-            // expected to call Object.preventExtensions(target) before
-            // returning true; protoJS doesn't auto-propagate.
+            if (t_hasCallException) return PROTO_NONE;
+            // §10.5.4 step 6 ToBoolean(trapResult): pre-fix the truthy
+            // check treated integer 0 / NaN / "" as truthy (test262
+            // preventExtensions/return-false.js: `return 0` should be
+            // false but produced true).
+            bool truthy;
+            if (r == nullptr || r == PROTO_NONE
+                || r == PROTO_FALSE || r == t_nullSentinel
+                || r == t_undefinedSentinel) truthy = false;
+            else if (r->isBoolean(ctx)) truthy = r->asBoolean(ctx);
+            else if (r->isInteger(ctx)) truthy = r->asLong(ctx) != 0;
+            else if (r->isDouble(ctx)) { double d = r->asDouble(ctx); truthy = d != 0.0 && d == d; }
+            else if (r->isString(ctx)) {
+                std::string s; r->asString(ctx)->toUTF8String(ctx, s);
+                truthy = !s.empty();
+            } else truthy = true;
+            // §10.5.4 step 8: if trap returned truthy, target must be
+            // non-extensible after the call.
             if (truthy) {
                 JSContextWrapper* w = JSContextWrapper::current();
                 bool stillExtensible = !(inner && w && w->getNonExtensibleMarker()
@@ -1413,8 +1431,10 @@ static const proto::ProtoObject* reflectPreventExtensions(
             }
             return truthy ? PROTO_TRUE : PROTO_FALSE;
         }
-        target = protojs::proxyTarget(ctx, target);
-        if (!target) return PROTO_FALSE;
+        // No trap (or null / undefined) — unwrap and loop.
+        const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
+        if (!inner) return PROTO_FALSE;
+        target = inner;
     }
     // Forward to the same NonExtensibleMarker attachment that
     // Object.preventExtensions uses, so the marker is observable via
