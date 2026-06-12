@@ -404,6 +404,103 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
             // r2 == nullptr — no trap; fall through to default raw write.
         }
     }
+    // §10.5.9 step 7 forwarded to target.[[Set]](P, V, Receiver).
+    // Per §10.1.9 OrdinarySet step 3 / OrdinarySetWithOwnDescriptor:
+    //   - if target has a data ownDesc → use Receiver.[[DefineOwnProperty]]
+    //     (§10.1.9.2 step 3.d.iv).  When Receiver is the original
+    //     proxy, that dispatches the proxy's defineProperty trap.
+    //   - if target has an accessor ownDesc → call its setter with
+    //     `this = Receiver` (§10.1.9.2 step 4.c).
+    //   - if target has NO ownDesc → CreateDataProperty on Receiver
+    //     (§10.1.9.2 step 3.e.ii) → again dispatches proxy's dP trap
+    //     when Receiver is the proxy.
+    // Pre-fix the no-trap fallback raw-setAttribute'd the target,
+    // which (a) skipped the proxy's dP trap and (b) wrote into target
+    // instead of Receiver when those identities differ.
+    if (propKey && receiver) {
+        OwnDescriptor od = probeOwnDescriptor(ctx, target, propKey);
+        // Build a {value: V, writable:true, enumerable:true,
+        // configurable:true} descriptor for CreateDataProperty.
+        JSContextWrapper* w = JSContextWrapper::current();
+        const proto::ProtoObject* objProto = w ? w->getJSObjectPrototype() : nullptr;
+        auto newDataDesc = [&](const proto::ProtoObject* v) -> const proto::ProtoObject* {
+            const proto::ProtoObject* d = objProto
+                ? objProto->newChild(ctx, true) : ctx->newObject(true);
+            if (!d) return nullptr;
+            auto set = [&](const char* name, const proto::ProtoObject* slot) {
+                const proto::ProtoObject* ko = ctx->fromUTF8String(name);
+                const proto::ProtoString* ks = ko ? ko->asString(ctx) : nullptr;
+                if (ks) d = d->setAttribute(ctx, ks, slot ? slot : getUndefinedSentinel());
+            };
+            set("value", v);
+            set("writable",     PROTO_TRUE);
+            set("enumerable",   PROTO_TRUE);
+            set("configurable", PROTO_TRUE);
+            return d;
+        };
+        // (a) accessor on target → invoke the setter with `this=Receiver`.
+        if (od.present && od.isAccessor) {
+            if (od.hasSetter) {
+                std::string ks; propKey->toUTF8String(ctx, ks);
+                std::string sks = "__set_" + ks + "__";
+                const proto::ProtoObject* sko = ctx->fromUTF8String(sks.c_str());
+                const proto::ProtoString* skKey = sko ? sko->asString(ctx) : nullptr;
+                const proto::ProtoObject* setter = skKey
+                    ? target->getAttribute(ctx, skKey, true) : nullptr;
+                if (setter && setter != PROTO_NONE
+                    && setter != getUndefinedSentinel()) {
+                    const proto::ProtoList* setArgs = ctx->newList();
+                    setArgs = setArgs->appendLast(ctx, value ? value : PROTO_NONE);
+                    (void)callJSFunction(ctx, setter, receiver, setArgs);
+                    if (hasCallException()) return PROTO_NONE;
+                    return PROTO_TRUE;
+                }
+            }
+            return PROTO_FALSE;  // accessor with no setter
+        }
+        // (b) data descriptor on target (writable case) → CreateDataProperty
+        //     on Receiver, which dispatches Receiver.[[DefineOwnProperty]].
+        //     A non-writable data descriptor rejects.
+        if (od.present && !od.isAccessor && !od.writable) {
+            return PROTO_FALSE;
+        }
+        // Build the value descriptor and CreateDataProperty on Receiver.
+        const proto::ProtoObject* desc = newDataDesc(value);
+        if (!desc) {
+            const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey,
+                value ? value : PROTO_NONE);
+            return PROTO_TRUE;
+        }
+        // When receiver IS a proxy with a defineProperty trap, route
+        // via proxyDispatchDefineProperty so the dP trap fires.  When
+        // there is no dP trap, the spec forwards to the unwrapped
+        // target's [[DefineOwnProperty]] — for a plain Object that's a
+        // raw setAttribute on the deepest non-proxy target.
+        if (isProxy(ctx, receiver)) {
+            const proto::ProtoObject* r =
+                proxyDispatchDefineProperty(ctx, receiver, propKey, desc);
+            if (hasCallException()) return PROTO_NONE;
+            if (r == PROTO_FALSE) return PROTO_FALSE;
+            if (r == PROTO_TRUE)  return PROTO_TRUE;
+            // r == nullptr (no dP trap) — recurse via proxyTarget so a
+            // proxy-of-proxy receiver dispatches its inner dP trap if
+            // present; otherwise land on the underlying target and
+            // setAttribute there.
+            const proto::ProtoObject* deepest = receiver;
+            while (isProxy(ctx, deepest)) {
+                const proto::ProtoObject* t = proxyTarget(ctx, deepest);
+                if (!t) return PROTO_FALSE;
+                deepest = t;
+            }
+            const_cast<proto::ProtoObject*>(deepest)->setAttribute(ctx, propKey,
+                value ? value : PROTO_NONE);
+            return PROTO_TRUE;
+        }
+        // Non-Proxy Receiver — simple raw write on Receiver.
+        const_cast<proto::ProtoObject*>(receiver)->setAttribute(ctx, propKey,
+            value ? value : PROTO_NONE);
+        return PROTO_TRUE;
+    }
     if (propKey) {
         const_cast<proto::ProtoObject*>(target)->setAttribute(ctx, propKey,
             value ? value : PROTO_NONE);

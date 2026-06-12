@@ -8540,6 +8540,56 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                     DISPATCH();
                 }
+                // §10.1.9.2 OrdinarySetWithOwnDescriptor step 2.b — when
+                // the receiver has no own descriptor for P, walk the
+                // [[Prototype]] chain via [[Set]] with the original
+                // Receiver.  A Proxy ancestor must dispatch its set trap
+                // with `receiver = obj` (not the proxy and not the
+                // proxy's target).  Pre-fix OP_put_field went straight
+                // to its standard write path on `obj`, bypassing every
+                // inherited accessor + every Proxy ancestor (test262
+                // Proxy/set/call-parameters-prototype{,-index,-dunder-
+                // proto}.js, trap-is-missing-receiver-multiple-calls.js
+                // and the matching trap-is-null/undefined-receiver
+                // forwarding cases).
+                if (obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                    // Probe accessor sidecars first — an own setter
+                    // (__set_<key>__) trumps the chain walk.
+                    bool hasOwnAccessor = false;
+                    {
+                        std::string ks; key->toUTF8String(pContext, ks);
+                        for (const char* prefix : {"__get_", "__set_"}) {
+                            std::string sk = std::string(prefix) + ks + "__";
+                            const proto::ProtoObject* sko = pContext->fromUTF8String(sk.c_str());
+                            const proto::ProtoString* sks = sko ? sko->asString(pContext) : nullptr;
+                            if (sks && obj->hasOwnAttribute(pContext, sks) == PROTO_TRUE) {
+                                hasOwnAccessor = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!hasOwnAccessor) {
+                        auto advance = [&](const proto::ProtoObject* o) -> const proto::ProtoObject* {
+                            const proto::ProtoObject* over = protojs::getJSProtoOverride(o);
+                            if (over) return over;
+                            return o->getPrototype(pContext);
+                        };
+                        const proto::ProtoObject* cur = advance(obj);
+                        while (cur && cur != PROTO_NONE && cur != t_nullSentinel) {
+                            if (protojs::isProxy(pContext, cur)) {
+                                protojs::proxyDispatchSet(pContext, cur, key, val, obj);
+                                if (t_hasCallException) {
+                                    pending_exception     = t_callException;
+                                    has_pending_exception = true;
+                                    t_hasCallException    = false;
+                                    t_callException       = nullptr;
+                                }
+                                DISPATCH();
+                            }
+                            cur = advance(cur);
+                        }
+                    }
+                }
 
                 // ECMA-262 §10.4.2.1 ArraySetLength: setting Array
                 // .length validates the new value via ToUint32 +
