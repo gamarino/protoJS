@@ -3,6 +3,7 @@
 #include "FunctionPrototype.h"
 #include "IteratorPrototype.h"
 #include "JSContext.h"
+#include "ProxyBuiltin.h"
 #include "ObjectPrototype.h"
 #include "runtime/ProtoInterpreter.h"
 #include "JSSymbols.h"
@@ -112,6 +113,47 @@ static inline const proto::ProtoObject* getArrayProto() {
 static unsigned long arrLen(proto::ProtoContext* ctx,
                              const proto::ProtoObject* arr) {
     if (!arr || arr == PROTO_NONE) return 0;
+    // §7.3.18 LengthOfArrayLike → Get(O, "length") fires accessor
+    // getters AND, when O is a Proxy, dispatches the get trap (or
+    // throws on a revoked proxy).  Pre-fix arrLen probed
+    // __array_elements__ / the length-attribute data slot directly,
+    // bypassing the proxy entirely — a revoked-proxy receiver
+    // silently produced length=0 and the array method short-
+    // circuited instead of throwing per
+    // built-ins/Array/prototype/map/create-revoked-proxy.js.
+    if (isProxy(ctx, arr)) {
+        const proto::ProtoString* lk = JSSymbols::length(ctx);
+        if (!lk) return 0;
+        const proto::ProtoObject* lv =
+            protojs::proxyDispatchGet(ctx, arr, lk, arr);
+        if (hasCallException()) return 0;
+        if (!lv || lv == PROTO_NONE || lv == getUndefinedSentinel()) return 0;
+        if (lv->isInteger(ctx)) {
+            long long n = lv->asLong(ctx);
+            return n < 0 ? 0 : static_cast<unsigned long>(n);
+        }
+        if (lv->isDouble(ctx) || lv->isFloat(ctx)) {
+            double d = lv->asDouble(ctx);
+            if (std::isnan(d) || d < 0) return 0;
+            if (std::isinf(d) || d > 4294967295.0) return 4294967295UL;
+            return static_cast<unsigned long>(d);
+        }
+        // Best-effort numeric coercion via jsToNumber.
+        const proto::ProtoObject* nv = jsToNumber(ctx, lv);
+        if (hasCallException()) return 0;
+        if (!nv) return 0;
+        if (nv->isInteger(ctx)) {
+            long long n = nv->asLong(ctx);
+            return n < 0 ? 0 : static_cast<unsigned long>(n);
+        }
+        if (nv->isDouble(ctx) || nv->isFloat(ctx)) {
+            double d = nv->asDouble(ctx);
+            if (std::isnan(d) || d < 0) return 0;
+            if (std::isinf(d) || d > 4294967295.0) return 4294967295UL;
+            return static_cast<unsigned long>(d);
+        }
+        return 0;
+    }
     // Handle primitive string — length = UTF-16 code unit count.
     if (arr->isString(ctx)) {
         const proto::ProtoString* s = arr->asString(ctx);
@@ -381,6 +423,12 @@ static const proto::ProtoObject* arrGet(proto::ProtoContext* ctx,
                                          const proto::ProtoObject* arr,
                                          unsigned long idx) {
     if (!arr || arr == PROTO_NONE) return PROTO_NONE;
+    // §7.3.2 Get on a Proxy dispatches the get trap.
+    if (isProxy(ctx, arr)) {
+        const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+        if (!key) return PROTO_NONE;
+        return protojs::proxyDispatchGet(ctx, arr, key, arr);
+    }
     // Handle primitive string — return the character at the UTF-16 index.
     if (arr->isString(ctx)) {
         const proto::ProtoString* s = arr->asString(ctx);
@@ -3760,6 +3808,14 @@ static bool arrHasProperty(proto::ProtoContext* ctx,
                             unsigned long idx) {
     if (!arr || arr == PROTO_NONE) return false;
 
+    // §7.3.13 HasProperty on a Proxy dispatches the has trap.
+    if (isProxy(ctx, arr)) {
+        const proto::ProtoString* key = JSSymbols::indexKey(ctx, static_cast<uint32_t>(idx));
+        if (!key) return false;
+        const proto::ProtoObject* r = protojs::proxyDispatchHas(ctx, arr, key);
+        if (hasCallException()) return false;
+        return r == PROTO_TRUE;
+    }
     // String primitive — every valid UTF-16 index has a character.
     if (arr->isString(ctx)) {
         return idx < arrLen(ctx, arr);

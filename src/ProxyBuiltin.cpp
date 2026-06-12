@@ -235,6 +235,26 @@ static const proto::ProtoObject* defaultGet(proto::ProtoContext* ctx,
             return callJSFunction(ctx, getter, recv, a);
         }
     }
+    // Array exotic: §10.4.2 [[Get]] for an integer-indexed key reads
+    // from the internal element storage, not from the attribute slot
+    // (protoJS keeps dense elements in __array_elements__).  Pre-fix
+    // defaultGet's getAttribute-only probe returned PROTO_NONE for
+    // every numeric index on an Array target — `new Proxy([1,2,3],
+    // {})[0]` surfaced undefined and every Array.prototype.* method
+    // routed through the proxy iterated over empty slots.
+    {
+        std::string keyStr; key->toUTF8String(ctx, keyStr);
+        bool numeric = !keyStr.empty();
+        for (char c : keyStr) { if (c < '0' || c > '9') { numeric = false; break; } }
+        if (numeric && (keyStr.size() == 1 || keyStr[0] != '0')) {
+            char* endp = nullptr;
+            unsigned long idx = std::strtoul(keyStr.c_str(), &endp, 10);
+            if (endp && *endp == '\0') {
+                const proto::ProtoObject* v = protojs::arrayTryFastGet(ctx, target, idx);
+                if (v && v != PROTO_NONE) return v;
+            }
+        }
+    }
     const proto::ProtoObject* v = target->getAttribute(ctx, key, true);
     return v ? v : PROTO_NONE;
 }
@@ -448,6 +468,25 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
     if (isProxy(ctx, target)) return proxyDispatchHas(ctx, target, propKey);
     if (propKey && target->hasAttribute(ctx, propKey) == PROTO_TRUE)
         return PROTO_TRUE;
+    // Array exotic dense-element fallback — §10.4.2 [[HasProperty]]
+    // returns true for any integer index in the __array_elements__
+    // storage.  Pre-fix hasAttribute alone returned false for every
+    // dense index, so a Proxy of an Array reported `Reflect.has(px,
+    // '0')` as false and the Array.prototype.* iteration helpers
+    // skipped every slot.
+    if (propKey) {
+        std::string keyStr; propKey->toUTF8String(ctx, keyStr);
+        bool numeric = !keyStr.empty();
+        for (char c : keyStr) { if (c < '0' || c > '9') { numeric = false; break; } }
+        if (numeric && (keyStr.size() == 1 || keyStr[0] != '0')) {
+            char* endp = nullptr;
+            unsigned long idx = std::strtoul(keyStr.c_str(), &endp, 10);
+            if (endp && *endp == '\0') {
+                const proto::ProtoObject* v = protojs::arrayTryFastGet(ctx, target, idx);
+                if (v && v != PROTO_NONE) return PROTO_TRUE;
+            }
+        }
+    }
     return PROTO_FALSE;
 }
 
