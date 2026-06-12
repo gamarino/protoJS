@@ -6524,6 +6524,27 @@ void ensureObjectConstructor(proto::ProtoContext* ctx,
         //     Pre-fix the primitive case returned `self` with no
         //     primitive-value attribute, so `Object(5) + 0` produced
         //     '[object Object]0' instead of 5.
+        // §20.1.1.1 step 1: if NewTarget is defined and not Object
+        // itself, return OrdinaryCreateFromConstructor(NewTarget,
+        // '%Object.prototype%') — the value argument is IGNORED.  The
+        // dispatcher already pre-allocates self with the right
+        // prototype; detect 'NewTarget != Object' by checking whether
+        // self's prototype is Object.prototype (the value-coercing
+        // path) or something else (the subclass path).  Pre-fix
+        // \`class O extends Object {}; new O({a:1})\` returned {a:1}
+        // because the dispatcher invoked us with self = a fresh
+        // O.prototype-parented object but we wrapped the value
+        // anyway (built-ins/Object/subclass-object-arg.js pins).
+        bool isObjectActiveCtor = false;
+        {
+            JSContextWrapper* aw = JSContextWrapper::current();
+            const proto::ProtoObject* objProto = aw
+                ? aw->getJSObjectPrototype() : nullptr;
+            if (objProto && self
+                && self->getPrototype(ctx) == objProto)
+                isObjectActiveCtor = true;
+        }
+        if (!isObjectActiveCtor) return self;
         if (!args || args->getSize(ctx) == 0) return self;
         const proto::ProtoObject* val = args->getAt(ctx, 0);
         if (!val || val == PROTO_NONE
