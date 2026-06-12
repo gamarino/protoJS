@@ -8728,22 +8728,27 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 stackPop(pContext);
                 const proto::ProtoString* key = resolveAtom(mod, pContext, atomIndex);
                 if (!key || !obj) { DISPATCH(); }
-                // §10.1.9 OrdinarySet on a primitive receiver: in strict
-                // mode every set fails with TypeError. Symbol primitives
-                // are object-tagged with __is_symbol__ — auto-boxing
-                // looks up Symbol.prototype.foo but the set never
-                // materialises on the ephemeral wrapper, so the spec
-                // mandates a strict-mode throw (test262 Symbol/auto-
-                // boxing-strict.js, Symbol/prototype/toString-default-
-                // attributes-strict.js).
-                if (module && module->isStrict) {
+                // §10.1.9 OrdinarySet on a primitive receiver: ToObject
+                // materialises a transient wrapper, the set happens on
+                // that wrapper, the wrapper is discarded.  Net effect:
+                // the primitive itself is untouched.  Strict mode
+                // surfaces TypeError because the wrapper's slot is
+                // effectively non-writable on a fresh primitive box
+                // (the spec phrasing: "[[Set]] on a primitive value
+                // returns false").  Sloppy mode silently no-ops.
+                // Pre-fix sloppy fell through to setAttribute(sym, …)
+                // and the primitive grew an own property
+                // (built-ins/Symbol/auto-boxing-non-strict.js).
+                {
                     const proto::ProtoString* isSymK =
                         protojs::JSSymbols::isSymbol(pContext);
                     if (isSymK
                         && obj->getAttribute(pContext, isSymK, false) == PROTO_TRUE) {
-                        pending_exception = makeError(pContext, "TypeError",
-                            "Cannot assign property to a Symbol", pGlobalRoot);
-                        has_pending_exception = true;
+                        if (module && module->isStrict) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "Cannot assign property to a Symbol", pGlobalRoot);
+                            has_pending_exception = true;
+                        }
                         DISPATCH();
                     }
                 }
@@ -10412,17 +10417,22 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     DISPATCH();
                 }
 
-                // Symbol primitive receiver in strict mode — see
-                // OP_put_field for the rationale (auto-boxing fails to
-                // materialise; spec mandates TypeError under strict).
-                if (module && module->isStrict) {
+                // Symbol primitive receiver — see OP_put_field for the
+                // rationale.  Strict throws, sloppy silently no-ops;
+                // either way the put NEVER reaches setAttribute, so
+                // bracket-access auto-boxing matches the primitive
+                // semantics (built-ins/Symbol/auto-boxing-non-strict's
+                // sym['a'+'b']=0 / sym[62]=0 cases).
+                {
                     const proto::ProtoString* isSymK =
                         protojs::JSSymbols::isSymbol(pContext);
                     if (isSymK
                         && obj->getAttribute(pContext, isSymK, false) == PROTO_TRUE) {
-                        pending_exception = makeError(pContext, "TypeError",
-                            "Cannot assign property to a Symbol", pGlobalRoot);
-                        has_pending_exception = true;
+                        if (module && module->isStrict) {
+                            pending_exception = makeError(pContext, "TypeError",
+                                "Cannot assign property to a Symbol", pGlobalRoot);
+                            has_pending_exception = true;
+                        }
                         DISPATCH();
                     }
                 }
