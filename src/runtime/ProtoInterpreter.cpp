@@ -355,7 +355,29 @@ static const proto::ProtoString* ensureInterned(proto::ProtoContext* ctx, const 
 }
 
 static const proto::ProtoString* ensureInternedOOP(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
-    if (!obj || !obj->isString(ctx)) return nullptr;
+    if (!obj) return nullptr;
+    // Symbol-tagged objects carry a per-instance __symbol_str_key__
+    // (installed by Symbol() ctor).  Return that ProtoString identity
+    // so the put / get paths agree on the same attribute key — same
+    // rationale as the matching short-circuit in coercePropNameToKey
+    // (ObjectPrototype.cpp).  Without this gate, OP_put_array_el's
+    // string-key fallback ToString-coerced the symbol to "Symbol(...)"
+    // and stored under a different ProtoString* than coercePropNameToKey
+    // produced for subsequent hasOwn / get lookups.
+    {
+        const proto::ProtoString* isSymK = protojs::JSSymbols::isSymbol(ctx);
+        if (isSymK && obj->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
+            const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+            const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+            if (sskK) {
+                const proto::ProtoObject* keyStr =
+                    obj->getAttribute(ctx, sskK, true);
+                if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
+                    return ensureInterned(ctx, keyStr->asString(ctx));
+            }
+        }
+    }
+    if (!obj->isString(ctx)) return nullptr;
     return ensureInterned(ctx, obj->asString(ctx));
 }
 
@@ -1988,6 +2010,36 @@ static const proto::ProtoObject* symbolConstructor(
     if (!sym) return PROTO_NONE;
     const proto::ProtoString* tagKey = JSSymbols::isSymbol(ctx);
     if (tagKey) sym = sym->setAttribute(ctx, tagKey, PROTO_TRUE);
+    // Each Symbol() value needs a unique attribute-key identity so
+    // \`obj[sym] = X\` and a later \`obj[sym]\` route to the SAME ProtoString
+    // key.  Pre-fix the put / get paths coerced the symbol to its
+    // descriptive string ("Symbol(desc)") via toString, and \`Object.hasOwn
+    // (obj, sym)\` re-coerced via coercePropNameToKey, hitting a different
+    // ProtoString identity (memory note: jssymbols_identity_gotcha).
+    // Stash a freshly interned per-instance key under __symbol_str_key__
+    // and let the put / hasOwn / get paths consult it on Symbol-tagged
+    // receivers.  Use the symbol's address as the per-instance tag so
+    // every Symbol() returns a distinct identity (matches the spec's
+    // 'each Symbol() is unique' guarantee).
+    {
+        const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+        const proto::ProtoString* sskKey = ssko ? ssko->asString(ctx) : nullptr;
+        if (sskKey) {
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "@@sym#%p",
+                reinterpret_cast<const void*>(sym));
+            // Intern via createSymbol so the per-instance key is the
+            // canonical SymbolTable entry — same identity ensureInterned
+            // and protoCore's attribute store key off of.  fromUTF8String
+            // would produce a rope that ensureInterned later canonicalises
+            // through createSymbol, but the intermediate rope wouldn't
+            // match the canonical pointer by identity.
+            const proto::ProtoString* keyStr =
+                proto::ProtoString::createSymbol(ctx, buf);
+            if (keyStr)
+                sym = sym->setAttribute(ctx, sskKey, keyStr->asObject(ctx));
+        }
+    }
     if (args && args->getSize(ctx) > 0) {
         const proto::ProtoObject* d = args->getAt(ctx, 0);
         // Spec §20.4.1 step 3: if description is undefined, descString
@@ -15622,6 +15674,10 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                                 // Skip internal bookkeeping keys (__name__ pattern).
                                 if (kstr.size() >= 4 && kstr[0]=='_' && kstr[1]=='_'
                                     && kstr[kstr.size()-1]=='_' && kstr[kstr.size()-2]=='_') continue;
+                                // Skip per-instance Symbol identity keys.
+                                if (kstr.size() >= 6 && kstr[0]=='@' && kstr[1]=='@'
+                                    && kstr[2]=='s' && kstr[3]=='y' && kstr[4]=='m'
+                                    && kstr[5]=='#') continue;
                                 // Suppress "length" on arrays (own object only).
                                 if (fiIsArray && cursor == fiObj && kstr == "length") continue;
                                 // Own-key shadows any inherited key with the same name.

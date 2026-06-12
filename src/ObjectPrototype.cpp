@@ -30,6 +30,16 @@ static bool isInternalKey(proto::ProtoContext* ctx, const proto::ProtoString* ke
     if (!key) return false;
     std::string s;
     key->toUTF8String(ctx, s);
+    // Per-instance Symbol identity keys (\`@@sym#<addr>\`) are internal
+    // bookkeeping — they map a Symbol value to a unique ProtoString
+    // identity for attribute storage, but JS-visible enumeration
+    // (Object.keys / values / getOwnPropertyNames / for-in / Object.assign)
+    // must skip them.  Object.getOwnPropertySymbols is the only spec
+    // surface that reports symbol-keyed properties; it has its own path
+    // and consults the Symbol value, not the string-keyed attribute layer.
+    if (s.size() >= 6 && s[0] == '@' && s[1] == '@'
+        && s[2] == 's' && s[3] == 'y' && s[4] == 'm' && s[5] == '#')
+        return true;
     return s.size() >= 4
         && s[0] == '_' && s[1] == '_'
         && s[s.size()-1] == '_' && s[s.size()-2] == '_';
@@ -2052,12 +2062,39 @@ static const proto::ProtoString* coercePropNameToKey(
     std::string out;
     const proto::ProtoObject* current = nameObj;
 
+    // Symbol primitive short-circuit: each Symbol() value stashes a
+    // per-instance \`__symbol_str_key__\` ProtoString at construction
+    // (ProtoInterpreter.cpp's Symbol() ctor).  Returning that key
+    // identity here means \`obj[sym] = X\` (which routes through
+    // OP_put_array_el's ensureInternedOOP), \`Object.hasOwn(obj, sym)\`,
+    // and every other ToPropertyKey consumer agree on the SAME
+    // ProtoString*, so attribute storage by identity round-trips.
+    // Pre-fix the Symbol value was ToString-coerced to "Symbol(<desc>)"
+    // via toString, which produced a different ProtoString* than the
+    // put path's stashed key — hasOwn returned false for an apparently
+    // present symbol-keyed property (built-ins/Object/hasOwn/
+    // symbol_own_property.js).
+    {
+        const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+        if (current && isSymK
+            && current->getAttribute(ctx, isSymK, true) == PROTO_TRUE) {
+            const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+            const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+            if (sskK) {
+                const proto::ProtoObject* keyStr =
+                    current->getAttribute(ctx, sskK, true);
+                if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
+                    return keyStr->asString(ctx);
+            }
+        }
+    }
+
     // ToPropertyKey(argument):
     // 1. Let key be ? ToPrimitive(argument, hint String).
-    if (current && !current->isString(ctx) && !current->isInteger(ctx) && 
-        !current->isDouble(ctx) && !current->isFloat(ctx) && 
-        !current->isBoolean(ctx) && current != getNullSentinel() && 
-        current != getUndefinedSentinel() && current != PROTO_NONE) 
+    if (current && !current->isString(ctx) && !current->isInteger(ctx) &&
+        !current->isDouble(ctx) && !current->isFloat(ctx) &&
+        !current->isBoolean(ctx) && current != getNullSentinel() &&
+        current != getUndefinedSentinel() && current != PROTO_NONE)
     {
         auto isCallable = [&](const proto::ProtoObject* fn) -> bool {
             if (!fn || fn == PROTO_NONE || fn == getUndefinedSentinel() || fn == getNullSentinel()) return false;
@@ -2109,13 +2146,19 @@ static const proto::ProtoString* coercePropNameToKey(
                         return nullptr;
                     }
                     if (isPrim) {
-                        // For Symbol primitives, return the symbol-tagged
-                        // object as the key directly — its identity IS
-                        // the property key.  Bypass the toString /
+                        // For Symbol primitives, return the per-instance
+                        // __symbol_str_key__ ProtoString — same identity
+                        // the put / hasOwn paths use.  Bypass toString /
                         // valueOf / number stringification fallthrough.
                         if (isSym) {
-                            const proto::ProtoString* symKey = res->asString(ctx);
-                            return symKey;
+                            const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+                            const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                            if (sskK) {
+                                const proto::ProtoObject* keyStr = res->getAttribute(ctx, sskK, true);
+                                if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
+                                    return keyStr->asString(ctx);
+                            }
+                            return res->asString(ctx);
                         }
                         prim = res;
                     }
@@ -2158,6 +2201,18 @@ static const proto::ProtoString* coercePropNameToKey(
                 const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
                 if (isSK && res->hasAttribute(ctx, isSK) == PROTO_TRUE
                     && res->getAttribute(ctx, isSK, false) == PROTO_TRUE) {
+                    // Route through the per-instance __symbol_str_key__
+                    // (same identity OP_put_array_el / hasOwn use), so
+                    // a wrapper whose toString / valueOf returns a
+                    // Symbol resolves to the same attribute storage
+                    // key as the put path.
+                    const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+                    const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                    if (sskK) {
+                        const proto::ProtoObject* keyStr = res->getAttribute(ctx, sskK, true);
+                        if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
+                            return keyStr->asString(ctx);
+                    }
                     return res->asString(ctx);
                 }
                 if (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel()) {
@@ -2176,10 +2231,18 @@ static const proto::ProtoString* coercePropNameToKey(
                 if (!hasCallException() && res) {
                     // Same Symbol short-circuit as the toString arm —
                     // a Symbol returned from valueOf is a primitive
-                    // and IS the property key.
+                    // and IS the property key.  Route through
+                    // __symbol_str_key__ for identity-correct lookup.
                     const proto::ProtoString* isSK = JSSymbols::isSymbol(ctx);
                     if (isSK && res->hasAttribute(ctx, isSK) == PROTO_TRUE
                         && res->getAttribute(ctx, isSK, false) == PROTO_TRUE) {
+                        const proto::ProtoObject* ssko = ctx->fromUTF8String("__symbol_str_key__");
+                        const proto::ProtoString* sskK = ssko ? ssko->asString(ctx) : nullptr;
+                        if (sskK) {
+                            const proto::ProtoObject* keyStr = res->getAttribute(ctx, sskK, true);
+                            if (keyStr && keyStr != PROTO_NONE && keyStr->isString(ctx))
+                                return keyStr->asString(ctx);
+                        }
                         return res->asString(ctx);
                     }
                     if (res->isString(ctx) || res->isInteger(ctx) || res->isDouble(ctx) || res->isFloat(ctx) || res->isBoolean(ctx) || res == getNullSentinel() || res == getUndefinedSentinel()) {
