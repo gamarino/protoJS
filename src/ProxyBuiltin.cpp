@@ -188,6 +188,52 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
             int bits = probeDescriptorBits(ctx, target, key, kstr);
             d.writable = (bits & 0x1) != 0;
             d.configurable = (bits & 0x2) != 0;
+            return d;
+        }
+    }
+
+    // §10.4.2 exotic array — index keys are own data properties
+    // resolved from __elements__ rather than own attributes. Without
+    // this branch a Proxy wrapping `[42]` reported "0" as absent and
+    // hasOwnProperty(p, "0") returned false (test262
+    // getOwnPropertyDescriptor/trap-is-undefined-target-is-proxy.js).
+    {
+        const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+        const proto::ProtoObject* isArrV = isArrK
+            ? target->getAttribute(ctx, isArrK, true) : nullptr;
+        if (isArrV == PROTO_TRUE && !kstr.empty()) {
+            char* end = nullptr;
+            long long ix = std::strtoll(kstr.c_str(), &end, 10);
+            if (end && *end == '\0' && ix >= 0 && std::to_string(ix) == kstr) {
+                const proto::ProtoList* els = getArrayElements(ctx, target);
+                if (els && ix < (long long)els->getSize(ctx)) {
+                    const proto::ProtoObject* v = els->getAt(ctx, (size_t)ix);
+                    if (v && v != PROTO_NONE) {
+                        d.present = true;
+                        d.value = v;
+                        d.writable = true;
+                        d.configurable = true;
+                        // Array indices are enumerable by default; no bit
+                        // probe (Array.prototype data slots are descriptor-
+                        // less for our purposes).
+                        return d;
+                    }
+                }
+            }
+            // "length" on an Array: own data property,
+            // writable: true, enumerable: false, configurable: false.
+            if (kstr == "length") {
+                const proto::ProtoString* lk = JSSymbols::length(ctx);
+                const proto::ProtoObject* lv = lk
+                    ? target->getAttribute(ctx, lk, false) : nullptr;
+                if (lv && lv != PROTO_NONE) {
+                    d.present = true;
+                    d.value = lv;
+                    d.writable = true;
+                    d.configurable = false;
+                    return d;
+                }
+            }
         }
     }
     return d;
@@ -1198,6 +1244,26 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
                     "'getOwnPropertyDescriptor' on proxy: trap returned a "
                     "descriptor for an absent property on a non-extensible target"));
                 return PROTO_NONE;
+            }
+            // §10.5.5 step 22 — resultDesc.configurable === false on a
+            // missing or configurable target descriptor → TypeError.
+            // Pre-fix only the non-extensible variant of step 17 was
+            // enforced; an extensible target with a missing own + a
+            // non-configurable trap result slipped through (test262
+            // resultdesc-is-not-configurable-targetdesc-is-undefined.js).
+            if (!odPre.present) {
+                const proto::ProtoObject* cko = ctx->fromUTF8String("configurable");
+                const proto::ProtoString* cks = cko ? cko->asString(ctx) : nullptr;
+                if (cks) {
+                    const proto::ProtoObject* cv = res->getAttribute(ctx, cks, true);
+                    if (cv == PROTO_FALSE
+                        || (cv && cv->isBoolean(ctx) && !cv->asBoolean(ctx))) {
+                        signalNativeException(makeNativeError(ctx, "TypeError",
+                            "'getOwnPropertyDescriptor' on proxy: trap reported "
+                            "non-configurable for a missing own property"));
+                        return PROTO_NONE;
+                    }
+                }
             }
             // §10.5.5 step 21 (subset of IsCompatiblePropertyDescriptor):
             // when targetDesc is present and non-configurable, the trap
