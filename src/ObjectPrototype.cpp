@@ -3728,10 +3728,51 @@ static const proto::ProtoObject* objectGetOwnPropertyDescriptors(
     if (throwIfNullOrUndefined(ctx, target, "Object.getOwnPropertyDescriptors"))
         return PROTO_NONE;
 
+    const proto::ProtoObject* result = ctx->newObject(true);
+
+    // \xc2\xa720.1.2.11 step 2: keys be ? from.[[OwnPropertyKeys]]().  For
+    // a Proxy receiver, dispatch the ownKeys trap and then the gOPD
+    // trap per key — matches Reflect.getOwnPropertyDescriptors's
+    // observable-operations contract (built-ins/Object/
+    // getOwnPropertyDescriptors/observable-operations.js).
+    if (isProxy(ctx, target)) {
+        const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, target);
+        if (hasCallException()) return PROTO_NONE;
+        std::vector<std::string> defaultKeys;
+        if (!keysArr || keysArr == PROTO_NONE) {
+            const proto::ProtoObject* tgt = target;
+            int guard = 16;
+            while (guard-- > 0 && isProxy(ctx, tgt)) {
+                const proto::ProtoObject* nx = proxyTarget(ctx, tgt);
+                if (!nx || nx == tgt) break;
+                tgt = nx;
+            }
+            if (tgt && tgt != target)
+                collectOwnKeys(ctx, tgt, defaultKeys, nullptr, true);
+        }
+        const proto::ProtoList* els = keysArr ? getArrayElements(ctx, keysArr) : nullptr;
+        size_t kn = els ? els->getSize(ctx) : defaultKeys.size();
+        for (size_t i = 0; i < kn; ++i) {
+            const proto::ProtoObject* kObj = els
+                ? els->getAt(ctx, i)
+                : ctx->fromUTF8String(defaultKeys[i].c_str());
+            if (!kObj || kObj == PROTO_NONE) continue;
+            const proto::ProtoString* kStr = kObj->asString(ctx);
+            if (!kStr) continue;
+            const proto::ProtoObject* desc =
+                proxyDispatchGetOwnPropertyDescriptor(ctx, target, kStr);
+            if (hasCallException()) return PROTO_NONE;
+            if (!desc || desc == PROTO_NONE
+                || desc == getUndefinedSentinel() || desc == getNullSentinel())
+                continue;
+            result = result->setAttribute(ctx, kStr, desc);
+        }
+        return result;
+    }
+
     std::vector<std::string> keys;
     collectOwnKeys(ctx, target, keys, nullptr, /*includeNonEnumerable=*/true);
 
-    const proto::ProtoObject* result = ctx->newObject(true);
     for (const std::string& k : keys) {
         // Build a per-key argument list and delegate to the existing
         // getOwnPropertyDescriptor implementation so the data/accessor
