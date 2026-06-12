@@ -122,6 +122,7 @@ struct OwnDescriptor {
     bool isAccessor = false;         // accessor (vs data) descriptor
     bool writable = true;            // data only — true if writable
     bool configurable = true;        // true if configurable
+    bool enumerable = true;          // true if enumerable
     bool hasGetter = false;          // accessor only — true if non-undefined
     bool hasSetter = false;          // accessor only — true if non-undefined
     const proto::ProtoObject* value = nullptr; // data: the value
@@ -174,6 +175,7 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
         }
         int bits = probeDescriptorBits(ctx, target, key, kstr);
         d.configurable = (bits & 0x2) != 0;
+        d.enumerable  = (bits & 0x4) != 0;
         return d;
     }
 
@@ -188,6 +190,7 @@ static OwnDescriptor probeOwnDescriptor(proto::ProtoContext* ctx,
             int bits = probeDescriptorBits(ctx, target, key, kstr);
             d.writable = (bits & 0x1) != 0;
             d.configurable = (bits & 0x2) != 0;
+            d.enumerable  = (bits & 0x4) != 0;
             return d;
         }
     }
@@ -1583,12 +1586,12 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
         const proto::ProtoString* sk = sko ? sko->asString(ctx) : nullptr;
         putV("get",          gk ? target->getAttribute(ctx, gk, false) : nullptr);
         putV("set",          sk ? target->getAttribute(ctx, sk, false) : nullptr);
-        putB("enumerable",   true);
+        putB("enumerable",   od.enumerable);
         putB("configurable", od.configurable);
     } else {
         putV("value",        od.value);
         putB("writable",     od.writable);
-        putB("enumerable",   true);
+        putB("enumerable",   od.enumerable);
         putB("configurable", od.configurable);
     }
     return desc;
