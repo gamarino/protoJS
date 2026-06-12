@@ -2265,6 +2265,16 @@ static const proto::ProtoObject* objectDefineProperty(
                         "Invalid array length"));
                     return PROTO_NONE;
                 }
+                // Substitute the coerced uint32 back into the
+                // descriptor so the downstream redefine paths see the
+                // ToUint32 form rather than the raw user value. Pre-fix
+                // `Object.defineProperty(arr, "length", {value: null})`
+                // stored `null` literally in the length slot and
+                // `arr.length` then read back as null instead of 0
+                // (test262 Object/defineProperty/15.2.3.6-4-{126,127,
+                // 128,131,…}.js).
+                desc = desc->setAttribute(ctx, valK,
+                    ctx->fromInteger((long long)d));
             }
         }
     }
