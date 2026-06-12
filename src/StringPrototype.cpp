@@ -276,10 +276,34 @@ static std::string objToStr(proto::ProtoContext* ctx, const proto::ProtoObject* 
                 // every coercing String.prototype method).
                 if (hasCallException()) return "";
                 if (result && result != PROTO_NONE) {
+                    // §7.1.1 OrdinaryToPrimitive step 4.b.iii: any
+                    // non-Object return value from toString is
+                    // accepted as a primitive (string, number,
+                    // boolean, null, undefined, symbol).  Pre-fix
+                    // only an exact ProtoString was treated as a
+                    // hit, so a toString that returned `42` /
+                    // `true` / `null` fell through to valueOf and
+                    // then to the "Cannot convert object to
+                    // primitive value" TypeError, even though the
+                    // primitive return value was perfectly valid
+                    // (S15.5.4.6_A1_T10 — concat with toString
+                    // returning a boolean / number).
                     const proto::ProtoString* rs = result->asString(ctx);
                     if (rs) {
                         rs->toUTF8String(ctx, r);
                         return r;
+                    }
+                    if (result->isInteger(ctx))
+                        return std::to_string(result->asLong(ctx));
+                    if (result->isBoolean(ctx))
+                        return result->asBoolean(ctx) ? "true" : "false";
+                    if (result == getNullSentinel()) return "null";
+                    if (result == getUndefinedSentinel()) return "undefined";
+                    if (result->isDouble(ctx) || result->isFloat(ctx)) {
+                        char buf[64];
+                        std::snprintf(buf, sizeof(buf), "%.15g",
+                                      result->asDouble(ctx));
+                        return std::string(buf);
                     }
                 }
             }
