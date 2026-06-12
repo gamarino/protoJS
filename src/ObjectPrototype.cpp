@@ -234,9 +234,16 @@ static void collectOwnKeys(
             && !s->includeNonEnumerable) return;
         std::string kstr;
         propKey->toUTF8String(cbCtx, kstr);
-        // Skip the __pd_<key>__ enumerable probe when no non-default
-        // writable bit has ever been stamped on this target.
-        if (!s->includeNonEnumerable && s->mightHaveNonWritable) {
+        // §7.3.23 EnumerableOwnProperties: re-check enumerable at
+        // each step on the LIVE descriptor — a previously-invoked
+        // getter may have flipped this key's enumerable bit.  Pre-
+        // fix the probe was gated by s->mightHaveNonWritable which
+        // is only set when a writable-false descriptor lands; an
+        // enumerable-false flip with writable still true (test262
+        // Object.values/getter-making-future-key-nonenumerable.js)
+        // bypassed the probe and the now-non-enumerable key still
+        // emerged in the result.  Always probe when filtering.
+        if (!s->includeNonEnumerable) {
             std::string pdKeyStr = "__pd_" + kstr + "__";
             const proto::ProtoObject* pko = cbCtx->fromUTF8String(pdKeyStr.c_str());
             const proto::ProtoString* pdk = pko ? pko->asString(cbCtx) : nullptr;
