@@ -963,9 +963,9 @@ static const proto::ProtoObject* mapConstruct(
         {
             const proto::ProtoObject* sKo = ctx->fromUTF8String("set");
             const proto::ProtoString* sKs = sKo ? sKo->asString(ctx) : nullptr;
-            setterFn = sKs
-                ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
-            if (!setterFn || setterFn == PROTO_NONE || setterFn == getUndefinedSentinel()) {
+            // §24.1.1.2 step 7.a — accessor sidecar FIRST so a throwing
+            // `get set()` propagates before the data slot is read.
+            {
                 const proto::ProtoObject* gko = ctx->fromUTF8String("__get_set__");
                 const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
                 if (gks) {
@@ -975,6 +975,10 @@ static const proto::ProtoObject* mapConstruct(
                         if (hasCallException()) return PROTO_NONE;
                     }
                 }
+            }
+            if (!setterFn || setterFn == PROTO_NONE) {
+                setterFn = sKs
+                    ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
             }
             if (hasCallException()) return PROTO_NONE;
             bool callable = false;
@@ -1955,8 +1959,24 @@ static const proto::ProtoObject* weakMapConstruct(
             // "Get(_map_, 'set')" semantic flows through.
             const proto::ProtoString* sKs =
                 ctx->fromUTF8String("set")->asString(ctx);
-            const proto::ProtoObject* setterFn = sKs
-                ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
+            const proto::ProtoObject* setterFn = PROTO_NONE;
+            // §24.4.1.1 step 6 — accessor sidecar FIRST so a throwing
+            // `get set()` propagates per GetMethod.
+            {
+                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_set__");
+                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                if (gks) {
+                    const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        setterFn = callJSFunction(ctx, getter, self, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
+            if (!setterFn || setterFn == PROTO_NONE) {
+                setterFn = sKs
+                    ? self->getAttribute(ctx, sKs, true) : PROTO_NONE;
+            }
             bool callable = false;
             if (setterFn && setterFn != PROTO_NONE && setterFn != getUndefinedSentinel()) {
                 if (setterFn->isMethod(ctx)) callable = true;

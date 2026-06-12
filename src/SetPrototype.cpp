@@ -700,8 +700,29 @@ static const proto::ProtoObject* setConstruct(
         {
             const proto::ProtoObject* addKo = ctx->fromUTF8String("add");
             const proto::ProtoString* addKs = addKo ? addKo->asString(ctx) : nullptr;
-            adder = addKs
-                ? self->getAttribute(ctx, addKs, true) : PROTO_NONE;
+            // §24.2.1.1 step 7.a: GetMethod fires accessor getters
+            // and propagates their abrupt completion.  Probe the
+            // `__get_add__` accessor sidecar BEFORE falling back to
+            // the data slot — pre-fix only the data slot was read,
+            // so `Object.defineProperty(Set.prototype, 'add', {get: throws})`
+            // silently surfaced PROTO_NONE and the constructor threw
+            // its own "is not callable" TypeError instead of the
+            // accessor's abrupt (test262 set-get-add-method-failure).
+            {
+                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_add__");
+                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+                if (gks) {
+                    const proto::ProtoObject* getter = self->getAttribute(ctx, gks, true);
+                    if (getter && getter != PROTO_NONE) {
+                        adder = callJSFunction(ctx, getter, self, ctx->newList());
+                        if (hasCallException()) return PROTO_NONE;
+                    }
+                }
+            }
+            if (!adder || adder == PROTO_NONE) {
+                adder = addKs
+                    ? self->getAttribute(ctx, addKs, true) : PROTO_NONE;
+            }
             bool callable = false;
             if (adder && adder != PROTO_NONE && adder != getUndefinedSentinel()) {
                 if (adder->isMethod(ctx)) callable = true;
