@@ -2567,6 +2567,30 @@ static const proto::ProtoObject* objectDefineProperty(
             if (hasValue) {
                 const proto::ProtoObject* newVal = descKeyValue("value");
                 if (newVal && newVal != PROTO_NONE) {
+                    // For Array exotic indices, update __elements__ in
+                    // addition to the (sparse) own attribute. Pre-fix
+                    // setAttribute alone stored under the "0" key but
+                    // arr[0] still read from the stale __elements__
+                    // entry (test262 Object/defineProperties/
+                    // 15.2.3.7-6-a-178.js, 200.js, 204.js).
+                    const proto::ProtoString* isArrK2 = JSSymbols::isArray(ctx);
+                    const proto::ProtoObject* isArrV2 = isArrK2
+                        ? target->getAttribute(ctx, isArrK2, true) : nullptr;
+                    if (isArrV2 == PROTO_TRUE && !kstr.empty()) {
+                        char* iend = nullptr;
+                        long long iv2 = std::strtoll(kstr.c_str(), &iend, 10);
+                        if (iend && *iend == '\0' && iv2 >= 0
+                            && std::to_string(iv2) == kstr) {
+                            const proto::ProtoList* els =
+                                protojs::getArrayElements(ctx, target);
+                            if (els && iv2 < (long long)els->getSize(ctx)) {
+                                const proto::ProtoList* updated =
+                                    els->setAt(ctx, (size_t)iv2, newVal);
+                                if (updated)
+                                    protojs::setArrayElements(ctx, target, updated);
+                            }
+                        }
+                    }
                     target = target->setAttribute(ctx, k, newVal);
                 }
             }
@@ -2804,6 +2828,40 @@ static const proto::ProtoObject* objectDefineProperty(
                 storedVal = existingVal;
             } else {
                 storedVal = getUndefinedSentinel();
+            }
+            // For Array exotic indices, update __elements__ alongside
+            // the sparse attribute so arr[i] reflects the new value.
+            // Pre-fix Object.defineProperty(arr, "0", {value: X}) only
+            // wrote the own attribute and arr[0] still read the stale
+            // __elements__ entry (test262
+            // Object/defineProperties/15.2.3.7-6-a-178.js, 200.js, 204.js).
+            {
+                const proto::ProtoString* isArrK3 = JSSymbols::isArray(ctx);
+                const proto::ProtoObject* isArrV3 = isArrK3
+                    ? target->getAttribute(ctx, isArrK3, true) : nullptr;
+                if (isArrV3 == PROTO_TRUE && !kstr.empty()) {
+                    char* iend = nullptr;
+                    long long iv3 = std::strtoll(kstr.c_str(), &iend, 10);
+                    if (iend && *iend == '\0' && iv3 >= 0
+                        && std::to_string(iv3) == kstr) {
+                        const proto::ProtoList* els =
+                            protojs::getArrayElements(ctx, target);
+                        if (els && iv3 < (long long)els->getSize(ctx)) {
+                            const proto::ProtoList* updated =
+                                els->setAt(ctx, (size_t)iv3, storedVal);
+                            if (updated)
+                                protojs::setArrayElements(ctx, target, updated);
+                        } else if (els) {
+                            // Extension within the auto-bump path below
+                            // — append PROTO_NONE up to iv3 then the value.
+                            const proto::ProtoList* grown = els;
+                            for (long long i = (long long)els->getSize(ctx); i < iv3; ++i)
+                                grown = grown->appendLast(ctx, PROTO_NONE);
+                            grown = grown->appendLast(ctx, storedVal);
+                            protojs::setArrayElements(ctx, target, grown);
+                        }
+                    }
+                }
             }
             target = target->setAttribute(ctx, k, storedVal);
 
