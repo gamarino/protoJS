@@ -1326,10 +1326,16 @@ const proto::ProtoObject* stringStartsWith(
     // TypeError. The regex must be rejected before ToString coerces
     // it into "/pattern/" — silent acceptance breaks the rule that
     // .startsWith/.endsWith/.includes do not interpret regex syntax.
-    if (args && args->getSize(ctx) > 0 && isRegExp(ctx, args->getAt(ctx, 0))) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "First argument to String.prototype.startsWith must not be a regular expression"));
-        return PROTO_NONE;
+    if (args && args->getSize(ctx) > 0) {
+        bool isRE = isRegExp(ctx, args->getAt(ctx, 0));
+        // §7.2.8 IsRegExp can throw via the @@match accessor —
+        // propagate before checking the boolean result.
+        if (hasCallException()) return PROTO_NONE;
+        if (isRE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "First argument to String.prototype.startsWith must not be a regular expression"));
+            return PROTO_NONE;
+        }
     }
 
     // Rope-aware O(log N + M) fast path — skips the O(N) toUTF8String
@@ -1348,8 +1354,16 @@ const proto::ProtoObject* stringStartsWith(
             long long mLen = static_cast<long long>(srch->getSize(ctx));
             long long pos = getIntArg(ctx, args, 1, 0);
             if (pos < 0) pos = 0;
-            if (pos + mLen > sLen) return PROTO_FALSE;
+            // §22.1.3.18 step 12: start = min(max(pos, 0), len).
+            // Pre-fix the clamp was missing the upper bound, so a
+            // position Infinity (getIntArg returns LLONG_MAX) made
+            // `pos + mLen > sLen` trivially true even when mLen == 0,
+            // breaking startsWith('', Infinity) which the spec
+            // defines as true for any position
+            // (return-true-if-searchstring-is-empty.js).
+            if (pos > sLen) pos = sLen;
             if (mLen == 0) return PROTO_TRUE;
+            if (pos + mLen > sLen) return PROTO_FALSE;
             const proto::ProtoString* slice = str->getSlice(
                 ctx, static_cast<int>(pos), static_cast<int>(pos + mLen));
             return (slice && slice->cmp_to_string(ctx, srch) == 0)
@@ -1363,6 +1377,9 @@ const proto::ProtoObject* stringStartsWith(
     auto se16 = utf8ToUTF16(srch);
     long long pos = getIntArg(ctx, args, 1, 0);
     if (pos < 0) pos = 0;
+    if (static_cast<long long>(pos) > static_cast<long long>(su16.size()))
+        pos = static_cast<long long>(su16.size());
+    if (se16.size() == 0) return PROTO_TRUE;
     if (static_cast<size_t>(pos) + se16.size() > su16.size()) return PROTO_FALSE;
     for (size_t i = 0; i < se16.size(); i++)
         if (su16[static_cast<size_t>(pos) + i] != se16[i]) return PROTO_FALSE;
@@ -1375,10 +1392,14 @@ const proto::ProtoObject* stringEndsWith(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    if (args && args->getSize(ctx) > 0 && isRegExp(ctx, args->getAt(ctx, 0))) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "First argument to String.prototype.endsWith must not be a regular expression"));
-        return PROTO_NONE;
+    if (args && args->getSize(ctx) > 0) {
+        bool isRE = isRegExp(ctx, args->getAt(ctx, 0));
+        if (hasCallException()) return PROTO_NONE;
+        if (isRE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "First argument to String.prototype.endsWith must not be a regular expression"));
+            return PROTO_NONE;
+        }
     }
 
     // Rope-aware O(log N + M) fast path; see stringStartsWith.
@@ -1432,10 +1453,14 @@ const proto::ProtoObject* stringIncludes(
     const proto::ProtoSparseList*)
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
-    if (args && args->getSize(ctx) > 0 && isRegExp(ctx, args->getAt(ctx, 0))) {
-        signalNativeException(makeNativeError(ctx, "TypeError",
-            "First argument to String.prototype.includes must not be a regular expression"));
-        return PROTO_NONE;
+    if (args && args->getSize(ctx) > 0) {
+        bool isRE = isRegExp(ctx, args->getAt(ctx, 0));
+        if (hasCallException()) return PROTO_NONE;
+        if (isRE) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "First argument to String.prototype.includes must not be a regular expression"));
+            return PROTO_NONE;
+        }
     }
     std::string s    = objToStr(ctx, self);
     std::string srch = getStrArgWithUndef(ctx, args, 0);
@@ -1640,8 +1665,45 @@ static bool isRegExp(proto::ProtoContext* ctx, const proto::ProtoObject* obj) {
     if (!obj || obj == PROTO_NONE || obj->isString(ctx) || obj->isInteger(ctx) || obj->isDouble(ctx)) return false;
     const proto::ProtoString* matchKey = JSSymbols::symbolMatch(ctx);
     if (!matchKey) return false;
-    const proto::ProtoObject* m = obj->getAttribute(ctx, matchKey, true);
-    return m && m != PROTO_NONE;
+    // §7.2.8 IsRegExp step 2: Get(arg, @@match) — fires accessor
+    // getters; their abrupt completion must propagate.  Probe the
+    // `__get_Symbol.match__` accessor sidecar BEFORE the data slot so
+    // a `get [Symbol.match]() { throw }` surfaces correctly via
+    // hasCallException (test262 String.prototype.{startsWith,
+    // endsWith, includes}/return-abrupt-from-searchstring-regexp-
+    // test.js).  Caller must check hasCallException after isRegExp
+    // returns and bail.
+    const proto::ProtoObject* m = nullptr;
+    {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_Symbol.match__");
+        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        if (gks) {
+            const proto::ProtoObject* getter = obj->getAttribute(ctx, gks, true);
+            if (getter && getter != PROTO_NONE) {
+                m = callJSFunction(ctx, getter, obj, ctx->newList());
+                if (hasCallException()) return false;
+            }
+        }
+    }
+    if (!m || m == PROTO_NONE) m = obj->getAttribute(ctx, matchKey, true);
+    // §7.2.8 step 4: ToBoolean(matcher) — only when matcher is not
+    // undefined.  null and undefined → false; truthy → true.
+    if (!m || m == PROTO_NONE
+        || m == getUndefinedSentinel() || m == getNullSentinel())
+        return false;
+    if (m == PROTO_FALSE) return false;
+    if (m->isBoolean(ctx)) return m->asBoolean(ctx);
+    if (m->isInteger(ctx)) return m->asLong(ctx) != 0;
+    if (m->isDouble(ctx) || m->isFloat(ctx)) {
+        double d = m->asDouble(ctx);
+        return d != 0.0 && d == d;
+    }
+    if (m->isString(ctx)) {
+        std::string s;
+        m->asString(ctx)->toUTF8String(ctx, s);
+        return !s.empty();
+    }
+    return true;
 }
 
 const proto::ProtoObject* stringMatch(
