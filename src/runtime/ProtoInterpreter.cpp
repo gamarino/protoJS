@@ -1616,42 +1616,18 @@ static const proto::ProtoObject* reflectSetPrototypeOf(
         ? args->getAt(ctx, 0) : PROTO_NONE;
     if (reflectThrowIfNotObject(ctx, target, "Reflect.setPrototypeOf")) return PROTO_FALSE;
     if (protojs::isProxy(ctx, target)) {
-        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, target, "setPrototypeOf");
-        if (trap) {
-            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, target);
-            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, target);
-            const proto::ProtoObject* requestedProto = (args->getSize(ctx) > 1)
-                ? args->getAt(ctx, 1) : PROTO_NONE;
-            const proto::ProtoList* trapArgs = ctx->newList();
-            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
-            trapArgs = trapArgs->appendLast(ctx, requestedProto);
-            const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, trapArgs);
-            bool truthy = (r == PROTO_TRUE || (r && r != PROTO_NONE && r != PROTO_FALSE));
-            // §10.5.2 step 9: if target is non-extensible AND trap
-            // returned truthy AND the new proto differs from target's
-            // actual proto → throw.
-            if (truthy) {
-                JSContextWrapper* w = JSContextWrapper::current();
-                if (inner && w && w->getNonExtensibleMarker()
-                    && inner->hasParent(ctx, w->getNonExtensibleMarker())) {
-                    const proto::ProtoObject* override_ = protojs::getJSProtoOverride(inner);
-                    const proto::ProtoObject* actual = override_
-                        ? override_
-                        : ((inner->getPrototype(ctx) && inner->getPrototype(ctx) != PROTO_NONE)
-                            ? inner->getPrototype(ctx) : getNullSentinel());
-                    const proto::ProtoObject* req =
-                        (!requestedProto || requestedProto == PROTO_NONE) ? getNullSentinel() : requestedProto;
-                    if (req != actual) {
-                        signalNativeException(makeNativeError(ctx, "TypeError",
-                            "'setPrototypeOf' on proxy: trap returned truthy "
-                            "for a non-extensible target with a different "
-                            "proposed prototype"));
-                        return PROTO_FALSE;
-                    }
-                }
-            }
-            return truthy ? PROTO_TRUE : PROTO_FALSE;
-        }
+        // Route through the canonical proxyDispatchSetPrototypeOf so
+        // §10.5.2 step 8 ToBoolean coercion is applied uniformly
+        // (pre-fix the inlined check at this site treated integer 0
+        // and NaN as truthy).
+        const proto::ProtoObject* requestedProto = (args->getSize(ctx) > 1)
+            ? args->getAt(ctx, 1) : getUndefinedSentinel();
+        const proto::ProtoObject* r =
+            protojs::proxyDispatchSetPrototypeOf(ctx, target, requestedProto);
+        if (t_hasCallException) return PROTO_NONE;
+        if (r == PROTO_TRUE) return PROTO_TRUE;
+        if (r == PROTO_FALSE) return PROTO_FALSE;
+        // r == nullptr → no trap, fall through onto unwrapped target.
         target = protojs::proxyTarget(ctx, target);
         if (!target) return PROTO_FALSE;
     }

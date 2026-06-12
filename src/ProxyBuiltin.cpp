@@ -1,6 +1,7 @@
 #include "ProxyBuiltin.h"
 #include "ArrayPrototype.h"
 #include "ArrayElementsStorage.h"
+#include "ObjectPrototype.h"
 #include "JSSymbols.h"
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
@@ -759,7 +760,51 @@ const proto::ProtoObject* proxyDispatchSetPrototypeOf(
             truthy = !s.empty();
         } else truthy = true;
     }
-    return truthy ? PROTO_TRUE : PROTO_FALSE;
+    if (!truthy) return PROTO_FALSE;
+    // §10.5.2 step 10-13: when trap returns truthy, check
+    // [[IsExtensible]](target).  If extensible, return true.  If
+    // non-extensible, target.[[GetPrototypeOf]]() must SameValue V.
+    JSContextWrapper* w = JSContextWrapper::current();
+    bool targetNonExt = false;
+    if (target && w && w->getNonExtensibleMarker()
+        && target->hasParent(ctx, w->getNonExtensibleMarker()))
+        targetNonExt = true;
+    // §10.5.2 step 10: call IsExtensible — for a Proxy target, this
+    // dispatches the isExtensible trap; an abrupt completion there
+    // must propagate (test262 setPrototypeOf/return-abrupt-from-
+    // isextensible-target).
+    if (isProxy(ctx, target)) {
+        const proto::ProtoObject* iext = lookupTrap(ctx, proxyHandler(ctx, target), "isExtensible");
+        if (iext) {
+            const proto::ProtoList* iea = ctx->newList();
+            iea = iea->appendLast(ctx, proxyTarget(ctx, target));
+            (void)callJSFunction(ctx, iext, proxyHandler(ctx, target), iea);
+            if (hasCallException()) return PROTO_NONE;
+        }
+    }
+    if (!targetNonExt) return PROTO_TRUE;
+    // §10.5.2 step 12: target.[[GetPrototypeOf]]() — may abrupt.
+    const proto::ProtoObject* targetProto = nullptr;
+    if (isProxy(ctx, target)) {
+        targetProto = proxyDispatchGetPrototypeOf(ctx, target);
+        if (hasCallException()) return PROTO_NONE;
+    } else {
+        const proto::ProtoObject* over = getJSProtoOverride(target);
+        if (over) targetProto = over;
+        else {
+            const proto::ProtoObject* tp = target->getPrototype(ctx);
+            targetProto = (tp && tp != PROTO_NONE) ? tp : getNullSentinel();
+        }
+    }
+    const proto::ProtoObject* requested = newProto
+        ? newProto : getNullSentinel();
+    if (!sameValue(ctx, requested, targetProto ? targetProto : getNullSentinel())) {
+        signalNativeException(makeNativeError(ctx, "TypeError",
+            "'setPrototypeOf' on proxy: trap returned truthy for a "
+            "non-extensible target with a different proposed prototype"));
+        return PROTO_FALSE;
+    }
+    return PROTO_TRUE;
 }
 
 // §10.5.6 [[DefineOwnProperty]]: handler.defineProperty(target, P, Desc).
