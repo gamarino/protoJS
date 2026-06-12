@@ -652,6 +652,70 @@ static const proto::ProtoObject* objectAssign(
             || src == PROTO_TRUE || src == PROTO_FALSE) {
             continue; // wrapper has no own enumerable properties
         }
+        // §19.1.2.1 step 4.c — Proxy source: route through the [[OwnProperty-
+        // Keys]] trap + per-key [[GetOwnProperty]] trap.  Pre-fix the loop
+        // walked the protoCore own-attribute iterator directly, so a Proxy
+        // with `ownKeys` / `getOwnPropertyDescriptor` traps silently
+        // returned the underlying object's own keys without firing the
+        // traps (test262 Object/assign/source-own-prop-{error,desc-missing,
+        // keys-error}.js).
+        if (isProxy(ctx, src)) {
+            // OwnPropertyKeys: dispatch the trap if present, else fall
+            // through to the target's own keys (the spec forwarding case).
+            const proto::ProtoObject* keysArr = proxyDispatchOwnKeys(ctx, src);
+            if (hasCallException()) return PROTO_NONE;
+            const proto::ProtoList* els = nullptr;
+            if (keysArr) {
+                els = getArrayElements(ctx, keysArr);
+            } else {
+                // No ownKeys trap — walk the unwrapped target's own
+                // attributes so the per-key gOPD dispatch can still
+                // fire (test262 assign/source-own-prop-error.js: the
+                // proxy has only getOwnPropertyDescriptor, no ownKeys).
+                const proto::ProtoObject* tgt = proxyTarget(ctx, src);
+                if (!tgt) continue;
+                const proto::ProtoList* tmp = ctx->newList();
+                const proto::ProtoSparseList* tOwn = tgt->getOwnAttributes(ctx);
+                const proto::ProtoSparseListIterator* tit =
+                    tOwn ? tOwn->getIterator(ctx) : nullptr;
+                while (tit && tit->hasNext(ctx)) {
+                    unsigned long rk = tit->nextKey(ctx);
+                    (void)tit->nextValue(ctx);
+                    tit = const_cast<proto::ProtoSparseListIterator*>(tit)->advance(ctx);
+                    const proto::ProtoString* ks =
+                        reinterpret_cast<const proto::ProtoString*>(rk);
+                    if (!ks) continue;
+                    if (isInternalKey(ctx, ks)) continue;
+                    tmp = tmp->appendLast(ctx, ks->asObject(ctx));
+                }
+                els = tmp;
+            }
+            size_t n = els ? els->getSize(ctx) : 0;
+            for (size_t i = 0; i < n; ++i) {
+                const proto::ProtoObject* keyObj = els->getAt(ctx, i);
+                if (!keyObj || keyObj == PROTO_NONE) continue;
+                const proto::ProtoString* propKey = keyObj->asString(ctx);
+                if (!propKey) continue;
+                const proto::ProtoObject* desc =
+                    proxyDispatchGetOwnPropertyDescriptor(ctx, src, propKey);
+                if (hasCallException()) return PROTO_NONE;
+                if (!desc || desc == PROTO_NONE) continue;
+                {
+                    const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
+                    const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+                    if (eks) {
+                        const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, false);
+                        if (ev != PROTO_TRUE) continue;
+                    }
+                }
+                const proto::ProtoObject* val =
+                    proxyDispatchGet(ctx, src, propKey, src);
+                if (hasCallException()) return PROTO_NONE;
+                target = const_cast<proto::ProtoObject*>(target)
+                    ->setAttribute(ctx, propKey, val ? val : PROTO_NONE);
+            }
+            continue;
+        }
         if (src->isString(ctx)) {
             // §22.1.4 String exotic: own enumerable data properties
             // "0".."len-1" expose each UTF-16 code unit as a 1-char
