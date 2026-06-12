@@ -6634,17 +6634,18 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* userKey = JSSymbols::symbolToStringTag(pContext);
                         if (userKey && argsObj) {
                             argsObj = argsObj->setAttribute(pContext, userKey, pContext->fromUTF8String("Arguments"));
-                            // \xc2\xa720.5.5.13 + \xc2\xa720.5.5.5: Symbol.toStringTag is
-                            // {writable:false, enumerable:false, configurable:true}
-                            // -> descriptor 0x2.  Pre-fix the slot had no
-                            // __pd_<Symbol.toStringTag>__ sidecar and defaulted
-                            // to fully enumerable.  Object.defineProperties iterated
-                            // the WKS entry as if it were an own descriptor and
-                            // dispatched objectDefineProperty with the string
-                            // "Arguments" as the descriptor value, which the
-                            // type filter rejected with "Property description
-                            // must be an object" (built-ins/Object/defineProperties/
-                            // 15.2.3.7-2-16 pinned the shape).
+                            // Arguments objects don't have @@toStringTag per
+                            // spec — the "Arguments" tag is provided by the
+                            // \xc2\xa722.1.3.7 builtinTag branch.  We synthesise the
+                            // own attribute as a workaround so
+                            // Object.prototype.toString reads it; descriptor
+                            // bits 0x3 (writable: true, enumerable: false,
+                            // configurable: true) let user code overwrite via
+                            // \`a[Symbol.toStringTag] = ...\` per built-ins/
+                            // Object/prototype/toString/symbol-tag-override-
+                            // instances.js's Arguments arm.  The non-enumerable
+                            // bit still keeps defineProperties from iterating
+                            // the slot (R50's defineProperties-iteration fix).
                             std::string pdStr = std::string("__pd_");
                             std::string ukName;
                             userKey->toUTF8String(pContext, ukName);
@@ -6652,7 +6653,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoObject* pdo = pContext->fromUTF8String(pdStr.c_str());
                             const proto::ProtoString* pdk = pdo ? pdo->asString(pContext) : nullptr;
                             if (pdk) argsObj = argsObj->setAttribute(pContext, pdk,
-                                pContext->fromInteger(0x2LL));
+                                pContext->fromInteger(0x3LL));
                         }
                     }
                     stackPush(pContext, argsObj ? argsObj : PROTO_NONE);
