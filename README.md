@@ -387,6 +387,113 @@ For official ECMAScript compliance status and roadmap, see **[docs/TEST262_STATU
 
 ### Test262 Conformance
 
+**Round 44 — 2026-06-12** (9 commits, autonomous follow-up to R43) —
+Proxy-trap invariant pass.  The 10-family table moves to
+**8 613 / 9 514 (90.53 %)** — +41 tests, +0.43 pp, zero regressions
+— driven almost entirely by `built-ins/Proxy` going from
+**164 / 311 (52.7 %) → 203 / 311 (65.3 %)** (+39, +12.5 pp).  Object
+contributes the remaining +2.  Every other family unchanged.
+
+This round closed the §10.5.* trap-result invariants the R41 ground-
+up trap surface had left to a follow-up.  Each fix routes a previously-
+inlined Proxy dispatcher through the canonical proxyDispatch* helper
+and adds the missing spec invariants:
+
+  * **§10.5.11 [[OwnPropertyKeys]] — null-handler / non-Object trap
+    result / duplicate entries.**  Object.keys' inlined Proxy fast-
+    path skipped every spec invariant.  Replaced with a call into
+    proxyDispatchOwnKeys, then filtered to String keys with
+    desc.enumerable === true via the gOPD trap.  proxyDispatchOwnKeys
+    itself gained the §7.3.18 CreateListFromArrayLike step 2 Type-is-
+    Object check (rejecting null / undefined / boolean / number /
+    string / symbol trap results) and a §10.5.11 step 9 duplicate-
+    entries check via an unordered_set with String / Symbol
+    namespace.  +10 tests.
+
+  * **OP_delete + Proxy receiver.**  §10.5.10 [[Delete]] dispatches
+    the deleteProperty trap; pre-fix OP_delete walked the protoCore
+    attribute layer directly.  Added isProxy(obj) branch dispatching
+    proxyDispatchDelete, with the §13.5.1.2 step 5.a strict-mode
+    TypeError on falsy trap result.  +6 tests.
+
+  * **OP_in — Proxy ancestor in [[Prototype]] chain.**  §10.1.7.1
+    OrdinaryHasProperty step 5 recurses into [[Prototype]] via
+    [[HasProperty]]; on a Proxy ancestor that's the has trap.  After
+    the own-attribute check, walk via getJSProtoOverride /
+    getPrototype dispatching proxyDispatchHas the first time we land
+    on a Proxy.  +5 tests.
+
+  * **Reflect.defineProperty + §10.5.6 step 16-20 invariants.**
+    Reflect's inlined dispatch used a non-ToBoolean truthy check
+    (integer 0 treated as truthy).  Routed through
+    proxyDispatchDefineProperty.  Added step 17 (targetDesc undefined
+    + Desc configurable:false → TypeError), partial step 20.a
+    (targetDesc non-configurable + Desc configurable:true / writable-
+    flipping on a non-writable data slot → TypeError), step 20.b
+    (configurable target + Desc configurable:false → TypeError).  +4
+    tests.
+
+  * **OP_call_method + callJSFunction Proxy chain walk.**  The
+    method-style call optimization (`p.proxy()`) had no Proxy branch
+    and silently returned undefined; callJSFunction unwrapped exactly
+    once, so a chain of two Proxy callables (outer trap null →
+    forward to inner trap) failed to compose.  Added Proxy dispatch
+    on OP_call_method mirroring OP_call, and wrapped callJSFunction's
+    dispatch in a `while (isProxy(fn))` loop.  +6 tests.
+
+  * **OP_call_constructor — chain walk + tighten non-Object trap
+    result.**  §10.5.13 step 9 — pre-fix missed null / undefined
+    sentinels and Symbol primitives (Object-tagged with `__is_symbol__`).
+    Added explicit null/undefined checks and an isSymbol marker
+    probe.  Wrapped the construct branch in a while(isProxy) loop
+    matching the parallel callJSFunction change.  +3 tests.
+
+  * **§10.5.1 [[GetPrototypeOf]] + §10.5.5 [[GetOwnProperty]] —
+    Symbol reject + invariants.**  gPO trap returning a Symbol
+    bypassed the non-Object check.  Added isSymbol probe.  Same in
+    gOPD step 17 (target absent + non-extensible → TypeError) and a
+    subset of step 21 IsCompatiblePropertyDescriptor (target non-
+    configurable + result must be non-configurable; non-writable data
+    target + result non-writable).  +2 tests.
+
+  * **§10.5.2 [[SetPrototypeOf]] — ToBoolean + steps 10-13.**
+    Reflect.setPrototypeOf's inlined branch used the same broken
+    truthy check; routed through proxyDispatchSetPrototypeOf.
+    proxyDispatchSetPrototypeOf gained step 10 (IsExtensible —
+    dispatches the isExtensible trap on a Proxy target with abrupt
+    propagation), step 11 (extensible → return true), step 12
+    (target.[[GetPrototypeOf]]), step 13 (SameValue V vs targetProto
+    on non-extensible targets → TypeError otherwise).  +3 tests.
+
+10-family roll-up — Proxy carries the round; Object's +2 from the
+Object.keys Proxy refactor; everything else held:
+
+| Family | This run | R43 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Function` | 421 / 509 (82.7 %) | 421 / 509 | 0 |
+| `built-ins/Object` | **3 058 / 3 411** (89.7 %) | 3 056 / 3 411 (89.6 %) | **+2** |
+| `built-ins/Array` | 2 877 / 3 081 (93.4 %) | 2 877 / 3 081 | 0 |
+| `built-ins/String` | 1 125 / 1 223 (92.0 %) | 1 125 / 1 223 | 0 |
+| `built-ins/Symbol` | 69 / 98 (70.4 %) | 69 / 98 | 0 |
+| `built-ins/Map` | 200 / 204 (98.0 %) | 200 / 204 | 0 |
+| `built-ins/Set` | 378 / 383 (98.7 %) | 378 / 383 | 0 |
+| `built-ins/Proxy` | **203 / 311** (65.3 %) | 164 / 311 (52.7 %) | **+39** (+12.5 pp) |
+| `built-ins/Reflect` | 142 / 153 (92.8 %) | 142 / 153 | 0 |
+| `built-ins/WeakMap` | 140 / 141 (99.3 %) | 140 / 141 | 0 |
+| **TOTAL** | **8 613 / 9 514** (**90.53 %**) | 8 572 / 9 514 (90.10 %) | **+41** (+0.43 pp) |
+
+Off-table family — Iterator held; R44 focused on Proxy:
+
+| Family | This run | R43 baseline | Δ |
+|--------|---------:|-------------:|--:|
+| `built-ins/Iterator` | 367 / 510 (72.0 %) | 367 / 510 | 0 |
+
+Cumulative R37 → R44 (130 commits): 87.20 % → 90.53 % on the 10-fam
+table — +327 tests across eight rounds.  Map / Set / WeakMap all
+≥ 98 %; Proxy crossed the 65 % mark.
+
+---
+
 **Round 43 — 2026-06-12** (9 commits, autonomous follow-up to R42) —
 broad Proxy-receiver + accessor-getter dispatch landing across
 Array, Map / Set / WeakMap, Object, and String.  The 10-family
