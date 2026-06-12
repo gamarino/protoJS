@@ -1212,7 +1212,13 @@ const proto::ProtoObject* stringLocaleCompare(
 {
     if (!requireStringThis(ctx, self)) return PROTO_NONE;
     std::string a = objToStr(ctx, self);
-    std::string b = getStrArg(ctx, args, 0);
+    // §22.1.3.10 localeCompare: `that` is ToString'd. A missing
+    // argument is treated as `undefined` which ToString's to
+    // "undefined" (not "" which is what getStrArg returned).
+    // test262 String/prototype/localeCompare/15.5.4.9_3.js requires
+    // localeCompare() === localeCompare(undefined) ===
+    // localeCompare("undefined").
+    std::string b = getStrArgWithUndef(ctx, args, 0);
     int cmp = a.compare(b);
     return ctx->fromInteger(cmp < 0 ? -1LL : cmp > 0 ? 1LL : 0LL);
 }
