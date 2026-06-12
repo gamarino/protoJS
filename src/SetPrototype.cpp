@@ -179,13 +179,17 @@ static bool setContains(proto::ProtoContext* ctx,
 // (difference) / wrong (disjoint/subset) results.
 static bool setLikeHas(proto::ProtoContext* ctx,
                        const proto::ProtoObject* other,
-                       const proto::ProtoObject* val)
+                       const proto::ProtoObject* val,
+                       const proto::ProtoObject* precomputedHasFn = nullptr)
 {
     if (getSetOrder(ctx, other)) return setContains(ctx, other, val);
-    const proto::ProtoObject* hasKo = ctx->fromUTF8String("has");
-    const proto::ProtoString* hasKs = hasKo ? hasKo->asString(ctx) : nullptr;
-    if (!hasKs) return false;
-    const proto::ProtoObject* hasFn = other->getAttribute(ctx, hasKs, true);
+    const proto::ProtoObject* hasFn = precomputedHasFn;
+    if (!hasFn || hasFn == PROTO_NONE) {
+        const proto::ProtoObject* hasKo = ctx->fromUTF8String("has");
+        const proto::ProtoString* hasKs = hasKo ? hasKo->asString(ctx) : nullptr;
+        if (!hasKs) return false;
+        hasFn = other->getAttribute(ctx, hasKs, true);
+    }
     if (!hasFn || hasFn == PROTO_NONE) return false;
     const proto::ProtoList* a = ctx->newList();
     a = a->appendLast(ctx, val ? val : PROTO_NONE);
@@ -218,7 +222,8 @@ static bool setLikeHas(proto::ProtoContext* ctx,
 template <typename Emit>
 static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
                                 const proto::ProtoObject* other,
-                                Emit emit)
+                                Emit emit,
+                                const proto::ProtoObject* precomputedKeysFn = nullptr)
 {
     // Real native Sets — fast path over __set_order__.
     if (const proto::ProtoSparseList* order = getSetOrder(ctx, other)) {
@@ -230,12 +235,17 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         }
         return true;
     }
-    // Set-like: call other.keys() to obtain an iterator, then loop
-    // calling .next() and reading the {value, done} record.
-    const proto::ProtoObject* keysKo = ctx->fromUTF8String("keys");
-    const proto::ProtoString* keysKs = keysKo ? keysKo->asString(ctx) : nullptr;
-    if (!keysKs) return true;
-    const proto::ProtoObject* keysFn = other->getAttribute(ctx, keysKs, true);
+    // Set-like: call other.keys() to obtain an iterator.  Prefer the
+    // function already resolved by getSetRecord so the user's
+    // `get keys()` getter fires once per operation, not once per
+    // GetSetRecord plus once per iterate.
+    const proto::ProtoObject* keysFn = precomputedKeysFn;
+    if (!keysFn || keysFn == PROTO_NONE) {
+        const proto::ProtoObject* keysKo = ctx->fromUTF8String("keys");
+        const proto::ProtoString* keysKs = keysKo ? keysKo->asString(ctx) : nullptr;
+        if (!keysKs) return true;
+        keysFn = other->getAttribute(ctx, keysKs, true);
+    }
     if (!keysFn || keysFn == PROTO_NONE) return true;
     const proto::ProtoObject* iter = callJSFunction(ctx, keysFn, other, ctx->newList());
     if (hasCallException()) return false;
@@ -267,21 +277,65 @@ static bool iterateSetLikeKeys(proto::ProtoContext* ctx,
         }
         if (savedEx) signalNativeException(savedEx);
     };
+    // Probe `__get_next__` once before the loop — class-style
+    // iterators install `next` as an accessor on the prototype, so
+    // a raw data-slot read returns nothing and the user's `get next()`
+    // never fires.  Per spec §7.4.2 IteratorNext does Get(iterator,
+    // "next") once and caches the result for the loop.
+    const proto::ProtoObject* nextFn = nullptr;
+    {
+        const proto::ProtoObject* gko = ctx->fromUTF8String("__get_next__");
+        const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+        if (gks) {
+            const proto::ProtoObject* getter = iter->getAttribute(ctx, gks, true);
+            if (getter && getter != PROTO_NONE) {
+                nextFn = callJSFunction(ctx, getter, iter, ctx->newList());
+                if (hasCallException()) return false;
+            }
+        }
+    }
+    if (!nextFn || nextFn == PROTO_NONE) {
+        nextFn = iter->getAttribute(ctx, nextKs, true);
+    }
     for (int safety = 0; safety < 1000000; ++safety) {
-        const proto::ProtoObject* nextFn = iter->getAttribute(ctx, nextKs, true);
         if (!nextFn || nextFn == PROTO_NONE) break;
         const proto::ProtoObject* step = callJSFunction(ctx, nextFn, iter, ctx->newList());
         if (hasCallException()) return false;
         if (!step || step == PROTO_NONE) break;
-        const proto::ProtoObject* d = doneKs ? step->getAttribute(ctx, doneKs, false) : nullptr;
+        // §7.4.3 IteratorComplete probes Get(step, "done") via the
+        // chain.  Fire the `__get_done__` accessor sidecar first.
+        const proto::ProtoObject* d = nullptr;
+        {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_done__");
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = step->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    d = callJSFunction(ctx, getter, step, ctx->newList());
+                    if (hasCallException()) return false;
+                }
+            }
+        }
+        if (!d) d = doneKs ? step->getAttribute(ctx, doneKs, true) : nullptr;
         bool isDone = (d == PROTO_TRUE);
         if (!isDone && d && d != PROTO_NONE && d->isBoolean(ctx) && d->asBoolean(ctx)) isDone = true;
         if (isDone) break;
-        const proto::ProtoObject* val = valueKs ? step->getAttribute(ctx, valueKs, false) : nullptr;
+        // §7.4.4 IteratorValue: Get(step, "value") fires the accessor.
+        const proto::ProtoObject* val = nullptr;
+        {
+            const proto::ProtoObject* gko = ctx->fromUTF8String("__get_value__");
+            const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
+            if (gks) {
+                const proto::ProtoObject* getter = step->getAttribute(ctx, gks, true);
+                if (getter && getter != PROTO_NONE) {
+                    val = callJSFunction(ctx, getter, step, ctx->newList());
+                    if (hasCallException()) return false;
+                }
+            }
+        }
+        if (!val) val = valueKs ? step->getAttribute(ctx, valueKs, true) : nullptr;
         // §24.2.1.2 (GetSetRecord-driven loops) step 7.b.ii: if nextValue
         // is -0𝔽, set nextValue to +0𝔽 BEFORE handing it to the operation.
-        // Without this, difference/intersection/etc. treat the set-like
-        // key "-0" as distinct from the receiver's stored "+0".
         if (val) val = normalizeSetVal(ctx, val);
         if (!emit(val ? val : PROTO_NONE)) {
             closeIter();
@@ -1045,7 +1099,9 @@ static bool isCallableValue(proto::ProtoContext* ctx,
 static bool getSetRecord(proto::ProtoContext* ctx,
                          const proto::ProtoObject* obj,
                          const char* methodName,
-                         double* outSize = nullptr)
+                         double* outSize = nullptr,
+                         const proto::ProtoObject** outHasFn = nullptr,
+                         const proto::ProtoObject** outKeysFn = nullptr)
 {
     if (!obj || obj == PROTO_NONE || obj == getUndefinedSentinel() ||
         obj == PROTO_TRUE || obj == PROTO_FALSE ||
@@ -1179,6 +1235,13 @@ static bool getSetRecord(proto::ProtoContext* ctx,
         signalNativeException(makeNativeError(ctx, "TypeError", msg.c_str()));
         return false;
     }
+    // §24.2.1.2 GetSetRecord step 9 captures the resolved Has /
+    // Keys functions in the record so the operation reuses them
+    // without re-firing the accessor getters.  Surface them via
+    // outparams; callers thread them into setLikeHas /
+    // iterateSetLikeKeys.
+    if (outHasFn)  *outHasFn  = hasV;
+    if (outKeysFn) *outKeysFn = keysV;
     return true;
 }
 
@@ -1193,18 +1256,18 @@ static const proto::ProtoObject* setUnion(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "union")) return PROTO_NONE;
+    const proto::ProtoObject* hasFn = nullptr;
+    const proto::ProtoObject* keysFn = nullptr;
+    if (!getSetRecord(ctx, other, "union", nullptr, &hasFn, &keysFn))
+        return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     setAddAllFrom(ctx, result, self);
-    // Iterate other via the Set-like keys() protocol so class-style
-    // Set-likes contribute their elements. Real native Sets go through
-    // the __set_order__ fast path inside iterateSetLikeKeys.
     bool ok = iterateSetLikeKeys(ctx, other,
         [&](const proto::ProtoObject* v) -> bool {
             setAddValue(ctx, result, v);
             return true;
-        });
+        }, keysFn);
     if (!ok) return PROTO_NONE;
     return result;
 }
@@ -1217,59 +1280,38 @@ static const proto::ProtoObject* setIntersection(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "intersection")) return PROTO_NONE;
+    double otherSizeD = 0.0;
+    const proto::ProtoObject* hasFn = nullptr;
+    const proto::ProtoObject* keysFn = nullptr;
+    if (!getSetRecord(ctx, other, "intersection", &otherSizeD, &hasFn, &keysFn))
+        return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     // Spec §24.2.3.10: when this.size > other.size, iterate other and
     // keep elements that self contains — preserving other's order in
-    // the result. Pre-fix this always iterated self, so the result
-    // ordering came from the larger collection instead of the smaller.
+    // the result.  Use the size captured by getSetRecord; pre-fix
+    // intersection re-queried .size, firing the user's `get size()`
+    // a second time (test262 set-like-class-order asserts one call
+    // per operation).
     long selfSize = getSetSize(ctx, self);
-    long otherSize = -1;
-    if (getSetOrder(ctx, other)) {
-        otherSize = getSetSize(ctx, other);
-    } else {
-        const proto::ProtoObject* sizeKo = ctx->fromUTF8String("size");
-        const proto::ProtoString* sizeKs = sizeKo ? sizeKo->asString(ctx) : nullptr;
-        if (sizeKs) {
-            const proto::ProtoObject* sv = other->getAttribute(ctx, sizeKs, true);
-            if (!sv || sv == PROTO_NONE || sv == getUndefinedSentinel()) {
-                const proto::ProtoObject* gko = ctx->fromUTF8String("__get_size__");
-                const proto::ProtoString* gks = gko ? gko->asString(ctx) : nullptr;
-                if (gks) {
-                    const proto::ProtoObject* getter = other->getAttribute(ctx, gks, true);
-                    if (getter && getter != PROTO_NONE) {
-                        sv = callJSFunction(ctx, getter, other, ctx->newList());
-                        if (hasCallException()) return PROTO_NONE;
-                    }
-                }
-            }
-            if (sv && sv->isInteger(ctx)) otherSize = sv->asLong(ctx);
-            else if (sv && (sv->isDouble(ctx) || sv->isFloat(ctx))) {
-                double d = sv->asDouble(ctx);
-                if (!std::isnan(d) && d >= 0) otherSize = static_cast<long>(d);
-            }
-        }
-    }
+    long otherSize = static_cast<long>(otherSizeD);
     if (otherSize >= 0 && selfSize > otherSize) {
-        // Iterate other via the keys() protocol; add elements self has.
         bool ok = iterateSetLikeKeys(ctx, other,
             [&](const proto::ProtoObject* v) -> bool {
                 if (setContains(ctx, self, v)) setAddValue(ctx, result, v);
                 return true;
-            });
+            }, keysFn);
         if (!ok) return PROTO_NONE;
         return result;
     }
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return result;
-    // Iterate self via iterator, add elements present in other.
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
     while (it && it->hasNext(ctx)) {
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!v) v = PROTO_NONE;
-        if (setLikeHas(ctx, other, v))
+        if (setLikeHas(ctx, other, v, hasFn))
             setAddValue(ctx, result, v);
     }
     return result;
@@ -1284,24 +1326,22 @@ static const proto::ProtoObject* setDifference(
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     double otherSize = 0.0;
-    if (!getSetRecord(ctx, other, "difference", &otherSize)) return PROTO_NONE;
+    const proto::ProtoObject* hasFn = nullptr;
+    const proto::ProtoObject* keysFn = nullptr;
+    if (!getSetRecord(ctx, other, "difference", &otherSize, &hasFn, &keysFn))
+        return PROTO_NONE;
     const proto::ProtoObject* result = makeEmptySet(ctx);
     if (!result || result == PROTO_NONE) return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return result;
     long thisSize = getSetSize(ctx, self);
-    // §24.2.4.5 step 4: pick the cheaper path. If thisSize ≤ otherSize,
-    // iterate self and probe other.has. Otherwise, start with a copy of
-    // self and iterate other.keys() removing each value. This matters
-    // for both performance AND observable side effects — the tests
-    // assert other.has is NOT called when thisSize > otherSize.
     if (static_cast<double>(thisSize) <= otherSize) {
         const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
             const proto::ProtoObject* v = it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             if (!v) v = PROTO_NONE;
-            if (!setLikeHas(ctx, other, v))
+            if (!setLikeHas(ctx, other, v, hasFn))
                 setAddValue(ctx, result, v);
         }
         return result;
@@ -1315,7 +1355,7 @@ static const proto::ProtoObject* setDifference(
                 setDeleteFn(ctx, result, nullptr, delArgs, nullptr);
             }
             return true;
-        });
+        }, keysFn);
     if (!ok) return PROTO_NONE;
     return result;
 }
@@ -1328,7 +1368,9 @@ static const proto::ProtoObject* setSymmetricDifference(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "symmetricDifference")) return PROTO_NONE;
+    const proto::ProtoObject* keysFn = nullptr;
+    if (!getSetRecord(ctx, other, "symmetricDifference", nullptr, nullptr, &keysFn))
+        return PROTO_NONE;
     // §24.2.4.13: start with a copy of self, then iterate other's keys
     // and TOGGLE membership in the result.  Pre-fix the implementation
     // called other.has during the self-iteration, violating the
@@ -1358,7 +1400,7 @@ static const proto::ProtoObject* setSymmetricDifference(
                 setAddValue(ctx, result, v);
             }
             return true;
-        });
+        }, keysFn);
     if (!ok) return PROTO_NONE;
     return result;
 }
@@ -1371,7 +1413,16 @@ static const proto::ProtoObject* setIsSubsetOf(
     if (!requireSetThis(ctx, self)) return PROTO_NONE;
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
-    if (!getSetRecord(ctx, other, "isSubsetOf")) return PROTO_NONE;
+    double otherSize = 0.0;
+    const proto::ProtoObject* hasFn = nullptr;
+    if (!getSetRecord(ctx, other, "isSubsetOf", &otherSize, &hasFn))
+        return PROTO_NONE;
+    // §24.2.4.6 step 3: if SetDataSize(this) > other.size, return false.
+    // Pre-fix the impl iterated self unconditionally, calling
+    // other.has — the test set-like-class-order fixture asserts the
+    // early bail-out fires without ever invoking the user's has.
+    long thisSize = getSetSize(ctx, self);
+    if (static_cast<double>(thisSize) > otherSize) return PROTO_FALSE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
     const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
@@ -1379,7 +1430,7 @@ static const proto::ProtoObject* setIsSubsetOf(
         const proto::ProtoObject* v = it->nextValue(ctx);
         it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
         if (!v) v = PROTO_NONE;
-        if (!setLikeHas(ctx, other, v)) return PROTO_FALSE;
+        if (!setLikeHas(ctx, other, v, hasFn)) return PROTO_FALSE;
     }
     return PROTO_TRUE;
 }
@@ -1393,21 +1444,17 @@ static const proto::ProtoObject* setIsSupersetOf(
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     double otherSize = 0.0;
-    if (!getSetRecord(ctx, other, "isSupersetOf", &otherSize)) return PROTO_NONE;
-    // §24.2.4.7 step 3: if SetDataSize(this) < other.size, return false.
-    // Pre-fix the impl iterated other.keys() unconditionally, calling
-    // .keys before short-circuiting — the test set-like-array fixture
-    // installs a throwing .keys to prove the early bail-out fires.
+    const proto::ProtoObject* keysFn = nullptr;
+    if (!getSetRecord(ctx, other, "isSupersetOf", &otherSize, nullptr, &keysFn))
+        return PROTO_NONE;
     long thisSize = getSetSize(ctx, self);
     if (static_cast<double>(thisSize) < otherSize) return PROTO_FALSE;
-    // Iterate other's keys() via the Set-like protocol and bail with
-    // false the first time self doesn't contain a value.
     bool isSuperset = true;
     bool ok = iterateSetLikeKeys(ctx, other,
         [&](const proto::ProtoObject* v) -> bool {
             if (!setContains(ctx, self, v)) { isSuperset = false; return false; }
             return true;
-        });
+        }, keysFn);
     if (!ok && !isSuperset) return PROTO_FALSE;
     if (!ok) return PROTO_NONE;
     return isSuperset ? PROTO_TRUE : PROTO_FALSE;
@@ -1422,21 +1469,20 @@ static const proto::ProtoObject* setIsDisjointFrom(
     const proto::ProtoObject* other = (args && args->getSize(ctx) > 0)
         ? args->getAt(ctx, 0) : PROTO_NONE;
     double otherSize = 0.0;
-    if (!getSetRecord(ctx, other, "isDisjointFrom", &otherSize)) return PROTO_NONE;
+    const proto::ProtoObject* hasFn = nullptr;
+    const proto::ProtoObject* keysFn = nullptr;
+    if (!getSetRecord(ctx, other, "isDisjointFrom", &otherSize, &hasFn, &keysFn))
+        return PROTO_NONE;
     const proto::ProtoSparseList* order = getSetOrder(ctx, self);
     if (!order) return PROTO_TRUE;
     long thisSize = getSetSize(ctx, self);
-    // §24.2.4.10 step 4: when this.size <= other.size, iterate self and
-    // probe other.has; otherwise iterate other.keys() and probe
-    // self.has. The branch matters because the tests assert other.has
-    // is NOT called when this.size > other.size.
     if (static_cast<double>(thisSize) <= otherSize) {
         const proto::ProtoSparseListIterator* it = order->getIterator(ctx);
         while (it && it->hasNext(ctx)) {
             const proto::ProtoObject* v = it->nextValue(ctx);
             it = const_cast<proto::ProtoSparseListIterator*>(it)->advance(ctx);
             if (!v) v = PROTO_NONE;
-            if (setLikeHas(ctx, other, v)) return PROTO_FALSE;
+            if (setLikeHas(ctx, other, v, hasFn)) return PROTO_FALSE;
         }
         return PROTO_TRUE;
     }
@@ -1445,7 +1491,7 @@ static const proto::ProtoObject* setIsDisjointFrom(
         [&](const proto::ProtoObject* v) -> bool {
             if (setContains(ctx, self, v)) { disjoint = false; return false; }
             return true;
-        });
+        }, keysFn);
     if (!ok && !disjoint == false) {
         // ok=false from abrupt completion; propagate.
         if (hasCallException()) return PROTO_NONE;
