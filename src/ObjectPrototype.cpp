@@ -320,60 +320,54 @@ static const proto::ProtoObject* objectKeys(
         ? args->getAt(ctx, 0) : nullptr;
     if (throwIfNullOrUndefined(ctx, obj, "Object.keys")) return PROTO_NONE;
 
-    // Proxy receiver — dispatch handler.ownKeys per §10.5.11 + filter
-    // to enumerable string keys per §7.3.21 EnumerableOwnProperties.
+    // Proxy receiver — dispatch [[OwnPropertyKeys]] via the canonical
+    // proxyDispatchOwnKeys so all §10.5.11 + §7.3.18 invariants
+    // (revoked-handler, non-Object trap result, duplicate entries,
+    // non-string/non-symbol entry) fire as TypeErrors.  Then filter
+    // to enumerable string-only keys per §7.3.21 EnumerableOwnProperties.
     if (protojs::isProxy(ctx, obj)) {
-        const proto::ProtoObject* trap = protojs::proxyLookupTrap(ctx, obj, "ownKeys");
-        if (trap) {
-            const proto::ProtoObject* handler = protojs::proxyHandler(ctx, obj);
-            const proto::ProtoObject* inner = protojs::proxyTarget(ctx, obj);
-            const proto::ProtoList* trapArgs = ctx->newList();
-            trapArgs = trapArgs->appendLast(ctx, inner ? inner : PROTO_NONE);
-            const proto::ProtoObject* trapRes = callJSFunction(ctx, trap, handler, trapArgs);
-            if (hasCallException()) return PROTO_NONE;
-            // Build a JS array result and filter by getOwnPropertyDescriptor(target, k).enumerable.
+        const proto::ProtoObject* keysArr = protojs::proxyDispatchOwnKeys(ctx, obj);
+        if (hasCallException()) return PROTO_NONE;
+        if (keysArr) {
             const proto::ProtoObject* result = createNewArray(ctx, nullptr);
             const proto::ProtoString* lenKey = JSSymbols::length(ctx);
             const proto::ProtoString* isArrKey2 = JSSymbols::isArray(ctx);
             const proto::ProtoList* elsList = ctx->newList();
-            // Iterate trapRes as an array-like.
-            long long sz = 0;
-            if (trapRes && trapRes != PROTO_NONE && lenKey) {
-                const proto::ProtoObject* lo = trapRes->getAttribute(ctx, lenKey, true);
-                if (lo && lo->isInteger(ctx)) sz = lo->asLong(ctx);
-                else if (lo && (lo->isDouble(ctx) || lo->isFloat(ctx))) sz = static_cast<long long>(lo->asDouble(ctx));
-            }
-            // For real arrays, also peek __elements__ as a fallback for
-            // the length when it wasn't surfaced via the attribute.
-            if (sz == 0 && trapRes && trapRes != PROTO_NONE) {
-                const proto::ProtoList* els = protojs::getArrayElements(ctx, trapRes);
-                if (els) sz = static_cast<long long>(els->getSize(ctx));
-            }
             unsigned long count = 0;
-            const proto::ProtoList* trapEls = protojs::getArrayElements(ctx, trapRes);
-            for (long long i = 0; i < sz; i++) {
-                const proto::ProtoObject* keyVal = nullptr;
-                // Real arrays expose elements via __elements__ — try the
-                // dense path first.
-                if (trapEls && i < static_cast<long long>(trapEls->getSize(ctx)))
-                    keyVal = trapEls->getAt(ctx, static_cast<int>(i));
-                if (!keyVal || keyVal == PROTO_NONE) {
-                    const proto::ProtoString* ik = JSSymbols::indexKey(ctx, static_cast<uint32_t>(i));
-                    keyVal = ik ? trapRes->getAttribute(ctx, ik, true) : PROTO_NONE;
-                }
+            const proto::ProtoList* keysEls = protojs::getArrayElements(ctx, keysArr);
+            size_t n = keysEls ? keysEls->getSize(ctx) : 0;
+            for (size_t i = 0; i < n; i++) {
+                const proto::ProtoObject* keyVal = keysEls->getAt(ctx, i);
                 if (!keyVal || keyVal == PROTO_NONE) continue;
-                // Per §7.3.21 step 5: Filter to ?Type(keyVal) is String AND
-                // enumerable.  Take the trap result as-is.
-                if (keyVal->asString(ctx)) {
-                    elsList = elsList->appendLast(ctx, keyVal);
-                    count++;
+                const proto::ProtoString* kStr = keyVal->asString(ctx);
+                if (!kStr) continue;
+                // §7.3.21 step 5 — only string keys for Object.keys
+                // (skip Symbol entries).
+                const proto::ProtoString* isSymK = JSSymbols::isSymbol(ctx);
+                if (isSymK && keyVal->getAttribute(ctx, isSymK, false) == PROTO_TRUE) continue;
+                // Filter by enumerable via the proxy's gOPD trap.
+                const proto::ProtoObject* desc =
+                    protojs::proxyDispatchGetOwnPropertyDescriptor(ctx, obj, kStr);
+                if (hasCallException()) return PROTO_NONE;
+                if (!desc || desc == PROTO_NONE) continue;
+                const proto::ProtoObject* eko = ctx->fromUTF8String("enumerable");
+                const proto::ProtoString* eks = eko ? eko->asString(ctx) : nullptr;
+                if (eks) {
+                    const proto::ProtoObject* ev = desc->getAttribute(ctx, eks, false);
+                    if (ev != PROTO_TRUE) continue;
                 }
+                elsList = elsList->appendLast(ctx, keyVal);
+                count++;
             }
             setArrayElements(ctx, result, elsList);
             if (lenKey) result = result->setAttribute(ctx, lenKey, ctx->fromInteger(count));
             if (isArrKey2) result = result->setAttribute(ctx, isArrKey2, PROTO_TRUE);
             return result;
         }
+        // No ownKeys trap → fall through to default own-attr walk
+        // on the unwrapped target.
+        const proto::ProtoObject* unwrapped = protojs::proxyTarget(ctx, obj);
+        if (unwrapped) obj = unwrapped;
     }
 
     std::vector<std::string> keys;

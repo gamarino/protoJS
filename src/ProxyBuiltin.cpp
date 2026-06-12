@@ -5,6 +5,7 @@
 #include "JSContext.h"
 #include "runtime/ProtoInterpreter.h"
 #include <cmath>
+#include <unordered_set>
 
 namespace protojs {
 
@@ -580,22 +581,41 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
     a = a->appendLast(ctx, target);
     const proto::ProtoObject* trapResult = callJSFunction(ctx, trap, handler, a);
     if (hasCallException()) return PROTO_NONE;
-    if (!trapResult || trapResult == PROTO_NONE) {
+    // §7.3.18 CreateListFromArrayLike step 2: trapResult must be
+    // Object — primitives (null / undefined / number / string /
+    // boolean / Symbol) raise TypeError before length is read.
+    bool resultIsSymbol = false;
+    {
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && trapResult && trapResult != PROTO_NONE
+            && trapResult->getAttribute(ctx, symK, true) == PROTO_TRUE)
+            resultIsSymbol = true;
+    }
+    if (!trapResult || trapResult == PROTO_NONE
+        || trapResult == getUndefinedSentinel()
+        || trapResult == getNullSentinel()
+        || trapResult == PROTO_TRUE || trapResult == PROTO_FALSE
+        || trapResult->isInteger(ctx) || trapResult->isDouble(ctx)
+        || trapResult->isFloat(ctx)   || trapResult->isString(ctx)
+        || resultIsSymbol) {
         signalNativeException(makeNativeError(ctx, "TypeError",
-            "'ownKeys' on proxy: trap returned non-Object"));
+            "'ownKeys' on proxy: trap returned a non-Object"));
         return PROTO_NONE;
     }
-    // CreateListFromArrayLike: read length, then index 0..len-1.
+    // §7.3.18 step 3: read length via Get(obj, "length").
     const proto::ProtoString* lenK = JSSymbols::length(ctx);
     const proto::ProtoObject* lenV = lenK ? trapResult->getAttribute(ctx, lenK, true) : nullptr;
     long long len = 0;
     if (lenV && lenV->isInteger(ctx)) len = lenV->asLong(ctx);
     else if (lenV && lenV->isDouble(ctx)) len = static_cast<long long>(lenV->asDouble(ctx));
     if (len < 0) len = 0;
-    // Try the fast __elements__ path first (almost every callsite
-    // returns a normal Array literal).
     const proto::ProtoList* fastEls = getArrayElements(ctx, trapResult);
     const proto::ProtoList* outEls = ctx->newList();
+    // §10.5.11 step 9: duplicate-detect each emitted key by string
+    // identity; a duplicate raises TypeError.  Hash by the UTF-8
+    // bytes — symbol-keyed entries hash by their underlying
+    // ProtoString identity, which the symbol stores as its UTF-8.
+    std::unordered_set<std::string> seenKeys;
     for (long long i = 0; i < len; i++) {
         const proto::ProtoObject* kv = nullptr;
         if (fastEls && i < static_cast<long long>(fastEls->getSize(ctx))) {
@@ -609,14 +629,39 @@ const proto::ProtoObject* proxyDispatchOwnKeys(
         if (!kv || kv == PROTO_NONE) kv = getUndefinedSentinel();
         // Each entry must be a String or a Symbol object — per
         // §7.3.18 step 5.f the check is a runtime TypeError.
-        bool ok = kv->isString(ctx);
-        if (!ok) {
-            const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
-            if (symK && kv->getAttribute(ctx, symK, false) == PROTO_TRUE) ok = true;
-        }
+        bool isSymEntry = false;
+        const proto::ProtoString* symK = JSSymbols::isSymbol(ctx);
+        if (symK && kv != PROTO_NONE
+            && kv->getAttribute(ctx, symK, false) == PROTO_TRUE)
+            isSymEntry = true;
+        bool ok = isSymEntry || kv->isString(ctx);
         if (!ok) {
             signalNativeException(makeNativeError(ctx, "TypeError",
                 "'ownKeys' on proxy: trap returned an entry that is neither String nor Symbol"));
+            return PROTO_NONE;
+        }
+        // §10.5.11 step 9: duplicate-entries → TypeError.  Symbol
+        // entries dedupe by their underlying ProtoString identity
+        // (protoJS stores symbol primitives as ProtoString-backed
+        // strong-tagged objects).
+        std::string keyStr;
+        if (kv->isString(ctx)) {
+            kv->asString(ctx)->toUTF8String(ctx, keyStr);
+            keyStr = "S:" + keyStr;  // namespace string keys
+        } else {
+            // Symbol — use the object identity as a printable key
+            // (Symbols stringify to "Symbol.<wkn>" / "Symbol(<desc>)").
+            const proto::ProtoString* ks = kv->asString(ctx);
+            if (ks) {
+                ks->toUTF8String(ctx, keyStr);
+                keyStr = "Y:" + keyStr;  // namespace symbol keys
+            } else {
+                keyStr = "Y:@" + std::to_string(reinterpret_cast<uintptr_t>(kv));
+            }
+        }
+        if (!seenKeys.insert(keyStr).second) {
+            signalNativeException(makeNativeError(ctx, "TypeError",
+                "'ownKeys' on proxy: trap result contains duplicate entries"));
             return PROTO_NONE;
         }
         outEls = outEls->appendLast(ctx, kv);
