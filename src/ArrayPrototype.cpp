@@ -3402,7 +3402,12 @@ static const proto::ProtoObject* arrayForEach(
     // §23.1.3.15 step ordering: LengthOfArrayLike precedes IsCallable
     // so a throwing `length` accessor surfaces its own exception
     // instead of a synthetic TypeError.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3628,7 +3633,12 @@ static const proto::ProtoObject* arrayFind(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.8: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3657,7 +3667,12 @@ static const proto::ProtoObject* arrayFindIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.9: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3686,7 +3701,12 @@ static const proto::ProtoObject* arrayFindLast(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.10: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3715,7 +3735,12 @@ static const proto::ProtoObject* arrayFindLastIndex(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.11: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3744,7 +3769,12 @@ static const proto::ProtoObject* arraySome(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.28: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3774,7 +3804,12 @@ static const proto::ProtoObject* arrayEvery(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.6: LengthOfArrayLike precedes IsCallable.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // Non-allocating iteration methods (forEach / some / every /
+    // find* / reduce*) must NOT throw RangeError on a >2^32 length —
+    // the spec clamps via ToLength and iterates, and most tests
+    // short-circuit at index 0. arrayThrowIfLenOverflow stays applied
+    // only to methods that ArraySpeciesCreate a new Array of size len
+    // (map / filter / slice / splice / concat / flatMap / etc.).
     unsigned long len = arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn      = getCallbackArg(ctx, args, 0);
@@ -3887,7 +3922,8 @@ static const proto::ProtoObject* arrayReduce(
     // surfaced a synthetic TypeError "not callable" whenever the
     // length getter threw, instead of letting the user's exception
     // propagate.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // See OP_arrayForEach for the rationale: non-allocating iteration
+    // methods must not throw RangeError on a >2^32 length.
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
@@ -3955,7 +3991,8 @@ static const proto::ProtoObject* arrayReduceRight(
 {
     if (arrayThrowIfNullUndefined(ctx, self)) return PROTO_NONE;
     // §23.1.3.27: LengthOfArrayLike precedes IsCallable; see arrayReduce.
-    if (arrayThrowIfLenOverflow(ctx, self, "Array.prototype iteration")) return PROTO_NONE;
+    // See OP_arrayForEach for the rationale: non-allocating iteration
+    // methods must not throw RangeError on a >2^32 length.
     long long len = (long long)arrLen(ctx, self);
     if (hasCallException()) return PROTO_NONE;
     const proto::ProtoObject* fn = getCallbackArg(ctx, args, 0);
