@@ -80,6 +80,63 @@ static bool fnIsCallable(proto::ProtoContext* ctx, const proto::ProtoObject* fn)
     return false;
 }
 
+// §10.2.1.2 OrdinaryCallBindThis steps 4–5 — ToObject-coerce a
+// primitive thisArg for non-strict bytecode closures.  Class
+// constructors and arrow functions skip this; bytecode closures
+// whose .__metadata__.__is_strict__ === true skip it too.  Returns
+// thisArg unchanged for: native methods, strict bytecode, nullish
+// (already rebound to globalThis by the caller), object types,
+// and Symbol primitives (boxed elsewhere).
+static const proto::ProtoObject* bindThisIfNonStrict(
+    proto::ProtoContext* ctx,
+    const proto::ProtoObject* fn,
+    const proto::ProtoObject* thisArg)
+{
+    if (!fn || !thisArg) return thisArg;
+    if (fn->isMethod(ctx)) return thisArg;
+    // Only bytecode closures carry the metadata block.  Native
+    // wrappers (__native_fn__) and bound functions stay verbatim —
+    // the underlying call site already chose its receiver semantics.
+    const proto::ProtoString* bcK = JSSymbols::bytecodeId(ctx);
+    if (!bcK || fn->hasOwnAttribute(ctx, bcK) != PROTO_TRUE) return thisArg;
+    // Arrow functions ignore the thisArg entirely — leave it alone
+    // so the lexical-this capture inside callJSFunction wins.
+    const proto::ProtoString* arrK = JSSymbols::arrowThis(ctx);
+    if (arrK && fn->hasOwnAttribute(ctx, arrK) == PROTO_TRUE) return thisArg;
+    // Strict-mode probe: __is_strict__ === true on the closure itself.
+    // OP_fclosure / OP_fclosure8 stamp this verbatim from the bytecode
+    // module's isStrict flag at closure-build time.
+    const proto::ProtoString* isK = JSSymbols::isStrict(ctx);
+    if (isK) {
+        const proto::ProtoObject* iv = fn->getAttribute(ctx, isK, false);
+        if (iv == PROTO_TRUE) return thisArg;
+    }
+    if (thisArg == PROTO_NONE
+        || thisArg == getNullSentinel()
+        || thisArg == getUndefinedSentinel()) return thisArg;
+    // Object types: pass through.  Primitives: box per ToObject.
+    JSContextWrapper* w = JSContextWrapper::current();
+    if (!w || !ctx->space) return thisArg;
+    auto wrap = [&](const proto::ProtoObject* protoForWrapper)
+        -> const proto::ProtoObject* {
+        const proto::ProtoObject* wrapObj =
+            (protoForWrapper && protoForWrapper != PROTO_NONE)
+                ? protoForWrapper->newChild(ctx, true)
+                : ctx->newObject(true);
+        if (wrapObj) {
+            const proto::ProtoString* pvK = JSSymbols::primitiveValue(ctx);
+            if (pvK) wrapObj = wrapObj->setAttribute(ctx, pvK, thisArg);
+        }
+        return wrapObj ? wrapObj : thisArg;
+    };
+    if (thisArg->isString(ctx))   return wrap(ctx->space->stringPrototype);
+    if (thisArg->isInteger(ctx) || thisArg->isDouble(ctx) || thisArg->isFloat(ctx))
+        return wrap(ctx->space->doublePrototype);
+    if (thisArg == PROTO_TRUE || thisArg == PROTO_FALSE)
+        return wrap(ctx->space->booleanPrototype);
+    return thisArg;
+}
+
 static const proto::ProtoObject* fnCall(
     proto::ProtoContext* ctx,
     const proto::ProtoObject* self,
@@ -108,14 +165,11 @@ static const proto::ProtoObject* fnCall(
             if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
         }
     }
-    // NOTE: §10.2.1.2 step 5.b would ToObject-coerce a primitive thisArg
-    // for non-strict bytecode bodies, but we don't currently expose the
-    // function's strict-mode flag through the ProtoObject — so an
-    // unconditional box here breaks every strict-mode call.call(prim)
-    // test.  Until strict-mode is queryable via a marker on the closure
-    // cell, the primitive thisArg is forwarded verbatim and the
-    // bytecode body's OP_get_field on the primitive surfaces the
-    // wrapper-method binding as needed.
+    // §10.2.1.2 step 5.b — ToObject-coerce a primitive thisArg when
+    // the callee is a non-strict bytecode closure.  bindThisIfNonStrict
+    // reads __metadata__.__is_strict__ and gates the box on that flag,
+    // so strict closures still see the raw primitive.
+    thisArg = bindThisIfNonStrict(ctx, self, thisArg);
 
     const proto::ProtoList* callArgs = ctx->newList();
     for (int i = 1; i < argc; i++) {
@@ -157,14 +211,10 @@ static const proto::ProtoObject* fnApply(
             if (w && w->getNativeGlobal()) thisArg = w->getNativeGlobal();
         }
     }
-    // NOTE: §10.2.1.2 step 5.b would ToObject-coerce a primitive thisArg
-    // for non-strict bytecode bodies, but we don't currently expose the
-    // function's strict-mode flag through the ProtoObject — so an
-    // unconditional box here breaks every strict-mode call.call(prim)
-    // test.  Until strict-mode is queryable via a marker on the closure
-    // cell, the primitive thisArg is forwarded verbatim and the
-    // bytecode body's OP_get_field on the primitive surfaces the
-    // wrapper-method binding as needed.
+    // §10.2.1.2 step 5.b — ToObject-coerce a primitive thisArg when
+    // the callee is a non-strict bytecode closure.  Same helper as
+    // fnCall — strict closures see the raw primitive untouched.
+    thisArg = bindThisIfNonStrict(ctx, self, thisArg);
     const proto::ProtoObject* argsArray = (argc > 1) ? args->getAt(ctx, 1) : nullptr;
     // §20.2.3.1 step 4 + §7.3.18 CreateListFromArrayLike: argArray must
     // be an Object — primitives (boolean, number, string, symbol) and

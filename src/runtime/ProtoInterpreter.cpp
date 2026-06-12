@@ -13250,6 +13250,16 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             const proto::ProtoString* iasK = JSSymbols::isAsync(pContext);
                             if (iasK) fnInst = fnInst->setAttribute(pContext, iasK, PROTO_TRUE);
                         }
+                        // Stamp the strict-mode flag so Function.prototype
+                        // .call / .apply can gate ToObject coercion of a
+                        // primitive thisArg (§10.2.1.2 step 5.b).  Always
+                        // set explicitly — absent attribute means "unknown".
+                        {
+                            const proto::ProtoString* isK = JSSymbols::isStrict(pContext);
+                            if (isK)
+                                fnInst = fnInst->setAttribute(pContext, isK,
+                                    nm8.isStrict ? PROTO_TRUE : PROTO_FALSE);
+                        }
                         // Stamp source text for Function.prototype.toString.
                         // See L_OP_fclosure for the rationale; the 8-bit
                         // immediate variant gets the same treatment so a
@@ -13401,6 +13411,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         if (nm2.isAsync) {
                             const proto::ProtoString* iasK2 = JSSymbols::isAsync(pContext);
                             if (iasK2) fnInst2 = fnInst2->setAttribute(pContext, iasK2, PROTO_TRUE);
+                        }
+                        // Stamp the strict-mode flag (same rationale as the
+                        // OP_fclosure8 path above — §10.2.1.2 step 5.b).
+                        {
+                            const proto::ProtoString* isK2 = JSSymbols::isStrict(pContext);
+                            if (isK2)
+                                fnInst2 = fnInst2->setAttribute(pContext, isK2,
+                                    nm2.isStrict ? PROTO_TRUE : PROTO_FALSE);
                         }
                         // ECMA-262 §20.2.3.5: Function.prototype.toString must
                         // return the source text of the function for user-
