@@ -11984,7 +11984,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                             const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
                             REFRESH_INTERP_STATE();
-                            if (hasCallException()) DISPATCH();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                stackPush(pContext, PROTO_NONE);
+                                DISPATCH();
+                            }
                             stackPush(pContext, res ? res : PROTO_NONE);
                             DISPATCH();
                         }
@@ -12279,7 +12286,24 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             trapArgs = trapArgs->appendLast(pContext, newTarget ? newTarget : pTarget);
                             for (uint32_t i = 0; i < argc + 2; i++) stackPop(pContext);
                             const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
-                            if (hasCallException()) DISPATCH();
+                            // Convert any callJSFunction abrupt into a
+                            // bytecode-level pending_exception so the
+                            // surrounding try-catch frame catches it.
+                            // Pre-fix the call's hasCallException was
+                            // left set but only DISPATCH'd, so the
+                            // interpreter ran the next instruction and
+                            // surfaced the exception only on a later
+                            // dispatch (test262 construct/return-is-
+                            // abrupt.js saw the catch fire AFTER the
+                            // try block apparently completed normally).
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                stackPush(pContext, PROTO_NONE);
+                                DISPATCH();
+                            }
                             // §10.5.13 step 9 — trap result must be an
                             // Object: null / undefined / boolean / number
                             // / string / Symbol all reject.  Pre-fix the
@@ -12928,7 +12952,14 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                             trapArgs = trapArgs->appendLast(pContext, argArrJs ? argArrJs : PROTO_NONE);
                             for (uint32_t i = 0; i < argc + 1; i++) stackPop(pContext);
                             const proto::ProtoObject* res = callJSFunction(pContext, trap, pHandler, trapArgs);
-                            if (hasCallException()) DISPATCH();
+                            if (t_hasCallException) {
+                                pending_exception     = t_callException;
+                                has_pending_exception = true;
+                                t_hasCallException    = false;
+                                t_callException       = nullptr;
+                                stackPush(pContext, PROTO_NONE);
+                                DISPATCH();
+                            }
                             stackPush(pContext, res ? res : PROTO_NONE);
                             DISPATCH();
                         }
