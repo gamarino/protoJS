@@ -8756,6 +8756,29 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         const proto::ProtoString* isArrK = JSSymbols::isArray(pContext);
                         const proto::ProtoObject* isArrV = isArrK
                             ? obj->getAttribute(pContext, isArrK, true) : PROTO_NONE;
+                        if (isArrV == PROTO_TRUE) {
+                            // Honour __pd_length__ writable bit per
+                            // §10.4.2.4 step 4. Pre-fix every
+                            // arr.length = X overwrote a writable:false
+                            // length set via Object.defineProperty
+                            // (test262 Object/defineProperty/15.2.3.6-
+                            // 4-124.js, …).  Strict mode raises
+                            // TypeError; sloppy mode silently no-ops.
+                            const proto::ProtoObject* pdlVal =
+                                obj->getAttribute(pContext,
+                                    JSSymbols::pdLength(pContext), false);
+                            if (pdlVal && pdlVal->isInteger(pContext)
+                                && !(pdlVal->asLong(pContext) & 0x1)) {
+                                if (module && module->isStrict) {
+                                    pending_exception = makeError(pContext,
+                                        "TypeError",
+                                        "Cannot assign to non-writable Array.length",
+                                        pGlobalRoot);
+                                    has_pending_exception = true;
+                                }
+                                DISPATCH();
+                            }
+                        }
                         if (isArrV == PROTO_TRUE && val && val != PROTO_NONE) {
                             // Coerce the new value to number via ToNumber
                             // first (handles string '3' → 3) then check
@@ -10343,6 +10366,39 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                         key = keyObj ? ensureInternedOOP(pContext, keyObj) : nullptr;
                     }
                     if (key) {
+                        // §10.4.2.4 — honour __pd_length__ writable bit
+                        // when assigning Array.length via bracket access
+                        // (see OP_put_field for the dotted path; the same
+                        // check needs to cover obj['length']=X). Pre-fix
+                        // verifyProperty's isWritable probe wrote through
+                        // a non-writable length set via Object.defineProperty
+                        // (test262 Object/defineProperty/15.2.3.6-4-124.js).
+                        {
+                            std::string lenProbe;
+                            key->toUTF8String(pContext, lenProbe);
+                            if (lenProbe == "length") {
+                                const proto::ProtoString* isArrK =
+                                    JSSymbols::isArray(pContext);
+                                const proto::ProtoObject* isArrV = isArrK
+                                    ? obj->getAttribute(pContext, isArrK, true) : nullptr;
+                                if (isArrV == PROTO_TRUE) {
+                                    const proto::ProtoObject* pdlVal =
+                                        obj->getAttribute(pContext,
+                                            JSSymbols::pdLength(pContext), false);
+                                    if (pdlVal && pdlVal->isInteger(pContext)
+                                        && !(pdlVal->asLong(pContext) & 0x1)) {
+                                        if (module && module->isStrict) {
+                                            pending_exception = makeError(pContext,
+                                                "TypeError",
+                                                "Cannot assign to non-writable Array.length",
+                                                pGlobalRoot);
+                                            has_pending_exception = true;
+                                        }
+                                        DISPATCH();
+                                    }
+                                }
+                            }
+                        }
                         newObj = resolvePutFieldOOP(pContext, obj, key, value,
                             module && module->isStrict);
                         if (hasCallException()) {
