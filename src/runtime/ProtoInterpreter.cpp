@@ -8691,6 +8691,47 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     }
                 }
 
+                // §10.1.9.2 OrdinarySet step 2.c: when the receiver is
+                // non-extensible and the property doesn't already exist
+                // as own (or as an own accessor sidecar), the set fails.
+                // Pre-fix the non-extensible marker only gated array
+                // index extensions; named properties leaked through and
+                // silently extended frozen / sealed / non-extensible
+                // objects (test262 Object/preventExtensions/symbol-
+                // object-contains-symbol-properties-strict.js, and the
+                // broader strict-mode add-to-non-extensible suite).
+                {
+                    JSContextWrapper* wNE = JSContextWrapper::current();
+                    if (wNE && wNE->getNonExtensibleMarker()
+                        && obj->hasParent(pContext, wNE->getNonExtensibleMarker())
+                        && obj->hasOwnAttribute(pContext, key) != PROTO_TRUE) {
+                        // Also check accessor sidecars before rejecting —
+                        // a non-extensible target with an installed setter
+                        // for `key` still accepts writes.
+                        bool hasAccessor = false;
+                        std::string ks; key->toUTF8String(pContext, ks);
+                        std::string sks = "__set_" + ks + "__";
+                        const proto::ProtoObject* sko =
+                            pContext->fromUTF8String(sks.c_str());
+                        const proto::ProtoString* sksk =
+                            sko ? sko->asString(pContext) : nullptr;
+                        if (sksk
+                            && obj->hasOwnAttribute(pContext, sksk) == PROTO_TRUE) {
+                            hasAccessor = true;
+                        }
+                        if (!hasAccessor) {
+                            if (module && module->isStrict) {
+                                pending_exception = makeError(pContext,
+                                    "TypeError",
+                                    "Cannot add property to non-extensible object",
+                                    pGlobalRoot);
+                                has_pending_exception = true;
+                            }
+                            DISPATCH();
+                        }
+                    }
+                }
+
                 // Proxy receiver → dispatch to handler.set; ignore the
                 // returned boolean (OP_put_field does not push anything).
                 if (protojs::isProxy(pContext, obj)) {
