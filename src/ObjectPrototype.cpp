@@ -768,6 +768,61 @@ static const proto::ProtoObject* objectAssign(
                 const proto::ProtoObject* val =
                     proxyDispatchGet(ctx, src, propKey, src);
                 if (hasCallException()) return PROTO_NONE;
+                // \xc2\xa710.4.2 Array exotic: numeric index / length writes
+                // must update __elements__ so subsequent reads see the
+                // fresh data and length truncation actually shrinks
+                // the storage.  Same shape as the non-Proxy assign
+                // arm; pre-fix the Proxy path went straight to
+                // setAttribute and target = [7,8,9] with accordion
+                // source {length: 0, 1: 9} ended up [1, 9, 0] instead
+                // of [undefined, 9] (built-ins/Object/assign/
+                // target-Array.js accordion arm).
+                {
+                    const proto::ProtoString* isArrK = JSSymbols::isArray(ctx);
+                    bool tgtIsArr = isArrK
+                        && target->getAttribute(ctx, isArrK, true) == PROTO_TRUE;
+                    std::string ks; propKey->toUTF8String(ctx, ks);
+                    if (tgtIsArr && !ks.empty() && ks[0] >= '0' && ks[0] <= '9') {
+                        bool numeric = true;
+                        if (ks[0] == '0' && ks.size() > 1) numeric = false;
+                        for (char c : ks)
+                            if (c < '0' || c > '9') { numeric = false; break; }
+                        if (numeric) {
+                            try {
+                                unsigned long idx = std::stoul(ks);
+                                if (idx < 0xFFFFFFFFu) {
+                                    arrayTryFastSet(ctx, target, idx,
+                                        val ? val : PROTO_NONE);
+                                    continue;
+                                }
+                            } catch (...) {}
+                        }
+                    }
+                    if (tgtIsArr && ks == "length"
+                        && val && val != PROTO_NONE
+                        && (val->isInteger(ctx) || val->isDouble(ctx)
+                            || val->isFloat(ctx))) {
+                        double dlen = val->isInteger(ctx)
+                            ? (double)val->asLong(ctx)
+                            : val->asDouble(ctx);
+                        long long ilen = (long long)dlen;
+                        if (!std::isnan(dlen) && !std::isinf(dlen)
+                            && (double)ilen == dlen
+                            && ilen >= 0 && ilen <= 0xFFFFFFFFLL) {
+                            const proto::ProtoList* tels =
+                                getArrayElements(ctx, target);
+                            if (tels) {
+                                const proto::ProtoList* trimmed = tels;
+                                while (trimmed->getSize(ctx) > ilen)
+                                    trimmed = trimmed->removeAt(ctx,
+                                        trimmed->getSize(ctx) - 1);
+                                while (trimmed->getSize(ctx) < ilen)
+                                    trimmed = trimmed->appendLast(ctx, PROTO_NONE);
+                                setArrayElements(ctx, target, trimmed);
+                            }
+                        }
+                    }
+                }
                 target = const_cast<proto::ProtoObject*>(target)
                     ->setAttribute(ctx, propKey, val ? val : PROTO_NONE);
             }
