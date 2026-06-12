@@ -4110,6 +4110,30 @@ static const proto::ProtoObject* objectHasOwnProperty(
         }
     }
 
+    // §22.1.4 String-exotic wrapper char-index fallback —
+    // `new String("abc")` exposes "0".."length-1" as own data slots
+    // via __primitive_value__, not as own attributes. Pre-fix
+    // `Object.prototype.hasOwnProperty.call(new String("abc"), "0")`
+    // returned false (test262
+    // Object/freeze/15.2.3.9-2-a-12.js, Object/keys/15.2.3.14-5-15.js).
+    {
+        const proto::ProtoString* pvKey = JSSymbols::primitiveValue(ctx);
+        const proto::ProtoObject* pv = pvKey
+            ? self->getAttribute(ctx, pvKey, false) : nullptr;
+        if (pv && pv != PROTO_NONE && pv->isString(ctx)) {
+            if (keyStr == "length") return PROTO_TRUE;
+            if (!keyStr.empty()) {
+                char* end = nullptr;
+                long long iv = std::strtoll(keyStr.c_str(), &end, 10);
+                if (end && *end == '\0' && iv >= 0
+                    && std::to_string(iv) == keyStr) {
+                    const proto::ProtoString* ps = pv->asString(ctx);
+                    if (ps && (size_t)iv < ps->getSize(ctx)) return PROTO_TRUE;
+                }
+            }
+        }
+    }
+
     return PROTO_FALSE;
 }
 
