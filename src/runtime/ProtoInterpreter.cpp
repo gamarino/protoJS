@@ -7953,27 +7953,44 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                     val = getSlot(pContext, argCount + varCount + idx);
                 }
                 // For OP_get_var (not OP_get_var_undef): if the variable is completely absent
-                // (rawVal==nullptr means not in global, slot also empty), throw ReferenceError.
+                // (no declaration AND no global slot), throw ReferenceError.
                 // OP_get_var_undef is the safe variant used by typeof and optional chaining.
-                // Pre-fix the `!rawVal` check never fired because protoCore's
-                // getAttribute returns PROTO_NONE for absent attributes (not
-                // nullptr), so reading any undeclared global silently produced
-                // undefined instead of throwing. test262
-                // Array/prototype/{map,forEach,…}/15.4.4.X-4-2.js pinned this
-                // (the spec wants ReferenceError BEFORE the IsCallable check
-                // surfaces TypeError). Probe hasAttribute to distinguish
-                // "missing" from "set-to-undefined".
+                //
+                // The variable is "declared" when idx is a valid closure-var
+                // index — i.e. the parser emitted a `var` (or function /
+                // let / const) declaration for it. Hoisting may leave the
+                // slot at PROTO_NONE (undefined) without ever setAttribute-
+                // ing the global, so `liveGlobal->hasAttribute(key)` is
+                // false for plain `var x;`. Per spec, that read evaluates
+                // to undefined — NOT ReferenceError. Only throw when
+                // closureSymbols has no entry at idx (the name is not in
+                // the module's symbol list at all, i.e. truly undeclared).
+                // test262 Array/prototype/{map,forEach,…}/15.4.4.X-4-2.js
+                // (callbackfn unreferenced) pins the throw.
                 if (opcode == OP_get_var && (!val || val == PROTO_NONE)) {
-                    bool present = false;
-                    if (liveGlobal && liveGlobal != PROTO_NONE
-                        && closureSymbols
+                    bool declared = false;
+                    if (closureSymbols
                         && static_cast<size_t>(idx) < closureSymbols->getSize(pContext)) {
                         const proto::ProtoString* k2 =
                             closureSymbols->getAt(pContext, static_cast<int>(idx))->asString(pContext);
-                        if (k2 && liveGlobal->hasAttribute(pContext, k2) == PROTO_TRUE)
-                            present = true;
+                        if (k2) {
+                            // Declared either as a global property already set...
+                            if (liveGlobal && liveGlobal != PROTO_NONE
+                                && liveGlobal->hasAttribute(pContext, k2) == PROTO_TRUE) {
+                                declared = true;
+                            } else if (static_cast<size_t>(idx) < module->closureVarIsDeclared.size()
+                                && module->closureVarIsDeclared[idx]) {
+                                // ...or as a JS_CLOSURE_GLOBAL_DECL entry
+                                // (var / let / const / function declaration
+                                // hoisted into the closure list). Free
+                                // references (closureVarType != GLOBAL_DECL)
+                                // still throw ReferenceError when the global
+                                // slot is empty.
+                                declared = true;
+                            }
+                        }
                     }
-                    if (!present) {
+                    if (!declared) {
                         std::string msg;
                         if (static_cast<size_t>(idx) < module->closureVarNames.size() &&
                             !module->closureVarNames[idx].empty()) {
