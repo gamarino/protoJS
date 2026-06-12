@@ -1042,6 +1042,18 @@ const proto::ProtoObject* BuildRegExpPrototype(proto::ProtoSpace* space, proto::
         const proto::ProtoString* hnw = JSSymbols::hasNonWritableProps(ctx);
         if (hnw) mObj = mObj->setAttribute(ctx, hnw, PROTO_TRUE);
         sp = sp->setAttribute(ctx, key, mObj);
+        // §22.2.6: every RegExp.prototype data method is
+        // {writable: true, enumerable: false, configurable: true} —
+        // bits 0x1 (writable) + 0x2 (configurable). Pre-fix the
+        // install path left the slot with default 0x7 bits so
+        // Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")
+        // reported enumerable: true (test262
+        // Object/getOwnPropertyDescriptor/15.2.3.3-4-165.js).
+        std::string pks = "__pd_" + std::string(name) + "__";
+        const proto::ProtoObject* pko =
+            ctx->fromUTF8String(pks.c_str());
+        const proto::ProtoString* pksk = pko ? pko->asString(ctx) : nullptr;
+        if (pksk) sp = sp->setAttribute(ctx, pksk, ctx->fromInteger(0x3LL));
     };
 
     reg("exec",     regexpExec,     1);
