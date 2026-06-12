@@ -12180,7 +12180,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // directly, so a function-proxy called via `obj.method()`
                 // ran on the proxy cell (which has no __bytecode_id__ /
                 // __native_fn__) and silently returned undefined.
-                if (protojs::isProxy(pContext, func)) {
+                while (protojs::isProxy(pContext, func)) {
                     const proto::ProtoObject* pTarget = protojs::proxyTarget(pContext, func);
                     if (!pTarget) {
                         pending_exception = makeError(pContext, "TypeError",
@@ -13135,7 +13135,7 @@ const proto::ProtoObject* runBytecode(proto::ProtoContext* pContext,
                 // "is not a function" probe on the proxy receiver, since
                 // the proxy carried no __bytecode_id__ / __native_fn__ of
                 // its own.
-                if (protojs::isProxy(pContext, func)) {
+                while (protojs::isProxy(pContext, func)) {
                     const proto::ProtoObject* pTarget = protojs::proxyTarget(pContext, func);
                     if (!pTarget) {
                         pending_exception = makeError(pContext, "TypeError",
