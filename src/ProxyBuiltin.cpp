@@ -51,6 +51,25 @@ const proto::ProtoObject* proxyHandler(proto::ProtoContext* ctx,
     return (h && h != PROTO_NONE) ? h : nullptr;
 }
 
+// Helper: convert a propKey (a ProtoString*) to the JS-visible value
+// the trap should receive.  For per-instance Symbol identity keys
+// (\`@@sym#<addr>\` strings stashed by the R50 Symbol-keys feature),
+// return the originating Symbol value via the lookupSymbolByStrKey
+// registry so the trap's switch (key) { case sym: ... } pattern
+// matches by identity.  Pre-fix the trap saw the raw \`@@sym#\`
+// string, which never matched the test's \`case sym\` arm.
+static const proto::ProtoObject* propKeyToTrapArg(proto::ProtoContext* ctx,
+                                                   const proto::ProtoString* propKey) {
+    if (!propKey) return PROTO_NONE;
+    std::string ks; propKey->toUTF8String(ctx, ks);
+    if (ks.size() >= 6 && ks[0]=='@' && ks[1]=='@'
+        && ks[2]=='s' && ks[3]=='y' && ks[4]=='m' && ks[5]=='#') {
+        const proto::ProtoObject* sym = lookupSymbolByStrKey(ks);
+        if (sym) return sym;
+    }
+    return propKey->asObject(ctx);
+}
+
 // Helper: look up a trap by name on the handler.  Returns the
 // callable, or nullptr if absent / not callable.
 static const proto::ProtoObject* lookupTrap(
@@ -399,7 +418,7 @@ const proto::ProtoObject* proxyDispatchGet(proto::ProtoContext* ctx,
     if (trap) {
         const proto::ProtoList* a = ctx->newList();
         a = a->appendLast(ctx, target);
-        a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
+        a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
@@ -452,7 +471,7 @@ const proto::ProtoObject* proxyDispatchSet(proto::ProtoContext* ctx,
     if (trap) {
         const proto::ProtoList* a = ctx->newList();
         a = a->appendLast(ctx, target);
-        a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
+        a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         a = a->appendLast(ctx, value ? value : PROTO_NONE);
         a = a->appendLast(ctx, receiver ? receiver : proxy);
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
@@ -645,7 +664,7 @@ const proto::ProtoObject* proxyDispatchHas(proto::ProtoContext* ctx,
     if (trap) {
         const proto::ProtoList* a = ctx->newList();
         a = a->appendLast(ctx, target);
-        a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
+        a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
         bool truthy;
@@ -739,7 +758,7 @@ const proto::ProtoObject* proxyDispatchDelete(proto::ProtoContext* ctx,
     if (trap) {
         const proto::ProtoList* a = ctx->newList();
         a = a->appendLast(ctx, target);
-        a = a->appendLast(ctx, propKey ? propKey->asObject(ctx) : PROTO_NONE);
+        a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
         bool truthy;
@@ -1230,7 +1249,7 @@ const proto::ProtoObject* proxyDispatchDefineProperty(
     }
     const proto::ProtoList* a = ctx->newList();
     a = a->appendLast(ctx, target);
-    a = a->appendLast(ctx, propKey->asObject(ctx));
+    a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
     a = a->appendLast(ctx, descriptor ? descriptor : PROTO_NONE);
     const proto::ProtoObject* r = callJSFunction(ctx, trap, handler, a);
     if (hasCallException()) return PROTO_NONE;
@@ -1378,7 +1397,7 @@ const proto::ProtoObject* proxyDispatchGetOwnPropertyDescriptor(
     if (trap) {
         const proto::ProtoList* a = ctx->newList();
         a = a->appendLast(ctx, target);
-        a = a->appendLast(ctx, propKey->asObject(ctx));
+        a = a->appendLast(ctx, propKeyToTrapArg(ctx, propKey));
         const proto::ProtoObject* res = callJSFunction(ctx, trap, handler, a);
         if (hasCallException()) return PROTO_NONE;
         // §10.5.5 step 7: trapResultObj must be Object or undefined.
